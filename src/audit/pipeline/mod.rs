@@ -46,12 +46,13 @@ use super::report::{
 };
 use crate::accessibility::{enrich_violations_with_page, extract_ax_tree, AXTree};
 use crate::audit::scoring::AccessibilityScorer;
+use crate::audit::ExperimentalIndicator;
 use crate::best_practices::{prepare_console_collection, BestPracticesAnalysis};
 use crate::browser::{
     consent::{handle_post_navigation, inject_consent_cookies},
     BrowserManager,
 };
-use crate::cli::{Args, WcagLevel};
+use crate::cli::{Args, ModuleChoice, WcagLevel};
 use crate::error::Result;
 use crate::interaction::stability::{settle, wait_for_finite_animations, wait_for_page_stability};
 use crate::journey::JourneyAnalysis;
@@ -368,13 +369,17 @@ pub struct PipelineConfig {
     /// page once with JavaScript execution disabled via CDP
     /// `Emulation.setScriptExecutionDisabled` and compare visible content
     /// length against the normal, JavaScript-enabled load. Requires
-    /// `check_seo` to also be true — the resulting finding is attached to
-    /// `content_visibility`, which itself is only derived when SEO checking
-    /// is active. Costly like the other opt-in extra-reload passes: one
+    /// `check_seo` to also be true and the experimental content-visibility
+    /// indicator to run — the resulting finding is attached to it, and it is
+    /// only derived when SEO checking is active. Costly like the other opt-in extra-reload passes: one
     /// extra full page reload. Runs in single and batch mode alike.
     pub check_ssr_content: bool,
     /// Run tech stack detection (in-page signals only)
     pub check_stack: bool,
+    /// Experimental indicators asked for with `--experimental` (#916). None is
+    /// part of a full audit; the ones they are derived from run with them
+    /// (see [`PipelineConfig::runs_indicator`]).
+    pub experimental: Vec<crate::audit::ExperimentalIndicator>,
     /// `[rules] disabled`/`enabled_only` from `auditmysite.toml`, by axe_id.
     /// Consulted by `check_all_with_config` for tree-based rules, by
     /// `wcag::shared::retain_allowed` for the shared rules (own id or a legacy
@@ -429,6 +434,21 @@ pub struct PipelineConfig {
 }
 
 impl PipelineConfig {
+    /// Whether an experimental indicator runs: it was asked for, or an asked
+    /// for indicator is derived from it.
+    pub fn runs_indicator(&self, indicator: crate::audit::ExperimentalIndicator) -> bool {
+        crate::audit::ExperimentalIndicator::closure(&self.experimental).contains(&indicator)
+    }
+
+    /// [`PipelineConfig::runs_indicator`] by module id (`ux`, `journey`,
+    /// `ai_visibility`, `content_visibility`, `source_quality`, `commerce`),
+    /// for the module catalog, which does not name the indicator enum.
+    pub fn runs_experimental_module(&self, module_id: &str) -> bool {
+        crate::audit::ExperimentalIndicator::closure(&self.experimental)
+            .iter()
+            .any(|indicator| indicator.id() == module_id)
+    }
+
     pub fn active_module_labels(&self) -> Vec<&'static str> {
         let mut labels = vec!["Accessibility"];
         if !matches!(self.interactive, crate::cli::InteractiveMode::Off) {
@@ -475,13 +495,15 @@ impl PipelineConfig {
         // network_dns module fields (#915).
         // 30 for the removal of the dark_mode module field (#917).
         // 31 for the engine rule id as the finding `rule_id` (#918).
-        const CACHE_FMT: u8 = 31;
+        // 32 for the experimental indicators moving into `experimental` (#916).
+        // 33 for `help_url` as the rule page and the new `understanding_url` (#929).
+        const CACHE_FMT: u8 = 33;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};html_conform={};privacy={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};html_conform={};privacy={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};experimental={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
@@ -495,6 +517,11 @@ impl PipelineConfig {
             self.perf_runs,
             self.check_ssr_content as u8,
             self.check_stack as u8,
+            crate::audit::ExperimentalIndicator::closure(&self.experimental)
+                .iter()
+                .map(|i| i.flag_name())
+                .collect::<Vec<_>>()
+                .join(","),
             self.dismiss_consent as u8,
             self.interactive,
             self.allow_state_changes as u8,
@@ -510,6 +537,19 @@ impl PipelineConfig {
             self.indexability,
         )
     }
+}
+
+/// The requested indicators, sorted and without duplicates.
+fn normalized_experimental(requested: &[ExperimentalIndicator]) -> Vec<ExperimentalIndicator> {
+    let mut list = requested.to_vec();
+    list.sort();
+    list.dedup();
+    list
+}
+
+/// Whether `--experimental` asks for `indicator` or something derived from it.
+fn experimental_requested(args: &Args, indicator: ExperimentalIndicator) -> bool {
+    ExperimentalIndicator::closure(&args.experimental).contains(&indicator)
 }
 
 impl From<&Args> for PipelineConfig {
@@ -577,30 +617,32 @@ impl PipelineConfig {
             stability_budget_ms: args.stability_budget_ms,
             verbose: args.verbose,
             full_audit,
-            check_performance: (full_audit || args.performance) && !args.skip_performance,
-            check_seo: full_audit || args.seo,
-            check_security: full_audit || args.security,
-            check_mobile: (full_audit || args.mobile) && !args.skip_mobile,
-            check_html_conform: full_audit || args.html_conform,
+            check_performance: args.module_enabled(ModuleChoice::Performance),
+            check_seo: args.module_enabled(ModuleChoice::Seo),
+            check_security: args.module_enabled(ModuleChoice::Security),
+            check_mobile: args.module_enabled(ModuleChoice::Mobile),
+            check_html_conform: args.module_enabled(ModuleChoice::HtmlConform),
             check_privacy: args.privacy_check,
             perf_runs: args.perf_runs,
             // Requires performance checking itself active — an isolation
             // pass without a baseline TBT/third-party attribution to diff
             // against is meaningless (see doc comment on the field).
             check_isolate_third_party_impact: args.isolate_third_party_impact
-                && (full_audit || args.performance)
-                && !args.skip_performance,
+                && args.module_enabled(ModuleChoice::Performance),
             // Requires SEO checking itself active — the resulting finding
             // is attached to `content_visibility`, which is only derived
             // when `check_seo` is true (see `ContentVisibilityModule::is_enabled`).
-            check_ssr_content: args.check_ssr_content && (full_audit || args.seo),
-            check_stack: full_audit || args.stack,
+            check_ssr_content: args.check_ssr_content
+                && args.module_enabled(ModuleChoice::Seo)
+                && experimental_requested(args, ExperimentalIndicator::ContentVisibility),
+            check_stack: args.module_enabled(ModuleChoice::Stack),
+            experimental: normalized_experimental(&args.experimental),
             rule_filter,
             persist_artifacts: true,
             capture_screenshots: args.url.is_some()
-                && matches!(args.format, None | Some(crate::cli::OutputFormat::Pdf)),
+                && args.effective_format() == crate::cli::OutputFormat::Pdf,
             capture_element_evidence: args.url.is_some()
-                && matches!(args.format, None | Some(crate::cli::OutputFormat::Pdf)),
+                && args.effective_format() == crate::cli::OutputFormat::Pdf,
             dismiss_consent: args.dismiss_consent,
             exclude_selectors: toml_cfg
                 .map(|c| c.audit.exclude_selectors.clone())
@@ -785,7 +827,7 @@ pub(crate) async fn run_extra_page_checks(
             log.into_records(),
         );
         if let Some(gap) = gap {
-            if let Some(cv) = report.discoverability.content_visibility.as_mut() {
+            if let Some(cv) = report.experimental.content_visibility.as_mut() {
                 crate::content_visibility::append_ssr_content_gap_signal(cv, &gap);
             }
         }
@@ -1432,7 +1474,7 @@ pub async fn audit_page(
         initial_url: url,
         locale: &config.lang,
         budget_ms: config.journey_budget_ms,
-        commerce: report.commerce.as_ref(),
+        commerce: report.experimental.commerce.as_ref(),
     };
     match crate::a11y_journey::run(journey_ctx).await {
         Ok(Some(out)) => {
@@ -1779,7 +1821,13 @@ async fn run_rules(
     // sie, statt dass das `<svg>` gar nicht geprueft wird.
     //
     // Aus demselben Abruf entstehen die Dokumente der iframes (#715).
-    let capture = crate::accessibility::fetch_dom_capture(page).await;
+    // Dazu die Messungen an der laufenden Seite (Rahmen, Drehung, Einfügen,
+    // Fokus, Textabstand), soweit eine Regel sie liest.
+    let capture = crate::accessibility::fetch_dom_capture_with_probes(
+        page,
+        wcag::shared::probe_selection(config.wcag_level, &config.rule_filter),
+    )
+    .await;
     // Die Stylesheets für die geteilten Regeln über Stylesheets (Fokusrahmen,
     // reduzierte Bewegung, Ausrichtung, Blocksatz/Zeilenabstand). Ohne sie
     // stehen diese als `CapabilityMissing` im Bericht, statt zu bestehen.
@@ -2341,30 +2389,20 @@ mod tests {
             quiet: false,
             color: crate::cli::ColorPolicy::Auto,
             progress: crate::cli::ProgressPolicy::Auto,
-            detect_chrome: false,
             full: false,
-            performance: false,
-            skip_performance: false,
-            seo: false,
-            security: false,
-            mobile: false,
-            skip_mobile: false,
+            modules: Vec::new(),
+            experimental: Vec::new(),
             privacy_check: false,
             isolate_third_party_impact: false,
             perf_runs: 1,
             check_ssr_content: false,
-            stack: false,
             reuse_cache: false,
-            force_refresh: false,
-            no_sitemap_suggest: false,
             prefer_sitemap: false,
             per_page_reports: false,
             include_path: Vec::new(),
             exclude_path: Vec::new(),
             sample_strategy: Default::default(),
-            no_screen_reader_report: false,
-            html_conform: false,
-            technician: false,
+            screen_reader_report: false,
             dismiss_consent: false,
             exclude_selector: Vec::new(),
             interactive: crate::cli::InteractiveMode::Off,
@@ -2373,12 +2411,11 @@ mod tests {
             storage_state: None,
             state_id: None,
             report_level: crate::cli::ReportLevel::Standard,
-            lang: "de".to_string(),
+            lang: "en".to_string(),
             display: None,
             also_json: false,
             logo: None,
-            debug_typ: false,
-            export_snapshot: None,
+            dev: Default::default(),
             annex: None,
             request_mode: crate::cli::RequestMode::Browser,
             report_mode: false,
@@ -2404,19 +2441,72 @@ mod tests {
             "Accessibility Journey",
             "Best Practices",
             "HTML Conformance",
-            "Journey",
             "Mobile",
             "Performance",
             "Security",
             "SEO",
-            "AI Visibility",
             "Tech Stack",
-            "Commerce",
-            "UX",
-            "Source Quality",
-            "Content Visibility",
         ];
         assert_eq!(config.active_module_labels(), expected);
+    }
+
+    /// #916: the experimental indicators are in no default run, and an
+    /// indicator brings the ones it is derived from.
+    #[test]
+    fn experimental_indicators_run_only_when_asked_for() {
+        use crate::audit::ExperimentalIndicator as I;
+        let config =
+            PipelineConfig::from(&Args::parse_from(["auditmysite", "https://example.com"]));
+        for indicator in I::ALL {
+            assert!(!config.runs_indicator(indicator), "{indicator:?}");
+        }
+
+        let config = PipelineConfig::from(&Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--experimental",
+            "content-visibility,commerce",
+        ]));
+        for indicator in [
+            I::ContentVisibility,
+            I::SourceQuality,
+            I::AiVisibility,
+            I::Ux,
+            I::Commerce,
+        ] {
+            assert!(config.runs_indicator(indicator), "{indicator:?}");
+        }
+        assert!(!config.runs_indicator(I::Journey));
+        let labels = config.active_module_labels();
+        assert!(labels.contains(&"Content Visibility") && labels.contains(&"Commerce"));
+        assert!(!labels.contains(&"Journey"));
+
+        // --full says nothing about them.
+        let config = PipelineConfig::from(&Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--full",
+        ]));
+        assert!(I::ALL.iter().all(|i| !config.runs_indicator(*i)));
+    }
+
+    #[test]
+    fn the_experimental_selection_is_part_of_the_cache_signature() {
+        let plain = PipelineConfig::from(&Args::parse_from(["auditmysite", "https://example.com"]));
+        let ux = PipelineConfig::from(&Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--experimental",
+            "ux",
+        ]));
+        let ux_twice = PipelineConfig::from(&Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--experimental",
+            "ux,ux",
+        ]));
+        assert_ne!(plain.audit_signature(), ux.audit_signature());
+        assert_eq!(ux.audit_signature(), ux_twice.audit_signature());
     }
 
     #[test]
@@ -2424,27 +2514,22 @@ mod tests {
         let config = PipelineConfig::from(&Args::parse_from([
             "auditmysite",
             "https://example.com",
-            "--skip-performance",
-            "--skip-mobile",
+            "--modules",
+            "a11y",
         ]));
-        let expected = vec![
-            "Accessibility",
-            "Accessibility Journey",
-            "AI Visibility",
-            "Source Quality",
-        ];
+        let expected = vec!["Accessibility", "Accessibility Journey"];
         assert_eq!(config.active_module_labels(), expected);
     }
 
     #[test]
-    fn technician_preset_runs_only_fixable_finding_modules() {
-        let mut args = Args::parse_from([
+    fn seo_and_html_conform_selection_runs_only_fixable_finding_modules() {
+        let args = Args::parse_from([
             "auditmysite",
             "--sitemap",
             "https://example.com/sitemap.xml",
-            "--technician",
+            "--modules",
+            "seo,html-conform",
         ]);
-        args.apply_technician_preset();
         let config = PipelineConfig::from_args_and_config(&args, None);
         assert!(!config.full_audit);
         assert!(!config.check_performance, "no throttled performance passes");
@@ -2504,6 +2589,8 @@ mod tests {
             "--full",
             "--isolate-third-party-impact",
             "--check-ssr-content",
+            "--experimental",
+            "content-visibility",
             "--privacy-check",
         ];
         let expected = vec![
@@ -2539,7 +2626,8 @@ mod tests {
                 "auditmysite",
                 "--url-file",
                 "urls.txt",
-                "--performance",
+                "--modules",
+                "performance",
                 "--check-ssr-content",
                 "--isolate-third-party-impact"
             ]),
@@ -2556,10 +2644,10 @@ mod tests {
         let module_sets: [&[&str]; 6] = [
             &[],
             &["--full"],
-            &["--performance"],
-            &["--seo"],
-            &["--full", "--skip-performance"],
-            &["--performance", "--seo"],
+            &["--modules", "performance"],
+            &["--modules", "seo"],
+            &["--modules", "a11y"],
+            &["--modules", "performance,seo"],
         ];
         let checks = ["--isolate-third-party-impact", "--check-ssr-content"];
         let (mut accepted, mut rejected) = (0, 0);
@@ -2570,6 +2658,7 @@ mod tests {
                         .into_iter()
                         .chain(target.iter().copied())
                         .chain(modules.iter().copied())
+                        .chain(["--experimental", "content-visibility"])
                         .chain([check])
                         .collect();
                     let args = Args::parse_from(&argv);
@@ -2600,7 +2689,8 @@ mod tests {
         let e = reject(&[
             "auditmysite",
             "https://example.com",
-            "--seo",
+            "--modules",
+            "seo",
             "--isolate-third-party-impact",
         ]);
         assert!(
@@ -2611,7 +2701,8 @@ mod tests {
             "auditmysite",
             "--url-file",
             "Cargo.toml",
-            "--performance",
+            "--modules",
+            "performance",
             "--check-ssr-content",
         ]);
         assert!(
@@ -2651,6 +2742,8 @@ mod tests {
             "--full",
             "--isolate-third-party-impact",
             "--check-ssr-content",
+            "--experimental",
+            "content-visibility",
             "--privacy-check",
         ];
         let scope = |target: &[&str]| {
@@ -2742,26 +2835,33 @@ mod tests {
     }
 
     #[test]
-    fn html_conform_flag_enables_the_module_without_full() {
-        let args = Args::parse_from(["auditmysite", "https://example.com", "--seo"]);
+    fn html_conform_module_runs_by_default_and_when_selected() {
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+        assert!(PipelineConfig::from_args_and_config(&args, None).check_html_conform);
+        let args = Args::parse_from(["auditmysite", "https://example.com", "--modules", "seo"]);
         assert!(!PipelineConfig::from_args_and_config(&args, None).check_html_conform);
         let args = Args::parse_from([
             "auditmysite",
             "https://example.com",
-            "--seo",
-            "--html-conform",
+            "--modules",
+            "seo,html-conform",
         ]);
         assert!(PipelineConfig::from_args_and_config(&args, None).check_html_conform);
     }
 
-    /// Scope of the library check (#773): `--security` alone collects it,
-    /// independent of performance; with neither flag it stays off.
+    /// Scope of the library check (#773): `--modules security` alone collects
+    /// it, independent of performance; with neither it stays off.
     #[test]
     fn security_only_audit_runs_the_library_check() {
         use crate::audit::module::AuditModule;
         use crate::best_practices::{module::collects_best_practices, BestPracticesModule};
 
-        let args = Args::parse_from(["auditmysite", "https://example.com", "--security"]);
+        let args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--modules",
+            "security",
+        ]);
         let cfg = PipelineConfig::from_args_and_config(&args, None);
         assert!(!cfg.check_performance, "fixture must be security-only");
         assert!(BestPracticesModule.is_enabled(&cfg));
@@ -2790,6 +2890,7 @@ mod tests {
             check_isolate_third_party_impact: false,
             check_ssr_content: false,
             check_stack: false,
+            experimental: Vec::new(),
             rule_filter: crate::wcag::RuleFilterConfig::default(),
             persist_artifacts: true,
             capture_screenshots: false,

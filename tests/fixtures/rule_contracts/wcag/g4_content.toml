@@ -49,6 +49,7 @@ id = "lists/empty"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=lists/empty)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.3.1 Info and Relationships (F2, H48); HTML §4.4.5-4.4.10 list content models; WAI-ARIA 1.2 list/listitem/term/definition"
 capabilities = ["dom", "computed_style"]
@@ -169,6 +170,7 @@ id = "lists/role-redundant"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=lists/role-redundant)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WAI-ARIA 1.2 §5.1 (do not repeat implicit roles), ARIA in HTML §4 (redundant roles); auditmysite#644 (WebKit drops list semantics for list-style: none)"
 capabilities = ["dom", "computed_style"]
@@ -213,6 +215,7 @@ id = "tables/header-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=tables/header-missing)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.3.1 Info and Relationships (H51, H39, H63, H43, F91, F92); HTML §4.9 tabular data; WAI-ARIA 1.2 table/grid/row/cell roles"
 capabilities = ["dom", "computed_style"]
@@ -250,6 +253,7 @@ id = "tables/name-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=tables/name-missing)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.3.1 Info and Relationships (H51, H39, H63, H43, F91, F92); HTML §4.9 tabular data; WAI-ARIA 1.2 table/grid/row/cell roles"
 capabilities = ["dom", "computed_style"]
@@ -359,6 +363,7 @@ id = "tables/data-undetermined"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=tables/data-undetermined)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.3.1 Info and Relationships (H51, H39, H63, H43, F91, F92); HTML §4.9 tabular data; WAI-ARIA 1.2 table/grid/row/cell roles"
 capabilities = ["dom", "computed_style"]
@@ -474,6 +479,7 @@ id = "images/alt-suspicious"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=images/alt-suspicious)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.1.1 Non-text Content (H37, H24, H36, H53, ARIA6, ARIA10, F65, F30); HTML §4.8; accname 1.2"
 capabilities = ["dom", "computed_style"]
@@ -580,6 +586,7 @@ id = "images/server-side-map"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=images/server-side-map)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 2.1.1 Keyboard and 1.1.1 (F54-like, H24 vs ismap); HTML §4.8.4 ismap"
 capabilities = ["dom", "computed_style"]
@@ -656,6 +663,7 @@ id = "media/audio-autoplay"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=media/audio-autoplay)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.4.2 Audio Control; HTML §4.8.11 autoplay/muted"
 capabilities = ["dom", "computed_style"]
@@ -810,6 +818,7 @@ id = "viz/table-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=viz/table-missing)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "Display-mode convention v0 (casoon/barrierlab#22) hung on WCAG 2.2 SC 1.1.1, 1.3.1, 2.2.2; HTML §4.4.12-13 figure/figcaption"
 capabilities = ["dom"]
@@ -944,6 +953,7 @@ killed_by = "corpus:media_and_motion"
 id = "video-caption"
 errored = ["error_page_scripts_sabotaged"]
 automation = "automated"
+review_only = true
 method = "page"
 source = "WCAG 2.2 SC 1.2.2 Captions (Prerecorded) (H95, G87, F8); HTML §4.8.11.11 track"
 capabilities = ["dom", "network"]
@@ -1013,23 +1023,27 @@ replace = "matches!(kind.to_ascii_lowercase().as_str(), \"captions\" | \"subtitl
 killed_by = "lib:test_track_kind_is_caption_like"
 
 [[rule]]
-id = "frame-tested"
+id = "frames/cross-origin"
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=frames/cross-origin)"]
 automation = "manual"
 manual_reason = """
 The rule only flags embedded content from another origin for a human: whether
 that content meets WCAG is outside the page's own markup and is never
 concluded automatically."""
-method = "page"
+method = "shared"
 source = "WCAG 2.2 SC 4.1.2 (and every SC for embedded content); axe-core frame-tested; HTML §7.1 origin"
 capabilities = ["dom", "geometry", "frames"]
 applicability = """
-Every perceivable <iframe>/<frame> (not hidden, aria-hidden, role none/presentation, display:none, visibility:hidden, or 1px or smaller) in the document, its shadow roots included."""
+Every perceivable <iframe>/<frame> (not hidden, aria-hidden, role none/presentation, display:none, visibility:hidden, or 1px or smaller) in the top document, its open shadow roots included."""
 expectation = """
 One UNTESTED note per perceivable frame whose document is cross-origin to the
-page, located at the frame. Same-origin and srcdoc frames, and frames that are
-not perceivable (hidden, aria-hidden, display:none, at most 1px in either
-dimension), get no note. A frame inserted by script or inside a shadow root is
-part of the page and is judged the same way. Never a pass or a violation."""
+page (Rendering::frame_reachable: the frame's contentDocument cannot be read,
+measured by accessibility::probes), located at the frame. Same-origin and
+srcdoc frames, and frames that are not perceivable (hidden, aria-hidden,
+display:none, at most 1px in either dimension), get no note. A frame inserted
+by script or inside a shadow root is part of the page and is judged the same
+way. Never a pass or a violation. A page whose scripts break the probe records
+the rule as not run (CapabilityMissing)."""
 positive = ["content_frames_cross_origin"]
 not_applicable = ["content_frames_same_origin", "content_plain_article"]
 
@@ -1044,21 +1058,15 @@ thresholds = { cases = ["content_frames_cross_origin"] }
 
 [rule.test_strength]
 status = "killed"
+
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/js/frame_tested.js"
-change = "flag same-origin frames too"
-find = "if (!crossOrigin) continue;"
-replace = ""
+target = "barrierlab:crates/a11y-rules/tests/mutations/sonden.toml"
+change = "targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id frames/cross-origin)"
+
+[[rule.test_strength.mutations]]
+target = "src/accessibility/js/probes/frames.js"
+change = "report every frame as unreadable, same-origin ones included"
+find = "rows.push({ e: els.length, r: inner !== null });"
+replace = "rows.push({ e: els.length, r: false });"
 killed_by = "corpus:content_frames_same_origin"
-[[rule.test_strength.mutations]]
-target = "src/wcag/rules/js/frame_tested.js"
-change = "shift the size threshold"
-find = "if (rect.width <= 1 || rect.height <= 1) continue;"
-replace = "if (rect.width <= 2 || rect.height <= 2) continue;"
-killed_by = "corpus:content_frames_cross_origin"
-[[rule.test_strength.mutations]]
-target = "src/wcag/rules/js/frame_tested.js"
-change = "stop skipping hidden and aria-hidden frames"
-find = "if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') continue;"
-replace = ""
-killed_by = "corpus:content_frames_cross_origin"

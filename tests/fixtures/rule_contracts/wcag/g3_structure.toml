@@ -307,6 +307,7 @@ id = "headings/skip-level"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=headings/skip-level)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "Best practice, no WCAG failure: G141 and H42 (advisory) for SC 1.3.1/2.4.10; axe heading-order"
 capabilities = ["dom", "computed_style"]
@@ -347,6 +348,7 @@ id = "headings/h1-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=headings/h1-missing)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "Best practice, no WCAG failure: axe page-has-heading-one; WAI tutorial Page Structure: Headings"
 capabilities = ["dom", "computed_style"]
@@ -386,6 +388,7 @@ id = "headings/h1-multiple"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=headings/h1-multiple)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.3.1 Info and Relationships (review); HTML §4.3.11 headings and outlines"
 capabilities = ["dom", "computed_style"]
@@ -465,6 +468,7 @@ id = "headings/section-without-heading"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=headings/section-without-heading)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 2.4.10 Section Headings (AAA, review); G141; HTML §4.3 sections"
 capabilities = ["dom", "computed_style"]
@@ -505,6 +509,7 @@ id = "landmarks/main-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/main-missing)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "Best practice: WAI-ARIA 1.2 main role; ARIA11; axe landmark-one-main (bypass itself is headings/none, SC 2.4.1)"
 capabilities = ["dom", "computed_style"]
@@ -544,6 +549,7 @@ id = "landmarks/main-duplicate"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/main-duplicate)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "HTML §4.4.14 the main element (at most one main without the hidden attribute); WAI-ARIA 1.2 main; axe landmark-no-duplicate-main"
 capabilities = ["dom", "computed_style"]
@@ -581,6 +587,7 @@ id = "landmarks/banner-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/banner-missing)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WAI-ARIA 1.2 banner role; ARIA Authoring Practices, Landmark Regions; review for SC 1.3.1/2.4.1"
 capabilities = ["dom", "computed_style"]
@@ -619,6 +626,7 @@ id = "landmarks/contentinfo-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/contentinfo-missing)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WAI-ARIA 1.2 contentinfo role; ARIA Authoring Practices, Landmark Regions; review for SC 1.3.1/2.4.1"
 capabilities = ["dom", "computed_style"]
@@ -656,6 +664,7 @@ id = "landmarks/navigation-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/navigation-missing)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WAI-ARIA 1.2 navigation role; ARIA Authoring Practices, Landmark Regions; review for SC 1.3.1/2.4.1"
 capabilities = ["dom", "computed_style"]
@@ -695,6 +704,7 @@ id = "landmarks/not-unique"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/not-unique)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WAI-ARIA 1.2 landmark roles (several landmarks of one role should have unique labels); ARIA Authoring Practices, Landmark Regions; review for SC 1.3.1"
 capabilities = ["dom", "computed_style"]
@@ -735,6 +745,7 @@ id = "landmarks/not-top-level"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/not-top-level)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WAI-ARIA 1.2 banner, contentinfo and main roles (should not be contained in another landmark); axe landmark-*-is-top-level"
 capabilities = ["dom", "computed_style"]
@@ -771,6 +782,7 @@ id = "landmarks/banner-duplicate"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/banner-duplicate)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WAI-ARIA 1.2 banner role (no more than one banner per document); axe landmark-no-duplicate-banner"
 capabilities = ["dom", "computed_style"]
@@ -808,6 +820,7 @@ id = "landmarks/contentinfo-duplicate"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/contentinfo-duplicate)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WAI-ARIA 1.2 contentinfo role (no more than one contentinfo per document); axe landmark-no-duplicate-contentinfo"
 capabilities = ["dom", "computed_style"]
@@ -844,6 +857,7 @@ id = "landmarks/content-outside"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=landmarks/content-outside)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "Best practice: ARIA Authoring Practices, Landmark Regions (all perceivable content should be in a landmark); axe region"
 capabilities = ["dom", "computed_style"]
@@ -896,6 +910,7 @@ id = "ids/duplicate"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=ids/duplicate)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 4.1.2 Name, Role, Value (review); HTML §3.2.6 the id attribute (unique in its tree); DOM getElementById / IDREF resolution"
 capabilities = ["dom"]
@@ -1031,6 +1046,7 @@ id = "language/part-unmarked"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=language/part-unmarked)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 3.1.2 Language of Parts (review); H58"
 capabilities = ["dom", "computed_style"]
@@ -1078,6 +1094,7 @@ id = "language/part-undetermined"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=language/part-undetermined)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 3.1.2 Language of Parts (not tested)"
 capabilities = ["dom"]
@@ -1116,6 +1133,7 @@ id = "language/abbreviation-unexpanded"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=language/abbreviation-unexpanded)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 3.1.4 Abbreviations (AAA, review); H28, G97, G55"
 capabilities = ["dom"]

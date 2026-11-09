@@ -6,6 +6,7 @@
 pub mod criteria;
 pub mod dimensions;
 pub mod issue_class;
+pub mod rule_docs;
 pub mod rules;
 pub mod score;
 pub mod score_area;
@@ -14,6 +15,7 @@ pub mod severity;
 pub use criteria::{criterion_for_rule, principle_for_criterion, WcagPrinciple};
 pub use dimensions::{Dimension, Subcategory};
 pub use issue_class::IssueClass;
+pub use rule_docs::{is_addressable_rule_id, rule_doc_url, RULE_DOCS_BASE_URL};
 pub use rules::{ReportVisibility, Rule, RuleLookup};
 pub use score::{
     criteria_with_impact, criterion_impact, module_derived_from, module_score_grade, module_weight,

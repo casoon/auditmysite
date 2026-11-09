@@ -1,0 +1,40 @@
+{
+  "id": "document/title-empty",
+  "url": "https://casoon.github.io/auditmysite/rules/document/title-empty/",
+  "domain": "wcag",
+  "title": "Missing or insufficient page title",
+  "outcome": "automatic",
+  "area": "Accessibility, Navigation & Operation",
+  "criterion": "2.4.2",
+  "level": "A",
+  "axe_id": "document-title",
+  "severity": "high",
+  "user_impact": "Screen reader users cannot identify the page.",
+  "technical_impact": "Empty or generic <title> tag.",
+  "checks": [
+    {
+      "contract_id": "document/title-empty",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 2.4.2 Page Titled; ACT 2779a5 (HTML page has non-empty title); HTML §4.2.2",
+      "applicability": "Top-level HTML documents that have a title element.",
+      "expectation": "Fails when the document's title element is empty or contains only whitespace.\nA title set by script (document.title) before the audit reads the DOM is not\nempty. Without a title element the rule does not apply (document/title-missing\nreports that). One finding at the title element.",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "empty_title",
+        "file": "tests/fixtures/detection_corpus/empty_title.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title></title>\n</head>\n<body>\n    <main>\n        <h1>Page with an empty title element</h1>\n        <p>The title tag above is present but empty.</p>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "structure_modal_dynamic",
+        "file": "tests/fixtures/detection_corpus/structure_modal_dynamic.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html>\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title></title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- A consent wall (#783): the application has not rendered yet, and a\n         script sets the page language and the document title and opens a modal\n         dialog after load.\n         While the dialog is open, the page's headings and main landmark are\n         missing for the moment of measurement, not necessarily for the page. -->\n    <div id=\"app\"></div>\n    <dialog id=\"consent\" aria-label=\"Cookie settings\">\n        <p>We use cookies to remember your shopping basket.</p>\n        <form method=\"dialog\">\n            <button value=\"accept\">Accept</button>\n            <button value=\"reject\">Reject</button>\n        </form>\n    </dialog>\n    <script>\n        document.documentElement.lang = 'en';\n        document.title = 'Cookie settings – Acme Hardware';\n        document.getElementById('consent').showModal();\n    </script>\n</body>\n</html>"
+      }
+    }
+  ]
+}

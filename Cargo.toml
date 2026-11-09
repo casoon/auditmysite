@@ -80,7 +80,7 @@ html5ever = "0.40"
 markup5ever_rcdom = "0.40"
 
 # Deep HTML5 spec-conformance checking (RelaxNG + Schematron), scored module
-html-conform = "0.4.2"
+html-conform = "0.5.0"
 
 # i18n (Project Fluent)
 fluent-bundle = "0.16"
@@ -96,11 +96,11 @@ image = { version = "0.25", default-features = false, features = ["png"], option
 # Content hashing for duplicate-asset detection (#551, performance::coverage).
 sha2 = "0.11"
 a11y-perception = "0.2.1"
-a11y-report = "0.28.1"
+a11y-report = "0.29.0"
 web-checks = "0.7.0"
-accname = "0.28.1"
-a11y-dom = "0.28.1"
-a11y-rules = "0.28.1"
+accname = "0.29.0"
+a11y-dom = "0.29.0"
+a11y-rules = "0.29.0"
 csp-parse = "0.1.1"
 stylesheet-parse = "0.1.1"
 
@@ -130,9 +130,20 @@ strip = true
 name = "auditmysite"
 path = "src/main.rs"
 
+# Maintainer tooling (report-lint, accname-diff, plan, replay, --debug-typ,
+# --export-snapshot, #912). `required-features` keeps it out of `cargo install
+# auditmysite`, which builds with the default features only.
+[[bin]]
+name = "auditmysite-dev"
+path = "src/bin/auditmysite-dev.rs"
+required-features = ["dev-tools"]
+
 [features]
 default = ["pdf"]
 pdf = ["dep:renderreport", "dep:image"]
+# Builds the `auditmysite-dev` maintainer binary (#912). Not a default feature,
+# so a user install never contains it.
+dev-tools = []
 # Enables the heavy PDF smoke tests (Typst rendering). Run separately:
 #   cargo test --features pdf_test -- --test-threads=1
 pdf_test = ["pdf"]

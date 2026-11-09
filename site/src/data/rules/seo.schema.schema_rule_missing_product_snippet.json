@@ -1,0 +1,34 @@
+{
+  "id": "seo.schema.schema_rule_missing_product_snippet",
+  "url": "https://casoon.github.io/auditmysite/rules/seo.schema.schema_rule_missing_product_snippet/",
+  "domain": "schema",
+  "title": "Product Snippet: missing required properties",
+  "outcome": "automatic",
+  "area": "SEO, structured data",
+  "checks": [
+    {
+      "contract_id": "product_snippet",
+      "outcome": "automatic",
+      "source": "https://developers.google.com/search/docs/appearance/structured-data/product-snippet (required: name; one of review, aggregateRating, offers; offers need price, AggregateOffer lowPrice and priceCurrency)",
+      "applicability": "Applies to JSON-LD nodes of type Product in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method.",
+      "expectation": "Fails when a Product node lacks name, or has none of review / aggregateRating / offers, or an offer without price (AggregateOffer: lowPrice and priceCurrency). No recommended properties are profiled here, so a node meeting the requirements passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean.",
+      "method": "detect_structured_data",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "schema_rules_graph_and_arrays",
+        "file": "tests/fixtures/detection_corpus_nonwcag/schema_rules/schema_rules_graph_and_arrays.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Nodes in @graph and in a top-level array</title>\n  <script type=\"application/ld+json\">\n  {\"@context\": \"https://schema.org\", \"@graph\": [{\"@type\": \"Organization\", \"@id\": \"https://example.com/#org\", \"name\": \"Example Inc\", \"url\": \"https://example.com\", \"logo\": \"https://example.com/logo.png\", \"address\": {\"@type\": \"PostalAddress\", \"streetAddress\": \"Main Street 1\"}, \"telephone\": \"+1-555-0100\", \"sameAs\": [\"https://social.example/example\"]}, {\"@type\": \"WebSite\", \"@id\": \"https://example.com/#site\", \"name\": \"Example\", \"url\": \"https://example.com\", \"inLanguage\": \"en\", \"publisher\": {\"@id\": \"https://example.com/#org\"}, \"potentialAction\": {\"@type\": \"SearchAction\", \"target\": \"https://example.com/?q={q}\", \"query-input\": \"required name=q\"}}, {\"@type\": \"WebPage\", \"name\": \"Pricing\", \"url\": \"https://example.com/pricing\", \"description\": \"Plans\", \"inLanguage\": \"en\", \"isPartOf\": {\"@id\": \"https://example.com/#site\"}}, {\"@type\": \"BreadcrumbList\", \"itemListElement\": [{\"@type\": \"ListItem\", \"position\": 1, \"name\": \"Home\", \"item\": \"https://example.com/\"}, {\"@type\": \"ListItem\", \"position\": 2, \"name\": \"Pricing\"}]}, {\"@type\": \"Product\", \"name\": \"Plan\"}]}\n  </script>\n  <script type=\"application/ld+json\">\n  [{\"@context\": \"https://schema.org\", \"@type\": \"https://schema.org/BlogPosting\", \"headline\": \"Post\", \"author\": {\"@type\": \"Person\", \"name\": \"Ada\"}, \"datePublished\": \"2026-01-01\", \"dateModified\": \"2026-01-02\", \"image\": \"https://example.com/p.jpg\"}, {\"@context\": \"https://schema.org\", \"@type\": \"Person\", \"name\": \"Ada Example\", \"url\": \"https://example.com/ada\", \"image\": \"https://example.com/ada.jpg\", \"jobTitle\": \"Engineer\", \"worksFor\": {\"@type\": \"Organization\", \"name\": \"Example\"}, \"sameAs\": [\"https://social.example/ada\"]}]\n  </script>\n</head>\n<body>\n  <header><p>Example</p></header>\n  <main>\n    <h1>Nodes in @graph and in a top-level array</h1>\n    <p>Structured data corpus page.</p>\n  </main>\n  <footer><p>Footer</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "schema_rules_merchant_listing_complete",
+        "file": "tests/fixtures/detection_corpus_nonwcag/schema_rules/schema_rules_merchant_listing_complete.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Espresso grinder</title>\n  <script type=\"application/ld+json\">\n  {\"@context\": \"https://schema.org\", \"@type\": \"Product\", \"name\": \"Espresso grinder\", \"image\": \"https://example.com/grinder.jpg\", \"description\": \"Conical burr grinder\", \"sku\": \"EG-1\", \"brand\": {\"@type\": \"Brand\", \"name\": \"Example\"}, \"offers\": {\"@type\": \"Offer\", \"price\": \"89.00\", \"priceCurrency\": \"EUR\", \"availability\": \"https://schema.org/InStock\"}}\n  </script>\n</head>\n<body>\n  <header><p>Example</p></header>\n  <main>\n    <h1>Espresso grinder</h1>\n    <p>Price: 89.00 EUR. In stock, ships in two days.</p>\n    <label for=\"qty\">Quantity</label> <input id=\"qty\" type=\"number\" value=\"1\" min=\"1\">\n    <button type=\"button\">Add to cart</button>\n    <p><a href=\"/cart\">View cart</a> · <a href=\"/checkout\">Checkout</a></p>\n  </main>\n  <footer><p>Footer</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

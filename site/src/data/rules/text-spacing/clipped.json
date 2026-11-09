@@ -1,0 +1,43 @@
+{
+  "id": "text-spacing/clipped",
+  "url": "https://casoon.github.io/auditmysite/rules/text-spacing/clipped/",
+  "domain": "wcag",
+  "title": "Content clipped when text spacing is increased",
+  "outcome": "hint-only",
+  "area": "Accessibility, Visual Presentation",
+  "criterion": "1.4.12",
+  "level": "AA",
+  "axe_id": "text-spacing",
+  "severity": "medium",
+  "user_impact": "Users who increase line/letter/word spacing for readability lose content.",
+  "technical_impact": "Fixed height/width with overflow:hidden on text containers; measured before and after overriding the text spacing, only newly clipped text counts.",
+  "checks": [
+    {
+      "contract_id": "text-spacing/clipped",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 1.4.12 Text Spacing; W3C text spacing bookmarklet technique",
+      "applicability": "Rendered elements with text in the top document and its open shadow roots; only those with overflow: hidden can clip.",
+      "expectation": "Review (not a violation) when applying the 1.4.12 minimums (line height 1.5,\nparagraph spacing 2em, letter spacing 0.12em, word spacing 0.16em) makes a\ncontainer clip text it did not clip before (Rendering::text_spacing_clip, a\nbefore/after pair measured by accessibility::probes): a fixed-height badge\n(20px at line-height 1.2) or a fixed-width, nowrap label. Content clipped\nalready before the change (teasers cut by design, the 1x1 visually-hidden\npattern) is not caused by spacing and not reported. A container exactly as\ntall as one line at 1.5 (24px) still fits; one that grows (min-height) or\nwhose fixed height a script removes after load passes. Every newly clipped\nelement is reported. The override is a constructed stylesheet adopted through\nthe CSSOM, so a CSP style-src does not block it (visual_text_spacing_csp).\nWhere the override does not reach the element (the page wins with a stronger\n!important), nothing was measured: the rule is recorded as not run\n(CapabilityMissing), never as a pass (visual_text_spacing_override_defeated).",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style",
+        "geometry"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "visual_text_spacing_letter",
+        "file": "tests/fixtures/detection_corpus/visual_text_spacing_letter.html",
+        "verdict": "needs_review",
+        "selector": "span#chip",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Button label clipped when letter spacing grows</title>\n<style>\n  body { color: #111111; background: #ffffff; font-size: 16px; }\n  /* 13 monospace characters (7.8em) fit into 8em on one line; with 0.12em\n     letter spacing and 0.16em word spacing they no longer do. */\n  #chip { display: inline-block; width: 8em; white-space: nowrap; overflow: hidden;\n          font-family: monospace; font-size: 16px; line-height: 2; vertical-align: top; }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Shop</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Garden chairs</h1>\n  <p><span id=\"chip\">Add to basket</span></p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "visual_text_spacing_ok",
+        "file": "tests/fixtures/detection_corpus/visual_text_spacing_ok.html",
+        "verdict": "absent",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Containers that keep their text at larger spacing</title>\n<style>\n  body { color: #111111; background: #ffffff; font-size: 16px; }\n  /* Grows with its content. */\n  #badge { min-height: 20px; line-height: 1.2; border: 1px solid #111111; padding: 0 4px; }\n  /* Threshold: exactly one line at line-height 1.5 (24px) still fits. */\n  #fit { height: 24px; line-height: 1.2; overflow: hidden; }\n  /* Already cut off before any spacing change: not caused by spacing. */\n  #preclipped { height: 10px; overflow: hidden; }\n  /* Dynamic: fixed height removed by a script after load. */\n  #late { height: 20px; line-height: 1.2; overflow: hidden; }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Shop</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Garden chairs</h1>\n  <div id=\"badge\">Free delivery on all orders</div>\n  <div id=\"fit\">In stock</div>\n  <div id=\"preclipped\">Teaser text that is cut by design and expands on click.</div>\n  <div id=\"late\">Assembly takes ten minutes</div>\n</main>\n<footer><p>Footer text</p></footer>\n<script>\n  window.addEventListener('load', function () {\n    document.getElementById('late').style.height = 'auto';\n  });\n</script>\n</body>\n</html>"
+      }
+    }
+  ]
+}

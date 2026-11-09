@@ -11,8 +11,8 @@ Examples grouped by audience and goal.
 Single-URL audit with full module coverage and a custom logo on the cover.
 
 ```bash
-# default: writes a PDF + JSON sidecar to the current directory
-auditmysite https://example.com --full
+# PDF (with -f pdf and no -o: <domain>-<date>-single-report.pdf plus a JSON next to it)
+auditmysite https://example.com --full -f pdf -o reports/customer.pdf
 
 # explicit branding and output path
 auditmysite https://example.com --full --logo ./assets/customer-logo.svg --output reports/customer.pdf
@@ -20,8 +20,8 @@ auditmysite https://example.com --full --logo ./assets/customer-logo.svg --outpu
 # pick a report depth: executive (management), standard (default), technical (developers)
 auditmysite https://example.com --full --report-level executive --output reports/exec.pdf
 
-# PDF language (default: de)
-auditmysite https://example.com --full --lang en --output reports/report-en.pdf
+# PDF language (default: en)
+auditmysite https://example.com --full --lang de --output reports/report-de.pdf
 ```
 
 ## CI / automation (JSON)
@@ -76,21 +76,20 @@ For people who fix the issues rather than read a report: one JSON file per page 
 files to script against, no PDF.
 
 ```bash
-auditmysite --sitemap https://example.com/sitemap.xml --technician -o reports/tech/
-auditmysite --url-file urls.txt --technician -o reports/tech/
+auditmysite --sitemap https://example.com/sitemap.xml --per-page-reports -f json \
+  --modules seo,html-conform -o reports/tech/
+auditmysite --url-file urls.txt --per-page-reports -f json --modules seo,html-conform -o reports/tech/
 
 # only part of the site, before -m applies
-auditmysite --sitemap https://example.com/sitemap.xml --technician \
-  --include-path '/blog/**' --exclude-path '/blog/tag/**' -m 50 -o reports/tech/
+auditmysite --sitemap https://example.com/sitemap.xml --per-page-reports -f json \
+  --modules seo,html-conform --include-path '/blog/**' --exclude-path '/blog/tag/**' -m 50 -o reports/tech/
 ```
 
-`--technician` is shorthand for `--per-page-reports -f json --no-screen-reader-report --seo
---html-conform`. It runs the modules that produce fixable findings — accessibility (including the
-keyboard journeys; `--interactive off` makes it faster), HTML conformance and SEO — and skips the
-throttled performance passes, mobile, security and tech-stack detection. Each page file records
-that partial scope in `execution.scope.requested_modules` and `execution.module_runs`. Flags you
-give explicitly win: `-f` replaces the format, and `--full`, `--performance`, `--mobile`,
-`--security` add their modules as usual.
+`--modules seo,html-conform` runs the modules that produce fixable findings — accessibility
+(including the keyboard journeys; `--interactive off` makes it faster), HTML conformance and SEO —
+and skips the throttled performance passes, mobile, security and tech-stack detection. Each page
+file records that partial scope in `execution.scope.requested_modules` and
+`execution.module_runs`.
 
 The output directory then holds:
 
@@ -141,12 +140,9 @@ auditmysite https://example.com --format table
 ## Base URL with sitemap suggestion
 
 ```bash
-# interactive: ask first if a sitemap is found
+# audits the single URL and prints a hint when a sitemap exists
 auditmysite https://example.com
 
-# non-interactive: switch directly to sitemap mode
+# switch directly to sitemap mode
 auditmysite https://example.com --prefer-sitemap
-
-# stay on the single URL even when a sitemap exists
-auditmysite https://example.com --no-sitemap-suggest
 ```

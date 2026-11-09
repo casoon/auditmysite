@@ -26,6 +26,11 @@
 <a class="target" href="#main">Skip to main content</a>
 <nav aria-label="Primary"><a class="target" href="/" aria-current="page">Home page</a></nav>
 <main id="main"><h1>Heading</h1><p>Some text.</p>
+<!-- Subjects of the measurements on the running page (frames/cross-origin,
+     auth/paste-blocked): with a candidate present, a measurement the page
+     breaks must leave the rule not run, not "ran, nothing to report". -->
+<iframe title="Embedded" src="about:blank" width="200" height="80"></iframe>
+<input class="target" type="password" autocomplete="current-password" aria-label="Password">
 <!-- Wider than the 320 px reflow viewport, so the reflow probe has to look
      for the offending element and runs into the broken APIs. -->
 <div style="width: 1200px">Wide content.</div></main>

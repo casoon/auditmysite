@@ -1,0 +1,44 @@
+{
+  "id": "targets/size",
+  "url": "https://casoon.github.io/auditmysite/rules/targets/size/",
+  "domain": "wcag",
+  "title": "Insufficient click target size",
+  "outcome": "hint-only",
+  "area": "Accessibility, Navigation & Operation",
+  "criterion": "2.5.8",
+  "level": "AA",
+  "axe_id": "target-size-minimum",
+  "severity": "medium",
+  "user_impact": "Users with hand tremors or on mobile devices easily tap the wrong elements.",
+  "technical_impact": "Links, buttons or form controls dimensioned too small in CSS.",
+  "checks": [
+    {
+      "contract_id": "targets/size",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 2.5.8 Target Size (Minimum): 24 x 24 CSS px, exceptions Spacing, Equivalent, Inline, User agent control, Essential",
+      "applicability": "Rendered, clickable pointer targets (links with href, buttons, fields, elements with a widget role or in the tab order) that are not inert, not pointer-events: none and not moved off-screen.",
+      "expectation": "needs_review once per target smaller than 24 x 24 CSS px whose 24 px circle,\ncentred on the target, intersects another target or the circle of another\nundersized target (the spacing exception fails). 24 px passes, 23 px fails;\ncentres 30 px apart pass, 20 px apart fail. Not reported: links in running\ntext (inline), a checkbox or radio whose <label> enlarges the target (an\naria-label does not), a target with a visible same-destination equivalent of\n24 px, targets not rendered or invisible. Native and ARIA targets count\nalike; a size reached on the phone viewport only, or set by script after\nload, counts. A target still growing when measured is UNTESTED\n(needs_review).",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "geometry",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "target_size_animation",
+        "file": "tests/fixtures/detection_corpus/target_size_animation.html",
+        "verdict": "needs_review",
+        "selector": "a#slow",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Target size during animation corpus case</title>\n    <style>\n        .row { display: flex; gap: 4px; margin: 48px 0; align-items: flex-start; }\n        .row a { display: block; flex: none; height: 48px; overflow: hidden; white-space: nowrap; line-height: 48px; }\n        .big { width: 48px; }\n        /* A logo intro that grows from nothing, like geographia.eu's module name (#706). */\n        @keyframes grow { from { width: 0; } to { width: 120px; } }\n        #intro { width: 120px; animation: grow 1s ease-in; }\n        @keyframes grow-slow { from { width: 12px; } to { width: 120px; } }\n        #slow { width: 120px; animation: grow-slow 3600s linear; }\n        @keyframes spin { to { transform: rotate(360deg); } }\n        .spinner { width: 16px; height: 16px; border: 2px solid; animation: spin 1s linear infinite; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Targets measured while they animate (#706)</h1>\n        <!-- An infinite animation never settles; it must not hold up or suppress anything. -->\n        <div class=\"spinner\" aria-hidden=\"true\"></div>\n\n        <!-- pass: grows from 0 to 120x48 over 1 s; the audit waits for the animation to finish\n             and measures the final size. Measured mid-animation it would be undersized, with a\n             neighbour 4 px away. -->\n        <div class=\"row\">\n            <a id=\"intro\" href=\"/intro\">Atmosphere</a>\n            <a class=\"big\" href=\"/intro-next\">Next</a>\n        </div>\n\n        <!-- pass (not failed, needs review): still growing after the settle budget, so its size is\n             reported as not measured instead of as a violation -->\n        <div class=\"row\">\n            <a id=\"slow\" href=\"/slow\">Slow intro</a>\n            <a class=\"big\" href=\"/slow-next\">Next</a>\n        </div>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "target_size_animation",
+        "file": "tests/fixtures/detection_corpus/target_size_animation.html",
+        "verdict": "absent",
+        "selector": "a#intro",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Target size during animation corpus case</title>\n    <style>\n        .row { display: flex; gap: 4px; margin: 48px 0; align-items: flex-start; }\n        .row a { display: block; flex: none; height: 48px; overflow: hidden; white-space: nowrap; line-height: 48px; }\n        .big { width: 48px; }\n        /* A logo intro that grows from nothing, like geographia.eu's module name (#706). */\n        @keyframes grow { from { width: 0; } to { width: 120px; } }\n        #intro { width: 120px; animation: grow 1s ease-in; }\n        @keyframes grow-slow { from { width: 12px; } to { width: 120px; } }\n        #slow { width: 120px; animation: grow-slow 3600s linear; }\n        @keyframes spin { to { transform: rotate(360deg); } }\n        .spinner { width: 16px; height: 16px; border: 2px solid; animation: spin 1s linear infinite; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Targets measured while they animate (#706)</h1>\n        <!-- An infinite animation never settles; it must not hold up or suppress anything. -->\n        <div class=\"spinner\" aria-hidden=\"true\"></div>\n\n        <!-- pass: grows from 0 to 120x48 over 1 s; the audit waits for the animation to finish\n             and measures the final size. Measured mid-animation it would be undersized, with a\n             neighbour 4 px away. -->\n        <div class=\"row\">\n            <a id=\"intro\" href=\"/intro\">Atmosphere</a>\n            <a class=\"big\" href=\"/intro-next\">Next</a>\n        </div>\n\n        <!-- pass (not failed, needs review): still growing after the settle budget, so its size is\n             reported as not measured instead of as a violation -->\n        <div class=\"row\">\n            <a id=\"slow\" href=\"/slow\">Slow intro</a>\n            <a class=\"big\" href=\"/slow-next\">Next</a>\n        </div>\n    </main>\n</body>\n</html>"
+      }
+    }
+  ]
+}

@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::audit::experimental::ExperimentalIndicators;
 use crate::audit::scoring::{AccessibilityScorer, ViolationStatistics};
 use crate::browser::ThrottleProfile;
 use crate::cli::WcagLevel;
@@ -668,6 +669,11 @@ pub struct AuditReport {
     /// Commerce / shop schema-completeness analysis (only on product pages)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub commerce: Option<crate::commerce::CommerceAnalysis>,
+    /// Experimental indicators that ran (`--experimental`, #916). The audit
+    /// assembly moves their results here out of `ux`, `journey`, `commerce`
+    /// and `discoverability`, so nothing else in the report reads them.
+    #[serde(default, skip_serializing_if = "ExperimentalIndicators::is_empty")]
+    pub experimental: ExperimentalIndicators,
     /// Whether a consent banner was detected during the audit
     #[serde(default)]
     pub consent_banner_detected: bool,
@@ -815,6 +821,7 @@ impl AuditReport {
             screenshot_status: ScreenshotStatus::NotRequested,
             best_practices: None,
             commerce: None,
+            experimental: ExperimentalIndicators::default(),
             consent_banner_detected: false,
             consent_banner_cmp: None,
             consent_banner_dismissed: false,

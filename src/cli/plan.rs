@@ -96,7 +96,7 @@ pub(crate) fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
             if args.also_json || args.output.is_none() {
                 outputs.push(default_single_json_output_path(&path).display().to_string());
             }
-            if !args.no_screen_reader_report {
+            if args.screen_reader_report {
                 outputs.push(
                     default_screen_reader_json_output_path(&path)
                         .display()
@@ -118,7 +118,7 @@ pub(crate) fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
                 .output
                 .clone()
                 .unwrap_or_else(|| default_single_pdf_output_path(url, args.report_level));
-            if !args.no_screen_reader_report {
+            if args.screen_reader_report {
                 outputs.push(
                     default_screen_reader_json_output_path(&primary_path)
                         .display()
@@ -177,33 +177,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn active_modules_label_skip_performance_disables_full_mode() {
-        // --skip-performance makes full_audit_enabled() return false,
-        // so no optional full modules are active unless explicitly requested.
-        let args = Args::parse_from(["auditmysite", "https://example.com", "--skip-performance"]);
-        let expected =
-            "Accessibility, Accessibility Journey, AI Visibility, Source Quality".to_string();
+    fn active_modules_label_a11y_only_disables_the_full_modules() {
+        // `--modules a11y` narrows the default set to the accessibility checks,
+        // so no optional full modules are active.
+        let args = Args::parse_from(["auditmysite", "https://example.com", "--modules", "a11y"]);
+        let expected = "Accessibility, Accessibility Journey".to_string();
         assert_eq!(active_modules_label(&args), expected);
     }
 
     #[test]
     fn active_modules_label_default_matches_standard_pipeline() {
         let args = Args::parse_from(["auditmysite", "https://example.com"]);
-        let expected = "Accessibility, Accessibility Journey, Best Practices, HTML Conformance, Journey, Mobile, Performance, Security, SEO, AI Visibility, Tech Stack, Commerce, UX, Source Quality, Content Visibility".to_string();
+        let expected = "Accessibility, Accessibility Journey, Best Practices, HTML Conformance, Mobile, Performance, Security, SEO, Tech Stack".to_string();
         assert_eq!(active_modules_label(&args), expected);
     }
 
     #[test]
     fn planned_batch_outputs_per_page_json_lists_the_aggregates() {
-        let mut args = Args::parse_from([
+        let args = Args::parse_from([
             "auditmysite",
             "--url-file",
             "urls.txt",
-            "--technician",
+            "--per-page-reports",
+            "-f",
+            "json",
             "-o",
             "out/tech",
         ]);
-        args.apply_technician_preset();
         assert_eq!(
             planned_batch_outputs(&args),
             vec![
@@ -216,40 +216,24 @@ mod tests {
 
     #[test]
     fn planned_batch_outputs_trailing_slash_gives_no_double_slash() {
-        let mut args = Args::parse_from([
+        let args = Args::parse_from([
             "auditmysite",
             "--url-file",
             "urls.txt",
-            "--technician",
+            "--per-page-reports",
+            "-f",
+            "json",
             "-o",
             "out/tech/",
         ]);
-        args.apply_technician_preset();
         assert_eq!(planned_batch_outputs(&args)[0], "out/tech/*");
-    }
-
-    #[test]
-    fn planned_single_outputs_skip_the_sidecar_when_suppressed() {
-        let args = Args::parse_from([
-            "auditmysite",
-            "https://example.com",
-            "-f",
-            "json",
-            "--no-screen-reader-report",
-        ]);
-        assert_eq!(
-            planned_single_outputs(&args, "https://example.com"),
-            vec!["stdout"]
-        );
     }
 
     #[test]
     fn planned_single_outputs_json_returns_stdout_without_output_flag() {
         let args = Args::parse_from(["auditmysite", "https://example.com", "-f", "json"]);
         let outputs = planned_single_outputs(&args, "https://example.com");
-        assert_eq!(outputs.len(), 2);
-        assert_eq!(outputs[0], "stdout");
-        assert!(outputs[1].ends_with("-single-report-screen-reader-audit.json"));
+        assert_eq!(outputs, vec!["stdout"]);
     }
 
     #[test]
@@ -261,6 +245,19 @@ mod tests {
             "json",
             "-o",
             "out.json",
+        ]);
+        let outputs = planned_single_outputs(&args, "https://example.com");
+        assert_eq!(outputs, vec!["out.json".to_string()]);
+    }
+
+    #[test]
+    fn planned_single_outputs_list_the_sidecar_when_requested() {
+        let args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "-o",
+            "out.json",
+            "--screen-reader-report",
         ]);
         let outputs = planned_single_outputs(&args, "https://example.com");
         assert_eq!(

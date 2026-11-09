@@ -768,7 +768,8 @@
             "$ref": "#/$defs/decisionAction"
           }
         },
-        "commerce": {
+        "experimental": {
+          "description": "Batch roll-ups of the experimental indicators (`--experimental`, #916). `commerce` is the union of mandatory/trust-page links across the audited shop pages.",
           "type": [
             "object",
             "null"

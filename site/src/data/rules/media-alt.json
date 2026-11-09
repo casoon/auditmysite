@@ -1,0 +1,35 @@
+{
+  "id": "media-alt",
+  "url": "https://casoon.github.io/auditmysite/rules/media-alt/",
+  "domain": "wcag",
+  "title": "Missing media alternative (AAA)",
+  "outcome": "manual",
+  "area": "Accessibility, Content & Alternatives",
+  "criterion": "1.2.8",
+  "level": "AAA",
+  "axe_id": "media-alt",
+  "severity": "medium",
+  "user_impact": "Users who cannot play video or audio receive no text alternative.",
+  "technical_impact": "Missing transcript or audio description.",
+  "checks": [
+    {
+      "contract_id": "media-alt",
+      "outcome": "manual",
+      "source": "WCAG 2.2 SC 1.2.8 Media Alternative (Prerecorded) (AAA), G69, G159",
+      "applicability": "Every page (page-wide manual note, enriched when <video> / iframe embeds and a transcript link are found).",
+      "expectation": "Always one UNTESTED note: on pages with video it names the video and, when a\nnearby link mentions a transcript, quotes it as evidence (presence, not\ncompleteness); without detected media it is the general 1.2.8 reminder. Never a\npass, never a violation.",
+      "method": "page",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": true,
+      "manual_reason": "Whether prerecorded media has a full text alternative or audio description is\na judgement about the content of the media; the DOM can only show that media\n(or a transcript link) exists. The note stands on every page because custom\nplayers are not reliably detectable.",
+      "failing": {
+        "case": "content_plain_article",
+        "file": "tests/fixtures/detection_corpus/content_plain_article.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Opening hours and visiting rules</title>\n    <style>\n        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Opening hours and visiting rules</h1>\n        <p>The reading room opens at nine and closes at six on weekdays.</p>\n        <h2>Borrowing</h2>\n        <p>Members may borrow up to ten books for three weeks. Renewals are possible twice, online or at the front desk.</p>\n        <h2>Quiet zones</h2>\n        <p>The upper floor is a quiet zone. Phone calls are welcome in the foyer.</p>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

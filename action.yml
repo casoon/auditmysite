@@ -128,7 +128,7 @@ runs:
         # --report-mode: exit 0 once the files are written, so the following upload
         # step runs; technical failures (browser, timeout, bad arguments) still fail the step.
         "$bin" "${target[@]}" ${extra[@]+"${extra[@]}"} -f json -o "$out_dir/report.json" --quiet --report-mode
-        "$bin" "${target[@]}" ${extra[@]+"${extra[@]}"} -f sarif -o "$out_dir/report.sarif" --no-screen-reader-report --quiet --report-mode
+        "$bin" "${target[@]}" ${extra[@]+"${extra[@]}"} -f sarif -o "$out_dir/report.sarif" --quiet --report-mode
 
         echo "report-json=$out_dir/report.json" >> "$GITHUB_OUTPUT"
         echo "report-sarif=$out_dir/report.sarif" >> "$GITHUB_OUTPUT"

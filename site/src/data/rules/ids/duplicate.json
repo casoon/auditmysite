@@ -1,0 +1,42 @@
+{
+  "id": "ids/duplicate",
+  "url": "https://casoon.github.io/auditmysite/rules/ids/duplicate/",
+  "domain": "wcag",
+  "title": "Referenced ID is assigned more than once",
+  "outcome": "hint-only",
+  "area": "Accessibility, Technical Robustness",
+  "criterion": "4.1.2",
+  "level": "A",
+  "axe_id": "ids/duplicate",
+  "severity": "critical",
+  "user_impact": "Assistive technology cannot resolve the relationship unambiguously and announces the name or description of the wrong element.",
+  "technical_impact": "The same ID occurs more than once in the DOM and is referenced by a for, headers or aria attribute.",
+  "checks": [
+    {
+      "contract_id": "ids/duplicate",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 4.1.2 Name, Role, Value (review); HTML §3.2.6 the id attribute (unique in its tree); DOM getElementById / IDREF resolution",
+      "applicability": "id values that an IDREF attribute (for, aria-labelledby, aria-describedby, aria-controls, headers, list, ...) in the same tree refers to.",
+      "expectation": "Asks for review at the second element carrying an id that occurs more than\nonce in the same tree and is referenced: the reference resolves to the first\nelement, and whether that is the intended one cannot be told from markup. A\nduplicate id nobody references breaks no relationship (4.1.1 was removed in\nWCAG 2.2): nothing to report. IDs are scoped per tree, so the same id in the\nlight DOM and inside a shadow root is not a duplicate. Applies whether the\nreference is native (label for) or ARIA (aria-describedby). One review per\nduplicated id.",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "duplicate_id",
+        "file": "tests/fixtures/detection_corpus/duplicate_id.html",
+        "verdict": "needs_review",
+        "selector": "input#email",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Duplicate id corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Duplicate id attributes</h1>\n        <!-- Unreferenced duplicate: no WCAG 2.2 criterion since 4.1.1 was removed. -->\n        <div id=\"content-block\">First block</div>\n        <div id=\"content-block\">Second block with the same id</div>\n        <!-- Referenced duplicate: the label's IDREF no longer resolves to one element (4.1.2). -->\n        <form action=\"/subscribe\" method=\"post\">\n            <label for=\"email\">E-mail</label>\n            <input id=\"email\" name=\"email\" type=\"email\">\n            <input id=\"email\" name=\"email-confirm\" type=\"email\" aria-label=\"Confirm e-mail\">\n            <button type=\"submit\">Subscribe</button>\n        </form>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "duplicate_id",
+        "file": "tests/fixtures/detection_corpus/duplicate_id.html",
+        "verdict": "pass",
+        "selector": "div#content-block",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Duplicate id corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Duplicate id attributes</h1>\n        <!-- Unreferenced duplicate: no WCAG 2.2 criterion since 4.1.1 was removed. -->\n        <div id=\"content-block\">First block</div>\n        <div id=\"content-block\">Second block with the same id</div>\n        <!-- Referenced duplicate: the label's IDREF no longer resolves to one element (4.1.2). -->\n        <form action=\"/subscribe\" method=\"post\">\n            <label for=\"email\">E-mail</label>\n            <input id=\"email\" name=\"email\" type=\"email\">\n            <input id=\"email\" name=\"email-confirm\" type=\"email\" aria-label=\"Confirm e-mail\">\n            <button type=\"submit\">Subscribe</button>\n        </form>\n    </main>\n</body>\n</html>"
+      }
+    }
+  ]
+}

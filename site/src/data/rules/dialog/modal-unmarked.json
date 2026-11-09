@@ -1,0 +1,41 @@
+{
+  "id": "dialog/modal-unmarked",
+  "url": "https://casoon.github.io/auditmysite/rules/dialog/modal-unmarked/",
+  "domain": "wcag",
+  "title": "Dialog not marked as modal",
+  "outcome": "hint-only",
+  "area": "Accessibility, Technical Robustness",
+  "criterion": "4.1.2",
+  "level": "A",
+  "axe_id": "dialog/modal-unmarked",
+  "severity": "low",
+  "user_impact": "If the dialog is meant to be modal, screen readers keep reading the content behind it as if it were reachable.",
+  "technical_impact": "role=\"dialog\" without aria-modal=\"true\"; whether the dialog is meant to be modal only shows in its behavior.",
+  "checks": [
+    {
+      "contract_id": "dialog/modal-unmarked",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 aria-modal",
+      "applicability": "Elements with role dialog in the accessibility tree; native <dialog> is out of scope (whether showModal() opened it is not in the markup).",
+      "expectation": "Review when role=dialog lacks aria-modal=\"true\": a modal dialog without it lets screen\nreader users wander into the inert page behind it, but a non-modal dialog rightly omits it, so only\na human can tell. aria-modal=\"true\" passes. Hidden subtrees are out of scope.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "ax_tree"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "aria_naming_roles",
+        "file": "tests/fixtures/detection_corpus/aria_naming_roles.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>ARIA role naming corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Widgets with role but no accessible name</h1>\n        <div role=\"menuitem\" tabindex=\"0\"></div>\n        <div role=\"slider\" tabindex=\"0\" aria-valuenow=\"5\" aria-valuemin=\"0\" aria-valuemax=\"10\"></div>\n        <div role=\"meter\" aria-valuenow=\"5\" aria-valuemin=\"0\" aria-valuemax=\"10\"></div>\n        <div role=\"progressbar\" aria-valuenow=\"50\" aria-valuemin=\"0\" aria-valuemax=\"100\"></div>\n        <div role=\"switch\" tabindex=\"0\" aria-checked=\"false\"></div>\n        <div role=\"tree\" aria-label=\"Files\"><div role=\"treeitem\" tabindex=\"0\"></div></div>\n        <div role=\"dialog\"></div>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "aria_dialogs_live_valid",
+        "file": "tests/fixtures/detection_corpus/aria_dialogs_live_valid.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Shopping cart - Example shop</title>\n</head>\n<body>\n    <header>\n        <p>Example shop</p>\n    </header>\n    <main>\n        <h1>Shopping cart</h1>\n\n        <!-- Live regions with their default urgency, stated or implicit; a\n             log may change its urgency -->\n        <div id=\"cart-status\" role=\"status\" aria-live=\"polite\">2 items in your cart</div>\n        <div id=\"stock-alert\" role=\"alert\">Only 1 left in stock</div>\n        <output id=\"total\">Total: 59 EUR</output>\n        <div id=\"activity\" role=\"log\" aria-live=\"assertive\">Coupon applied.</div>\n        <!-- aria-live off on an element that is no live region role -->\n        <div id=\"ticker\" aria-live=\"off\">Prices include VAT.</div>\n\n        <!-- Named modal dialog with a control, named by aria-labelledby -->\n        <div id=\"coupon-dlg\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"coupon-title\">\n            <h2 id=\"coupon-title\">Coupon</h2>\n            <button type=\"button\" id=\"coupon-ok\">Apply</button>\n        </div>\n\n        <!-- Open native dialog named by aria-label, with a control -->\n        <dialog open id=\"saved-dlg\" aria-label=\"Cart saved\">\n            <p>Your cart was saved.</p>\n            <button type=\"button\" id=\"saved-ok\">OK</button>\n        </dialog>\n\n        <!-- Closed native dialogs are not presented: no name needed, inert is\n             harmless -->\n        <dialog id=\"closed-dlg\"><p>Not shown.</p></dialog>\n        <dialog id=\"closed-inert-dlg\" inert><p>Not shown either.</p></dialog>\n\n        <!-- Inert background content next to the dialog is the intended use -->\n        <div id=\"background\" inert>\n            <p>Recommended products</p>\n        </div>\n    </main>\n    <footer>\n        <p>Example shop</p>\n    </footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

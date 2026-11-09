@@ -16,13 +16,13 @@ auditmysite [OPTIONS] [URL] [COMMAND]
 auditmysite https://example.com
 ```
 
-A detailed, page-specific audit. Without `-f` it writes a PDF, a JSON report and the
-screen-reader sidecar JSON into the current directory. Performance, SEO, security and mobile are
-part of the default single-page run (`--full` states it explicitly).
+A detailed, page-specific audit. Without `-f` or `-o` it prints a table and writes nothing; `-o
+report.json` writes JSON, `-f pdf -o report.pdf` the PDF. Performance, SEO, security and mobile are
+part of the default single-page run (`--full` states it explicitly). A run never asks a question.
 
 When the URL is a site root, auditmysite probes `robots.txt` and common sitemap locations first
-and offers to switch to a sitemap audit. `--prefer-sitemap` switches without asking,
-`--no-sitemap-suggest` stays on the single page.
+and prints a hint when it finds one. The audit stays on the URL you gave; `--prefer-sitemap`
+switches to the sitemap audit.
 
 ## Sitemap
 
@@ -99,11 +99,8 @@ page.
 
 | Command | Purpose |
 | --- | --- |
-| `auditmysite plan <url>` | Mode, modules and output paths of an audit, without running it |
 | `auditmysite browser detect\|install\|remove\|path` | Browser management, see [Browser setup](../browser-setup/) |
 | `auditmysite doctor` | Local diagnostics |
-| `auditmysite report-lint <report.json>` | Consistency checks on a JSON report, see [Reports](../reports/#report-lint) |
-| `auditmysite accname-diff <url>…` | Compares auditmysite's accessible-name computation with Chrome's; measures, never fails |
 
 ## Output formats
 
@@ -117,7 +114,7 @@ page.
 | `0` | Pass |
 | `1` | Warn |
 | `2` | Fail |
-| `3` | Technical error (browser, timeout, arguments, writing files), or `report-lint` at or above `--fail-on` |
+| `3` | Technical error (browser, timeout, arguments, writing files) |
 
 `--report-mode` returns `0` whenever the requested report files were written, whatever the
 verdict. The verdict itself still appears in the terminal, JSON and PDF.

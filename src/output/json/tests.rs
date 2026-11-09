@@ -277,6 +277,40 @@ fn test_assessments_failures_en_status_and_artifact_manifest_are_serialized() {
     assert!(!output.contains("stacktrace"));
 }
 
+/// "Lief nicht" ist nicht "bestanden": a criterion whose only rule recorded a
+/// missing host measurement has no findings, yet the annex must not report
+/// "no violations" for it.
+#[test]
+fn en301549_clause_is_not_evaluated_when_its_rule_lacked_a_capability() {
+    let mut results = WcagResults::new();
+    results.rule_outcomes.push(
+        crate::wcag::RuleRun::not_run(
+            "text-spacing/clipped",
+            crate::wcag::NotRun::CapabilityMissing,
+        )
+        .with_wcag(["1.4.12"])
+        .with_reason("host_measurement_missing"),
+    );
+    let report = AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        results,
+        500,
+    );
+    let normalized = normalize(&report);
+    let unified = UnifiedReport::single(&normalized, &report);
+    let clause = first_page(&unified)
+        .detail
+        .as_ref()
+        .unwrap()
+        .en301549_annex
+        .clauses
+        .iter()
+        .find(|clause| clause.wcag == "1.4.12")
+        .unwrap();
+    assert_eq!(clause.status, En301549ClauseStatusKind::NotEvaluated);
+}
+
 #[test]
 fn test_single_taxonomy_fields() {
     use crate::taxonomy::Severity;
@@ -1186,8 +1220,6 @@ fn test_collection_errors_serialized_when_present() {
             seo_score: None,
             security_score: None,
             mobile_score: None,
-            ux_score: None,
-            journey_score: None,
             performance_throttled_avg_score: None,
             lh_mobile_score: None,
             wcag_coverage: build_wcag_coverage_for_level("AA"),
@@ -1207,7 +1239,7 @@ fn test_collection_errors_serialized_when_present() {
             minification_inconsistencies: vec![],
             redirect_chain_issues: vec![],
             crawl_depth_diagnostics: None,
-            commerce: None,
+            experimental: None,
         },
         sample: None,
         pages: vec![],

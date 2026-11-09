@@ -1,0 +1,41 @@
+{
+  "id": "video-caption",
+  "url": "https://casoon.github.io/auditmysite/rules/video-caption/",
+  "domain": "wcag",
+  "title": "Missing captions for videos",
+  "outcome": "hint-only",
+  "area": "Accessibility, Content & Alternatives",
+  "criterion": "1.2.2",
+  "level": "A",
+  "axe_id": "video-caption",
+  "severity": "high",
+  "user_impact": "Deaf or hard-of-hearing users cannot perceive spoken content.",
+  "technical_impact": "Missing track element for captions.",
+  "checks": [
+    {
+      "contract_id": "video-caption",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 1.2.2 Captions (Prerecorded) (H95, G87, F8); HTML §4.8.11.11 track",
+      "applicability": "Pages with a rendered native <video> or a known video-platform embed iframe.",
+      "expectation": "Pass (positive signal, no finding) only when every rendered <video> has a\n<track kind=\"captions\"|\"subtitles\"> whose src resolves same-origin as a caption\nfile (.vtt/.srt or a vtt content type). Anything less — no caption track, a\ntrack that does not resolve or is cross-origin, only description/chapter\ntracks, more caption tracks than the probe budget of 10 checks, or third-party\nembeds — is one page-level UNTESTED note: captions may exist in ways the tool\ncannot see (open captions, platform players), so never a violation. A page\nwithout rendered video is not applicable; a video in a hidden panel is not\npresented in this state.",
+      "method": "page",
+      "capabilities": [
+        "dom",
+        "network"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "content_video_dynamic",
+        "file": "tests/fixtures/detection_corpus/content_video_dynamic.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Video added after load</title>\n    <style>\n        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Featured video</h1>\n        <div id=\"player-slot\"></div>\n        <script>\n            document.getElementById('player-slot').innerHTML =\n                '<video id=\"featured\" controls width=\"320\" height=\"180\" src=\"/featured.mp4\"></video>';\n        </script>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "content_video_captioned",
+        "file": "tests/fixtures/detection_corpus/content_video_captioned.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Library tour video</title>\n    <style>\n        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Library tour</h1>\n        <video id=\"tour\" controls width=\"320\" height=\"180\" src=\"/tour.mp4\">\n            <track kind=\"captions\" src=\"/tour.en.vtt\" srclang=\"en\" label=\"English\">\n        </video>\n        <video id=\"workshop\" controls width=\"320\" height=\"180\" src=\"/workshop.mp4\">\n            <track kind=\"subtitles\" src=\"/workshop.de.srt\" srclang=\"de\" label=\"Deutsch\">\n            <track kind=\"chapters\" src=\"/workshop.chapters.html\" srclang=\"en\">\n        </video>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

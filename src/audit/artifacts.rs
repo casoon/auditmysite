@@ -132,12 +132,12 @@ pub struct DocumentIdentity {
 /// Version of the snapshot's shape. Bump it whenever a change to
 /// `AuditReport` (or what it embeds) would let an old snapshot deserialize
 /// without error yet mean something else.
-pub const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
+pub const SNAPSHOT_SCHEMA_VERSION: u32 = 2;
 
 /// Version of the evaluation applied to collected data: normalization,
 /// scoring weights, taxonomy and decision derivation. Bump it with any change
 /// that moves a score, finding or verdict for unchanged input.
-pub const EVALUATION_VERSION: u32 = 6;
+pub const EVALUATION_VERSION: u32 = 8;
 
 /// The versions under which a snapshot was written. A snapshot is replayed
 /// only when every one equals the current value: another version is another
@@ -955,6 +955,7 @@ pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport 
         screenshot_status: Default::default(),
         best_practices: None,
         commerce: None,
+        experimental: Default::default(),
         consent_banner_detected: false,
         consent_banner_cmp: None,
         consent_banner_dismissed: false,

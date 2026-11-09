@@ -28,17 +28,23 @@ src/
 ├── annotations.rs       # --annotations (#961): reads the barrierlab annotation file, matches it to findings; outputs render the result apart from the findings
 ├── util.rs              # Utility functions
 │
+├── bin/
+│   └── auditmysite-dev.rs # Maintainer binary, `dev-tools` feature (not installed by `cargo install`, #912)
+│
 ├── cli/                 # Command-line interface
 │   ├── args.rs          # Clap argument parsing (Args, WcagLevel, OutputFormat, AnnexKind)
 │   ├── config.rs        # auditmysite.toml config support
-│   ├── commands.rs      # Subcommand handlers (browser, doctor, plan)
+│   ├── app.rs           # Shared by both binaries: logging, signals, exit code, the audit run
+│   ├── commands.rs      # Subcommand handlers (browser, doctor)
+│   ├── dev_commands.rs  # Maintainer commands of `auditmysite-dev` only (plan, replay, accname-diff, report-lint, --debug-typ, --export-snapshot, #912)
+│   ├── report_lint.rs   # `report-lint` command logic (library, so the release-gate tests run without the dev binary)
 │   ├── runners.rs       # Mode runners (single, batch, compare)
 │   ├── report_writers.rs # Output dispatch (single/batch/comparison)
 │   ├── output_paths.rs  # File path generation for reports
 │   ├── plan.rs          # Pre-audit plan/banner printing
 │   ├── doctor.rs        # `auditmysite doctor` diagnostics
 │   ├── url_filter.rs    # --include-path/--exclude-path glob selection of batch URLs
-│   └── sitemap_suggest.rs # Sitemap discovery + interactive prompt
+│   └── sitemap_suggest.rs # Sitemap discovery (hint for a base URL; no prompt)
 │
 ├── browser/             # Chrome/Chromium management
 │   ├── mod.rs
@@ -77,12 +83,11 @@ src/
 │   ├── types.rs         # Violation, Severity, WcagResults
 │   ├── coverage.rs      # WCAG success-criterion coverage accounting
 │   ├── en301549.rs      # EN 301 549 (chapter 9, Web) clause mapping + annex derivation
-│   └── rules/           # Local WCAG rules that need the browser or have no shared id (22 files; the rest runs via wcag::shared)
+│   └── rules/           # Local WCAG rules that need the browser or have no shared id (17 files; the rest runs via wcag::shared)
 │       ├── text_alternatives.rs  # 1.1.1
 │       ├── keyboard.rs           # 2.1.2 keyboard-trap note (2.1.1 is shared since #694)
 │       ├── headings.rs           # 2.4.6
 │       ├── target_size_minimum.rs # 2.5.8
-│       ├── text_spacing.rs       # 1.4.12
 │       ├── display_modes.rs      # display/* checks of the data-display convention that need the running page (#653, best-practice); the static ones are shared (viz/*, #699)
 │       └── ... (registered in rules/mod.rs)
 │
@@ -92,6 +97,7 @@ src/
 ├── taxonomy/            # Rule taxonomy & classification
 │   ├── mod.rs
 │   ├── rules.rs         # Canonical rule list (RULES) with metadata
+│   ├── rule_docs.rs     # rule_doc_url(): rule id → page on the project site (help_url, #929)
 │   ├── criteria.rs      # WCAG success-criterion definitions
 │   ├── dimensions.rs    # Dimension enum (Barrierefreiheit, Usability, ...)
 │   ├── issue_class.rs   # IssueClass enum (Fehlend, Falsch, Unvollständig)
@@ -110,7 +116,7 @@ src/
 │   ├── checks.rs        # Score/grade/count-sum/metric_context checks
 │   └── invariants.rs    # Independent exported-weight, execution and finding-conservation checks
 │
-├── audit/               # Audit orchestration
+├── audit/               # Audit orchestration (`experimental.rs`: `--experimental` indicators and their `ExperimentalIndicators` result block, #916)
 │   ├── mod.rs
 │   ├── validation.rs    # Format-independent page/batch contracts and capture-gap policy
 │   ├── collection.rs    # Collection contract: Collected<T> states, per-page CollectionLog, COLLECTORS inventory
@@ -181,7 +187,7 @@ src/
 │   ├── search_experience.rs # Search/AI-visibility presentation helpers
 │   ├── localized.rs     # Locale-aware text helpers
 │   ├── renderer.rs      # Top-level format dispatch
-│   └── snapshot_export.rs # AXTree + journey traces → YAML (--export-snapshot)
+│   └── snapshot_export.rs # AXTree + journey traces → YAML (`auditmysite-dev --export-snapshot`)
 │
 ├── a11y_journey/        # Accessibility Journey Layer (--interactive)
 │   ├── mod.rs           # Orchestrator: run() single entry point, commerce gating
@@ -304,7 +310,7 @@ src/
 ├── studio/              # Studio contract types (GUI data contract)
 │   └── mod.rs
 │
-└── i18n/                # Project Fluent (.ftl) loader, default language: German; `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts
+└── i18n/                # Project Fluent (.ftl) loader, library default language: German (the CLI default is English); `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts
     └── mod.rs
 ```
 
@@ -464,6 +470,13 @@ no additional score model. Details per contract live in `docs/OUTPUT_CONTRACT.md
 - **Executable rule contracts** (`tests/fixtures/rule_contracts/`,
   `rule_contract_gate`): every active rule id needs positive, negative, N/A and
   error fixtures; a rule without a contract fails verification.
+- **Rule documentation pages** (#929): one page per WCAG rule, security header
+  issue type, structured-data feature and checked library, generated from the
+  taxonomy, the contracts and the corpus (`tests/common/rule_docs.rs`), committed as
+  JSON under `site/src/data/rules/` and rendered by `site/src/pages/rules/`.
+  `audit/rule_docs.rs` maps a finding's rule id to its page (`help_url`).
+  `tests/rule_docs.rs` fails when they drift from their sources or a `help_url`
+  has no page; `UPDATE_RULE_DOCS=1 cargo test --test rule_docs` regenerates them.
 - **Checked boundary:** `normalize_checked` is the supported entry;
   `audit::normalize` is a deprecated compatibility API for callers outside the
   crate.
@@ -614,6 +627,7 @@ tests/
 ├── error_handling_tests.rs       # Error paths
 ├── parity_contract.rs            # Frozen-count guard vs. docs/PARITY_CONTRACT.jsonc
 ├── act_mapping.rs                # Rule ids in docs/act-mapping.json (ACT mapping) exist
+├── rule_docs.rs                  # Generated per-rule pages (site/src/data/rules/) match catalogue, contracts, corpus (#929)
 ├── act_testcases.rs              # ACT test case harness (#837): parser/judging unit tests; `#[ignore]` Chrome run via scripts/act-fetch.sh + tests/common/act_harness.rs
 ├── wcag_coverage.rs               # Level A/AA/AAA rule-set coverage checks
 ├── wcag_unit_tests.rs             # Per-rule unit tests (fixtures in wcag_fixtures/)

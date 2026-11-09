@@ -1,0 +1,41 @@
+{
+  "id": "lists/item-outside-list",
+  "url": "https://casoon.github.io/auditmysite/rules/lists/item-outside-list/",
+  "domain": "wcag",
+  "title": "List items outside a list container",
+  "outcome": "automatic",
+  "area": "Accessibility, Structure & Semantics",
+  "criterion": "1.3.1",
+  "level": "A",
+  "axe_id": "lists/item-outside-list",
+  "severity": "medium",
+  "user_impact": "Screen reader users receive no announcement of the list's length/structure.",
+  "technical_impact": "<li> outside <ul>/<ol>.",
+  "checks": [
+    {
+      "contract_id": "lists/item-outside-list",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 1.3.1 Info and Relationships (F2, H48); HTML §4.4.5-4.4.10 list content models; WAI-ARIA 1.2 list/listitem/term/definition",
+      "applicability": "Every rendered, not aria-hidden list item: <li> or role=\"listitem\" without another explicit role.",
+      "expectation": "A list item whose nearest list ancestor is missing, or has turned into\nsomething other than a list by its role (tablist, menu), fails (F2-like: item\nsemantics without a list). A list ancestor with role none/presentation passes\nthe item's semantics on and is no finding. Located at the item. Known host gap\nuntil the a11y-rules release that declares this id in Meta::ids: findings\narrive without a run record (FindingWithoutRun), not to be worked around here.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "landmarks_and_lists",
+        "file": "tests/fixtures/detection_corpus/landmarks_and_lists.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Landmark nesting and list structure corpus case</title>\n</head>\n<body>\n    <header>Site header</header>\n    <main>\n        <h1>Landmark nesting and list structure</h1>\n\n        <footer role=\"contentinfo\">Nested footer — contentinfo landmark should be top-level, not inside main</footer>\n\n        <div role=\"listitem\">Explicit ARIA listitem with no list ancestor</div>\n\n        <ul aria-label=\"Empty list with no items\"></ul>\n\n        <p>\n            <input type=\"radio\" name=\"orphan-radio-test\" style=\"width: 44px; height: 44px\" aria-label=\"Orphan radio not in a group\">\n        </p>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "content_lists_responsive_role",
+        "file": "tests/fixtures/detection_corpus/content_lists_responsive_role.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Responsive list markers</title>\n    <style>\n        @media (max-width: 600px) { .cards { list-style: none; padding: 0; } }\n        @media (min-width: 601px) { .chips { list-style: none; padding: 0; } }\n    </style>\n    <style>\n        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Responsive list markers</h1>\n        <ul role=\"list\" class=\"cards\" id=\"cards\"><li>Events</li><li>Courses</li></ul>\n        <ol role=\"list\" class=\"chips\" id=\"chips\"><li>Open</li><li>Closed</li></ol>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

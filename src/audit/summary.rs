@@ -650,6 +650,7 @@ mod tests {
             title: title.into(),
             description: String::new(),
             help_url: None,
+            understanding_url: None,
             occurrence_count: count,
             priority_score: 1.0,
             confidence: "very_high".into(),

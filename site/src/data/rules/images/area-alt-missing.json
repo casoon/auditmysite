@@ -1,0 +1,41 @@
+{
+  "id": "images/area-alt-missing",
+  "url": "https://casoon.github.io/auditmysite/rules/images/area-alt-missing/",
+  "domain": "wcag",
+  "title": "Missing alternative text on image map areas",
+  "outcome": "automatic",
+  "area": "Accessibility, Content & Alternatives",
+  "criterion": "1.1.1",
+  "level": "A",
+  "axe_id": "area-alt",
+  "severity": "high",
+  "user_impact": "Screen reader users are not told where a clickable image region leads.",
+  "technical_impact": "<area> element without an alt attribute.",
+  "checks": [
+    {
+      "contract_id": "images/area-alt-missing",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 1.1.1 Non-text Content (H37, H24, H36, H53, ARIA6, ARIA10, F65, F30); HTML §4.8; accname 1.2; HTML §4.8.14 area",
+      "applicability": "Every <area> with href (a link) of an image map; <area> is display:none by UA style and judged regardless.",
+      "expectation": "An active <area> without alt, aria-label or aria-labelledby is a link without a\nname (H24): violation at the area. An <area> without href is no link and is\nnot judged.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "misc_content_checks",
+        "file": "tests/fixtures/detection_corpus/misc_content_checks.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\" xml:lang=\"de\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=3\">\n    <title>Misc content checks corpus case</title>\n    <style>\n        .low-contrast-checkbox {\n            border: 1px solid #f8f8f8;\n            background: #ffffff;\n        }\n        /* Controls sized to 44px: this case is not about target size. */\n        button, input { min-width: 44px; min-height: 44px; }\n        .inline-link {\n            color: blue;\n            text-decoration: none;\n        }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Image maps, tables, abbreviations, and misc issues</h1>\n\n        <!-- area-alt -->\n        <img src=\"/floorplan.png\" usemap=\"#floor-map\" alt=\"Floor plan\">\n        <map name=\"floor-map\">\n            <area href=\"/room1\" shape=\"rect\" coords=\"0,0,50,50\">\n        </map>\n\n        <!-- input-image-alt -->\n        <input type=\"image\" src=\"/submit.png\">\n\n        <!-- presentation-semantic-children: dropped in #697 — role=\"presentation\" does not\n             strip the semantics of descendants (WAI-ARIA 1.2), so this is no finding -->\n        <div role=\"presentation\">\n            <button>Semantic button inside a presentation container</button>\n        </div>\n\n        <!-- tables/header-missing: data table without any headers -->\n        <table>\n            <tbody>\n                <tr><td>Alice</td><td>90</td></tr>\n                <tr><td>Bob</td><td>85</td></tr>\n            </tbody>\n        </table>\n\n        <!-- redundant-entry: two email fields without reuse/autocomplete -->\n        <form>\n            <label for=\"email-a\">Email</label>\n            <input type=\"email\" id=\"email-a\" name=\"email_a\">\n            <label for=\"email-b\">Confirm email</label>\n            <input type=\"email\" id=\"email-b\" name=\"email_b\">\n        </form>\n\n        <!-- abbreviations -->\n        <p><abbr>W3C</abbr> publishes web standards.</p>\n\n        <!-- modern-attribute-misuse: popovertarget references a missing element -->\n        <button popovertarget=\"missing-popover-id\">Open</button>\n\n        <!-- non-text-contrast-css: checkbox border barely distinguishable from background -->\n        <input type=\"checkbox\" class=\"low-contrast-checkbox\">\n\n        <!-- link-in-text-block: inline link distinguished only by color -->\n        <p>Read our <a href=\"/policy\" class=\"inline-link\">privacy policy</a> for details.</p>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "content_images_ok",
+        "file": "tests/fixtures/detection_corpus/content_images_ok.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Exhibition: maps of the old town</title>\n    <style>\n        .icon { display: inline-block; width: 16px; height: 16px; background: #446; }\n        .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n    </style>\n    <style>\n        nav a, .skip-link, form input, a[href=\"/print\"] { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Exhibition: maps of the old town</h1>\n        <img id=\"poster\" src=\"/poster.jpg\" alt=\"Poster: maps of the old town, 3 May to 30 June\" width=\"200\" height=\"120\">\n        <img id=\"divider\" src=\"/divider.png\" alt=\"\" width=\"200\" height=\"4\">\n        <img id=\"labelled\" src=\"/map-1850.png\" aria-label=\"Town map of 1850\" width=\"200\" height=\"120\">\n        <p id=\"caption-1900\">Town map of 1900</p>\n        <img id=\"labelledby\" src=\"/map-1900.png\" aria-labelledby=\"caption-1900\" width=\"200\" height=\"120\">\n        <img id=\"titled\" src=\"/seal.png\" title=\"Town seal\" width=\"40\" height=\"40\">\n        <img id=\"three-chars\" src=\"/sign.png\" alt=\"Inn\" width=\"40\" height=\"40\">\n        <img id=\"presentational\" src=\"/flourish.png\" role=\"presentation\" width=\"40\" height=\"10\">\n        <img id=\"hidden-from-at\" src=\"/flourish.png\" aria-hidden=\"true\" width=\"40\" height=\"10\">\n        <img id=\"not-rendered\" src=\"/print-only.png\" style=\"display: none\">\n        <img id=\"hidden-attr\" src=\"/later.png\" hidden>\n        <img id=\"town-map\" src=\"/town.png\" usemap=\"#town-areas\" alt=\"Old town districts\" width=\"200\" height=\"120\">\n        <map name=\"town-areas\">\n            <area id=\"area-market\" href=\"/districts/market\" shape=\"rect\" coords=\"0,0,100,60\" alt=\"Market district\">\n            <area id=\"area-harbour\" href=\"/districts/harbour\" shape=\"rect\" coords=\"100,0,200,60\" aria-label=\"Harbour district\">\n            <area id=\"area-decor\" shape=\"rect\" coords=\"0,60,200,120\">\n        </map>\n        <form action=\"/search\">\n            <label for=\"q\">Search the collection</label>\n            <input id=\"q\" name=\"q\" type=\"search\">\n            <input id=\"search-go\" type=\"image\" src=\"/go.png\" alt=\"Search\">\n            <span id=\"reset-label\" hidden>Clear search</span>\n            <input id=\"search-clear\" type=\"image\" src=\"/clear.png\" aria-labelledby=\"reset-label\">\n        </form>\n        <object id=\"catalogue-pdf\" data=\"/catalogue.pdf\" type=\"application/pdf\" width=\"300\" height=\"200\">\n            <a href=\"/catalogue.pdf\">Download the exhibition catalogue (PDF)</a>\n        </object>\n        <object id=\"floor-plan\" data=\"/floor.svg\" type=\"image/svg+xml\" title=\"Floor plan of the exhibition\" width=\"300\" height=\"200\"></object>\n        <audio id=\"muted-loop\" autoplay muted loop src=\"/ambience.mp3\"></audio>\n        <audio id=\"tour-audio\" controls src=\"/tour.mp3\"></audio>\n        <span id=\"warning-icon\" role=\"img\" aria-label=\"Warning\" class=\"icon\"></span>\n        <span id=\"decor-icon\" role=\"img\" class=\"icon\" aria-hidden=\"true\"></span>\n        <a href=\"/print\"><span id=\"print-icon\" role=\"img\" class=\"icon\"></span>Print this page</a>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

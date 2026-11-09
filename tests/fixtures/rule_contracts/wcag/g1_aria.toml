@@ -297,6 +297,7 @@ id = "aria/role-redundant"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/role-redundant)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "ARIA in HTML section 2 (\"Authors SHOULD NOT set the role to the implicit role of the element\"); best practice under WCAG 2.2 SC 4.1.2, not a failure of it"
 capabilities = ["dom", "ax_tree"]
@@ -444,6 +445,7 @@ id = "aria/tab-selected-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/tab-selected-missing)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 tab (aria-selected) and tablist; APG Tabs pattern"
 capabilities = ["dom", "ax_tree"]
@@ -480,6 +482,7 @@ id = "aria/tabpanel-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/tabpanel-missing)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.3.1 and SC 4.1.2; WAI-ARIA 1.2 tabpanel (\"typically\" associated with a tab); APG Tabs pattern"
 capabilities = ["dom", "ax_tree"]
@@ -620,6 +623,7 @@ id = "patterns/accordion-controls-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=patterns/accordion-controls-missing)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; APG Accordion and Disclosure patterns (aria-controls on the button; optional for disclosure)"
 capabilities = ["dom", "ax_tree"]
@@ -656,6 +660,7 @@ id = "patterns/tooltip-unreferenced"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=patterns/tooltip-unreferenced)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "APG Tooltip pattern (the trigger references the tooltip with aria-describedby); best practice related to WCAG 2.2 SC 1.4.13, not a failure of it"
 capabilities = ["dom"]
@@ -768,6 +773,7 @@ id = "names/symbol-only"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=names/symbol-only)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 4.1.2 Name, Role, Value (a name must identify the control); accname 1.2"
 capabilities = ["dom", "ax_tree"]
@@ -805,6 +811,7 @@ id = "names/title-only"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=names/title-only)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; HTML-AAM / accname 1.2 (title as last name source); WCAG technique H65 (sufficient), APG on title tooltips"
 capabilities = ["dom", "ax_tree"]
@@ -1034,6 +1041,7 @@ id = "dialog/modal-unmarked"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=dialog/modal-unmarked)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 aria-modal"
 capabilities = ["dom", "ax_tree"]
@@ -1069,6 +1077,7 @@ id = "dialog/focusable-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=dialog/focusable-missing)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 2.4.3 Focus Order and SC 2.1.1 Keyboard; APG Dialog (Modal) pattern"
 capabilities = ["dom", "ax_tree"]

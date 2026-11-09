@@ -86,28 +86,20 @@ const examples_ = [
     slug: 'single-url',
     title: 'Single URL, terminal summary',
     demo: 'single-table',
-    command: 'auditmysite https://www.casoon.de/ --format table --no-sitemap-suggest --lang en --request-mode browser',
+    command: 'auditmysite https://www.casoon.de/ --format table',
     tags: ['single', 'table'],
     description:
-      'A full single-page audit of casoon.de with the compact terminal summary. The screen-reader sidecar JSON is written next to it. --request-mode skips the prompt an interactive terminal gets.',
+      'A full single-page audit of casoon.de with the compact terminal summary. Nothing is written.',
   },
   {
     slug: 'technician-mode',
     title: 'Technician mode',
     demo: 'technician',
     command:
-      'auditmysite --sitemap https://www.casoon.de/sitemap.xml --technician -m 3 -o tech/ --request-mode browser\njq -c .totals tech/index.json\njq -r \'"\\(.severity)\\t\\(.rule_id)\\t\\(.url)"\' tech/findings.jsonl',
+      'auditmysite --sitemap https://www.casoon.de/sitemap.xml --per-page-reports -f json --modules seo,html-conform -m 3 -o tech/ --request-mode browser\njq -c .totals tech/index.json\njq -r \'"\\(.severity)\\t\\(.rule_id)\\t\\(.url)"\' tech/findings.jsonl',
     tags: ['batch', 'json', 'technician'],
     description:
       'The first three sitemap URLs of casoon.de as one JSON file per page, plus index.json and findings.jsonl to script against.',
-  },
-  {
-    slug: 'audit-plan',
-    title: 'Audit plan',
-    file: 'plan.txt',
-    command: 'auditmysite plan https://www.casoon.de/ --lang en',
-    tags: ['plan'],
-    description: 'Mode, modules and output files an audit would use, printed without starting a browser.',
   },
   {
     slug: 'wcag-coverage',
@@ -117,15 +109,6 @@ const examples_ = [
     tags: ['json', 'wcag'],
     description:
       'Every report states how many WCAG 2.2 A/AA criteria the automated checks cover and how many need manual review.',
-  },
-  {
-    slug: 'report-lint',
-    title: 'report-lint',
-    demo: 'report-lint',
-    command: 'auditmysite https://www.casoon.de/ -f json -o report.json --quiet --no-sitemap-suggest\nauditmysite report-lint report.json; echo "exit code $?"',
-    tags: ['json', 'lint'],
-    description:
-      'Deterministic consistency checks on a finished JSON report, without network or Chrome. Exit code 3 when a finding reaches --fail-on (default: high).',
   },
 ];
 

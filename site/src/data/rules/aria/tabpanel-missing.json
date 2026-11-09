@@ -1,0 +1,41 @@
+{
+  "id": "aria/tabpanel-missing",
+  "url": "https://casoon.github.io/auditmysite/rules/aria/tabpanel-missing/",
+  "domain": "wcag",
+  "title": "Tab list without an associated tab panel",
+  "outcome": "hint-only",
+  "area": "Accessibility, Technical Robustness",
+  "criterion": "4.1.2",
+  "level": "A",
+  "axe_id": "aria-tablist-tabpanel",
+  "severity": "medium",
+  "user_impact": "Screen reader users cannot locate the content associated with a tab after activating it.",
+  "technical_impact": "tablist without an accompanying tabpanel element.",
+  "checks": [
+    {
+      "contract_id": "aria/tabpanel-missing",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 1.3.1 and SC 4.1.2; WAI-ARIA 1.2 tabpanel (\"typically\" associated with a tab); APG Tabs pattern",
+      "applicability": "Tablists in the accessibility tree.",
+      "expectation": "Review per tablist when the document has no tabpanel at all: the tab list probably is\nnavigation dressed up as tabs, or the panels lack their role. ARIA only describes the panel as\nusual, so never a violation. Any tabpanel in the document passes. Hidden subtrees are out of scope.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "ax_tree"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "widget_patterns",
+        "file": "tests/fixtures/detection_corpus/widget_patterns.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Widget pattern corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Accordion, tablist, and combobox patterns</h1>\n\n        <!-- accordion-trigger-not-button: aria-expanded on a non-button element -->\n        <div aria-expanded=\"false\">Section 1 (div trigger)</div>\n\n        <!-- accordion-no-controls: button trigger without aria-controls -->\n        <button aria-expanded=\"false\">Section 2</button>\n\n        <!-- aria-tablist-tabpanel + aria-tab-selected-state: no tabpanel, no aria-selected -->\n        <div role=\"tablist\" aria-label=\"Sections\">\n            <div role=\"tab\" id=\"tab1\">Tab 1</div>\n        </div>\n\n        <!-- aria-combobox-options: listbox is a sibling, not a subtree descendant -->\n        <div role=\"combobox\" aria-expanded=\"true\" aria-label=\"Fruit\" tabindex=\"0\"></div>\n        <ul id=\"listbox1\" role=\"listbox\">\n            <li role=\"option\">Apple</li>\n        </ul>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "aria_widgets_valid",
+        "file": "tests/fixtures/detection_corpus/aria_widgets_valid.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Trail running shoe - Example shop</title>\n</head>\n<body>\n    <header>\n        <p>Example shop</p>\n    </header>\n    <main>\n        <h1>Trail running shoe</h1>\n\n        <!-- One tab selected, panel present -->\n        <div id=\"product-tabs\" role=\"tablist\" aria-label=\"Product information\">\n            <button type=\"button\" role=\"tab\" id=\"tab-desc\" aria-selected=\"true\" aria-controls=\"panel-desc\">Description</button>\n            <button type=\"button\" role=\"tab\" id=\"tab-reviews\" aria-selected=\"false\" aria-controls=\"panel-desc\" tabindex=\"-1\">Reviews</button>\n        </div>\n        <div id=\"panel-desc\" role=\"tabpanel\" aria-labelledby=\"tab-desc\">Lightweight shoe with a grippy sole.</div>\n\n        <!-- Expanded combobox referencing its popup; a collapsed one needs no\n             reference -->\n        <label for=\"size\">Size</label>\n        <input id=\"size\" type=\"text\" role=\"combobox\" aria-expanded=\"true\" aria-autocomplete=\"list\" aria-controls=\"size-options\">\n        <ul id=\"size-options\" role=\"listbox\" aria-label=\"Sizes\">\n            <li role=\"option\" id=\"size-42\" aria-selected=\"false\">42</li>\n            <li role=\"option\" id=\"size-43\" aria-selected=\"false\">43</li>\n        </ul>\n        <label for=\"colour\">Colour</label>\n        <input id=\"colour\" type=\"text\" role=\"combobox\" aria-expanded=\"false\" aria-autocomplete=\"list\">\n\n        <!-- The native select has its popup built in -->\n        <label for=\"qty\">Quantity</label>\n        <select id=\"qty\"><option>1</option><option>2</option></select>\n\n        <!-- A visible menu named by its heading -->\n        <h2 id=\"sort-label\">Sort reviews</h2>\n        <div id=\"sort-menu\" role=\"menu\" aria-labelledby=\"sort-label\">\n            <div role=\"menuitem\" id=\"sort-new\" tabindex=\"0\">Newest first</div>\n            <div role=\"menuitem\" id=\"sort-best\" tabindex=\"-1\">Best rated</div>\n        </div>\n\n        <!-- popovertarget points at a (closed, hence hidden) popover -->\n        <button type=\"button\" id=\"guide-btn\" popovertarget=\"size-guide\">Size guide</button>\n        <div id=\"size-guide\" popover>EU 42 equals UK 8.</div>\n\n        <!-- Expanded button naming the region it controls -->\n        <button type=\"button\" id=\"care-btn\" aria-expanded=\"true\" aria-controls=\"care-text\">Care instructions</button>\n        <div id=\"care-text\">Clean with a damp cloth.</div>\n\n        <!-- Tooltips referenced as description and as name -->\n        <button type=\"button\" id=\"fav-btn\" aria-describedby=\"fav-tip\">Add to wish list</button>\n        <div role=\"tooltip\" id=\"fav-tip\">Saved items stay for 30 days</div>\n        <button type=\"button\" id=\"share-btn\" aria-labelledby=\"share-tip\"><span aria-hidden=\"true\">&#x2197;</span></button>\n        <div role=\"tooltip\" id=\"share-tip\">Share</div>\n\n        <!-- Open, operable popover -->\n        <div id=\"promo\" popover=\"manual\" aria-label=\"Promotion\">\n            <p>10 % off your first order.</p>\n            <button type=\"button\" id=\"promo-close\">Close</button>\n        </div>\n    </main>\n    <footer>\n        <p>Example shop</p>\n    </footer>\n    <script>\n        document.getElementById('promo').showPopover();\n    </script>\n</body>\n</html>"
+      }
+    }
+  ]
+}

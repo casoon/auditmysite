@@ -126,7 +126,7 @@ pub(super) fn finding_group_from_normalized(
         finding_id: f.id.clone(),
         wcag_criterion: f.wcag_criterion.clone(),
         wcag_level: f.wcag_level.clone(),
-        help_url: f.help_url.clone(),
+        help_url: f.understanding_url.clone(),
         dimension: Some(f.dimension.clone()),
         subcategory: Some(f.subcategory.clone()),
         issue_class: Some(f.issue_class.clone()),
@@ -225,6 +225,7 @@ mod fallback_tests {
             description: "RAW ENGLISH CANARY — must never reach a German customer_description"
                 .into(),
             help_url: None,
+            understanding_url: None,
             occurrence_count: 1,
             priority_score: 1.0,
             confidence: "high".into(),

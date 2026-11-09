@@ -1,0 +1,52 @@
+{
+  "id": "security.headers.wildcard_script_source",
+  "url": "https://casoon.github.io/auditmysite/rules/security.headers.wildcard_script_source/",
+  "domain": "security",
+  "title": "Wildcard script source",
+  "outcome": "automatic",
+  "area": "Security, response headers",
+  "checks": [
+    {
+      "contract_id": "Content-Security-Policy:wildcard_script_source",
+      "label": "Content-Security-Policy",
+      "outcome": "automatic",
+      "source": "CSP Level 3, 'Directives' (script-src, style-src and object-src fall back to default-src; base-uri and frame-ancestors have no fallback), 'Does a source list allow all inline behavior for type?' ('unsafe-inline' is ignored next to a nonce or hash), 'Policy lists' (every policy is enforced); Google CSP Evaluator",
+      "applicability": "Applies to responses with at least one enforced Content-Security-Policy header; without one (or with only a report-only policy) there is no policy to judge.",
+      "expectation": "Fails when the effective script source list contains a wildcard host (`*`, `*.example.com`, `https://*`). Without an enforced CSP the check does not apply (that is the missing_header finding).",
+      "method": "analyze_security",
+      "capabilities": [
+        "network"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "security_csp_host_wildcards",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/security_csp_host_wildcards.expected.json",
+        "verdict": "violation",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; script-src 'self' https://*.cdn.example; img-src *; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      },
+      "passing": {
+        "case": "security_https_complete",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/security_https_complete.expected.json",
+        "verdict": "pass",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      }
+    }
+  ]
+}

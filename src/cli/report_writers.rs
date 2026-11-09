@@ -85,7 +85,7 @@ fn output_single_report_with(
         OutputFormat::Json => {
             let output = single_json()?;
             output_text(&output, &args.output, "JSON", args.quiet)?;
-            if let Some(ref snap_path) = args.export_snapshot {
+            if let Some(ref snap_path) = args.dev.export_snapshot {
                 export_snapshot_yaml(report, snap_path).map_err(|e| AuditError::OutputError {
                     reason: format!("snapshot export failed: {e}"),
                 })?;
@@ -132,7 +132,7 @@ fn output_single_report_with(
                     output_text(&json_output, &Some(json_path.clone()), "JSON", args.quiet)?;
                 }
                 output_bytes(&pdf_bytes, &path, "PDF", args.quiet)?;
-                if args.debug_typ {
+                if args.dev.debug_typ {
                     let typ = generate_typ_with_annotations(report, &config, annotations).map_err(
                         |e| AuditError::ReportGenerationFailed {
                             reason: e.to_string(),
@@ -141,7 +141,7 @@ fn output_single_report_with(
                     let typ_path = path.with_extension("typ");
                     output_text(&typ, &Some(typ_path), "Typst source", args.quiet)?;
                 }
-                if let Some(ref snap_path) = args.export_snapshot {
+                if let Some(ref snap_path) = args.dev.export_snapshot {
                     export_snapshot_yaml(report, snap_path).map_err(|e| {
                         AuditError::OutputError {
                             reason: format!("snapshot export failed: {e}"),
@@ -186,7 +186,7 @@ pub(crate) fn output_screen_reader_sidecar(
     report: &auditmysite::AuditReport,
     args: &Args,
 ) -> Result<()> {
-    if args.no_screen_reader_report {
+    if !args.screen_reader_report {
         return Ok(());
     }
     let Some(sr_audit) = report.screen_reader_audit.as_ref() else {
@@ -277,7 +277,7 @@ pub(crate) fn output_batch_report(
                 let json_output = batch_json()?;
                 output_text(&json_output, &Some(json_path), "JSON batch", args.quiet)?;
 
-                if args.debug_typ {
+                if args.dev.debug_typ {
                     let typ = generate_batch_typ_with_annotations(
                         batch_report,
                         &config,

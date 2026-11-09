@@ -1280,12 +1280,22 @@ fn test_risk_independent_from_score() {
 
 #[test]
 fn test_journey_in_json_output() {
-    let report = make_full_report();
+    // The audit assembly moves UX and Journey into `experimental` (#916).
+    let mut report = make_full_report();
+    report.experimental.journey = report.journey.take();
     let unified = UnifiedReport::single(&normalize(&report), &report);
+    let experimental = unified.pages[0]
+        .experimental
+        .as_ref()
+        .expect("experimental block");
+    assert!(
+        experimental.get("journey").is_some(),
+        "Journey data should be present in the experimental block"
+    );
     let detail = unified.pages[0].detail.as_ref().expect("detail");
     assert!(
-        detail.modules.journey.is_some(),
-        "Journey detail data should be present in JSON"
+        detail.modules.performance.is_some(),
+        "the module blob stays for the measured modules"
     );
 }
 
@@ -1301,8 +1311,6 @@ fn test_json_module_detail_scores_match_normalized_scores() {
         ("SEO", m.seo.as_ref(), &["score"][..]),
         ("Security", m.security.as_ref(), &["score"][..]),
         ("Mobile", m.mobile.as_ref(), &["score"][..]),
-        ("UX", m.ux.as_ref(), &["score"][..]),
-        ("Journey", m.journey.as_ref(), &["score"][..]),
     ] {
         let expected = normalized
             .normalized
@@ -1506,19 +1514,32 @@ fn test_schema_contains_extra_module_top_level_keys() {
     let module_props = schema["$defs"]["moduleBlob"]["properties"]
         .as_object()
         .expect("schema must define $defs.moduleBlob.properties");
-    for key in &[
-        "ai_visibility",
-        "source_quality",
-        "content_visibility",
-        "tech_stack",
-        "patterns",
-        "html_conform",
-    ] {
+    for key in &["tech_stack", "patterns", "html_conform"] {
         assert!(
             module_props.contains_key(*key),
             "schema $defs.moduleBlob missing module '{key}'"
         );
     }
+    // The experimental indicators (#916) are no module of the blob: they
+    // sit in the page's `experimental` block.
+    for key in &[
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility",
+        "commerce",
+    ] {
+        assert!(
+            !module_props.contains_key(*key),
+            "schema $defs.moduleBlob still lists experimental '{key}'"
+        );
+    }
+    let experimental_names = schema["$defs"]["pageEntry"]["properties"]["experimental"]
+        ["propertyNames"]["enum"]
+        .as_array()
+        .expect("schema must define the page's experimental block");
+    assert_eq!(experimental_names.len(), 6);
 
     let detail_props = schema["$defs"]["pageDetail"]["properties"]
         .as_object()
@@ -1539,41 +1560,42 @@ fn test_schema_contains_extra_module_top_level_keys() {
 fn test_json_report_includes_extra_module_keys() {
     use auditmysite::{analyze_ai_visibility, analyze_content_visibility, analyze_source_quality};
 
+    // The heuristic indicators are experimental (#916): they sit in the
+    // page's `experimental` block, not in `detail.modules`.
     let base = make_full_report();
     let mut report = make_full_report();
-    report.discoverability.source_quality = Some(analyze_source_quality(&base));
-    report.discoverability.ai_visibility = Some(analyze_ai_visibility(&base));
-    report.discoverability.content_visibility = Some(analyze_content_visibility(&base));
+    report.experimental.source_quality = Some(analyze_source_quality(&base));
+    report.experimental.ai_visibility = Some(analyze_ai_visibility(&base));
+    report.experimental.content_visibility = Some(analyze_content_visibility(&base));
 
     let normalized = normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);
     let json_str = unified.to_json(true).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+    let experimental = &parsed["pages"][0]["experimental"];
     let modules = &parsed["pages"][0]["detail"]["modules"];
 
-    assert!(
-        !modules["ai_visibility"].is_null(),
-        "ai_visibility missing from JSON"
-    );
-    assert!(
-        !modules["source_quality"].is_null(),
-        "source_quality missing from JSON"
-    );
-    assert!(
-        !modules["content_visibility"].is_null(),
-        "content_visibility missing from JSON"
-    );
-    assert_eq!(modules["source_quality"]["measurement_type"], "heuristic");
-    assert_eq!(modules["ai_visibility"]["measurement_type"], "heuristic");
+    for key in ["ai_visibility", "source_quality", "content_visibility"] {
+        assert!(!experimental[key].is_null(), "{key} missing from JSON");
+        assert!(modules.get(key).is_none(), "{key} still in detail.modules");
+    }
     assert_eq!(
-        modules["content_visibility"]["measurement_type"],
+        experimental["source_quality"]["measurement_type"],
+        "heuristic"
+    );
+    assert_eq!(
+        experimental["ai_visibility"]["measurement_type"],
+        "heuristic"
+    );
+    assert_eq!(
+        experimental["content_visibility"]["measurement_type"],
         "heuristic"
     );
 
     // #784: every heuristic module carries its signal contract and says it
     // is not externally validated.
     let mut heuristic = 0;
-    for (key, module) in modules.as_object().unwrap() {
+    for (key, module) in experimental.as_object().unwrap() {
         if module["measurement_type"] != "heuristic" {
             continue;
         }

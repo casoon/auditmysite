@@ -6,6 +6,8 @@ order: 3
 
 ## WCAG rules (Level A and AA)
 
+Every rule has its own page at `https://casoon.github.io/auditmysite/rules/<rule_id>/` (the `help_url` of its findings), with the success criterion, why it is flagged, what it checks, a failing and a passing example from the detection corpus and its outcome class: automatic (can report a confirmed violation), hint only (by design only review hints) or manual (a person decides). The security header checks, the structured-data features and the checked JavaScript libraries have pages too, under the ids their findings carry. The [rule overview](https://casoon.github.io/auditmysite/rules/) lists them all with the coverage counts. The pages are generated from the rule catalogue and the rule contracts; the list below is a summary.
+
 Core rules:
 - Non-text content (1.1.1)
 - Keyboard access (2.1.1)
@@ -39,7 +41,7 @@ ARIA and semantics:
 - Video checks — caption tracks for native `<video>` (a same-origin track file is probed before a pass is confirmed, 1.2.2), media alternatives with a nearby-transcript heuristic (1.2.8), and keyboard operability of native video controls (unnamed or unreachable players)
 - ARIA hygiene (best practice, low severity) — explicit roles that restate the element's implicit role, and links without a real target (`href="#"`, `javascript:`) used as button substitutes
 - Duplicated accessible names — names that repeat themselves back to back (e.g. "Contact Contact"), typically from an icon label concatenated with adjacent text
-- Frame and iframe rules — accessible names on all frames (`frame-title`), manual-review notices for cross-origin frames (`frame-tested`), and a full WCAG content scan inside same-origin iframes: image-alt (1.1.1), button-name (4.1.2), link-name (2.4.4), form labels (1.3.1), referenced duplicate IDs (4.1.2), document language attribute (3.1.1)
+- Frame and iframe rules — accessible names on all frames (`frame-title`), manual-review notices for cross-origin frames (`frames/cross-origin`), and a full WCAG content scan inside same-origin iframes: image-alt (1.1.1), button-name (4.1.2), link-name (2.4.4), form labels (1.3.1), referenced duplicate IDs (4.1.2), document language attribute (3.1.1)
 - SVG rules — SVG image accessible names
 - Server-side image maps — detection and flagging
 - Meta viewport — large maximum-scale restrictions
@@ -64,14 +66,37 @@ Measured:
 - HTML5 conformance: spec-conformance checking via the `html-conform` crate, part of `--full`; scored per distinct defect cause rather than per raw occurrence, so one templated markup mistake rendered many times doesn't get charged once per render
 - Privacy indicators (opt-in `--privacy-check`, not part of `--full`): one extra clean-context page load per audited page, classified into technical first-visit findings; score-neutral, no legal verdict, see [privacy findings](../privacy-findings.md)
 
-Heuristic (indicator scores — tendency, not measurements). In 2.0 none of these signals is validated against an independent, human-labelled reference set (`signal_contract.validation.status = "unvalidated"` in the JSON, procedure in `docs/calibration.md`); their scores order pages by the stated method and are not evidence of visibility, AI citation, user quality or source truth:
-- UX: 5-dimension analysis (CTA clarity, visual hierarchy, content clarity, trust signals, cognitive load) with saturation curve scoring
-- Journey: user-flow analysis (entry clarity, orientation, navigation, interaction, conversion) with page-intent-aware weighting
-- AI Visibility: structural signals for machine readability and indexing (readability, structured data, AI policy, chunk quality). Unvalidated: the score is not evidence of AI citation, visibility or content quality
-- Source Quality: code hygiene signals (inline styles, deprecated elements, semantic structure, asset hygiene)
+Detection only:
 - Easy language: recognizes an easy-language ("Leichte Sprache") or plain-language version of the page via class names, a `lang` variant, or a link-text marker, and reports it as a positive signal
 - Tech Stack: detects CMS and frameworks (WordPress, Drupal, Joomla, Next.js, Astro, React, Vue, etc.) via in-page signals only (read-only, score-neutral, no request of its own to the audited host); it reports what was detected and the exposed version, not hardening findings
-- Commerce: shop audit that only activates when a page is detected as a store (schema-gated). Checks product structured-data completeness, presence of mandatory and trust pages (imprint, returns, shipping, payment), coarse page-kind classification (product detail, category), and rolls findings up across a batch. Derive-only — no extra browser interaction. Product-detail pages also get two commerce-aware interactive journeys — see Accessibility Journey Layer below.
+
+The heuristic indicators (UX, Journey, AI Visibility, Content Visibility, Source Quality, Commerce) are not part of this list: they are experimental, see [Experimental indicators](#experimental-indicators).
+
+## Experimental indicators
+
+Six heuristics are off by default and are in no `--full` run: **UX**, **Journey**, **AI Visibility**, **Content Visibility**, **Source Quality** and **Commerce**. None of them is validated against an independent, human-labelled reference set (`signal_contract.validation.status` is `"unvalidated"`, the calibration set holds no cases yet, procedure in `docs/calibration.md`), and none feeds a score, a finding, the risk level or the verdict. Their scores order pages by the stated method; they are not evidence of visibility, AI citation, user experience or source truth.
+
+```bash
+auditmysite https://example.com --experimental ux,journey
+auditmysite https://example.com --experimental content-visibility -o report.json
+```
+
+`--experimental <name>[,<name>]` takes `ux`, `journey`, `ai-visibility`, `content-visibility`, `source-quality` and `commerce`:
+
+- **UX**: 5-dimension analysis (CTA clarity, visual hierarchy, content clarity, trust signals, cognitive load) with saturation curve scoring
+- **Journey**: user-flow analysis (entry clarity, orientation, navigation, interaction, conversion) with page-intent-aware weighting
+- **AI Visibility**: structural signals for machine readability and indexing (readability, structured data, AI policy, chunk quality); not evidence of AI citation, visibility or content quality
+- **Content Visibility**: search-facing signals in five areas (organic visibility, local business, E-E-A-T markup, content depth, topical authority). It is derived from Source Quality and AI Visibility, so those run with it. `--check-ssr-content` needs it
+- **Source Quality**: code hygiene signals (inline styles, deprecated elements, semantic structure, asset hygiene). It is derived from UX, so UX runs with it
+- **Commerce**: shop audit that only activates when a page is detected as a store (schema-gated). Checks product structured-data completeness, presence of mandatory and trust pages (imprint, returns, shipping, payment), coarse page-kind classification (product detail, category), and rolls findings up across a batch. It also carries the two commerce-aware interactive journeys (add-to-cart feedback and quantity stepper, see Accessibility Journey Layer), which additionally need `--interactive full` and `--allow-state-changes`
+
+Where the results appear:
+
+- **JSON**: one `experimental` block per page of a single report, keyed by indicator (`ux`, `journey`, `ai_visibility`, `content_visibility`, `source_quality`, `commerce`), each scored one with its `signal_contract` (`commerce` is a checklist without a score and has none; target statement, method, uncertainty, claims it does not establish, `validation`). A batch report carries only the commerce roll-up in `summary.experimental`. Without `--experimental` the block is absent.
+- **Terminal table**: a note lists each indicator that ran, with its score.
+- **PDF**: never. The scores, findings, risk and verdict of every report are computed without them.
+
+An indicator that was switched on because another one is derived from it appears in the block like the one you asked for.
 
 ## Display modes
 
@@ -115,7 +140,7 @@ Interactive checks run a real browser session after the static AXTree phase. The
 | `basic` | Tab-walk (focus order, reverse jumps), skip-link verification, disclosure/accordion, modal focus trap, tab-list, menu journey |
 | `full` (default) | Everything in `basic`, plus: SPA-navigation detection, form-error announcement (now covering multiple independent forms per page, e.g. search + login + newsletter, and flagging live regions inserted only after submit, which not every browser/screen-reader combination announces), link-text inventory (generic/duplicate texts, heading outline, landmark structure) |
 
-On a detected shop's product-detail page, `full` mode also runs two commerce-aware journeys: an **add-to-cart feedback check** (does adding an item announce the result via a live region or focus-managed dialog, or only update a visual cart badge — SC 4.1.3) and a **quantity-stepper operability check** (can the quantity field be operated by keyboard, and does its value stay exposed to assistive technology — SC 2.1.1/4.1.2). Both are click-only, single-interaction checks — never a real checkout submission, never a filled-in purchase form.
+With `--experimental commerce` and `--allow-state-changes`, `full` mode also runs two commerce-aware journeys on a detected shop's product-detail page: an **add-to-cart feedback check** (does adding an item announce the result via a live region or focus-managed dialog, or only update a visual cart badge — SC 4.1.3) and a **quantity-stepper operability check** (can the quantity field be operated by keyboard, and does its value stay exposed to assistive technology — SC 2.1.1/4.1.2). Both are click-only, single-interaction checks — never a real checkout submission, never a filled-in purchase form.
 
 Results appear in `interactive_findings` and `accessibility_journey` in the JSON output. The execution block records detected, attempted, completed, failed, skipped, and budget-limited journeys separately from findings. Compact focus evidence retains visibility, viewport, focus-indicator, bounding-box, obscuring, `aria-hidden`, and `inert` signals without embedding a full AXTree. Interactive findings do not affect the accessibility score or `legal_flags`; critical interactive findings can raise the risk level.
 
@@ -181,7 +206,7 @@ Export findings as a task-oriented JSON list for direct LLM processing:
 auditmysite https://example.com -f ai -o findings.json
 ```
 
-Each entry is a task object with `task_id`, `rule_id`, `impact`, `wcag`, `tags`, `title`, `issue`, `fix`, `selector`, `node_id`, and `help_url` — sorted by impact severity. Suitable for direct use as context in AI-assisted code remediation.
+Each entry is a task object with `task_id`, `rule_id`, `impact`, `wcag`, `tags`, `title`, `issue`, `fix`, `selector`, `node_id`, `help_url` (the rule's page on the project site) and, when the rule names one, `understanding_url` (the W3C Understanding page) — sorted by impact severity. Suitable for direct use as context in AI-assisted code remediation.
 
 ## Non-goals (deliberately deferred)
 

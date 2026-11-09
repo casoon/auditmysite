@@ -256,6 +256,24 @@ fn contract_problems(
     if c.ambient && c.automation != Automation::Manual {
         p.push(format!("{id}: only manual checks may be ambient"));
     }
+    if c.review_only {
+        if c.automation != Automation::Automated {
+            p.push(format!(
+                "{id}: `review_only` is for automated rules; a manual rule is manual"
+            ));
+        }
+        for (name, case) in cases {
+            if case
+                .expectations
+                .iter()
+                .any(|e| &e.rule_id == id && e.verdict == Verdict::Violation)
+            {
+                p.push(format!(
+                    "{id}: `review_only`, yet case '{name}' declares a violation"
+                ));
+            }
+        }
+    }
     for m in &s.mutations {
         if m.target.trim().is_empty() || m.change.trim().is_empty() || m.killed_by.trim().is_empty()
         {

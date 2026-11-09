@@ -516,8 +516,15 @@ mod tests {
                 status: crate::audit::ExecutionStatus::Failed,
                 ..Default::default()
             });
+        // AI Visibility is an experimental indicator (#916): ask for it.
+        let cfg = PipelineConfig::from(&Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--experimental",
+            "ai-visibility",
+        ]));
         AuditCatalog::standard()
-            .derive_all(&mut report, &cfg())
+            .derive_all(&mut report, &cfg)
             .unwrap();
         assert!(report.discoverability.ai_visibility.is_none());
         let run = report

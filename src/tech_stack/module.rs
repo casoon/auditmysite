@@ -61,6 +61,7 @@ mod tests {
             check_isolate_third_party_impact: false,
             check_ssr_content: false,
             check_stack,
+            experimental: Vec::new(),
             rule_filter: crate::wcag::RuleFilterConfig::default(),
             persist_artifacts: false,
             capture_screenshots: false,

@@ -31,6 +31,7 @@ function releaseAssets(version, platform, arch) {
     archive,
     binary,
     archiveUrl: `${base}/${archive}`,
+    sumsUrl: `${base}/SHA256SUMS`,
     checksumUrl: `${base}/${archive}.sha256`,
   };
 }

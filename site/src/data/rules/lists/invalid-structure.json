@@ -1,0 +1,42 @@
+{
+  "id": "lists/invalid-structure",
+  "url": "https://casoon.github.io/auditmysite/rules/lists/invalid-structure/",
+  "domain": "wcag",
+  "title": "List with invalid child elements",
+  "outcome": "automatic",
+  "area": "Accessibility, Structure & Semantics",
+  "criterion": "1.3.1",
+  "level": "A",
+  "axe_id": "lists/invalid-structure",
+  "severity": "medium",
+  "user_impact": "Screen reader users hear a wrong number of list items or lose content.",
+  "technical_impact": "Direct children of <ul>/<ol>/role=\"list\" are not <li>/role=\"listitem\".",
+  "checks": [
+    {
+      "contract_id": "lists/invalid-structure",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 1.3.1 Info and Relationships (F2, H48); HTML §4.4.5-4.4.10 list content models; WAI-ARIA 1.2 list/listitem/term/definition",
+      "applicability": "Every rendered, not aria-hidden list: <ul>/<ol> without a foreign role, or an element with role=\"list\".",
+      "expectation": "A list whose direct children (seen through <slot> into assigned content) include\nanything other than list items (<li> or role=\"listitem\" without another role),\n<script> or <template> fails: the list announces items, and the stray child is\nread outside the item structure (H48, HTML list content model). Fires once per\nlist, located at the list. A list with another explicit role (none,\npresentation, menu, listbox) is not a list. Lists not rendered or under\naria-hidden=\"true\" are not in the accessibility tree and are not judged.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "content_lists_broken",
+        "file": "tests/fixtures/detection_corpus/content_lists_broken.html",
+        "verdict": "violation",
+        "selector": "ul#genres",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Reading lists with broken structure</title>\n    <style>\n        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Reading lists</h1>\n        <h2>Genres</h2>\n        <ul id=\"genres\">\n            <li>Crime</li>\n            <div id=\"stray-genre\">Poetry</div>\n            <li>History</li>\n        </ul>\n        <h2>Steps to join</h2>\n        <ol id=\"join-steps\"></ol>\n        <h2>Branches</h2>\n        <div role=\"list\" id=\"branch-list\">\n            <div role=\"listitem\">North branch</div>\n            <span id=\"stray-branch\">South branch</span>\n        </div>\n        <div role=\"list\" id=\"empty-aria-list\"></div>\n        <h2>Glossary</h2>\n        <dl id=\"glossary\">\n            <dt id=\"term-alone\">Interlibrary loan</dt>\n        </dl>\n        <div role=\"term\" id=\"aria-term-alone\">Reservation</div>\n        <h2>Notices</h2>\n        <div class=\"notice\"><li id=\"orphan-item\">The north branch is closed on Monday.</li></div>\n        <div role=\"listitem\" id=\"orphan-aria-item\">Returns are free of charge.</div>\n        <h2>Archived lists</h2>\n        <ul id=\"hidden-broken\" hidden><p>Old genre list</p></ul>\n        <ol id=\"styled-away\" style=\"display: none\"></ol>\n        <ul id=\"aria-hidden-broken\" aria-hidden=\"true\"><p>Decorative bullet strip</p></ul>\n        <h2>Widget lists</h2>\n        <shelf-list></shelf-list>\n        <iframe id=\"frame-lists\" title=\"Branch news\" style=\"width:400px;height:120px;border:0\" srcdoc=\"<!DOCTYPE html><html lang=&quot;en&quot;><head><title>Branch news</title></head><body><ul id=&quot;frame-list&quot;><li>North</li><p id=&quot;frame-stray&quot;>South</p></ul></body></html>\"></iframe>\n        <div id=\"late-list\"></div>\n        <script>\n            customElements.define('shelf-list', class extends HTMLElement {\n                connectedCallback() {\n                    this.attachShadow({ mode: 'open' }).innerHTML =\n                        '<ul id=\"shadow-shelf\"><li>Atlas</li><p id=\"shadow-stray\">Maps</p></ul>';\n                }\n            });\n            document.getElementById('late-list').innerHTML =\n                '<ul id=\"late-empty\"></ul><ol id=\"late-mixed\"><li>Atlas</li><div>Maps</div></ol>';\n        </script>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "content_lists_responsive_role",
+        "file": "tests/fixtures/detection_corpus/content_lists_responsive_role.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Responsive list markers</title>\n    <style>\n        @media (max-width: 600px) { .cards { list-style: none; padding: 0; } }\n        @media (min-width: 601px) { .chips { list-style: none; padding: 0; } }\n    </style>\n    <style>\n        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Responsive list markers</h1>\n        <ul role=\"list\" class=\"cards\" id=\"cards\"><li>Events</li><li>Courses</li></ul>\n        <ol role=\"list\" class=\"chips\" id=\"chips\"><li>Open</li><li>Closed</li></ol>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

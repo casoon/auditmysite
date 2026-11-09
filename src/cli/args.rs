@@ -27,9 +27,9 @@ It uses Chrome's Accessibility Tree via CDP for accurate detection of:\n\
 - Heading hierarchy issues (2.4.6)\n\
 - Unlabeled form controls (4.1.2)\n\
 - Insufficient color contrast (1.4.3)\n\n\
-Supported output formats: json, table, pdf, ai.\n\
+Supported output formats: json, table, pdf, ai, summary, sarif.\n\
 Supported inputs: a single URL, --sitemap, or --url-file.\n\n\
-Default single-URL behavior: generate a PDF report in the current directory."
+Default behavior: print a terminal table and write nothing. Use -o <FILE> to write a report."
 )]
 pub struct Args {
     /// Subcommand
@@ -71,17 +71,18 @@ pub struct Args {
     #[arg(short = 'l', long, default_value = "aa", value_enum)]
     pub level: WcagLevel,
 
-    /// Output format: `json`, `table`, `pdf`, or `ai`.
+    /// Output format: `json`, `table`, `pdf`, `ai`, `summary` or `sarif`.
     ///
-    /// Default for a single URL without `-f`: `pdf`.
-    /// Default for batch inputs without `-f`: `table`.
+    /// Without `-f` the format follows the extension of `-o` (`.json`, `.pdf`,
+    /// `.sarif`); otherwise a table is printed and nothing is written.
     #[arg(short = 'f', long, value_enum, global = true)]
     pub format: Option<OutputFormat>,
 
     /// Output file path.
     ///
-    /// Single URL + default PDF mode writes to `./<domain>-<date>-<report-level>.pdf`.
-    /// JSON without `-o` prints to stdout.
+    /// Without `-o`, `table`, `json` and the other text formats print to stdout
+    /// and write no file. `-f pdf` without `-o` writes
+    /// `./<domain>-<date>-<report-level>.pdf`.
     /// With `--per-page-reports`, `-o` is treated as the target directory.
     #[arg(short = 'o', long, value_name = "FILE", global = true)]
     pub output: Option<PathBuf>,
@@ -159,39 +160,38 @@ pub struct Args {
     #[arg(long, default_value = "auto")]
     pub progress: ProgressPolicy,
 
-    /// Detect Chrome and print path (then exit)
-    #[arg(long)]
-    pub detect_chrome: bool,
-
-    /// Run all checks (Performance + SEO + Security + Mobile)
+    /// Run every module (the default); states it explicitly in scripts.
     ///
-    /// This is already the default for standard single-page audits.
-    #[arg(long, global = true)]
+    /// Excludes `--modules`.
+    #[arg(long, global = true, conflicts_with = "modules")]
     pub full: bool,
 
-    /// Enable performance analysis (Core Web Vitals)
-    #[arg(long)]
-    pub performance: bool,
+    /// Run only these modules next to the accessibility checks
+    /// (comma-separated): `performance`, `seo`, `security`, `mobile`,
+    /// `html-conform`, `stack`; `a11y` alone runs the WCAG rules only.
+    ///
+    /// Without `--modules` every module runs.
+    #[arg(
+        long,
+        value_enum,
+        value_delimiter = ',',
+        value_name = "LIST",
+        global = true
+    )]
+    pub modules: Vec<ModuleChoice>,
 
-    /// Skip performance analysis even when --full is used
-    #[arg(long)]
-    pub skip_performance: bool,
-
-    /// Enable SEO analysis (meta tags, headings, schema.org)
-    #[arg(long)]
-    pub seo: bool,
-
-    /// Enable security header analysis
-    #[arg(long)]
-    pub security: bool,
-
-    /// Enable mobile friendliness check
-    #[arg(long)]
-    pub mobile: bool,
-
-    /// Skip mobile analysis even when --full is used
-    #[arg(long)]
-    pub skip_mobile: bool,
+    /// Switch on experimental indicators (comma-separated): `ux`, `journey`,
+    /// `ai-visibility`, `content-visibility`, `source-quality`, `commerce`.
+    ///
+    /// Heuristics whose signal contract is unvalidated (no calibration set
+    /// yet) and that feed no score. Off by default and in no `--full` run.
+    /// Results appear in the JSON under `experimental` and in the table, never
+    /// in the PDF. `content-visibility` also runs `source-quality` and
+    /// `ai-visibility` (and `source-quality` runs `ux`), because it is
+    /// derived from them; `commerce` carries the add-to-cart and
+    /// quantity-stepper journeys (they also need `--allow-state-changes`).
+    #[arg(long, value_enum, value_delimiter = ',', value_name = "LIST")]
+    pub experimental: Vec<crate::audit::ExperimentalIndicator>,
 
     /// Report what a first visit sets and contacts before any consent
     /// (requests, cookies, storage, classified by provider; opt-in,
@@ -209,8 +209,8 @@ pub struct Args {
     /// the page once with that origin's requests blocked and diffs the
     /// resulting Total Blocking Time against the normal audit pass. Opt-in
     /// and costly (up to 5 extra full page reloads per audited page) —
-    /// requires performance checking (`--full` or `--performance`) to also
-    /// be active; runs in single-URL and batch mode alike.
+    /// requires performance checking (the default module set or
+    /// `--modules performance`) to also be active; runs in single-URL and batch mode alike.
     #[arg(long)]
     pub isolate_third_party_impact: bool,
 
@@ -218,7 +218,7 @@ pub struct Args {
     /// and report the median run with min/median/max per metric. A single
     /// lab run varies from load to load; repeated runs show how much. Each
     /// extra run is one more page load per throttle profile, so it needs
-    /// performance checking (`--full` or `--performance`).
+    /// performance checking (the default module set or `--modules performance`).
     #[arg(long, default_value_t = 1)]
     pub perf_runs: u32,
 
@@ -232,7 +232,7 @@ pub struct Args {
     /// search crawlers and assistive tools that do not execute JavaScript
     /// would see substantially less content. Opt-in and costly (one extra
     /// full page reload per audited page) — requires SEO checking
-    /// (`--full` or `--seo`) to also be active; runs in single-URL
+    /// (the default module set or `--modules seo`) to also be active; runs in single-URL
     /// and batch mode alike.
     #[arg(long)]
     pub check_ssr_content: bool,
@@ -291,7 +291,8 @@ pub struct Args {
     pub state_id: Option<String>,
 
     /// Allow journeys that can change page or account state: clicking a
-    /// form's submit button, an add-to-cart trigger, a quantity stepper.
+    /// form's submit button, an add-to-cart trigger, a quantity stepper (the
+    /// last two belong to `--experimental commerce`).
     ///
     /// Off by default, so an audit only observes. Needs `--interactive full`;
     /// the permitted journeys are listed in the report's measurement profile
@@ -325,26 +326,16 @@ pub struct Args {
     /// (file name suffix `-calm`, `-text`, `-visual`), never a blended score.
     /// `visual` only runs for pages with `figure[data-viz="3d|interactive"]`,
     /// with twice the page timeout. Needs `--output` unless the format is PDF;
-    /// with per-page reports or `--technician` an output directory, which
+    /// with per-page reports an output directory, which
     /// becomes `<DIR>-calm`, `<DIR>-text`, `<DIR>-visual`.
     #[arg(long, value_enum, value_name = "MODE")]
     pub display: Option<DisplaySelection>,
 
-    /// Enable tech stack detection from in-page signals (CMS, frameworks; no extra requests)
-    #[arg(long)]
-    pub stack: bool,
-
-    /// Reuse cached artifacts from previous runs when available
+    /// Answer a single-URL run from the stored snapshot of an earlier run with
+    /// the same configuration, when there is one. Without it every run
+    /// measures afresh.
     #[arg(long)]
     pub reuse_cache: bool,
-
-    /// Ignore cache and force a fresh crawl
-    #[arg(long)]
-    pub force_refresh: bool,
-
-    /// Do not suggest scanning a discovered sitemap for base URLs
-    #[arg(long)]
-    pub no_sitemap_suggest: bool,
 
     /// If a populated sitemap is discovered for a base URL, scan it directly
     #[arg(long)]
@@ -385,38 +376,20 @@ pub struct Args {
     #[arg(long, value_enum, default_value = "first-n", value_name = "STRATEGY")]
     pub sample_strategy: SampleStrategy,
 
-    /// Do not write the per-page screen-reader sidecar JSON
-    /// (`*-screen-reader-audit.json`).
+    /// Also write the screen-reader sidecar JSON
+    /// (`<output>-screen-reader-audit.json`).
     ///
-    /// The screen-reader summary inside the main report stays.
+    /// Off by default; the screen-reader summary inside the main report is
+    /// always there.
     #[arg(long)]
-    pub no_screen_reader_report: bool,
-
-    /// Enable the HTML-conformance module without --full.
-    #[arg(long)]
-    pub html_conform: bool,
-
-    /// Technician mode: per-page JSON for fixing, not a report to read.
-    ///
-    /// Batch inputs only. Shorthand for `--per-page-reports -f json
-    /// --no-screen-reader-report --seo --html-conform`: one JSON file per
-    /// page plus `index.json` (every attempted URL with status and counts)
-    /// and `findings.jsonl` (one line per finding occurrence) in the -o
-    /// directory. Runs only modules that produce fixable findings —
-    /// accessibility (incl. keyboard journeys), HTML conformance and SEO —
-    /// and no throttled performance passes; every file states that partial
-    /// scope in `execution.scope`/`module_runs`. Flags given explicitly win:
-    /// `-f` replaces the format, `--full`, `--performance`, `--mobile`,
-    /// `--security` or `--interactive` add or change modules as usual.
-    #[arg(long)]
-    pub technician: bool,
+    pub screen_reader_report: bool,
 
     /// PDF detail level: `executive`, `standard`, or `technical`.
     #[arg(long, default_value = "standard", value_enum, global = true)]
     pub report_level: ReportLevel,
 
-    /// Report language (PDF text i18n)
-    #[arg(long, default_value = "de", value_parser = ["de", "en"], global = true)]
+    /// Report language (PDF and table text)
+    #[arg(long, default_value = "en", value_parser = ["de", "en"], global = true)]
     pub lang: String,
 
     /// Also write a JSON report alongside the primary output format.
@@ -430,20 +403,11 @@ pub struct Args {
     #[arg(long, value_name = "PATH")]
     pub logo: Option<PathBuf>,
 
-    /// Hidden: with `--format pdf`, also write the intermediate Typst source as a
-    /// `.typ` sidecar next to the PDF (single + batch). For template/wording review.
-    #[arg(long, hide = true, global = true)]
-    pub debug_typ: bool,
-
-    /// Export AXTree snapshots and journey traces as YAML for developer debugging.
-    ///
-    /// The YAML file contains the page URL, document title, and all journey traces
-    /// (action sequences with focus snapshots). Compatible with Playwright's ARIA
-    /// snapshot format for CI regression testing.
-    ///
-    /// Example: --export-snapshot reports/casoon-snapshot.yaml
-    #[arg(long, value_name = "PATH")]
-    pub export_snapshot: Option<PathBuf>,
+    /// Maintainer options of the `auditmysite-dev` binary (`--debug-typ`,
+    /// `--export-snapshot`, #912). Not a flag of this CLI: always the default
+    /// here, filled by the dev binary after parsing.
+    #[arg(skip)]
+    pub dev: DevOptions,
 
     /// Include an additional regulatory/editorial appendix section in the PDF report.
     ///
@@ -463,8 +427,8 @@ pub struct Args {
 
     /// How the browser should identify itself when making requests.
     ///
-    /// In interactive mode this is prompted automatically.
-    /// Use `--request-mode bot` to skip the prompt and identify as an audit bot.
+    /// `browser` (default) simulates a real browser; `bot` identifies as an
+    /// audit bot (transparent, RFC 9309).
     #[arg(long, default_value = "browser", value_enum)]
     pub request_mode: RequestMode,
 
@@ -511,69 +475,17 @@ pub enum Command {
     },
     /// Run diagnostics and check system health
     Doctor,
-    /// Show what an audit would do (mode, scope, modules, output paths) without
-    /// running it.
-    Plan {
-        /// URL to plan an audit for (required unless --sitemap or --url-file is set)
-        url: Option<String>,
-    },
-    /// Evaluate a stored snapshot again — no browser, no network access.
-    ///
-    /// The target is a `snapshot.json`, a cache entry directory, or the URL
-    /// whose cached entry to replay. The report states `replay` as its
-    /// provenance. A snapshot that is incomplete or was written under other
-    /// versions is refused with its reason, never evaluated under today's
-    /// semantics. `--session`, `--state-id` and `--storage-state` assert the
-    /// measurement profile the snapshot must carry; another profile is
-    /// refused, not shown as the same measurement.
-    Replay {
-        /// Snapshot file, cache entry directory, or URL of a cached entry
-        target: String,
-    },
-    /// Compare the own `accname` computation against Chrome's native
-    /// accessibility tree — a differential test without a screen reader.
-    AccnameDiff {
-        /// URL(s) to load and compare; more than one URL (together with
-        /// --url-file) produces a corpus aggregate instead of a single result
-        #[arg(value_name = "URL", required_unless_present = "url_file")]
-        urls: Vec<String>,
-        /// Read further URLs from a file (one per line, `#` comments allowed)
-        #[arg(long)]
-        url_file: Option<PathBuf>,
-        /// Write the full JSON result here (terminal summary is always printed)
-        #[arg(long)]
-        output: Option<PathBuf>,
-        /// Maximum stored divergence samples per kind; counts stay complete
-        #[arg(long, default_value_t = auditmysite_default_max_samples())]
-        max_samples: usize,
-    },
-    /// Run deterministic report-lint checks (#507) against a JSON report file.
-    ReportLint {
-        /// Path to a JSON report file (single or batch envelope)
-        input: PathBuf,
-        /// Minimum finding severity that causes a non-zero exit code (default: high)
-        #[arg(long, value_enum)]
-        fail_on: Option<ReportLintFailOn>,
-        /// Path to the `--debug-typ` Typst source for the same report — when
-        /// given, additionally checks the accessibility score is traceable to it
-        #[arg(long)]
-        typst_source: Option<PathBuf>,
-    },
 }
 
-/// `--fail-on` threshold for the `report-lint` subcommand.
-///
-/// A separate CLI-facing enum (rather than deriving `clap::ValueEnum` on
-/// `taxonomy::Severity` directly) so the domain type stays free of CLI
-/// concerns, matching how `WcagLevel` is kept distinct from any internal
-/// WCAG-level representation.
-#[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
-#[value(rename_all = "lowercase")]
-pub enum ReportLintFailOn {
-    Low,
-    Medium,
-    High,
-    Critical,
+/// Maintainer options that only the `auditmysite-dev` binary can set (#912).
+#[derive(Debug, Clone, Default)]
+pub struct DevOptions {
+    /// With `--format pdf`, also write the intermediate Typst source as a
+    /// `.typ` sidecar next to the PDF (single + batch), for wording review.
+    pub debug_typ: bool,
+    /// Export AXTree snapshots and journey traces as YAML (Playwright's ARIA
+    /// snapshot format) in addition to a JSON report.
+    pub export_snapshot: Option<PathBuf>,
 }
 
 /// Browser management actions
@@ -674,6 +586,32 @@ impl DisplaySelection {
             DisplaySelection::All => None,
         }
     }
+}
+
+/// A module `--modules` can select next to the accessibility checks (#913).
+#[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModuleChoice {
+    /// The accessibility checks alone; they run in every selection.
+    #[value(name = "a11y")]
+    A11y,
+    /// Core Web Vitals and the throttled performance passes.
+    #[value(name = "performance", alias = "perf")]
+    Performance,
+    /// Meta tags, headings, structured data.
+    #[value(name = "seo")]
+    Seo,
+    /// Security headers.
+    #[value(name = "security")]
+    Security,
+    /// Mobile friendliness.
+    #[value(name = "mobile")]
+    Mobile,
+    /// HTML5 spec-conformance.
+    #[value(name = "html-conform")]
+    HtmlConform,
+    /// Tech stack detection from in-page signals.
+    #[value(name = "stack")]
+    Stack,
 }
 
 /// Optional regulatory/editorial PDF appendix sections (opt-in, see `--annex`).
@@ -834,40 +772,36 @@ impl Args {
     }
 
     pub fn effective_format(&self) -> OutputFormat {
-        match self.format {
+        if let Some(format) = self.format {
+            return format;
+        }
+        let from_extension = self
+            .output
+            .as_deref()
+            .and_then(|path| path.extension())
+            .and_then(|ext| ext.to_str())
+            .and_then(|ext| match ext.to_ascii_lowercase().as_str() {
+                "json" => Some(OutputFormat::Json),
+                "pdf" => Some(OutputFormat::Pdf),
+                "sarif" => Some(OutputFormat::Sarif),
+                _ => None,
+            });
+        match from_extension {
             Some(format) => format,
             None if self.per_page_reports => OutputFormat::Pdf,
-            None if self.url.is_some() => OutputFormat::Pdf,
             None => OutputFormat::Table,
         }
     }
 
-    /// Expand `--technician` into the flags it stands for.
-    ///
-    /// Only fills in what the user left open: an explicit `-f` stays, and
-    /// module flags are additive, so `--full`, `--performance`, `--mobile` or
-    /// `--security` given alongside still take effect.
-    pub fn apply_technician_preset(&mut self) {
-        if !self.technician {
-            return;
-        }
-        self.per_page_reports = true;
-        if self.format.is_none() {
-            self.format = Some(OutputFormat::Json);
-        }
-        self.no_screen_reader_report = true;
-        self.seo = true;
-        self.html_conform = true;
+    /// Whether `module` runs: every module by default, only the listed ones
+    /// with `--modules`.
+    pub fn module_enabled(&self, module: ModuleChoice) -> bool {
+        self.modules.is_empty() || self.modules.contains(&module)
     }
 
+    /// Whether no module selection narrows the default analysis set.
     pub fn full_audit_enabled(&self) -> bool {
-        self.full
-            || (!self.performance
-                && !self.seo
-                && !self.security
-                && !self.mobile
-                && !self.skip_performance
-                && !self.skip_mobile)
+        self.modules.is_empty()
     }
 
     /// Validate arguments
@@ -880,37 +814,14 @@ impl Args {
     }
 
     pub fn validate(&self) -> Result<(), String> {
-        // A replay evaluates a stored snapshot: a flag asking for a live
-        // check is refused, and a declared state must be readable (#788).
-        if matches!(self.command, Some(Command::Replay { .. })) {
-            self.load_storage_state()?;
-            if self.perf_runs > 1 {
-                return Err(
-                    "--perf-runs measures a live page; `replay` evaluates a stored snapshot"
-                        .to_string(),
-                );
-            }
-            return crate::audit::support_matrix::ExtraCheckRequest {
-                isolate_third_party_impact: self.isolate_third_party_impact,
-                check_ssr_content: self.check_ssr_content,
-                privacy_check: self.privacy_check,
-                replay: true,
-                ..Default::default()
-            }
-            .validate();
-        }
         // Subcommands don't need URL validation
         if self.command.is_some() {
             return Ok(());
         }
         self.load_storage_state()?;
 
-        // At least one input source required (unless --detect-chrome)
-        if !self.detect_chrome
-            && self.url.is_none()
-            && self.sitemap.is_none()
-            && self.url_file.is_none()
-        {
+        // At least one input source required
+        if self.url.is_none() && self.sitemap.is_none() && self.url_file.is_none() {
             return Err("No input specified. Provide a URL, --sitemap, or --url-file.".to_string());
         }
 
@@ -977,32 +888,30 @@ impl Args {
                         .to_string(),
                 );
             }
-            if !((self.full_audit_enabled() || self.performance) && !self.skip_performance) {
+            if !self.module_enabled(ModuleChoice::Performance) {
                 return Err(
-                    "--perf-runs needs performance checking (use --full or --performance, without --skip-performance)"
+                    "--perf-runs needs performance checking (do not narrow --modules to exclude performance)"
                         .to_string(),
                 );
             }
         }
         // Opt-in extra checks: run in the requested mode or are refused here,
         // never silently reduced to "off" later (#788).
-        let full = self.full_audit_enabled();
         crate::audit::support_matrix::ExtraCheckRequest {
             isolate_third_party_impact: self.isolate_third_party_impact,
             check_ssr_content: self.check_ssr_content,
             privacy_check: self.privacy_check,
-            performance_active: (full || self.performance) && !self.skip_performance,
-            seo_active: full || self.seo,
+            performance_active: self.module_enabled(ModuleChoice::Performance),
+            seo_active: self.module_enabled(ModuleChoice::Seo),
+            content_visibility_active: crate::audit::ExperimentalIndicator::closure(
+                &self.experimental,
+            )
+            .contains(&crate::audit::ExperimentalIndicator::ContentVisibility),
             batch: is_batch,
-            reuse_cache: self.reuse_cache && !self.force_refresh,
+            reuse_cache: self.reuse_cache,
             replay: false,
         }
         .validate()?;
-        if self.technician && !is_batch {
-            return Err(
-                "--technician needs a batch input: --sitemap, --url-file or --crawl".to_string(),
-            );
-        }
         if !is_batch && !(self.include_path.is_empty() && self.exclude_path.is_empty()) {
             return Err(
                 "--include-path/--exclude-path need a batch input: --sitemap, --url-file or --crawl"
@@ -1041,16 +950,6 @@ impl Args {
             return Err("Cannot use --verbose and --quiet together".to_string());
         }
 
-        if self.reuse_cache && self.force_refresh {
-            return Err("Cannot use --reuse-cache and --force-refresh together".to_string());
-        }
-
-        if self.no_sitemap_suggest && self.prefer_sitemap {
-            return Err(
-                "Cannot use --no-sitemap-suggest and --prefer-sitemap together".to_string(),
-            );
-        }
-
         // One report per mode: a single stdout stream cannot carry several
         // JSON/SARIF documents. PDF derives a file name, table prints each.
         if self.display == Some(DisplaySelection::All)
@@ -1065,28 +964,20 @@ impl Args {
             );
         }
 
-        // Per-page reports (and --technician) write into a directory; each
+        // Per-page reports write into a directory; each
         // mode needs its own, or the modes overwrite each other's page files
         // and index.json/findings.jsonl. `-o DIR` becomes `DIR-calm`, ...
         if self.display == Some(DisplaySelection::All)
             && self.per_page_reports
             && self.output.as_ref().is_none_or(|p| p.extension().is_some())
         {
-            return Err(
-                "--display all with per-page reports (or --technician) needs \
+            return Err("--display all with per-page reports needs \
                  --output <DIR> without a file extension; each mode writes to <DIR>-<mode>"
-                    .to_string(),
-            );
+                .to_string());
         }
 
         Ok(())
     }
-}
-
-/// Default for `--max-samples`, kept in sync with the module's own constant
-/// so the CLI help and the library never drift apart.
-fn auditmysite_default_max_samples() -> usize {
-    crate::accessibility::DEFAULT_MAX_SAMPLES
 }
 
 #[cfg(test)]
@@ -1139,11 +1030,9 @@ mod tests {
         assert!(help.contains("json"));
         assert!(help.contains("table"));
         assert!(help.contains("pdf"));
-        assert!(help.contains(
-            "Default single-URL behavior: generate a PDF report in the current directory."
-        ));
-        // `--html-conform` is a module flag, not the removed html format.
-        assert!(!help.replace("--html-conform", "").contains("html"));
+        assert!(help.contains("Default behavior: print a terminal table and write nothing."));
+        // `html-conform` is a module name, not the removed html format.
+        assert!(!help.replace("html-conform", "").contains("html"));
         assert!(!help.contains("markdown"));
         assert!(!help.contains("--urls"));
     }
@@ -1172,30 +1061,20 @@ mod tests {
             quiet: false,
             color: ColorPolicy::Auto,
             progress: ProgressPolicy::Auto,
-            detect_chrome: false,
             full: false,
-            performance: false,
-            skip_performance: false,
-            seo: false,
-            security: false,
-            mobile: false,
-            skip_mobile: false,
+            modules: Vec::new(),
+            experimental: Vec::new(),
             privacy_check: false,
             isolate_third_party_impact: false,
             perf_runs: 1,
             check_ssr_content: false,
-            stack: false,
             reuse_cache: false,
-            force_refresh: false,
-            no_sitemap_suggest: false,
             prefer_sitemap: false,
             per_page_reports: false,
             include_path: Vec::new(),
             exclude_path: Vec::new(),
             sample_strategy: SampleStrategy::FirstN,
-            no_screen_reader_report: false,
-            html_conform: false,
-            technician: false,
+            screen_reader_report: false,
             dismiss_consent: false,
             exclude_selector: Vec::new(),
             interactive: InteractiveMode::Off,
@@ -1205,11 +1084,10 @@ mod tests {
             state_id: None,
             display: None,
             report_level: ReportLevel::Standard,
-            lang: "de".to_string(),
+            lang: "en".to_string(),
             also_json: false,
             logo: None,
-            debug_typ: false,
-            export_snapshot: None,
+            dev: DevOptions::default(),
             annex: None,
             request_mode: RequestMode::Browser,
             report_mode: false,
@@ -1241,22 +1119,6 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_reuse_and_force_refresh_conflict() {
-        let mut args = test_args(Some("https://example.com"));
-        args.reuse_cache = true;
-        args.force_refresh = true;
-        assert!(args.validate().is_err());
-    }
-
-    #[test]
-    fn test_validate_sitemap_suggest_flags_conflict() {
-        let mut args = test_args(Some("https://example.com"));
-        args.no_sitemap_suggest = true;
-        args.prefer_sitemap = true;
-        assert!(args.validate().is_err());
-    }
-
-    #[test]
     fn test_validate_crawl_requires_url() {
         let mut args = test_args(None);
         args.crawl = true;
@@ -1272,9 +1134,9 @@ mod tests {
     }
 
     #[test]
-    fn test_effective_format_defaults_to_pdf_for_single_url() {
+    fn test_effective_format_defaults_to_table_for_single_url() {
         let args = test_args(Some("https://example.com"));
-        assert_eq!(args.effective_format(), OutputFormat::Pdf);
+        assert_eq!(args.effective_format(), OutputFormat::Table);
     }
 
     #[test]
@@ -1282,6 +1144,43 @@ mod tests {
         let mut args = test_args(None);
         args.sitemap = Some("https://example.com/sitemap.xml".to_string());
         assert_eq!(args.effective_format(), OutputFormat::Table);
+    }
+
+    #[test]
+    fn test_effective_format_follows_the_output_extension() {
+        let mut args = test_args(Some("https://example.com"));
+        for (path, expected) in [
+            ("report.json", OutputFormat::Json),
+            ("report.JSON", OutputFormat::Json),
+            ("report.pdf", OutputFormat::Pdf),
+            ("report.sarif", OutputFormat::Sarif),
+            ("report.txt", OutputFormat::Table),
+            ("report", OutputFormat::Table),
+        ] {
+            args.output = Some(PathBuf::from(path));
+            assert_eq!(args.effective_format(), expected, "{path}");
+        }
+        args.output = Some(PathBuf::from("report.json"));
+        args.format = Some(OutputFormat::Pdf);
+        assert_eq!(args.effective_format(), OutputFormat::Pdf, "-f wins");
+    }
+
+    #[test]
+    fn test_default_run_is_english_and_writes_nothing() {
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+        assert_eq!(args.lang, "en");
+        assert_eq!(args.effective_format(), OutputFormat::Table);
+        assert!(args.output.is_none());
+        assert!(!args.screen_reader_report);
+        assert!(
+            Args::try_parse_from(["auditmysite", "https://example.com", "--lang", "de"]).is_ok()
+        );
+        assert!(Args::try_parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--no-screen-reader-report"
+        ])
+        .is_err());
     }
 
     #[test]
@@ -1299,64 +1198,82 @@ mod tests {
     }
 
     #[test]
-    fn test_full_audit_disabled_when_only_skip_flags_are_used() {
-        let mut args = test_args(Some("https://example.com"));
-        args.skip_mobile = true;
+    fn test_modules_narrow_the_default_set() {
+        let args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--modules",
+            "seo,perf",
+        ]);
         assert!(!args.full_audit_enabled());
+        assert!(args.module_enabled(ModuleChoice::Seo));
+        assert!(args.module_enabled(ModuleChoice::Performance));
+        assert!(!args.module_enabled(ModuleChoice::Mobile));
+        assert!(!args.module_enabled(ModuleChoice::Security));
+
+        let args = Args::parse_from(["auditmysite", "https://example.com", "--modules", "a11y"]);
+        assert!(!args.module_enabled(ModuleChoice::Performance));
+        assert!(!args.module_enabled(ModuleChoice::HtmlConform));
+        assert!(!args.module_enabled(ModuleChoice::Stack));
     }
 
-    fn technician_args(extra: &[&str]) -> Args {
+    #[test]
+    fn test_modules_and_full_exclude_each_other() {
+        assert!(Args::try_parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--full",
+            "--modules",
+            "seo"
+        ])
+        .is_err());
+        assert!(
+            Args::try_parse_from(["auditmysite", "https://example.com", "--modules", "pdf"])
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn test_removed_flags_are_unknown() {
+        for flag in [
+            "--performance",
+            "--skip-performance",
+            "--seo",
+            "--security",
+            "--mobile",
+            "--skip-mobile",
+            "--html-conform",
+            "--stack",
+            "--force-refresh",
+            "--no-sitemap-suggest",
+            "--detect-chrome",
+            "--technician",
+        ] {
+            assert!(
+                Args::try_parse_from(["auditmysite", "https://example.com", flag]).is_err(),
+                "{flag} is still accepted"
+            );
+        }
+    }
+
+    fn per_page_json_args(extra: &[&str]) -> Args {
         let mut argv = vec![
             "auditmysite",
             "--sitemap",
             "https://example.com/sitemap.xml",
-            "--technician",
+            "--per-page-reports",
+            "-f",
+            "json",
+            "--modules",
+            "seo,html-conform",
         ];
         argv.extend_from_slice(extra);
-        let mut args = Args::parse_from(argv);
-        args.apply_technician_preset();
-        args
-    }
-
-    #[test]
-    fn technician_preset_expands_to_per_page_json_without_sidecar() {
-        let args = technician_args(&[]);
-        assert!(args.per_page_reports);
-        assert_eq!(args.effective_format(), OutputFormat::Json);
-        assert!(args.no_screen_reader_report);
-        assert!(args.seo);
-        assert!(args.html_conform);
-        assert!(!args.full_audit_enabled(), "a module selection, not --full");
-        assert!(!args.performance && !args.mobile && !args.security);
-        assert!(args.validate().is_ok());
-    }
-
-    #[test]
-    fn technician_preset_keeps_an_explicit_format() {
-        let args = technician_args(&["-f", "sarif"]);
-        assert_eq!(args.effective_format(), OutputFormat::Sarif);
-        assert!(args.per_page_reports);
-    }
-
-    #[test]
-    fn technician_preset_leaves_explicit_module_flags_in_place() {
-        let args = technician_args(&["--performance", "--full"]);
-        assert!(args.performance);
-        assert!(args.full_audit_enabled());
-    }
-
-    #[test]
-    fn without_technician_the_preset_changes_nothing() {
-        let mut args = Args::parse_from(["auditmysite", "--sitemap", "https://example.com/s.xml"]);
-        args.apply_technician_preset();
-        assert!(!args.per_page_reports && !args.seo && !args.html_conform);
-        assert!(!args.no_screen_reader_report);
-        assert!(args.format.is_none());
+        Args::parse_from(argv)
     }
 
     #[test]
     fn display_all_with_per_page_reports_needs_an_output_directory() {
-        let mut args = technician_args(&["--display", "all"]);
+        let mut args = per_page_json_args(&["--display", "all"]);
         args.output = None;
         assert!(args.validate().unwrap_err().contains("--display all"));
         args.output = Some(PathBuf::from("reports/geo.json"));
@@ -1380,11 +1297,7 @@ mod tests {
     }
 
     #[test]
-    fn technician_and_path_filters_need_a_batch_input() {
-        let mut args = test_args(Some("https://example.com"));
-        args.technician = true;
-        assert!(args.validate().unwrap_err().contains("--technician"));
-
+    fn path_filters_need_a_batch_input() {
         let mut args = test_args(Some("https://example.com"));
         args.include_path = vec!["/blog/**".to_string()];
         assert!(args.validate().unwrap_err().contains("--include-path"));
@@ -1438,13 +1351,21 @@ mod tests {
             1
         );
         assert!(check(&["https://example.com", "--full", "--perf-runs", "3"]).is_ok());
-        assert!(check(&["https://example.com", "--performance", "--perf-runs", "9"]).is_ok());
+        assert!(check(&[
+            "https://example.com",
+            "--modules",
+            "performance",
+            "--perf-runs",
+            "9"
+        ])
+        .is_ok());
         let e = check(&["https://example.com", "--full", "--perf-runs", "10"]).unwrap_err();
         assert!(e.contains("between 1 and 9"), "{e}");
         assert!(check(&["https://example.com", "--full", "--perf-runs", "0"]).is_err());
         let e = check(&[
             "https://example.com",
-            "--skip-performance",
+            "--modules",
+            "seo",
             "--perf-runs",
             "3",
         ])
@@ -1452,54 +1373,43 @@ mod tests {
         assert!(e.contains("performance"), "{e}");
         let e = check(&["--url-file", "Cargo.toml", "--full", "--perf-runs", "3"]).unwrap_err();
         assert!(e.contains("single URL"), "{e}");
-        let e = check(&["--perf-runs", "3", "replay", "https://example.com"]).unwrap_err();
-        assert!(e.contains("replay"), "{e}");
     }
 
     #[test]
-    fn replay_takes_a_target_and_refuses_live_check_flags() {
-        let args = Args::try_parse_from(["auditmysite", "replay", "https://example.com"]).unwrap();
-        assert!(
-            matches!(args.command, Some(Command::Replay { ref target }) if target == "https://example.com")
-        );
-        assert!(args.validate().is_ok());
-
-        let args = Args::try_parse_from([
+    fn experimental_takes_a_comma_separated_list_of_known_names() {
+        use crate::audit::ExperimentalIndicator as I;
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+        assert!(args.experimental.is_empty(), "off by default");
+        let args = Args::parse_from([
             "auditmysite",
-            "--privacy-check",
-            "replay",
             "https://example.com",
-        ])
-        .unwrap();
-        let e = args.validate().unwrap_err();
-        assert!(e.contains("--privacy-check") && e.contains("replay"), "{e}");
-        assert!(Args::try_parse_from(["auditmysite", "replay"]).is_err());
+            "--full",
+            "--experimental",
+            "ux,ai-visibility,commerce",
+        ]);
+        assert_eq!(args.experimental, vec![I::Ux, I::AiVisibility, I::Commerce]);
+        assert!(args.validate().is_ok());
+        for old_name in ["ai_visibility", "all", "design-quality"] {
+            assert!(
+                Args::try_parse_from(["auditmysite", "https://e.com", "--experimental", old_name])
+                    .is_err(),
+                "{old_name}"
+            );
+        }
     }
 
     #[test]
-    fn accname_diff_nimmt_mehrere_urls_oder_url_datei() {
-        let args = Args::try_parse_from([
-            "auditmysite",
-            "accname-diff",
-            "https://a.example",
-            "https://b.example",
-        ])
-        .unwrap();
-        match args.command {
-            Some(Command::AccnameDiff { urls, url_file, .. }) => {
-                assert_eq!(urls.len(), 2);
-                assert!(url_file.is_none());
-            }
-            _ => panic!("accname-diff erwartet"),
-        }
+    fn ssr_content_check_needs_the_content_visibility_indicator() {
+        let mut argv = vec!["auditmysite", "https://example.com", "--check-ssr-content"];
+        let e = Args::parse_from(&argv).validate().unwrap_err();
+        assert!(e.contains("--experimental content-visibility"), "{e}");
 
-        let args = Args::try_parse_from(["auditmysite", "accname-diff", "--url-file", "urls.txt"])
-            .unwrap();
-        assert!(matches!(
-            args.command,
-            Some(Command::AccnameDiff { ref urls, url_file: Some(_), .. }) if urls.is_empty()
-        ));
+        argv.extend(["--experimental", "content-visibility"]);
+        assert!(Args::parse_from(&argv).validate().is_ok());
 
-        assert!(Args::try_parse_from(["auditmysite", "accname-diff"]).is_err());
+        // The module selection still decides whether SEO runs.
+        argv.extend(["--modules", "performance"]);
+        let e = Args::parse_from(&argv).validate().unwrap_err();
+        assert!(e.contains("SEO"), "{e}");
     }
 }

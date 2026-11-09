@@ -1,0 +1,44 @@
+{
+  "id": "contrast/control-undetermined",
+  "url": "https://casoon.github.io/auditmysite/rules/contrast/control-undetermined/",
+  "domain": "wcag",
+  "title": "Insufficient contrast for UI elements",
+  "outcome": "hint-only",
+  "area": "Accessibility, Visual Presentation",
+  "criterion": "1.4.11",
+  "level": "AA",
+  "axe_id": "non-text-contrast",
+  "severity": "medium",
+  "user_impact": "Interactive elements are hard to recognize.",
+  "technical_impact": "Contrast ratio of UI elements below 3:1.",
+  "checks": [
+    {
+      "contract_id": "contrast/control-undetermined",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 1.4.11 Non-text Contrast; a11y-rules rule 3 (not determinable is not a pass)",
+      "applicability": "Author-drawn controls (appearance: none) whose background behind the control cannot be resolved (gradient or image).",
+      "expectation": "Reports a review (UNTESTED) for an author-drawn control whose parent\nbackground is a gradient or image, instead of comparing against white. A\ncontrol on a solid background is measured (pass or\ncontrast/control-insufficient), never reported here.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style",
+        "geometry"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "visual_control_contrast",
+        "file": "tests/fixtures/detection_corpus/visual_control_contrast.html",
+        "verdict": "needs_review",
+        "selector": "input#cb-gradient",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Custom checkbox and switch boundaries</title>\n<style>\n  body { background: #ffffff; color: #111111; }\n  .custom { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; margin: 0 8px 0 0;\n            background: #ffffff; border: 2px solid #cccccc; vertical-align: middle; }\n  #cb-ok { border-color: #767676; }\n  #cb-edge-pass { border-color: #949494; }\n  #cb-edge-fail { border-color: #959595; }\n  .switch { display: inline-block; width: 64px; height: 44px; border: 2px solid #cccccc;\n            border-radius: 22px; background: #ffffff; vertical-align: middle; }\n  .gradient { display: block; padding: 8px; background-image: linear-gradient(90deg, #ffffff, #e8e8e8); }\n  label { display: block; margin: 12px 0; }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Newsletter settings</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Notification preferences</h1>\n  <form action=\"#\">\n    <!-- 1.61:1 against white: below the 3:1 a control boundary needs. -->\n    <label><input type=\"checkbox\" class=\"custom\" id=\"cb-faint\"> Weekly digest</label>\n    <!-- 4.54:1: passes. -->\n    <label><input type=\"checkbox\" class=\"custom\" id=\"cb-ok\"> Product news</label>\n    <!-- Threshold: 3.03:1 passes, 2.995:1 fails (no rounding up). -->\n    <label><input type=\"checkbox\" class=\"custom\" id=\"cb-edge-pass\"> Event invitations</label>\n    <label><input type=\"checkbox\" class=\"custom\" id=\"cb-edge-fail\"> Reminders</label>\n    <!-- Native checkbox: drawn by the browser, no author boundary to measure. -->\n    <label><input type=\"checkbox\" id=\"cb-native\"> Partner offers</label>\n    <!-- Not rendered: nothing to measure. -->\n    <label>Hidden option <input type=\"checkbox\" class=\"custom\" id=\"cb-hidden\" style=\"display: none\"></label>\n    <!-- Background is a gradient: the colour behind the control is unknown. -->\n    <label class=\"gradient\"><input type=\"checkbox\" class=\"custom\" id=\"cb-gradient\"> Surveys</label>\n    <!-- ARIA switch drawn with a div: same 1.61:1 boundary. -->\n    <p><span id=\"sw-label\">Dark mode</span>\n      <span id=\"sw-faint\" class=\"switch\" role=\"switch\" aria-checked=\"false\" aria-labelledby=\"sw-label\" tabindex=\"0\"></span></p>\n    <button type=\"submit\" style=\"min-width: 44px; min-height: 44px\">Save preferences</button>\n  </form>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "visual_control_contrast",
+        "file": "tests/fixtures/detection_corpus/visual_control_contrast.html",
+        "verdict": "pass",
+        "selector": "input#cb-faint",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Custom checkbox and switch boundaries</title>\n<style>\n  body { background: #ffffff; color: #111111; }\n  .custom { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; margin: 0 8px 0 0;\n            background: #ffffff; border: 2px solid #cccccc; vertical-align: middle; }\n  #cb-ok { border-color: #767676; }\n  #cb-edge-pass { border-color: #949494; }\n  #cb-edge-fail { border-color: #959595; }\n  .switch { display: inline-block; width: 64px; height: 44px; border: 2px solid #cccccc;\n            border-radius: 22px; background: #ffffff; vertical-align: middle; }\n  .gradient { display: block; padding: 8px; background-image: linear-gradient(90deg, #ffffff, #e8e8e8); }\n  label { display: block; margin: 12px 0; }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Newsletter settings</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Notification preferences</h1>\n  <form action=\"#\">\n    <!-- 1.61:1 against white: below the 3:1 a control boundary needs. -->\n    <label><input type=\"checkbox\" class=\"custom\" id=\"cb-faint\"> Weekly digest</label>\n    <!-- 4.54:1: passes. -->\n    <label><input type=\"checkbox\" class=\"custom\" id=\"cb-ok\"> Product news</label>\n    <!-- Threshold: 3.03:1 passes, 2.995:1 fails (no rounding up). -->\n    <label><input type=\"checkbox\" class=\"custom\" id=\"cb-edge-pass\"> Event invitations</label>\n    <label><input type=\"checkbox\" class=\"custom\" id=\"cb-edge-fail\"> Reminders</label>\n    <!-- Native checkbox: drawn by the browser, no author boundary to measure. -->\n    <label><input type=\"checkbox\" id=\"cb-native\"> Partner offers</label>\n    <!-- Not rendered: nothing to measure. -->\n    <label>Hidden option <input type=\"checkbox\" class=\"custom\" id=\"cb-hidden\" style=\"display: none\"></label>\n    <!-- Background is a gradient: the colour behind the control is unknown. -->\n    <label class=\"gradient\"><input type=\"checkbox\" class=\"custom\" id=\"cb-gradient\"> Surveys</label>\n    <!-- ARIA switch drawn with a div: same 1.61:1 boundary. -->\n    <p><span id=\"sw-label\">Dark mode</span>\n      <span id=\"sw-faint\" class=\"switch\" role=\"switch\" aria-checked=\"false\" aria-labelledby=\"sw-label\" tabindex=\"0\"></span></p>\n    <button type=\"submit\" style=\"min-width: 44px; min-height: 44px\">Save preferences</button>\n  </form>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

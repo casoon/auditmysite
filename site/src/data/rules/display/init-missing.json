@@ -1,0 +1,42 @@
+{
+  "id": "display/init-missing",
+  "url": "https://casoon.github.io/auditmysite/rules/display/init-missing/",
+  "domain": "wcag",
+  "title": "Display mode set too late",
+  "outcome": "automatic",
+  "area": "Accessibility, Navigation & Operation",
+  "criterion": "2.2.2",
+  "level": "A",
+  "axe_id": "display/init-missing",
+  "severity": "low",
+  "user_impact": "The page can briefly render in the wrong mode, for example with animation, before the chosen calm mode applies.",
+  "technical_impact": "data-display not set by a blocking script in <head>.",
+  "checks": [
+    {
+      "contract_id": "display/init-missing",
+      "outcome": "automatic",
+      "source": "BarrierLab display-mode convention draft v0 (barrierlab/plan/03), anchored to WCAG 2.2 SC 2.2.2; best practice",
+      "applicability": "Pages that use the convention: at least one figure[data-viz] or a [data-display-toggle].",
+      "expectation": "A best-practice violation at html when html[data-display] is never set, or is\nset only after the body started rendering (a script at the end of body), so\nthe page can show the wrong mode first. A blocking script in head that sets\nit passes, whatever form the toggle takes. Pages without the convention are\nout of scope.",
+      "method": "page",
+      "capabilities": [
+        "dom",
+        "interaction"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "visual_display_never_set",
+        "file": "tests/fixtures/detection_corpus/visual_display_never_set.html",
+        "verdict": "violation",
+        "selector": "html",
+        "html": "<!DOCTYPE html>\n<!-- Display-mode convention (#653) used without ever setting\n     html[data-display], with text layers removed from assistive technology\n     in three more ways: the hidden attribute, inert, and aria-hidden added by\n     a script after load. -->\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Display modes: mode never set, text layers hidden</title>\n<style>\n  body { color: #111111; background: #ffffff; }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <button type=\"button\" data-display-toggle style=\"min-width: 44px; min-height: 44px\">Switch display mode</button>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Air quality</h1>\n  <figure id=\"f1\" data-viz=\"diagram\">\n    <svg data-viz-static width=\"300\" height=\"80\" aria-hidden=\"true\"><rect width=\"300\" height=\"80\" fill=\"#4575b4\"></rect></svg>\n    <div id=\"t-hidden-attr\" data-viz-text hidden><p>Fine dust stayed below the limit all week.</p></div>\n    <figcaption>Fine dust this week</figcaption>\n  </figure>\n  <figure id=\"f2\" data-viz=\"diagram\">\n    <svg data-viz-static width=\"300\" height=\"80\" aria-hidden=\"true\"><rect width=\"300\" height=\"80\" fill=\"#91bfdb\"></rect></svg>\n    <div id=\"t-inert\" data-viz-text inert><p>Ozone peaked on Thursday afternoon.</p></div>\n    <figcaption>Ozone this week</figcaption>\n  </figure>\n  <figure id=\"f3\" data-viz=\"diagram\">\n    <svg data-viz-static width=\"300\" height=\"80\" aria-hidden=\"true\"><rect width=\"300\" height=\"80\" fill=\"#d73027\"></rect></svg>\n    <div id=\"t-late\" data-viz-text><p>Nitrogen dioxide fell by a third.</p></div>\n    <figcaption>Nitrogen dioxide this week</figcaption>\n  </figure>\n  <!-- Reachable text layer, visually hidden with the clip pattern: fine. -->\n  <figure id=\"f4\" data-viz=\"diagram\">\n    <svg data-viz-static width=\"300\" height=\"80\" aria-hidden=\"true\"><rect width=\"300\" height=\"80\" fill=\"#fee090\"></rect></svg>\n    <div id=\"t-ok\" data-viz-text style=\"position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;\"><p>Pollen counts were low.</p></div>\n    <figcaption>Pollen this week</figcaption>\n  </figure>\n</main>\n<footer><p>Footer text</p></footer>\n<script>\n  window.addEventListener('load', function () {\n    document.getElementById('t-late').setAttribute('aria-hidden', 'true');\n  });\n</script>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "display_modes_conforming",
+        "file": "tests/fixtures/detection_corpus/display_modes_conforming.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<!-- Display-mode convention (#653) followed correctly, rendered in text mode:\n     data-display is set by a blocking script in <head>, the toggle exists,\n     the visualisation's media is hidden in text mode and its text layer is\n     visible. Expect no display/* finding. -->\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Display modes: conforming page</title>\n  <script>document.documentElement.dataset.display = 'text';</script>\n  <style>\n    html[data-display=\"text\"] [data-viz-static],\n    html[data-display=\"text\"] [data-viz-live] { display: none; }\n    html:not([data-display=\"text\"]) [data-viz-text] {\n      position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);\n    }\n  </style>\n</head>\n<body>\n  <header>\n    <nav aria-label=\"Display\">\n      <label for=\"display-toggle\">Display</label>\n      <select id=\"display-toggle\" data-display-toggle>\n        <option value=\"visual\">Visual</option>\n        <option value=\"calm\">Calm</option>\n        <option value=\"text\" selected>Text</option>\n      </select>\n    </nav>\n  </header>\n  <main>\n    <h1>Temperature since 1850</h1>\n    <figure id=\"f1\" data-viz=\"chart\">\n      <div data-viz-static>\n        <svg role=\"img\" aria-label=\"Warming stripes\" width=\"300\" height=\"120\" viewBox=\"0 0 300 120\">\n          <rect width=\"150\" height=\"120\" fill=\"#4575b4\"></rect>\n          <rect x=\"150\" width=\"150\" height=\"120\" fill=\"#d73027\"></rect>\n        </svg>\n      </div>\n      <div data-viz-text>\n        <p>The global mean surface temperature rose by about 1.3 degrees since 1850.</p>\n        <table>\n          <caption>Temperature anomaly</caption>\n          <tr><th scope=\"col\">Year</th><th scope=\"col\">Anomaly</th></tr>\n          <tr><td>1850</td><td>0.0</td></tr>\n          <tr><td>2025</td><td>1.3</td></tr>\n        </table>\n        <p>Source: example data.</p>\n      </div>\n      <figcaption>Global temperature anomaly</figcaption>\n    </figure>\n  </main>\n</body>\n</html>"
+      }
+    }
+  ]
+}

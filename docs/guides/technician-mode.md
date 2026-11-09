@@ -8,18 +8,17 @@ For people who fix the issues rather than read a report: one JSON file per page 
 files to script against, no PDF.
 
 ```sh
-auditmysite --sitemap https://example.com/sitemap.xml --technician -o reports/tech/
-auditmysite --url-file urls.txt --technician -o reports/tech/
+auditmysite --sitemap https://example.com/sitemap.xml --per-page-reports -f json \
+  --modules seo,html-conform -o reports/tech/
+auditmysite --url-file urls.txt --per-page-reports -f json --modules seo,html-conform -o reports/tech/
 ```
 
-`--technician` is shorthand for `--per-page-reports -f json --no-screen-reader-report --seo
---html-conform`. It runs the modules that produce fixable findings — accessibility (including the
-keyboard journeys; `--interactive off` makes it faster), HTML conformance and SEO — and skips the
-throttled performance passes, mobile, security and tech-stack detection. Each page file records
-that partial scope in `execution.scope.requested_modules` and `execution.module_runs`.
-
-Flags you give explicitly win: `-f` replaces the format, and `--full`, `--performance`,
-`--mobile` and `--security` add their modules as usual.
+`--per-page-reports -f json` writes one JSON file per page into the `-o` directory.
+`--modules seo,html-conform` restricts the run to the modules that produce fixable findings —
+accessibility (including the keyboard journeys; `--interactive off` makes it faster), HTML
+conformance and SEO — and skips the throttled performance passes, mobile, security and tech-stack
+detection. Each page file records that partial scope in `execution.scope.requested_modules` and
+`execution.module_runs`. Leave `--modules` out for the complete analysis of every page.
 
 ## Output
 
@@ -34,7 +33,7 @@ The output directory holds:
   `selector`, `location`, `message`, `fix_suggestion`, `viewport_tags`. The page files keep a few
   example occurrences per finding; this list is complete.
 
-Any `--per-page-reports -f json` run writes `index.json` and `findings.jsonl` as well. Failed or
+Every `--per-page-reports -f json` run writes `index.json` and `findings.jsonl`. Failed or
 blocked pages appear only in `index.json`, never as a page file. All text is canonical English.
 
 Schemas in the repository:
@@ -45,12 +44,12 @@ Schemas in the repository:
 ## Selecting pages by path
 
 ```sh
-auditmysite --sitemap https://example.com/sitemap.xml --technician \
-  --include-path '/blog/**' --exclude-path '/blog/tag/**' -m 50 -o reports/tech/
+auditmysite --sitemap https://example.com/sitemap.xml --per-page-reports -f json \
+  --modules seo,html-conform --include-path '/blog/**' --exclude-path '/blog/tag/**' -m 50 -o reports/tech/
 ```
 
 `--include-path` and `--exclude-path` are repeatable and work in every batch mode, not only with
-`--technician`. They are applied before `--max-pages` (`-m`).
+`--per-page-reports`. They are applied before `--max-pages` (`-m`).
 
 Globs are matched against the whole, percent-decoded URL path, without host and query:
 

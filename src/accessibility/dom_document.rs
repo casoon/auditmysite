@@ -31,8 +31,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use a11y_dom::{
-    Arena, ArenaNode, Backdrop, Color, ComputedStyle, Document, Layout,
-    NameSource as SharedNameSource, Node, NodeKind, Rect, Rendering, Semantics,
+    Arena, ArenaNode, Backdrop, BoxTransform, Color, ComputedStyle, Document, FocusCover, Layout,
+    NameSource as SharedNameSource, Node, NodeKind, PasteProbe, Rect, Rendering, Semantics,
+    SpacingClip,
 };
 use chromiumoxide::cdp::browser_protocol::dom::{
     DescribeNodeParams, GetDocumentParams, Node as CdpNode, ShadowRootType,
@@ -48,6 +49,7 @@ use chromiumoxide::Page;
 use tracing::{debug, warn};
 
 use super::extractor::ChromeNameSources;
+use super::probes::{run_probes, ProbeNote, ProbeSelection, Probes};
 use crate::error::{AuditError, Result};
 use a11y_perception::{AXTree, NameSource};
 
@@ -174,6 +176,12 @@ impl CdpDocument {
         })
     }
 
+    /// Vermerke zu Messungen, die nicht oder nicht ganz liefen (gescheitert,
+    /// Deckel). Leer ohne Layout-Stile.
+    pub fn probe_notes(&self) -> &[ProbeNote] {
+        self.layout.as_deref().map_or(&[], |l| l.probes.notes())
+    }
+
     /// Chromes Rolle, wie der AX-Baum sie meldet — ohne die Übersetzung, die
     /// [`Semantics::role`] vornimmt. Für den Vergleich mit Chrome
     /// (`accname_diff`), nicht für Regeln.
@@ -233,6 +241,10 @@ pub struct LayoutStyles {
     /// Abgetastete Leuchtdichten hinter dem Text, je Backend-ID, aus
     /// [`sample_backdrops`]. Fehlt ein Eintrag, ist nichts abgetastet.
     backdrops: HashMap<i64, Vec<f64>>,
+    /// Messungen an der laufenden Seite (`probes.rs`): Rahmen, Drehung der
+    /// Wurzel, Einfügen, Fokus, Textabstand. Leer, wo der Lauf sie nicht
+    /// angefordert hat -- dann sind die Regeln darauf `CapabilityMissing`.
+    probes: Probes,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1033,6 +1045,7 @@ impl LayoutStyles {
             obscured: None,
             animating: None,
             backdrops: HashMap::new(),
+            probes: Probes::default(),
         }
     }
 }
@@ -1114,7 +1127,7 @@ async fn fetch_element_ids(
 }
 
 /// Holt [`LayoutStyles`] für die ganze Seite in einem CDP-Aufruf.
-async fn fetch_layout_styles(page: &Page) -> Result<LayoutStyles> {
+async fn fetch_layout_styles(page: &Page, selection: ProbeSelection) -> Result<LayoutStyles> {
     // Vor dem Snapshot, damit alle denselben Stand sehen. Scheitert ein
     // Durchgang, bleibt sein Feld ungemessen statt „nein".
     let pass = |result: Result<HashSet<i64>>| match result {
@@ -1144,6 +1157,10 @@ async fn fetch_layout_styles(page: &Page) -> Result<LayoutStyles> {
     styles.backdrops = backdrops_or_none(
         tokio::time::timeout(SAMPLE_TIMEOUT, sample_backdrops(page, &styles)).await,
     );
+    // Zuletzt: Die berührenden Messungen stellen Fokus, Scrollposition und
+    // Wert wieder her, ehe etwas anderes die Seite liest; der Snapshot und die
+    // Abtastung oben sahen die Seite unberührt.
+    styles.probes = run_probes(page, selection).await;
     Ok(styles)
 }
 
@@ -1403,8 +1420,8 @@ impl Rendering for RenderedCdpDocument<'_> {
     /// Element mit Layout-Objekt. `obscured` nur an Elementen mit eigenem
     /// Text und Kasten im Hauptdokument: Daran misst `OBSCURED_JS`.
     /// `animating` im Hauptdokument, wenn das Element oder ein Vorfahre in
-    /// `ANIMATING_JS` steht.
-    /// `focus_visible` bleibt ungemessen.
+    /// `ANIMATING_JS` steht. `focus_visible` aus dem Fokusdurchgang
+    /// (`probes.rs`), `None` ohne ihn.
     fn layout<'n>(&'n self, node: Self::N<'n>) -> Option<Layout> {
         let backend = self.doc.backend_node_id(node)?;
         let entry = self.styles.by_backend.get(&backend)?;
@@ -1426,7 +1443,60 @@ impl Rendering for RenderedCdpDocument<'_> {
                     .filter_map(|a| self.doc.backend_node_id(a))
                     .any(|id| animating.contains(&id))
             });
+        layout.focus_visible = self
+            .styles
+            .probes
+            .focus
+            .as_ref()
+            .and_then(|focus| focus.get(&backend))
+            .and_then(|m| m.indicator);
         Some(layout)
+    }
+
+    /// Aus dem Rahmendurchgang: ob das Dokument des Rahmens lesbar ist.
+    fn frame_reachable<'n>(&'n self, node: Self::N<'n>) -> Option<bool> {
+        let backend = self.doc.backend_node_id(node)?;
+        self.styles.probes.frames.as_ref()?.get(&backend).copied()
+    }
+
+    /// Aus dem Drehungsdurchgang, an `html` und `body`.
+    fn box_transform<'n>(&'n self, node: Self::N<'n>) -> Option<BoxTransform> {
+        let backend = self.doc.backend_node_id(node)?;
+        self.styles
+            .probes
+            .transforms
+            .as_ref()?
+            .get(&backend)
+            .cloned()
+    }
+
+    /// Aus dem Einfügedurchgang, an Passwort- und Codefeldern.
+    fn paste_probe<'n>(&'n self, node: Self::N<'n>) -> Option<PasteProbe> {
+        let backend = self.doc.backend_node_id(node)?;
+        self.styles.probes.paste.as_ref()?.get(&backend).copied()
+    }
+
+    /// Aus dem Fokusdurchgang. Das blockierende Element kommt als Kennung im
+    /// Arena-Baum dieses Dokuments; liegt es in einem anderen, bleibt sie leer.
+    fn focus_cover<'n>(&'n self, node: Self::N<'n>) -> Option<FocusCover> {
+        let backend = self.doc.backend_node_id(node)?;
+        let mut cover = self.styles.probes.focus_cover(backend)?;
+        cover.blocker = self
+            .styles
+            .probes
+            .focus
+            .as_ref()
+            .and_then(|focus| focus.get(&backend))
+            .and_then(|m| m.blocker)
+            .and_then(|b| self.doc.backend_ids.iter().position(|id| *id == Some(b)))
+            .map(|i| a11y_dom::NodeId(i as u32));
+        Some(cover)
+    }
+
+    /// Aus dem Textabstandsdurchgang, Vorher/Nachher je Element.
+    fn text_spacing_clip<'n>(&'n self, node: Self::N<'n>) -> Option<SpacingClip> {
+        let backend = self.doc.backend_node_id(node)?;
+        self.styles.probes.spacing.as_ref()?.get(&backend).copied()
     }
 }
 
@@ -1782,7 +1852,7 @@ pub async fn fetch_dom_document(page: &Page, ax_tree: &AXTree) -> Result<CdpDocu
 /// geteilten Regeln (`wcag::shared::run_shared_rules`).
 pub async fn fetch_dom_document_with_layout(page: &Page, ax_tree: &AXTree) -> Result<CdpDocument> {
     let root = get_document(page).await?;
-    let layout = fetch_layout_styles(page).await?;
+    let layout = fetch_layout_styles(page, ProbeSelection::NONE).await?;
     build(&root, ax_tree, Some(Arc::new(layout)))
 }
 
@@ -1800,6 +1870,12 @@ pub struct DomCapture {
 }
 
 impl DomCapture {
+    /// Die Messungen an der laufenden Seite (`probes.rs`); `None`, wenn der
+    /// `DOMSnapshot` scheiterte und es deshalb keine Layout-Stile gibt.
+    pub fn probes(&self) -> Option<&Probes> {
+        self.layout.as_deref().map(|l| &l.probes)
+    }
+
     /// Das Hauptdokument, verbunden mit dessen AXTree.
     pub fn document(&self, ax_tree: &AXTree) -> Result<CdpDocument> {
         self.document_at(&self.root, ax_tree)
@@ -1812,10 +1888,21 @@ impl DomCapture {
     }
 }
 
-/// Holt [`DomCapture`]. Scheitert nur der Snapshot, fehlen die Stile.
+/// Holt [`DomCapture`] ohne Messungen an der Seite. Scheitert nur der
+/// Snapshot, fehlen die Stile.
 pub async fn fetch_dom_capture(page: &Page) -> Result<DomCapture> {
+    fetch_dom_capture_with_probes(page, ProbeSelection::NONE).await
+}
+
+/// Wie [`fetch_dom_capture`], dazu die gewählten Messungen an der laufenden
+/// Seite (`ProbeSelection`). Die berührenden Messungen verändern die Seite
+/// für einen Moment und stellen sie wieder her.
+pub async fn fetch_dom_capture_with_probes(
+    page: &Page,
+    selection: ProbeSelection,
+) -> Result<DomCapture> {
     let root = get_document(page).await?;
-    let layout = match fetch_layout_styles(page).await {
+    let layout = match fetch_layout_styles(page, selection).await {
         Ok(layout) => Some(Arc::new(layout)),
         Err(e) => {
             warn!("DOMSnapshot fuer die geteilten Regeln fehlgeschlagen: {e}");

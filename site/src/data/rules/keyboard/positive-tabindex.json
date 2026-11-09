@@ -1,0 +1,29 @@
+{
+  "id": "keyboard/positive-tabindex",
+  "url": "https://casoon.github.io/auditmysite/rules/keyboard/positive-tabindex/",
+  "domain": "wcag",
+  "title": "Positive tabindex changes the focus order",
+  "outcome": "hint-only",
+  "area": "Accessibility, Navigation & Operation",
+  "criterion": "2.4.3",
+  "level": "A",
+  "axe_id": "keyboard/positive-tabindex",
+  "severity": "high",
+  "user_impact": "Keyboard users reach elements in an order that does not match the page layout.",
+  "technical_impact": "tabindex value greater than 0.",
+  "checks": [
+    {
+      "contract_id": "keyboard/positive-tabindex",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 2.4.3 Focus Order; failure F44 (tabindex creating a tab order that does not preserve meaning); HTML §6.6.3 the tabindex attribute",
+      "applicability": "Rendered elements carrying a tabindex attribute that parses as an integer.",
+      "expectation": "A rendered element with tabindex greater than 0 is reported once as\nneeds_review: a positive value moves it ahead of the natural order, which\nfails 2.4.3 only when the resulting order breaks meaning or operation (F44),\nand that the markup does not show. tabindex 0 and -1 keep the natural order\nand are not reported; the boundary is 1. A display:none element is in no tab\norder and is not reported. ARIA widgets (span role=button) and native\ncontrols count alike, so do elements in an open shadow root, a value set by\nscript after load, and an element rendered on one viewport only.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false
+    }
+  ]
+}
