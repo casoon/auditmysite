@@ -180,6 +180,19 @@ It validates:
 - installer/release artifact consistency
 - stale docs references
 
+## Finding flaky tests
+
+CI retries nothing, so a test that fails intermittently looks like a real failure. To tell
+flakiness from drift of a live site, run a selection repeatedly:
+
+```bash
+./scripts/flake-hunt.sh -n 5                                   # live reference sites
+./scripts/flake-hunt.sh -n 3 -- --test browser_pool_test -- --ignored
+```
+
+Every test is classified `stable-pass`, `stable-fail` (drift: re-rate the site or fix the
+rule) or `flaky` (exit code 1). Logs of each run stay in `reports/flake-hunt/`.
+
 ## Library / Development
 
 For library development or local work from the repository:
