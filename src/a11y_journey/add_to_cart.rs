@@ -27,16 +27,7 @@ use crate::taxonomy::Severity;
 /// specific markup, no guarantee of a match) — used only as evidence that
 /// *something* visibly changed even when no accessible announcement did.
 async fn cart_badge_snapshot(page: &Page) -> Option<String> {
-    eval_string(
-        page,
-        r#"(function() {
-            var el = document.querySelector(
-                '[class*="cart-count"],[class*="cart-badge"],[data-cart-count],[class*="basket-count"]'
-            );
-            return el ? (el.textContent || '').trim() : null;
-        })()"#,
-    )
-    .await
+    eval_string(page, include_str!("js/cart_badge_snapshot.js")).await
 }
 
 /// Whether the currently focused element is inside a dialog/drawer
@@ -50,13 +41,9 @@ async fn cart_badge_snapshot(page: &Page) -> Option<String> {
 /// Without an answer the journey fails rather than reading "no dialog"
 /// (#777).
 async fn focus_in_dialog(page: &Page) -> Result<bool> {
-    eval_bool(
-        page,
-        r#"document.activeElement !== null &&
-            document.activeElement.closest('[role="dialog"],[aria-modal="true"]') !== null"#,
-    )
-    .await
-    .ok_or_else(|| crate::error::AuditError::CdpError("journey probe gave no answer".into()))
+    eval_bool(page, include_str!("js/focus_in_dialog.js"))
+        .await
+        .ok_or_else(|| crate::error::AuditError::CdpError("journey probe gave no answer".into()))
 }
 
 pub async fn test(

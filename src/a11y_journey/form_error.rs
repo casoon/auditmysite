@@ -78,23 +78,9 @@ async fn check_error_state(page: &Page) -> Result<(bool, usize, usize)> {
     .ok_or_else(no_answer)? as usize;
 
     // 3. Count fields linked to an error message (aria-describedby or aria-errormessage).
-    let linked_count = eval_int(
-        page,
-        r#"(function() {
-            var fields = document.querySelectorAll(
-                'input[aria-invalid="true"], textarea[aria-invalid="true"], select[aria-invalid="true"]'
-            );
-            var linked = 0;
-            Array.from(fields).forEach(function(f) {
-                if (f.getAttribute('aria-describedby') || f.getAttribute('aria-errormessage')) {
-                    linked++;
-                }
-            });
-            return linked;
-        })()"#,
-    )
-    .await
-    .ok_or_else(no_answer)? as usize;
+    let linked_count = eval_int(page, include_str!("js/linked_error_fields.js"))
+        .await
+        .ok_or_else(no_answer)? as usize;
 
     Ok((live_present, invalid_count, linked_count))
 }
