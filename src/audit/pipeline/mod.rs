@@ -1820,7 +1820,13 @@ async fn run_rules(
     // sie, statt dass das `<svg>` gar nicht geprueft wird.
     //
     // Aus demselben Abruf entstehen die Dokumente der iframes (#715).
-    let capture = crate::accessibility::fetch_dom_capture(page).await;
+    // Dazu die Messungen an der laufenden Seite (Rahmen, Drehung, Einfügen,
+    // Fokus, Textabstand), soweit eine Regel sie liest.
+    let capture = crate::accessibility::fetch_dom_capture_with_probes(
+        page,
+        wcag::shared::probe_selection(config.wcag_level, &config.rule_filter),
+    )
+    .await;
     // Die Stylesheets für die geteilten Regeln über Stylesheets (Fokusrahmen,
     // reduzierte Bewegung, Ausrichtung, Blocksatz/Zeilenabstand). Ohne sie
     // stehen diese als `CapabilityMissing` im Bericht, statt zu bestehen.

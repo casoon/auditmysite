@@ -2,9 +2,9 @@
   "case": "forms_signin_many",
   "expectations": [
     {
-      "rule_id": "accessible-auth-paste-blocked",
+      "rule_id": "auth/paste-blocked",
       "verdict": "violation",
-      "occurrences": 5
+      "occurrences": 6
     },
     {
       "rule_id": "manual/re-authenticating",

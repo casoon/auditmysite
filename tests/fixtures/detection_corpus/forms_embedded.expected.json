@@ -92,7 +92,7 @@
       "occurrences": 1
     },
     {
-      "rule_id": "accessible-auth-paste-blocked",
+      "rule_id": "auth/paste-blocked",
       "selector": "input#sd-pw",
       "verdict": "violation",
       "occurrences": 1
@@ -266,7 +266,7 @@
       "occurrences": 1
     },
     {
-      "rule_id": "accessible-auth-paste-blocked",
+      "rule_id": "auth/paste-blocked",
       "selector": "iframe#embedded-frame [frame] input#fr-pw",
       "verdict": "violation",
       "occurrences": 1

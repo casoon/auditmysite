@@ -1,0 +1,6 @@
+{
+  "case": "visual_text_spacing_override_defeated",
+  "expectations": [
+    { "rule_id": "text-spacing/clipped", "verdict": "errored" }
+  ]
+}

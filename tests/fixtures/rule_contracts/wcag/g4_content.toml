@@ -1013,23 +1013,27 @@ replace = "matches!(kind.to_ascii_lowercase().as_str(), \"captions\" | \"subtitl
 killed_by = "lib:test_track_kind_is_caption_like"
 
 [[rule]]
-id = "frame-tested"
+id = "frames/cross-origin"
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=frames/cross-origin)"]
 automation = "manual"
 manual_reason = """
 The rule only flags embedded content from another origin for a human: whether
 that content meets WCAG is outside the page's own markup and is never
 concluded automatically."""
-method = "page"
+method = "shared"
 source = "WCAG 2.2 SC 4.1.2 (and every SC for embedded content); axe-core frame-tested; HTML §7.1 origin"
 capabilities = ["dom", "geometry", "frames"]
 applicability = """
-Every perceivable <iframe>/<frame> (not hidden, aria-hidden, role none/presentation, display:none, visibility:hidden, or 1px or smaller) in the document, its shadow roots included."""
+Every perceivable <iframe>/<frame> (not hidden, aria-hidden, role none/presentation, display:none, visibility:hidden, or 1px or smaller) in the top document, its open shadow roots included."""
 expectation = """
 One UNTESTED note per perceivable frame whose document is cross-origin to the
-page, located at the frame. Same-origin and srcdoc frames, and frames that are
-not perceivable (hidden, aria-hidden, display:none, at most 1px in either
-dimension), get no note. A frame inserted by script or inside a shadow root is
-part of the page and is judged the same way. Never a pass or a violation."""
+page (Rendering::frame_reachable: the frame's contentDocument cannot be read,
+measured by accessibility::probes), located at the frame. Same-origin and
+srcdoc frames, and frames that are not perceivable (hidden, aria-hidden,
+display:none, at most 1px in either dimension), get no note. A frame inserted
+by script or inside a shadow root is part of the page and is judged the same
+way. Never a pass or a violation. A page whose scripts break the probe records
+the rule as not run (CapabilityMissing)."""
 positive = ["content_frames_cross_origin"]
 not_applicable = ["content_frames_same_origin", "content_plain_article"]
 
@@ -1044,21 +1048,15 @@ thresholds = { cases = ["content_frames_cross_origin"] }
 
 [rule.test_strength]
 status = "killed"
+
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/js/frame_tested.js"
-change = "flag same-origin frames too"
-find = "if (!crossOrigin) continue;"
-replace = ""
+target = "barrierlab:crates/a11y-rules/tests/mutations/sonden.toml"
+change = "targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id frames/cross-origin)"
+
+[[rule.test_strength.mutations]]
+target = "src/accessibility/js/probes/frames.js"
+change = "report every frame as unreadable, same-origin ones included"
+find = "rows.push({ e: els.length, r: inner !== null });"
+replace = "rows.push({ e: els.length, r: false });"
 killed_by = "corpus:content_frames_same_origin"
-[[rule.test_strength.mutations]]
-target = "src/wcag/rules/js/frame_tested.js"
-change = "shift the size threshold"
-find = "if (rect.width <= 1 || rect.height <= 1) continue;"
-replace = "if (rect.width <= 2 || rect.height <= 2) continue;"
-killed_by = "corpus:content_frames_cross_origin"
-[[rule.test_strength.mutations]]
-target = "src/wcag/rules/js/frame_tested.js"
-change = "stop skipping hidden and aria-hidden frames"
-find = "if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') continue;"
-replace = ""
-killed_by = "corpus:content_frames_cross_origin"

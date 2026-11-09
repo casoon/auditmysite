@@ -10,6 +10,7 @@
     {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
     {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
-    {"rule_id": "motion/infinite-animation", "selector": "div.spinner", "verdict": "needs_review"}
+    {"rule_id": "motion/infinite-animation", "selector": "div.spinner", "verdict": "needs_review"},
+    { "rule_id": "focus/indicator-missing", "selector": "button", "verdict": "needs_review" }
   ]
 }

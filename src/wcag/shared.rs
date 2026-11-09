@@ -27,7 +27,7 @@ use a11y_dom::{Node, NodeId};
 use a11y_report::{Finding, NotRun, Outcome};
 use a11y_rules::Locale;
 
-use crate::accessibility::CdpDocument;
+use crate::accessibility::{CdpDocument, ProbeNote, ProbeSelection};
 use crate::wcag::types::{RuleRun, Violation, WcagResults};
 use crate::wcag::RuleFilterConfig;
 use crate::wcag::WcagLevel;
@@ -1710,6 +1710,91 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Non-text Contrast",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html",
     },
+    // ── Messungen an der laufenden Seite (a11y-rules 0.29, a11y-dom 0.29,
+    // `accessibility::probes`) ──
+    //
+    // Jede dieser Regeln liest ein Feld, das nur ein Lauf im Browser füllt
+    // (`Rendering::frame_reachable`, `box_transform`, `text_spacing_clip`,
+    // `focus_cover`, `paste_probe`, `Layout::focus_visible`). Gelang die
+    // Messung nicht -- Skript scheiterte, die Überschreibung kam am Element
+    // nicht an --, steht die Regel als `NotRun::CapabilityMissing` im Bericht,
+    // nie als bestanden. Sie lösen die JavaScript-Regeln gleichen Zwecks ab;
+    // die Befunde stehen unter der geteilten Kennung (eine Quelle).
+    //
+    // Ersetzt `frame-tested`: Ein Rahmen, dessen Dokument die Seite nicht
+    // lesen kann, blieb ungeprüft. Keine Konformitätsprüfung und an kein
+    // Kriterium gebunden -- 4.1.2 (Stufe A) bleibt als Ablage der bisherigen
+    // Auswertung. Läuft nur im obersten Dokument wie die abgelöste Regel.
+    SharedRule {
+        id: "frames/cross-origin",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Frame Not Tested)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Ersetzt `css-orientation-lock` (Drehung von `html` und `body`; der
+    // Stylesheet-Teil läuft als `orientation/content-hidden`).
+    SharedRule {
+        id: "orientation/root-rotated",
+        criterion: "1.3.4",
+        level: WcagLevel::AA,
+        name: "Orientation",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/orientation.html",
+    },
+    // Ersetzt `text-spacing`. Gewollt anders: `REVIEW` statt Verstoß, und die
+    // Überschreibung ist ein adoptiertes Stylesheet (CSSOM) statt eines
+    // `<style>`-Elements -- eine CSP `style-src` blockiert sie nicht, und kam
+    // sie an einem Element nicht an, steht dort keine Messung (statt
+    // „nicht abgeschnitten").
+    SharedRule {
+        id: "text-spacing/clipped",
+        criterion: "1.4.12",
+        level: WcagLevel::AA,
+        name: "Text Spacing",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/text-spacing.html",
+    },
+    // Ersetzen `focus-not-obscured-minimum` und `-enhanced`. Gewollt anders:
+    // Die abgelösten Regeln verglichen Rechtecke im ruhenden Zustand; die
+    // geteilten messen nach dem Fokussieren und Scrollen (`scrollIntoView
+    // ({ block: 'nearest' })`), 3 mal 3 Punkte, Malreihenfolge per
+    // `elementsFromPoint`. Der Fall, um den es dem Kriterium geht -- ein
+    // Element, das unter eine klebende Kopfzeile scrollt --, entsteht erst
+    // beim Fokussieren.
+    SharedRule {
+        id: "focus/obscured",
+        criterion: "2.4.11",
+        level: WcagLevel::AA,
+        name: "Focus Not Obscured (Minimum)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html",
+    },
+    SharedRule {
+        id: "focus/obscured-enhanced",
+        criterion: "2.4.12",
+        level: WcagLevel::AAA,
+        name: "Focus Not Obscured (Enhanced)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-enhanced.html",
+    },
+    // Ersetzt den Einfügetest von `accessible-auth-paste-blocked`
+    // (`accessible_authentication`), auch in gleich-ursprünglichen Rahmen und
+    // offenen Shadow Roots.
+    SharedRule {
+        id: "auth/paste-blocked",
+        criterion: "3.3.8",
+        level: WcagLevel::AA,
+        name: "Accessible Authentication (Minimum)",
+        help_url:
+            "https://www.w3.org/WAI/WCAG22/Understanding/accessible-authentication-minimum.html",
+    },
+    // Neu: Bisher wurde `Layout::focus_visible` nicht gemessen. Der Fokusdurchgang
+    // vergleicht die berechneten Stile des Elements vor und nach dem Fokussieren
+    // (Umriss, Schatten, Rahmen, Hintergrund, Textfarbe und -linie).
+    SharedRule {
+        id: "focus/indicator-missing",
+        criterion: "2.4.7",
+        level: WcagLevel::AA,
+        name: "Focus Visible",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html",
+    },
 ];
 
 /// Nimmt Befunde der geteilten Kennungen oberhalb der geprüften Stufe heraus
@@ -1804,7 +1889,67 @@ pub const LEGACY_RULE_IDS: &[(&str, &str)] = &[
     ("aria/attribute-prohibited", "aria-prohibited-attr"),
     ("aria/required-parent-missing", "aria-required-parent"),
     ("document/lang-mismatch", "html-xml-lang-mismatch"),
+    ("frames/cross-origin", "frame-tested"),
+    ("orientation/root-rotated", "css-orientation-lock"),
+    ("text-spacing/clipped", "text-spacing"),
+    ("focus/obscured", "focus-not-obscured-minimum"),
+    ("focus/obscured-enhanced", "focus-not-obscured-enhanced"),
+    ("auth/paste-blocked", "accessible-auth-paste-blocked"),
 ];
+
+/// Welche Messungen an der Seite ein Lauf braucht (`accessibility::probes`):
+/// die einer Regel, die auf dieser Stufe läuft und die der `[rules]`-Filter
+/// nicht abschaltet. Eine Messung, die niemand liest, berührt die Seite nicht.
+pub fn probe_selection(level: WcagLevel, filter: &RuleFilterConfig) -> ProbeSelection {
+    let wanted = |ids: &[&str]| {
+        ids.iter().any(|id| {
+            shared_rule(id).is_some_and(|r| r.level <= level) && filter_allows(filter, id)
+        })
+    };
+    ProbeSelection {
+        frames: wanted(&["frames/cross-origin"]),
+        transforms: wanted(&["orientation/root-rotated"]),
+        paste: wanted(&["auth/paste-blocked"]),
+        focus: wanted(&[
+            "focus/obscured",
+            "focus/obscured-enhanced",
+            "focus/indicator-missing",
+        ]),
+        spacing: wanted(&["text-spacing/clipped"]),
+    }
+}
+
+/// Welche Messung welche geteilte Regel speist -- damit ein Vermerk zur
+/// Messung (gescheitert, Deckel) am Ausführungsvermerk der Regel ankommt.
+const PROBE_RULES: &[(&str, &str)] = &[
+    ("frames", "frames/cross-origin"),
+    ("transforms", "orientation/root-rotated"),
+    ("paste", "auth/paste-blocked"),
+    ("focus", "focus/obscured"),
+    ("focus", "focus/obscured-enhanced"),
+    ("focus", "focus/indicator-missing"),
+    ("spacing", "text-spacing/clipped"),
+];
+
+/// Hängt die Vermerke zu den Messungen an die Ausführungsvermerke ihrer
+/// Regeln: Eine gescheiterte Messung nennt ihren Grund, ein Deckel (zu viele
+/// Elemente) steht dort, wo die Regel gelaufen ist, aber nicht alles sah.
+fn attach_probe_notes(results: &mut WcagResults, notes: &[ProbeNote]) {
+    for note in notes {
+        for (_, rule_id) in PROBE_RULES.iter().filter(|(probe, _)| *probe == note.probe) {
+            if let Some(run) = results
+                .rule_outcomes
+                .iter_mut()
+                .find(|o| o.rule_id == *rule_id)
+            {
+                run.reason = Some(match run.reason.take() {
+                    Some(existing) => format!("{existing}; {}", note.text),
+                    None => note.text.clone(),
+                });
+            }
+        }
+    }
+}
 
 /// Ob der `[rules]`-Filter die geteilte Kennung laufen lässt — unter ihrem
 /// eigenen Namen oder einer alten Kennung aus [`LEGACY_RULE_IDS`].
@@ -2101,6 +2246,8 @@ fn run_shared_rules_inner(
                 .push(run.clone().with_wcag([rule.criterion])),
         }
     }
+
+    attach_probe_notes(&mut results, doc.probe_notes());
 
     // Befunde, die der geteilte Bestand als bestanden führt, zählen wie
     // bisher als Pass und erscheinen nicht als Problem.
@@ -2874,5 +3021,122 @@ mod tests {
                 "kein Vermerk zu {id}"
             );
         }
+    }
+
+    const MESSUNGS_REGELN: [&str; 7] = [
+        "frames/cross-origin",
+        "orientation/root-rotated",
+        "text-spacing/clipped",
+        "focus/obscured",
+        "focus/obscured-enhanced",
+        "auth/paste-blocked",
+        "focus/indicator-missing",
+    ];
+
+    /// Ohne Layout-Stile hat keine Messung an der Seite gelaufen: Jede der
+    /// Regeln darauf steht als nicht gelaufen im Bericht, nie als bestanden
+    /// (#1002-#1007).
+    #[test]
+    fn regeln_auf_messungen_sind_ohne_messung_nicht_gelaufen() {
+        let r = ergebnis(&["lang", "de"]);
+        for id in MESSUNGS_REGELN {
+            let run = r
+                .rule_outcomes
+                .iter()
+                .find(|o| o.rule_id == id)
+                .unwrap_or_else(|| panic!("kein Vermerk zu {id}"));
+            assert_eq!(run.not_run, Some(NotRun::CapabilityMissing), "{id}");
+            assert!(crate::wcag::rule_run_skipped(run), "{id}");
+        }
+        for v in r
+            .violations
+            .iter()
+            .chain(&r.warnings)
+            .chain(&r.not_testables)
+        {
+            let id = v.rule_id.as_deref().unwrap_or_default();
+            assert!(!MESSUNGS_REGELN.contains(&id), "Befund ohne Messung: {id}");
+        }
+    }
+
+    #[test]
+    fn messungen_folgen_stufe_und_regelfilter() {
+        let filter = |disabled: &[&str]| RuleFilterConfig {
+            disabled_rules: disabled.iter().map(|s| s.to_string()).collect(),
+            enabled_only_rules: Vec::new(),
+        };
+        let aa = probe_selection(WcagLevel::AA, &filter(&[]));
+        assert_eq!(aa, ProbeSelection::ALL);
+        // Stufe A: nur der Rahmenvermerk (A); alles andere ist AA oder AAA.
+        let a = probe_selection(WcagLevel::A, &filter(&[]));
+        assert_eq!(
+            a,
+            ProbeSelection {
+                frames: true,
+                ..ProbeSelection::NONE
+            }
+        );
+        // Die alte Kennung schaltet die Messung mit ab, wenn keine Regel sie mehr braucht.
+        let off = probe_selection(
+            WcagLevel::AA,
+            &filter(&["accessible-auth-paste-blocked", "text-spacing"]),
+        );
+        assert!(!off.paste && !off.spacing && off.focus && off.frames);
+        // Die Fokusmessung speist drei Regeln und läuft, solange eine bleibt.
+        let one_left = probe_selection(
+            WcagLevel::AA,
+            &filter(&["focus-not-obscured-minimum", "focus-not-obscured-enhanced"]),
+        );
+        assert!(one_left.focus, "focus/indicator-missing braucht sie noch");
+        let none_left = probe_selection(
+            WcagLevel::AA,
+            &filter(&[
+                "focus/obscured",
+                "focus/obscured-enhanced",
+                "focus/indicator-missing",
+            ]),
+        );
+        assert!(!none_left.focus);
+    }
+
+    /// Ein Vermerk zur Messung (gescheitert, Deckel) landet am Vermerk der
+    /// Regel, ohne einen vorhandenen Grund zu verdraengen.
+    #[test]
+    fn vermerke_zur_messung_kommen_an_der_regel_an() {
+        let mut r = WcagResults::new();
+        r.rule_outcomes.push(
+            RuleRun::not_run("text-spacing/clipped", NotRun::CapabilityMissing)
+                .with_reason("host did not apply"),
+        );
+        r.rule_outcomes.push(RuleRun::ran("focus/obscured", 0));
+        r.rule_outcomes.push(RuleRun::ran("images/alt-missing", 0));
+        attach_probe_notes(
+            &mut r,
+            &[
+                ProbeNote {
+                    probe: "spacing",
+                    text: "probe_failed: x".to_string(),
+                },
+                ProbeNote {
+                    probe: "focus",
+                    text: "probe_capped: 3 controls over the cap of 300".to_string(),
+                },
+            ],
+        );
+        let reason = |id: &str| {
+            r.rule_outcomes
+                .iter()
+                .find(|o| o.rule_id == id)
+                .and_then(|o| o.reason.clone())
+        };
+        assert_eq!(
+            reason("text-spacing/clipped").as_deref(),
+            Some("host did not apply; probe_failed: x")
+        );
+        assert_eq!(
+            reason("focus/obscured").as_deref(),
+            Some("probe_capped: 3 controls over the cap of 300")
+        );
+        assert_eq!(reason("images/alt-missing"), None);
     }
 }

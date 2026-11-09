@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Controls with and without a visible focus indicator</title>
+<style>
+  body { font-family: sans-serif; color: #111; background: #fff; margin: 0; padding: 16px; }
+  a, button, input { display: inline-block; min-width: 44px; min-height: 44px; padding: 8px 12px; box-sizing: border-box; margin: 4px; }
+  /* Replaces the browser's focus ring with nothing: focusing changes no style. */
+  .skip { position: absolute; left: -9999px; }
+  .skip:focus { left: 16px; top: 16px; background: #fff; }
+  .bare { outline: none; border: 1px solid #767676; background: #fff; color: #111; }
+  /* An author ring on focus. */
+  .ring:focus-visible { outline: 3px solid #0050a0; outline-offset: 2px; }
+  /* No ring, but the background changes: still an indicator. */
+  .fill { outline: none; background: #fff; }
+  .fill:focus { background: #ffe58a; }
+  /* No ring, but a shadow appears. */
+  .glow { outline: none; }
+  .glow:focus { box-shadow: 0 0 0 3px #0050a0; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to main content</a>
+<header><p>Garden shop</p>
+<nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/shop">Shop</a></nav></header>
+<main id="main">
+  <h1>Focus indicators</h1>
+  <!-- needs_review: the focus ring is removed and nothing replaces it -->
+  <button id="fi-bare" class="bare" type="button">Bare button</button>
+  <a id="fi-bare-link" class="bare" href="/cart">Bare link</a>
+  <input id="fi-bare-input" class="bare" type="text" aria-label="Bare field">
+  <!-- absent: the browser's own focus ring -->
+  <button id="fi-default" type="button">Default ring</button>
+  <a id="fi-default-link" href="/shop">Default link</a>
+  <!-- absent: author-drawn indicators -->
+  <button id="fi-ring" class="ring" type="button">Author ring</button>
+  <button id="fi-fill" class="fill" type="button">Fill change</button>
+  <button id="fi-glow" class="glow" type="button">Shadow</button>
+  <!-- absent: not reachable with Tab, so not a candidate -->
+  <button id="fi-skipped" class="bare" type="button" tabindex="-1">Skipped</button>
+</main>
+<footer><p>Garden shop, 2026</p></footer>
+</body>
+</html>

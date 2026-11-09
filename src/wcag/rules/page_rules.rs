@@ -25,13 +25,10 @@ use crate::wcag::Violation;
 use crate::wcag::WcagLevel;
 
 use super::{
-    check_accessible_authentication_with_page, check_display_modes_with_page,
-    check_focus_not_obscured_enhanced_with_page, check_focus_not_obscured_minimum_with_page,
-    check_frame_tested_with_page, check_media_alternative_with_page,
-    check_modern_attributes_with_page, check_on_input_with_page, check_orientation_with_page,
-    check_page_titled_with_page, check_pointer_cancellation_with_page,
-    check_same_origin_iframes_with_page, check_text_spacing_with_page, check_timeouts_with_page,
-    check_timing_with_page, check_video_caption_tracks_with_page,
+    check_display_modes_with_page, check_media_alternative_with_page,
+    check_modern_attributes_with_page, check_on_input_with_page, check_page_titled_with_page,
+    check_pointer_cancellation_with_page, check_same_origin_iframes_with_page,
+    check_timeouts_with_page, check_timing_with_page, check_video_caption_tracks_with_page,
     check_visual_presentation_with_page,
 };
 
@@ -57,13 +54,6 @@ pub struct PageRuleEntry {
 pub const PAGE_RULES: &[PageRuleEntry] = &[
     // ── Level A ───────────────────────────────────────────────────────────────
     PageRuleEntry {
-        rule_id: "4.1.2/frame-tested",
-        outcome_ids: &["frame-tested"],
-        name: "frame-tested",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_frame_tested_with_page(p)),
-    },
-    PageRuleEntry {
         rule_id: "1.2.2/video-caption-track",
         outcome_ids: &["video-caption"],
         name: "video-caption-track",
@@ -83,13 +73,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "document-title",
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_page_titled_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "3.3.8/accessible-authentication",
-        outcome_ids: &["accessible-auth-paste-blocked"],
-        name: "accessible-authentication",
-        min_level: WcagLevel::AA,
-        check_fn: |p| Box::pin(check_accessible_authentication_with_page(p)),
     },
     // Only the page-wide note on script-driven time limits since #697;
     // `<meta http-equiv="refresh">` runs as `timing/meta-refresh`.
@@ -140,27 +123,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         check_fn: |p| Box::pin(check_pointer_cancellation_with_page(p)),
     },
     // ── Level AA and above ────────────────────────────────────────────────────
-    PageRuleEntry {
-        rule_id: "1.3.4/orientation",
-        outcome_ids: &["css-orientation-lock"],
-        name: "orientation",
-        min_level: WcagLevel::AA,
-        check_fn: |p| Box::pin(check_orientation_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "1.4.12/text-spacing",
-        outcome_ids: &["text-spacing"],
-        name: "text-spacing",
-        min_level: WcagLevel::AA,
-        check_fn: |p| Box::pin(check_text_spacing_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.4.11/focus-not-obscured-minimum",
-        outcome_ids: &["focus-not-obscured-minimum"],
-        name: "focus-not-obscured-minimum",
-        min_level: WcagLevel::AA,
-        check_fn: |p| Box::pin(check_focus_not_obscured_minimum_with_page(p)),
-    },
     // ── Level AAA only ────────────────────────────────────────────────────────
     PageRuleEntry {
         rule_id: "1.2.8/media-alternative",
@@ -182,13 +144,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "timeouts",
         min_level: WcagLevel::AAA,
         check_fn: |p| Box::pin(check_timeouts_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.4.12/focus-not-obscured-enhanced",
-        outcome_ids: &["focus-not-obscured-enhanced"],
-        name: "focus-not-obscured-enhanced",
-        min_level: WcagLevel::AAA,
-        check_fn: |p| Box::pin(check_focus_not_obscured_enhanced_with_page(p)),
     },
 ];
 
@@ -283,7 +238,9 @@ mod tests {
         // - pointer-gestures und motion-actuation: laufen als
         //   `manual/pointer-gestures` und `manual/motion-actuation` im
         //   geteilten Bestand (#722) = 9
-        assert_eq!(count, 9);
+        // - frame-tested: laeuft als `frames/cross-origin` im geteilten
+        //   Bestand (#1002) = 8
+        assert_eq!(count, 8);
     }
 
     #[test]
@@ -348,7 +305,12 @@ mod tests {
         // - pointer-gestures, motion-actuation (Level A, #722) und
         //   non-text-contrast-css (AA, als `contrast/control-*`, #698) im
         //   geteilten Bestand = 13.
-        assert_eq!(count, 13);
+        // - frame-tested (A), accessible-authentication, orientation,
+        //   text-spacing und focus-not-obscured-minimum (AA) laufen als
+        //   `frames/cross-origin`, `auth/paste-blocked`,
+        //   `orientation/root-rotated`, `text-spacing/clipped` und
+        //   `focus/obscured` im geteilten Bestand (#1002-#1006) = 8.
+        assert_eq!(count, 8);
     }
 
     #[test]

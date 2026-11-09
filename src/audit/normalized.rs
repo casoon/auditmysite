@@ -1728,7 +1728,7 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
 }
 
 /// The WCAG criterion a violation belongs to. A few page rules (e.g.
-/// `frame-tested`) carry their own slug in `Violation::rule` instead of
+/// `aria/attribute-prohibited`) carry their own slug in `Violation::rule` instead of
 /// a criterion; the taxonomy maps those, so `wcag_criterion` never holds a
 /// rule slug (plan 61).
 pub(crate) fn wcag_criterion_of(rule: &str) -> String {
@@ -1859,7 +1859,7 @@ mod tests {
         for slug in [
             "aria/attribute-prohibited",
             "keyboard/hidden-focusable",
-            "frame-tested",
+            "frames/cross-origin",
         ] {
             assert_eq!(wcag_criterion_of(slug), "4.1.2", "{slug}");
         }

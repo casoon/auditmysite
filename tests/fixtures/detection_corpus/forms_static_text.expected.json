@@ -102,7 +102,7 @@
       "verdict": "not_applicable"
     },
     {
-      "rule_id": "accessible-auth-paste-blocked",
+      "rule_id": "auth/paste-blocked",
       "verdict": "not_applicable"
     },
     {

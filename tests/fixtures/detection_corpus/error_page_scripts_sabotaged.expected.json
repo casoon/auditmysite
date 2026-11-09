@@ -2,7 +2,7 @@
   "case": "error_page_scripts_sabotaged",
   "expectations": [
     {
-      "rule_id": "frame-tested",
+      "rule_id": "frames/cross-origin",
       "verdict": "errored"
     },
     {
@@ -14,7 +14,7 @@
       "verdict": "errored"
     },
     {
-      "rule_id": "accessible-auth-paste-blocked",
+      "rule_id": "auth/paste-blocked",
       "verdict": "errored"
     },
     {
@@ -38,15 +38,11 @@
       "verdict": "errored"
     },
     {
-      "rule_id": "text-spacing",
+      "rule_id": "text-spacing/clipped",
       "verdict": "errored"
     },
     {
-      "rule_id": "focus-not-obscured-minimum",
-      "verdict": "errored"
-    },
-    {
-      "rule_id": "focus-not-obscured-enhanced",
+      "rule_id": "focus/obscured-enhanced",
       "verdict": "errored"
     },
     {
@@ -58,11 +54,30 @@
       "verdict": "errored"
     },
     {
-      "rule_id": "css-orientation-lock",
+      "rule_id": "orientation/root-rotated",
       "verdict": "errored"
     },
     {
       "rule_id": "css-overflow-hidden",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/re-authenticating",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "focus/indicator-missing",
       "verdict": "errored"
     }
   ]

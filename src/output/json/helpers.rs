@@ -1037,7 +1037,7 @@ mod tests {
         );
         // "div.alt-service-hero-card" used to match `alt`.
         assert_eq!(
-            score_area_for_finding(&make_finding("text-spacing", "")),
+            score_area_for_finding(&make_finding("text-spacing/clipped", "")),
             Some("Semantics"),
         );
         // The shared "Navigation & Operation" subcategory label used to route
