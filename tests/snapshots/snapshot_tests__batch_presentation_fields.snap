@@ -5,7 +5,6 @@ expression: sort_json_keys(value)
 ---
 {
   "average_score": 49.0,
-  "certificate": "NICHT BESTANDEN",
   "grade": "F",
   "module_averages": [
     {

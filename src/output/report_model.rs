@@ -181,7 +181,6 @@ pub struct CoverBlock {
     pub date: String,
     pub score: u32,
     pub grade: String,
-    pub certificate: String,
     /// 4-level maturity label for cover display
     pub maturity_label: String,
     pub total_issues: u32,
@@ -200,7 +199,6 @@ pub struct SummaryBlock {
     /// Module-weighted overall score across all active modules.
     pub overall_score: u32,
     pub grade: String,
-    pub certificate: String,
     /// 4-level maturity classification: "Kritisch" / "Instabil" / "Solide Basis" / "Stark"
     pub maturity_label: String,
     /// Problem distribution: "Strukturelle Defizite" / "Kritische Einzelprobleme" / "Feinschliff"
@@ -1468,8 +1466,6 @@ pub struct PortfolioSummary {
     pub active_modules: Vec<String>,
     /// Domain name (extracted from first URL)
     pub domain: String,
-    /// Certificate label based on the averaged overall score
-    pub certificate: String,
     /// Grade based on the averaged overall score
     pub grade: String,
     pub page_type_distribution: Vec<(String, usize, u32)>,

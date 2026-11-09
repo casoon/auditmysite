@@ -42,13 +42,7 @@
         "low": 0,
         "total": 4
       },
-      "violation_count": 4,
-      "decision": {
-        "certificate": "good"
-      }
+      "violation_count": 4
     }
-  ],
-  "decision": {
-    "certificate": "good"
-  }
+  ]
 }

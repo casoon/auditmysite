@@ -1,4 +1,3 @@
-label-certificate = Auditstatus
 section-summary = Kurzfazit
 section-methodology = Prüfumfang und Methodik
 section-modules = Bewertung nach Modulen
@@ -57,7 +56,6 @@ metric-score = Gesamtscore
 metric-issues-detected = Probleme erkannt
 metric-critical-high = Kritisch / Hoch
 metric-risk = Risiko
-metric-certificate = Auditstatus
 panel-quick-actions = Naheliegende Verbesserungen
 panel-strengths = Was bereits stark ist
 label-strength = Stärke
@@ -158,7 +156,7 @@ consequence-stable = Kein akuter Handlungsdruck. Regelmäßige Checks sichern da
 consequence-default = Ohne Korrektur bleibt die Seite hinter erreichbarem Standard — Verbesserungspotenzial wird nicht genutzt.
 
 # Cover score row
-cover-card-certificate = Gesamteinstufung
+cover-card-grade = Note
 cover-card-accessibility = Accessibility
 cover-card-issues = Issues
 cover-card-critical-high-suffix = kritisch/hoch
@@ -173,7 +171,6 @@ batch-cover-frame-title = Audit-Rahmen
 batch-cover-frame-domain = Domain
 batch-cover-frame-date = Prüfdatum
 batch-cover-frame-urls = Geprüfte URLs
-batch-cover-frame-certificate = Auditstatus
 batch-cover-frame-modules = Aktive Module
 batch-cover-frame-version = Tool-Version
 batch-cover-frame-scope = Prüfumfang

@@ -559,7 +559,7 @@ pub struct ExperienceSection {
     pub dark_mode: Option<DarkModeAnalysis>,
     /// Pre-consent privacy findings of a first visit (#871, optional). Phase
     /// A only, technical observations with a confidence class; never affects
-    /// accessibility/overall score, grade, or certificate.
+    /// accessibility/overall score or grade.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub privacy: Option<crate::privacy::PrivacyAnalysis>,
     /// Budget violations detected for this page
@@ -567,8 +567,8 @@ pub struct ExperienceSection {
     pub budget_violations: Vec<crate::audit::budget::BudgetViolation>,
 }
 
-/// Core accessibility results — the WCAG check output, the resulting score/grade/
-/// certificate, violation statistics and the analyzed node count. Grouped into a
+/// Core accessibility results — the WCAG check output, the resulting score/grade,
+/// violation statistics and the analyzed node count. Grouped into a
 /// section so the `AuditReport` top level stays stable as modules evolve.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccessibilitySection {
@@ -619,7 +619,7 @@ pub struct AuditReport {
     pub wcag_level: WcagLevel,
     /// Timestamp when the audit was performed
     pub timestamp: DateTime<Utc>,
-    /// Core accessibility results (WCAG output, score/grade/certificate, stats).
+    /// Core accessibility results (WCAG output, score/grade, stats).
     pub accessibility: AccessibilitySection,
     /// Time taken to complete the audit (milliseconds)
     pub duration_ms: u64,
@@ -1438,8 +1438,7 @@ impl SelectionProfile {
 impl BatchSummary {
     /// Grade of the batch, by the single-report rule: it describes the
     /// average accessibility score, not the weighted overall (plan 29, D1).
-    /// The certificate is part of `decision` (#781). `None` when no URL was
-    /// measured: a grade computed from a stand-in 0 would be an F for a site
+    /// `None` when no URL was measured: a grade computed from a stand-in 0 would be an F for a site
     /// nobody looked at (#768).
     pub fn grade(&self) -> Option<String> {
         let accessibility = self.average_score?.round() as f32;
@@ -2152,9 +2151,8 @@ mod tests {
         assert_eq!(batch.summary.coverage.succeeded, 0);
         assert_eq!(batch.summary.average_score, None);
         assert_eq!(batch.summary.average_over, 0);
-        // No stand-in 0: no grade, no certificate, no score band (#768).
+        // No stand-in 0: no grade, no score band (#768).
         assert_eq!(batch.summary.grade(), None);
-        assert_eq!(batch.summary.decision.certificate, None);
         assert!(batch.summary.score_band_key.is_empty());
         assert_eq!(
             batch.summary.audit_quality.status,

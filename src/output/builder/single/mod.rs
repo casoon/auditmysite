@@ -86,7 +86,7 @@ fn exhausted_stability_measurements(
     parts.join(", ")
 }
 
-/// Build a complete ViewModel from a live audit context (single source of truth for score/grade/certificate).
+/// Build a complete ViewModel from a live audit context (single source of truth for score/grade).
 /// Cached audits take the same path: the stored report is rehydrated first
 /// (`audit::hydrate_cached_report`) and then rendered through this function.
 pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) -> ReportViewModel {
@@ -129,7 +129,6 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
 
     let score = normalized.normalized.score;
     let grade = normalized.normalized.grade.clone();
-    let certificate = normalized.normalized.decision.certificate_key().to_string();
     let audit_summary = analyze_with_locale(&normalized.normalized, &config.locale);
     let maturity_label = audit_summary.site_state.label_localized(&i18n);
     let problem_type = audit_summary.problem_type_label.clone();
@@ -280,7 +279,6 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
             date: date.clone(),
             score,
             grade: grade.clone(),
-            certificate: certificate.clone(),
             maturity_label: maturity_label.clone(),
             total_issues: total_violations,
             critical_issues: critical_count,
@@ -300,7 +298,6 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
             score,
             overall_score: normalized.normalized.overall_score,
             grade: grade.clone(),
-            certificate: certificate.clone(),
             maturity_label: maturity_label.clone(),
             problem_type: problem_type.clone(),
             domain: normalized.normalized.url.clone(),
@@ -387,7 +384,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                 let label_warnings = i18n.t("metric-warnings");
                 let label_not_testable = i18n.t("metric-not-testable");
                 // The headline metric is the accessibility score — what the
-                // report assesses and what grade and certificate classify
+                // report assesses and what the grade classifies
                 // (plan 29, D1). The weighted combined value has its own
                 // named card in the score-driver section.
                 let label_accessibility_score = i18n.t("metric-accessibility-score");

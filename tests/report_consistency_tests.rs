@@ -5,7 +5,7 @@
 //! - Overall score = weighted average of module scores
 //! - Severity counts match finding occurrences
 //! - fix_guidance entries match findings
-//! - Score/grade/certificate are consistent
+//! - Score/grade are consistent
 // The infallible `normalize` is the deprecated 1.x compatibility API; these tests
 // exercise the model it derives, not the migration path.
 #![allow(deprecated)]
@@ -926,7 +926,7 @@ fn test_fix_guidance_code_examples_present() {
     );
 }
 
-// ─── Score / Grade / Certificate Consistency ───────────────────────
+// ─── Score / Grade Consistency ───────────────────────
 
 #[test]
 fn test_grade_matches_score() {

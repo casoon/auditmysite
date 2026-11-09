@@ -23,10 +23,9 @@
       "type": "object",
       "required": ["contract", "profile", "verdict", "reasons"],
       "properties": {
-        "contract": { "type": "string", "const": "auditmysite.decision/2" },
+        "contract": { "type": "string", "const": "auditmysite.decision/3" },
         "profile": { "type": "object" },
         "verdict": { "type": "string", "enum": ["pass", "warn", "fail"] },
-        "certificate": { "type": "string", "enum": ["very_good", "good", "stable", "needs_improvement", "insufficient", "restricted", "not_passed"] },
         "reasons": { "type": "array", "items": { "type": "string" } }
       }
     },

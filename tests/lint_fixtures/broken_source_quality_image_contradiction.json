@@ -69,13 +69,7 @@
             }
           }
         }
-      },
-      "decision": {
-        "certificate": "good"
       }
     }
-  ],
-  "decision": {
-    "certificate": "good"
-  }
+  ]
 }

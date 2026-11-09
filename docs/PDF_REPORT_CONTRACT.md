@@ -23,7 +23,7 @@ Target page count: 5–8 pages (8 pages maximum with a realistic finding load).
 
 Minimum content:
 
-- branded cover with score, certificate, date, domain and active modules,
+- branded cover with score, grade, date, domain and active modules,
 - concise risk/status summary,
 - top findings without raw technical snapshots,
 - business/user impact,
@@ -64,7 +64,7 @@ Minimum content:
 
 - branded cover,
 - audited domain/source and number of URLs,
-- portfolio score and certificate,
+- portfolio score and grade,
 - ranking or URL overview,
 - recurring issue patterns,
 - action plan,
@@ -106,7 +106,7 @@ In the rendered PDF:
 - An indicator that re-reads another module's result instead of measuring anything new says
   so in a sentence below its score, and an accessibility penalty applied to it is named with
   its point value rather than folded in silently.
-- The cover headline is the accessibility score, with its grade and certificate. The weighted
+- The cover headline is the accessibility score, with its grade. The cover carries no certificate or badge: an automated check covers only part of the criteria and certifies nothing (#911). The weighted
   combined technical score is a separate, labelled card carrying its weight basis, never the
   headline.
 - No visual distinction between measured and heuristic modules in the module overview strip —
@@ -118,7 +118,7 @@ In the rendered PDF:
 - Technical metrics must include a unit and, where interpretation is not self-evident, a target range or short definition. Ordinary counts and familiar quantities such as dates, durations, file sizes, and page totals do not need repeated explanations.
 - Dual-viewport accessibility uses one canonical formula everywhere: 70% mobile plus 30% desktop, rounded to an integer. The merged finding inventory remains evidence and does not produce another score.
 - Labels must distinguish distinct WCAG finding groups, WCAG occurrences, and findings from all categories. A number must not be labelled “critical” when it combines critical and high severities.
-- Single and batch PDF scores, grades, certificates, and scoped counts must match the corresponding JSON fields.
+- Single and batch PDF scores, grades, and scoped counts must match the corresponding JSON fields.
 
 ## Language
 

@@ -4,7 +4,6 @@ assertion_line: 202
 expression: sort_json_keys(value)
 ---
 {
-  "certificate": "not_passed",
   "finding_count": 18,
   "finding_rule_ids": [
     "a11y.name_role.missing",

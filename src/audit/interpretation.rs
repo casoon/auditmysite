@@ -1011,18 +1011,17 @@ fn pick_consequence_key(normalized: &AuditContext<'_>) -> String {
     .to_string()
 }
 
-/// The verdict tier of an accessibility score, banded exactly like the
-/// certificate (90/75/60/40), so the cover sentence and the certificate badge
-/// beside it can never name different tiers (#896). `prefix` is
-/// `verdict-tier` (single audit) or `verdict-batch`.
+/// The verdict tier of an accessibility score, banded like [`ScoreBand`]
+/// (90/75/60/40), so the cover sentence and the score label beside it can
+/// never name different tiers (#896). `prefix` is `verdict-tier` (single
+/// audit) or `verdict-batch`.
 pub fn verdict_tier_key(prefix: &str, score: u32) -> String {
-    use crate::audit::verdict::Certificate;
-    let tier = match Certificate::from_score(score) {
-        Certificate::VeryGood => "excellent",
-        Certificate::Good => "solid",
-        Certificate::Stable => "stable",
-        Certificate::NeedsImprovement => "deficient",
-        _ => "critical",
+    let tier = match ScoreBand::from_score(score as f32) {
+        ScoreBand::Excellent => "excellent",
+        ScoreBand::Good => "solid",
+        ScoreBand::NeedsImprovement => "stable",
+        ScoreBand::Weak => "deficient",
+        ScoreBand::Critical => "critical",
     };
     format!("{prefix}-{tier}")
 }
@@ -1099,18 +1098,17 @@ mod tests {
         assert_eq!(ScoreBand::from_score(0.0), ScoreBand::Critical);
     }
 
-    /// #896: the cover sentence and the certificate badge name the same tier,
+    /// #896: the cover sentence and the score label name the same tier,
     /// at every band edge, for single and batch.
     #[test]
-    fn verdict_tier_follows_the_certificate_bands() {
-        use crate::audit::verdict::Certificate;
+    fn verdict_tier_follows_the_score_bands() {
         for score in 0..=100u32 {
-            let expected = match Certificate::from_score(score) {
-                Certificate::VeryGood => "excellent",
-                Certificate::Good => "solid",
-                Certificate::Stable => "stable",
-                Certificate::NeedsImprovement => "deficient",
-                _ => "critical",
+            let expected = match ScoreBand::from_score(score as f32) {
+                ScoreBand::Excellent => "excellent",
+                ScoreBand::Good => "solid",
+                ScoreBand::NeedsImprovement => "stable",
+                ScoreBand::Weak => "deficient",
+                ScoreBand::Critical => "critical",
             };
             assert_eq!(
                 verdict_tier_key("verdict-tier", score),
@@ -1122,7 +1120,7 @@ mod tests {
                 format!("verdict-batch-{expected}")
             );
         }
-        // Edges of the certificate (90/75/60/40) are the edges of the tiers.
+        // Edges of the score bands (90/75/60/40) are the edges of the tiers.
         assert_eq!(
             verdict_tier_key("verdict-tier", 93),
             "verdict-tier-excellent"

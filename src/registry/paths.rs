@@ -3,15 +3,15 @@
 //! `json_path` was ported verbatim from the pre-registry `metric_context()`
 //! text (#506 Phase 1 step 1), so some entries are a single dotted/bracketed
 //! path (`"pages[].risk.score"`) and others are a compound, human-readable
-//! description (`"summary.grade / summary.certificate"`,
+//! description (`"summary.grade / summary.risk_level"`,
 //! `"pages[].detail.modules.*.score and nested dimension scores"`). Both
 //! `tests/registry_contract.rs` (checks paths against the JSON *schema*) and
 //! `crate::lint` (checks paths against a real report *instance*) need the
 //! same first step: pull the real path-like candidates out of that text.
 
 /// Extract path-like candidates from a (possibly compound/prose) `json_path`
-/// string, e.g. `"summary.grade / summary.certificate"` yields
-/// `["summary.grade", "summary.certificate"]`, and
+/// string, e.g. `"summary.grade / summary.risk_level"` yields
+/// `["summary.grade", "summary.risk_level"]`, and
 /// `"pages[].detail.modules.*.score and nested dimension scores"` yields
 /// `["pages[].detail.modules.*.score"]` (trailing prose is dropped).
 pub fn json_path_candidates(json_path: &str) -> Vec<String> {
@@ -40,8 +40,8 @@ mod tests {
     #[test]
     fn splits_compound_paths() {
         assert_eq!(
-            json_path_candidates("summary.grade / summary.certificate"),
-            vec!["summary.grade", "summary.certificate"]
+            json_path_candidates("summary.grade / summary.risk_level"),
+            vec!["summary.grade", "summary.risk_level"]
         );
     }
 

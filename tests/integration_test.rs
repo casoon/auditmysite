@@ -259,24 +259,12 @@ async fn assert_critical_in_one_viewport_caps(label_expr: &str, desktop_critical
         report.accessibility.score.round() as u32,
         normalized.normalized.score
     );
-    // #772: grade, certificate and verdict follow the capped score, not the
+    // #772: grade and verdict follow the capped score, not the
     // uncapped mobile pass.
     let capped = normalized.normalized.score as f32;
     assert_eq!(
         normalized.normalized.grade,
         auditmysite::audit::AccessibilityScorer::calculate_grade(capped)
-    );
-    assert!(
-        !matches!(
-            normalized.normalized.decision.certificate,
-            Some(
-                auditmysite::audit::Certificate::Stable
-                    | auditmysite::audit::Certificate::Good
-                    | auditmysite::audit::Certificate::VeryGood
-            )
-        ),
-        "certificate {:?} for a capped score",
-        normalized.normalized.decision.certificate
     );
     assert_eq!(
         normalized.normalized.decision.verdict,

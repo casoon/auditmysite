@@ -4,7 +4,7 @@
 //! - Korrigiertem Score (nach Suppressions)
 //! - Taxonomie-angereichertem Findings
 //! - Einheitlicher Severity-Terminologie
-//! - Konsistenter Grade/Certificate-Berechnung
+//! - Konsistente Grade-Berechnung
 
 use std::collections::{HashMap, HashSet};
 
@@ -1363,7 +1363,7 @@ fn filter_aria_hidden_interactive(
 ///
 /// - Gruppert Violations nach Regel-ID
 /// - Reichert mit Taxonomie-Feldern an (via RuleLookup)
-/// - Berechnet Grade/Certificate aus korrigiertem Score
+/// - Berechnet Grade aus korrigiertem Score
 pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     let violations = &report.accessibility.wcag_results.violations;
 
@@ -1492,16 +1492,13 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     let score_calculation_method = "module_weighted".to_string();
     let score_breakdown = None;
 
-    // Grade (and the certificate in `decision`) describe the subject of the
-    // report: accessibility.
+    // The grade describes the subject of the report: accessibility.
     //
-    // They used to hang off `overall_score` (#233, to stop grade and
-    // certificate contradicting each other). That fixed the internal
-    // contradiction but moved the headline away from what the tool is for: an
-    // accessibility score of 20 appeared on the cover as an overall 39,
-    // because Performance 45, Mobile 80 and SEO 65 pulled it up. Both now read
-    // the same number, so they still cannot contradict each other, and the
-    // number is the one the report is about (plan 29, D1).
+    // It used to hang off `overall_score` (#233). That moved the headline away
+    // from what the tool is for: an accessibility score of 20 appeared on the
+    // cover as an overall 39, because Performance 45, Mobile 80 and SEO 65
+    // pulled it up. It now reads the accessibility score, the number the
+    // report is about (plan 29, D1).
     //
     // The weighted `overall_score` remains in the report as a labelled
     // secondary value, with the weight basis it was computed over.
@@ -1761,7 +1758,6 @@ pub(crate) fn wcag_criterion_of(rule: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::audit::verdict::Certificate;
     use crate::wcag::{Violation, WcagResults};
 
     /// Two checks that resolve to one taxonomy rule (`links/name-missing`,
@@ -2099,10 +2095,6 @@ mod tests {
 
         assert_eq!(norm.normalized.score, 100);
         assert_eq!(norm.normalized.grade, "A");
-        assert_eq!(
-            norm.normalized.decision.certificate,
-            Some(Certificate::VeryGood)
-        );
         assert!(norm.normalized.findings.is_empty());
         assert_eq!(norm.normalized.severity_counts.total, 0);
     }
@@ -2504,9 +2496,7 @@ mod tests {
     #[test]
     fn test_score_consistency() {
         let mut results = WcagResults::new();
-        // A non-legal, non-blocking violation (Level AA, Low severity): keeps the
-        // page out of the certificate veto (no legal_flags / blocking_issues), so
-        // the ungated score→grade→certificate mapping is what we assert here.
+        // A non-legal, non-blocking violation (Level AA, Low severity).
         results.add_violation(Violation::new(
             "1.4.3",
             "Contrast",
@@ -2524,62 +2514,9 @@ mod tests {
         );
         let norm = normalize(&report);
 
-        // Grade and certificate both describe the accessibility score (#233,
-        // plan 29 D1); the certificate lives in the decision (#781).
+        // The grade describes the accessibility score (#233, plan 29 D1).
         let expected_grade = AccessibilityScorer::calculate_grade(norm.normalized.score as f32);
         assert_eq!(norm.normalized.grade, expected_grade);
-        assert_eq!(
-            norm.normalized.decision.certificate,
-            Some(Certificate::from_score(norm.normalized.score))
-        );
-    }
-
-    #[test]
-    fn high_risk_vetoes_positive_certificate() {
-        assert_eq!(
-            Certificate::derive(65, &RiskLevel::High, 0, 0),
-            Certificate::Restricted
-        );
-        assert_eq!(
-            Certificate::derive(95, &RiskLevel::Critical, 0, 0),
-            Certificate::NotPassed
-        );
-        // High risk also vetoes the bronze "AUSBAUFÄHIG" band: a failing page
-        // must not surface a label that reads milder than a Critical fail.
-        assert_eq!(
-            Certificate::derive(50, &RiskLevel::High, 0, 0),
-            Certificate::Restricted
-        );
-        // "UNGENÜGEND" is already terminal and stays as-is under High risk.
-        assert_eq!(
-            Certificate::derive(20, &RiskLevel::High, 0, 0),
-            Certificate::Insufficient
-        );
-    }
-
-    #[test]
-    fn legal_or_blocking_vetoes_positive_certificate_at_medium_risk() {
-        // A legal-relevant WCAG Level-A violation fails the default verdict even
-        // at medium risk — the certificate must not read "GUT" (regression: a
-        // medium-risk page with legal_flags=1 showed a passing tier).
-        assert_eq!(
-            Certificate::derive(80, &RiskLevel::Medium, 1, 0),
-            Certificate::Restricted
-        );
-        assert_eq!(
-            Certificate::derive(65, &RiskLevel::Medium, 0, 3),
-            Certificate::Restricted
-        );
-        // A clean medium/low-risk page (no legal flags, no blockers) keeps its
-        // positive tier — e.g. a "warn" verdict that still passes.
-        assert_eq!(
-            Certificate::derive(80, &RiskLevel::Low, 0, 0),
-            Certificate::Good
-        );
-        assert_eq!(
-            Certificate::derive(80, &RiskLevel::Medium, 0, 0),
-            Certificate::Good
-        );
     }
 
     #[test]

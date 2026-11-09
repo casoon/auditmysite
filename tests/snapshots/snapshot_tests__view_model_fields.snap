@@ -6,7 +6,6 @@ expression: sort_json_keys(value)
 {
   "action_column_count": 1,
   "cover": {
-    "certificate": "NICHT BESTANDEN",
     "critical_issues": 5,
     "grade": "F",
     "score": 49,
@@ -36,7 +35,6 @@ expression: sort_json_keys(value)
     "total": 8
   },
   "summary": {
-    "certificate": "NICHT BESTANDEN",
     "grade": "F",
     "maturity_label": "Kritisch",
     "score": 49

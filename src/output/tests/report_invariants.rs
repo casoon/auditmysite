@@ -329,7 +329,7 @@ fn landmark_violations_do_not_move_ai_chunking() {
 /// to hang off the weighted overall score, so an accessibility score of 20
 /// reached the cover as a 39 that five other modules had lifted.
 #[test]
-fn grade_and_certificate_follow_the_accessibility_score() {
+fn grade_follows_the_accessibility_score() {
     use crate::audit::AccessibilityScorer;
 
     let mut report = make_report(WcagResults::new());
@@ -351,18 +351,12 @@ fn grade_and_certificate_follow_the_accessibility_score() {
         normalized.grade,
         AccessibilityScorer::calculate_grade(normalized.score as f32),
     );
-    // The certificate may be risk-gated downwards, never lifted by the other
-    // modules: the score-based value is its ceiling.
-    let ceiling = crate::audit::Certificate::from_score(normalized.score);
-    let from_overall = crate::audit::Certificate::from_score(normalized.overall_score);
+    // The two bases fall into different score bands (30 vs 43), so a grade
+    // taken from the overall would be visible as a different tier.
     assert_ne!(
-        ceiling, from_overall,
+        crate::audit::interpretation::ScoreBand::from_score(normalized.score as f32),
+        crate::audit::interpretation::ScoreBand::from_score(normalized.overall_score as f32),
         "fixture must make the two bases disagree"
-    );
-    assert_ne!(
-        normalized.decision.certificate,
-        Some(from_overall),
-        "certificate must not follow the weighted overall score"
     );
 }
 

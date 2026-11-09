@@ -40,7 +40,7 @@ fn broken_grade_mismatch_fails_by_default() {
     );
 }
 
-/// Plan 29, D1: grade and certificate are derived from `accessibility_score`,
+/// Plan 29, D1: the grade is derived from `accessibility_score`,
 /// not from the weighted overall. This fixture is clean under the old rule and
 /// broken under the new one — the two scores agree in every other fixture, so
 /// nothing else can tell the change apart.
@@ -50,10 +50,6 @@ fn grade_derived_from_the_overall_score_is_rejected() {
     assert_eq!(code, 3, "output: {output}");
     assert!(
         output.contains("grade_matches_accessibility_score"),
-        "output: {output}"
-    );
-    assert!(
-        output.contains("certificate_matches_accessibility_score"),
         "output: {output}"
     );
 }
@@ -66,11 +62,11 @@ fn broken_score_alias_fails_by_default() {
 }
 
 #[test]
-fn broken_batch_certificate_fails_by_default() {
-    let (code, output) = run_report_lint("broken_batch_certificate.json", &[]);
+fn broken_batch_grade_fails_by_default() {
+    let (code, output) = run_report_lint("broken_batch_grade.json", &[]);
     assert_eq!(code, 3, "output: {output}");
     assert!(
-        output.contains("certificate_matches_accessibility_score"),
+        output.contains("grade_matches_accessibility_score"),
         "output: {output}"
     );
 }
@@ -100,7 +96,7 @@ fn fail_on_low_still_fails_on_high_findings() {
 }
 
 #[test]
-fn pdf_certificate_traceable_passes_when_typst_source_matches() {
+fn pdf_score_traceable_passes_when_typst_source_matches() {
     let typst_path =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/lint_fixtures/clean_single.typ");
     let (code, output) = run_report_lint(
@@ -112,9 +108,9 @@ fn pdf_certificate_traceable_passes_when_typst_source_matches() {
 }
 
 #[test]
-fn pdf_certificate_traceable_flags_missing_token_but_stays_low_severity() {
-    let typst_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/lint_fixtures/broken_missing_certificate.typ");
+fn pdf_score_traceable_flags_missing_score_but_stays_low_severity() {
+    let typst_path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/lint_fixtures/broken_missing_score.typ");
     let (code, output) = run_report_lint(
         "clean_single.json",
         &["--typst-source", typst_path.to_str().unwrap()],
@@ -122,7 +118,7 @@ fn pdf_certificate_traceable_flags_missing_token_but_stays_low_severity() {
     // Low severity alone must not breach the default --fail-on high.
     assert_eq!(code, 0, "output: {output}");
     assert!(
-        output.contains("pdf_certificate_traceable_to_json"),
+        output.contains("pdf_score_traceable_to_json"),
         "output: {output}"
     );
 }
