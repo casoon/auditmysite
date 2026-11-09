@@ -112,7 +112,7 @@ c2pa = { version = "0.91.4", optional = true, default-features = false, features
 hickory-resolver = "0.26.1"
 
 # Content hashing for duplicate-asset detection (#551, performance::coverage).
-sha2 = "0.10"
+sha2 = "0.11"
 a11y-perception = "0.2.1"
 a11y-report = "0.28.1"
 web-checks = "0.7.0"

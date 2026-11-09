@@ -89,7 +89,10 @@ impl StorageState {
         })?;
         Ok(Self {
             file: std::sync::Arc::new(file),
-            digest: format!("{:x}", Sha256::digest(bytes)),
+            digest: Sha256::digest(bytes)
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect(),
         })
     }
 
