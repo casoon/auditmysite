@@ -1193,6 +1193,7 @@ fn test_collection_errors_serialized_when_present() {
             reason: "NaN value in field".to_string(),
         }],
         decision: crate::audit::verdict::VerdictResult::undecided(),
+        annotations: None,
     };
     let json_str = unified.to_json(false).unwrap();
     let json_value: serde_json::Value = serde_json::from_str(&json_str).unwrap();

@@ -107,6 +107,7 @@
 pub mod a11y_journey;
 pub mod accessibility;
 pub mod ai_visibility;
+pub mod annotations;
 pub mod assessment;
 pub mod audit;
 pub mod best_practices;

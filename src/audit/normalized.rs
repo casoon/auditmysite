@@ -1137,6 +1137,15 @@ fn rederive_count_dependent_fields(f: &mut NormalizedFinding) {
     );
 }
 
+/// The taxonomy rule id a violation is grouped under: the id behind
+/// `findings[].rule_id` and, hashed, `findings[].id`.
+pub(crate) fn violation_rule_id(violation: &crate::wcag::Violation) -> String {
+    let key = wcag_group_key(violation);
+    RuleLookup::by_legacy_wcag_id(key)
+        .map(|rule| rule.id.to_string())
+        .unwrap_or_else(|| format!("unknown.{key}"))
+}
+
 pub(crate) fn wcag_group_key(violation: &crate::wcag::Violation) -> &str {
     // Prefer the violation's own axe/rule id as the group key whenever the
     // taxonomy has a dedicated entry for it. Several distinct checks share

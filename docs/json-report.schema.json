@@ -70,9 +70,234 @@
     },
     "decision": {
       "$ref": "#/$defs/decision"
+    },
+    "annotations": {
+      "$ref": "#/$defs/annotations_block"
     }
   },
   "$defs": {
+    "annotations_block": {
+      "description": "External assessments read from --annotations (annotation file schema 1, defined in barrierlab docs/a11y/reference/annotations.md). Shown apart from the findings; never read by the verdict, scores, risk level or exit code. Absent without the option.",
+      "type": "object",
+      "required": [
+        "schema",
+        "counts",
+        "matched",
+        "unmatched"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": 1
+        },
+        "counts": {
+          "type": "object",
+          "required": [
+            "total",
+            "matched",
+            "unmatched",
+            "by_author_kind"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "matched": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unmatched": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "by_author_kind": {
+              "type": "object",
+              "required": [
+                "agent",
+                "human"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "agent": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "human": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        },
+        "matched": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/annotation_matched"
+          }
+        },
+        "unmatched": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/annotation_unmatched"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "annotation_matched": {
+      "type": "object",
+      "required": [
+        "url",
+        "scope",
+        "annotation"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "The audited page the annotation attached to."
+        },
+        "scope": {
+          "enum": [
+            "finding",
+            "reading_flow"
+          ]
+        },
+        "finding_id": {
+          "type": "string",
+          "description": "pages[].findings[].id the annotation attached to (scope finding)."
+        },
+        "pattern_id": {
+          "type": "string",
+          "description": "pages[].findings[].patterns[].id, when narrowed to one element pattern."
+        },
+        "pattern_selector": {
+          "type": "string"
+        },
+        "annotation": {
+          "$ref": "#/$defs/annotation"
+        }
+      }
+    },
+    "annotation_unmatched": {
+      "type": "object",
+      "required": [
+        "reason",
+        "annotation"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "enum": [
+            "finding_not_found",
+            "pattern_not_found",
+            "url_not_audited",
+            "url_required",
+            "no_reading_flow"
+          ]
+        },
+        "annotation": {
+          "$ref": "#/$defs/annotation"
+        }
+      }
+    },
+    "annotation": {
+      "description": "One assessment as read from the annotation file.",
+      "type": "object",
+      "required": [
+        "scope",
+        "author",
+        "assessment",
+        "reasoning"
+      ],
+      "properties": {
+        "scope": {
+          "enum": [
+            "finding",
+            "reading_flow"
+          ]
+        },
+        "finding_id": {
+          "type": "string",
+          "pattern": "^F-[0-9a-f]{8}$"
+        },
+        "pattern_id": {
+          "type": "string",
+          "pattern": "^RC-[0-9a-f]{8}$"
+        },
+        "url": {
+          "type": "string"
+        },
+        "author": {
+          "type": "object",
+          "required": [
+            "kind",
+            "name"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "agent",
+                "human"
+              ]
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "assessment": {
+          "enum": [
+            "likely_issue",
+            "likely_fine",
+            "undetermined"
+          ]
+        },
+        "reasoning": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "screenshot",
+                  "text",
+                  "link"
+                ]
+              },
+              "path": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "created": {
+          "type": "string"
+        }
+      }
+    },
     "artifact": {
       "type": "object",
       "required": [

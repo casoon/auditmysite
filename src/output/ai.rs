@@ -35,6 +35,47 @@ pub struct AiTask {
     pub help_url: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub html_snippet: Option<String>,
+    /// `findings[].id` of the JSON report; set on annotated tasks only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub finding_id: Option<String>,
+    /// External assessments of this task's finding (`--annotations`, #961),
+    /// labelled by author kind. They are not part of `issue` and change no
+    /// impact.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub annotations: Vec<AiAnnotation>,
+}
+
+/// An assessment as a remediation pass reads it.
+#[derive(Debug, Serialize)]
+pub struct AiAnnotation {
+    /// `Assessment (agent)` or `Assessment (reviewer)`.
+    pub label: &'static str,
+    #[serde(flatten)]
+    pub annotation: crate::annotations::Annotation,
+}
+
+impl AiAnnotation {
+    fn new(annotation: &crate::annotations::Annotation) -> Self {
+        Self {
+            label: crate::annotations::author_label_en(annotation.author.kind),
+            annotation: annotation.clone(),
+        }
+    }
+}
+
+/// Assessments that are not on a task, so they are not lost in this format.
+#[derive(Debug, Serialize)]
+pub struct AiAnnotations {
+    /// Scope `reading_flow`: belongs to the page's reading flow.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub reading_flow: Vec<AiAnnotation>,
+    /// Matched a finding that has no task here (only WCAG violations are tasks).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub matched_without_task: Vec<AiAnnotation>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub unmatched: Vec<crate::annotations::Unmatched>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
 }
 
 /// Violation summary counts broken down by impact level.
@@ -66,12 +107,23 @@ pub struct AiReport {
     pub tasks: Vec<AiTask>,
     pub passing_checks: usize,
     pub metadata: AiMetadata,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<AiAnnotations>,
 }
 
 /// Build an [`AiReport`] from a raw [`AuditReport`] and serialise it as
 /// pretty-printed JSON. A report whose data contradicts itself is refused
 /// (#790) with the machine-readable codes and data paths of the contract.
 pub fn format_ai_json(report: &AuditReport) -> Result<String, ReportContractError> {
+    format_ai_json_with_annotations(report, None)
+}
+
+/// [`format_ai_json`] with the assessments of `--annotations` (#961): annotated
+/// tasks carry them next to the task. `None` is exactly `format_ai_json`.
+pub fn format_ai_json_with_annotations(
+    report: &AuditReport,
+    annotations: Option<&crate::annotations::Resolved>,
+) -> Result<String, ReportContractError> {
     let normalized = normalize_checked(report)?;
     let violations = &report.accessibility.wcag_results.violations;
 
@@ -93,6 +145,25 @@ pub fn format_ai_json(report: &AuditReport) -> Result<String, ReportContractErro
                 *c += 1;
                 *c
             };
+            let (finding_id, task_annotations) = match annotations {
+                Some(resolved) => {
+                    let taxonomy_id = crate::audit::normalized::violation_rule_id(v);
+                    let finding_id =
+                        a11y_report::FindingId::new(&taxonomy_id, std::iter::empty()).to_string();
+                    let pattern_id = a11y_report::RootCauseId::new(
+                        &taxonomy_id,
+                        v.selector.as_deref().unwrap_or_default(),
+                    )
+                    .to_string();
+                    let attached: Vec<AiAnnotation> = resolved
+                        .for_finding(&finding_id)
+                        .filter(|m| m.pattern_id.as_deref().is_none_or(|p| p == pattern_id))
+                        .map(|m| AiAnnotation::new(&m.annotation))
+                        .collect();
+                    ((!attached.is_empty()).then_some(finding_id), attached)
+                }
+                None => (None, Vec::new()),
+            };
             AiTask {
                 task_id: format!("{}-{:03}", rule_id, seq),
                 rule_id,
@@ -106,9 +177,32 @@ pub fn format_ai_json(report: &AuditReport) -> Result<String, ReportContractErro
                 node_id: v.node_id.clone(),
                 help_url: v.help_url.clone().unwrap_or_default(),
                 html_snippet: v.html_snippet.clone(),
+                finding_id,
+                annotations: task_annotations,
             }
         })
         .collect();
+
+    let annotations = annotations.map(|resolved| AiAnnotations {
+        reading_flow: resolved
+            .reading_flow()
+            .map(|m| AiAnnotation::new(&m.annotation))
+            .collect(),
+        matched_without_task: resolved
+            .matched
+            .iter()
+            .filter(|m| m.scope == crate::annotations::Scope::Finding)
+            .filter(|m| {
+                !tasks.iter().any(|t| {
+                    t.finding_id == m.finding_id
+                        && t.annotations.iter().any(|a| a.annotation == m.annotation)
+                })
+            })
+            .map(|m| AiAnnotation::new(&m.annotation))
+            .collect(),
+        unmatched: resolved.unmatched.clone(),
+        warnings: resolved.warnings.clone(),
+    });
 
     tasks.sort_by_key(|t| impact_order(&t.impact));
 
@@ -131,6 +225,7 @@ pub fn format_ai_json(report: &AuditReport) -> Result<String, ReportContractErro
             version: env!("CARGO_PKG_VERSION").to_string(),
             wcag_level: report.wcag_level.to_string(),
         },
+        annotations,
     };
 
     Ok(serde_json::to_string_pretty(&ai_report)

@@ -468,6 +468,18 @@ pub struct Args {
     #[arg(long, default_value = "browser", value_enum)]
     pub request_mode: RequestMode,
 
+    /// Show external assessments of findings in the report, without changing results.
+    ///
+    /// Reads an annotation file (schema 1, defined in barrierlab:
+    /// docs/a11y/reference/annotations.md) and shows each assessment next to the
+    /// finding it belongs to (`finding_id`, optionally `pattern_id`), or at the
+    /// screen-reader section (scope `reading_flow`). Annotations never change
+    /// outcome, severity, scores, risk level, exit code or `--fail-on`; annotations
+    /// matching no finding of this run are listed as unmatched. Used by `-f json`,
+    /// `-f pdf` and `-f ai`. An invalid file is refused before the audit (exit 2).
+    #[arg(long, value_name = "FILE", value_parser = parse_annotations_path, global = true)]
+    pub annotations: Option<PathBuf>,
+
     /// Exit 0 whenever the requested report artifacts were written successfully,
     /// regardless of the computed verdict (PASS/WARN/FAIL).
     ///
@@ -479,6 +491,14 @@ pub struct Args {
     /// in CLI, JSON and PDF output.
     #[arg(long, global = true)]
     pub report_mode: bool,
+}
+
+/// clap value parser for `--annotations`: the file is validated up front, so a
+/// bad file fails like any other invalid argument instead of after the audit.
+fn parse_annotations_path(raw: &str) -> Result<PathBuf, String> {
+    let path = PathBuf::from(raw);
+    crate::annotations::AnnotationFile::load(&path).map_err(|e| e.to_string())?;
+    Ok(path)
 }
 
 /// Subcommands
@@ -1193,6 +1213,7 @@ mod tests {
             annex: None,
             request_mode: RequestMode::Browser,
             report_mode: false,
+            annotations: None,
         }
     }
 

@@ -1088,6 +1088,15 @@ pub(super) fn render_tech_details(
             super::detail_modules::bfsg_relevant_wcag_findings(&vm.findings.all_findings),
             i18n,
         );
+        builder = super::annotations::render_reading_flow_annotations(
+            builder,
+            vm.annotations.as_ref(),
+            i18n,
+        );
+    }
+
+    if let Some(resolved) = vm.annotations.as_ref() {
+        builder = super::annotations::render_assessments_section(builder, resolved, false, i18n);
     }
 
     builder
@@ -1635,6 +1644,12 @@ fn render_findings_section(
                     evidence_seq,
                     acronyms_expanded,
                 );
+                builder = super::annotations::render_finding_annotations(
+                    builder,
+                    vm.annotations.as_ref(),
+                    &group.finding_id,
+                    i18n,
+                );
             }
         }
 
@@ -1671,6 +1686,12 @@ fn render_findings_section(
                     report_ts,
                     evidence_seq,
                     acronyms_expanded,
+                );
+                builder = super::annotations::render_finding_annotations(
+                    builder,
+                    vm.annotations.as_ref(),
+                    &group.finding_id,
+                    i18n,
                 );
             }
         }
@@ -1709,6 +1730,12 @@ fn render_findings_section(
                     evidence_seq,
                     acronyms_expanded,
                 );
+                builder = super::annotations::render_finding_annotations(
+                    builder,
+                    vm.annotations.as_ref(),
+                    &group.finding_id,
+                    i18n,
+                );
             }
         }
 
@@ -1745,6 +1772,12 @@ fn render_findings_section(
                     report_ts,
                     evidence_seq,
                     acronyms_expanded,
+                );
+                builder = super::annotations::render_finding_annotations(
+                    builder,
+                    vm.annotations.as_ref(),
+                    &group.finding_id,
+                    i18n,
                 );
             }
         }

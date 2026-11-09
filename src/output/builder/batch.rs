@@ -1792,6 +1792,7 @@ fn finding_group_from_normalized(i18n: &I18n, acc: &NormalizedFindingAccumulator
     FindingGroup {
         title,
         rule_id: finding.rule_id.clone(),
+        finding_id: finding.id.clone(),
         wcag_criterion: finding.wcag_criterion.clone(),
         wcag_level: finding.wcag_level.clone(),
         help_url: finding.help_url.clone(),

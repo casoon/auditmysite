@@ -115,6 +115,7 @@ impl Clone for FindingGroup {
         FindingGroup {
             title: self.title.clone(),
             rule_id: self.rule_id.clone(),
+            finding_id: self.finding_id.clone(),
             wcag_criterion: self.wcag_criterion.clone(),
             wcag_level: self.wcag_level.clone(),
             help_url: self.help_url.clone(),

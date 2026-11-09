@@ -123,6 +123,7 @@ pub(super) fn finding_group_from_normalized(
     FindingGroup {
         title,
         rule_id: f.rule_id.clone(),
+        finding_id: f.id.clone(),
         wcag_criterion: f.wcag_criterion.clone(),
         wcag_level: f.wcag_level.clone(),
         help_url: f.help_url.clone(),
