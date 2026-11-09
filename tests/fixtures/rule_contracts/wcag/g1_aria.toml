@@ -1168,32 +1168,32 @@ thresholds = { not_relevant = "Open/closed, inert/not inert and named/unnamed ar
 [rule.test_strength]
 status = "killed"
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/modern_attributes.rs"
+target = "src/wcag/rules/js/modern_attributes.js"
 change = "invert the inert condition on open popovers"
 find = "if (isOpenPopover && el.hasAttribute('inert')) {"
 replace = "if (isOpenPopover && !el.hasAttribute('inert')) {"
 killed_by = "corpus:aria_widgets_broken,aria_widgets_valid"
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/modern_attributes.rs"
+target = "src/wcag/rules/js/modern_attributes.js"
 change = "stop descending into open shadow roots"
 find = "if (el.shadowRoot) walk(el.shadowRoot, frameSel);"
 replace = "if (false) walk(el.shadowRoot, frameSel);"
 killed_by = "corpus:aria_variant_shadow_frame"
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/modern_attributes.rs"
+target = "src/wcag/rules/js/modern_attributes.js"
 change = "escalate the unnamed-surface review to a violation"
 find = "'aria-label', null, 'review');"
 replace = "'aria-label', null, 'fail');"
 killed_by = "corpus:aria_variant_responsive"
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/modern_attributes.rs"
+target = "src/wcag/rules/js/modern_attributes.js"
 change = "drop the visibility condition for menus"
 find = "const isMenu = el.getAttribute('role') === 'menu' && isVisible(el);"
 replace = "const isMenu = el.getAttribute('role') === 'menu';"
 killed_by = "corpus:aria_variant_hidden"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/modern_attributes.rs"
+target = "src/wcag/rules/js/modern_attributes.js"
 change = "stop descending into same-origin frames"
 find = "walk(doc, frameSel ? frameSel + ' [frame] ' + sel : sel);"
 replace = "void doc;"

@@ -91,18 +91,7 @@ pub async fn analyze_third_party_attribution(
 ) -> crate::audit::collection::Collected<ThirdPartyAttribution> {
     info!("Analyzing third-party attribution...");
 
-    let js = r#"
-    (() => {
-        var resources = performance.getEntriesByType('resource');
-        return JSON.stringify(resources.map(function(r) {
-            return {
-                url: r.name,
-                transferSize: r.transferSize || 0,
-                initiatorType: r.initiatorType || 'other'
-            };
-        }));
-    })()
-    "#;
+    let js = include_str!("js/third_party.js");
     let entries: Vec<ResourceEntry> = match crate::audit::collection::evaluate_js(page, js)
         .await
         .into_measurement()

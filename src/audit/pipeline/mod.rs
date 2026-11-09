@@ -1654,17 +1654,7 @@ async fn capture_screenshot_with_metadata(page: &Page) -> crate::error::Result<V
 
     // Query viewport metadata
     let eval_res = page
-        .evaluate(
-            "(() => {
-                return {
-                    dpr: window.devicePixelRatio || 1.0,
-                    width: window.innerWidth || 1280,
-                    height: window.innerHeight || 800,
-                    scrollX: window.scrollX || window.pageXOffset || 0,
-                    scrollY: window.scrollY || window.pageYOffset || 0
-                };
-             })()",
-        )
+        .evaluate(include_str!("js/viewport_metadata.js"))
         .await
         .map_err(|e| crate::error::AuditError::NavigationFailed {
             url: "viewport-metadata".to_string(),

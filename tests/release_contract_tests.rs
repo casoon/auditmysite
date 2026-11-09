@@ -284,6 +284,8 @@ fn quick_ci_always_reports_and_runs_the_browser_free_test_set_once() {
     }
     assert!(job.contains("bash scripts/quick-ci-scope.sh"));
     assert!(job.contains("python3 scripts/test_quick_ci_scope.py"));
+    // Lint and unit tests of the embedded JavaScript run inside this job (#941).
+    assert!(job.contains("bash scripts/check-js.sh"));
 }
 
 #[test]

@@ -16,16 +16,7 @@ use crate::error::{AuditError, Result};
 /// `document.activeElement` hält bei Fokus innerhalb eines Shadow Roots den
 /// Host, nicht das fokussierte Element. Die Schleife steigt hinab, solange
 /// ein Shadow Root ein eigenes `activeElement` führt.
-const DEEP_ACTIVE_ELEMENT_JS: &str = r#"
-(function () {
-    var el = document.activeElement;
-    while (el && el.shadowRoot && el.shadowRoot.activeElement) {
-        el = el.shadowRoot.activeElement;
-    }
-    if (!el || el === document.body || el === document.documentElement) return null;
-    return el;
-})()
-"#;
+const DEEP_ACTIVE_ELEMENT_JS: &str = include_str!("js/deep_active_element.js");
 
 /// Die Backend-Node-ID des fokussierten Elements.
 ///
@@ -54,86 +45,7 @@ pub async fn capture_focus_backend_id(page: &Page) -> Option<i64> {
 /// JS that returns a description of `document.activeElement`, including
 /// visibility flags used by the journey evaluator. `null` when no element
 /// has focus (or only body/documentElement, which we treat as "no focus").
-const ACTIVE_ELEMENT_JS: &str = r#"
-(function () {
-    var el = document.activeElement;
-    if (!el || el === document.body || el === document.documentElement) {
-        return null;
-    }
-    var rect = el.getBoundingClientRect();
-    var vw = window.innerWidth || document.documentElement.clientWidth;
-    var vh = window.innerHeight || document.documentElement.clientHeight;
-    function selectorFor(node) {
-        if (!node || node.nodeType !== 1) return null;
-        if (node.id) return '#' + node.id;
-        var parts = [];
-        while (node && node.nodeType === 1 && parts.length < 6) {
-            var tag = node.nodeName.toLowerCase();
-            if (node.id) { parts.unshift(tag + '#' + node.id); break; }
-            var parent = node.parentNode;
-            if (parent) {
-                var siblings = Array.from(parent.children).filter(function (c) {
-                    return c.nodeName === node.nodeName;
-                });
-                if (siblings.length > 1) {
-                    var idx = siblings.indexOf(node) + 1;
-                    tag += ':nth-of-type(' + idx + ')';
-                }
-            }
-            parts.unshift(tag);
-            node = parent;
-        }
-        return parts.join(' > ');
-    }
-    // Ancestor-chain checks: a focused element is "hidden" if anywhere on
-    // the path to <html> there is aria-hidden="true" or an inert attribute.
-    var ariaHiddenChain = false;
-    var inertChain = false;
-    var n = el;
-    while (n && n.nodeType === 1) {
-        if (n.getAttribute) {
-            if (n.getAttribute('aria-hidden') === 'true') ariaHiddenChain = true;
-            if (n.hasAttribute('inert')) inertChain = true;
-        }
-        n = n.parentNode;
-    }
-    var style = window.getComputedStyle(el);
-    var hiddenByStyle =
-        style.display === 'none' ||
-        style.visibility === 'hidden' ||
-        parseFloat(style.opacity) === 0;
-    var inViewport = rect.right > 0 && rect.bottom > 0 && rect.left < vw && rect.top < vh;
-    // Native <video controls> is keyboard-focusable as a whole (Chrome gives
-    // it tabIndex 0 by default) — check it has an accessible name the same
-    // way axe-core/HTML-AAM would: aria-label, aria-labelledby, then title.
-    var mediaControlMissingName = false;
-    if (el.tagName === 'VIDEO' && el.hasAttribute('controls')) {
-        var name = (el.getAttribute('aria-label') || '').trim();
-        if (!name) {
-            var labelledBy = (el.getAttribute('aria-labelledby') || '').trim();
-            if (labelledBy) {
-                name = labelledBy.split(/\s+/).map(function (id) {
-                    var ref = document.getElementById(id);
-                    return ref ? ref.textContent.trim() : '';
-                }).join(' ').trim();
-            }
-        }
-        if (!name) {
-            name = (el.getAttribute('title') || '').trim();
-        }
-        mediaControlMissingName = !name;
-    }
-    return {
-        selector: selectorFor(el),
-        x: rect.x, y: rect.y, w: rect.width, h: rect.height,
-        ariaHiddenChain: ariaHiddenChain,
-        inertChain: inertChain,
-        hiddenByStyle: hiddenByStyle,
-        inViewport: inViewport,
-        mediaControlMissingName: mediaControlMissingName,
-    };
-})()
-"#;
+const ACTIVE_ELEMENT_JS: &str = include_str!("js/active_element.js");
 
 /// JS that collects all focusable elements on the page in DOM order and
 /// returns their selectors. Used by the tab-walk evaluator to detect
@@ -144,40 +56,7 @@ const ACTIVE_ELEMENT_JS: &str = r#"
 /// - any element with positive or zero `tabindex`
 /// - `contenteditable` regions
 /// - excludes `disabled` controls and `tabindex="-1"` (HTMLElement.tabIndex < 0)
-const COLLECT_FOCUSABLES_JS: &str = r#"
-(function () {
-    function selectorFor(node) {
-        if (!node || node.nodeType !== 1) return null;
-        if (node.id) return '#' + node.id;
-        var parts = [];
-        while (node && node.nodeType === 1 && parts.length < 6) {
-            var tag = node.nodeName.toLowerCase();
-            if (node.id) { parts.unshift(tag + '#' + node.id); break; }
-            var parent = node.parentNode;
-            if (parent) {
-                var siblings = Array.from(parent.children).filter(function (c) {
-                    return c.nodeName === node.nodeName;
-                });
-                if (siblings.length > 1) {
-                    var idx = siblings.indexOf(node) + 1;
-                    tag += ':nth-of-type(' + idx + ')';
-                }
-            }
-            parts.unshift(tag);
-            node = parent;
-        }
-        return parts.join(' > ');
-    }
-    var sel = 'a[href], button, input:not([type="hidden"]), select, textarea, ' +
-              '[tabindex], [contenteditable=""], [contenteditable="true"], video[controls]';
-    var els = Array.from(document.querySelectorAll(sel)).filter(function (el) {
-        if (el.disabled) return false;
-        if (typeof el.tabIndex === 'number' && el.tabIndex < 0) return false;
-        return true;
-    });
-    return els.map(selectorFor).filter(function (s) { return s !== null; });
-})()
-"#;
+const COLLECT_FOCUSABLES_JS: &str = include_str!("js/collect_focusables.js");
 
 /// Collect the in-DOM-order selectors of all focusable elements on the
 /// page. Used as the reference order by `evaluate::tab_walk_order`.
@@ -208,22 +87,7 @@ pub async fn collect_focusable_dom_order(page: &Page) -> Vec<String> {
 
 /// JS that checks whether the currently focused element has a visible focus
 /// indicator via outline, box-shadow, or border changes.
-const FOCUS_INDICATOR_JS: &str = r#"
-(function() {
-    var el = document.activeElement;
-    if (!el || el === document.body || el === document.documentElement) return 'ambiguous';
-    var cs = window.getComputedStyle(el);
-    var outlineStyle = cs.outlineStyle;
-    var outlineWidth = cs.outlineWidth;
-    var boxShadow = cs.boxShadow;
-    var hasOutline = outlineStyle !== 'none' && outlineWidth !== '0px';
-    var hasBoxShadow = boxShadow !== 'none';
-    if (hasOutline || hasBoxShadow) return 'detected';
-    var borderWidth = cs.borderWidth;
-    if (borderWidth !== '0px') return 'ambiguous';
-    return 'not_detected';
-})()
-"#;
+const FOCUS_INDICATOR_JS: &str = include_str!("js/focus_indicator.js");
 
 /// Detect whether the currently focused element has a visible focus indicator.
 ///

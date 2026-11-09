@@ -185,53 +185,7 @@ pub async fn handle_post_navigation(page: &Page, try_dismiss: bool) -> ConsentRe
 
 /// Detect if a consent banner/dialog is currently visible on the page.
 async fn detect_consent_banner(page: &Page) -> (Option<bool>, Option<String>) {
-    let js = r#"
-(function() {
-    // Check visible role=dialog elements with consent-related content
-    const dialogs = document.querySelectorAll('[role="dialog"],[role="alertdialog"]');
-    for (const d of dialogs) {
-        const rect = d.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-            const text = (d.textContent || '').toLowerCase();
-            if (text.includes('cookie') || text.includes('consent') || text.includes('datenschutz') ||
-                text.includes('privacy') || text.includes('daten') || text.includes('accept') ||
-                text.includes('akzeptieren') || text.includes('zustimmen')) {
-                return { detected: true, evidence: 'visible consent-related dialog' };
-            }
-        }
-    }
-    // Known CMP container IDs and classes
-    const selectors = [
-        '#CybotCookiebotDialog',
-        '#onetrust-banner-sdk',
-        '#onetrust-consent-sdk',
-        '#usercentrics-root',
-        '#cmp-app-container',
-        '#gdpr-consent-tool-wrapper',
-        '#klaro',
-        '.cookie-consent-banner',
-        '.cookie-banner',
-        '.cookie-notice',
-        '#cookie-law-info-bar',
-        '#cookiebanner',
-        '#cookieNotice',
-        '.cc-window',
-        '[id*="cookie"][id*="banner"]',
-        '[class*="consent-banner"]',
-        '[id*="consent-banner"]'
-    ];
-    for (const sel of selectors) {
-        try {
-            const el = document.querySelector(sel);
-            if (el) {
-                const rect = el.getBoundingClientRect();
-                if (rect.width > 0 && rect.height > 0) return { detected: true, evidence: 'visible CMP or consent container: ' + sel };
-            }
-        } catch(e) {}
-    }
-    return { detected: false, evidence: 'no visible allowlisted or heuristic consent surface' };
-})()
-"#;
+    let js = include_str!("js/consent_banner_detection.js");
 
     let value = page
         .evaluate(js)
@@ -253,19 +207,7 @@ async fn detect_consent_banner(page: &Page) -> (Option<bool>, Option<String>) {
 
 /// Identify which CMP is present.
 async fn identify_cmp(page: &Page) -> Option<String> {
-    let js = r#"
-(function() {
-    if (document.querySelector('#CybotCookiebotDialog,#CybotCookiebotDialogBody')) return 'cookiebot';
-    if (document.querySelector('#onetrust-banner-sdk,#onetrust-consent-sdk')) return 'onetrust';
-    if (document.querySelector('#usercentrics-root')) return 'usercentrics';
-    if (document.querySelector('#klaro,.klaro')) return 'klaro';
-    if (document.querySelector('#cmp-app-container')) return 'consentmanager';
-    if (document.querySelector('.cc-window,.cc-banner')) return 'cookieconsent';
-    if (document.querySelector('[id*="borlabs"]')) return 'borlabs';
-    if (document.querySelector('#cookie-law-info-bar,[id*="cli_"]')) return 'cookie-law-info';
-    return null;
-})()
-"#;
+    let js = include_str!("js/consent_cmp_vendor.js");
 
     page.evaluate(js)
         .await
@@ -276,71 +218,7 @@ async fn identify_cmp(page: &Page) -> Option<String> {
 /// Try to dismiss the consent banner by clicking the accept button.
 /// Returns true if a button was found and clicked.
 async fn dismiss_banner_js(page: &Page) -> bool {
-    let js = r#"
-(function() {
-    const selectors = [
-        // Cookiebot
-        '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
-        '#CybotCookiebotDialogBodyButtonAccept',
-        // OneTrust
-        '#onetrust-accept-btn-handler',
-        '.onetrust-accept-btn-handler',
-        // Usercentrics
-        '[data-testid="uc-accept-all-button"]',
-        // Consentmanager
-        '#cmp_btn-acceptall',
-        '.cmp_btn-acceptall',
-        // Klaro
-        '.klaro .cm-btn-accept-all',
-        // Cookie Consent (osano)
-        '.cc-accept',
-        '.cc-btn.cc-allow',
-        // Borlabs
-        '.borlabs-cookie__btn--accept',
-        // Generic patterns (English)
-        'button[id*="accept-all" i]',
-        'button[id*="acceptall" i]',
-        'button[id*="accept_all" i]',
-        'button[class*="accept-all" i]',
-        'button[class*="acceptall" i]',
-        'a[id*="accept-all" i]',
-        'a[class*="accept-all" i]',
-        // Generic patterns (German)
-        'button[id*="zustimmen" i]',
-        'button[class*="zustimmen" i]',
-        'button[id*="akzeptieren" i]',
-        'button[class*="akzeptieren" i]',
-        'button[id*="alle-akzeptieren" i]',
-        // Data attributes
-        '[data-accept-all]',
-        '[data-consent="accept"]',
-        // Last resort: any button with accept-like text in a dialog
-        '[role="dialog"] button',
-    ];
-
-    for (const sel of selectors) {
-        try {
-            const btns = document.querySelectorAll(sel);
-            for (const btn of btns) {
-                const rect = btn.getBoundingClientRect();
-                if (rect.width > 0 && rect.height > 0) {
-                    if (sel === '[role="dialog"] button') {
-                        const text = (btn.textContent || '').toLowerCase().trim();
-                        const isAccept = text.includes('accept') || text.includes('allow') ||
-                            text.includes('agree') || text.includes('akzeptieren') ||
-                            text.includes('zustimmen') || text.includes('alle erlauben') ||
-                            text.includes('alle akzeptieren');
-                        if (!isAccept) continue;
-                    }
-                    btn.click();
-                    return true;
-                }
-            }
-        } catch(e) {}
-    }
-    return false;
-})()
-"#;
+    let js = include_str!("js/consent_dismiss_banner.js");
 
     page.evaluate(js)
         .await

@@ -138,26 +138,7 @@ pub async fn analyze_content_weight(
 
     // Get resource timing entries via JavaScript.
     // Include the navigation entry (main HTML document) which is not in 'resource' entries.
-    let js_code = r#"
-    (() => {
-        const resources = performance.getEntriesByType('resource');
-        const nav = performance.getEntriesByType('navigation')[0];
-        const navEntry = nav ? [{
-            name: nav.name,
-            type: 'navigation',
-            transferSize: nav.transferSize || 0,
-            decodedSize: nav.decodedBodySize || 0,
-            duration: nav.duration
-        }] : [];
-        return JSON.stringify([...navEntry, ...resources.map(r => ({
-            name: r.name,
-            type: r.initiatorType,
-            transferSize: r.transferSize || 0,
-            decodedSize: r.decodedBodySize || 0,
-            duration: r.duration
-        }))]);
-    })()
-    "#;
+    let js_code = include_str!("js/content_weight.js");
 
     let resources: Vec<ResourceEntry> = match crate::audit::collection::evaluate_js(page, js_code)
         .await

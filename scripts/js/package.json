@@ -1,0 +1,19 @@
+{
+  "name": "auditmysite-embedded-js",
+  "private": true,
+  "description": "Lint and unit tests for the JavaScript embedded in the Rust sources (src/**/js/*.js, #941)",
+  "license": "BUSL-1.1",
+  "type": "module",
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24"
+  },
+  "scripts": {
+    "lint": "eslint",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.13.0",
+    "globals": "17.14.0"
+  }
+}
