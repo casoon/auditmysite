@@ -119,8 +119,12 @@ fn golden_file_matches() {
         std::fs::write(&path, &actual).unwrap();
     }
     let expected = std::fs::read_to_string(&path).expect("golden file (UPDATE_GOLDEN=1 writes it)");
+    // Compare parsed values: the key order of a JSON object depends on whether
+    // `serde_json` is built with `preserve_order`, which feature unification
+    // across the workspace can switch on. The content is what the contract pins.
+    let expected_value: Value = serde_json::from_str(&expected).expect("golden file is JSON");
     assert_eq!(
-        actual, expected,
+        value, expected_value,
         "SARIF output changed; review and rerun with UPDATE_GOLDEN=1"
     );
 }
