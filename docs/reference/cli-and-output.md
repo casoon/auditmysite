@@ -24,6 +24,7 @@ Useful flags:
 - `--crawl-depth <n>`: limit same-domain crawl discovery depth when using `--crawl`
 - `--per-page-reports`: scan a URL list or sitemap but write one individual report per URL instead of an aggregated batch report; `-o` is treated as a target directory. With `-f json`, `index.json` and `findings.jsonl` are written next to the page files (see [Technician mode](../../guides/technician-mode/))
 - `--modules <list>`: choose the modules that run next to the accessibility checks, comma-separated: `performance` (alias `perf`), `seo`, `security`, `mobile`, `html-conform`, `stack`, or `a11y` for the WCAG rules only. Without `--modules` (or with the no-op `--full`) every module runs. `--modules` and `--full` exclude each other.
+- `--experimental <list>`: switch on experimental indicators, comma-separated: `ux`, `journey`, `ai-visibility`, `content-visibility`, `source-quality`, `commerce`. Unvalidated heuristics that feed no score; off by default and in no `--full` run. They appear in the JSON under `experimental` and in the table, never in the PDF. See [Experimental indicators](../features/#experimental-indicators)
 - `--reuse-cache`: answer a single-URL run from the stored snapshot of an earlier run with the same configuration; without it every run measures afresh
 - `--include-path <glob>` / `--exclude-path <glob>`: select batch URLs by path before `--max-pages` (repeatable)
 - `--screen-reader-report`: also write the `<output>-screen-reader-audit.json` sidecar (off by default)

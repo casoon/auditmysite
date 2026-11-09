@@ -285,28 +285,10 @@ pub fn active_modules(report: &AuditReport) -> Vec<(&'static str, Value)> {
     if let Some(ref m) = report.experience.mobile {
         push(m);
     }
-    if let Some(ref m) = report.ux {
-        push(m);
-    }
-    if let Some(ref m) = report.journey {
-        push(m);
-    }
     if let Some(ref m) = report.experience.privacy {
         push(m);
     }
-    if let Some(ref m) = report.discoverability.source_quality {
-        push(m);
-    }
-    if let Some(ref m) = report.discoverability.ai_visibility {
-        push(m);
-    }
-    if let Some(ref m) = report.discoverability.content_visibility {
-        push(m);
-    }
     if let Some(ref m) = report.best_practices {
-        push(m);
-    }
-    if let Some(ref m) = report.commerce {
         push(m);
     }
     if let Some(ref m) = report.discoverability.tech_stack {
@@ -338,14 +320,8 @@ pub fn active_report_modules(report: &AuditReport) -> Vec<&dyn ReportModule> {
     push_module!(report.security);
     push_module!(report.html_conform);
     push_module!(report.experience.mobile);
-    push_module!(report.ux);
-    push_module!(report.journey);
     push_module!(report.experience.privacy);
-    push_module!(report.discoverability.source_quality);
-    push_module!(report.discoverability.ai_visibility);
-    push_module!(report.discoverability.content_visibility);
     push_module!(report.best_practices);
-    push_module!(report.commerce);
     push_module!(report.discoverability.tech_stack);
     push_module!(report.patterns);
 

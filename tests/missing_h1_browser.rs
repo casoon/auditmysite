@@ -70,12 +70,9 @@ async fn h2_without_h1_is_one_hint_and_one_charged_cause() {
     ids.sort();
     assert_eq!(
         ids,
-        [
-            "a11y_journey.heading_missing_h1",
-            "journey.no_h1",
-            "seo.headings.missing_h1",
-            "ux.no_h1"
-        ],
+        // `journey.no_h1` and `ux.no_h1` belong to experimental indicators
+        // (#916) that are off by default and never enter `findings[]`.
+        ["a11y_journey.heading_missing_h1", "seo.headings.missing_h1"],
         "{findings:#?}"
     );
     let charged: Vec<_> = same_cause

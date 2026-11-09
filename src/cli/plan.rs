@@ -181,15 +181,14 @@ mod tests {
         // `--modules a11y` narrows the default set to the accessibility checks,
         // so no optional full modules are active.
         let args = Args::parse_from(["auditmysite", "https://example.com", "--modules", "a11y"]);
-        let expected =
-            "Accessibility, Accessibility Journey, AI Visibility, Source Quality".to_string();
+        let expected = "Accessibility, Accessibility Journey".to_string();
         assert_eq!(active_modules_label(&args), expected);
     }
 
     #[test]
     fn active_modules_label_default_matches_standard_pipeline() {
         let args = Args::parse_from(["auditmysite", "https://example.com"]);
-        let expected = "Accessibility, Accessibility Journey, Best Practices, HTML Conformance, Journey, Mobile, Performance, Security, SEO, AI Visibility, Tech Stack, Commerce, UX, Source Quality, Content Visibility".to_string();
+        let expected = "Accessibility, Accessibility Journey, Best Practices, HTML Conformance, Mobile, Performance, Security, SEO, Tech Stack".to_string();
         assert_eq!(active_modules_label(&args), expected);
     }
 

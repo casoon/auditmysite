@@ -46,6 +46,7 @@ use super::report::{
 };
 use crate::accessibility::{enrich_violations_with_page, extract_ax_tree, AXTree};
 use crate::audit::scoring::AccessibilityScorer;
+use crate::audit::ExperimentalIndicator;
 use crate::best_practices::{prepare_console_collection, BestPracticesAnalysis};
 use crate::browser::{
     consent::{handle_post_navigation, inject_consent_cookies},
@@ -368,13 +369,17 @@ pub struct PipelineConfig {
     /// page once with JavaScript execution disabled via CDP
     /// `Emulation.setScriptExecutionDisabled` and compare visible content
     /// length against the normal, JavaScript-enabled load. Requires
-    /// `check_seo` to also be true — the resulting finding is attached to
-    /// `content_visibility`, which itself is only derived when SEO checking
-    /// is active. Costly like the other opt-in extra-reload passes: one
+    /// `check_seo` to also be true and the experimental content-visibility
+    /// indicator to run — the resulting finding is attached to it, and it is
+    /// only derived when SEO checking is active. Costly like the other opt-in extra-reload passes: one
     /// extra full page reload. Runs in single and batch mode alike.
     pub check_ssr_content: bool,
     /// Run tech stack detection (in-page signals only)
     pub check_stack: bool,
+    /// Experimental indicators asked for with `--experimental` (#916). None is
+    /// part of a full audit; the ones they are derived from run with them
+    /// (see [`PipelineConfig::runs_indicator`]).
+    pub experimental: Vec<crate::audit::ExperimentalIndicator>,
     /// `[rules] disabled`/`enabled_only` from `auditmysite.toml`, by axe_id.
     /// Consulted by `check_all_with_config` for tree-based rules, by
     /// `wcag::shared::retain_allowed` for the shared rules (own id or a legacy
@@ -429,6 +434,21 @@ pub struct PipelineConfig {
 }
 
 impl PipelineConfig {
+    /// Whether an experimental indicator runs: it was asked for, or an asked
+    /// for indicator is derived from it.
+    pub fn runs_indicator(&self, indicator: crate::audit::ExperimentalIndicator) -> bool {
+        crate::audit::ExperimentalIndicator::closure(&self.experimental).contains(&indicator)
+    }
+
+    /// [`PipelineConfig::runs_indicator`] by module id (`ux`, `journey`,
+    /// `ai_visibility`, `content_visibility`, `source_quality`, `commerce`),
+    /// for the module catalog, which does not name the indicator enum.
+    pub fn runs_experimental_module(&self, module_id: &str) -> bool {
+        crate::audit::ExperimentalIndicator::closure(&self.experimental)
+            .iter()
+            .any(|indicator| indicator.id() == module_id)
+    }
+
     pub fn active_module_labels(&self) -> Vec<&'static str> {
         let mut labels = vec!["Accessibility"];
         if !matches!(self.interactive, crate::cli::InteractiveMode::Off) {
@@ -475,13 +495,14 @@ impl PipelineConfig {
         // network_dns module fields (#915).
         // 30 for the removal of the dark_mode module field (#917).
         // 31 for the engine rule id as the finding `rule_id` (#918).
-        const CACHE_FMT: u8 = 31;
+        // 32 for the experimental indicators moving into `experimental` (#916).
+        const CACHE_FMT: u8 = 32;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};html_conform={};privacy={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};html_conform={};privacy={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};experimental={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
@@ -495,6 +516,11 @@ impl PipelineConfig {
             self.perf_runs,
             self.check_ssr_content as u8,
             self.check_stack as u8,
+            crate::audit::ExperimentalIndicator::closure(&self.experimental)
+                .iter()
+                .map(|i| i.flag_name())
+                .collect::<Vec<_>>()
+                .join(","),
             self.dismiss_consent as u8,
             self.interactive,
             self.allow_state_changes as u8,
@@ -510,6 +536,19 @@ impl PipelineConfig {
             self.indexability,
         )
     }
+}
+
+/// The requested indicators, sorted and without duplicates.
+fn normalized_experimental(requested: &[ExperimentalIndicator]) -> Vec<ExperimentalIndicator> {
+    let mut list = requested.to_vec();
+    list.sort();
+    list.dedup();
+    list
+}
+
+/// Whether `--experimental` asks for `indicator` or something derived from it.
+fn experimental_requested(args: &Args, indicator: ExperimentalIndicator) -> bool {
+    ExperimentalIndicator::closure(&args.experimental).contains(&indicator)
 }
 
 impl From<&Args> for PipelineConfig {
@@ -592,8 +631,11 @@ impl PipelineConfig {
             // Requires SEO checking itself active — the resulting finding
             // is attached to `content_visibility`, which is only derived
             // when `check_seo` is true (see `ContentVisibilityModule::is_enabled`).
-            check_ssr_content: args.check_ssr_content && args.module_enabled(ModuleChoice::Seo),
+            check_ssr_content: args.check_ssr_content
+                && args.module_enabled(ModuleChoice::Seo)
+                && experimental_requested(args, ExperimentalIndicator::ContentVisibility),
             check_stack: args.module_enabled(ModuleChoice::Stack),
+            experimental: normalized_experimental(&args.experimental),
             rule_filter,
             persist_artifacts: true,
             capture_screenshots: args.url.is_some()
@@ -784,7 +826,7 @@ pub(crate) async fn run_extra_page_checks(
             log.into_records(),
         );
         if let Some(gap) = gap {
-            if let Some(cv) = report.discoverability.content_visibility.as_mut() {
+            if let Some(cv) = report.experimental.content_visibility.as_mut() {
                 crate::content_visibility::append_ssr_content_gap_signal(cv, &gap);
             }
         }
@@ -1431,7 +1473,7 @@ pub async fn audit_page(
         initial_url: url,
         locale: &config.lang,
         budget_ms: config.journey_budget_ms,
-        commerce: report.commerce.as_ref(),
+        commerce: report.experimental.commerce.as_ref(),
     };
     match crate::a11y_journey::run(journey_ctx).await {
         Ok(Some(out)) => {
@@ -2342,6 +2384,7 @@ mod tests {
             progress: crate::cli::ProgressPolicy::Auto,
             full: false,
             modules: Vec::new(),
+            experimental: Vec::new(),
             privacy_check: false,
             isolate_third_party_impact: false,
             perf_runs: 1,
@@ -2390,19 +2433,72 @@ mod tests {
             "Accessibility Journey",
             "Best Practices",
             "HTML Conformance",
-            "Journey",
             "Mobile",
             "Performance",
             "Security",
             "SEO",
-            "AI Visibility",
             "Tech Stack",
-            "Commerce",
-            "UX",
-            "Source Quality",
-            "Content Visibility",
         ];
         assert_eq!(config.active_module_labels(), expected);
+    }
+
+    /// #916: the experimental indicators are in no default run, and an
+    /// indicator brings the ones it is derived from.
+    #[test]
+    fn experimental_indicators_run_only_when_asked_for() {
+        use crate::audit::ExperimentalIndicator as I;
+        let config =
+            PipelineConfig::from(&Args::parse_from(["auditmysite", "https://example.com"]));
+        for indicator in I::ALL {
+            assert!(!config.runs_indicator(indicator), "{indicator:?}");
+        }
+
+        let config = PipelineConfig::from(&Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--experimental",
+            "content-visibility,commerce",
+        ]));
+        for indicator in [
+            I::ContentVisibility,
+            I::SourceQuality,
+            I::AiVisibility,
+            I::Ux,
+            I::Commerce,
+        ] {
+            assert!(config.runs_indicator(indicator), "{indicator:?}");
+        }
+        assert!(!config.runs_indicator(I::Journey));
+        let labels = config.active_module_labels();
+        assert!(labels.contains(&"Content Visibility") && labels.contains(&"Commerce"));
+        assert!(!labels.contains(&"Journey"));
+
+        // --full says nothing about them.
+        let config = PipelineConfig::from(&Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--full",
+        ]));
+        assert!(I::ALL.iter().all(|i| !config.runs_indicator(*i)));
+    }
+
+    #[test]
+    fn the_experimental_selection_is_part_of_the_cache_signature() {
+        let plain = PipelineConfig::from(&Args::parse_from(["auditmysite", "https://example.com"]));
+        let ux = PipelineConfig::from(&Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--experimental",
+            "ux",
+        ]));
+        let ux_twice = PipelineConfig::from(&Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--experimental",
+            "ux,ux",
+        ]));
+        assert_ne!(plain.audit_signature(), ux.audit_signature());
+        assert_eq!(ux.audit_signature(), ux_twice.audit_signature());
     }
 
     #[test]
@@ -2413,12 +2509,7 @@ mod tests {
             "--modules",
             "a11y",
         ]));
-        let expected = vec![
-            "Accessibility",
-            "Accessibility Journey",
-            "AI Visibility",
-            "Source Quality",
-        ];
+        let expected = vec!["Accessibility", "Accessibility Journey"];
         assert_eq!(config.active_module_labels(), expected);
     }
 
@@ -2490,6 +2581,8 @@ mod tests {
             "--full",
             "--isolate-third-party-impact",
             "--check-ssr-content",
+            "--experimental",
+            "content-visibility",
             "--privacy-check",
         ];
         let expected = vec![
@@ -2557,6 +2650,7 @@ mod tests {
                         .into_iter()
                         .chain(target.iter().copied())
                         .chain(modules.iter().copied())
+                        .chain(["--experimental", "content-visibility"])
                         .chain([check])
                         .collect();
                     let args = Args::parse_from(&argv);
@@ -2640,6 +2734,8 @@ mod tests {
             "--full",
             "--isolate-third-party-impact",
             "--check-ssr-content",
+            "--experimental",
+            "content-visibility",
             "--privacy-check",
         ];
         let scope = |target: &[&str]| {
@@ -2786,6 +2882,7 @@ mod tests {
             check_isolate_third_party_impact: false,
             check_ssr_content: false,
             check_stack: false,
+            experimental: Vec::new(),
             rule_filter: crate::wcag::RuleFilterConfig::default(),
             persist_artifacts: true,
             capture_screenshots: false,

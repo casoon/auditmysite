@@ -25,8 +25,8 @@ impl AuditModule for AiVisibilityModule {
         "AI Visibility"
     }
 
-    fn is_enabled(&self, _cfg: &PipelineConfig) -> bool {
-        true
+    fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
+        cfg.runs_experimental_module("ai_visibility")
     }
 
     fn depends_on(&self) -> &'static [&'static str] {

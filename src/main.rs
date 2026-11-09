@@ -293,8 +293,7 @@ mod tests {
         let args = Args::parse_from(["auditmysite", "https://example.com", "--modules", "a11y"]);
         let label = active_modules_label(&args);
 
-        let expected =
-            "Accessibility, Accessibility Journey, AI Visibility, Source Quality".to_string();
+        let expected = "Accessibility, Accessibility Journey".to_string();
         assert_eq!(label, expected);
     }
 }

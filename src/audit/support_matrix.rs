@@ -62,20 +62,24 @@ pub enum Prerequisite {
     None,
     /// Performance checking: the check diffs against a baseline TBT.
     Performance,
-    /// SEO checking: the finding is attached to `content_visibility`.
-    Seo,
+    /// SEO checking and the experimental content-visibility indicator (#916):
+    /// the finding is attached to `content_visibility`.
+    ContentVisibility,
 }
 
 impl Prerequisite {
-    fn unmet_reason(self) -> Option<&'static str> {
+    fn unmet_reason(self, request: &ExtraCheckRequest) -> Option<&'static str> {
         match self {
             Prerequisite::None => None,
             Prerequisite::Performance => Some(
                 "needs performance checking (the default module set, or --modules performance)",
             ),
-            Prerequisite::Seo => {
+            Prerequisite::ContentVisibility if !request.seo_active => {
                 Some("needs SEO checking (the default module set, or --modules seo)")
             }
+            Prerequisite::ContentVisibility => Some(
+                "needs the experimental content-visibility indicator (use --experimental content-visibility)",
+            ),
         }
     }
 }
@@ -125,7 +129,7 @@ pub const MATRIX: &[ExtraCheckSpec] = &[
         check: ExtraCheck::SsrContent,
         flag: "--check-ssr-content",
         subchecks: &["content_visibility.ssr_gap"],
-        prerequisite: Prerequisite::Seo,
+        prerequisite: Prerequisite::ContentVisibility,
         single: Support::Runs,
         batch: Support::Runs,
         cache: Support::Runs,
@@ -151,6 +155,8 @@ pub struct ExtraCheckRequest {
     pub privacy_check: bool,
     pub performance_active: bool,
     pub seo_active: bool,
+    /// The experimental content-visibility indicator runs (#916).
+    pub content_visibility_active: bool,
     pub batch: bool,
     /// A single-URL run that may be answered from the cache.
     pub reuse_cache: bool,
@@ -189,7 +195,7 @@ impl ExtraCheckRequest {
         match prerequisite {
             Prerequisite::None => true,
             Prerequisite::Performance => self.performance_active,
-            Prerequisite::Seo => self.seo_active,
+            Prerequisite::ContentVisibility => self.seo_active && self.content_visibility_active,
         }
     }
 
@@ -203,7 +209,7 @@ impl ExtraCheckRequest {
                 continue;
             }
             if !self.prerequisite_met(spec.prerequisite) {
-                if let Some(reason) = spec.prerequisite.unmet_reason() {
+                if let Some(reason) = spec.prerequisite.unmet_reason(self) {
                     return Err(format!("{} {reason}", spec.flag));
                 }
             }
@@ -233,6 +239,7 @@ mod tests {
         let mut r = ExtraCheckRequest {
             performance_active: true,
             seo_active: true,
+            content_visibility_active: true,
             ..Default::default()
         };
         f(&mut r);
@@ -297,6 +304,16 @@ mod tests {
         .validate()
         .unwrap_err();
         assert!(e.contains("--check-ssr-content") && e.contains("SEO"));
+        let e = request(|r| {
+            r.check_ssr_content = true;
+            r.content_visibility_active = false;
+        })
+        .validate()
+        .unwrap_err();
+        assert!(
+            e.contains("--check-ssr-content") && e.contains("--experimental content-visibility"),
+            "{e}"
+        );
     }
 
     #[test]

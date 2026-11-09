@@ -180,6 +180,19 @@ pub struct Args {
     )]
     pub modules: Vec<ModuleChoice>,
 
+    /// Switch on experimental indicators (comma-separated): `ux`, `journey`,
+    /// `ai-visibility`, `content-visibility`, `source-quality`, `commerce`.
+    ///
+    /// Heuristics whose signal contract is unvalidated (no calibration set
+    /// yet) and that feed no score. Off by default and in no `--full` run.
+    /// Results appear in the JSON under `experimental` and in the table, never
+    /// in the PDF. `content-visibility` also runs `source-quality` and
+    /// `ai-visibility` (and `source-quality` runs `ux`), because it is
+    /// derived from them; `commerce` carries the add-to-cart and
+    /// quantity-stepper journeys (they also need `--allow-state-changes`).
+    #[arg(long, value_enum, value_delimiter = ',', value_name = "LIST")]
+    pub experimental: Vec<crate::audit::ExperimentalIndicator>,
+
     /// Report what a first visit sets and contacts before any consent
     /// (requests, cookies, storage, classified by provider; opt-in,
     /// score-neutral, #871). Opens one extra clean browser context per
@@ -278,7 +291,8 @@ pub struct Args {
     pub state_id: Option<String>,
 
     /// Allow journeys that can change page or account state: clicking a
-    /// form's submit button, an add-to-cart trigger, a quantity stepper.
+    /// form's submit button, an add-to-cart trigger, a quantity stepper (the
+    /// last two belong to `--experimental commerce`).
     ///
     /// Off by default, so an audit only observes. Needs `--interactive full`;
     /// the permitted journeys are listed in the report's measurement profile
@@ -869,6 +883,10 @@ impl Args {
             privacy_check: self.privacy_check,
             performance_active: self.module_enabled(ModuleChoice::Performance),
             seo_active: self.module_enabled(ModuleChoice::Seo),
+            content_visibility_active: crate::audit::ExperimentalIndicator::closure(
+                &self.experimental,
+            )
+            .contains(&crate::audit::ExperimentalIndicator::ContentVisibility),
             batch: is_batch,
             reuse_cache: self.reuse_cache,
             replay: false,
@@ -1025,6 +1043,7 @@ mod tests {
             progress: ProgressPolicy::Auto,
             full: false,
             modules: Vec::new(),
+            experimental: Vec::new(),
             privacy_check: false,
             isolate_third_party_impact: false,
             perf_runs: 1,
@@ -1333,5 +1352,43 @@ mod tests {
         assert!(e.contains("performance"), "{e}");
         let e = check(&["--url-file", "Cargo.toml", "--full", "--perf-runs", "3"]).unwrap_err();
         assert!(e.contains("single URL"), "{e}");
+    }
+
+    #[test]
+    fn experimental_takes_a_comma_separated_list_of_known_names() {
+        use crate::audit::ExperimentalIndicator as I;
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+        assert!(args.experimental.is_empty(), "off by default");
+        let args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--full",
+            "--experimental",
+            "ux,ai-visibility,commerce",
+        ]);
+        assert_eq!(args.experimental, vec![I::Ux, I::AiVisibility, I::Commerce]);
+        assert!(args.validate().is_ok());
+        for old_name in ["ai_visibility", "all", "design-quality"] {
+            assert!(
+                Args::try_parse_from(["auditmysite", "https://e.com", "--experimental", old_name])
+                    .is_err(),
+                "{old_name}"
+            );
+        }
+    }
+
+    #[test]
+    fn ssr_content_check_needs_the_content_visibility_indicator() {
+        let mut argv = vec!["auditmysite", "https://example.com", "--check-ssr-content"];
+        let e = Args::parse_from(&argv).validate().unwrap_err();
+        assert!(e.contains("--experimental content-visibility"), "{e}");
+
+        argv.extend(["--experimental", "content-visibility"]);
+        assert!(Args::parse_from(&argv).validate().is_ok());
+
+        // The module selection still decides whether SEO runs.
+        argv.extend(["--modules", "performance"]);
+        let e = Args::parse_from(&argv).validate().unwrap_err();
+        assert!(e.contains("SEO"), "{e}");
     }
 }

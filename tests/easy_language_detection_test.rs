@@ -58,6 +58,7 @@ fn default_config() -> PipelineConfig {
         check_isolate_third_party_impact: false,
         check_ssr_content: false,
         check_stack: false,
+        experimental: Vec::new(),
         rule_filter: auditmysite::wcag::RuleFilterConfig::default(),
         persist_artifacts: false,
         capture_screenshots: false,

@@ -240,13 +240,13 @@ Outputs: `report-json`, `report-sarif` (absolute paths) and `version`. The actio
   <img src="docs/img/score-weights.svg" alt="Bar chart of the module weights in the overall score: Accessibility 40, Performance 20, SEO 15, Security 10, Mobile 10, HTML Conformance 5 percent." width="640">
 </picture>
 
-Only the weighted modules enter the overall score. The heuristic indicators (UX, Journey, Best Practices, …) are shown next to it with weight 0. The charts in `docs/img/` are generated from the `.json` files next to them with [chartlet](https://github.com/casoon/chartlet) (`chartlet render <spec>.json --format svg --strict`, add `--theme dark` for the dark variant).
+Only the weighted modules enter the overall score. Best Practices is shown next to it with weight 0; the experimental indicators (UX, Journey, …) are off unless you ask for them with `--experimental`. The charts in `docs/img/` are generated from the `.json` files next to them with [chartlet](https://github.com/casoon/chartlet) (`chartlet render <spec>.json --format svg --strict`, add `--theme dark` for the dark variant).
 
 ## What it checks
 
 - **WCAG 2.2 Level A and AA** rules on the rendered page, with rule IDs that stay stable across releases.
 - **Weighted modules:** Accessibility, Performance, SEO, Security, Mobile, HTML conformance.
-- **Heuristic indicators** (UX, Journey, AI visibility, source quality, tech stack, commerce) shown next to the score, with weight 0 and marked as unvalidated.
+- **Experimental indicators** (UX, Journey, AI visibility, content visibility, source quality, commerce): off by default, `--experimental <name>[,<name>]` switches them on. Unvalidated, weight 0, in the JSON `experimental` block and the terminal table, never in the PDF. Tech stack is detection only.
 - **Accessibility journeys:** tab walk, skip link, modals, menus, SPA navigation, form errors; clicks that can change state are an opt-in (`--allow-state-changes`).
 - **Display modes, structured data, risk assessment, rule configuration and exclusions.**
 
@@ -265,7 +265,7 @@ Key layers:
 - `wcag/`: rule engine and violations
 - `output/`: CLI, JSON, PDF, AI, summary format
 - `seo/`, `security/`, `performance/`, `mobile/`, `ux/`, `journey/`: optional analysis modules
-- `tech_stack/`, `source_quality/`, `ai_visibility/`: heuristic indicator modules
+- `tech_stack/`: detection module; `ux/`, `journey/`, `source_quality/`, `ai_visibility/`, `content_visibility/`, `commerce/`: experimental indicators (`--experimental`)
 
 Parts of the checks live in [barrierlab](https://github.com/casoon/barrierlab) and come in as published crates (`a11y-rules`, `a11y-dom`, `a11y-report`, `accname`, `a11y-perception`, `web-checks`, `html-conform`); fixes there are released first and then taken over here by raising the version. Details and the boundary: [Shared libraries from barrierlab](docs/concepts/barrierlab.md). Current implementation: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

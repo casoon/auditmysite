@@ -115,7 +115,7 @@ src/
 │   ├── checks.rs        # Score/grade/count-sum/metric_context checks
 │   └── invariants.rs    # Independent exported-weight, execution and finding-conservation checks
 │
-├── audit/               # Audit orchestration
+├── audit/               # Audit orchestration (`experimental.rs`: `--experimental` indicators and their `ExperimentalIndicators` result block, #916)
 │   ├── mod.rs
 │   ├── validation.rs    # Format-independent page/batch contracts and capture-gap policy
 │   ├── collection.rs    # Collection contract: Collected<T> states, per-page CollectionLog, COLLECTORS inventory
