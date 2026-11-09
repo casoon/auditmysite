@@ -846,42 +846,42 @@ thresholds = { cases = ["forms_signin_many"] }
 status = "killed"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/accessible_authentication.rs"
+target = "src/wcag/rules/js/accessible_authentication.js"
 change = "disable detection: never probe a field"
 find = "      if (!pasteBlocked(f)) continue;"
 replace = "      if (true) continue;"
 killed_by = "corpus:forms_signin"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/accessible_authentication.rs"
+target = "src/wcag/rules/js/accessible_authentication.js"
 change = "drop the inserted-text condition: a sanitising handler counts as blocking"
 find = "    return !notCancelled && !inserted;"
 replace = "    return !notCancelled;"
 killed_by = "corpus:forms_signin"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/accessible_authentication.rs"
+target = "src/wcag/rules/js/accessible_authentication.js"
 change = "drop the visibility condition: hidden fields are probed"
 find = "      if (f.disabled || f.readOnly || !isVisible(f)) continue;"
 replace = "      if (f.disabled || f.readOnly) continue;"
 killed_by = "corpus:forms_hidden"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/accessible_authentication.rs"
+target = "src/wcag/rules/js/accessible_authentication.js"
 change = "drop the readonly condition"
 find = "      if (f.disabled || f.readOnly || !isVisible(f)) continue;"
 replace = "      if (f.disabled || !isVisible(f)) continue;"
 killed_by = "corpus:forms_signin"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/accessible_authentication.rs"
+target = "src/wcag/rules/js/accessible_authentication.js"
 change = "stop descending into open shadow roots"
 find = "      if (el.shadowRoot) collect(el.shadowRoot, frameSel);"
 replace = ""
 killed_by = "corpus:forms_signin_embedded"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/accessible_authentication.rs"
+target = "src/wcag/rules/js/accessible_authentication.js"
 change = "drop the frame part of the selector"
 find = "      if (fields[i].frame) selector = fields[i].frame + ' [frame] ' + selector;"
 replace = ""

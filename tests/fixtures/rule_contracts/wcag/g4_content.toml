@@ -1045,19 +1045,19 @@ thresholds = { cases = ["content_frames_cross_origin"] }
 [rule.test_strength]
 status = "killed"
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/media_rules.rs"
+target = "src/wcag/rules/js/frame_tested.js"
 change = "flag same-origin frames too"
 find = "if (!crossOrigin) continue;"
 replace = ""
 killed_by = "corpus:content_frames_same_origin"
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/media_rules.rs"
+target = "src/wcag/rules/js/frame_tested.js"
 change = "shift the size threshold"
 find = "if (rect.width <= 1 || rect.height <= 1) continue;"
 replace = "if (rect.width <= 2 || rect.height <= 2) continue;"
 killed_by = "corpus:content_frames_cross_origin"
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/media_rules.rs"
+target = "src/wcag/rules/js/frame_tested.js"
 change = "stop skipping hidden and aria-hidden frames"
 find = "if (el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true') continue;"
 replace = ""

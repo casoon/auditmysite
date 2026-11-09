@@ -908,7 +908,7 @@ thresholds = { cases = ["interaction_focus_obscured"] }
 status = "killed"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/focus_not_obscured_minimum.rs"
+target = "src/wcag/rules/js/focus_walk.js"
 change = "accept a partly covered control as entirely hidden"
 find = "if (blockers.every(Boolean)) {"
 replace = "if (blockers.some(Boolean)) {"
@@ -961,7 +961,7 @@ replace = "const PARTIALLY_HIDDEN_RATIO: f64 = 0.5;"
 killed_by = "corpus:interaction_focus_obscured"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/focus_not_obscured_enhanced.rs"
+target = "src/wcag/rules/js/focus_not_obscured_enhanced.js"
 change = "drop the paint-order check"
 find = "      if (paintsBelow(overlayEls[k], overlays[k], fel, frect)) continue;"
 replace = ""
