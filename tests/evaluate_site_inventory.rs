@@ -110,14 +110,12 @@ fn known_sites() -> BTreeMap<&'static str, (usize, Coverage)> {
             ),
         ),
         ("src/wcag/types.rs", (1, Via(RULE_EXECUTION, &["src/wcag/engine.rs"]))),
-        ("src/wcag/rules/focus_not_obscured_minimum.rs", (1, RULES)),
         ("src/wcag/rules/iframe_rules.rs", (1, RULES)),
         ("src/wcag/rules/media_alternative.rs", (1, RULES)),
-        ("src/wcag/rules/media_rules.rs", (2, RULES)),
+        ("src/wcag/rules/media_rules.rs", (1, RULES)),
         ("src/wcag/rules/modern_attributes.rs", (1, RULES)),
         ("src/wcag/rules/page_titled.rs", (1, RULES)),
         ("src/wcag/rules/reflow.rs", (1, RULES)),
-        ("src/wcag/rules/text_spacing.rs", (1, RULES)),
         (
             "src/audit/collection.rs",
             (
@@ -151,6 +149,15 @@ fn known_sites() -> BTreeMap<&'static str, (usize, Coverage)> {
                 4,
                 Exempt(
                     "DOM capture of the accessibility pass; a failure aborts the page audit with AXTreeExtractionFailed instead of producing a value",
+                ),
+            ),
+        ),
+        (
+            "src/accessibility/probes.rs",
+            (
+                1,
+                Exempt(
+                    "rendering probes (#1002-#1007): a measurement that fails leaves its field empty, and the shared rules it feeds are recorded as not run (CapabilityMissing) with the failure as their reason; it never produces a value",
                 ),
             ),
         ),

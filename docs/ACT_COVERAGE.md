@@ -112,7 +112,7 @@ One id per rule: the detector id (`contrast/text-insufficient`) is also the `rul
 | `6a7281` | ARIA state or property has valid value | `aria/attribute-value-invalid` | Internal rule covers enumerated, integer and number types; ID reference types are a separate rule. |
 | `80f0bf` | Audio or video element avoids automatically playing audio | `media/audio-autoplay` | Internal rule covers audio only and ends in review; ACT also covers video and is a composite of two sub-rules. |
 | `cf77f2` | Bypass Blocks of Repeated Content | `headings/none` | Composite rule. Internal rule accepts headings, a main landmark or a skip link as bypass mechanism and reports review without a repeated block; no collapsible-block check. |
-| `b33eff` | Orientation of the page is not restricted using CSS transforms | `css-orientation-lock` | Internal rule checks rotation of html/body in the audited viewport; ACT checks any element with a conditional orientation media query. |
+| `b33eff` | Orientation of the page is not restricted using CSS transforms | `orientation/root-rotated` | Internal rule checks rotation of html/body in the audited viewport; ACT checks any element with a conditional orientation media query. |
 | `c4a8a4` | HTML page title is descriptive | `document-title` | Internal rule only flags known placeholder titles (F25); descriptiveness is a human judgement. Heuristic: not reported as ACT result. |
 | `3ea0c8` | Id attribute value is unique (deprecated) | `ids/duplicate` | Internal rule only reviews duplicate ids that are referenced; ACT applies to every id. The ACT rule is deprecated (SC 4.1.1 removed in WCAG 2.2). |
 | `cae760` | Iframe element has non-empty accessible name | `frames/name-missing` | ACT excludes iframes with negative tabindex; internal rule judges every iframe in the accessibility tree. |
@@ -134,10 +134,10 @@ One id per rule: the detector id (`contrast/text-insufficient`) is also the `rul
 | ACT | Name | Related internal rules | Note |
 | --- | --- | --- | --- |
 | `efbfc7` | Text content that changes automatically can be paused, stopped or hidden | `motion/infinite-animation` | Both relate to SC 2.2.2, but the internal rule judges CSS animations while ACT judges auto-updating text content. Relation not established. |
-| `24afc2` | Important letter spacing in style attributes is wide enough | `text-spacing` | ACT checks !important letter spacing in style attributes; internal text-spacing applies the SC 1.4.12 overrides and compares clipping. Relation not established. |
-| `78fd32` | Important line height in style attributes is wide enough | `text/line-height-tight`, `text-spacing` | ACT checks !important line height in style attributes; internal rules test different conditions. Relation not established. |
-| `9e45ec` | Important word spacing in style attributes is wide enough | `text-spacing` | ACT checks !important word spacing in style attributes; internal text-spacing applies the SC 1.4.12 overrides and compares clipping. Relation not established. |
-| `59br37` | Zoomed text node is not clipped with CSS overflow | `css-overflow-hidden`, `text-spacing` | ACT checks clipped text at 640x512 with zoomed text; the internal reflow check works at 320 px and text-spacing simulates SC 1.4.12 overrides. Relation not established. |
+| `24afc2` | Important letter spacing in style attributes is wide enough | `text-spacing/clipped` | ACT checks !important letter spacing in style attributes; internal `text-spacing/clipped` applies the SC 1.4.12 overrides and compares clipping. Relation not established. |
+| `78fd32` | Important line height in style attributes is wide enough | `text/line-height-tight`, `text-spacing/clipped` | ACT checks !important line height in style attributes; internal rules test different conditions. Relation not established. |
+| `9e45ec` | Important word spacing in style attributes is wide enough | `text-spacing/clipped` | ACT checks !important word spacing in style attributes; internal `text-spacing/clipped` applies the SC 1.4.12 overrides and compares clipping. Relation not established. |
+| `59br37` | Zoomed text node is not clipped with CSS overflow | `css-overflow-hidden`, `text-spacing/clipped` | ACT checks clipped text at 640x512 with zoomed text; the internal reflow check works at 320 px and text-spacing simulates SC 1.4.12 overrides. Relation not established. |
 
 ## Missing rules: candidates for implementation
 

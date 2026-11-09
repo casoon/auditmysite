@@ -13,9 +13,9 @@ pub mod shared;
 pub mod types;
 
 pub use engine::{
-    check_all, check_all_excluding, check_all_with_config, check_orientation_with_page,
-    check_pointer_cancellation_with_page, check_reflow_with_page, check_timeouts_with_page,
-    check_timing_with_page, check_visual_presentation_with_page, RuleFilterConfig,
+    check_all, check_all_excluding, check_all_with_config, check_pointer_cancellation_with_page,
+    check_reflow_with_page, check_timeouts_with_page, check_timing_with_page,
+    check_visual_presentation_with_page, RuleFilterConfig,
 };
 pub use level::WcagLevel;
 pub use types::{

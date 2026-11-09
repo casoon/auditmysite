@@ -533,14 +533,6 @@ static CRITERION_IMPACT: &[(&str, ScoreImpact)] = &[
             occurrence_scaling: Scaling::Logarithmic,
         },
     ),
-    (
-        "frame-tested",
-        ScoreImpact {
-            base_penalty: 0.0,
-            max_penalty: 0.0,
-            occurrence_scaling: Scaling::Linear,
-        },
-    ),
 ];
 
 /// Score cost of the violations of one success criterion, `None` for a

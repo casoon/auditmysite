@@ -21,6 +21,11 @@
       "rule_id": "contrast/text-undetermined",
       "selector": "p#solid",
       "verdict": "pass"
+    },
+    {
+      "rule_id": "focus/obscured",
+      "selector": "p#banner",
+      "verdict": "needs_review"
     }
   ]
 }

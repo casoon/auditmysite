@@ -810,25 +810,27 @@ change = "2 targeted mutation(s) of the shared rule (disable, invert, shift thre
 killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id auth/captcha)"
 
 [[rule]]
-id = "accessible-auth-paste-blocked"
-errored = ["error_page_scripts_sabotaged"]
+id = "auth/paste-blocked"
+errored = ["error_page_scripts_sabotaged", "error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=auth/paste-blocked)"]
 automation = "automated"
-method = "page"
+method = "shared"
 source = "WCAG 2.2 SC 3.3.8 Accessible Authentication (Minimum); failure F109 (preventing password or code re-entry in the same format)"
-capabilities = ["dom", "interaction", "geometry", "computed_style", "frames"]
+capabilities = ["dom", "interaction", "geometry", "frames"]
 applicability = "Rendered, enabled, editable password, current-password and one-time-code inputs in the document, open shadow roots and same-origin frames."
 expectation = """
-Fails when the field blocks pasting: a synthetic, cancelable paste event is
-cancelled and the pasted text does not arrive, so the secret must be typed
-from memory or transcribed instead of inserted by a password manager or the
-clipboard (F109). Blocking through an onpaste attribute, an event listener
-or with an alert is the same failure. A handler that cancels the native
-paste but inserts the (trimmed) text itself blocks nothing; readonly and
-disabled fields take no entry; hidden fields are not judged. Fields inside
+Fails when the field blocks pasting: a synthetic, cancelable paste event
+(Rendering::paste_probe, measured by accessibility::probes in the running
+page) is cancelled and the pasted text does not arrive, so the secret must be
+typed from memory or transcribed instead of inserted by a password manager or
+the clipboard (F109). Blocking through an onpaste attribute, an event
+listener or with an alert is the same failure. A handler that cancels the
+native paste but inserts the (trimmed) text itself blocks nothing; readonly
+and disabled fields take no entry; hidden fields are not judged. Fields inside
 open shadow roots and same-origin frames are probed too (frame findings use
-the selector "{iframe} [frame] {field}"). The report lists at most five
-blocked fields per page (reporting cap), so six blocked fields report five.
-A page whose scripts break the probe records the rule as not run."""
+the selector "{iframe} [frame] {field}"). Every blocked field is reported.
+A page whose scripts break the probe records the rule as not run
+(CapabilityMissing), never as a pass."""
 positive = ["forms_signin", "accessible_authentication", "forms_signin_embedded", "forms_signin_many", "forms_embedded", "forms_dynamic_responsive"]
 negative = ["forms_signin", "accessible_authentication", "forms_signin_embedded", "forms_hidden"]
 not_applicable = ["forms_static_text"]
@@ -846,54 +848,23 @@ thresholds = { cases = ["forms_signin_many"] }
 status = "killed"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/js/accessible_authentication.js"
-change = "disable detection: never probe a field"
-find = "      if (!pasteBlocked(f)) continue;"
-replace = "      if (true) continue;"
-killed_by = "corpus:forms_signin"
+target = "barrierlab:crates/a11y-rules/tests/mutations/sonden.toml"
+change = "targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id auth/paste-blocked)"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/js/accessible_authentication.js"
-change = "drop the inserted-text condition: a sanitising handler counts as blocking"
-find = "    return !notCancelled && !inserted;"
-replace = "    return !notCancelled;"
-killed_by = "corpus:forms_signin"
+target = "src/accessibility/js/probes/paste.js"
+change = "drop the inserted-text condition: record every field as not inserted, so a sanitising handler counts as blocking"
+find = "const inserted = (field.value || '').indexOf(PROBE) !== -1;"
+replace = "const inserted = false;"
+killed_by = "corpus:accessible_authentication"
 
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/js/accessible_authentication.js"
-change = "drop the visibility condition: hidden fields are probed"
-find = "      if (f.disabled || f.readOnly || !isVisible(f)) continue;"
-replace = "      if (f.disabled || f.readOnly) continue;"
-killed_by = "corpus:forms_hidden"
-
-[[rule.test_strength.mutations]]
-target = "src/wcag/rules/js/accessible_authentication.js"
-change = "drop the readonly condition"
-find = "      if (f.disabled || f.readOnly || !isVisible(f)) continue;"
-replace = "      if (f.disabled || !isVisible(f)) continue;"
-killed_by = "corpus:forms_signin"
-
-[[rule.test_strength.mutations]]
-target = "src/wcag/rules/js/accessible_authentication.js"
-change = "stop descending into open shadow roots"
-find = "      if (el.shadowRoot) collect(el.shadowRoot, frameSel);"
-replace = ""
+target = "src/accessibility/js/probes/paste.js"
+change = "stop descending into same-origin frames"
+find = "walk(document, (el) => { if (candidate(el)) fields.push(el); }, true);"
+replace = "walk(document, (el) => { if (candidate(el)) fields.push(el); }, false);"
 killed_by = "corpus:forms_signin_embedded"
-
-[[rule.test_strength.mutations]]
-target = "src/wcag/rules/js/accessible_authentication.js"
-change = "drop the frame part of the selector"
-find = "      if (fields[i].frame) selector = fields[i].frame + ' [frame] ' + selector;"
-replace = ""
-killed_by = "corpus:forms_signin_embedded"
-
-[[rule.test_strength.mutations]]
-target = "src/wcag/rules/accessible_authentication.rs"
-change = "shift the reporting cap from five to six"
-find = "const MAX_FINDINGS: usize = 5;"
-replace = "const MAX_FINDINGS: usize = 6;"
-killed_by = "corpus:forms_signin_many"
-
 # --- context/* ---------------------------------------------------------------
 
 [[rule]]

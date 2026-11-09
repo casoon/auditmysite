@@ -151,6 +151,11 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
     "context/on-focus",
     "context/autofocus",
     "auth/captcha",
+    // The paste probe walks same-origin frames and open shadow roots, so the
+    // fields of an embedded sign-in form are measured too (#1006). The other
+    // probe rules judge the top document: its frames, its fixed bars, its
+    // root (the abolished JavaScript rules read the top document only).
+    "auth/paste-blocked",
     "keyboard/focusable-no-role",
     "keyboard/interactive-not-focusable",
     "dialog/focusable-missing",

@@ -8,8 +8,8 @@ use super::rules::{
     check_accessible_name, check_focus_visible, check_keyboard, check_text_alternatives,
 };
 pub use super::rules::{
-    check_orientation_with_page, check_pointer_cancellation_with_page, check_reflow_with_page,
-    check_timeouts_with_page, check_timing_with_page, check_visual_presentation_with_page,
+    check_pointer_cancellation_with_page, check_reflow_with_page, check_timeouts_with_page,
+    check_timing_with_page, check_visual_presentation_with_page,
 };
 use super::types::{Violation, WcagResults};
 use crate::accessibility::AXTree;

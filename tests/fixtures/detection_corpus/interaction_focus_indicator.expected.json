@@ -1,0 +1,63 @@
+{
+  "case": "interaction_focus_indicator",
+  "expectations": [
+    {
+      "rule_id": "focus/indicator-missing",
+      "selector": "button#fi-bare",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "focus/indicator-missing",
+      "selector": "a#fi-bare-link",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "focus/indicator-missing",
+      "selector": "input#fi-bare-input",
+      "verdict": "needs_review",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "focus/indicator-missing",
+      "selector": "button#fi-default",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "focus/indicator-missing",
+      "selector": "a#fi-default-link",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "focus/indicator-missing",
+      "selector": "button#fi-ring",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "focus/indicator-missing",
+      "selector": "button#fi-fill",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "focus/indicator-missing",
+      "selector": "button#fi-glow",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "focus/indicator-missing",
+      "selector": "button#fi-skipped",
+      "verdict": "absent"
+    },
+    {
+      "rule_id": "manual/help",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/no-timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    }
+  ]
+}

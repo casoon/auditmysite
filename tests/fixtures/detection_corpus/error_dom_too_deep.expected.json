@@ -552,6 +552,34 @@
   {
    "rule_id": "html-content-model",
    "verdict": "errored"
+  },
+  {
+   "rule_id": "frames/cross-origin",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "orientation/root-rotated",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "text-spacing/clipped",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "focus/obscured",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "focus/obscured-enhanced",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "auth/paste-blocked",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "focus/indicator-missing",
+   "verdict": "errored"
   }
  ]
 }

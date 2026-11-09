@@ -20,6 +20,11 @@
     {
       "rule_id": "text/line-height-tight",
       "verdict": "errored"
+    },
+    {
+      "rule_id": "focus/indicator-missing",
+      "selector": "a.target",
+      "verdict": "needs_review"
     }
   ]
 }

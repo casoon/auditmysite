@@ -1,8 +1,9 @@
-//! WCAG 1.2.2 caption tracks and cross-origin frames - Media Rules
+//! WCAG 1.2.2 caption tracks - Media Rules
 //!
 //! What stays in the host after #696 (B6): whether a `<track>` caption file
-//! actually loads (a network probe) and which frames are cross-origin
-//! (`frame-tested`, only the browser knows). Frame names, `<area>`,
+//! actually loads (a network probe). Which frames are cross-origin runs as
+//! `frames/cross-origin` in the shared rules (`accessibility::probes`, #1002).
+//! Frame names, `<area>`,
 //! `<input type="image">`, `<object>`, server-side image maps and autoplaying
 //! audio run as shared rules (`wcag::shared`). Not ported and deleted here:
 //! the AX-tree checks for an unnamed `role="application"` (no evidence),
@@ -292,94 +293,6 @@ pub async fn check_video_caption_tracks_with_page(page: &Page) -> Vec<Violation>
     .with_help_url(RULE_META_CAPTIONS.help_url)
     .with_rule_id(RULE_META_CAPTIONS.axe_id)
     .with_kind(Outcome::Untested)]
-}
-
-/// Rule metadata for frame-tested (axe-core `frame-tested`).
-pub(super) const RULE_META_FRAME_TESTED: RuleMetadata = RuleMetadata {
-    id: "frame-tested",
-    name: "Frame tested",
-    level: WcagLevel::A,
-    severity: Severity::Medium,
-    description: "Identifies cross-origin iframes that cannot be analyzed automatically",
-    help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
-    axe_id: "frame-tested",
-    tags: &["wcag2a", "wcag412", "cat.text-alternatives"],
-};
-
-/// DOM check for iframes that cannot be analyzed via CDP (cross-origin).
-///
-/// Chrome's `getFullAXTree` returns the accessibility tree of same-origin
-/// iframes as part of the main page tree, so existing WCAG rules already
-/// cover those. Cross-origin iframes are inaccessible — one `NotTestable`
-/// finding is emitted per cross-origin frame so auditors know manual review
-/// is required (mirrors axe-core's `frame-tested` rule).
-pub async fn check_frame_tested_with_page(page: &Page) -> Vec<Violation> {
-    let js = [
-        "(function() {",
-        crate::accessibility::js_helpers::CSS_SELECTOR_JS,
-        include_str!("js/frame_tested.js"),
-        "})()",
-    ]
-    .concat();
-
-    let result = match page.evaluate(js.as_str()).await {
-        Ok(r) => r,
-        Err(e) => {
-            warn!("frame-tested DOM JS failed: {}", e);
-            return vec![crate::wcag::technical_rule_failure_for(
-                "frame-tested",
-                crate::wcag::WcagLevel::A,
-                "page_evaluation_failed",
-            )];
-        }
-    };
-
-    let Some(value) = result.value() else {
-        return vec![crate::wcag::technical_rule_failure_for(
-            "frame-tested",
-            crate::wcag::WcagLevel::A,
-            "missing_evaluation_value",
-        )];
-    };
-    let Some(frames) = value.as_array() else {
-        return vec![];
-    };
-
-    frames
-        .iter()
-        .filter_map(|frame| {
-            let selector = frame.get("selector")?.as_str()?.to_string();
-            let mut violation = Violation::new(
-                RULE_META_FRAME_TESTED.id,
-                RULE_META_FRAME_TESTED.name,
-                RULE_META_FRAME_TESTED.level,
-                RULE_META_FRAME_TESTED.severity,
-                "Cross-origin iframe cannot be analyzed automatically — manual review required",
-                &selector,
-            )
-            .with_selector(&selector)
-            .with_rule_id(RULE_META_FRAME_TESTED.axe_id)
-            .with_tags(
-                RULE_META_FRAME_TESTED
-                    .tags
-                    .iter()
-                    .map(|s| s.to_string())
-                    .collect(),
-            )
-            .with_fix(
-                "Verify that the embedded content meets WCAG requirements independently. \
-                 Ensure the iframe source provides an accessible experience for screen reader users.",
-            )
-            .with_help_url(RULE_META_FRAME_TESTED.help_url)
-            .with_kind(Outcome::Untested);
-
-            if let Some(snippet) = frame.get("snippet").and_then(|v| v.as_str()) {
-                violation = violation.with_html_snippet(snippet);
-            }
-
-            Some(violation)
-        })
-        .collect()
 }
 
 #[cfg(test)]

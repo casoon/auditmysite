@@ -76,12 +76,11 @@ src/
 │   ├── types.rs         # Violation, Severity, WcagResults
 │   ├── coverage.rs      # WCAG success-criterion coverage accounting
 │   ├── en301549.rs      # EN 301 549 (chapter 9, Web) clause mapping + annex derivation
-│   └── rules/           # Local WCAG rules that need the browser or have no shared id (22 files; the rest runs via wcag::shared)
+│   └── rules/           # Local WCAG rules that need the browser or have no shared id (17 files; the rest runs via wcag::shared)
 │       ├── text_alternatives.rs  # 1.1.1
 │       ├── keyboard.rs           # 2.1.2 keyboard-trap note (2.1.1 is shared since #694)
 │       ├── headings.rs           # 2.4.6
 │       ├── target_size_minimum.rs # 2.5.8
-│       ├── text_spacing.rs       # 1.4.12
 │       ├── display_modes.rs      # display/* checks of the data-display convention that need the running page (#653, best-practice); the static ones are shared (viz/*, #699)
 │       └── ... (registered in rules/mod.rs)
 │

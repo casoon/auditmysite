@@ -30,7 +30,7 @@
       "verdict": "not_applicable"
     },
     {
-      "rule_id": "text-spacing",
+      "rule_id": "text-spacing/clipped",
       "verdict": "not_applicable"
     },
     {

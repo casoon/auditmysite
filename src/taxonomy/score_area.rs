@@ -154,7 +154,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("document/title-empty", Landmarks),
     ("document/title-missing", Landmarks),
     // ── 1.3.4 / 1.4.x / 2.3.3 — Darstellung und Wahrnehmbarkeit ──
-    ("css-orientation-lock", Semantics),
+    ("orientation/root-rotated", Semantics),
     ("orientation/content-hidden", Semantics),
     ("color/link-indistinct", Semantics),
     ("contrast/text-insufficient", Semantics),
@@ -170,7 +170,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("css-overflow-hidden", Semantics),
     ("contrast/control-insufficient", Semantics),
     ("contrast/control-undetermined", Semantics),
-    ("text-spacing", Semantics),
+    ("text-spacing/clipped", Semantics),
     ("patterns/tooltip-unreferenced", Semantics),
     ("motion/reduced-motion-ignored", Semantics),
     // ── 1.3.5 / 3.2.2 / 3.3.x / 4.1.2 — Formulare ──
@@ -185,7 +185,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("forms/required-unmarked", Forms),
     ("manual/help", Forms),
     ("forms/redundant-entry", Forms),
-    ("accessible-auth-paste-blocked", Forms),
+    ("auth/paste-blocked", Forms),
     ("auth/captcha", Forms),
     ("aria/combobox-popup-missing", Forms),
     // ── 2.1.x / 2.5.x — Tastatur und Zeigerbedienung ──
@@ -217,8 +217,9 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("keyboard/positive-tabindex", FocusManagement),
     ("focus/outline-removed", FocusManagement),
     ("focus-visible", FocusManagement),
-    ("focus-not-obscured-minimum", FocusManagement),
-    ("focus-not-obscured-enhanced", FocusManagement),
+    ("focus/obscured", FocusManagement),
+    ("focus/obscured-enhanced", FocusManagement),
+    ("focus/indicator-missing", FocusManagement),
     ("context/autofocus", FocusManagement),
     ("context/on-focus", FocusManagement),
     // ── 2.4.4 / 2.4.8 / 2.4.9 — Linktexte und Orientierung ──
@@ -265,7 +266,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("buttons/name-missing", Aria),
     ("links/name-missing", Aria),
     ("dialog/name-missing", Aria),
-    ("frame-tested", Aria),
+    ("frames/cross-origin", Aria),
     ("names/required-missing", Aria),
     ("names/symbol-only", Aria),
     ("names/title-only", Aria),
