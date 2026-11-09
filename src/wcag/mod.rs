@@ -19,7 +19,7 @@ pub use engine::{
 };
 pub use level::WcagLevel;
 pub use types::{
-    rule_run_errored, rule_run_skipped, technical_failure_reason, technical_rule_failure,
-    technical_rule_failure_for, Evidence, NotRun, Outcome, RuleMetadata, RuleRun, Severity,
-    Violation, WcagResults,
+    rule_run_errored, rule_run_skipped, rule_run_unmeasured, technical_failure_reason,
+    technical_rule_failure, technical_rule_failure_for, Evidence, NotRun, Outcome, RuleMetadata,
+    RuleRun, Severity, Violation, WcagResults,
 };

@@ -111,7 +111,7 @@ pub(super) fn render_en301549_annex(
 
     let failed_criteria: std::collections::BTreeSet<&str> = rule_outcomes
         .iter()
-        .filter(|outcome| crate::wcag::rule_run_errored(outcome))
+        .filter(|outcome| crate::wcag::rule_run_unmeasured(outcome))
         .flat_map(|outcome| outcome.wcag.iter().map(String::as_str))
         .collect();
     let incomplete: Vec<_> = rollups
