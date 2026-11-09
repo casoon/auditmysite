@@ -174,7 +174,7 @@ const DETECT_JS: &str = include_str!("js/detect.js"); // src/tech_stack/js/detec
 ```
 
 - **Where:** `src/<module>/js/<name>.js`, relative to the `.rs` file that includes
-  it (`src/wcag/rules/focus_walk.rs` uses `src/wcag/rules/js/`). Name the file after
+  it (`src/wcag/rules/display_modes.rs` uses `src/wcag/rules/js/`). Name the file after
   what the script does, not after the Rust constant.
 - **Shape:** the file is exactly what Chrome receives: an expression or IIFE for
   `Runtime.evaluate`, a bare `function (...) { ... }` for `callFunctionOn`, or a
