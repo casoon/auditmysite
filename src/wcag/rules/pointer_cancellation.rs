@@ -33,18 +33,7 @@ pub(super) const POINTER_CANCELLATION_RULE: RuleMetadata = RuleMetadata {
 };
 
 /// Whether the page has anything a single pointer could operate.
-const POINTER_FUNCTIONALITY_JS: &str = r#"
-!!document.querySelector(
-  'a[href], area[href], button, input:not([type="hidden"]), select, textarea, summary, ' +
-  'label, audio[controls], video[controls], iframe, object, embed, script, ' +
-  '[onclick], [onmousedown], [onmouseup], [onpointerdown], [onpointerup], ' +
-  '[ontouchstart], [ontouchend], [tabindex], [draggable="true"], [contenteditable], ' +
-  '[role="button"], [role="link"], [role="checkbox"], [role="radio"], [role="switch"], ' +
-  '[role="tab"], [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], ' +
-  '[role="option"], [role="slider"], [role="spinbutton"], [role="scrollbar"], ' +
-  '[role="treeitem"], [role="gridcell"], [role="combobox"], [role="textbox"], [role="searchbox"]'
-)
-"#;
+const POINTER_FUNCTIONALITY_JS: &str = include_str!("js/pointer_functionality.js");
 
 pub async fn check_pointer_cancellation_with_page(page: &Page) -> Vec<Violation> {
     let applies = match crate::wcag::types::evaluate_or_fail(
