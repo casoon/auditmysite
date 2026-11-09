@@ -42,10 +42,6 @@ Each rate is published with its 95 % Wilson interval. Pass/fail uses the
 point estimate against the registered threshold; the interval shows how much
 the sample supports it.
 
-Design Quality has a contract but no score: its findings are element-level
-review candidates and are never confirmed automatically. It is not part of
-reference set v1.
-
 ## Labelling question per signal
 
 Labellers answer one question per signal, derived from the contract's

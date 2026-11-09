@@ -16,11 +16,7 @@ fn binary(dir: &std::path::Path) -> Command {
 fn unsupported_extra_check_combinations_exit_with_a_reason() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("urls.txt"), "http://127.0.0.1:9/a\n").unwrap();
-    let cases: [(&[&str], &str); 3] = [
-        (
-            &["--url-file", "urls.txt", "--ai-transparency"],
-            "--ai-transparency is single-URL only",
-        ),
+    let cases: [(&[&str], &str); 2] = [
         (
             &[
                 "--url-file",

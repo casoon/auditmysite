@@ -6,20 +6,16 @@ use crate::i18n::I18n;
 use crate::output::report_model::ModuleDetailsBlock;
 use crate::output::search_experience::build_search_experience;
 
-mod ai_transparency;
 mod commerce;
 mod dark_mode;
-mod design_quality;
 mod experience;
 mod html_conform;
 mod performance;
 mod platform;
 mod seo;
 
-use ai_transparency::build_ai_transparency_details;
 use commerce::build_commerce_details;
 use dark_mode::build_dark_mode_details;
-use design_quality::build_design_quality_details;
 use experience::{build_journey_details, build_ux_details};
 use html_conform::build_html_conform_details;
 use performance::build_performance_details;
@@ -50,12 +46,9 @@ pub(super) fn build_module_details_from_normalized(
     let commerce = build_commerce_details(normalized, i18n);
     let mobile = build_mobile_details(normalized, i18n);
     let dark_mode = build_dark_mode_details(normalized, i18n);
-    let design_quality = build_design_quality_details(normalized, i18n);
-    let ai_transparency = build_ai_transparency_details(normalized, i18n);
     let ux = build_ux_details(normalized, i18n);
     let journey = build_journey_details(normalized, i18n);
 
-    let network_dns = normalized.raw_network_dns.cloned();
     let privacy = normalized.raw_privacy.cloned();
 
     let source_quality = normalized.raw_source_quality.cloned();
@@ -75,9 +68,6 @@ pub(super) fn build_module_details_from_normalized(
         || ux.is_some()
         || journey.is_some()
         || dark_mode.is_some()
-        || design_quality.is_some()
-        || ai_transparency.is_some()
-        || network_dns.is_some()
         || privacy.is_some()
         || source_quality.is_some()
         || ai_visibility.is_some()
@@ -97,9 +87,6 @@ pub(super) fn build_module_details_from_normalized(
         ux,
         journey,
         dark_mode,
-        design_quality,
-        ai_transparency,
-        network_dns,
         privacy,
         source_quality,
         ai_visibility,
@@ -128,9 +115,6 @@ pub(super) fn pdf_rendered_modules() -> std::collections::BTreeSet<&'static str>
         "ux",
         "journey",
         "dark_mode",
-        "design_quality",
-        "ai_transparency",
-        "network_dns",
         "privacy",
         "source_quality",
         "ai_visibility",

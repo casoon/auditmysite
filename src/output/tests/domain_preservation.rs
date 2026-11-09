@@ -50,12 +50,9 @@ fn expected() -> Vec<Expected> {
         ),
         exp(D::BestPractices, "best_practices.console.error", 1),
         exp(D::DarkMode, "dark_mode.no_meta_color_scheme", 1),
-        exp(D::DesignQuality, "design_quality.line_length", 1),
         exp(D::Ux, "ux.competing_ctas", 1),
         exp(D::Journey, "journey.no_h1", 1),
         exp(D::Commerce, "commerce.missing_price", 1),
-        exp(D::AiTransparency, "ai_transparency.unlabeled_ai_image", 1),
-        exp(D::NetworkDns, "network_dns.no_dmarc", 1),
         exp(D::Privacy, "privacy.tracking_request_before_consent", 1),
         exp(
             D::AccessibilityJourney,
@@ -84,12 +81,9 @@ fn injected(domain: FindingDomain) -> bool {
         | D::HtmlConformance
         | D::BestPractices
         | D::DarkMode
-        | D::DesignQuality
         | D::Ux
         | D::Journey
         | D::Commerce
-        | D::AiTransparency
-        | D::NetworkDns
         | D::Privacy => true,
     }
 }
@@ -107,12 +101,9 @@ const ALL_DOMAINS: &[FindingDomain] = &[
     FindingDomain::HtmlConformance,
     FindingDomain::BestPractices,
     FindingDomain::DarkMode,
-    FindingDomain::DesignQuality,
     FindingDomain::Ux,
     FindingDomain::Journey,
     FindingDomain::Commerce,
-    FindingDomain::AiTransparency,
-    FindingDomain::NetworkDns,
     FindingDomain::Privacy,
 ];
 
@@ -295,20 +286,6 @@ fn report_with_every_domain() -> AuditReport {
         }],
     });
 
-    // ── Design quality ────────────────────────────────────────────────────
-    report = report.with_design_quality(crate::design_quality::DesignQualityAnalysis {
-        findings: vec![crate::design_quality::DesignQualityFinding {
-            rule_id: "design.line_length".to_string(),
-            level: crate::design_quality::FindingLevel::Advisory,
-            confidence: crate::design_quality::Confidence::Medium,
-            measurement_type: "heuristic".to_string(),
-            selector: "p.body-text".to_string(),
-            evidence: "~110 characters per line.".to_string(),
-            message: "Long lines may reduce readability.".to_string(),
-        }],
-        rules_run: vec!["design.line_length".to_string()],
-    });
-
     // ── UX ────────────────────────────────────────────────────────────────
     let mut ux = crate::ux::analyze_ux(&crate::AXTree::new());
     ux.issues = vec![crate::ux::UxIssue {
@@ -347,30 +324,6 @@ fn report_with_every_domain() -> AuditReport {
             severity: Severity::High,
             message: "The product has no price.".to_string(),
         }],
-    });
-
-    // ── AI transparency ───────────────────────────────────────────────────
-    report.experience.ai_transparency = Some(crate::ai_transparency::AiTransparencyAnalysis {
-        findings: vec![crate::ai_transparency::ImageProvenanceFinding {
-            rule_id: "ai_transparency.unlabeled_ai_image".to_string(),
-            image_url: "https://example.com/hero.png".to_string(),
-            provenance: crate::ai_transparency::AiProvenanceKind::TrainedAlgorithmicMedia,
-            validation: crate::ai_transparency::ManifestValidation::Valid,
-            generator: None,
-            measurement_type: "metadata".to_string(),
-            evidence: "IPTC DigitalSourceType".to_string(),
-            message: "AI-generated image without a visible label.".to_string(),
-        }],
-        ..Default::default()
-    });
-
-    // ── Network DNS ───────────────────────────────────────────────────────
-    report.experience.network_dns = Some(crate::network::dns::NetworkDnsAnalysis {
-        findings: vec![crate::network::dns::DnsFinding {
-            rule_id: "dns.no_dmarc".to_string(),
-            message: "No DMARC record.".to_string(),
-        }],
-        ..Default::default()
     });
 
     // ── Privacy ───────────────────────────────────────────────────────────

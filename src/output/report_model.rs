@@ -317,9 +317,9 @@ pub struct ModuleScore {
     pub score: u32,
     /// Free-form convention shared with `audit::normalized::ModuleScoreEntry`:
     /// `"measured"`, `"composite"`, `"heuristic"`, `"optional"`,
-    /// `"not_measured"`, or a module-specific detection method
-    /// (`"c2pa_manifest"`, `"dns_query"`). See [`ModuleTaxonomyClass`] for the
-    /// coarse classification derived from this value.
+    /// `"not_measured"`, or a module-specific detection method. See
+    /// [`ModuleTaxonomyClass`] for the coarse classification derived from this
+    /// value.
     pub measurement_type: String,
     pub interpretation: String,
     pub card_context: String,
@@ -369,8 +369,8 @@ impl ModuleTaxonomyClass {
     /// `audit::normalized::ModuleScoreEntry`. `module_name` disambiguates
     /// Accessibility from the other `"measured"` modules, since
     /// `measurement_type` alone cannot distinguish Compliance from Measured.
-    /// Any other detection-method value (`"not_measured"`, `"c2pa_manifest"`,
-    /// `"dns_query"`, …) falls back to `Measured` — all are directly
+    /// Any other detection-method value (`"not_measured"`, …) falls back to
+    /// `Measured` — all are directly
     /// observed signals, not heuristic estimates.
     pub fn from_measurement_type(measurement_type: &str, module_name: &str) -> Self {
         match measurement_type {
@@ -570,9 +570,6 @@ pub struct ModuleDetailsBlock {
     pub ux: Option<UxPresentation>,
     pub journey: Option<JourneyPresentation>,
     pub dark_mode: Option<DarkModePresentation>,
-    pub design_quality: Option<DesignQualityPresentation>,
-    pub ai_transparency: Option<AiTransparencyPresentation>,
-    pub network_dns: Option<crate::network::dns::NetworkDnsAnalysis>,
     pub privacy: Option<crate::privacy::PrivacyAnalysis>,
     pub source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
     pub ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
@@ -628,39 +625,6 @@ pub struct VisionDeficiencyModePresentation {
     pub contrast_violations: u32,
     pub new_contrast_violations: u32,
     pub use_of_color_violations: u32,
-}
-
-/// Design-quality analysis presentation block (#528). Opt-in, score-neutral —
-/// never contributes to accessibility/overall score, grade, or certificate.
-pub struct DesignQualityPresentation {
-    pub warning_count: usize,
-    pub advisory_count: usize,
-    pub findings: Vec<DesignQualityFindingPresentation>,
-}
-
-pub struct DesignQualityFindingPresentation {
-    pub rule_id: String,
-    pub level_label: String,
-    pub confidence_label: String,
-    pub selector: String,
-    pub evidence: String,
-    pub message: String,
-}
-
-/// AI-transparency (EU AI Act Art. 50) presentation block. Opt-in,
-/// score-neutral — never contributes to accessibility/overall score, grade,
-/// or certificate. Single-report only (see `PipelineConfig.check_ai_transparency`).
-pub struct AiTransparencyPresentation {
-    pub images_checked: usize,
-    pub findings: Vec<ImageProvenanceFindingPresentation>,
-}
-
-pub struct ImageProvenanceFindingPresentation {
-    pub image_url: String,
-    pub provenance_label: String,
-    pub validation_label: String,
-    pub generator: Option<String>,
-    pub message: String,
 }
 
 /// Action plan as pre-mapped roadmap columns

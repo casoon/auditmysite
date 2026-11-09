@@ -193,23 +193,6 @@ pub struct Args {
     #[arg(long)]
     pub skip_mobile: bool,
 
-    /// Enable the design-quality module (opt-in UX/readability heuristics;
-    /// does not affect score, grade, or certificate). Not part of --full yet.
-    #[arg(long)]
-    pub design_quality: bool,
-
-    /// Enable the C2PA image-provenance check (EU AI Act Art. 50
-    /// transparency duties; opt-in, single-URL mode only, score-neutral).
-    /// Requires the binary to be built with `--features ai-transparency`;
-    /// otherwise the audit fails with a rebuild instruction before starting.
-    #[arg(long)]
-    pub ai_transparency: bool,
-
-    /// Enable the DNS-configuration check (CAA, DNSSEC, SPF/MX; opt-in,
-    /// score-neutral, #545). Runs once per unique host, not once per page.
-    #[arg(long)]
-    pub dns_check: bool,
-
     /// Report what a first visit sets and contacts before any consent
     /// (requests, cookies, storage, classified by provider; opt-in,
     /// score-neutral, #871). Opens one extra clean browser context per
@@ -890,8 +873,6 @@ impl Args {
             return crate::audit::support_matrix::ExtraCheckRequest {
                 isolate_third_party_impact: self.isolate_third_party_impact,
                 check_ssr_content: self.check_ssr_content,
-                ai_transparency: self.ai_transparency,
-                dns_check: self.dns_check,
                 privacy_check: self.privacy_check,
                 replay: true,
                 ..Default::default()
@@ -989,8 +970,6 @@ impl Args {
         crate::audit::support_matrix::ExtraCheckRequest {
             isolate_third_party_impact: self.isolate_third_party_impact,
             check_ssr_content: self.check_ssr_content,
-            ai_transparency: self.ai_transparency,
-            dns_check: self.dns_check,
             privacy_check: self.privacy_check,
             performance_active: (full || self.performance) && !self.skip_performance,
             seo_active: full || self.seo,
@@ -1181,9 +1160,6 @@ mod tests {
             security: false,
             mobile: false,
             skip_mobile: false,
-            design_quality: false,
-            ai_transparency: false,
-            dns_check: false,
             privacy_check: false,
             isolate_third_party_impact: false,
             perf_runs: 1,
@@ -1469,13 +1445,13 @@ mod tests {
 
         let args = Args::try_parse_from([
             "auditmysite",
-            "--dns-check",
+            "--privacy-check",
             "replay",
             "https://example.com",
         ])
         .unwrap();
         let e = args.validate().unwrap_err();
-        assert!(e.contains("--dns-check") && e.contains("replay"), "{e}");
+        assert!(e.contains("--privacy-check") && e.contains("replay"), "{e}");
         assert!(Args::try_parse_from(["auditmysite", "replay"]).is_err());
     }
 

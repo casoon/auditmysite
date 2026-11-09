@@ -11,11 +11,9 @@
 //! ## Why this takes more than `&[NormalizedFinding]`
 //!
 //! Unlike EN 301 549 (which maps 1:1 onto WCAG success criteria already
-//! normalized into `NormalizedFinding`), three of this guide's chapters
+//! normalized into `NormalizedFinding`), two of this guide's chapters
 //! source from data that is deliberately *not* folded into
 //! `NormalizedFinding`:
-//! - Alt-text quality (`design.alt_*`) is a score-neutral `design_quality`
-//!   finding, kept out of WCAG violation counting by construction (#528).
 //! - `og_image_missing_alt`/`twitter_image_missing_alt` are SEO
 //!   `TechnicalIssue`s (`seo::technical::collect_technical_issues`), never
 //!   normalized into `findings[]` either.
@@ -23,8 +21,8 @@
 //!   signal (`patterns::PatternAnalysis::recognized`), not a violation at
 //!   all.
 //!
-//! `derive_bik_chapters` therefore takes these three as separate slices/flag
-//! rather than only `&NormalizedReport`. All three are only available from a
+//! `derive_bik_chapters` therefore takes these two as separate slice/flag
+//! rather than only `&NormalizedReport`. Both are only available from a
 //! live single-report audit's raw module data (`AuditContext`) — a cached or
 //! batch-processed page has already discarded that raw data by the time this
 //! runs (see `output::json::detail::build_detail_cached`/`build_batch_detail`),
@@ -50,7 +48,6 @@
 use crate::audit::normalized::{
     AccessibilityAssessment, InteractiveFinding, InteractiveFindingKind, NormalizedFinding,
 };
-use crate::design_quality::DesignQualityFinding;
 use crate::screen_reader::SrAuditIssue;
 use crate::seo::technical::TechnicalIssue;
 
@@ -127,7 +124,7 @@ pub enum BikChapterStatus {
 }
 
 /// One finding rolled up into a chapter. `label` is the finding's `rule_id`
-/// when one exists (WCAG/design-quality/SEO-technical rule ids), or a
+/// when one exists (WCAG/SEO-technical rule ids), or a
 /// synthetic identifier for sources that don't carry one (screen-reader
 /// structural issues, the easy-language positive signal).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -182,14 +179,13 @@ fn add(map: &mut std::collections::BTreeMap<String, usize>, label: &str, occurre
 /// Derive the six-chapter BIK-für-Alle rollup for one page — a pure
 /// projection over already-computed findings, no I/O, nothing stored on
 /// `NormalizedReport`. See the module doc for why this takes more than a
-/// single `NormalizedFinding` slice, and why `design_quality_findings`/
+/// single `NormalizedFinding` slice, and why
 /// `seo_technical_issues`/`easy_language_detected` may legitimately be
 /// empty/`false` (data not retained past a cached or batch run).
 pub fn derive_bik_chapters(
     findings: &[NormalizedFinding],
     interactive_findings: &[InteractiveFinding],
     screen_reader_issues: &[SrAuditIssue],
-    design_quality_findings: &[DesignQualityFinding],
     seo_technical_issues: &[TechnicalIssue],
     easy_language_detected: bool,
     accessibility_assessments: &[AccessibilityAssessment],
@@ -204,12 +200,6 @@ pub fn derive_bik_chapters(
                         && IMAGES_WCAG_CRITERIA.contains(&f.wcag_criterion.as_str())
                 }) {
                     add(&mut map, &f.rule_id, f.occurrence_count);
-                }
-                for f in design_quality_findings
-                    .iter()
-                    .filter(|f| f.rule_id.starts_with("design.alt_"))
-                {
-                    add(&mut map, &f.rule_id, 1);
                 }
                 for issue in seo_technical_issues
                     .iter()
@@ -410,18 +400,6 @@ mod tests {
         )
     }
 
-    fn design_quality_finding(rule_id: &str) -> DesignQualityFinding {
-        DesignQualityFinding {
-            rule_id: rule_id.into(),
-            level: crate::design_quality::FindingLevel::Advisory,
-            confidence: crate::design_quality::Confidence::High,
-            measurement_type: "heuristic".into(),
-            selector: "img".into(),
-            evidence: "test evidence".into(),
-            message: "test message".into(),
-        }
-    }
-
     fn seo_issue(issue_type: &str) -> TechnicalIssue {
         TechnicalIssue {
             issue_type: issue_type.into(),
@@ -432,7 +410,7 @@ mod tests {
 
     #[test]
     fn produces_exactly_six_chapters_in_guide_order() {
-        let rollups = derive_bik_chapters(&[], &[], &[], &[], &[], false, &[]);
+        let rollups = derive_bik_chapters(&[], &[], &[], &[], false, &[]);
         assert_eq!(rollups.len(), 6);
         assert_eq!(rollups[0].chapter.id, BikChapterId::Images);
         assert_eq!(rollups[1].chapter.id, BikChapterId::LinkText);
@@ -444,7 +422,7 @@ mod tests {
 
     #[test]
     fn empty_input_is_clean_not_checked_or_absent_per_chapter_semantics() {
-        let rollups = derive_bik_chapters(&[], &[], &[], &[], &[], false, &[]);
+        let rollups = derive_bik_chapters(&[], &[], &[], &[], false, &[]);
         for r in &rollups {
             match r.chapter.id {
                 BikChapterId::Pdf => {
@@ -475,10 +453,6 @@ mod tests {
             interactive_finding(InteractiveFindingKind::LinkTextGeneric, 5),
             interactive_finding(InteractiveFindingKind::MediaControlsMissingName, 2),
         ];
-        let design_quality = vec![
-            design_quality_finding("design.alt_filename"),
-            design_quality_finding("design.emoji_usage"), // not alt-related, must not count
-        ];
         let seo_issues = vec![seo_issue("og_image_missing_alt")];
 
         let sr_issues = vec![SrAuditIssue {
@@ -489,33 +463,18 @@ mod tests {
             review: true,
         }];
 
-        let rollups = derive_bik_chapters(
-            &findings,
-            &interactive,
-            &sr_issues,
-            &design_quality,
-            &seo_issues,
-            true,
-            &[],
-        );
+        let rollups =
+            derive_bik_chapters(&findings, &interactive, &sr_issues, &seo_issues, true, &[]);
 
         let by_id = |id: BikChapterId| rollups.iter().find(|r| r.chapter.id == id).unwrap();
 
         let images = by_id(BikChapterId::Images);
         assert_eq!(images.status, BikChapterStatus::FindingsPresent);
-        assert_eq!(
-            images.findings.len(),
-            3,
-            "1.1.1 wcag + alt_filename + og_image, but not emoji_usage"
-        );
+        assert_eq!(images.findings.len(), 2, "1.1.1 wcag + og_image");
         assert!(images
             .findings
             .iter()
             .any(|f| f.label == "a11y.alt_text.missing" && f.occurrences == 3));
-        assert!(images
-            .findings
-            .iter()
-            .any(|f| f.label == "design.alt_filename"));
         assert!(images
             .findings
             .iter()
@@ -580,7 +539,7 @@ mod tests {
         }];
 
         // No NormalizedFinding at all — the bug this guards against.
-        let rollups = derive_bik_chapters(&[], &[], &[], &[], &[], false, &assessments);
+        let rollups = derive_bik_chapters(&[], &[], &[], &[], false, &assessments);
 
         let videos = rollups
             .iter()
@@ -606,7 +565,7 @@ mod tests {
             evidence: vec![],
         }];
 
-        let rollups = derive_bik_chapters(&[], &[], &[], &[], &[], false, &assessments);
+        let rollups = derive_bik_chapters(&[], &[], &[], &[], false, &assessments);
 
         let videos = rollups
             .iter()
@@ -618,7 +577,7 @@ mod tests {
 
     #[test]
     fn easy_language_absent_reads_as_no_findings_detected_not_finding() {
-        let rollups = derive_bik_chapters(&[], &[], &[], &[], &[], false, &[]);
+        let rollups = derive_bik_chapters(&[], &[], &[], &[], false, &[]);
         let easy_language = rollups
             .iter()
             .find(|r| r.chapter.id == BikChapterId::EasyLanguage)

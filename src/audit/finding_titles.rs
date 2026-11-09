@@ -213,24 +213,6 @@ pub fn german_finding_title(rule_id: &str) -> Option<&'static str> {
         "privacy.no_consent_platform_detected" => "Keine Einwilligungsplattform erkannt",
         "privacy.policy_link_missing" => "Link zu Datenschutzhinweisen fehlt",
         "privacy.policy_link_unusable" => "Link zu Datenschutzhinweisen unbrauchbar",
-        // network
-        "network_dns.caa_missing" => "CAA-Eintrag fehlt",
-        "network_dns.dnssec_not_detected" => "DNSSEC nicht erkannt",
-        "network_dns.spf_missing" => "SPF-Eintrag fehlt",
-        // ai transparency
-        "ai_transparency.c2pa_provenance" => "KI-Herkunftsnachweis (C2PA)",
-        // design quality
-        "design_quality.overflow_clip" => "Element durch overflow:hidden abgeschnitten",
-        "design_quality.line_length" => "Zeilenlänge",
-        "design_quality.line_height" => "Zeilenhöhe",
-        "design_quality.all_caps" => "Durchgehende Großbuchstaben",
-        "design_quality.alt_filename" => "Alternativtext ist ein Dateiname",
-        "design_quality.alt_boilerplate" => "Alternativtext mit Floskel",
-        "design_quality.alt_too_long" => "Alternativtext zu lang",
-        "design_quality.alt_redundant" => "Alternativtext redundant",
-        "design_quality.emoji_usage" => "Emoji im Text",
-        "design_quality.hashtag_camel_case" => "Hashtag ohne Binnenmajuskeln",
-        "design_quality.layout_transition" => "Layout-Übergang",
         // accessibility journey
         "a11y_journey.hidden_focusable_aria_hidden" => "Fokussierbar trotz aria-hidden",
         "a11y_journey.hidden_focusable_inert" => "Fokussierbar trotz inert",

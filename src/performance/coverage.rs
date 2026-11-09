@@ -60,9 +60,8 @@ use crate::util::truncate_ellipsis as truncate;
 const MIN_DUPLICATE_ASSET_BYTES: usize = 1024;
 
 /// Safety cap on how many `CSS.styleSheetAdded` events are drained per pass
-/// — mirrors the "cap the fan-out" philosophy used elsewhere in this codebase
-/// (e.g. `design_quality`'s `MAX_SAMPLE_TASKS`) rather than trusting an
-/// unbounded page to stay small.
+/// — the "cap the fan-out" philosophy, rather than trusting an unbounded page
+/// to stay small.
 const MAX_DUPLICATE_STYLESHEET_EVENTS: usize = 500;
 
 /// Same cap, for `Debugger.scriptParsed` events (#551) — see
@@ -95,8 +94,7 @@ struct StylesheetStreams {
 /// that machinery carries state from `prepare_coverage_collection` (called
 /// directly in the pipeline, pre-navigation) to `take_coverage_results`
 /// (called several layers away, from `PerformanceModule::collect`, with only
-/// a `&Page`) — same constraint and same fix shape as `network::dns`'s
-/// per-host cache.
+/// a `&Page`).
 static STYLESHEET_LISTENERS: OnceLock<Mutex<HashMap<TargetId, StylesheetStreams>>> =
     OnceLock::new();
 

@@ -26,13 +26,9 @@ src/content_visibility/module.rs 2
 src/content_visibility/ssr_gap.rs 7
 src/dark_mode/mod.rs 2
 src/dark_mode/module.rs 2
-src/design_quality/mod.rs 7
-src/design_quality/module.rs 2
 src/journey/module.rs 12
 src/mobile/mod.rs 6
 src/mobile/module.rs 2
-src/network/dns.rs 4
-src/network/dns/module.rs 3
 src/patterns/easy_language.rs 6
 src/patterns/help_mechanisms.rs 6
 src/performance/animations.rs 4

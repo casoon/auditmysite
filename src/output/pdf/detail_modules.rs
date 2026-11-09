@@ -18,14 +18,11 @@ use super::helpers::{
 };
 
 mod accessibility;
-mod ai_transparency;
 mod commerce;
 mod dark_mode;
-mod design_quality;
 mod experience;
 mod html_conform;
 mod indicators;
-mod network_dns;
 mod overview;
 mod performance;
 mod platform;
@@ -37,17 +34,14 @@ pub(super) use accessibility::effective_bfsg_verdict;
 pub(super) use accessibility::{
     bfsg_relevant_wcag_findings, render_a11y_journey_findings, render_screen_reader_section,
 };
-pub(super) use ai_transparency::render_ai_transparency;
 pub(super) use commerce::render_commerce;
 pub(super) use dark_mode::render_dark_mode;
-pub(super) use design_quality::render_design_quality;
 pub(super) use experience::{render_journey, render_ux};
 pub(super) use html_conform::render_html_conform;
 pub(super) use indicators::{
     render_ai_visibility, render_best_practices, render_content_visibility, render_source_quality,
     render_tech_stack,
 };
-pub(super) use network_dns::render_network_dns;
 pub(super) use overview::{render_budget_violations, render_search_experience};
 pub(super) use performance::render_performance;
 pub(super) use platform::{mobile_category_label, render_mobile, render_security};

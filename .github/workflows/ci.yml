@@ -86,7 +86,7 @@ jobs:
           RUSTDOCFLAGS: -D warnings
 
       - name: Run tests (production features, PDF smoke excluded)
-        run: cargo test --features pdf,ai-transparency -- --nocapture --test-threads=1
+        run: cargo test --features pdf -- --nocapture --test-threads=1
 
   pdf-smoke:
     name: PDF Smoke Tests

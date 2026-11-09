@@ -56,12 +56,9 @@ pub enum FindingDomain {
     HtmlConformance,
     BestPractices,
     DarkMode,
-    DesignQuality,
     Ux,
     Journey,
     Commerce,
-    AiTransparency,
-    NetworkDns,
     Privacy,
 }
 
@@ -78,12 +75,9 @@ impl FindingDomain {
             Self::HtmlConformance => "html_conformance",
             Self::BestPractices => "best_practices",
             Self::DarkMode => "dark_mode",
-            Self::DesignQuality => "design_quality",
             Self::Ux => "ux",
             Self::Journey => "journey",
             Self::Commerce => "commerce",
-            Self::AiTransparency => "ai_transparency",
-            Self::NetworkDns => "network_dns",
             Self::Privacy => "privacy",
         }
     }
@@ -108,7 +102,7 @@ impl FindingDomain {
                 "Accessibility",
             ),
             Self::Seo => (Dimension::Seo, Subcategory::Indexability, "SEO"),
-            Self::Security | Self::NetworkDns => (
+            Self::Security => (
                 Dimension::Security,
                 Subcategory::ServerConfiguration,
                 "Security",
@@ -134,11 +128,6 @@ impl FindingDomain {
                 Subcategory::VisualPresentation,
                 "Dark Mode",
             ),
-            Self::DesignQuality => (
-                Dimension::Accessibility,
-                Subcategory::VisualPresentation,
-                "Design Quality",
-            ),
             Self::Ux => (
                 Dimension::Accessibility,
                 Subcategory::NavigationInteraction,
@@ -150,11 +139,6 @@ impl FindingDomain {
                 "Journey",
             ),
             Self::Commerce => (Dimension::Seo, Subcategory::SemanticSignals, "Commerce"),
-            Self::AiTransparency => (
-                Dimension::Seo,
-                Subcategory::SemanticSignals,
-                "AI Transparency",
-            ),
         }
     }
 }
@@ -427,20 +411,8 @@ pub const DOMAIN_POLICIES: &[(&str, DomainPolicy)] = &[
     ("mobile", DomainPolicy::Findings(FindingDomain::Mobile)),
     ("dark_mode", DomainPolicy::Findings(FindingDomain::DarkMode)),
     (
-        "design_quality",
-        DomainPolicy::Findings(FindingDomain::DesignQuality),
-    ),
-    (
         "html_conform",
         DomainPolicy::Findings(FindingDomain::HtmlConformance),
-    ),
-    (
-        "ai_transparency",
-        DomainPolicy::Findings(FindingDomain::AiTransparency),
-    ),
-    (
-        "network_dns",
-        DomainPolicy::Findings(FindingDomain::NetworkDns),
     ),
     ("privacy", DomainPolicy::Findings(FindingDomain::Privacy)),
     (
@@ -963,35 +935,6 @@ fn collect(
         }
     }
 
-    if let Some(design) = &report.experience.design_quality {
-        for finding in &design.findings {
-            out.push(
-                Collected::new(
-                    D::DesignQuality,
-                    "design_quality",
-                    finding
-                        .rule_id
-                        .strip_prefix("design.")
-                        .unwrap_or(&finding.rule_id)
-                        .to_string(),
-                    match finding.level {
-                        crate::design_quality::FindingLevel::Warning => Severity::Medium,
-                        crate::design_quality::FindingLevel::Advisory => Severity::Low,
-                    },
-                    finding.message.clone(),
-                    FindingScoring::none(),
-                    L::Element,
-                )
-                .text({
-                    let (rule_id, level) = (finding.rule_id.clone(), finding.level);
-                    move |en| crate::design_quality::finding_message_text(&rule_id, level, en)
-                })
-                .selector(Some(finding.selector.clone()))
-                .review(),
-            );
-        }
-    }
-
     if let Some(ux) = &report.ux {
         for issue in &ux.issues {
             // UX issues are heuristic suspicions (signal contract `ux`,
@@ -1055,54 +998,6 @@ fn collect(
                     L::Page,
                 )
                 .text(move |en| crate::commerce::commerce_finding_text(kind, en)),
-            );
-        }
-    }
-
-    if let Some(ai) = &report.experience.ai_transparency {
-        for finding in &ai.findings {
-            out.push(
-                Collected::new(
-                    D::AiTransparency,
-                    "ai_transparency",
-                    finding
-                        .rule_id
-                        .strip_prefix("ai_transparency.")
-                        .unwrap_or(&finding.rule_id)
-                        .to_string(),
-                    Severity::Low,
-                    finding.message.clone(),
-                    FindingScoring::none(),
-                    L::Resource,
-                )
-                .text({
-                    let rule_id = finding.rule_id.clone();
-                    move |en| crate::ai_transparency::finding_message_text(&rule_id, en)
-                })
-                .selector(Some(finding.image_url.clone()))
-                .review(),
-            );
-        }
-    }
-
-    if let Some(dns) = &report.experience.network_dns {
-        for finding in &dns.findings {
-            let rule_id = finding.rule_id.clone();
-            out.push(
-                Collected::new(
-                    D::NetworkDns,
-                    "network_dns",
-                    finding
-                        .rule_id
-                        .strip_prefix("dns.")
-                        .unwrap_or(&finding.rule_id)
-                        .to_string(),
-                    Severity::Low,
-                    finding.message.clone(),
-                    FindingScoring::none(),
-                    L::Site,
-                )
-                .text(move |en| crate::network::dns::finding_message_text(&rule_id, en)),
             );
         }
     }

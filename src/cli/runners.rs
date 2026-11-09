@@ -38,23 +38,6 @@ const BOT_USER_AGENT: &str = concat!(
     " (+https://github.com/casoon/auditmysite)"
 );
 
-/// Fail loudly, before the pipeline runs, if `--ai-transparency` was passed
-/// but the binary wasn't built with the `ai-transparency` Cargo feature.
-///
-/// Without this check the flag would silently no-op: `PipelineConfig.
-/// check_ai_transparency` would still be set, but `AiTransparencyModule::
-/// collect()`'s `#[cfg(not(feature = "ai-transparency"))]` fallback just
-/// returns `ModuleData::None` — indistinguishable from "nothing found".
-/// Mirrors `report_writers.rs`'s PDF-feature error (same message shape).
-fn check_ai_transparency_feature(args: &Args) -> Result<()> {
-    if args.ai_transparency && !cfg!(feature = "ai-transparency") {
-        return Err(AuditError::ConfigError(
-            "AI transparency check requires the 'ai-transparency' feature. Rebuild with: cargo build --features ai-transparency".to_string(),
-        ));
-    }
-    Ok(())
-}
-
 /// What one audit run leaves behind for `--display all` (#653): its verdict
 /// and the audited URLs that only the `visual` mode can fully audit.
 pub(crate) struct RunOutcome {
@@ -89,8 +72,6 @@ pub(crate) async fn run_single_mode(
 }
 
 async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> Result<RunOutcome> {
-    check_ai_transparency_feature(args)?;
-
     let url = args
         .url
         .as_ref()
@@ -818,44 +799,5 @@ fn print_verdict(vr: &auditmysite::VerdictResult, quiet: bool) {
         eprintln!("\n{}", label);
     } else {
         eprintln!("\n{} — {}", label, vr.reasons.join(", ").dimmed());
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use clap::Parser;
-
-    fn args_with_ai_transparency(flag: bool) -> Args {
-        let mut args = Args::parse_from(["auditmysite", "https://example.com"]);
-        args.ai_transparency = flag;
-        args
-    }
-
-    #[test]
-    fn flag_off_never_errors() {
-        assert!(check_ai_transparency_feature(&args_with_ai_transparency(false)).is_ok());
-    }
-
-    #[test]
-    fn flag_on_matches_compiled_feature_state() {
-        let result = check_ai_transparency_feature(&args_with_ai_transparency(true));
-        if cfg!(feature = "ai-transparency") {
-            assert!(
-                result.is_ok(),
-                "feature is compiled in, flag must be accepted"
-            );
-        } else {
-            let err = result.expect_err("feature is not compiled in, flag must be rejected");
-            let msg = err.to_string();
-            assert!(
-                msg.contains("ai-transparency"),
-                "error must name the feature: {msg}"
-            );
-            assert!(
-                msg.contains("cargo build --features ai-transparency"),
-                "error must include the rebuild instruction: {msg}"
-            );
-        }
     }
 }

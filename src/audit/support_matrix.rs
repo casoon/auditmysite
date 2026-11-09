@@ -16,10 +16,6 @@ pub enum ExtraCheck {
     ThirdPartyIsolation,
     /// `--check-ssr-content` (#534): one reload with JavaScript disabled.
     SsrContent,
-    /// `--ai-transparency`: C2PA image provenance.
-    AiTransparency,
-    /// `--dns-check` (#545): once per unique host.
-    Dns,
     /// `--privacy-check` (#871): one clean-context visit per URL.
     Privacy,
 }
@@ -112,14 +108,6 @@ const REPLAY_DOES_NOT_MEASURE: Support = Support::Rejected(
      recorded (run the audit again to change them)",
 );
 
-/// The page's image URLs are collected before anything is fetched, so this
-/// record exists whenever the module ran. A build without the feature never
-/// runs the module and so owes none.
-#[cfg(feature = "ai-transparency")]
-const AI_TRANSPARENCY_SUBCHECKS: &[&str] = &["ai_transparency.image_urls"];
-#[cfg(not(feature = "ai-transparency"))]
-const AI_TRANSPARENCY_SUBCHECKS: &[&str] = &[];
-
 pub const MATRIX: &[ExtraCheckSpec] = &[
     ExtraCheckSpec {
         check: ExtraCheck::ThirdPartyIsolation,
@@ -142,34 +130,6 @@ pub const MATRIX: &[ExtraCheckSpec] = &[
         replay: REPLAY_DOES_NOT_MEASURE,
     },
     ExtraCheckSpec {
-        check: ExtraCheck::AiTransparency,
-        flag: "--ai-transparency",
-        subchecks: AI_TRANSPARENCY_SUBCHECKS,
-        prerequisite: Prerequisite::None,
-        single: Support::Runs,
-        batch: Support::Rejected(
-            "is single-URL only: fetching and parsing every image of every page is not run in \
-             batch mode",
-        ),
-        cache: Support::Runs,
-        replay: REPLAY_DOES_NOT_MEASURE,
-    },
-    ExtraCheckSpec {
-        check: ExtraCheck::Dns,
-        flag: "--dns-check",
-        subchecks: &[
-            "network_dns.caa",
-            "network_dns.dnskey",
-            "network_dns.mx",
-            "network_dns.spf",
-        ],
-        prerequisite: Prerequisite::None,
-        single: Support::Runs,
-        batch: Support::Runs,
-        cache: Support::Runs,
-        replay: REPLAY_DOES_NOT_MEASURE,
-    },
-    ExtraCheckSpec {
         check: ExtraCheck::Privacy,
         flag: "--privacy-check",
         subchecks: &["privacy.first_visit"],
@@ -186,8 +146,6 @@ pub const MATRIX: &[ExtraCheckSpec] = &[
 pub struct ExtraCheckRequest {
     pub isolate_third_party_impact: bool,
     pub check_ssr_content: bool,
-    pub ai_transparency: bool,
-    pub dns_check: bool,
     pub privacy_check: bool,
     pub performance_active: bool,
     pub seo_active: bool,
@@ -203,8 +161,6 @@ impl ExtraCheckRequest {
         match check {
             ExtraCheck::ThirdPartyIsolation => self.isolate_third_party_impact,
             ExtraCheck::SsrContent => self.check_ssr_content,
-            ExtraCheck::AiTransparency => self.ai_transparency,
-            ExtraCheck::Dns => self.dns_check,
             ExtraCheck::Privacy => self.privacy_check,
         }
     }
@@ -286,8 +242,6 @@ mod tests {
         for check in [
             ExtraCheck::ThirdPartyIsolation,
             ExtraCheck::SsrContent,
-            ExtraCheck::AiTransparency,
-            ExtraCheck::Dns,
             ExtraCheck::Privacy,
         ] {
             let rows: Vec<_> = MATRIX.iter().filter(|s| s.check == check).collect();
@@ -309,14 +263,12 @@ mod tests {
         assert!(MATRIX
             .iter()
             .all(|s| matches!(s.replay, Support::Rejected(_))));
-        for flag in 0..5 {
+        for flag in 0..3 {
             let e = request(|r| {
                 r.replay = true;
                 match flag {
                     0 => r.isolate_third_party_impact = true,
                     1 => r.check_ssr_content = true,
-                    2 => r.ai_transparency = true,
-                    3 => r.dns_check = true,
                     _ => r.privacy_check = true,
                 }
             })
@@ -346,23 +298,10 @@ mod tests {
     }
 
     #[test]
-    fn ai_transparency_is_rejected_in_batch_only() {
-        assert!(request(|r| r.ai_transparency = true).validate().is_ok());
-        let e = request(|r| {
-            r.ai_transparency = true;
-            r.batch = true;
-        })
-        .validate()
-        .unwrap_err();
-        assert!(e.contains("--ai-transparency") && e.contains("single-URL"));
-    }
-
-    #[test]
     fn supported_combinations_pass() {
         assert!(request(|r| {
             r.isolate_third_party_impact = true;
             r.check_ssr_content = true;
-            r.dns_check = true;
             r.batch = true;
         })
         .validate()

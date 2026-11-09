@@ -19,19 +19,16 @@ use async_trait::async_trait;
 use chromiumoxide::Page;
 
 use crate::accessibility::AXTree;
-use crate::ai_transparency::AiTransparencyAnalysis;
 use crate::ai_visibility::AiVisibilityAnalysis;
 use crate::audit::pipeline::PipelineConfig;
 use crate::audit::report::{AuditReport, PerformanceResults};
 use crate::best_practices::BestPracticesAnalysis;
 use crate::content_visibility::ContentVisibilityAnalysis;
 use crate::dark_mode::DarkModeAnalysis;
-use crate::design_quality::DesignQualityAnalysis;
 use crate::error::Result;
 use crate::html_conform::HtmlConformAnalysis;
 use crate::journey::JourneyAnalysis;
 use crate::mobile::MobileFriendliness;
-use crate::network::dns::NetworkDnsAnalysis;
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
 use crate::source_quality::SourceQualityAnalysis;
@@ -86,9 +83,6 @@ pub enum ModuleData {
     SourceQuality(Box<SourceQualityAnalysis>),
     AiVisibility(Box<AiVisibilityAnalysis>),
     ContentVisibility(Box<ContentVisibilityAnalysis>),
-    DesignQuality(Box<DesignQualityAnalysis>),
-    AiTransparency(Box<AiTransparencyAnalysis>),
-    NetworkDns(Box<NetworkDnsAnalysis>),
     HtmlConform(Box<HtmlConformAnalysis>),
     Error(String),
 }

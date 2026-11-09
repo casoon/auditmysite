@@ -597,7 +597,7 @@ impl NormalizedReport {
                 format!("collector {} lost its measurement", gap.subcheck),
             );
             // The module score the run feeds, by its name in `module_scores`.
-            // Modules without an entry (design quality, tech stack, …) show
+            // Modules without an entry (tech stack, …) show
             // no score a lost collection could inflate.
             let score_name = match run.module.as_str() {
                 "seo" => "SEO",

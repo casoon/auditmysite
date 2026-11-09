@@ -137,7 +137,7 @@ pub const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
 /// Version of the evaluation applied to collected data: normalization,
 /// scoring weights, taxonomy and decision derivation. Bump it with any change
 /// that moves a score, finding or verdict for unchanged input.
-pub const EVALUATION_VERSION: u32 = 3;
+pub const EVALUATION_VERSION: u32 = 4;
 
 /// The versions under which a snapshot was written. A snapshot is replayed
 /// only when every one equals the current value: another version is another
@@ -732,7 +732,7 @@ fn read_entry(dir: &std::path::Path) -> CacheLookup {
 
 /// Version of what [`content_hash`] covers. A hash of another version never
 /// compares equal to this one's: it measured something else.
-pub const FINGERPRINT_VERSION: u32 = 4;
+pub const FINGERPRINT_VERSION: u32 = 5;
 
 /// FNV-1a fingerprint of the snapshot's content: every AX node with role,
 /// name, value, properties, links and DOM anchor, plus the SEO parts that
@@ -745,7 +745,8 @@ pub const FINGERPRINT_VERSION: u32 = 4;
 /// not content and stay out: a slower run of an unchanged page is no change.
 ///
 /// Version 2 hashed AX nodes and SEO parts only; version 3 ignores browser-assigned ids; version 4 adds the
-/// style inputs (contrast violations, mobile, design quality, dark mode).
+/// style inputs (contrast violations, mobile, design quality, dark mode);
+/// version 5 drops design quality with the module (#915).
 /// Version 1 hashed the node count, the first 100 node ids and a few SEO
 /// strings, so a changed label or text on an unchanged tree shape went
 /// undetected (#790).
@@ -796,8 +797,8 @@ pub fn content_hash(snapshot: &SnapshotArtifact) -> String {
     }
     // Presentation inputs that never reach the AX tree: a pure style change
     // (colours, sizes, font, colour scheme) leaves node count, ids and names
-    // as they were. They surface as contrast violations and in the mobile,
-    // design-quality and dark-mode measurements.
+    // as they were. They surface as contrast violations and in the mobile
+    // and dark-mode measurements.
     if let Some(mobile) = &snapshot.mobile {
         push_canonical(
             &mut input,
@@ -815,7 +816,6 @@ pub fn content_hash(snapshot: &SnapshotArtifact) -> String {
             .collect();
         for part in [
             serde_json::to_value(&contrast),
-            serde_json::to_value(&collected.experience.design_quality),
             serde_json::to_value(&collected.experience.dark_mode),
         ] {
             push_canonical(&mut input, &part.unwrap_or_default());

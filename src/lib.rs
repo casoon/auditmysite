@@ -38,9 +38,6 @@
 //!         check_mobile: false,
 //!         check_dark_mode: false,
 //!         check_html_conform: false,
-//!         check_design_quality: false,
-//!         check_ai_transparency: false,
-//!         check_dns: false,
 //!         check_privacy: false,
 //!         perf_runs: 1,
 //!         check_isolate_third_party_impact: false,
@@ -86,10 +83,9 @@
 //! - Accessibility checks: [`wcag`] (rule engine), [`screen_reader`],
 //!   [`html_conform`], [`patterns`]
 //! - Further analysis modules: [`performance`], [`seo`], [`security`],
-//!   [`mobile`], [`best_practices`], [`dark_mode`], [`design_quality`],
-//!   [`journey`], [`ux`], [`content_visibility`], [`ai_visibility`],
-//!   [`ai_transparency`], [`source_quality`], [`tech_stack`], [`commerce`],
-//!   [`network`]
+//!   [`mobile`], [`best_practices`], [`dark_mode`], [`journey`], [`ux`],
+//!   [`content_visibility`], [`ai_visibility`], [`source_quality`],
+//!   [`tech_stack`], [`commerce`]
 //! - Orchestration and scoring: [`audit`] (pipeline, batch, normalization),
 //!   [`taxonomy`], [`assessment`], [`registry`]
 //! - Output: [`output`] (JSON, table, PDF), [`lint`] (report-lint),
@@ -111,7 +107,6 @@
 
 pub mod a11y_journey;
 pub mod accessibility;
-pub mod ai_transparency;
 pub mod ai_visibility;
 pub mod assessment;
 pub mod audit;
@@ -121,7 +116,6 @@ pub mod cli;
 pub mod commerce;
 pub mod content_visibility;
 pub mod dark_mode;
-pub mod design_quality;
 pub mod display;
 pub mod error;
 pub mod html_conform;
@@ -130,7 +124,6 @@ pub mod interaction;
 pub mod journey;
 pub mod lint;
 pub mod mobile;
-pub mod network;
 pub mod output;
 pub mod patterns;
 pub mod performance;

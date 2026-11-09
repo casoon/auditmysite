@@ -22,12 +22,11 @@ use super::score_drivers::{
 use super::appendix::build_cli_snapshot_table;
 use super::bik_guide::render_bik_guide_annex;
 use super::detail_modules::{
-    mobile_category_label, render_a11y_journey_findings, render_ai_transparency,
-    render_ai_visibility, render_best_practices, render_budget_violations, render_commerce,
-    render_content_visibility, render_dark_mode, render_design_quality, render_html_conform,
-    render_journey, render_mobile, render_network_dns, render_performance, render_privacy,
-    render_screen_reader_section, render_search_experience, render_security, render_seo,
-    render_source_quality, render_tech_stack, render_ux,
+    mobile_category_label, render_a11y_journey_findings, render_ai_visibility,
+    render_best_practices, render_budget_violations, render_commerce, render_content_visibility,
+    render_dark_mode, render_html_conform, render_journey, render_mobile, render_performance,
+    render_privacy, render_screen_reader_section, render_search_experience, render_security,
+    render_seo, render_source_quality, render_tech_stack, render_ux,
 };
 use super::diagnosis::render_diagnosis_section;
 use super::en301549::render_en301549_annex;
@@ -1142,12 +1141,6 @@ pub(super) fn render_appendix_full(
 
         // BIK-für-Alle guide chapter mapping — opt-in only (see `--annex bik`).
         if config.annex == Some(AnnexKind::Bik) {
-            let design_quality_findings: &[crate::design_quality::DesignQualityFinding] = report
-                .experience
-                .design_quality
-                .as_ref()
-                .map(|m| m.findings.as_slice())
-                .unwrap_or(&[]);
             let seo_technical_issues: Vec<crate::seo::technical::TechnicalIssue> = report
                 .discoverability
                 .seo
@@ -1170,7 +1163,6 @@ pub(super) fn render_appendix_full(
                 findings,
                 &report.interactive_findings,
                 screen_reader_issues,
-                design_quality_findings,
                 &seo_technical_issues,
                 easy_language_detected,
                 &accessibility_assessments,
@@ -2201,24 +2193,9 @@ fn render_active_module_section(
                 return (render_dark_mode(builder, dm, is_first, i18n), true);
             }
         }
-        "design_quality" => {
-            if let Some(ref dq) = vm.module_details.design_quality {
-                return (render_design_quality(builder, dq, is_first, i18n), true);
-            }
-        }
-        "ai_transparency" => {
-            if let Some(ref at) = vm.module_details.ai_transparency {
-                return (render_ai_transparency(builder, at, is_first, i18n), true);
-            }
-        }
         "privacy" => {
             if let Some(ref p) = vm.module_details.privacy {
                 return (render_privacy(builder, p, is_first, i18n), true);
-            }
-        }
-        "network_dns" => {
-            if let Some(ref dns) = vm.module_details.network_dns {
-                return (render_network_dns(builder, dns, is_first, i18n), true);
             }
         }
         "source_quality" => {

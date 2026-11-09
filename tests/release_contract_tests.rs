@@ -307,7 +307,7 @@ fn full_qa_only_runs_on_call_or_dispatch_and_cannot_publish() {
         );
     }
     let all_features = workflow_job_body(&full, "check-all-features");
-    assert!(all_features.contains("cargo test --features pdf,ai-transparency --"));
+    assert!(all_features.contains("cargo test --features pdf --"));
     assert!(workflow_job_body(&full, "dependency-audit").contains("cargo audit"));
     assert!(workflow_job_body(&full, "pdf-smoke").contains("--features pdf_test"));
     for job in [

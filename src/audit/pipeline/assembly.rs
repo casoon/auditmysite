@@ -349,17 +349,8 @@ pub(super) fn aggregate_report(
     if let Some(dark_mode) = snapshot.dark_mode.clone() {
         report = report.with_dark_mode(dark_mode);
     }
-    if let Some(design_quality) = snapshot.design_quality.clone() {
-        report = report.with_design_quality(design_quality);
-    }
     if let Some(html_conform) = snapshot.html_conform.clone() {
         report = report.with_html_conform(html_conform);
-    }
-    if let Some(ai_transparency) = snapshot.ai_transparency.clone() {
-        report = report.with_ai_transparency(ai_transparency);
-    }
-    if let Some(network_dns) = snapshot.network_dns.clone() {
-        report = report.with_network_dns(network_dns);
     }
 
     if let Some(tech_stack) = snapshot.tech_stack.clone() {
@@ -444,8 +435,6 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
     let extra_checks = crate::audit::support_matrix::ExtraCheckRequest {
         isolate_third_party_impact: config.check_isolate_third_party_impact,
         check_ssr_content: config.check_ssr_content,
-        ai_transparency: config.check_ai_transparency,
-        dns_check: config.check_dns,
         privacy_check: config.check_privacy,
         ..Default::default()
     };
