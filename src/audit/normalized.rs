@@ -423,8 +423,8 @@ impl NormalizedFinding {
     /// require AA, so a High contrast failure (1.4.3) flags as a Level-A one
     /// does. A convention rule (`display/*`) never does (#704) — it is only
     /// anchored to a criterion, it does not test it; nor does a criterion
-    /// outside EN 301 549 V3.2.1 (WCAG-2.2-only criteria): both derive
-    /// `bfsg_relevance` "low".
+    /// without a normative clause in EN 301 549 V4.1.1 (AAA criteria,
+    /// retired 4.1.1 Parsing): both derive `bfsg_relevance` "low".
     pub fn is_legal_flag(&self) -> bool {
         // A finding that still needs a manual check is no legal flag, however
         // severe its rule (plan 74).
@@ -1899,9 +1899,15 @@ mod tests {
             flag("1.1.1", WcagLevel::A, Severity::High, Some("img.x")),
             (true, 1)
         );
+        // A WCAG-2.2 AA criterion (2.5.8) has clause 9.2.5.8 in EN 301 549
+        // V4.1.1, so it flags like any other AA criterion (#923).
+        assert_eq!(
+            flag("2.5.8", WcagLevel::AA, Severity::High, Some("a.x")),
+            (true, 1)
+        );
         // Negative: AA Medium, A Low, AA High that still needs a manual check
-        // (no located element), AAA High, and a WCAG-2.2-only AA criterion
-        // (2.5.8) that EN 301 549 V3.2.1 does not cover.
+        // (no located element), AAA High, and the retired 4.1.1 Parsing,
+        // which is void (9.4.1.1) in EN 301 549 V4.1.1.
         assert_eq!(
             flag("1.4.3", WcagLevel::AA, Severity::Medium, Some("p.x")),
             (false, 0)
@@ -1919,7 +1925,7 @@ mod tests {
             (false, 0)
         );
         assert_eq!(
-            flag("2.5.8", WcagLevel::AA, Severity::High, Some("a.x")),
+            flag("4.1.1", WcagLevel::A, Severity::High, Some("div.x")),
             (false, 0)
         );
     }

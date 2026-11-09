@@ -20,6 +20,7 @@ and verification for each change is in the
 
 ### Changed
 
+- **Compliance:** the EN 301 549 annex now targets V4.1.1 (2026-09), the edition that requires WCAG 2.2 A/AA: 55 clauses instead of 50, with the six WCAG 2.2 criteria mapped to 9.2.4.11, 9.2.5.7, 9.2.5.8, 9.3.2.6, 9.3.3.7 and 9.3.3.8 and the retired 9.4.1.1 (Parsing) dropped; `en301549_annex.standard_version` is `EN 301 549 V4.1.1 (2026-09)` and `mapping_version` is 2, and the PDF annex names the edition. The three WCAG 2.2 AAA criteria have no normative clause (informative clause 9.5 only) and stay in `out_of_standard_findings`. Behaviour change: WCAG 2.2 criteria are no longer "outside the standard", so their findings get `bfsg_relevance` `medium`/`high` instead of `low`, and a confirmed High WCAG 2.2 A/AA finding (e.g. paste blocked in a password field, 3.3.8) now counts as a legal flag. Chapter titles of the out-of-scope list follow V4.1.1 (Refs #923).
 - **Dependencies:** thiserror 2, colored 3, dialoguer 0.12 and dirs 7 (no behaviour change) (Refs #975).
 - **Dependencies:** toml 1 (config file parsing; same accepted syntax for `auditmysite.toml`) (Refs #975).
 - **Dependencies:** fluent-bundle 0.16 (message lookup unchanged) (Refs #975).

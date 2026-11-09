@@ -61,9 +61,9 @@ impl ClaimLimits {
 /// 50 criteria, minus 4.1.1 Parsing (removed in WCAG 2.2), plus the six
 /// criteria 2.2 added (plan 54 §1).
 ///
-/// The WCAG-2.1-scoped view the BFSG references lives in the EN 301 549
-/// V3.2.1 appendix (`wcag::en301549`), which maps findings onto that standard's
-/// chapter 9 clauses — it is derived from the same run, not a second audit.
+/// The EN 301 549 V4.1.1 appendix (`wcag::en301549`) maps findings onto that
+/// standard's chapter 9 clauses, which require the same WCAG 2.2 A/AA set — it
+/// is derived from the same run, not a second audit.
 pub const WCAG_AA_TOTAL: usize = 55;
 
 /// The WCAG version the audit and its coverage ratio are scoped to. Written
@@ -75,8 +75,10 @@ pub const WCAG_VERSION: &str = "2.2";
 /// Success criteria WCAG 2.2 added that didn't exist in 2.1. They count toward
 /// `coverage_stats()` like any other A/AA criterion now that the ratio is
 /// scoped to WCAG 2.2; the list stays so output layers can mark them as new in
-/// 2.2 — EN 301 549 V3.2.1 (and with it the BFSG appendix) is still built on
-/// WCAG 2.1 and does not cover them.
+/// 2.2. EN 301 549 V4.1.1 takes the six A/AA ones over as clauses 9.2.4.11,
+/// 9.2.5.7, 9.2.5.8, 9.3.2.6, 9.3.3.7 and 9.3.3.8; the three AAA ones (2.4.12,
+/// 2.4.13, 3.3.9) have no normative clause there (informative clause 9.5 only).
+/// EN 301 549 V3.2.1 (WCAG 2.1) has none of them.
 const WCAG_22_ONLY_CRITERIA: &[&str] = &[
     "2.4.11", "2.4.12", "2.4.13", "2.5.7", "2.5.8", "3.2.6", "3.3.7", "3.3.8", "3.3.9",
 ];
@@ -223,39 +225,20 @@ pub fn coverage_stats() -> (usize, usize) {
 /// 2.1) — lets output layers mark an automated criterion or a finding as new
 /// in WCAG 2.2, instead of presenting it as an undifferentiated "AA"
 /// criterion (#572). Those criteria are inside the `coverage_stats()` ratio
-/// but outside EN 301 549 V3.2.1, which is still built on WCAG 2.1.
+/// and, for the A/AA ones, inside EN 301 549 V4.1.1 — but not V3.2.1.
 pub fn is_wcag22_only(id: &str) -> bool {
     WCAG_22_ONLY_CRITERIA.contains(&id)
 }
 
-/// German titles of the A/AA criteria WCAG 2.2 added, after the authorised
-/// German translation of WCAG 2.2. `en301549::EN301549_WEB_CLAUSES` is built
-/// on WCAG 2.1 and has none of them (plan 54 §4).
-const WCAG_22_TITLES_DE: &[(&str, &str)] = &[
-    ("2.4.11", "Fokus nicht verdeckt (Minimum)"),
-    ("2.5.7", "Ziehbewegungen"),
-    ("2.5.8", "Zielgröße (Minimum)"),
-    ("3.2.6", "Konsistente Hilfe"),
-    ("3.3.7", "Redundante Eingabe"),
-    ("3.3.8", "Barrierefreie Authentifizierung (Minimum)"),
-];
-
 /// German title for a manual-review criterion, reused from the canonical
-/// BIK/DIAS WCAG 2.1 translation table (`en301549::EN301549_WEB_CLAUSES`)
-/// instead of maintaining a second, independently drifting translation
-/// (#572); criteria new in WCAG 2.2 come from `WCAG_22_TITLES_DE`. Falls back
-/// to `fallback_en` for an id in neither table.
+/// translation table (`en301549::EN301549_WEB_CLAUSES`) instead of
+/// maintaining a second, independently drifting translation (#572). Falls back
+/// to `fallback_en` for an id not in the table.
 pub fn manual_review_criterion_name_de(id: &str, fallback_en: &'static str) -> &'static str {
     crate::wcag::en301549::EN301549_WEB_CLAUSES
         .iter()
         .find(|c| c.wcag == id)
         .map(|c| c.title_de)
-        .or_else(|| {
-            WCAG_22_TITLES_DE
-                .iter()
-                .find(|(wcag, _)| *wcag == id)
-                .map(|(_, title)| *title)
-        })
         .unwrap_or(fallback_en)
 }
 
