@@ -2,8 +2,20 @@ name: CI
 
 # Full QA is opt-in between releases; release.yml calls this file from the
 # exact tagged commit. Dispatch validates the selected ref and cannot publish.
+#
+# `suites` narrows a call to the jobs a path-filtered PR needs (#942):
+# `browser` = browser smoke + WCAG detection corpus + PDF smoke. The default
+# `all` is what release.yml (which passes no input) and a manual dispatch (no
+# input defined, so empty) get: every job, as before. `browser-smoke` and
+# `detection-corpus` carry no job-level `if:` on purpose (release_contract_tests):
+# they run in every call, so the release gate can never skip them.
 on:
   workflow_call:
+    inputs:
+      suites:
+        description: "Jobs to run: all (default) or browser (Chrome and PDF suites only)"
+        type: string
+        default: all
   workflow_dispatch:
 
 permissions:
@@ -29,6 +41,7 @@ env:
 jobs:
   check:
     name: Check & Test
+    if: ${{ !inputs.suites || inputs.suites == 'all' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -49,6 +62,7 @@ jobs:
 
   check-all-features:
     name: Check & Test (all features)
+    if: ${{ !inputs.suites || inputs.suites == 'all' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -76,6 +90,7 @@ jobs:
 
   pdf-smoke:
     name: PDF Smoke Tests
+    if: ${{ !inputs.suites || inputs.suites == 'all' || inputs.suites == 'browser' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -126,7 +141,7 @@ jobs:
     name: docs.rs Build (sandbox parity)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: ${{ (!inputs.suites || inputs.suites == 'all') && (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch') }}
     continue-on-error: true
     # A composite action runs its steps in this job, with this job's token.
     # This one needs to read the checkout and nothing else, so that is all the
@@ -143,6 +158,7 @@ jobs:
 
   format:
     name: Formatting
+    if: ${{ !inputs.suites || inputs.suites == 'all' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -156,6 +172,7 @@ jobs:
 
   unused-deps:
     name: Unused Dependencies
+    if: ${{ !inputs.suites || inputs.suites == 'all' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -172,6 +189,7 @@ jobs:
 
   dependency-audit:
     name: Dependency Security Audit
+    if: ${{ !inputs.suites || inputs.suites == 'all' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -199,6 +217,7 @@ jobs:
 
   integration-mocked:
     name: Mocked Integration Tests (no Chrome)
+    if: ${{ !inputs.suites || inputs.suites == 'all' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -215,7 +234,7 @@ jobs:
     name: Coverage
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    if: ${{ (!inputs.suites || inputs.suites == 'all') && !startsWith(github.ref, 'refs/tags/') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -429,7 +448,7 @@ jobs:
   # round-robin into four jobs that together cover every mutation once.
   mutation-check:
     name: Detector mutation check ${{ matrix.shard }}/4
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    if: ${{ (!inputs.suites || inputs.suites == 'all') && (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
@@ -473,6 +492,7 @@ jobs:
   # and the archive structure are verified (docs/chrome-dependency.md).
   macos-managed-browser-smoke:
     name: Managed Chrome for Testing (macOS arm64)
+    if: ${{ !inputs.suites || inputs.suites == 'all' }}
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -592,6 +612,7 @@ jobs:
 
   native-browser-smoke:
     name: Native browser smoke (${{ matrix.name }})
+    if: ${{ !inputs.suites || inputs.suites == 'all' }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     strategy:
