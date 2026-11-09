@@ -137,7 +137,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Build the docs the way docs.rs will
-        uses: rust-lang/docs.rs/github-actions/build@217cff7cc357e583763c19d7f943cf4ba9c28fa0
+        uses: rust-lang/docs.rs/github-actions/build@239a8ccd5ae4677c729303124c08cba6956ff85f
         with:
           strict: true
 
