@@ -29,6 +29,13 @@ inputs:
       "none" skips it.
     required: false
     default: ensure
+  verify-attestation:
+    description: >-
+      "true" additionally runs `gh attestation verify` on the downloaded archive and fails
+      without valid signed build provenance. Needs a release with attestation (later than
+      v2.0.2); older releases fail with a clear message. Default "false".
+    required: false
+    default: "false"
   args:
     description: >-
       Extra arguments for both audit runs, split on whitespace (no quoting), for example
@@ -59,6 +66,8 @@ runs:
       shell: bash
       env:
         INPUT_VERSION: ${{ inputs.version }}
+        VERIFY_ATTESTATION: ${{ inputs.verify-attestation }}
+        GH_TOKEN: ${{ github.token }}
         ACTION_REF: ${{ github.action_ref }}
         BIN_DIR: ${{ runner.temp }}/auditmysite-bin
         ACTION_PATH: ${{ github.action_path }}
