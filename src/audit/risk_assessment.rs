@@ -319,23 +319,22 @@ mod blocking_tests {
     #[test]
     fn only_missing_names_and_roles_block() {
         for id in [
-            "a11y.interactive_name.missing",
-            "a11y.command_name.missing",
-            "a11y.control_name.missing",
-            "a11y.input_field_name.missing",
-            "a11y.toggle_field_name.missing",
-            "a11y.name_role.missing",
+            "names/required-missing",
+            "names/symbol-only",
+            "buttons/name-missing",
+            "links/name-missing",
+            "summary/name-missing",
         ] {
             assert!(is_missing_name_or_role(id), "{id}");
         }
         for id in [
-            "a11y.parsing.invalid",
-            "a11y.dialog_missing_name.invalid",
-            "a11y.redundant_role.invalid",
-            "a11y.aria_valid_attr_value.invalid",
-            "a11y.combobox_options.missing",
-            "a11y.description_duplicates_name.redundant",
-            "a11y.title_only_description.weak",
+            "ids/duplicate",
+            "dialog/name-missing",
+            "aria/role-redundant",
+            "aria/attribute-value-invalid",
+            "aria/combobox-popup-missing",
+            "description-duplicates-name",
+            "names/title-only",
         ] {
             assert!(!is_missing_name_or_role(id), "{id}");
         }

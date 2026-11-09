@@ -99,21 +99,24 @@ pub(super) fn evidence_quality(
 pub(crate) const PATTERN_RULES: &[&str] = &[
     // DOM order diverging from the visual order; whether the order is
     // illogical is a judgement.
-    "a11y.focus_order.weak",
+    "dialog/focusable-missing",
     // Generic link texts; the context may still convey the purpose.
-    "a11y.link_purpose.weak",
-    "a11y.link_purpose_only.weak",
-    "a11y.link_purpose_context.weak",
+    "links/generic-name",
+    "links/url-name",
+    "links/single-character-name",
+    "links/purpose-link-only",
     // Several h1 elements are allowed; 1.3.1 fails only if the structure
     // they express is wrong.
-    "a11y.main_heading_multiple.weak",
+    "headings/h1-multiple",
     // A name from `title` is a valid accessible name; fragile, not failing.
-    "a11y.title_only_description.weak",
+    "names/title-only",
     // Fixed pixel values and overflow:hidden stand in for an actual
     // resize measurement.
-    "a11y.resize_text.weak",
+    "zoom/viewport-locked",
     // CSS styling heuristics for line spacing and justified text.
-    "a11y.visual_presentation.weak",
+    "text/justified",
+    "text/line-height-tight",
+    "visual-presentation",
 ];
 
 /// Detection method of a WCAG finding: violations reaching the findings are
@@ -609,7 +612,7 @@ mod tests {
     #[test]
     fn pattern_rules_are_never_automatically_confirmed() {
         let a = derive_assurance(
-            wcag_detection_method("a11y.link_purpose.weak"),
+            wcag_detection_method("links/generic-name"),
             EvidenceQuality::Located,
         );
         assert_eq!(a.confidence, "medium");
@@ -620,7 +623,7 @@ mod tests {
     /// located occurrence confirms, one that could not be located does not.
     #[test]
     fn same_rule_with_different_evidence_differs_in_assurance() {
-        let method = wcag_detection_method("a11y.alt_text.missing");
+        let method = wcag_detection_method("images/alt-missing");
         let located = derive_assurance(method, EvidenceQuality::Located);
         let unlocated = derive_assurance(method, EvidenceQuality::Unlocated);
         assert_eq!(located.verification, "automatically_confirmed");
@@ -651,11 +654,11 @@ mod tests {
     #[test]
     fn names_no_longer_decide_assurance() {
         assert_eq!(
-            wcag_detection_method("a11y.contrast.weak"),
+            wcag_detection_method("contrast/text-insufficient"),
             DetectionMethod::Measured
         );
         assert_eq!(
-            wcag_detection_method("a11y.hover.content_visibility"),
+            wcag_detection_method("patterns/tooltip-unreferenced"),
             DetectionMethod::Measured
         );
     }

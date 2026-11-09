@@ -338,11 +338,11 @@ mod tests {
     #[test]
     fn score_area_for_key_point_matches_the_json_breakdown() {
         for rule_id in [
-            "a11y.orientation.restricted",
-            "a11y.form_labels.missing",
-            "a11y.target_size_minimum.small",
-            "a11y.landmark_region.missing",
-            "a11y.contrast.weak",
+            "orientation/content-hidden",
+            "forms/label-missing",
+            "targets/size",
+            "landmarks/content-outside",
+            "contrast/text-insufficient",
         ] {
             let finding = make_finding(rule_id);
             assert_eq!(
@@ -355,14 +355,14 @@ mod tests {
 
     #[test]
     fn score_area_for_key_point_still_classifies_real_forms_findings() {
-        let finding = make_finding("a11y.form_labels.missing");
+        let finding = make_finding("forms/label-missing");
         assert_eq!(score_area_for_key_point(&finding), Some("Forms"));
     }
 
     /// "Querformat" in the German rule text used to match `form`.
     #[test]
     fn score_area_for_key_point_does_not_classify_orientation_lock_as_forms() {
-        let finding = make_finding("a11y.orientation.restricted");
+        let finding = make_finding("orientation/content-hidden");
         assert_ne!(score_area_for_key_point(&finding), Some("Forms"));
     }
 }

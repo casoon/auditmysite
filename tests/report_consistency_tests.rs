@@ -115,18 +115,17 @@ fn foundation_coverage_requires_execution_and_no_unresolved_result() {
             .passed,
         1
     );
-    report
-        .accessibility
-        .wcag_results
-        .warnings
-        .push(Violation::new(
+    report.accessibility.wcag_results.warnings.push(
+        Violation::new(
             "1.1.1",
             "Review",
             WcagLevel::A,
             Severity::Low,
             "review required",
             "image",
-        ));
+        )
+        .with_rule_id("images/alt-missing"),
+    );
     assert_eq!(
         normalize(&report)
             .normalized
@@ -384,6 +383,7 @@ fn make_violations() -> WcagResults {
                 "Button missing accessible name",
                 format!("node-{}", i),
             )
+            .with_rule_id("buttons/name-missing")
             .with_selector(format!("button.icon-{}", i))
             .with_fix("Add aria-label attribute"),
         );
@@ -400,6 +400,7 @@ fn make_violations() -> WcagResults {
                 "Content uses visual formatting instead of semantic HTML",
                 format!("node-sem-{}", i),
             )
+            .with_rule_id("headings/skip-level")
             .with_selector(format!("div.table-{}", i))
             .with_fix("Use semantic HTML elements"),
         );
@@ -943,14 +944,17 @@ fn test_grade_matches_score() {
         // Add violations to lower score (if needed)
         if expected_score_approx < 90 {
             for i in 0..20 {
-                results.add_violation(Violation::new(
-                    "4.1.2",
-                    "Name, Role, Value",
-                    WcagLevel::A,
-                    Severity::Critical,
-                    "Missing label",
-                    format!("n-{}", i),
-                ));
+                results.add_violation(
+                    Violation::new(
+                        "4.1.2",
+                        "Name, Role, Value",
+                        WcagLevel::A,
+                        Severity::Critical,
+                        "Missing label",
+                        format!("n-{}", i),
+                    )
+                    .with_rule_id("buttons/name-missing"),
+                );
             }
         }
 
@@ -1054,14 +1058,17 @@ fn test_json_contains_all_sections() {
 #[test]
 fn test_audit_flags_surface_in_json_output() {
     let mut results = WcagResults::new();
-    results.add_violation(Violation::new(
-        "3.1.1",
-        "Language",
-        WcagLevel::A,
-        Severity::High,
-        "Missing lang",
-        "html",
-    ));
+    results.add_violation(
+        Violation::new(
+            "3.1.1",
+            "Language",
+            WcagLevel::A,
+            Severity::High,
+            "Missing lang",
+            "html",
+        )
+        .with_rule_id("document/lang-missing"),
+    );
 
     let mut report = AuditReport::new(
         "https://example.com".to_string(),
@@ -1223,14 +1230,17 @@ fn test_risk_independent_from_score() {
 
     // But 3 critical Level A violations
     for i in 0..3 {
-        results.add_violation(Violation::new(
-            "4.1.2",
-            "Name, Role, Value",
-            WcagLevel::A,
-            Severity::Critical,
-            "Missing name",
-            format!("n-{}", i),
-        ));
+        results.add_violation(
+            Violation::new(
+                "4.1.2",
+                "Name, Role, Value",
+                WcagLevel::A,
+                Severity::Critical,
+                "Missing name",
+                format!("n-{}", i),
+            )
+            .with_rule_id("buttons/name-missing"),
+        );
     }
 
     let report = AuditReport::new(
@@ -1732,10 +1742,14 @@ fn make_parity_report(reverse: bool) -> AuditReport {
                 "Content uses visual formatting instead of semantic HTML",
                 format!("node-sem-{i}"),
             )
+            .with_rule_id("headings/skip-level")
             .with_selector(format!("div.sem-{i}")),
         );
     }
-    for (axe_id, count) in [("aria-valid-attr-value", 2), ("aria-allowed-attr", 1)] {
+    for (axe_id, count) in [
+        ("aria/attribute-value-invalid", 2),
+        ("aria/attribute-not-allowed", 1),
+    ] {
         for i in 0..count {
             violations.push(
                 Violation::new(
@@ -1790,9 +1804,9 @@ fn pdf_top_measures_follow_json_top_actions() {
     assert_eq!(
         json_top,
         [
-            "a11y.aria_valid_attr_value.invalid",
-            "a11y.aria_allowed_attr.invalid",
-            "a11y.structure.missing",
+            "aria/attribute-value-invalid",
+            "aria/attribute-not-allowed",
+            "headings/skip-level",
         ]
     );
 }
@@ -1887,16 +1901,16 @@ fn batch_top_actions_match_pdf_and_aggregate_across_pages() {
     assert_eq!(
         json_rows,
         [
-            ("a11y.aria_valid_attr_value.invalid".to_string(), 4, 2),
-            ("a11y.aria_allowed_attr.invalid".to_string(), 2, 2),
-            ("a11y.structure.missing".to_string(), 40, 2),
+            ("aria/attribute-value-invalid".to_string(), 4, 2),
+            ("aria/attribute-not-allowed".to_string(), 2, 2),
+            ("headings/skip-level".to_string(), 40, 2),
         ]
     );
     assert_eq!(pdf_rows, json_rows);
     // The impact sentence quotes the batch-wide count, not one page's.
     let structure = actions
         .iter()
-        .find(|a| a["rule_id"] == "a11y.structure.missing")
+        .find(|a| a["rule_id"] == "headings/skip-level")
         .unwrap();
     assert!(
         structure["expected_impact"]
@@ -2130,6 +2144,7 @@ fn domain_contract_accepts_page_and_frame_language_findings_in_either_order() {
             "Missing lang",
             selector,
         )
+        .with_rule_id("document/lang-missing")
         .with_selector(selector)
         .with_rule_id(rule_id)
     };

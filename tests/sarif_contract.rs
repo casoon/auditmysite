@@ -37,6 +37,7 @@ fn fixture_report(url: &str, alt_message: &str) -> AuditReport {
             alt_message,
             "n1",
         )
+        .with_rule_id("images/alt-missing")
         .with_selector("img.hero")
         .with_fix("Add an alt attribute to the image")
         .with_help_url("https://www.w3.org/WAI/WCAG22/Understanding/non-text-content"),
@@ -49,6 +50,7 @@ fn fixture_report(url: &str, alt_message: &str) -> AuditReport {
             alt_message,
             "n2",
         )
+        .with_rule_id("images/alt-missing")
         .with_selector("img.logo")
         .with_help_url("https://www.w3.org/WAI/WCAG22/Understanding/non-text-content"),
     );
@@ -60,6 +62,7 @@ fn fixture_report(url: &str, alt_message: &str) -> AuditReport {
             "The page has no title",
             "n3",
         )
+        .with_rule_id("document/title-missing")
         .with_selector("html"),
     );
     results.fold_outcome(RuleRun::not_run("video-captions", NotRun::Disabled));

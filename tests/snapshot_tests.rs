@@ -62,6 +62,7 @@ fn make_violations() -> WcagResults {
                 "Button missing accessible name",
                 format!("node-{}", i),
             )
+            .with_rule_id("buttons/name-missing")
             .with_selector(format!("button.icon-{}", i))
             .with_fix("Add aria-label attribute"),
         );
@@ -77,6 +78,7 @@ fn make_violations() -> WcagResults {
                 "Content uses visual formatting instead of semantic HTML",
                 format!("node-sem-{}", i),
             )
+            .with_rule_id("headings/skip-level")
             .with_selector(format!("div.table-{}", i))
             .with_fix("Use semantic HTML elements"),
         );

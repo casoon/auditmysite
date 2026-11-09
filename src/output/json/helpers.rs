@@ -258,10 +258,7 @@ pub(crate) fn build_accessibility_score_breakdown(
         "Landmarks / page structure",
     ];
 
-    // Raw penalty per area, from the same `ScoreImpact` the scorer applies.
-    // `NormalizedFinding` carries the taxonomy rule id, so it resolves via
-    // `by_id` where the scorer (which sees legacy WCAG ids on `Violation`)
-    // uses `by_legacy_wcag_id` — same registry, same numbers.
+    // Raw penalty per area, from the `ScoreImpact` of each finding's rule.
     let mut raw_penalty = [0f64; AREAS.len()];
     let mut drivers: [Option<(&str, usize)>; AREAS.len()] = Default::default();
     let mut criteria: [std::collections::HashSet<&str>; AREAS.len()] = Default::default();
@@ -277,10 +274,12 @@ pub(crate) fn build_accessibility_score_breakdown(
             continue;
         };
 
-        let impact = crate::taxonomy::RuleLookup::by_id(&finding.rule_id)
-            .map(|r| r.score_impact)
-            .unwrap_or_else(|| crate::audit::default_impact(finding.severity));
-        raw_penalty[idx] += impact.calculate_penalty(finding.occurrence_count.max(1)) as f64;
+        let Some(rule) = crate::taxonomy::RuleLookup::by_id(&finding.rule_id) else {
+            continue;
+        };
+        raw_penalty[idx] += rule
+            .score_impact
+            .calculate_penalty(finding.occurrence_count.max(1)) as f64;
         criteria[idx].insert(finding.wcag_criterion.as_str());
 
         let occ = finding.occurrence_count.max(1);
@@ -817,11 +816,11 @@ mod tests {
     /// reported score of 20.
     #[test]
     fn breakdown_lost_points_sum_to_the_actual_score_loss() {
-        let mut forms = make_finding("a11y.form_labels.missing", "Field without a label.");
+        let mut forms = make_finding("forms/label-missing", "Field without a label.");
         forms.occurrence_count = 7;
-        let mut landmarks = make_finding("a11y.landmark_main.missing", "No main landmark.");
+        let mut landmarks = make_finding("landmarks/main-missing", "No main landmark.");
         landmarks.occurrence_count = 31;
-        let mut keyboard = make_finding("a11y.focus_order.weak", "Illogical focus order.");
+        let mut keyboard = make_finding("dialog/focusable-missing", "Illogical focus order.");
         keyboard.occurrence_count = 1;
 
         let report = make_report(vec![forms, landmarks, keyboard]);
@@ -954,7 +953,7 @@ mod tests {
     /// made where recurrence across pages was actually observed.
     #[test]
     fn project_risk_claims_a_template_cause_only_across_pages() {
-        let mut widespread = make_finding("a11y.landmark_unique.invalid", "");
+        let mut widespread = make_finding("landmarks/not-unique", "");
         widespread.occurrence_count = 31;
 
         let single =
@@ -993,7 +992,7 @@ mod tests {
     /// while its level came from the accessibility score.
     #[test]
     fn trust_risk_names_the_data_that_set_it() {
-        let mut finding = make_finding("a11y.interactive_name.missing", "");
+        let mut finding = make_finding("names/required-missing", "");
         finding.occurrence_count = 15;
         let risks = build_management_risks(std::slice::from_ref(&make_report(vec![finding])));
         let trust = risks
@@ -1028,30 +1027,30 @@ mod tests {
     fn score_area_is_taken_from_the_taxonomy_not_from_prose() {
         // "Querformat" used to match `form`.
         assert_eq!(
-            score_area_for_finding(&make_finding("a11y.orientation.restricted", "")),
+            score_area_for_finding(&make_finding("orientation/content-hidden", "")),
             Some("Semantics"),
         );
         // "conformance" (in the contrast rule's evidence text) used to match `form`.
         assert_eq!(
-            score_area_for_finding(&make_finding("a11y.contrast.weak", "")),
+            score_area_for_finding(&make_finding("contrast/text-insufficient", "")),
             Some("Semantics"),
         );
         // "div.alt-service-hero-card" used to match `alt`.
         assert_eq!(
-            score_area_for_finding(&make_finding("a11y.text_spacing.clipped", "")),
+            score_area_for_finding(&make_finding("text-spacing", "")),
             Some("Semantics"),
         );
         // The shared "Navigation & Operation" subcategory label used to route
         // click-target-size findings into Landmarks.
         assert_eq!(
-            score_area_for_finding(&make_finding("a11y.target_size_minimum.small", "")),
+            score_area_for_finding(&make_finding("targets/size", "")),
             Some("Keyboard"),
         );
         // A landmark rule whose description mentions role 'image' shipped under
         // "Images / alternative text" (inros-lackner-de, 2026-09-19).
         assert_eq!(
             score_area_for_finding(&make_finding(
-                "a11y.landmark_region.missing",
+                "landmarks/content-outside",
                 "Element with role 'image' is not contained within a landmark region",
             )),
             Some("Landmarks / page structure"),
@@ -1062,14 +1061,14 @@ mod tests {
     #[test]
     fn score_area_still_classifies_real_findings() {
         for (rule_id, expected) in [
-            ("a11y.form_labels.missing", "Forms"),
-            ("a11y.alt_text.missing", "Images / alternative text"),
-            ("a11y.bypass_blocks.missing", "Landmarks / page structure"),
-            ("a11y.landmark_main.missing", "Landmarks / page structure"),
-            ("a11y.headings.missing", "Heading structure"),
-            ("a11y.keyboard.missing", "Keyboard"),
-            ("a11y.focus_visible.missing", "Focus management"),
-            ("a11y.aria_roles.invalid", "ARIA"),
+            ("forms/label-missing", "Forms"),
+            ("images/alt-missing", "Images / alternative text"),
+            ("headings/none", "Landmarks / page structure"),
+            ("landmarks/main-missing", "Landmarks / page structure"),
+            ("headings/empty", "Heading structure"),
+            ("keyboard/interactive-not-focusable", "Keyboard"),
+            ("focus-visible", "Focus management"),
+            ("aria/role-invalid", "ARIA"),
         ] {
             assert_eq!(
                 score_area_for_finding(&make_finding(rule_id, "")),

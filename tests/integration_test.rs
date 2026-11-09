@@ -385,10 +385,7 @@ async fn foundation_viewport_merge_keeps_rules_and_frames_apart() {
 
     // The normalized report keeps both rules as their own findings.
     let normalized = auditmysite::audit::normalize(&report);
-    for rule in [
-        "a11y.aria_roles.invalid",
-        "a11y.aria_valid_attr_value.invalid",
-    ] {
+    for rule in ["aria/role-invalid", "aria/attribute-value-invalid"] {
         assert!(
             normalized
                 .normalized

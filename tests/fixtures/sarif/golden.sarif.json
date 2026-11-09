@@ -210,8 +210,8 @@
             "text": "Image has no alt (selector: img.hero)"
           },
           "partialFingerprints": {
-            "auditmysite/v1": "e59167a3f1daf4ffe86ad4704a291236:1",
-            "primaryLocationLineHash": "e59167a3f1daf4ffe86ad4704a291236:1"
+            "auditmysite/v1": "193f1141ba968b43e5117fbe6b716f9e:1",
+            "primaryLocationLineHash": "193f1141ba968b43e5117fbe6b716f9e:1"
           },
           "properties": {
             "outcome": "fail",
@@ -219,7 +219,7 @@
             "selector": "img.hero",
             "severity": "high"
           },
-          "ruleId": "a11y.alt_text.missing",
+          "ruleId": "images/alt-missing",
           "ruleIndex": 0
         },
         {
@@ -245,8 +245,8 @@
             "text": "Image has no alt (selector: img.logo)"
           },
           "partialFingerprints": {
-            "auditmysite/v1": "d1d6cc6be8268b7359aa7dd75ca84829:1",
-            "primaryLocationLineHash": "d1d6cc6be8268b7359aa7dd75ca84829:1"
+            "auditmysite/v1": "f2480ebc4dce1eb0474227d6c3e8ffb5:1",
+            "primaryLocationLineHash": "f2480ebc4dce1eb0474227d6c3e8ffb5:1"
           },
           "properties": {
             "outcome": "fail",
@@ -254,7 +254,7 @@
             "selector": "img.logo",
             "severity": "high"
           },
-          "ruleId": "a11y.alt_text.missing",
+          "ruleId": "images/alt-missing",
           "ruleIndex": 0
         },
         {
@@ -280,8 +280,8 @@
             "text": "The page has no title (selector: html)"
           },
           "partialFingerprints": {
-            "auditmysite/v1": "88842dc9616eaab1ffd372ac93aa7931:1",
-            "primaryLocationLineHash": "88842dc9616eaab1ffd372ac93aa7931:1"
+            "auditmysite/v1": "9f6a3ce485e40dfcad1d329d45fd8551:1",
+            "primaryLocationLineHash": "9f6a3ce485e40dfcad1d329d45fd8551:1"
           },
           "properties": {
             "outcome": "review",
@@ -289,7 +289,7 @@
             "selector": "html",
             "severity": "medium"
           },
-          "ruleId": "a11y.page_title.missing",
+          "ruleId": "document/title-missing",
           "ruleIndex": 1
         },
         {
@@ -315,8 +315,8 @@
             "text": "Image has no alt (selector: img.hero)"
           },
           "partialFingerprints": {
-            "auditmysite/v1": "c263ae44d6bff33e985841c88b8ffb03:1",
-            "primaryLocationLineHash": "c263ae44d6bff33e985841c88b8ffb03:1"
+            "auditmysite/v1": "ff44bf6c9424b7be7c069857a7adfcca:1",
+            "primaryLocationLineHash": "ff44bf6c9424b7be7c069857a7adfcca:1"
           },
           "properties": {
             "outcome": "fail",
@@ -324,7 +324,7 @@
             "selector": "img.hero",
             "severity": "high"
           },
-          "ruleId": "a11y.alt_text.missing",
+          "ruleId": "images/alt-missing",
           "ruleIndex": 0
         },
         {
@@ -350,8 +350,8 @@
             "text": "Image has no alt (selector: img.logo)"
           },
           "partialFingerprints": {
-            "auditmysite/v1": "f8c8236fcfba842275cab100ddfbfa01:1",
-            "primaryLocationLineHash": "f8c8236fcfba842275cab100ddfbfa01:1"
+            "auditmysite/v1": "b73181d5b62d575e0bc261d9dcd068ad:1",
+            "primaryLocationLineHash": "b73181d5b62d575e0bc261d9dcd068ad:1"
           },
           "properties": {
             "outcome": "fail",
@@ -359,7 +359,7 @@
             "selector": "img.logo",
             "severity": "high"
           },
-          "ruleId": "a11y.alt_text.missing",
+          "ruleId": "images/alt-missing",
           "ruleIndex": 0
         },
         {
@@ -385,8 +385,8 @@
             "text": "The page has no title (selector: html)"
           },
           "partialFingerprints": {
-            "auditmysite/v1": "8a314878b1240084e6b2ab73f13f0118:1",
-            "primaryLocationLineHash": "8a314878b1240084e6b2ab73f13f0118:1"
+            "auditmysite/v1": "354021cfcd57e4b3672fef0f945789f5:1",
+            "primaryLocationLineHash": "354021cfcd57e4b3672fef0f945789f5:1"
           },
           "properties": {
             "outcome": "fail",
@@ -394,7 +394,7 @@
             "selector": "html",
             "severity": "medium"
           },
-          "ruleId": "a11y.page_title.missing",
+          "ruleId": "document/title-missing",
           "ruleIndex": 1
         }
       ],
@@ -414,7 +414,7 @@
                 "text": "Add an alt attribute to the image"
               },
               "helpUri": "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content",
-              "id": "a11y.alt_text.missing",
+              "id": "images/alt-missing",
               "name": "Missing alternative text on images",
               "properties": {
                 "precision": "very-high",
@@ -438,7 +438,7 @@
               "help": {
                 "text": "The page has no title"
               },
-              "id": "a11y.page_title.missing",
+              "id": "document/title-missing",
               "name": "Missing or insufficient page title",
               "properties": {
                 "precision": "very-high",

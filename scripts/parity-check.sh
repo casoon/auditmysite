@@ -134,7 +134,7 @@ def ams_matches_axe(axe_rule, ams_finding):
     ams_axe_id = ams_finding.get("axe_id", "")
     if axe_rule == ams_rule or axe_rule == ams_axe_id:
         return True
-    return any(pattern in ams_rule for pattern in known_pairs.get(axe_rule, []))
+    return ams_rule in known_pairs.get(axe_rule, [])
 
 def ams_matches_for_axe(axe_rule):
     return [v for v in ams_violations if ams_matches_axe(axe_rule, v)]

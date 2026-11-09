@@ -4,7 +4,7 @@
 use serde_json::Value;
 
 use super::LintFinding;
-use crate::taxonomy::{RuleLookup, Severity};
+use crate::taxonomy::Severity;
 
 fn failure(
     findings: &mut Vec<LintFinding>,
@@ -115,13 +115,9 @@ pub(super) fn check(report: &Value, findings: &mut Vec<LintFinding>) {
             if count == 0 || !run["not_run"].is_null() {
                 continue;
             }
-            let canonical = RuleLookup::by_legacy_wcag_id(id).map(|rule| rule.id);
             let retained: u64 = array(page, "findings")
                 .iter()
-                .filter(|f| {
-                    f["axe_id"] == id
-                        || canonical.is_some_and(|canonical| f["rule_id"] == canonical)
-                })
+                .filter(|f| f["rule_id"] == id)
                 .filter_map(|f| f["occurrence_count"].as_u64())
                 .sum();
             let assessments = array(page, "accessibility_assessments")

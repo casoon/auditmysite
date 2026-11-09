@@ -46,8 +46,7 @@ pub(super) fn localized_finding_text(
     }
     use crate::taxonomy::RuleLookup;
     let rule = RuleLookup::by_id(&finding.rule_id)
-        .or_else(|| RuleLookup::by_wcag(&finding.wcag_criterion))
-        .or_else(|| RuleLookup::by_legacy_wcag_id(&finding.wcag_criterion));
+        .or_else(|| RuleLookup::by_wcag(&finding.wcag_criterion));
     match rule {
         Some(r) => (
             r.title.to_string(),

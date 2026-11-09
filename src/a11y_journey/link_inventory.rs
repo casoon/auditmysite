@@ -148,7 +148,7 @@ fn check_link_texts(tree: &AXTree, stopwords: &[String]) -> Vec<InteractiveFindi
         findings.push(InteractiveFinding::new(
             "LinkText",
             InteractiveFindingKind::LinkTextGeneric,
-            Some("a11y.link_purpose.weak".to_string()),
+            Some("links/generic-name".to_string()),
             Severity::Medium,
             "link_inventory".to_string(),
             None,
@@ -178,7 +178,7 @@ fn check_link_texts(tree: &AXTree, stopwords: &[String]) -> Vec<InteractiveFindi
         findings.push(InteractiveFinding::new(
             "LinkText",
             InteractiveFindingKind::LinkTextDuplicate,
-            Some("a11y.link_purpose.weak".to_string()),
+            Some("links/generic-name".to_string()),
             Severity::Medium,
             "link_inventory".to_string(),
             None,

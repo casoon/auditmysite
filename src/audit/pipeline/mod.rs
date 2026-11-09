@@ -474,7 +474,8 @@ impl PipelineConfig {
         // 29 for the removal of the design_quality, ai_transparency and
         // network_dns module fields (#915).
         // 30 for the removal of the dark_mode module field (#917).
-        const CACHE_FMT: u8 = 30;
+        // 31 for the engine rule id as the finding `rule_id` (#918).
+        const CACHE_FMT: u8 = 31;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();

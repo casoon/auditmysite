@@ -137,7 +137,7 @@ pub const SNAPSHOT_SCHEMA_VERSION: u32 = 1;
 /// Version of the evaluation applied to collected data: normalization,
 /// scoring weights, taxonomy and decision derivation. Bump it with any change
 /// that moves a score, finding or verdict for unchanged input.
-pub const EVALUATION_VERSION: u32 = 5;
+pub const EVALUATION_VERSION: u32 = 6;
 
 /// The versions under which a snapshot was written. A snapshot is replayed
 /// only when every one equals the current value: another version is another

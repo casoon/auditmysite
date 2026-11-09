@@ -46,7 +46,7 @@
       "findings": [
         {
           "category": "wcag",
-          "rule_id": "a11y.alt_text.missing",
+          "rule_id": "images/alt-missing",
           "wcag_criterion": "1.1.1",
           "occurrence_count": 42
         }

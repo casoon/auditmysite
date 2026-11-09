@@ -28,11 +28,9 @@
 //! rather than trusting any existing table. It is the ground truth the
 //! detection-corpus completeness check (#554) diffs against.
 //!
-//! Caveat found empirically (see #552): `NormalizedFinding.rule_id`
-//! (report-facing JSON) uses a *second*, parallel `a11y.*` id namespace
-//! from `taxonomy::rules::RULES` for the same rules — this inventory
-//! covers the `Violation.rule_id`/axe_id namespace only, which is closer to
-//! the actual detection logic a ground-truth corpus verifies.
+//! Since #918 this is also the namespace of `taxonomy::rules::RULES`:
+//! `NormalizedFinding.rule_id` is the id listed here, and
+//! `tests/taxonomy_catalogue.rs` holds the two to each other.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -191,4 +189,61 @@ pub fn canonical_rule_ids() -> BTreeSet<String> {
     ids.extend(extract_struct_field_ids(&shared, "SharedRule {", "id"));
 
     ids
+}
+
+/// The WCAG success criterion each canonical rule id reports
+/// (`Violation::rule`): the `id` of its `RuleMetadata`, the `criterion` of its
+/// `SharedRule`. A rule whose criterion is only passed at run time
+/// (`iframe_rules.rs`' composite check) is absent.
+pub fn canonical_rule_criteria() -> std::collections::BTreeMap<String, String> {
+    let mut criteria = std::collections::BTreeMap::new();
+    for (_file, source) in read_rs_files(&wcag_rules_dir()) {
+        for (axe_id, id) in struct_field_pairs(&source, "RuleMetadata {", "axe_id", "id") {
+            criteria.insert(axe_id, id);
+        }
+    }
+    let shared = std::fs::read_to_string(shared_rules_file()).expect("cannot read shared.rs");
+    for (id, criterion) in struct_field_pairs(&shared, "SharedRule {", "id", "criterion") {
+        criteria.insert(id, criterion);
+    }
+    criteria
+}
+
+/// `(first, second)` field values of every `<marker> { ... }` literal that
+/// has both as string literals.
+fn struct_field_pairs(
+    source: &str,
+    marker: &str,
+    first: &str,
+    second: &str,
+) -> Vec<(String, String)> {
+    let mut pairs = Vec::new();
+    let mut search_from = 0;
+    while let Some(rel_start) = source[search_from..].find(marker) {
+        let block_start = search_from + rel_start + marker.len();
+        let mut depth = 1i32;
+        let mut end = source.len();
+        for (i, c) in source[block_start..].char_indices() {
+            match c {
+                '{' => depth += 1,
+                '}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        end = block_start + i;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let block = &source[block_start..end];
+        if let (Some(a), Some(b)) = (
+            extract_field_str(block, first),
+            extract_field_str(block, second),
+        ) {
+            pairs.push((a, b));
+        }
+        search_from = (end + 1).min(source.len());
+    }
+    pairs
 }
