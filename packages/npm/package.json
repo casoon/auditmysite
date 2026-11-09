@@ -1,0 +1,48 @@
+{
+  "name": "auditmysite",
+  "version": "2.0.2",
+  "description": "WCAG 2.2 AA accessibility checker. Downloads the matching auditmysite release binary on install.",
+  "keywords": [
+    "accessibility",
+    "a11y",
+    "wcag",
+    "audit",
+    "cli"
+  ],
+  "homepage": "https://casoon.github.io/auditmysite/",
+  "bugs": {
+    "url": "https://github.com/casoon/auditmysite/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/casoon/auditmysite.git",
+    "directory": "packages/npm"
+  },
+  "license": "MIT",
+  "bin": {
+    "auditmysite": "bin/auditmysite.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/install.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
+}

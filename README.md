@@ -79,6 +79,14 @@ That default command writes report artifacts into the current directory, for exa
 - `./example-com-YYYY-MM-DD-single-report.json`
 - `./example-com-YYYY-MM-DD-single-report-screen-reader-audit.json`
 
+### npm
+
+```bash
+npx auditmysite https://example.com
+```
+
+The `auditmysite` npm package downloads the release binary of the same version for your platform (macOS arm64, Linux x64/arm64, Windows x64), verifies its `.sha256` checksum and forwards all arguments. Details: [packages/npm](packages/npm/README.md).
+
 ### cargo install (crates.io)
 
 ```bash
