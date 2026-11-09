@@ -356,12 +356,21 @@ impl NormalizedReport {
                 )
             });
             if let Some(expected) = expected {
+                // The add-to-cart and quantity-stepper journeys belong to the
+                // experimental commerce indicator (#916) and are listed only
+                // when it ran; the other state-changing journeys always are.
+                let without_commerce: Vec<&str> = expected
+                    .iter()
+                    .copied()
+                    .filter(|id| !matches!(*id, "add_to_cart" | "quantity_stepper"))
+                    .collect();
                 check(
-                    profile.state_changing_journeys == expected,
+                    profile.state_changing_journeys == expected
+                        || profile.state_changing_journeys == without_commerce,
                     "measurement_profile_journeys",
                     "execution.scope.measurement_profile".into(),
                     format!(
-                        "interactive mode `{}` permits {expected:?}",
+                        "interactive mode `{}` permits {expected:?} (commerce journeys only with the experimental commerce indicator)",
                         self.execution.scope.interactive_mode
                     ),
                 );

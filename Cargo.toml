@@ -130,9 +130,20 @@ strip = true
 name = "auditmysite"
 path = "src/main.rs"
 
+# Maintainer tooling (report-lint, accname-diff, plan, replay, --debug-typ,
+# --export-snapshot, #912). `required-features` keeps it out of `cargo install
+# auditmysite`, which builds with the default features only.
+[[bin]]
+name = "auditmysite-dev"
+path = "src/bin/auditmysite-dev.rs"
+required-features = ["dev-tools"]
+
 [features]
 default = ["pdf"]
 pdf = ["dep:renderreport", "dep:image"]
+# Builds the `auditmysite-dev` maintainer binary (#912). Not a default feature,
+# so a user install never contains it.
+dev-tools = []
 # Enables the heavy PDF smoke tests (Typst rendering). Run separately:
 #   cargo test --features pdf_test -- --test-threads=1
 pdf_test = ["pdf"]

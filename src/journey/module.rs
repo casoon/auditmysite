@@ -69,7 +69,7 @@ impl AuditModule for JourneyModule {
     }
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
-        cfg.check_mobile || cfg.check_seo
+        (cfg.check_mobile || cfg.check_seo) && cfg.runs_experimental_module("journey")
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {

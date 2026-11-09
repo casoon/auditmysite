@@ -28,7 +28,7 @@ impl AuditModule for CommerceModule {
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
         // Derived from the SEO module's structured data; only meaningful when SEO ran.
-        cfg.check_seo
+        cfg.check_seo && cfg.runs_experimental_module("commerce")
     }
 
     fn depends_on(&self) -> &'static [&'static str] {

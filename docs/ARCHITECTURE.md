@@ -27,17 +27,23 @@ src/
 ├── error.rs             # Error types (AuditError)
 ├── util.rs              # Utility functions
 │
+├── bin/
+│   └── auditmysite-dev.rs # Maintainer binary, `dev-tools` feature (not installed by `cargo install`, #912)
+│
 ├── cli/                 # Command-line interface
 │   ├── args.rs          # Clap argument parsing (Args, WcagLevel, OutputFormat, AnnexKind)
 │   ├── config.rs        # auditmysite.toml config support
-│   ├── commands.rs      # Subcommand handlers (browser, doctor, plan)
+│   ├── app.rs           # Shared by both binaries: logging, signals, exit code, the audit run
+│   ├── commands.rs      # Subcommand handlers (browser, doctor)
+│   ├── dev_commands.rs  # Maintainer commands of `auditmysite-dev` only (plan, replay, accname-diff, report-lint, --debug-typ, --export-snapshot, #912)
+│   ├── report_lint.rs   # `report-lint` command logic (library, so the release-gate tests run without the dev binary)
 │   ├── runners.rs       # Mode runners (single, batch, compare)
 │   ├── report_writers.rs # Output dispatch (single/batch/comparison)
 │   ├── output_paths.rs  # File path generation for reports
 │   ├── plan.rs          # Pre-audit plan/banner printing
 │   ├── doctor.rs        # `auditmysite doctor` diagnostics
 │   ├── url_filter.rs    # --include-path/--exclude-path glob selection of batch URLs
-│   └── sitemap_suggest.rs # Sitemap discovery + interactive prompt
+│   └── sitemap_suggest.rs # Sitemap discovery (hint for a base URL; no prompt)
 │
 ├── browser/             # Chrome/Chromium management
 │   ├── mod.rs
@@ -109,7 +115,7 @@ src/
 │   ├── checks.rs        # Score/grade/count-sum/metric_context checks
 │   └── invariants.rs    # Independent exported-weight, execution and finding-conservation checks
 │
-├── audit/               # Audit orchestration
+├── audit/               # Audit orchestration (`experimental.rs`: `--experimental` indicators and their `ExperimentalIndicators` result block, #916)
 │   ├── mod.rs
 │   ├── validation.rs    # Format-independent page/batch contracts and capture-gap policy
 │   ├── collection.rs    # Collection contract: Collected<T> states, per-page CollectionLog, COLLECTORS inventory
@@ -180,7 +186,7 @@ src/
 │   ├── search_experience.rs # Search/AI-visibility presentation helpers
 │   ├── localized.rs     # Locale-aware text helpers
 │   ├── renderer.rs      # Top-level format dispatch
-│   └── snapshot_export.rs # AXTree + journey traces → YAML (--export-snapshot)
+│   └── snapshot_export.rs # AXTree + journey traces → YAML (`auditmysite-dev --export-snapshot`)
 │
 ├── a11y_journey/        # Accessibility Journey Layer (--interactive)
 │   ├── mod.rs           # Orchestrator: run() single entry point, commerce gating
@@ -303,7 +309,7 @@ src/
 ├── studio/              # Studio contract types (GUI data contract)
 │   └── mod.rs
 │
-└── i18n/                # Project Fluent (.ftl) loader, default language: German; `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts
+└── i18n/                # Project Fluent (.ftl) loader, library default language: German (the CLI default is English); `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts
     └── mod.rs
 ```
 

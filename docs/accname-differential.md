@@ -1,17 +1,18 @@
 # accname differential
 
-`auditmysite accname-diff <URL>` compares the tool's own accessible name computation from
+`auditmysite-dev accname-diff <URL>` compares the tool's own accessible name computation from
 the [`accname`](https://crates.io/crates/accname) crate against the native computation
 of Blink and reports where the two diverge.
 
 ```bash
-auditmysite accname-diff https://example.com
-auditmysite accname-diff https://example.com --output reports/example-accname.json
-auditmysite accname-diff https://example.com --max-samples 500
+# maintainer binary: cargo run --features dev-tools --bin auditmysite-dev -- accname-diff …
+auditmysite-dev accname-diff https://example.com
+auditmysite-dev accname-diff https://example.com --output reports/example-accname.json
+auditmysite-dev accname-diff https://example.com --max-samples 500
 
 # Corpus: several URLs and/or a URL file (one URL per line, `#` for comments)
-auditmysite accname-diff https://a.example https://b.example --output reports/accname-corpus.json
-auditmysite accname-diff --url-file urls.txt --output reports/accname-corpus.json
+auditmysite-dev accname-diff https://a.example https://b.example --output reports/accname-corpus.json
+auditmysite-dev accname-diff --url-file urls.txt --output reports/accname-corpus.json
 ```
 
 One URL yields the single result as before. More than one URL (arguments and

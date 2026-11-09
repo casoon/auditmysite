@@ -2,8 +2,7 @@
 //!
 //! Runs during the derive phase. Reads `seo`, `security`, `ux`, and the
 //! accessibility statistics from the assembled `AuditReport` and writes
-//! `report.source_quality`. Always enabled — matches the unconditional
-//! call site this replaces in `aggregate_report`.
+//! `report.source_quality`. Enabled by `--experimental source-quality` (#916).
 
 use async_trait::async_trait;
 
@@ -25,8 +24,8 @@ impl AuditModule for SourceQualityModule {
         "Source Quality"
     }
 
-    fn is_enabled(&self, _cfg: &PipelineConfig) -> bool {
-        true
+    fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
+        cfg.runs_experimental_module("source_quality")
     }
 
     fn depends_on(&self) -> &'static [&'static str] {

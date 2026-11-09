@@ -13,14 +13,11 @@ auditmysite --sitemap https://example.com/sitemap.xml
 # crawl from a base URL and discover same-domain pages automatically
 auditmysite https://example.com --crawl --crawl-depth 2
 
-# base URL: probe robots.txt / common sitemap locations first
+# base URL: probe robots.txt / common sitemap locations first, print a hint, audit the URL
 auditmysite https://example.com
 
 # prefer sitemap automatically if one is found
 auditmysite https://example.com --prefer-sitemap
-
-# suppress sitemap suggestion and stay on the single page
-auditmysite https://example.com --no-sitemap-suggest
 
 # URL file
 auditmysite --url-file urls.txt

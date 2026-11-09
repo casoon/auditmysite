@@ -174,6 +174,9 @@ pub struct AuditContext<'a> {
     pub raw_throttled_performance: &'a [crate::audit::report::ThrottledPerfResult],
     pub raw_best_practices: Option<&'a crate::best_practices::BestPracticesAnalysis>,
     pub raw_commerce: Option<&'a crate::commerce::CommerceAnalysis>,
+    /// The experimental indicators that ran (`--experimental`, #916); the
+    /// `raw_ux` ... `raw_commerce` fields above stay empty for a finished audit.
+    pub raw_experimental: &'a crate::audit::ExperimentalIndicators,
 }
 
 /// Einheitliche Severity-Zähler
@@ -1712,6 +1715,7 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         raw_throttled_performance: &report.throttled_performance,
         raw_best_practices: report.best_practices.as_ref(),
         raw_commerce: report.commerce.as_ref(),
+        raw_experimental: &report.experimental,
     };
     ctx.normalized.interpretation = Some(Interpretation::from_context(&ctx));
     // Last: the decision reads the finished report, under the profile the

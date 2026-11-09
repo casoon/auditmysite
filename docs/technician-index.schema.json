@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/casoon/auditmysite/docs/technician-index.schema.json",
   "title": "auditmysite technician index (index.json)",
-  "description": "Written next to per-page JSON reports (--per-page-reports -f json, or --technician). Lists every attempted URL in input order. Canonical English. See README 'Technician mode'.",
+  "description": "Written next to per-page JSON reports (--per-page-reports -f json). Lists every attempted URL in input order. Canonical English. See README 'Technician mode'.",
   "type": "object",
   "required": ["schema_version", "tool_version", "totals", "pages"],
   "additionalProperties": false,

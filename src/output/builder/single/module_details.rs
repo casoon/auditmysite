@@ -97,7 +97,8 @@ pub(super) fn build_module_details_from_normalized(
 ///
 /// Every optional field in `ModuleDetailsBlock` that carries module data must
 /// appear here. The parity test compares this against `active_modules()` to
-/// detect future coverage gaps.
+/// detect future coverage gaps. The experimental indicators (#916) are in
+/// neither: they run only on request and are never part of the PDF.
 #[cfg(test)]
 pub(super) fn pdf_rendered_modules() -> std::collections::BTreeSet<&'static str> {
     [
@@ -105,15 +106,9 @@ pub(super) fn pdf_rendered_modules() -> std::collections::BTreeSet<&'static str>
         "seo",
         "security",
         "html_conform",
-        "commerce",
         "mobile",
-        "ux",
-        "journey",
         "privacy",
-        "source_quality",
-        "ai_visibility",
         "tech_stack",
-        "content_visibility",
         "best_practices",
         "patterns",
     ]

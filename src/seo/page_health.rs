@@ -413,10 +413,10 @@ pub fn html_validation_detail_text(
 pub fn html_validator_delegated_text(en: bool) -> &'static str {
     if en {
         "HTML5 validation is part of the HTML conformance check (html-conform), \
-         enabled with --full or --html-conform"
+         enabled by default or with --modules html-conform"
     } else {
         "Die HTML5-Validierung ist Teil der HTML-Konformitätsprüfung (html-conform), \
-         aktiv mit --full oder --html-conform"
+         standardmäßig aktiv oder mit --modules html-conform"
     }
 }
 

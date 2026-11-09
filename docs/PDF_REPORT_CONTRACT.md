@@ -123,7 +123,7 @@ In the rendered PDF:
 ## Language
 
 - CLI output (terminal table, progress messages) is always English.
-- PDF reports are localized via `--lang de|en`. Default is German.
+- PDF reports are localized via `--lang en|de`. Default is English.
 - All user-visible labels in PDF output must use Fluent (`.ftl`) keys.
   Hard-coded German strings in PDF renderers are a contract violation.
 

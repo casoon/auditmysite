@@ -1,7 +1,7 @@
 //! `AuditModule` implementation for UX collection (#332).
 //!
 //! UX is computed synchronously from the AX tree. Gated on
-//! `check_seo || check_mobile` to match today's behavior.
+//! `check_seo || check_mobile` and on `--experimental ux` (#916).
 
 use async_trait::async_trait;
 
@@ -24,7 +24,7 @@ impl AuditModule for UxModule {
     }
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
-        cfg.check_seo || cfg.check_mobile
+        (cfg.check_seo || cfg.check_mobile) && cfg.runs_experimental_module("ux")
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {

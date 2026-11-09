@@ -37,14 +37,17 @@ Before every change, clarify which side the code belongs to:
   in the barrierlab repository.
 
 ## Key CLI Modes
-- Single: `auditmysite <URL>`
+- Single: `auditmysite <URL>` (default: table on stdout, English, no file written, no prompt; `-o report.json` / `-f pdf -o report.pdf` write a report)
 - Sitemap: `auditmysite --sitemap <SITEMAP_URL>` (batch from XML sitemap)
 - URL file: `auditmysite --url-file <FILE>` (batch from text file)
 - Full audit: `--full` (enables performance, seo, security, mobile)
 - Browser: `auditmysite browser {detect|install|remove|path}`, `auditmysite doctor`
-- Report lint: `auditmysite report-lint <JSON_FILE> [--fail-on low|medium|high|critical]` (#507, deterministic checks, no network/Chrome; default fail-on: high; exit code 3 if breached)
-- accname differential: `auditmysite accname-diff <URL>... [--url-file FILE] [--output FILE] [--max-samples N]` (more than one URL → corpus aggregate; `text_transform` as its own class via computed style; own `accname::name_rendered` with `display`/`visibility` from DOMSnapshot against Chrome's native AX tree; measures, does not judge — exit code always 0; see `docs/accname-differential.md`)
+- Maintainer tooling lives in the separate binary `auditmysite-dev` (feature `dev-tools`, not installed by `cargo install`, #912): `cargo run --features dev-tools --bin auditmysite-dev -- <command>`. It accepts everything `auditmysite` does plus `plan`, `replay`, `report-lint`, `accname-diff`, `--debug-typ` and `--export-snapshot`; none of these exist in `auditmysite` itself.
+- Report lint (dev binary): `auditmysite-dev report-lint <JSON_FILE> [--fail-on low|medium|high|critical]` (#507, deterministic checks, no network/Chrome; default fail-on: high; exit code 3 if breached)
+- accname differential (dev binary): `auditmysite-dev accname-diff <URL>... [--url-file FILE] [--output FILE] [--max-samples N]` (more than one URL → corpus aggregate; `text_transform` as its own class via computed style; own `accname::name_rendered` with `display`/`visibility` from DOMSnapshot against Chrome's native AX tree; measures, does not judge — exit code always 0; see `docs/accname-differential.md`)
 - Privacy: `--privacy-check` (opt-in, not part of `--full`): first-visit findings in `detail.modules.privacy` (#871; technical findings with confidence class, no verdict; see `docs/privacy-findings.md`)
+- Experimental indicators: `--experimental <name>[,<name>]` (`ux`, `journey`, `ai-visibility`, `content-visibility`, `source-quality`, `commerce`; #916): unvalidated heuristics, off by default and in no `--full` run; JSON `pages[].experimental`, terminal table, never the PDF. The audit assembly moves their results into `AuditReport.experimental`
+- Modules: `--modules a11y,performance,seo,security,mobile,html-conform,stack` (default: all; `--full` is the explicit spelling of the default)
 - Output formats: `--format {json|table|pdf}`
 
 ## Report Intent

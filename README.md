@@ -36,11 +36,14 @@ Most accessibility CLIs either depend on static parsing or require a heavier run
 auditmysite https://example.com
 ```
 
-By default, a single URL audit runs the full analysis set, prints a compact terminal summary, and writes report artifacts into the current working directory:
+By default, a single URL audit runs the full analysis set and prints a table in the terminal. It writes no file and asks no question; the exit code carries the verdict. Reports are English unless you pass `--lang de`.
 
-- `./example-com-YYYY-MM-DD-single-report.pdf`
-- `./example-com-YYYY-MM-DD-single-report.json`
-- `./example-com-YYYY-MM-DD-single-report-screen-reader-audit.json`
+To keep a report, name the file:
+
+```bash
+auditmysite https://example.com -o report.json          # JSON (format follows the extension)
+auditmysite https://example.com -f pdf -o report.pdf    # PDF
+```
 
 For CI or machine-readable output:
 
@@ -73,11 +76,7 @@ auditmysite --help
 auditmysite https://example.com
 ```
 
-That default command writes report artifacts into the current directory, for example:
-
-- `./example-com-YYYY-MM-DD-single-report.pdf`
-- `./example-com-YYYY-MM-DD-single-report.json`
-- `./example-com-YYYY-MM-DD-single-report-screen-reader-audit.json`
+That default command prints the result as a table and writes nothing.
 
 ### npm
 
@@ -139,20 +138,21 @@ The fastest way to validate your setup:
 auditmysite https://example.com
 ```
 
-That creates the default report set in the current directory. For machine-readable output only:
+That prints the result as a table in the terminal and writes no file. To keep a report:
 
 ```bash
 auditmysite https://example.com -f json -o report.json
+auditmysite https://example.com -f pdf -o report.pdf
 ```
 
 ### Single page
 
 ```bash
-# default: full audit + terminal summary + PDF/JSON in current directory
+# default: full audit, table in the terminal, nothing written
 auditmysite https://example.com
 
-# JSON
-auditmysite https://example.com -f json -o report.json
+# JSON (the format follows the extension of -o)
+auditmysite https://example.com -o report.json
 
 # PDF with explicit path
 auditmysite https://example.com -f pdf -o report.pdf
@@ -165,8 +165,8 @@ Common options:
 
 - `--url-file <FILE>`: audit a list of URLs; `--sitemap <URL>`: audit a sitemap; `--crawl` discovers same-domain pages
 - `--browser-path <PATH>`: use a specific Chrome or Chromium binary
-- `-f json|table|pdf|sarif`, `-o <FILE>`: output format and target; `--lang de|en`: report language
-- `--full`: add performance, SEO, security and mobile; `--level A|AA|AAA`: WCAG level
+- `-f json|table|pdf|sarif`, `-o <FILE>`: output format and target; `--lang en|de`: report language (default: `en`)
+- `--modules <list>`: run only the listed modules next to the accessibility checks (`performance`, `seo`, `security`, `mobile`, `html-conform`, `stack`; `a11y` alone for the WCAG rules only). Without it every module runs. `--level A|AA|AAA`: WCAG level
 
 Sitemap, crawl and URL-file runs, per-page reports and browser selection: [Batch audits](docs/guides/batch-audits.md). All options: [CLI and output contract](docs/reference/cli-and-output.md).
 
@@ -178,7 +178,7 @@ A default run is the full analysis set (desktop and mobile accessibility, thrott
 |---|---|---|
 | Default | none | 28.0 (14.8 – 54.1) |
 | Without journeys | `--interactive off` | 17.8 (11.5 – 32.9) |
-| WCAG rules only | `--interactive off --skip-performance --skip-mobile` | 7.0 (2.5 – 8.9) |
+| WCAG rules only | `--interactive off --modules a11y` | 7.0 (2.5 – 8.9) |
 
 In batch runs pages share one browser and run in parallel: six URLs took 99 s with `-c 1`, 47 s with `-c 3` and 34 s with `-c 6`. `--max-pages` caps the page count and is the main lever on total time. How `--concurrency`, `--timeout`, `--max-pages` and the module flags interact, the full batch table and the measuring conditions: [CLI and output contract](docs/reference/cli-and-output.md#runtime-per-page).
 
@@ -240,13 +240,13 @@ Outputs: `report-json`, `report-sarif` (absolute paths) and `version`. The actio
   <img src="docs/img/score-weights.svg" alt="Bar chart of the module weights in the overall score: Accessibility 40, Performance 20, SEO 15, Security 10, Mobile 10, HTML Conformance 5 percent." width="640">
 </picture>
 
-Only the weighted modules enter the overall score. The heuristic indicators (UX, Journey, Best Practices, …) are shown next to it with weight 0. The charts in `docs/img/` are generated from the `.json` files next to them with [chartlet](https://github.com/casoon/chartlet) (`chartlet render <spec>.json --format svg --strict`, add `--theme dark` for the dark variant).
+Only the weighted modules enter the overall score. Best Practices is shown next to it with weight 0; the experimental indicators (UX, Journey, …) are off unless you ask for them with `--experimental`. The charts in `docs/img/` are generated from the `.json` files next to them with [chartlet](https://github.com/casoon/chartlet) (`chartlet render <spec>.json --format svg --strict`, add `--theme dark` for the dark variant).
 
 ## What it checks
 
 - **WCAG 2.2 Level A and AA** rules on the rendered page, with rule IDs that stay stable across releases.
 - **Weighted modules:** Accessibility, Performance, SEO, Security, Mobile, HTML conformance.
-- **Heuristic indicators** (UX, Journey, AI visibility, source quality, tech stack, commerce) shown next to the score, with weight 0 and marked as unvalidated.
+- **Experimental indicators** (UX, Journey, AI visibility, content visibility, source quality, commerce): off by default, `--experimental <name>[,<name>]` switches them on. Unvalidated, weight 0, in the JSON `experimental` block and the terminal table, never in the PDF. Tech stack is detection only.
 - **Accessibility journeys:** tab walk, skip link, modals, menus, SPA navigation, form errors; clicks that can change state are an opt-in (`--allow-state-changes`).
 - **Display modes, structured data, risk assessment, rule configuration and exclusions.**
 
@@ -265,7 +265,7 @@ Key layers:
 - `wcag/`: rule engine and violations
 - `output/`: CLI, JSON, PDF, AI, summary format
 - `seo/`, `security/`, `performance/`, `mobile/`, `ux/`, `journey/`: optional analysis modules
-- `tech_stack/`, `source_quality/`, `ai_visibility/`: heuristic indicator modules
+- `tech_stack/`: detection module; `ux/`, `journey/`, `source_quality/`, `ai_visibility/`, `content_visibility/`, `commerce/`: experimental indicators (`--experimental`)
 
 Parts of the checks live in [barrierlab](https://github.com/casoon/barrierlab) and come in as published crates (`a11y-rules`, `a11y-dom`, `a11y-report`, `accname`, `a11y-perception`, `web-checks`, `html-conform`); fixes there are released first and then taken over here by raising the version. Details and the boundary: [Shared libraries from barrierlab](docs/concepts/barrierlab.md). Current implementation: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

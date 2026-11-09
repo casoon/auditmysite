@@ -49,50 +49,49 @@ fn make_security_from_headers(
 
 // ─── Serialization invariants ─────────────────────────────────────────────────
 
+/// #916: the experimental indicators sit in one `experimental` block with
+/// their signal contract, and in no score, summary or module block.
 #[test]
-fn ux_score_propagated_to_summary() {
+fn experimental_indicators_are_one_block_and_in_no_score() {
     use crate::accessibility::AXTree;
+    use crate::journey::analyze_journey;
     use crate::ux::analyze_ux;
 
     let mut report = make_report(WcagResults::new());
-    report.ux = Some(analyze_ux(&AXTree::new()));
+    report.experimental.ux = Some(analyze_ux(&AXTree::new()));
+    report.experimental.journey = Some(analyze_journey(&AXTree::new()));
     let normalized = normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);
+    let json: serde_json::Value = serde_json::from_str(&unified.to_json(true).unwrap()).unwrap();
 
-    assert!(
-        unified.summary.ux_score.is_some(),
-        "summary.ux_score must be Some when UX module is active"
-    );
-    let ux_entry = normalized
+    let page = &json["pages"][0];
+    for id in ["ux", "journey"] {
+        let indicator = &page["experimental"][id];
+        assert!(indicator["score"].is_u64(), "{id}: {indicator}");
+        assert_eq!(
+            indicator["signal_contract"]["contract"]["validation"]["status"], "unvalidated",
+            "{id}"
+        );
+        assert!(page["detail"]["modules"].get(id).is_none(), "{id}");
+    }
+    assert!(page.get("ux_score").is_none() && page.get("journey_score").is_none());
+    assert!(json["summary"].get("ux_score").is_none());
+    assert!(json["summary"].get("journey_score").is_none());
+    assert!(normalized
         .normalized
         .module_scores
         .iter()
-        .find(|m| m.name == "UX")
-        .unwrap();
-    assert_eq!(unified.summary.ux_score, Some(ux_entry.score));
+        .all(|m| m.name != "UX" && m.name != "Journey"));
 }
 
+/// Without `--experimental` the page has no `experimental` block at all.
 #[test]
-fn journey_score_propagated_to_summary() {
-    use crate::accessibility::AXTree;
-    use crate::journey::analyze_journey;
-
-    let mut report = make_report(WcagResults::new());
-    report.journey = Some(analyze_journey(&AXTree::new()));
+fn no_experimental_block_without_experimental_indicators() {
+    let report = make_report(WcagResults::new());
     let normalized = normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);
-
-    assert!(
-        unified.summary.journey_score.is_some(),
-        "summary.journey_score must be Some when Journey module is active"
-    );
-    let journey_entry = normalized
-        .normalized
-        .module_scores
-        .iter()
-        .find(|m| m.name == "Journey")
-        .unwrap();
-    assert_eq!(unified.summary.journey_score, Some(journey_entry.score));
+    let json: serde_json::Value = serde_json::from_str(&unified.to_json(true).unwrap()).unwrap();
+    assert!(json["pages"][0].get("experimental").is_none());
 }
 
 /// Plan 29, D2: a letter grade claims the module's value counts. Only the

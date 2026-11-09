@@ -16,11 +16,11 @@
 - `band` is the canonical English qualitative label for `score`; it is present on every entry.
 - `grade` (a letter) is present **only** for modules with `weight_pct > 0`. A module that does not feed `overall_score` carries `band` alone: grading an indicator on the same A–F scale as a weighted module gave it an authority it does not have.
 - `derived_from` lists the modules an entry re-reads instead of measuring anything new; it is absent when the module measures its own subject. `UX` and `Journey` are charged an explicit accessibility penalty, `AI Visibility` re-reads SEO signals, and `Source Quality` re-reads SEO, Security and UX. Agreement between such a module and its sources is not independent confirmation.
-- The same rule applies to the heuristic module payloads: `source_quality` and `ai_visibility` carry `band`, not `grade`,.
+- The same rule applies to the heuristic module payloads in the `experimental` block: `source_quality` and `ai_visibility` carry `band`, not `grade`.
 - `measurement_type = "measured"` means the score is based on direct audit data such as WCAG checks, CDP metrics, HTTP headers, or mobile viewport measurements.
 - `measurement_type = "heuristic"` means the score is an indicator inferred from structural signals. These values are report guidance, not direct measurements.
 - `source_quality.score` combines the `consistency` and `authority` dimensions only. `source_quality.substance` holds structural indicators (word count, headings, structured data, metadata); its `score` is deprecated, is not part of `source_quality.score`, and is removed in 2.0.
-- Heuristic top-level module payloads such as `source_quality`, `ai_visibility`, and `content_visibility` include `measurement_type = "heuristic"` when present.
+- The heuristic payloads in `pages[].experimental` (`ux`, `journey`, `source_quality`, `ai_visibility`, `content_visibility`) include `measurement_type = "heuristic"`; `commerce` is a checklist without a score and carries neither.
 
 ## Score and Count Semantics
 
@@ -61,7 +61,17 @@
 
 ### Signal contracts
 
-Every module payload with `measurement_type = "heuristic"` (`ux`, `journey`, `source_quality`, `ai_visibility`, `content_visibility`) carries `signal_contract: { format: "auditmysite.signal-contract/1", contract }`. `contract` states `target_statement`, `method`, `applicability`, `evidence`, `uncertainty`, `permitted_interpretation`, the claims it does not establish (`not_established`) and `validation.status` — `unvalidated` until a pre-registered calibration run passes (`docs/calibration.md`). A score of an unvalidated contract is not evidence of visibility, AI citation, user quality or source truth.
+Every scored payload in `pages[].experimental` (`ux`, `journey`, `source_quality`, `ai_visibility`, `content_visibility`) carries `signal_contract: { format: "auditmysite.signal-contract/1", contract }`. `contract` states `target_statement`, `method`, `applicability`, `evidence`, `uncertainty`, `permitted_interpretation`, the claims it does not establish (`not_established`) and `validation.status` — `unvalidated` until a pre-registered calibration run passes (`docs/calibration.md`). A score of an unvalidated contract is not evidence of visibility, AI citation, user quality or source truth.
+
+### Experimental indicators
+
+UX, Journey, AI Visibility, Content Visibility, Source Quality and Commerce are experimental (#916): `unvalidated` signal contracts, no calibration set, no weight in any score. They run only with `--experimental <name>[,<name>]` and are in no `--full` run.
+
+- A single report carries them in `pages[].experimental`, one key per indicator that ran (`ux`, `journey`, `ai_visibility`, `content_visibility`, `source_quality`, `commerce`), each scored one with its `signal_contract` (`commerce` is a score-less checklist and has none). The block is absent when none ran. A batch report carries only `summary.experimental.commerce`, the site-wide roll-up of the commerce trust pages.
+- They are in no `module_scores[]` entry, no `findings[]`, `finding_inventory`, `risk`, `decision` or PDF chapter, and `detail.modules` has no key for them. `ux_score`, `journey_score` (page and summary) and `summary.commerce` of 2.0.x are gone.
+- An indicator another one is derived from runs with it and appears in the block: `content_visibility` brings `source_quality` and `ai_visibility`, `source_quality` brings `ux`.
+- The add-to-cart and quantity-stepper journeys belong to `commerce`: without it `measurement_profile.state_changing_journeys` does not list them. `--check-ssr-content` needs `content_visibility`.
+- Versions: `EVALUATION_VERSION` 7, `SNAPSHOT_SCHEMA_VERSION` 2 and the cache signature (`fmt` 32, now with the indicator selection) turn stored snapshots into cache misses. `decision/3` is unchanged: none of these signals ever fed the verdict.
 
 ### Indexability
 
@@ -110,7 +120,7 @@ The report distinguishes what was requested from what was successfully measured:
 
 Confirmed violations remain separate from `accessibility_assessments`, which carries warnings, manual-review items, and positive signals. Measurement failures are not converted into violations or artificial score penalties.
 
-Binary evidence is not embedded in the JSON. The top-level `artifacts` array points to separately written sidecars when available. Whenever screen-reader data exists, `<output>-screen-reader-audit.json` is written next to the report as an intended sidecar (the structured screen-reader audit that the PDF summarizes); `--no-screen-reader-report` suppresses it.
+Binary evidence is not embedded in the JSON. The top-level `artifacts` array points to separately written sidecars when available. Whenever screen-reader data exists, `<output>-screen-reader-audit.json` is written next to the report as an intended sidecar (the structured screen-reader audit that the PDF summarizes) when `--screen-reader-report` asks for it; by default no sidecar is written.
 
 ## Performance Measurement Context
 
@@ -434,7 +444,7 @@ category.
 - `advisories[].review_status` is `reviewed` (the range was checked against `source_url` on the date in `advisories[].reviewed`) or `unreviewed` (carried over, not yet checked). An unreviewed match is a lead, not an established statement; the PDF says so next to the finding. Reports written before the field read as `unreviewed`.
 - `exploitability` is `unconfirmed` (the version is in range; reachability on the page was not examined) or `not_applicable` (only end-of-maintenance notices matched, so no specific vulnerability exists to exploit). There is no `confirmed` state: a version never proves the code path is reachable, and the check runs no reachability probe.
 - `detected[].version_parsed: false` marks a version that could not be read; it is neither flagged nor cleared.
-- The check runs for `--performance` and for `--security` on its own.
+- The check runs with the `performance` module and with the `security` module on its own (`--modules performance`, `--modules security`).
 
 ## Schemas
 

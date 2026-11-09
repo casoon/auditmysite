@@ -1809,6 +1809,7 @@ mod tests {
         };
         SeoAnalysis {
             indexability: Default::default(),
+            page_intent: None,
             meta: MetaTags {
                 title: Some("Test Page Example Site Accessibility".to_string()),
                 description: Some("A test description that is long enough for SEO purposes and fits perfectly within the recommended 120 to 160 character limit for meta descriptions.".to_string()),
@@ -2055,6 +2056,7 @@ mod tests {
             screenshot_status: Default::default(),
             best_practices: None,
             commerce: None,
+            experimental: Default::default(),
             consent_banner_detected: false,
             consent_banner_cmp: None,
             consent_banner_dismissed: false,

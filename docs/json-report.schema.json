@@ -599,16 +599,6 @@
           "minimum": 0,
           "maximum": 100
         },
-        "ux_score": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
-        },
-        "journey_score": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
-        },
         "performance_throttled_avg_score": {
           "type": "integer",
           "minimum": 0,
@@ -645,7 +635,8 @@
             "$ref": "#/$defs/decisionAction"
           }
         },
-        "commerce": {
+        "experimental": {
+          "description": "Batch roll-ups of the experimental indicators (`--experimental`, #916). `commerce` is the union of mandatory/trust-page links across the audited shop pages.",
           "type": [
             "object",
             "null"
@@ -884,6 +875,23 @@
         "principle_coverage": {
           "$ref": "#/$defs/principleCoverage"
         },
+        "experimental": {
+          "description": "Experimental indicators that ran (`--experimental`, #916), keyed by `ux`, `journey`, `ai_visibility`, `content_visibility`, `source_quality`, `commerce`. Each scored indicator (all but `commerce`) carries `measurement_type: heuristic` and a `signal_contract` whose `contract.validation.status` is `unvalidated`. They feed no score, finding, risk level or verdict. Single reports only; absent without `--experimental`.",
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "ux",
+              "journey",
+              "ai_visibility",
+              "content_visibility",
+              "source_quality",
+              "commerce"
+            ]
+          },
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
         "findings": {
           "type": "array",
           "items": {
@@ -1110,39 +1118,8 @@
             "null"
           ]
         },
-        "ux": {
-          "type": [
-            "object",
-            "null"
-          ]
-        },
-        "journey": {
-          "type": [
-            "object",
-            "null"
-          ]
-        },
         "privacy": {
           "description": "Pre-consent privacy findings of one first visit (phase A, no interaction; technical observations, no legal verdict or score). `checks` has one entry per check with `found`, `not_found`, `not_applicable` or `not_measured`; `findings[].confidence` is `evidence`, `indication` or `manual-check`. A failed or partial capture reads `not_measured` in `measurement` and `checks`, never as a clean result.",
-          "type": [
-            "object",
-            "null"
-          ]
-        },
-        "source_quality": {
-          "description": "Shown as 'Technical preparation for machine processing'. `score` combines `consistency` and `authority`; `substance` holds structural indicators and its `score` is deprecated (not part of `score`, removed in 2.0).",
-          "type": [
-            "object",
-            "null"
-          ]
-        },
-        "ai_visibility": {
-          "type": [
-            "object",
-            "null"
-          ]
-        },
-        "content_visibility": {
           "type": [
             "object",
             "null"
@@ -1217,12 +1194,6 @@
               }
             }
           }
-        },
-        "commerce": {
-          "type": [
-            "object",
-            "null"
-          ]
         },
         "dual_viewport": {
           "type": [

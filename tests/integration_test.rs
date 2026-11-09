@@ -458,6 +458,7 @@ fn default_config() -> PipelineConfig {
         check_isolate_third_party_impact: false,
         check_ssr_content: false,
         check_stack: false,
+        experimental: Vec::new(),
         rule_filter: auditmysite::wcag::RuleFilterConfig::default(),
         persist_artifacts: true,
         capture_screenshots: false,
@@ -827,14 +828,17 @@ async fn test_early_text_is_measured_above_the_fold_not_in_tree_order() {
             .navigate(&page, &url)
             .await
             .expect("Navigation failed");
-        // `check_seo` is the JourneyModule's gate.
+        // `check_seo` is the JourneyModule's gate; the module itself is an
+        // experimental indicator (#916).
         let mut config = default_config();
         config.check_seo = true;
+        config.experimental = vec![auditmysite::audit::ExperimentalIndicator::Journey];
         let (report, _snapshot) = audit_page(&page, &url, &config, &manager)
             .await
             .expect("Audit failed");
         shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
         report
+            .experimental
             .journey
             .expect("journey analysis present")
             .friction_points
@@ -1134,10 +1138,13 @@ async fn test_opacity_overlay_contrast_pixel_sampling() {
 async fn test_catalog_driven_audit_complete_structure() {
     let (url, shutdown) = serve_fixture("perfect.html");
 
+    // The derived indicators are experimental (#916): content_visibility
+    // brings source_quality and ai_visibility.
     let config = PipelineConfig {
         check_performance: true,
         check_seo: true,
         check_mobile: true,
+        experimental: vec![auditmysite::audit::ExperimentalIndicator::ContentVisibility],
         ..default_config()
     };
 
@@ -1155,16 +1162,22 @@ async fn test_catalog_driven_audit_complete_structure() {
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 
     assert!(
-        report.discoverability.source_quality.is_some(),
+        report.experimental.source_quality.is_some(),
         "source_quality must be populated"
     );
     assert!(
-        report.discoverability.ai_visibility.is_some(),
+        report.experimental.ai_visibility.is_some(),
         "ai_visibility must be populated"
     );
     assert!(
-        report.discoverability.content_visibility.is_some(),
+        report.experimental.content_visibility.is_some(),
         "content_visibility must be populated"
+    );
+    assert!(
+        report.discoverability.source_quality.is_none()
+            && report.discoverability.ai_visibility.is_none()
+            && report.discoverability.content_visibility.is_none(),
+        "the ordinary report fields do not carry experimental results"
     );
     assert!(report.accessibility.score >= 0.0 && report.accessibility.score <= 100.0);
 }
@@ -2296,7 +2309,10 @@ async fn batch_runs_requested_ssr_gap_check_body() {
         "auditmysite",
         "--url-file",
         "unused.txt",
-        "--seo",
+        "--modules",
+        "seo",
+        "--experimental",
+        "content-visibility",
         "--check-ssr-content",
     ]);
     let mut config = BatchConfig::from(&args);
@@ -2358,7 +2374,8 @@ async fn batch_records_requested_isolation_outcome_body() {
         "auditmysite",
         "--url-file",
         "unused.txt",
-        "--performance",
+        "--modules",
+        "performance",
         "--isolate-third-party-impact",
     ]);
     let mut config = BatchConfig::from(&args);
@@ -2474,7 +2491,13 @@ fn technician_mode_url_file_run_writes_index_and_findings() {
         .current_dir(dir.path())
         .arg("--url-file")
         .arg(&url_file)
-        .arg("--technician")
+        .args([
+            "--per-page-reports",
+            "-f",
+            "json",
+            "--modules",
+            "seo,html-conform",
+        ])
         .arg("--exclude-path")
         .arg("/skip/**")
         .arg("-o")
@@ -3113,7 +3136,8 @@ async fn batch_runs_requested_privacy_check_body() {
         "auditmysite",
         "--url-file",
         "unused.txt",
-        "--seo",
+        "--modules",
+        "seo",
         "--privacy-check",
     ]);
     let mut config = BatchConfig::from(&args);
