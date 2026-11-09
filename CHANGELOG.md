@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Added
 
+- **SARIF:** `-f sarif` is usable for GitHub Code Scanning: every result has stable `partialFingerprints`, rules carry `help`, `defaultConfiguration` and `precision`, review findings are capped at `note`, and checks that did not run are listed as invocation notifications instead of being absent. Breaking for SARIF consumers: `artifactLocation.uri` is now a relative pseudo-path `audited-pages/<host>/<path>` (the page URL moves to `run.artifacts` and `properties.pageUrl`) and the element is a logical location; no `region` is written because no finding has a source line. Location strategy and fingerprint derivation: [SARIF output](https://casoon.github.io/auditmysite/docs/reference/cli-and-output/#sarif-output). Not verified with a live GitHub upload (Refs #977).
 - **Security:** `SECURITY.md` with the disclosure contact, supported versions and scope; Dependabot also watches Cargo dependencies (monthly, grouped); `deny.toml` and a `cargo deny check licenses bans sources` step in the dependency-audit CI job (Refs #944).
 
 ### Changed

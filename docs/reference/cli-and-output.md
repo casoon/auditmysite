@@ -93,57 +93,65 @@ auditmysite https://example.com -f sarif -o auditmysite.sarif --quiet
 auditmysite --sitemap https://example.com/sitemap.xml -f sarif -o auditmysite.sarif --quiet
 ```
 
-What the file contains (checked against a real run on mit.edu: 54 results, 41 rules; a two-URL batch: 100 results, 59 rules):
+What the file contains:
 
-- `tool.driver` carries the name, `informationUri` and the tool version; `rules` has one entry per distinct rule ID, merged across pages.
-- Every finding of the report becomes a result, not only WCAG findings: SEO, security, UX, journey and the other modules are included, each under its own rule ID (for example `a11y.contrast.weak`, `seo.meta.description`, `security.headers.missing_header`). One result is written per occurrence.
-- `level` follows the severity: critical and high are `error`, medium is `warning`, low is `note`.
-- `helpUri` is set only for rules that have a help URL, in practice the WCAG rules (a link to the W3C "Understanding" page of the criterion). Rules of the other modules have none. `properties.wcagCriterion` is present for WCAG rules; `properties.tags` holds the category and dimension.
-- The location of every result is the audited page URL as `artifactLocation.uri`. There is no source file to point to, so the element's selector is appended to the message text (`... (selector: input#es-search-form-input)`). No `region` and no `partialFingerprints` are written.
+- `tool.driver` carries the name, `informationUri` and the tool version; `rules` has one entry per distinct rule ID, merged across pages, with `shortDescription`, `fullDescription`, `help`, `defaultConfiguration.level` and `properties.precision` (from the finding's confidence). `helpUri` is set only for rules that have a help URL, in practice the WCAG rules (a link to the W3C "Understanding" page); rules of the other modules have none. `properties.wcagCriterion` is present for WCAG rules; `properties.tags` holds the category and dimension.
+- Every finding of the report becomes a result, not only WCAG findings: SEO, security, UX, journey and the other modules are included, each under its own rule ID (for example `a11y.contrast.weak`, `seo.meta.description`). One result is written per occurrence.
+- `level` follows the severity: critical and high are `error`, medium is `warning`, low is `note`. A finding that only asks for a manual review (`properties.outcome: "review"`) is capped at `note`: it is never presented as a confirmed defect.
+- Checks that did not run are not results and never count as passed. Disabled rules, rules without the data they need, rules that errored, and modules that failed, ran partially or were skipped are listed in `invocations[0].toolExecutionNotifications` (`level` `note`, `warning` or `error`, with `associatedRule` and the page URL). A rule that has nothing to check on a page ("not applicable") is not listed. `executionSuccessful` is `false` when a notification has level `error`.
+
+### Locations
+
+An audited page is a URL, not a file in a repository, and auditmysite findings carry no source line or column (the browser reports elements by selector). So the writer does not write a `region`: a made-up line number would point nowhere.
+
+- `physicalLocation.artifactLocation.uri` is a **relative pseudo-path** built from the page URL: `audited-pages/<host>/<path>`. An empty path or a path ending in `/` becomes `index`, a port is appended to the host with `-`, and a query string becomes the suffix `__q-<8 hex digits>` of its SHA-256 (`https://example.com/shop/?q=1` is `audited-pages/example.com/shop/index__q-<hash>`). A relative path is used on purpose: GitHub resolves absolute URIs against the checkout's `file://` root and rejects roots with a different scheme, so an `https://` URI would put the whole upload at risk.
+- The real URL stays available in `run.artifacts[].description` ("Audited page ..."), in `properties.pageUrl` of each result and notification, and in the fingerprint.
+- The element is a `logicalLocations` entry (`kind: element`, `name` the CSS selector, `fullyQualifiedName` `"<page URL> <selector>"`) and is appended to the message text (`... (selector: input#es-search-form-input)`).
+- `run.properties.locationStrategy` is `page-pseudo-path`.
+
+The pseudo-path matches no committed file, so GitHub lists an alert without a code view. To tie alerts to the repository file that produces a page (a static site, for instance), no mapping option exists yet.
+
+### Fingerprints
+
+Every result carries `partialFingerprints`, stable across runs, so the same defect on the same page is the same alert on the next upload:
+
+```text
+hash  = SHA-256(rule_id NUL page_url NUL kind NUL value), first 32 hex digits
+value = the CSS selector if the occurrence has one (kind "selector"),
+        else the message with whitespace collapsed (kind "message")
+auditmysite/v1          = "<hash>:<n>"
+primaryLocationLineHash = "<hash>:<n>"   (the only key GitHub reads)
+```
+
+`page_url` is the audited URL without fragment. The selector wins over the message because messages carry measured values (a contrast ratio) that change when the page is only edited. `n` counts results with an identical hash within one run, in report order. A changed selector (the element moved in the DOM) is a new alert; that is the price of having no source line to anchor on.
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
-  "version": "2.1.0",
-  "runs": [
+  "ruleId": "a11y.contrast.weak",
+  "ruleIndex": 0,
+  "level": "error",
+  "message": {
+    "text": "The text reaches a contrast ratio of 3.04:1; 4.5:1 is required for normal text. (selector: span.site-nav__arrow)"
+  },
+  "locations": [
     {
-      "tool": {
-        "driver": {
-          "name": "auditmysite",
-          "informationUri": "https://github.com/casoon/auditmysite",
-          "version": "2.0.2",
-          "rules": [
-            {
-              "id": "a11y.contrast.weak",
-              "name": "Insufficient color contrast",
-              "shortDescription": { "text": "Insufficient color contrast" },
-              "fullDescription": {
-                "text": "The text reaches a contrast ratio of 3.04:1; 4.5:1 is required for normal text."
-              },
-              "helpUri": "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html",
-              "properties": { "tags": ["wcag", "Accessibility"], "wcagCriterion": "1.4.3" }
-            }
-          ]
-        }
-      },
-      "results": [
-        {
-          "ruleId": "a11y.contrast.weak",
-          "level": "error",
-          "message": {
-            "text": "The text reaches a contrast ratio of 3.04:1; 4.5:1 is required for normal text. (selector: span.site-nav__arrow)"
-          },
-          "locations": [
-            { "physicalLocation": { "artifactLocation": { "uri": "https://www.mit.edu/" } } }
-          ]
-        }
+      "physicalLocation": { "artifactLocation": { "uri": "audited-pages/www.mit.edu/index", "index": 0 } },
+      "logicalLocations": [
+        { "name": "span.site-nav__arrow", "fullyQualifiedName": "https://www.mit.edu/ span.site-nav__arrow", "kind": "element" }
       ]
     }
-  ]
+  ],
+  "partialFingerprints": {
+    "auditmysite/v1": "0f5c...:1",
+    "primaryLocationLineHash": "0f5c...:1"
+  },
+  "properties": { "pageUrl": "https://www.mit.edu/", "outcome": "fail", "severity": "high", "selector": "span.site-nav__arrow" }
 }
 ```
 
-(Shortened to one rule and one result.) The process exit code still encodes the verdict (0 pass, 1 warn, 2 fail). In CI, add `--report-mode` so the step succeeds whenever the file was written and a following upload step runs; gate the build separately if needed. The default `*-screen-reader-audit.json` sidecar is written next to `-o` for SARIF as well; `--no-screen-reader-report` skips it.
+(One result, shortened.) The process exit code still encodes the verdict (0 pass, 1 warn, 2 fail). In CI, add `--report-mode` so the step succeeds whenever the file was written and a following upload step runs; gate the build separately if needed. The default `*-screen-reader-audit.json` sidecar is written next to `-o` for SARIF as well; `--no-screen-reader-report` skips it.
+
+GitHub accepts at most 25,000 results per run (the 5,000 highest by severity are kept) and 10 MB gzipped per file; a large sitemap audit can exceed that, so scope it with `--max-pages`.
 
 ### GitHub Code Scanning
 
@@ -169,7 +177,9 @@ jobs:
           category: auditmysite
 ```
 
-The workflow is a template and was not run on GitHub. Code Scanning is built around source files: its [SARIF documentation](https://docs.github.com/en/code-security/code-scanning/integrating-with-code-scanning/sarif-support-for-code-scanning) lists `region.startLine` and `partialFingerprints` as required and says a location must match a committed file to be displayed, none of which auditmysite's page-URL locations provide. Whether and how GitHub shows these results as alerts has not been verified; check a first upload before relying on it. The SARIF file follows the 2.1.0 structure (it was not validated against the schema) and can also be kept as a workflow artifact.
+Status: the SARIF structure, the fingerprints and the not-run handling are covered by tests (`tests/sarif_contract.rs`, including a golden file), and the output has been validated against the official SARIF 2.1.0 JSON schema (opt-in test, command below). The workflow is a template and was **not run on GitHub**: whether GitHub shows results with a pseudo-path that matches no file, and as which alerts, has not been verified. Check the first upload in the repository's Security tab before relying on it. The SARIF file can also be kept as a workflow artifact.
+
+Schema check: download `sarif-2.1/schema/sarif-schema-2.1.0.json` from [oasis-tcs/sarif-spec](https://github.com/oasis-tcs/sarif-spec) (OASIS licence terms, so it is not vendored here) and run `AUDITMYSITE_SARIF_SCHEMA=<file> cargo test --test sarif_contract -- --ignored`.
 
 ## Output Contract
 
