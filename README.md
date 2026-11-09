@@ -149,13 +149,13 @@ In batch runs pages share one browser and run in parallel: six URLs took 99 s wi
 
 ## SARIF output
 
-`-f sarif` writes SARIF 2.1.0 for single pages and batches: one result per finding occurrence, one rule per rule ID, `level` from the severity, and the audited page URL as the location (there is no source file).
+`-f sarif` writes SARIF 2.1.0 for single pages and batches: one result per finding occurrence, one rule per rule ID, `level` from the severity, a stable `partialFingerprints` entry per result, and a pseudo-path derived from the page URL as the location (there is no source file and no line number). Checks that did not run are listed as invocation notifications, never as results.
 
 ```bash
 auditmysite https://example.com -f sarif -o auditmysite.sarif --quiet --report-mode
 ```
 
-Add `--report-mode` so the exit code does not fail the step before an upload step runs. A GitHub Actions example and the limits of Code Scanning with page-URL locations: [SARIF output](docs/reference/cli-and-output.md#sarif-output).
+Add `--report-mode` so the exit code does not fail the step before an upload step runs. The location strategy, the fingerprint derivation and a GitHub Actions example: [SARIF output](docs/reference/cli-and-output.md#sarif-output).
 
 ## How the overall score is weighted
 
