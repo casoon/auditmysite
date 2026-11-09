@@ -1,0 +1,96 @@
+name: Publish npm package
+
+# Publishes packages/npm (`auditmysite` on npm) with provenance via npm Trusted
+# Publishing (OIDC, no stored token). It runs after the Release workflow has
+# finished successfully, because the package's postinstall downloads the binaries
+# from that GitHub release: a version published before they exist would be
+# uninstallable. `release: published` is not used on purpose: the release is created
+# by release.yml with the default GITHUB_TOKEN, and events caused by that token do not
+# start other workflows.
+#
+# Manual run: `gh workflow run npm-publish.yml -f tag=vX.Y.Z` (dry run by default;
+# pass `-f dry_run=false` to publish).
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish, e.g. v2.0.2"
+        required: true
+        type: string
+      dry_run:
+        description: "Run everything except the final publish"
+        required: true
+        default: true
+        type: boolean
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: npm publish (provenance)
+    # A failed or cancelled Release run never publishes.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Required reviewer on this environment is the manual gate (release-integrity).
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.workflow_run.head_branch }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ env.TAG }}
+
+      - name: Check tag, package version and release assets
+        run: |
+          case "$TAG" in v[0-9]*) ;; *) echo "Not a version tag: $TAG"; exit 1 ;; esac
+          VERSION="${TAG#v}"
+          PKG_VERSION="$(node -p "require('./packages/npm/package.json').version")"
+          CARGO_VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)"
+          if [ "$VERSION" != "$PKG_VERSION" ] || [ "$VERSION" != "$CARGO_VERSION" ]; then
+            echo "Version mismatch: tag $VERSION, packages/npm $PKG_VERSION, Cargo.toml $CARGO_VERSION"
+            exit 1
+          fi
+          # The postinstall downloads these; refuse to publish a package that cannot install.
+          ASSETS="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name')"
+          for target in aarch64-apple-darwin x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu x86_64-pc-windows-msvc; do
+            case "$target" in *windows*) ext=zip ;; *) ext=tar.gz ;; esac
+            for file in "auditmysite-${TAG}-${target}.${ext}" "auditmysite-${TAG}-${target}.${ext}.sha256"; do
+              echo "$ASSETS" | grep -qxF "$file" || { echo "Release $TAG lacks $file"; exit 1; }
+            done
+          done
+
+      # Trusted Publishing needs npm >= 11.5; the runner image ships an older one.
+      - name: Update npm
+        run: npm install -g npm@latest
+
+      - name: Unit tests
+        working-directory: packages/npm
+        run: node --test
+
+      - name: Tarball contents
+        working-directory: packages/npm
+        run: npm pack --dry-run
+
+      # Pre-releases (1.2.3-rc.1) must not take the `latest` dist-tag.
+      - name: Publish
+        working-directory: packages/npm
+        run: |
+          DIST_TAG=latest
+          case "$TAG" in *-*) DIST_TAG=next ;; esac
+          if [ "$DRY_RUN" = "true" ]; then
+            npm publish --dry-run --provenance --access public --tag "$DIST_TAG"
+          else
+            npm publish --provenance --access public --tag "$DIST_TAG"
+          fi

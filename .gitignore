@@ -79,3 +79,9 @@ todo.md
 /package-lock.json
 scripts/node_modules/
 !scripts/package.json
+
+# npm wrapper (packages/npm)
+!packages/npm/package.json
+packages/npm/node_modules/
+packages/npm/vendor/
+packages/npm/*.tgz
