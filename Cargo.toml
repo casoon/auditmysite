@@ -133,7 +133,7 @@ insta = { version = "1", features = ["json"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 # Generates the fixture CA and certificates per test run, so no private key
 # is committed (#783).
-rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
+rcgen = { version = "0.14", default-features = false, features = ["ring", "pem"] }
 
 [profile.release]
 opt-level = 3

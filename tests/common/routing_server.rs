@@ -127,8 +127,8 @@ fn tls() -> &'static TlsMaterial {
     static MATERIAL: std::sync::OnceLock<TlsMaterial> = std::sync::OnceLock::new();
     MATERIAL.get_or_init(|| {
         use rcgen::{
-            BasicConstraints, CertificateParams, DnType, ExtendedKeyUsagePurpose, IsCa, KeyPair,
-            SanType,
+            BasicConstraints, CertificateParams, DnType, ExtendedKeyUsagePurpose, IsCa, Issuer,
+            KeyPair, SanType,
         };
         let ca_key = KeyPair::generate().expect("CA key");
         let mut ca_params = CertificateParams::new(Vec::<String>::new()).expect("CA params");
@@ -137,6 +137,7 @@ fn tls() -> &'static TlsMaterial {
             .distinguished_name
             .push(DnType::CommonName, "auditmysite corpus CA");
         let ca = ca_params.self_signed(&ca_key).expect("CA certificate");
+        let issuer = Issuer::new(ca_params, ca_key);
 
         let leaf_key = KeyPair::generate().expect("leaf key");
         let mut leaf_params =
@@ -147,7 +148,7 @@ fn tls() -> &'static TlsMaterial {
         leaf_params.extended_key_usages = vec![ExtendedKeyUsagePurpose::ServerAuth];
         let leaf = leaf_params
             .clone()
-            .signed_by(&leaf_key, &ca, &ca_key)
+            .signed_by(&leaf_key, &issuer)
             .expect("leaf certificate");
         let untrusted = leaf_params
             .self_signed(&leaf_key)
