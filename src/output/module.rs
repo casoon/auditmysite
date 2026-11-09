@@ -12,20 +12,17 @@
 
 use serde_json::Value;
 
-use crate::ai_transparency::AiTransparencyAnalysis;
 use crate::ai_visibility::AiVisibilityAnalysis;
 use crate::audit::{AuditReport, PerformanceResults};
 use crate::best_practices::BestPracticesAnalysis;
 use crate::commerce::CommerceAnalysis;
 use crate::content_visibility::ContentVisibilityAnalysis;
 use crate::dark_mode::DarkModeAnalysis;
-use crate::design_quality::DesignQualityAnalysis;
 use crate::html_conform::HtmlConformAnalysis;
 #[cfg(feature = "pdf")]
 use crate::i18n::I18n;
 use crate::journey::JourneyAnalysis;
 use crate::mobile::MobileFriendliness;
-use crate::network::dns::NetworkDnsAnalysis;
 use crate::patterns::PatternAnalysis;
 use crate::privacy::PrivacyAnalysis;
 use crate::security::SecurityAnalysis;
@@ -162,45 +159,6 @@ impl ReportModule for JourneyAnalysis {
 impl ReportModule for DarkModeAnalysis {
     fn module_key(&self) -> &'static str {
         "dark_mode"
-    }
-    fn to_json(&self) -> Value {
-        serde_json::to_value(self).unwrap_or(Value::Null)
-    }
-    #[cfg(feature = "pdf")]
-    fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
-        pdf_marker(self.module_key(), i18n)
-    }
-}
-
-impl ReportModule for DesignQualityAnalysis {
-    fn module_key(&self) -> &'static str {
-        "design_quality"
-    }
-    fn to_json(&self) -> Value {
-        serde_json::to_value(self).unwrap_or(Value::Null)
-    }
-    #[cfg(feature = "pdf")]
-    fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
-        pdf_marker(self.module_key(), i18n)
-    }
-}
-
-impl ReportModule for AiTransparencyAnalysis {
-    fn module_key(&self) -> &'static str {
-        "ai_transparency"
-    }
-    fn to_json(&self) -> Value {
-        serde_json::to_value(self).unwrap_or(Value::Null)
-    }
-    #[cfg(feature = "pdf")]
-    fn render_pdf(&self, i18n: &I18n) -> PdfComponents {
-        pdf_marker(self.module_key(), i18n)
-    }
-}
-
-impl ReportModule for NetworkDnsAnalysis {
-    fn module_key(&self) -> &'static str {
-        "network_dns"
     }
     fn to_json(&self) -> Value {
         serde_json::to_value(self).unwrap_or(Value::Null)
@@ -350,15 +308,6 @@ pub fn active_modules(report: &AuditReport) -> Vec<(&'static str, Value)> {
     if let Some(ref m) = report.experience.dark_mode {
         push(m);
     }
-    if let Some(ref m) = report.experience.design_quality {
-        push(m);
-    }
-    if let Some(ref m) = report.experience.ai_transparency {
-        push(m);
-    }
-    if let Some(ref m) = report.experience.network_dns {
-        push(m);
-    }
     if let Some(ref m) = report.experience.privacy {
         push(m);
     }
@@ -409,9 +358,6 @@ pub fn active_report_modules(report: &AuditReport) -> Vec<&dyn ReportModule> {
     push_module!(report.ux);
     push_module!(report.journey);
     push_module!(report.experience.dark_mode);
-    push_module!(report.experience.design_quality);
-    push_module!(report.experience.ai_transparency);
-    push_module!(report.experience.network_dns);
     push_module!(report.experience.privacy);
     push_module!(report.discoverability.source_quality);
     push_module!(report.discoverability.ai_visibility);

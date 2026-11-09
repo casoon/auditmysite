@@ -166,9 +166,6 @@ pub struct AuditContext<'a> {
     pub raw_ux: Option<&'a crate::ux::UxAnalysis>,
     pub raw_journey: Option<&'a crate::journey::JourneyAnalysis>,
     pub raw_dark_mode: Option<&'a DarkModeAnalysis>,
-    pub raw_design_quality: Option<&'a crate::design_quality::DesignQualityAnalysis>,
-    pub raw_ai_transparency: Option<&'a crate::ai_transparency::AiTransparencyAnalysis>,
-    pub raw_network_dns: Option<&'a crate::network::dns::NetworkDnsAnalysis>,
     pub raw_privacy: Option<&'a crate::privacy::PrivacyAnalysis>,
     pub raw_source_quality: Option<&'a crate::source_quality::SourceQualityAnalysis>,
     pub raw_ai_visibility: Option<&'a crate::ai_visibility::AiVisibilityAnalysis>,
@@ -562,7 +559,7 @@ pub struct ModuleScoreEntry {
     pub derived_from: Vec<String>,
     /// Whether this module uses direct measurement or heuristic inference.
     /// One of `"measured"`, `"composite"`, `"heuristic"`, `"optional"`,
-    /// `"not_measured"`, `"c2pa_manifest"`, `"dns_query"`. See
+    /// `"not_measured"`. See
     /// `output::report_model::ModuleTaxonomyClass` for the coarse
     /// classification derived from this value (#577).
     pub measurement_type: String,
@@ -1732,9 +1729,6 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         raw_ux: report.ux.as_ref(),
         raw_journey: report.journey.as_ref(),
         raw_dark_mode: report.experience.dark_mode.as_ref(),
-        raw_design_quality: report.experience.design_quality.as_ref(),
-        raw_ai_transparency: report.experience.ai_transparency.as_ref(),
-        raw_network_dns: report.experience.network_dns.as_ref(),
         raw_privacy: report.experience.privacy.as_ref(),
         raw_source_quality: report.discoverability.source_quality.as_ref(),
         raw_ai_visibility: report.discoverability.ai_visibility.as_ref(),
@@ -3188,9 +3182,6 @@ mod tests {
                     }),
                     Some("Best Practices"),
                 ),
-                // Modules with scoring collectors and no module score of
-                // their own: the gap may not add one.
-                "design_quality" => (base(), None),
                 other => panic!(
                     "scoring collector of module {other}: add its score assertion to this test"
                 ),

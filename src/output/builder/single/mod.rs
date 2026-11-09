@@ -993,59 +993,19 @@ mod tests {
             vulnerable_libraries: crate::best_practices::VulnerableLibrariesAnalysis {
                 detected: vec![],
                 vulnerable: vec![],
-                has_vulnerabilities: false,                duplicate_libraries: vec![],
+                has_vulnerabilities: false,
+                duplicate_libraries: vec![],
                 checked: true,
             },
             score: 100,
         })
-        .with_tech_stack(crate::tech_stack::TechStackAnalysis {
-            detected: vec![],
-        })
+        .with_tech_stack(crate::tech_stack::TechStackAnalysis { detected: vec![] })
         .with_patterns(crate::patterns::PatternAnalysis {
             recognized: vec![],
             violations: vec![],
             journey_candidates: vec![],
             help_mechanisms: vec![],
-        })
-        .with_design_quality(crate::design_quality::DesignQualityAnalysis {
-            findings: vec![crate::design_quality::DesignQualityFinding {
-                rule_id: "design.line_length".to_string(),
-                level: crate::design_quality::FindingLevel::Advisory,
-                confidence: crate::design_quality::Confidence::Medium,
-                measurement_type: "heuristic".to_string(),
-                selector: "p.body-text".to_string(),
-                evidence: "~110 characters per line across 3 lines.".to_string(),
-                message: "This body text wraps at a line length that may reduce readability."
-                    .to_string(),
-            }],
-            rules_run: vec!["design.line_length".to_string()],
-        })
-        .with_ai_transparency(crate::ai_transparency::AiTransparencyAnalysis {
-            findings: vec![crate::ai_transparency::ImageProvenanceFinding {
-                rule_id: "ai_transparency.c2pa_provenance".to_string(),
-                image_url: "https://example.com/hero.jpg".to_string(),
-                provenance: crate::ai_transparency::AiProvenanceKind::TrainedAlgorithmicMedia,
-                validation: crate::ai_transparency::ManifestValidation::Valid,
-                generator: Some("Test Generative Tool 1.0".to_string()),
-                measurement_type: "c2pa_manifest".to_string(),
-                evidence: "C2PA manifest asserts digitalSourceType 'trained_algorithmic_media' (generator: Test Generative Tool 1.0), manifest validation: valid.".to_string(),
-                message: crate::ai_transparency::finding_message_text(
-                    "ai_transparency.c2pa_provenance",
-                    true,
-                ),
-            }],
-            images_checked: 3,
-            coverage: Default::default(),
-        })
-        .with_network_dns(crate::network::dns::build_analysis(
-            "example.com",
-            &crate::network::dns::DnsCheckResult {
-                caa: crate::network::dns::DnsAnswer::Absent,
-                dnssec: crate::network::dns::DnsAnswer::Present,
-                mx: crate::network::dns::DnsAnswer::Present,
-                spf: crate::network::dns::DnsAnswer::Absent,
-            },
-        ));
+        });
         let sq = crate::source_quality::analyze_source_quality(&report);
         let av = crate::ai_visibility::analyze_ai_visibility(&report);
         report.experience.privacy = Some(crate::privacy::fixtures::tracked());

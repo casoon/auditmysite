@@ -1617,8 +1617,7 @@
           "enum": [
             "java_script",
             "cdp",
-            "http",
-            "dns"
+            "http"
           ]
         },
         "method_version": {

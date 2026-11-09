@@ -33,17 +33,14 @@ impl AuditCatalog {
     /// the four post-processing modules registered in A4 (Journey via
     /// `collect`, source/AI/content visibility via `derive`).
     pub fn standard() -> Self {
-        use crate::ai_transparency::AiTransparencyModule;
         use crate::ai_visibility::AiVisibilityModule;
         use crate::best_practices::BestPracticesModule;
         use crate::commerce::CommerceModule;
         use crate::content_visibility::ContentVisibilityModule;
         use crate::dark_mode::DarkModeModule;
-        use crate::design_quality::DesignQualityModule;
         use crate::html_conform::HtmlConformModule;
         use crate::journey::JourneyModule;
         use crate::mobile::MobileModule;
-        use crate::network::NetworkDnsModule;
         use crate::performance::PerformanceModule;
         use crate::privacy::PrivacyModule;
         use crate::security::SecurityModule;
@@ -58,10 +55,7 @@ impl AuditCatalog {
             .with_module(Box::new(SecurityModule))
             .with_module(Box::new(MobileModule))
             .with_module(Box::new(DarkModeModule))
-            .with_module(Box::new(DesignQualityModule))
             .with_module(Box::new(HtmlConformModule))
-            .with_module(Box::new(AiTransparencyModule))
-            .with_module(Box::new(NetworkDnsModule))
             .with_module(Box::new(PrivacyModule))
             .with_module(Box::new(TechStackModule))
             .with_module(Box::new(UxModule))
@@ -397,10 +391,7 @@ mod tests {
             "security",
             "mobile",
             "dark_mode",
-            "design_quality",
             "html_conform",
-            "ai_transparency",
-            "network_dns",
             "privacy",
             "tech_stack",
             "ux",

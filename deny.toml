@@ -3,11 +3,6 @@
 # Advisories stay with `cargo audit` (.cargo/audit.toml), so they are not
 # checked twice.
 
-[graph]
-# The optional `ai-transparency` feature (c2pa) adds the heaviest part of the
-# tree; check it too.
-all-features = true
-
 [licenses]
 # Derived from the real tree (`cargo deny list`), restricted to licences that
 # some crate needs on its own or as the permissive branch of an OR expression.
@@ -35,8 +30,8 @@ allow = [
 confidence-threshold = 0.9
 
 [bans]
-# Duplicate versions come from the typst and c2pa trees and are not fixable
-# here; reported, not enforced.
+# Duplicate versions come from the typst tree and are not fixable here;
+# reported, not enforced.
 multiple-versions = "warn"
 wildcards = "deny"
 allow-wildcard-paths = true

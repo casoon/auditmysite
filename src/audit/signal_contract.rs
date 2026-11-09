@@ -188,25 +188,6 @@ pub const SIGNAL_CONTRACTS: &[SignalContract] = &[
         ],
         validation: ValidationStatus::Unvalidated,
     },
-    SignalContract {
-        id: "design_quality",
-        version: 1,
-        target_statement: "Whether individual elements show measurable readability or layout \
-            patterns that design guidelines warn against.",
-        method: "Per-element measurements in the rendered page (computed styles and geometry) \
-            compared with fixed thresholds; each hit is a review finding.",
-        applicability: "Rendered pages; elements outside the measured viewport are not covered.",
-        evidence: "Computed styles and bounding boxes of the reported elements, each with a \
-            selector.",
-        uncertainty: "Thresholds come from guidelines, not from tests with readers; a hit can be \
-            an intended design decision.",
-        permitted_interpretation: "Element-level review candidates, never confirmed defects.",
-        not_established: &[
-            "aesthetic quality or brand fit",
-            "reader preference or comprehension",
-        ],
-        validation: ValidationStatus::Unvalidated,
-    },
 ];
 
 /// The contract of a heuristic module, if it has one.

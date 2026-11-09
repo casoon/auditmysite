@@ -2,7 +2,7 @@
 //! actually measured.
 //!
 //! Raw data enters the audit from outside the process — JavaScript
-//! evaluation, CDP commands, HTTP requests, DNS lookups. A failure at that
+//! evaluation, CDP commands, HTTP requests. A failure at that
 //! boundary must never turn into a regular domain value: no "missing header"
 //! from a request that never completed, no 100 points from a collector that
 //! returned nothing. [`Collected`] carries the state through the analysis
@@ -32,8 +32,6 @@ pub enum CollectionMethod {
     Cdp,
     /// An HTTP request outside the browser.
     Http,
-    /// A DNS lookup.
-    Dns,
 }
 
 /// Outcome of one collection, as published in the report.
@@ -209,7 +207,6 @@ pub mod reason {
     pub const EVALUATION_FAILED: &str = "evaluation_failed";
     pub const CDP_COMMAND_FAILED: &str = "cdp_command_failed";
     pub const HTTP_REQUEST_FAILED: &str = "http_request_failed";
-    pub const DNS_LOOKUP_FAILED: &str = "dns_lookup_failed";
     /// The other host variant (www / apex) did not answer: the page itself
     /// was measured, the side check has nothing to compare.
     pub const ALTERNATE_HOST_UNREACHABLE: &str = "alternate_host_unreachable";
@@ -445,7 +442,6 @@ pub static COLLECTORS: &[&CollectorSpec] = &[
     &crate::tech_stack::DETECTION,
     &crate::best_practices::console_errors::CONSOLE,
     &crate::best_practices::vulnerable_libs::LIBRARIES,
-    &crate::design_quality::CANDIDATES,
     &crate::performance::vitals::OBSERVERS,
     &crate::performance::vitals::CDP_METRICS,
     &crate::performance::vitals::NAVIGATION_TIMING,
@@ -462,16 +458,10 @@ pub static COLLECTORS: &[&CollectorSpec] = &[
     &crate::performance::coverage::JS_COVERAGE,
     &crate::performance::coverage::CSS_COVERAGE,
     &crate::performance::third_party::ISOLATION,
-    &crate::ai_transparency::IMAGE_URLS,
-    &crate::ai_transparency::IMAGE_FETCHES,
     &crate::security::HEADERS,
     &crate::security::SOURCE_MAPS,
     &crate::security::CERTIFICATE,
     &crate::security::DOCUMENT_MATCH,
-    &crate::network::dns::module::CAA,
-    &crate::network::dns::module::DNSKEY,
-    &crate::network::dns::module::MX,
-    &crate::network::dns::module::SPF,
     &crate::dark_mode::STATIC_SUPPORT,
     &crate::dark_mode::PRINT_STYLESHEET,
     &crate::dark_mode::PRINT_LAYOUT,
@@ -697,10 +687,6 @@ mod tests {
                 crate::best_practices::vulnerable_libs::counter_cases,
             ),
             (
-                "design_quality.candidates",
-                crate::design_quality::counter_cases,
-            ),
-            (
                 "performance.observers",
                 crate::performance::vitals::counter_cases,
             ),
@@ -753,14 +739,6 @@ mod tests {
                 crate::performance::third_party::counter_cases,
             ),
             (
-                "ai_transparency.image_urls",
-                crate::ai_transparency::counter_cases,
-            ),
-            (
-                "ai_transparency.image_fetches",
-                crate::ai_transparency::counter_cases,
-            ),
-            (
                 "privacy.first_visit",
                 crate::privacy::first_visit::tests::counter_cases,
             ),
@@ -768,10 +746,6 @@ mod tests {
             ("security.source_maps", crate::security::counter_cases),
             ("security.certificate", crate::security::counter_cases),
             ("security.document_match", crate::security::counter_cases),
-            ("network_dns.caa", crate::network::dns::counter_cases),
-            ("network_dns.dnskey", crate::network::dns::counter_cases),
-            ("network_dns.mx", crate::network::dns::counter_cases),
-            ("network_dns.spf", crate::network::dns::counter_cases),
             ("dark_mode.static_support", crate::dark_mode::counter_cases),
             (
                 "dark_mode.print_stylesheet",

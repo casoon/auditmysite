@@ -82,7 +82,7 @@ pub(super) fn build_batch_detail(normalized: &NormalizedReport) -> PageDetail {
     PageDetail {
         fix_guidance: build_fix_guidance(normalized),
         en301549_annex: build_en301549_annex(normalized),
-        bik_guide: build_bik_guide_annex(normalized, &[], &[], false),
+        bik_guide: build_bik_guide_annex(normalized, &[], false),
         // Batch detail stays compact (CLAUDE.md "Report Intent").
         accessibility_subcategory_scores: Vec::new(),
         security_category_scores: Vec::new(),
@@ -107,7 +107,7 @@ pub(super) fn build_detail_cached(
     PageDetail {
         fix_guidance: build_fix_guidance(normalized),
         en301549_annex: build_en301549_annex(normalized),
-        bik_guide: build_bik_guide_annex(normalized, &[], &[], false),
+        bik_guide: build_bik_guide_annex(normalized, &[], false),
         accessibility_subcategory_scores: normalized.accessibility_subcategory_scores.clone(),
         security_category_scores: normalized.security_category_scores.clone(),
         module_detail: ModuleDetailState::NotRestored,
@@ -289,16 +289,6 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
         dark_mode: ctx
             .raw_dark_mode
             .map(|m| with_measurement_type(inject_band(m.to_json(), m.score), "optional")),
-        design_quality: ctx
-            .raw_design_quality
-            .map(|m| with_measurement_type(m.to_json(), "heuristic"))
-            .map(|v| with_signal_contract(v, "design_quality")),
-        ai_transparency: ctx
-            .raw_ai_transparency
-            .map(|m| with_measurement_type(m.to_json(), "c2pa_manifest")),
-        network_dns: ctx
-            .raw_network_dns
-            .map(|m| with_measurement_type(m.to_json(), "dns_query")),
         privacy: ctx.raw_privacy.map(|m| {
             with_measurement_type(
                 serde_json::to_value(m).unwrap_or(serde_json::Value::Null),
@@ -344,10 +334,6 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
         commerce: ctx.raw_commerce.map(|m| m.to_json()),
     };
 
-    let design_quality_findings: &[crate::design_quality::DesignQualityFinding] = ctx
-        .raw_design_quality
-        .map(|m| m.findings.as_slice())
-        .unwrap_or(&[]);
     let seo_technical_issues: Vec<crate::seo::technical::TechnicalIssue> = ctx
         .raw_seo
         .map(|m| crate::seo::collect_technical_issues(&m.technical, true))
@@ -359,12 +345,7 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
     PageDetail {
         fix_guidance: build_fix_guidance(normalized),
         en301549_annex: build_en301549_annex(normalized),
-        bik_guide: build_bik_guide_annex(
-            normalized,
-            design_quality_findings,
-            &seo_technical_issues,
-            easy_language_detected,
-        ),
+        bik_guide: build_bik_guide_annex(normalized, &seo_technical_issues, easy_language_detected),
         accessibility_subcategory_scores: normalized.accessibility_subcategory_scores.clone(),
         security_category_scores: normalized.security_category_scores.clone(),
         module_detail: ModuleDetailState::Full,

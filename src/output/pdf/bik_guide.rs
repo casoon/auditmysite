@@ -13,7 +13,6 @@ use renderreport::components::text::Label;
 use renderreport::components::{AuditTable, TableColumn, TagCloud};
 
 use crate::audit::normalized::{AccessibilityAssessment, InteractiveFinding, NormalizedFinding};
-use crate::design_quality::DesignQualityFinding;
 use crate::i18n::I18n;
 use crate::screen_reader::SrAuditIssue;
 use crate::seo::technical::TechnicalIssue;
@@ -31,7 +30,6 @@ pub(super) fn render_bik_guide_annex(
     findings: &[NormalizedFinding],
     interactive_findings: &[InteractiveFinding],
     screen_reader_issues: &[SrAuditIssue],
-    design_quality_findings: &[DesignQualityFinding],
     seo_technical_issues: &[TechnicalIssue],
     easy_language_detected: bool,
     accessibility_assessments: &[AccessibilityAssessment],
@@ -60,7 +58,6 @@ pub(super) fn render_bik_guide_annex(
         findings,
         interactive_findings,
         screen_reader_issues,
-        design_quality_findings,
         seo_technical_issues,
         easy_language_detected,
         accessibility_assessments,

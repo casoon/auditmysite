@@ -30,4 +30,3 @@ cargo build --release
 |---------|-------------|---------------|
 | `pdf` | PDF report generation via the `renderreport`/Typst engine | `cargo build --release --features pdf` |
 | `pdf_test` | PDF rendering integration tests | `cargo test --features pdf_test` |
-| `ai-transparency` | C2PA image-provenance check (EU AI Act Art. 50, opt-in `--ai-transparency` flag, single-URL mode only) | `cargo build --release --features ai-transparency` |

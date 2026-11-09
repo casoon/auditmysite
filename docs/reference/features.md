@@ -62,7 +62,6 @@ Measured:
 - Security: HTTPS, header checks, and CDN/WAF protection detection. Headers are grouped by risk tier: CSP, HSTS, and clickjacking protection are baseline requirements, while context-dependent headers such as COOP/CORP get a verification question and safe-configuration guidance instead of an unconditional "add this header"
 - Mobile: viewport, touch-target, readability checks, UX heuristics (cookie-banner, modal/overlay, CTA detection)
 - HTML5 conformance: spec-conformance checking via the `html-conform` crate, part of `--full`; scored per distinct defect cause rather than per raw occurrence, so one templated markup mistake rendered many times doesn't get charged once per render
-- DNS configuration (opt-in `--dns-check`): CAA, best-effort DNSSEC, and SPF when an MX record exists; score-neutral
 - Privacy indicators (opt-in `--privacy-check`, not part of `--full`): one extra clean-context page load per audited page, classified into technical first-visit findings; score-neutral, no legal verdict, see [privacy findings](../privacy-findings.md)
 
 Heuristic (indicator scores — tendency, not measurements). In 2.0 none of these signals is validated against an independent, human-labelled reference set (`signal_contract.validation.status = "unvalidated"` in the JSON, procedure in `docs/calibration.md`); their scores order pages by the stated method and are not evidence of visibility, AI citation, user quality or source truth:
@@ -195,8 +194,7 @@ for a disproportionate amount of new surface area:
   accessibility tree; it does not parse or score linked/embedded PDF documents (tagged-PDF
   structure, `/Lang`, alt text on figures, table header scope, etc.). Doing this properly would
   need a new PDF-parsing dependency and a second, PDF-specific SSRF-hardened fetch path
-  (comparable in scope to the existing `ai_transparency` module) for a feature that only applies
-  when a page happens to link PDFs. Out of scope for now; revisit only as a dedicated,
+  for a feature that only applies when a page happens to link PDFs. Out of scope for now; revisit only as a dedicated,
   separately-scoped module if real demand shows up.
 - **Full audit-history / report-diffing as a first-class feature.** Findings carry stable ids
   (`findings[].id`, `findings[].patterns[].id`) that stay the same across runs while rule and

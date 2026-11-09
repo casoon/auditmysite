@@ -445,7 +445,7 @@ pub struct En301549BatchClauseRollup {
 /// single-report `detail` (same "always present, cheap, additive" rule as
 /// `en301549_annex`). The PDF section built from the same data IS flag-gated
 /// (see `--annex bik`). Single-report only for now — see the module doc for
-/// why a batch-wide roll-up is not built (`design_quality`/SEO-technical/
+/// why a batch-wide roll-up is not built (SEO-technical/
 /// easy-language sources are not retained past a cached or batch run, so a
 /// batch roll-up for those chapters would silently under-report).
 #[derive(Debug, Serialize)]
@@ -726,12 +726,6 @@ pub struct ModuleBlob {
     pub journey: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dark_mode: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub design_quality: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ai_transparency: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub network_dns: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub privacy: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]

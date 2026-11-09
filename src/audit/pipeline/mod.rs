@@ -53,7 +53,6 @@ use crate::browser::{
 };
 use crate::cli::{Args, WcagLevel};
 use crate::dark_mode::DarkModeAnalysis;
-use crate::design_quality::DesignQualityAnalysis;
 use crate::error::Result;
 use crate::interaction::stability::{settle, wait_for_finite_animations, wait_for_page_stability};
 use crate::journey::JourneyAnalysis;
@@ -240,10 +239,7 @@ pub struct SnapshotData {
     ux: Option<UxAnalysis>,
     journey: Option<JourneyAnalysis>,
     dark_mode: Option<DarkModeAnalysis>,
-    design_quality: Option<DesignQualityAnalysis>,
     html_conform: Option<crate::html_conform::HtmlConformAnalysis>,
-    ai_transparency: Option<crate::ai_transparency::AiTransparencyAnalysis>,
-    network_dns: Option<crate::network::dns::NetworkDnsAnalysis>,
     tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
     best_practices: Option<BestPracticesAnalysis>,
     module_runs: Vec<crate::audit::ModuleRun>,
@@ -296,10 +292,7 @@ impl SnapshotData {
             ModuleData::Ux(u) => self.ux = Some(*u),
             ModuleData::Journey(j) => self.journey = Some(*j),
             ModuleData::DarkMode(d) => self.dark_mode = Some(*d),
-            ModuleData::DesignQuality(d) => self.design_quality = Some(*d),
             ModuleData::HtmlConform(h) => self.html_conform = Some(*h),
-            ModuleData::AiTransparency(a) => self.ai_transparency = Some(*a),
-            ModuleData::NetworkDns(d) => self.network_dns = Some(*d),
             ModuleData::TechStack(t) => self.tech_stack = Some(*t),
             ModuleData::BestPractices(b) => self.best_practices = Some(*b),
             ModuleData::SourceQuality(_)
@@ -356,22 +349,9 @@ pub struct PipelineConfig {
     pub check_mobile: bool,
     /// Run dark-mode analysis
     pub check_dark_mode: bool,
-    /// Run the opt-in design-quality module (#528). Not part of `--full` yet.
-    pub check_design_quality: bool,
     /// Run HTML5 spec-conformance checking (html-conform crate). Part of
     /// `--full`, no dedicated CLI flag.
     pub check_html_conform: bool,
-    /// Run the opt-in C2PA image-provenance check (EU AI Act Art. 50
-    /// transparency duties). Not part of `--full`; single-URL mode only (see
-    /// `from_args_and_config`) and requires the `ai-transparency` Cargo
-    /// feature to do anything (see `src/cli/runners.rs`'s early feature
-    /// check).
-    pub check_ai_transparency: bool,
-    /// Run the opt-in DNS-configuration check (CAA, DNSSEC, SPF/MX — #545).
-    /// Not part of `--full`. Host-scoped, not page-scoped: runs once per
-    /// unique host per process run regardless of how many pages are audited
-    /// (see `network::dns::module`'s per-host memoization).
-    pub check_dns: bool,
     /// Run the pre-consent privacy check (#871): one extra visit in a clean
     /// browser context, classified into technical findings. Opt-in via
     /// `--privacy-check`, not part of `--full`. Runs once per URL
@@ -496,13 +476,15 @@ impl PipelineConfig {
         // 21 for the frame coverage in the execution record (#715).
         // 22 for the run context and the SEO indexability check (#780).
         // 28 for the privacy module field (#871).
-        const CACHE_FMT: u8 = 28;
+        // 29 for the removal of the design_quality, ai_transparency and
+        // network_dns module fields (#915).
+        const CACHE_FMT: u8 = 29;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};design_quality={};html_conform={};ai_transparency={};dns={};privacy={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};dark={};html_conform={};privacy={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
@@ -511,10 +493,7 @@ impl PipelineConfig {
             self.check_security as u8,
             self.check_mobile as u8,
             self.check_dark_mode as u8,
-            self.check_design_quality as u8,
             self.check_html_conform as u8,
-            self.check_ai_transparency as u8,
-            self.check_dns as u8,
             self.check_privacy as u8,
             self.check_isolate_third_party_impact as u8,
             self.perf_runs,
@@ -547,7 +526,7 @@ impl From<&Args> for PipelineConfig {
 impl PipelineConfig {
     /// Return a viewport-specific copy with the correct module on/off pattern.
     ///
-    /// Desktop: SEO, security, mobile, DNS, privacy and stack detection are off (run on mobile pass).
+    /// Desktop: SEO, security, mobile, privacy and stack detection are off (run on mobile pass).
     ///          Dark-mode analysis keeps the configured value.
     /// Mobile:  Security, dark-mode and privacy are off.  All other user flags are respected.
     ///          The privacy capture runs once per page in the extra checks.
@@ -557,10 +536,7 @@ impl PipelineConfig {
                 check_seo: false,
                 check_security: false,
                 check_mobile: false,
-                check_design_quality: false,
                 check_html_conform: false,
-                check_ai_transparency: false,
-                check_dns: false,
                 check_privacy: false,
                 perf_runs: 1,
                 check_stack: false,
@@ -612,15 +588,7 @@ impl PipelineConfig {
             check_security: full_audit || args.security,
             check_mobile: (full_audit || args.mobile) && !args.skip_mobile,
             check_dark_mode: true,
-            check_design_quality: args.design_quality,
             check_html_conform: full_audit || args.html_conform,
-            // Single-URL mode only (`args.url.is_some()`, same condition as
-            // `capture_element_evidence`) — a batch run would fetch+parse
-            // every image on every page only to have `build_batch_detail()`
-            // discard the whole module blob per page (#256's per-page
-            // detail is only ever `fix_guidance`/`en301549_annex`).
-            check_ai_transparency: args.ai_transparency && args.url.is_some(),
-            check_dns: args.dns_check,
             check_privacy: args.privacy_check,
             perf_runs: args.perf_runs,
             // Requires performance checking itself active — an isolation
@@ -1247,10 +1215,7 @@ pub async fn audit_page(
         ux: mobile_snap.ux.clone(),
         journey: mobile_snap.journey.clone(),
         dark_mode: desktop_snap.dark_mode.clone(), // taken from desktop pass
-        design_quality: mobile_snap.design_quality.clone(),
         html_conform: mobile_snap.html_conform.clone(),
-        ai_transparency: mobile_snap.ai_transparency.clone(),
-        network_dns: mobile_snap.network_dns.clone(),
         tech_stack: mobile_snap.tech_stack.clone(),
         best_practices: mobile_snap.best_practices.clone(),
         module_runs: desktop_snap
@@ -1788,10 +1753,7 @@ async fn extract_snapshot(
         ux: None,
         journey: None,
         dark_mode: None,
-        design_quality: None,
         html_conform: None,
-        ai_transparency: None,
-        network_dns: None,
         tech_stack: None,
         best_practices: None,
         module_runs: Vec::new(),
@@ -2392,9 +2354,6 @@ mod tests {
             security: false,
             mobile: false,
             skip_mobile: false,
-            design_quality: false,
-            ai_transparency: false,
-            dns_check: false,
             privacy_check: false,
             isolate_third_party_impact: false,
             perf_runs: 1,
@@ -2579,14 +2538,6 @@ mod tests {
             scope(&["auditmysite", "--url-file", "urls.txt", "--privacy-check"]),
             ["privacy.first_visit"]
         );
-        // The module-level checks owe their collections too (#778).
-        assert_eq!(
-            scope(&["auditmysite", "--url-file", "urls.txt", "--dns-check"]),
-            ["caa", "dnskey", "mx", "spf"]
-                .map(|id| format!("network_dns.{id}"))
-                .into_iter()
-                .collect::<Vec<_>>()
-        );
         // SEO off: the SSR check has no module to attach to and is not requested.
         // (`Args::validate` rejects this combination before it gets here; the
         // config stays defensive — see the support-matrix test below.)
@@ -2617,12 +2568,7 @@ mod tests {
             &["--full", "--skip-performance"],
             &["--performance", "--seo"],
         ];
-        let checks = [
-            "--isolate-third-party-impact",
-            "--check-ssr-content",
-            "--ai-transparency",
-            "--dns-check",
-        ];
+        let checks = ["--isolate-third-party-impact", "--check-ssr-content"];
         let (mut accepted, mut rejected) = (0, 0);
         for target in targets {
             for modules in module_sets {
@@ -2642,9 +2588,7 @@ mod tests {
                     let cfg = PipelineConfig::from_args_and_config(&args, None);
                     let carried = match check {
                         "--isolate-third-party-impact" => cfg.check_isolate_third_party_impact,
-                        "--check-ssr-content" => cfg.check_ssr_content,
-                        "--ai-transparency" => cfg.check_ai_transparency,
-                        _ => cfg.check_dns,
+                        _ => cfg.check_ssr_content,
                     };
                     assert!(carried, "{argv:?} was accepted but the check is off");
                 }
@@ -2679,16 +2623,6 @@ mod tests {
         ]);
         assert!(
             e.contains("--check-ssr-content") && e.contains("SEO"),
-            "{e}"
-        );
-        let e = reject(&[
-            "auditmysite",
-            "--url-file",
-            "Cargo.toml",
-            "--ai-transparency",
-        ]);
-        assert!(
-            e.contains("--ai-transparency") && e.contains("single-URL"),
             "{e}"
         );
     }
@@ -2858,10 +2792,7 @@ mod tests {
             check_security: false,
             check_mobile: true,
             check_dark_mode: true,
-            check_design_quality: false,
             check_html_conform: false,
-            check_ai_transparency: false,
-            check_dns: false,
             check_privacy: false,
             perf_runs: 1,
             check_isolate_third_party_impact: false,
@@ -3061,19 +2992,6 @@ journey_budget_ms = 1234
         let desktop = config.for_viewport(Viewport::Desktop);
 
         assert!(!desktop.check_dark_mode);
-    }
-
-    #[test]
-    fn for_viewport_desktop_disables_design_quality_like_mobile() {
-        let args = Args::parse_from(["auditmysite", "https://example.com", "--design-quality"]);
-        let config = PipelineConfig::from_args_and_config(&args, None);
-        assert!(config.check_design_quality);
-
-        let desktop = config.for_viewport(Viewport::Desktop);
-        let mobile = config.for_viewport(Viewport::Mobile);
-
-        assert!(!desktop.check_design_quality);
-        assert!(mobile.check_design_quality);
     }
 
     #[test]
@@ -3686,10 +3604,7 @@ journey_budget_ms = 1234
             ux: None,
             journey: None,
             dark_mode: None,
-            design_quality: None,
             html_conform: None,
-            ai_transparency: None,
-            network_dns: None,
             tech_stack: None,
             best_practices: None,
             module_runs: Vec::new(),

@@ -27,12 +27,10 @@ use auditmysite::AXTree;
 // ─── Shared Fixtures ────────────────────────────────────────────────────────
 
 /// Recursively sorts object keys so these snapshot assertions are stable
-/// regardless of `serde_json`'s `preserve_order` feature — which the optional
-/// `ai-transparency` feature's `c2pa` dependency unconditionally enables
-/// (hardcoded in its own `Cargo.toml`, not one of its own optional features),
-/// changing `serde_json::Value::Object`'s backing map from a sorted
-/// `BTreeMap` to an insertion-order `IndexMap` for the *whole* binary via
-/// Cargo feature unification — not just the module that needs it.
+/// regardless of `serde_json`'s `preserve_order` feature, which any
+/// dependency can enable for the whole binary via Cargo feature unification
+/// (it switches `serde_json::Value::Object`'s backing map from a sorted
+/// `BTreeMap` to an insertion-order `IndexMap`).
 fn sort_json_keys(value: serde_json::Value) -> serde_json::Value {
     match value {
         serde_json::Value::Object(map) => {

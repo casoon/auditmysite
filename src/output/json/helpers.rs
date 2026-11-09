@@ -159,13 +159,11 @@ fn bik_chapter_id_str(id: crate::wcag::bik_guide::BikChapterId) -> &'static str 
 
 /// Build the per-page "BIK für Alle" guide mapping — always present, single
 /// AND batch (same rule as `fix_guidance`/`en301549_annex`). Pure projection;
-/// nothing stored in `NormalizedReport`. `design_quality_findings`/
-/// `seo_technical_issues`/`easy_language_detected` are only available from a
+/// nothing stored in `NormalizedReport`. `seo_technical_issues`/`easy_language_detected` are only available from a
 /// live single-report audit's raw module data — callers without it (cached,
 /// batch) pass empty slices / `false`, see `wcag::bik_guide` module doc.
 pub(super) fn build_bik_guide_annex(
     normalized: &NormalizedReport,
-    design_quality_findings: &[crate::design_quality::DesignQualityFinding],
     seo_technical_issues: &[crate::seo::technical::TechnicalIssue],
     easy_language_detected: bool,
 ) -> crate::output::json::BikGuideAnnex {
@@ -181,7 +179,6 @@ pub(super) fn build_bik_guide_annex(
         &normalized.findings,
         &normalized.interactive_findings,
         screen_reader_issues,
-        design_quality_findings,
         seo_technical_issues,
         easy_language_detected,
         &normalized.accessibility_assessments,

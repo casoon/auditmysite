@@ -557,21 +557,6 @@ pub struct ExperienceSection {
     /// Dark mode support and quality analysis (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dark_mode: Option<DarkModeAnalysis>,
-    /// Opt-in design-quality heuristics (#528, optional). Never affects
-    /// accessibility/overall score, grade, or certificate.
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub design_quality: Option<crate::design_quality::DesignQualityAnalysis>,
-    /// Opt-in C2PA image-provenance check (EU AI Act Art. 50, optional,
-    /// single-URL mode only). Never affects accessibility/overall score,
-    /// grade, or certificate.
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub ai_transparency: Option<crate::ai_transparency::AiTransparencyAnalysis>,
-    /// Opt-in DNS-configuration check (CAA, DNSSEC, SPF/MX — #545, optional).
-    /// Host-scoped rather than page-scoped (see `network::dns::module`), but
-    /// still attached per-page here like the other opt-in modules. Never
-    /// affects accessibility/overall score, grade, or certificate.
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub network_dns: Option<crate::network::dns::NetworkDnsAnalysis>,
     /// Pre-consent privacy findings of a first visit (#871, optional). Phase
     /// A only, technical observations with a confidence class; never affects
     /// accessibility/overall score, grade, or certificate.
@@ -899,33 +884,6 @@ impl AuditReport {
     /// Set dark mode analysis results
     pub fn with_dark_mode(mut self, dark_mode: DarkModeAnalysis) -> Self {
         self.experience.dark_mode = Some(dark_mode);
-        self
-    }
-
-    /// Set design-quality analysis results (#528)
-    pub fn with_design_quality(
-        mut self,
-        design_quality: crate::design_quality::DesignQualityAnalysis,
-    ) -> Self {
-        self.experience.design_quality = Some(design_quality);
-        self
-    }
-
-    /// Set ai-transparency analysis results (EU AI Act Art. 50)
-    pub fn with_ai_transparency(
-        mut self,
-        ai_transparency: crate::ai_transparency::AiTransparencyAnalysis,
-    ) -> Self {
-        self.experience.ai_transparency = Some(ai_transparency);
-        self
-    }
-
-    /// Set DNS-configuration check results (#545)
-    pub fn with_network_dns(
-        mut self,
-        network_dns: crate::network::dns::NetworkDnsAnalysis,
-    ) -> Self {
-        self.experience.network_dns = Some(network_dns);
         self
     }
 

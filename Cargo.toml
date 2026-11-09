@@ -27,11 +27,6 @@ exclude = [
     "/rust-toolchain.toml",
 ]
 
-[package.metadata.docs.rs]
-# docs.rs otherwise builds with `default` only, leaving optional modules
-# (c2pa, ...) undocumented (#588 follow-up).
-all-features = true
-
 [dependencies]
 # Browser automation via Chrome DevTools Protocol
 chromiumoxide = { version = "0.8", default-features = false, features = ["tokio-runtime"] }
@@ -98,17 +93,6 @@ renderreport = { version = "0.7.1", optional = true }
 # transitively via renderreport's own image handling.
 image = { version = "0.25", default-features = false, features = ["png"], optional = true }
 
-# C2PA (Content Credentials) manifest reading for the ai-transparency module.
-# default-features = false drops the crate's default `openssl` (native OpenSSL,
-# avoided in favor of the pure-Rust crypto backend) and `default_http` (pulls in
-# reqwest/ureq/wasi/wstd HTTP clients for online OCSP/trust-list/remote-manifest
-# fetching) — this module only reads manifests already embedded in fetched image
-# bytes and must stay fully offline, never phoning out on its own.
-c2pa = { version = "0.91.4", optional = true, default-features = false, features = ["rust_native_crypto"] }
-
-# DNS record queries (CAA/DNSKEY/MX/TXT) for the opt-in network::dns module (#545).
-hickory-resolver = "0.26.1"
-
 # Content hashing for duplicate-asset detection (#551, performance::coverage).
 sha2 = "0.11"
 a11y-perception = "0.2.1"
@@ -152,8 +136,3 @@ pdf = ["dep:renderreport", "dep:image"]
 # Enables the heavy PDF smoke tests (Typst rendering). Run separately:
 #   cargo test --features pdf_test -- --test-threads=1
 pdf_test = ["pdf"]
-# Opt-in C2PA image-provenance check (EU AI Act Art. 50 transparency duties).
-# Not in `default` — pulls in real crypto dependencies (ed25519-dalek, p256/
-# p384, rsa) purely for a niche, legally-experimental check. Requires both this
-# build-time feature AND the runtime --ai-transparency flag to actually run.
-ai-transparency = ["dep:c2pa"]

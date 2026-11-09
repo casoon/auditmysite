@@ -73,7 +73,7 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo test                     # includes the rule contract gate
 ```
 
-Optional features (`pdf`, `ai-transparency`) are not built by a plain
+Optional features (`pdf`) are not built by a plain
 `cargo check`; code that uses them must be gated with `#[cfg(feature = "...")]`.
 
 Tests that need Chrome are `#[ignore]`d and run with `cargo test <name> -- --ignored`.

@@ -1406,9 +1406,7 @@ count-images-scaled-down = { $count ->
 pdf-ai-policy-label = Richtlinie
 pdf-ai-policy-status-label = Status
 
-module-design-quality = Gestaltungsqualität
 module-commerce = Shop-Prüfung
-module-ai-transparency = KI-Transparenz
 module-privacy = Datenschutz
 count-findings = { $count ->
         [one] { $count } Befund

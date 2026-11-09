@@ -377,14 +377,11 @@ fn reference_set_and_preregistration_are_intact() {
 }
 
 /// Every signal contract that claims an ordering (a module score) is
-/// registered; design_quality has no score, only review candidates.
+/// registered.
 #[test]
 fn every_scored_signal_contract_is_registered() {
     let prereg = load_prereg();
     for c in auditmysite::audit::signal_contract::SIGNAL_CONTRACTS {
-        if c.id == "design_quality" {
-            continue;
-        }
         assert!(prereg.signals.contains_key(c.id), "{} not registered", c.id);
     }
 }

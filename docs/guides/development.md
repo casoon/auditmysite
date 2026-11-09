@@ -93,7 +93,7 @@ calibration data, Rust sources, fixtures and workflow changes run Rust checks.
 The scope tests cover PR merge bases, multi-commit pushes and renames; unavailable
 base history runs the checks. Superseded quick runs are cancelled.
 
-`ci.yml` is the full QA workflow: production-feature tests (PDF and AI transparency) and all-feature rustdoc, PDF smoke,
+`ci.yml` is the full QA workflow: production-feature tests (PDF) and all-feature rustdoc, PDF smoke,
 browser integration, three WCAG corpus shards, dependency audit, unused-dependency
 checks, and mocked tests. Coverage runs on non-tag refs; detector mutations and
 docs.rs sandbox parity retain their tag-only conditions. The latter remains
