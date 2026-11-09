@@ -965,4 +965,61 @@ mod score_invariants {
             );
         }
     }
+
+    // The tests below pin exact boundaries and constants of the score model; each one
+    // kills a mutation in tests/fixtures/mutation_contracts/scoring.toml (#117).
+
+    #[test]
+    fn diversity_surcharge_starts_at_the_fourth_criterion_and_is_capped_at_1_5() {
+        assert_eq!(diversity_factor(3), 1.0);
+        assert!(diversity_factor(4) > 1.0);
+        assert_eq!(diversity_factor(10_000), 1.5);
+    }
+
+    #[test]
+    fn soft_floor_is_continuous_at_its_start_and_has_a_fixed_decay() {
+        assert_eq!(apply_soft_floor(SOFT_FLOOR_START), SOFT_FLOOR_START);
+        // 15 * exp(-15 / 8)
+        assert!((apply_soft_floor(0.0) - 2.3).abs() < 0.01);
+    }
+
+    #[test]
+    fn semantic_cap_thresholds_are_exact() {
+        assert_eq!(semantic_cap(1, 0, 0), 49.0);
+        assert_eq!(semantic_cap(0, 0, 1), 89.0);
+        assert_eq!(semantic_cap(0, 5, 0), 92.0);
+        assert_eq!(semantic_cap(0, 4, 0), 100.0);
+        assert_eq!(semantic_cap(0, 0, 0), 100.0);
+    }
+
+    #[test]
+    fn only_a_level_a_high_finding_holds_the_score_below_the_top_band() {
+        let aa = score(&[violation("x.1", WcagLevel::AA, Severity::High, 0)]);
+        let a = score(&[violation("x.1", WcagLevel::A, Severity::High, 0)]);
+        assert!(aa > 89.0, "AA high finding: {aa}");
+        assert!(a <= 89.0, "A high finding: {a}");
+    }
+
+    #[test]
+    fn aggregated_viewport_score_keeps_every_cap() {
+        let cap = |v: &[Violation]| AccessibilityScorer::cap_aggregated_score(100, v);
+        assert_eq!(cap(&[]), 100);
+        assert_eq!(
+            cap(&[violation("x.1", WcagLevel::AA, Severity::High, 0)]),
+            100
+        );
+        assert_eq!(
+            cap(&[violation("x.1", WcagLevel::A, Severity::High, 0)]),
+            89
+        );
+        assert_eq!(
+            cap(&[violation("x.1", WcagLevel::AA, Severity::Critical, 0)]),
+            49
+        );
+        let five_aa: Vec<_> = (0..5)
+            .map(|i| violation("x.1", WcagLevel::AA, Severity::High, i))
+            .collect();
+        assert_eq!(cap(&five_aa), 92);
+        assert_eq!(cap(&five_aa[..4]), 100);
+    }
 }

@@ -3,13 +3,16 @@
 contracts (#783).
 
 Every local mutation in tests/fixtures/rule_contracts/*.toml (`find` /
-`replace` on a file of this repository) is applied in turn, the test named
+`replace` on a file of this repository) and every `[[mutation]]` in
+tests/fixtures/mutation_contracts/*.toml (code that is no rule: scoring,
+aggregation) is applied in turn, the test named
 in `killed_by` is run, and the mutation must turn it red. The file is
 restored afterwards, also on interrupt. Mutations whose target lives in
 barrierlab are verified there, by barrierlab's own catalog, and skipped.
 
     scripts/mutation-check.py                 # all local mutations
     scripts/mutation-check.py --rule image-alt
+    scripts/mutation-check.py --rule scoring-soft-floor-start   # a code mutation id
     scripts/mutation-check.py --list
 
 A mutation only counts as killed when the named test is green on the
@@ -34,6 +37,8 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACTS = ROOT / "tests" / "fixtures" / "rule_contracts"
+# Mutations of code that is no rule: scoring, aggregation, invariants.
+CODE_CONTRACTS = ROOT / "tests" / "fixtures" / "mutation_contracts"
 
 
 def mutations(rule_filter):
@@ -47,6 +52,13 @@ def mutations(rule_filter):
                 if m["target"].startswith("barrierlab:"):
                     continue
                 yield path.stem, rule["id"], m
+    for path in sorted(CODE_CONTRACTS.rglob("*.toml")):
+        with path.open("rb") as f:
+            data = tomllib.load(f)
+        for m in data.get("mutation", []):
+            if rule_filter and m["id"] not in rule_filter:
+                continue
+            yield path.stem, m["id"], m
 
 
 def command(killed_by):
