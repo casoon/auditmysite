@@ -118,3 +118,109 @@ test('forward runs a real child: arguments and exit code survive', { skip: proce
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// --- Release verification: SHA256SUMS with fallback to the per-archive .sha256 ---
+
+const { findInChecksums, verifyRelease } = require('../lib/checksum');
+
+const ASSETS = releaseAssets('2.0.2', 'linux', 'x64');
+const ARCHIVE = Buffer.from('payload');
+const OTHER_HASH = sha256(Buffer.from('other'));
+
+// Fake fetch: url -> { statusCode, body } or an Error to reject with. Records the requested URLs.
+function fakeFetch(responses) {
+  const calls = [];
+  const fetch = async (url) => {
+    calls.push(url);
+    const response = responses[url];
+    if (response instanceof Error) throw response;
+    if (!response) throw new Error(`unexpected request ${url}`);
+    return { statusCode: response.statusCode, body: Buffer.from(response.body || '') };
+  };
+  return { fetch, calls };
+}
+
+test('release URLs include the aggregate SHA256SUMS', () => {
+  assert.equal(ASSETS.sumsUrl, 'https://github.com/casoon/auditmysite/releases/download/v2.0.2/SHA256SUMS');
+});
+
+test('SHA256SUMS present and matching: verified, per-archive file never requested', async () => {
+  const sums = `${OTHER_HASH}  auditmysite-v2.0.2-aarch64-apple-darwin.tar.gz\n${HASH}  ${ASSETS.archive}\n`;
+  const { fetch, calls } = fakeFetch({ [ASSETS.sumsUrl]: { statusCode: 200, body: sums } });
+  assert.equal(await verifyRelease(ARCHIVE, ASSETS, fetch), 'SHA256SUMS');
+  assert.deepEqual(calls, [ASSETS.sumsUrl]);
+});
+
+test('SHA256SUMS mismatch fails and does not fall back', async () => {
+  const { fetch, calls } = fakeFetch({
+    [ASSETS.sumsUrl]: { statusCode: 200, body: `${OTHER_HASH}  ${ASSETS.archive}\n` },
+  });
+  await assert.rejects(verifyRelease(ARCHIVE, ASSETS, fetch), /Checksum mismatch/);
+  assert.deepEqual(calls, [ASSETS.sumsUrl]);
+});
+
+test('SHA256SUMS without a line for the archive fails and does not fall back', async () => {
+  const { fetch, calls } = fakeFetch({
+    [ASSETS.sumsUrl]: { statusCode: 200, body: `${HASH}  auditmysite-v2.0.2-aarch64-apple-darwin.tar.gz\n` },
+  });
+  await assert.rejects(verifyRelease(ARCHIVE, ASSETS, fetch), /no line for/);
+  assert.deepEqual(calls, [ASSETS.sumsUrl]);
+});
+
+test('SHA256SUMS decoy lines never match: other-<archive> and <archive>.sha256', () => {
+  const decoys = `${HASH}  other-${ASSETS.archive}\n${HASH}  ${ASSETS.archive}.sha256\n${HASH}  x${ASSETS.archive}\n`;
+  assert.throws(() => findInChecksums(decoys, ASSETS.archive), /no line for/);
+  // With the real line present, the decoys neither add a candidate nor cause a conflict.
+  assert.equal(findInChecksums(`${decoys}${OTHER_HASH}  ${ASSETS.archive}\n`, ASSETS.archive), OTHER_HASH);
+});
+
+test('SHA256SUMS with CRLF line endings and an uppercase hash is accepted', async () => {
+  const sums = `${OTHER_HASH}  other.tar.gz\r\n${HASH.toUpperCase()}  ${ASSETS.archive}\r\n`;
+  const { fetch } = fakeFetch({ [ASSETS.sumsUrl]: { statusCode: 200, body: sums } });
+  assert.equal(await verifyRelease(ARCHIVE, ASSETS, fetch), 'SHA256SUMS');
+});
+
+test('SHA256SUMS with conflicting or malformed lines for the archive fails', () => {
+  assert.throws(
+    () => findInChecksums(`${HASH}  ${ASSETS.archive}\n${OTHER_HASH}  ${ASSETS.archive}\n`, ASSETS.archive),
+    /conflicting/
+  );
+  assert.throws(() => findInChecksums(`nothex  ${ASSETS.archive}\n`, ASSETS.archive), /malformed/);
+});
+
+test('HTTP 503 on SHA256SUMS fails loudly and does not fall back', async () => {
+  const { fetch, calls } = fakeFetch({
+    [ASSETS.sumsUrl]: { statusCode: 503 },
+    [ASSETS.checksumUrl]: { statusCode: 200, body: `${HASH}  ${ASSETS.archive}\n` },
+  });
+  await assert.rejects(verifyRelease(ARCHIVE, ASSETS, fetch), /SHA256SUMS returned HTTP 503/);
+  assert.deepEqual(calls, [ASSETS.sumsUrl]);
+});
+
+test('a network error on SHA256SUMS fails loudly and does not fall back', async () => {
+  const { fetch, calls } = fakeFetch({
+    [ASSETS.sumsUrl]: new Error('ECONNRESET'),
+    [ASSETS.checksumUrl]: { statusCode: 200, body: `${HASH}  ${ASSETS.archive}\n` },
+  });
+  await assert.rejects(verifyRelease(ARCHIVE, ASSETS, fetch), /Could not download SHA256SUMS: ECONNRESET/);
+  assert.deepEqual(calls, [ASSETS.sumsUrl]);
+});
+
+test('HTTP 404 on SHA256SUMS falls back to the per-archive .sha256', async () => {
+  const { fetch, calls } = fakeFetch({
+    [ASSETS.sumsUrl]: { statusCode: 404 },
+    [ASSETS.checksumUrl]: { statusCode: 200, body: `${HASH}  ${ASSETS.archive}\n` },
+  });
+  assert.equal(await verifyRelease(ARCHIVE, ASSETS, fetch), `${ASSETS.archive}.sha256`);
+  assert.deepEqual(calls, [ASSETS.sumsUrl, ASSETS.checksumUrl]);
+});
+
+test('fallback still fails on a mismatch or a missing .sha256', async () => {
+  const mismatch = fakeFetch({
+    [ASSETS.sumsUrl]: { statusCode: 404 },
+    [ASSETS.checksumUrl]: { statusCode: 200, body: `${OTHER_HASH}  ${ASSETS.archive}\n` },
+  });
+  await assert.rejects(verifyRelease(ARCHIVE, ASSETS, mismatch.fetch), /Checksum mismatch/);
+  const missing = fakeFetch({ [ASSETS.sumsUrl]: { statusCode: 404 }, [ASSETS.checksumUrl]: { statusCode: 404 } });
+  await assert.rejects(verifyRelease(ARCHIVE, ASSETS, missing.fetch), /HTTP 404/);
+});
