@@ -9,7 +9,7 @@
 //!
 //! - `physicalLocation.artifactLocation.uri` is a **relative pseudo-path**
 //!   derived from the page URL (`audited-pages/<host>/<path>`, see
-//!   [`pseudo_path`]). GitHub resolves absolute URIs against the checkout's
+//!   `pseudo_path`). GitHub resolves absolute URIs against the checkout's
 //!   `file://` root and rejects a root with a different scheme, so an `https://`
 //!   URI would risk the whole upload; a relative path cannot. It matches no
 //!   committed file, so GitHub lists the alert without a code view.
