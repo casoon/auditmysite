@@ -80,20 +80,7 @@ pub(super) fn blocking_status(status: Option<u16>) -> Option<String> {
         .map(|s| format!("the server answered HTTP {s}"))
 }
 
-const SIGNALS_JS: &str = r#"(() => {
-    const nav = performance.getEntriesByType('navigation')[0];
-    const resources = [];
-    for (const el of document.querySelectorAll('script[src], iframe[src], link[href]')) {
-        resources.push(el.getAttribute('src') || el.getAttribute('href') || '');
-    }
-    for (const entry of performance.getEntriesByType('resource')) resources.push(entry.name);
-    return {
-        status: nav && Number.isFinite(nav.responseStatus) && nav.responseStatus > 0 ? nav.responseStatus : null,
-        title: document.title || '',
-        elements: document.getElementsByTagName('*').length,
-        resources: resources.slice(0, 500),
-    };
-})()"#;
+const SIGNALS_JS: &str = include_str!("js/access_signals.js");
 
 /// Collect the signals from the loaded page and classify them.
 ///
