@@ -89,6 +89,33 @@ Builds and installs the binary from source. Tested with the pinned toolchain (se
 
 Prebuilt binaries, building from source and the optional Cargo features: [Build from source](docs/getting-started/build-from-source.md).
 
+### Docker (GHCR)
+
+```bash
+docker run --rm ghcr.io/casoon/auditmysite https://example.com -f json --quiet
+```
+
+The `linux/amd64` and `linux/arm64` image holds the released binary and Debian's Chromium, runs as a non-root user and starts with `--no-sandbox` (the container is the isolation boundary). Tags are `X.Y.Z` (for example `2.0.2`) and `latest`. To keep a report, mount a directory as the working directory:
+
+```bash
+docker run --rm -v "$PWD:/work" ghcr.io/casoon/auditmysite https://example.com -f json -o report.json
+```
+
+### Verify your download
+
+Official binaries and the container image come only from the GitHub releases and the GHCR package of `casoon/auditmysite`, built there by the release workflow, never on a developer machine. To verify a download by hand, check the hash and the signed build provenance:
+
+```bash
+shasum -a 256 -c auditmysite-<version>-<target>.tar.gz.sha256
+gh attestation verify auditmysite-<version>-<target>.tar.gz --repo casoon/auditmysite
+```
+
+Every release also lists all hashes in one `SHA256SUMS` file (`sha256sum -c --ignore-missing SHA256SUMS`). For the container image:
+
+```bash
+gh attestation verify oci://ghcr.io/casoon/auditmysite:<version> --repo casoon/auditmysite
+```
+
 ## Requirements
 
 - Chrome, Chromium, or a managed browser install (`auditmysite browser install`). auditmysite downloads nothing without your consent: an interactive terminal on macOS ARM64 or Linux is asked once whether to install a managed Chrome for Testing; non-interactive and CI runs exit with an error unless you opt in with `auditmysite browser ensure --yes`. Windows uses Microsoft Edge only.
@@ -211,7 +238,7 @@ Parts of the checks live in [barrierlab](https://github.com/casoon/barrierlab) a
 
 - Browser not found: run `auditmysite browser detect` or install a managed browser with `auditmysite browser install`
 - "Access to '…' was blocked": the site answered HTTP 401/403/407/429 or served a bot challenge (Cloudflare, Fastly, Akamai, DataDome, Imperva, HUMAN). That page is not the site's content, so the URL is not scored; in a batch it is listed under `errors`. Ask the site owner to allow the auditing machine
-- Running in Docker or as root: use `--no-sandbox`
+- Running in Docker or as root: use `--no-sandbox` (the [container image](#docker-ghcr) sets it)
 - Need raw output for scripts: prefer `-f json -o report.json`
 - Unsure about the full CLI surface: run `auditmysite --help`
 
