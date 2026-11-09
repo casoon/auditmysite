@@ -1015,8 +1015,8 @@ fn test_module_weights_correct() {
             "Mobile" => 10,
             // Indicator modules do not contribute to the overall score, so their
             // displayed weight is 0 (#447).
-            "UX" | "Journey" | "Best Practices" | "Dark Mode" | "AI Visibility"
-            | "Source Quality" | "Tech Stack" => 0,
+            "UX" | "Journey" | "Best Practices" | "AI Visibility" | "Source Quality"
+            | "Tech Stack" => 0,
             _ => panic!("Unknown module: {}", m.name),
         };
         assert_eq!(
@@ -1497,7 +1497,6 @@ fn test_schema_contains_extra_module_top_level_keys() {
         .as_object()
         .expect("schema must define $defs.moduleBlob.properties");
     for key in &[
-        "dark_mode",
         "ai_visibility",
         "source_quality",
         "content_visibility",
@@ -1528,33 +1527,13 @@ fn test_schema_contains_extra_module_top_level_keys() {
 
 #[test]
 fn test_json_report_includes_extra_module_keys() {
-    use auditmysite::{
-        analyze_ai_visibility, analyze_content_visibility, analyze_source_quality, DarkModeAnalysis,
-    };
+    use auditmysite::{analyze_ai_visibility, analyze_content_visibility, analyze_source_quality};
 
     let base = make_full_report();
     let mut report = make_full_report();
     report.discoverability.source_quality = Some(analyze_source_quality(&base));
     report.discoverability.ai_visibility = Some(analyze_ai_visibility(&base));
     report.discoverability.content_visibility = Some(analyze_content_visibility(&base));
-    report.experience.dark_mode = Some(DarkModeAnalysis {
-        supported: false,
-        score: 0,
-        detection_methods: vec![],
-        class_based_dark_mode: false,
-        color_scheme_css: false,
-        meta_color_scheme: None,
-        meta_theme_color_dark: false,
-        css_custom_properties: 0,
-        dark_contrast_violations: 0,
-        light_only_violations: 0,
-        dark_only_violations: 0,
-        contrast_violations: vec![],
-        print: Default::default(),
-        forced_colors: Default::default(),
-        vision_deficiency: Default::default(),
-        issues: vec![],
-    });
 
     let normalized = normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);
@@ -1562,10 +1541,6 @@ fn test_json_report_includes_extra_module_keys() {
     let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
     let modules = &parsed["pages"][0]["detail"]["modules"];
 
-    assert!(
-        !modules["dark_mode"].is_null(),
-        "dark_mode missing from JSON"
-    );
     assert!(
         !modules["ai_visibility"].is_null(),
         "ai_visibility missing from JSON"

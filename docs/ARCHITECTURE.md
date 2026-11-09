@@ -113,6 +113,7 @@ src/
 │   ├── mod.rs
 │   ├── validation.rs    # Format-independent page/batch contracts and capture-gap policy
 │   ├── collection.rs    # Collection contract: Collected<T> states, per-page CollectionLog, COLLECTORS inventory
+│   ├── dark_scheme.rs   # Second pass of the shared `contrast/*` rules under `prefers-color-scheme: dark` emulation when the page declares a dark scheme; findings keep the rule id and carry `color_scheme: dark` evidence (#917)
 │   ├── capture_collectors.rs # Capture-layer collectors (navigation, AX tree, consent, exclusion, frames, stability, rule execution, journeys) projected onto the contract
 │   ├── pipeline/        # Single page audit flow
 │   │   ├── mod.rs       # PipelineConfig, run_single_audit/audit_page (desktop + mobile pass), rule runs, artifact persistence
@@ -243,9 +244,6 @@ src/
 │   ├── mod.rs, module.rs
 │   └── ux_heuristics.rs
 │
-├── dark_mode/           # Dark mode support detection and contrast
-│   └── mod.rs, module.rs
-│
 ├── html_conform/        # HTML5 spec-conformance checking via the html-conform crate (scored, part of --full)
 │   ├── recommendation.rs # written fix hint per checker rule family (action plan, key measures)
 │   ├── message.rs        # run-language text of checker messages (mapped by rule id, family title as fallback)
@@ -331,7 +329,7 @@ src/
    │  └── Level AAA rules (if requested)
    │
 6b. Run optional modules (`--full`, or individually enabled): performance, seo,
-    security, mobile, dark-mode, ux, journey, ai-visibility, content-visibility,
+    security, mobile, ux, journey, ai-visibility, content-visibility,
     source-quality, tech-stack, best-practices, commerce (shop-gated)
    │
 6c. Run Accessibility Journey Layer (`--interactive off|basic|full`): tab-walk,

@@ -889,7 +889,6 @@ mod tests {
     /// Builds an AuditReport with all modules registered in `active_modules()`.
     fn all_active_modules_report() -> AuditReport {
         use crate::audit::PerformanceResults;
-        use crate::dark_mode::DarkModeAnalysis;
         use crate::mobile::{
             ContentSizing, FontSizeAnalysis, MobileFriendliness, TouchTargetAnalysis,
             ViewportAnalysis,
@@ -961,24 +960,6 @@ mod tests {
         })
         .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
         .with_journey(crate::journey::analyze_journey(&crate::AXTree::new()))
-        .with_dark_mode(DarkModeAnalysis {
-            supported: false,
-            class_based_dark_mode: false,
-            score: 50,
-            detection_methods: vec![],
-            color_scheme_css: false,
-            meta_color_scheme: None,
-            meta_theme_color_dark: false,
-            css_custom_properties: 0,
-            dark_contrast_violations: 0,
-            light_only_violations: 0,
-            dark_only_violations: 0,
-            contrast_violations: vec![],
-            print: Default::default(),
-            forced_colors: Default::default(),
-            vision_deficiency: Default::default(),
-            issues: vec![],
-        })
         .with_best_practices(crate::best_practices::BestPracticesAnalysis {
             console_errors: crate::best_practices::ConsoleErrorsAnalysis {
                 errors: vec![],
@@ -1220,12 +1201,6 @@ mod tests {
             assert!(
                 details.journey.is_some(),
                 "ModuleDetailsBlock.journey must be Some"
-            );
-        }
-        if active_keys.contains("dark_mode") {
-            assert!(
-                details.dark_mode.is_some(),
-                "ModuleDetailsBlock.dark_mode must be Some"
             );
         }
         if active_keys.contains("source_quality") {

@@ -126,13 +126,13 @@ pub(super) fn build_criticality_groups(
                         (
                             "Additional quality & SEO recommendations".to_string(),
                             "SECTION 2 · OPTIMIZATION".to_string(),
-                            "SEO, AI visibility, UX signals, dark mode and further quality benchmarks. These improve findability and user experience.".to_string(),
+                            "SEO, AI visibility, UX signals and further quality benchmarks. These improve findability and user experience.".to_string(),
                         )
                     } else {
                         (
                             "Ergänzende Qualitäts- & SEO-Empfehlungen".to_string(),
                             "BEREICH 2 · OPTIMIERUNG".to_string(),
-                            "Suchmaschinenoptimierung (SEO), KI-Sichtbarkeit, UX-Signale, Dark-Mode-Unterstützung und weitere Qualitätskriterien. Diese verbessern die Auffindbarkeit und das allgemeine Nutzererlebnis.".to_string(),
+                            "Suchmaschinenoptimierung (SEO), KI-Sichtbarkeit, UX-Signale und weitere Qualitätskriterien. Diese verbessern die Auffindbarkeit und das allgemeine Nutzererlebnis.".to_string(),
                         )
                     }
                 }

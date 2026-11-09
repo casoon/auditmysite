@@ -283,12 +283,6 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
             .raw_journey
             .map(|m| with_normalized_score(m.to_json(), normalized, "Journey"))
             .map(|v| with_signal_contract(v, "journey")),
-        // Dark Mode is an optional/non-normative product feature, not a WCAG
-        // conformance criterion — distinct from the other indicator modules
-        // below, which are heuristic estimates (#577).
-        dark_mode: ctx
-            .raw_dark_mode
-            .map(|m| with_measurement_type(inject_band(m.to_json(), m.score), "optional")),
         privacy: ctx.raw_privacy.map(|m| {
             with_measurement_type(
                 serde_json::to_value(m).unwrap_or(serde_json::Value::Null),

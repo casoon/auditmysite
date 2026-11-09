@@ -455,7 +455,6 @@ fn default_config() -> PipelineConfig {
         check_seo: false,
         check_security: false,
         check_mobile: false,
-        check_dark_mode: false,
         check_html_conform: false,
         check_privacy: false,
         perf_runs: 1,
@@ -2824,8 +2823,8 @@ async fn display_probe(page: &chromiumoxide::Page) -> serde_json::Value {
 
 /// #653: `--display text` stores the choice in `localStorage.display` and
 /// emulates `prefers-reduced-motion: reduce` before the page's first script
-/// runs, keeps both through the whole audit (the dark-mode analysis re-sets
-/// emulated media on the same page), and the report names the mode.
+/// runs, keeps both through the whole audit (the dark colour-scheme
+/// contrast pass re-sets emulated media on the same page), and the report names the mode.
 #[tokio::test]
 #[ignore = "needs Chrome"]
 async fn display_text_sets_stored_choice_and_reduced_motion() {

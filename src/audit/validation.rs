@@ -591,7 +591,6 @@ impl NormalizedReport {
                 "mobile" => "Mobile",
                 "performance" => "Performance",
                 "best_practices" => "Best Practices",
-                "dark_mode" => "Dark Mode",
                 "html_conform" => "HTML Conformance",
                 _ => continue,
             };

@@ -19,7 +19,6 @@ const ANALYSIS_MODULES: &[&str] = &[
     "best_practices",
     "commerce",
     "content_visibility",
-    "dark_mode",
     "journey",
     "mobile",
     "patterns",

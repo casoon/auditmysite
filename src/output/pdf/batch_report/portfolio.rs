@@ -116,7 +116,6 @@ pub(super) fn localized_module_name(name: &str, en: bool) -> &str {
     match (name, en) {
         ("Accessibility", false) => "Barrierefreiheit",
         ("Best Practices", false) => "Best Practices",
-        ("Dark Mode", false) => "Dark Mode",
         ("Mobile", false) => "Mobile",
         ("Performance", false) => "Performance",
         ("Security", false) => "Security",

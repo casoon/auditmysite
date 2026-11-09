@@ -74,7 +74,10 @@ pub fn build_representative_occurrences(
     for (_, _, occ) in ranked {
         let selector = representative_selector(occ);
 
-        if !seen.insert(selector.to_ascii_lowercase()) {
+        // The dark colour-scheme finding of an element is no repeat of its
+        // light finding (#917).
+        let dark = crate::wcag::types::evidence_is_dark_color_scheme(&occ.evidence);
+        if !seen.insert((selector.to_ascii_lowercase(), dark)) {
             continue;
         }
 

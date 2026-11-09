@@ -11,6 +11,7 @@ pub(crate) mod capture_collectors;
 pub mod catalog;
 pub mod collection;
 mod crawl;
+mod dark_scheme;
 pub mod duplicate;
 pub mod exclusion;
 pub mod finding_contract;

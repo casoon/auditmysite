@@ -55,7 +55,6 @@ pub enum FindingDomain {
     Performance,
     HtmlConformance,
     BestPractices,
-    DarkMode,
     Ux,
     Journey,
     Commerce,
@@ -74,7 +73,6 @@ impl FindingDomain {
             Self::Performance => "performance",
             Self::HtmlConformance => "html_conformance",
             Self::BestPractices => "best_practices",
-            Self::DarkMode => "dark_mode",
             Self::Ux => "ux",
             Self::Journey => "journey",
             Self::Commerce => "commerce",
@@ -122,11 +120,6 @@ impl FindingDomain {
                 Dimension::Seo,
                 Subcategory::SemanticSignals,
                 "HTML Conformance",
-            ),
-            Self::DarkMode => (
-                Dimension::Accessibility,
-                Subcategory::VisualPresentation,
-                "Dark Mode",
             ),
             Self::Ux => (
                 Dimension::Accessibility,
@@ -409,7 +402,6 @@ pub const DOMAIN_POLICIES: &[(&str, DomainPolicy)] = &[
     ("seo", DomainPolicy::Findings(FindingDomain::Seo)),
     ("security", DomainPolicy::Findings(FindingDomain::Security)),
     ("mobile", DomainPolicy::Findings(FindingDomain::Mobile)),
-    ("dark_mode", DomainPolicy::Findings(FindingDomain::DarkMode)),
     (
         "html_conform",
         DomainPolicy::Findings(FindingDomain::HtmlConformance),
@@ -911,27 +903,6 @@ fn collect(
                 FindingScoring::new("Best Practices", E::Indicator),
                 L::Page,
             ));
-        }
-    }
-
-    if let Some(dark) = &report.experience.dark_mode {
-        for issue in &dark.issues {
-            out.push(
-                Collected::new(
-                    D::DarkMode,
-                    "dark_mode",
-                    kind_code(&issue.kind),
-                    severity_from(&issue.severity),
-                    issue.description.clone(),
-                    FindingScoring::new("Dark Mode", E::Indicator),
-                    L::Page,
-                )
-                .text({
-                    let (kind, selectors) = (issue.kind.clone(), issue.selectors.clone());
-                    move |en| crate::dark_mode::dark_mode_issue_text(&kind, &selectors, en)
-                })
-                .selector(issue.selectors.first().cloned()),
-            );
         }
     }
 
@@ -1537,8 +1508,8 @@ mod tests {
     fn same_check_with_different_evidence_differs_in_assurance() {
         let make = |selector: Option<&str>, review: bool| {
             let mut c = Collected::new(
-                FindingDomain::DarkMode,
-                "dark_mode",
+                FindingDomain::Mobile,
+                "mobile",
                 "low_contrast",
                 Severity::Medium,
                 "text too light",
@@ -1552,7 +1523,7 @@ mod tests {
             group_finding(vec![c], 5)
         };
         let located = make(Some("p.lead"), false);
-        assert_eq!(located.rule_id, "dark_mode.low_contrast");
+        assert_eq!(located.rule_id, "mobile.low_contrast");
         assert_eq!(located.verification, "automatically_confirmed");
         assert_eq!(located.assurance.evidence, EvidenceQuality::Located);
 

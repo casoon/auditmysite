@@ -308,7 +308,6 @@ section-seo-content-profile = SEO-Inhaltsprofil
 section-security = Sicherheit
 section-html-conform = HTML-Konformität
 section-mobile-usability = Mobile Nutzbarkeit
-section-dark-mode = Dark Mode
 section-content-sections = Content-Abschnitte
 section-detected-entities = Erkannte Entitäten
 section-ux = User Experience
@@ -339,9 +338,6 @@ batch-panel-module-averages = Modulübersicht (Ø über alle URLs)
 
 # Heuristic indicator (shared by UX, Journey, AI Visibility)
 label-heuristic-indicator = Heuristische Schätzung auf Basis struktureller Signale, nicht extern validiert
-
-# Optional/non-normative feature (Dark Mode, #577)
-label-optional-feature = Optionales Merkmal
 
 # Performance section
 perf-score-card = Performance Score
@@ -820,41 +816,8 @@ pdf-journey-more-issues =
         [one] weiterer Befund
        *[other] weitere Befunde
     } im detaillierten Anhang.
-pdf-dm-status-supported = Unterstützt
-pdf-dm-status-not-supported = Nicht unterstützt
-pdf-dm-optional-note = Dark Mode ist ein optionales Produktmerkmal, kein WCAG-Konformitätskriterium – der Score links beschreibt den erkannten Umsetzungsgrad, keine Bestehens- oder Nichtbestehens-Bewertung.
-pdf-dm-score-title = Dark Mode Score
-pdf-dm-methods = Methoden
-pdf-dm-css-variables = CSS Variablen
-pdf-dm-overview-title = Dark Mode Übersicht
-pdf-dm-support = Unterstützung
-pdf-dm-methods-impl = Implementierungsmethoden
 pdf-dm-yes = Ja
 pdf-dm-no = Nein
-pdf-dm-css-custom-props = CSS Custom Properties (Farben)
-pdf-dm-contrast-violations = Kontrast-Violations im Dark Mode
-pdf-dm-only-issues = Nur-Dark-Mode-Probleme
-pdf-dm-only-issues-val = { $count } (nicht im Light Mode)
-pdf-dm-resolved-issues = Im Dark Mode behoben
-pdf-dm-resolved-issues-val = { $count } { $count ->
-        [one] Light-Mode-Problem verschwindet
-       *[other] Light-Mode-Probleme verschwinden
-    } im Dark Mode
-pdf-dm-issue-title = Dark Mode Problem
-pdf-dm-note-title = Dark Mode Hinweis
-pdf-dm-print = Print
-pdf-dm-print-stylesheet = Print-Stylesheet
-pdf-dm-print-chrome-hidden = Interaktive Seitenelemente im Print verborgen
-pdf-dm-print-clipped-elements = Potenziell geclippte Print-Elemente
-pdf-dm-forced-colors = Forced Colors
-pdf-dm-forced-colors-active = Emulation aktiv
-pdf-dm-forced-color-adjust = forced-color-adjust Elemente
-pdf-dm-forced-focus-visible = Fokus/Controls sichtbar
-pdf-dm-vision-title = Farbsehschwäche-Emulation
-pdf-dm-vision-mode = Modus
-pdf-dm-vision-contrast = Kontrastprobleme
-pdf-dm-vision-new = Neue Probleme
-pdf-dm-vision-use-color = Nur-Farbe-Probleme
 pdf-sq-section-title = Technische Aufbereitung für maschinelle Verarbeitung
 pdf-sq-overview-title = Was dieser Indikator misst
 pdf-sq-success = Alle bewerteten Signale der technischen Aufbereitung sind erfüllt.
@@ -1103,7 +1066,6 @@ module-mobile = Mobile
 module-ux = UX
 module-journey = Journey
 module-best-practices = Best Practices
-module-dark-mode = Dark Mode
 module-ai-visibility = KI-Sichtbarkeit
 module-source-quality = Technische Aufbereitung
 module-tech-stack = Tech-Stack

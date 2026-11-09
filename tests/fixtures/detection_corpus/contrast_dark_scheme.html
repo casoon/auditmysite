@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contrast under a declared dark colour scheme</title>
+<style>
+  body { background: #ffffff; color: #111111; font-size: 16px; }
+  a { color: inherit; text-decoration: underline; }
+  /* Passes on the white page, fails once the dark scheme turns the page dark. */
+  #dark-only-fail { color: #222222; }
+  /* Fails on the white page (2.3:1), passes under the dark scheme. */
+  #light-only-fail { color: #aaaaaa; }
+  /* Own background: the dark scheme changes nothing, the failure is the same in both. */
+  #same-fail { background: #ffffff; color: #aaaaaa; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #111111; color: #eeeeee; }
+    #dark-only-fail { color: #333333; }
+    #light-only-fail { color: #eeeeee; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Contrast test site</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Text contrast in the light and the dark colour scheme</h1>
+  <p id="both-pass">Delivery takes two to three working days.</p>
+  <p id="dark-only-fail">Returns are free within thirty days.</p>
+  <p id="light-only-fail">Our support team answers within one day.</p>
+  <p id="same-fail">Prices include value added tax.</p>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

@@ -29,7 +29,6 @@ fn config() -> PipelineConfig {
         check_seo: true,
         check_security: false,
         check_mobile: false,
-        check_dark_mode: false,
         check_html_conform: false,
         check_privacy: false,
         check_isolate_third_party_impact: false,

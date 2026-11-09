@@ -55,7 +55,6 @@ mod tests {
             check_seo: false,
             check_security: false,
             check_mobile: false,
-            check_dark_mode: false,
             check_html_conform: false,
             check_privacy: false,
             perf_runs: 1,

@@ -37,7 +37,6 @@ impl AuditCatalog {
         use crate::best_practices::BestPracticesModule;
         use crate::commerce::CommerceModule;
         use crate::content_visibility::ContentVisibilityModule;
-        use crate::dark_mode::DarkModeModule;
         use crate::html_conform::HtmlConformModule;
         use crate::journey::JourneyModule;
         use crate::mobile::MobileModule;
@@ -54,7 +53,6 @@ impl AuditCatalog {
             .with_module(Box::new(SeoModule))
             .with_module(Box::new(SecurityModule))
             .with_module(Box::new(MobileModule))
-            .with_module(Box::new(DarkModeModule))
             .with_module(Box::new(HtmlConformModule))
             .with_module(Box::new(PrivacyModule))
             .with_module(Box::new(TechStackModule))
@@ -390,7 +388,6 @@ mod tests {
             "seo",
             "security",
             "mobile",
-            "dark_mode",
             "html_conform",
             "privacy",
             "tech_stack",

@@ -637,6 +637,17 @@ pub(super) fn render_finding_technical(
                     snapshot.add_item(if en { "Measured value" } else { "Messwert" }, measured);
             }
 
+            if crate::wcag::types::evidence_is_dark_color_scheme(&occ.evidence) {
+                snapshot = snapshot.add_item(
+                    if en { "Color scheme" } else { "Farbschema" },
+                    if en {
+                        "Dark (prefers-color-scheme: dark)"
+                    } else {
+                        "Dunkel (prefers-color-scheme: dark)"
+                    },
+                );
+            }
+
             builder = builder.add_component(snapshot);
 
             // Evidence-grade findings: a cropped, highlighted screenshot of
