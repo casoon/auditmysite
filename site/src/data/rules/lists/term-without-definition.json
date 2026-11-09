@@ -1,0 +1,42 @@
+{
+  "id": "lists/term-without-definition",
+  "url": "https://casoon.github.io/auditmysite/rules/lists/term-without-definition/",
+  "domain": "wcag",
+  "title": "Term without definition in a description list",
+  "outcome": "automatic",
+  "area": "Accessibility, Structure & Semantics",
+  "criterion": "1.3.1",
+  "level": "A",
+  "axe_id": "lists/term-without-definition",
+  "severity": "medium",
+  "user_impact": "Screen reader users cannot recognize the term and its definition as belonging together.",
+  "technical_impact": "<dt> without a following <dd> inside the <dl>.",
+  "checks": [
+    {
+      "contract_id": "lists/term-without-definition",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 1.3.1 Info and Relationships (F2, H48); HTML §4.4.5-4.4.10 list content models; WAI-ARIA 1.2 list/listitem/term/definition",
+      "applicability": "Every rendered, not aria-hidden term: <dt> or role=\"term\".",
+      "expectation": "HTML's <dl> content model is groups of one or more <dt> followed by one or more\n<dd> (or <div> groups of the same). A term with no definition following it in\nits group fails 1.3.1: the reader hears a term and nothing that defines it.\nSeveral terms sharing one definition pass. A <dt> after the last <dd> (a\ntrailing term) has no definition and fails even though its <dl> holds other\ndefinitions. role=\"term\" without any role=\"definition\" sibling fails the same\nway. Located at the term.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "content_lists_trailing_term",
+        "file": "tests/fixtures/detection_corpus/content_lists_trailing_term.html",
+        "verdict": "violation",
+        "selector": "dt#trailing-term",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Glossary with a trailing term</title>\n    <style>\n        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Glossary</h1>\n        <dl id=\"glossary\">\n            <dt>Catalogue</dt>\n            <dd>The searchable index of all holdings.</dd>\n            <dt id=\"trailing-term\">Stacks</dt>\n        </dl>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "content_lists_ok",
+        "file": "tests/fixtures/detection_corpus/content_lists_ok.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Reading lists</title>\n    <style>\n        .plain { list-style: none; padding: 0; }\n    </style>\n    <style>\n        nav a, .skip-link, button { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Reading lists</h1>\n        <h2>Genres</h2>\n        <ul id=\"genres\">\n            <li>Crime</li>\n            <li>Poetry</li>\n            <script>/* analytics hook */</script>\n            <template><li>Placeholder</li></template>\n        </ul>\n        <h2>Steps to join</h2>\n        <ol id=\"join-steps\"><li>Fill in the form.</li><li>Show an ID at the desk.</li></ol>\n        <h2>Branches</h2>\n        <ul role=\"list\" class=\"plain\" id=\"branch-list\">\n            <li>North branch</li>\n            <li>South branch</li>\n        </ul>\n        <div role=\"list\" id=\"aria-list\"><div role=\"listitem\">Mobile library</div></div>\n        <h2>Glossary</h2>\n        <dl id=\"glossary\">\n            <div><dt>Interlibrary loan</dt><dd>A book borrowed from another library for you.</dd></div>\n            <div><dt>Renewal</dt><dd>Extending a loan by three weeks.</dd></div>\n        </dl>\n        <dl id=\"synonyms\">\n            <dt>Reservation</dt>\n            <dt>Hold</dt>\n            <dd>A request to keep a book for you.</dd>\n        </dl>\n        <div role=\"term\">Fine</div><div role=\"definition\">A fee for late returns.</div>\n        <h2>Toolbar</h2>\n        <ul role=\"none\" id=\"tool-list\"><li role=\"none\"><button type=\"button\">Print</button></li></ul>\n        <h2>Shelves</h2>\n        <slotted-shelf><li>Atlas</li><li>Maps</li></slotted-shelf>\n        <script>\n            customElements.define('slotted-shelf', class extends HTMLElement {\n                connectedCallback() {\n                    this.attachShadow({ mode: 'open' }).innerHTML = '<ul id=\"shadow-shelf\"><slot></slot></ul>';\n                }\n            });\n        </script>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

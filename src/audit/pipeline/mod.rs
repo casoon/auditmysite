@@ -496,7 +496,8 @@ impl PipelineConfig {
         // 30 for the removal of the dark_mode module field (#917).
         // 31 for the engine rule id as the finding `rule_id` (#918).
         // 32 for the experimental indicators moving into `experimental` (#916).
-        const CACHE_FMT: u8 = 32;
+        // 33 for `help_url` as the rule page and the new `understanding_url` (#929).
+        const CACHE_FMT: u8 = 33;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();

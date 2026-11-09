@@ -79,6 +79,7 @@ cargo check --all-features     # MANDATORY before every push — what CI checks
 cargo test                     # Run all tests
 cargo test --lib               # Unit tests only
 scripts/check-js.sh            # Lint + unit tests of the embedded JS (src/<module>/js/*.js); needs Node, skips locally without it
+UPDATE_RULE_DOCS=1 cargo test --test rule_docs   # Regenerate site/src/data/rules/ (per-rule pages, help_url target, #929); a plain run fails on drift
 cargo test --test taxonomy_catalogue   # Every emitted rule id has a taxonomy entry in src/taxonomy/rules.rs and vice versa (#918)
 cargo test --test cli_surface_tests    # `auditmysite --help` lists no maintainer tooling (#912); add --features dev-tools for the dev-binary cases
 ```

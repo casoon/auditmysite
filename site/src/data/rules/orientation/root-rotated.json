@@ -1,0 +1,41 @@
+{
+  "id": "orientation/root-rotated",
+  "url": "https://casoon.github.io/auditmysite/rules/orientation/root-rotated/",
+  "domain": "wcag",
+  "title": "Restricted screen orientation",
+  "outcome": "automatic",
+  "area": "Accessibility, Structure & Semantics",
+  "criterion": "1.3.4",
+  "level": "AA",
+  "axe_id": "css-orientation-lock",
+  "severity": "high",
+  "user_impact": "Users with fixed-mount screens (e.g. wheelchair-mounted) cannot read the page.",
+  "technical_impact": "The computed transform (matrix) or rotate of html or body turns by a quarter turn, measured in the audited viewport.",
+  "checks": [
+    {
+      "contract_id": "orientation/root-rotated",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 1.3.4 Orientation",
+      "applicability": "The root elements html and body of the top document, in each audited viewport: every page has them, so there is no page the check does not apply to.",
+      "expectation": "Fails when html or body is rotated in the audited viewport (computed\ntransform with a rotation component, or the rotate property;\nRendering::box_transform, measured by accessibility::probes), which turns\nthe whole page sideways: in the mobile (portrait) pass this is the classic\nlock that forces landscape, whether set by an orientation media query or by a\nscript reacting to the orientation. The finding names the rotated element.\nA full turn (360deg), a translation or no transform is no rotation. Rotations\nby a multiple of 180deg do not swap the axes and are not reported. A page\nwhose computed style cannot be read records the rule as not run\n(CapabilityMissing), not as a pass.",
+      "method": "shared",
+      "capabilities": [
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "visual_orientation_lock",
+        "file": "tests/fixtures/detection_corpus/visual_orientation_lock.html",
+        "verdict": "violation",
+        "selector": "body",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Page rotated into landscape on portrait screens</title>\n<style>\n  body { color: #111111; background: #ffffff; }\n  /* Classic orientation lock: in portrait (the mobile pass) the whole page\n     is turned sideways so it can only be read in landscape. */\n  @media (orientation: portrait) {\n    body { transform: rotate(90deg); transform-origin: top left; }\n  }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Seat map</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Choose your seat</h1>\n  <p>Rows A to F, seats 1 to 30.</p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "visual_orientation_hide",
+        "file": "tests/fixtures/detection_corpus/visual_orientation_hide.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Timetable hidden in portrait behind a rotate hint</title>\n<style>\n  body { color: #111111; background: #ffffff; }\n  .rotate-hint { display: none; }\n  @media (orientation: portrait) {\n    .timetable { display: none; }\n    .rotate-hint { display: block; }\n  }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Regional trains</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Timetable</h1>\n  <p class=\"rotate-hint\">Please turn your device to see the timetable.</p>\n  <div class=\"timetable\">\n    <table>\n      <caption>Departures from Central Station</caption>\n      <tr><th scope=\"col\">Train</th><th scope=\"col\">Time</th></tr>\n      <tr><td>RE 1</td><td>08:15</td></tr>\n    </table>\n  </div>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

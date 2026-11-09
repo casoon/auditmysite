@@ -1499,7 +1499,11 @@
         },
         "help_url": {
           "type": "string",
-          "description": "Official reference URL for the criterion (e.g. WCAG Understanding page). Present only for WCAG findings that carry one."
+          "description": "Documentation page of the rule on the project site (https://casoon.github.io/auditmysite/rules/<page_id>/). Present for every WCAG finding whose rule is in the catalogue and for the security header, vulnerable library and structured-data (missing required properties) findings; absent for every other finding."
+        },
+        "understanding_url": {
+          "type": "string",
+          "description": "Official reference for the criterion (the W3C WCAG Understanding page). Present only for WCAG findings whose rule names one."
         },
         "occurrence_count": {
           "type": "integer",

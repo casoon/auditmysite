@@ -1,0 +1,42 @@
+{
+  "id": "headings/section-without-heading",
+  "url": "https://casoon.github.io/auditmysite/rules/headings/section-without-heading/",
+  "domain": "wcag",
+  "title": "Missing section headings",
+  "outcome": "hint-only",
+  "area": "Accessibility, Structure & Semantics",
+  "criterion": "2.4.10",
+  "level": "AAA",
+  "axe_id": "heading-order",
+  "severity": "low",
+  "user_impact": "Users cannot jump directly to specific content.",
+  "technical_impact": "Missing sub-headings in long content blocks.",
+  "checks": [
+    {
+      "contract_id": "headings/section-without-heading",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 2.4.10 Section Headings (AAA, review); G141; HTML §4.3 sections",
+      "applicability": "article elements and named section elements (regions).",
+      "expectation": "Asks for review once per page when articles or named sections contain no\nheading: whether a section needs a heading depends on its content (teaser\ncards are often headingless), so it is not a proven failure. A section named\nby aria-labelledby to its own heading has one; an unnamed section is no region\nand is not counted. One review at the html element.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "structure_heading_outline",
+        "file": "tests/fixtures/detection_corpus/structure_heading_outline.html",
+        "verdict": "needs_review",
+        "selector": "html",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Workshop guides – Acme Hardware</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n        .print-only { display: none; }\n    </style>\n</head>\n<body>\n    <!-- A guide page with an uneven outline (#783). -->\n    <a href=\"#main\" class=\"skip-link\">Skip to content</a>\n    <header>\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Main\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/guides/\">Guides</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <h1 id=\"page-title\">Workshop guides</h1>\n        <h2>Woodwork</h2>\n        <!-- h2 to h4: one level skipped. -->\n        <h4 id=\"skipped-level\">Choosing a saw</h4>\n        <p>Crosscut or rip cut, depending on the grain.</p>\n        <!-- Back up to h2, then one level down: both fine. -->\n        <h2>Metalwork</h2>\n        <h3>Drilling steel</h3>\n        <p>Use cutting oil and a low speed.</p>\n        <!-- Not rendered, so not part of the outline: h3 to (h5) is no skip. -->\n        <h5 class=\"print-only\">Printed safety sheet</h5>\n        <h3>Filing</h3>\n        <p>Push strokes only.</p>\n        <!-- A second h1 for a sub-page area. -->\n        <h1 id=\"second-title\">Guide archive</h1>\n        <!-- Teaser cards without headings: an article and a named section. -->\n        <article>\n            <p>How to sharpen a chisel in five minutes.</p>\n        </article>\n        <section aria-label=\"Popular downloads\">\n            <p>Measuring chart, cutting list template.</p>\n        </section>\n        <!-- An unnamed section is no region and needs no heading. -->\n        <section>\n            <p>Updated monthly.</p>\n        </section>\n    </main>\n    <footer>\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "structure_outline_clean",
+        "file": "tests/fixtures/detection_corpus/structure_outline_clean.html",
+        "verdict": "absent",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\" xml:lang=\"en-GB\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Opening hours and contact – Acme Hardware Berlin</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- Conforming look-alike for the structure rules (#783): every\n         structure the rules look at is present and correct. -->\n    <a href=\"#main\" class=\"skip-link\">Skip to content</a>\n    <header>\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Main\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/shop/\">Shop</a></li>\n            <li><a href=\"/contact/\">Contact</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <h1>Opening hours and contact</h1>\n        <p>Our store in Berlin is open six days a week. We are happy to help you\n           find the right tool for your project, and you can always call us before\n           you visit to check that an item is in stock.</p>\n        <h2>Opening hours</h2>\n        <dl>\n            <div><dt>Monday to Friday</dt><dd>8:00 to 18:00</dd></div>\n            <div><dt>Saturday</dt><dd>9:00 to 14:00</dd></div>\n        </dl>\n        <h2>Directions</h2>\n        <!-- English text with German proper names: names are exempt from\n             3.1.2, and only two German function words occur. -->\n        <p id=\"directions\">The store is a short walk from the Haus der Kunst gallery and the\n           old bridge that locals call die Brücke. Take the tram to the main square, then\n           follow the river for about five minutes until you see our green sign.</p>\n        <article>\n            <h3>Store news</h3>\n            <p>We now stock garden tools from local makers.</p>\n        </article>\n        <section aria-labelledby=\"contact-heading\">\n            <h2 id=\"contact-heading\">Contact</h2>\n            <p>Call us or send a message. Prices include <abbr title=\"value-added tax\">VAT</abbr>.</p>\n            <form action=\"/contact\" method=\"post\">\n                <label for=\"contact-email\">E-mail</label>\n                <input id=\"contact-email\" name=\"email\" type=\"email\" autocomplete=\"email\" aria-describedby=\"contact-hint\">\n                <p id=\"contact-hint\">We reply within one working day.</p>\n                <button type=\"submit\">Send</button>\n            </form>\n        </section>\n    </main>\n    <footer>\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n    <!-- Hidden leftover outside every landmark: not rendered, not content. -->\n    <div hidden>Summer sale banner</div>\n</body>\n</html>"
+      }
+    }
+  ]
+}

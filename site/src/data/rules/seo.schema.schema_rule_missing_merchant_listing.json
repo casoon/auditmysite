@@ -1,0 +1,34 @@
+{
+  "id": "seo.schema.schema_rule_missing_merchant_listing",
+  "url": "https://casoon.github.io/auditmysite/rules/seo.schema.schema_rule_missing_merchant_listing/",
+  "domain": "schema",
+  "title": "Merchant Listing: missing required properties",
+  "outcome": "automatic",
+  "area": "SEO, structured data",
+  "checks": [
+    {
+      "contract_id": "merchant_listing",
+      "outcome": "automatic",
+      "source": "https://developers.google.com/search/docs/appearance/structured-data/merchant-listing (required: name, image, offers with price and priceCurrency; recommended: description, sku, brand.name, offers.availability)",
+      "applicability": "Applies to JSON-LD nodes of type Product on a purchasable product detail page in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method.",
+      "expectation": "Applies only where the page is a purchasable product detail page; the audit establishes that from the visible page intent (shop) and the product route in the SEO module's derive step. Where that context is not established the Product gets needs_review (context unknown), never a pass or a violation. On a product detail page: fails when name, image or an Offer with price and priceCurrency is missing; with them present and recommended properties missing it is needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)); all present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean.",
+      "method": "detect_structured_data",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "schema_rules_merchant_listing_incomplete",
+        "file": "tests/fixtures/detection_corpus_nonwcag/schema_rules/schema_rules_merchant_listing_incomplete.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Milk frother</title>\n  <script type=\"application/ld+json\">\n  {\"@context\": \"https://schema.org\", \"@type\": \"Product\", \"name\": \"Milk frother\", \"offers\": {\"@type\": \"Offer\", \"price\": \"39.00\"}}\n  </script>\n</head>\n<body>\n  <header><p>Example</p></header>\n  <main>\n    <h1>Milk frother</h1>\n    <p>Price: 89.00 EUR. In stock, ships in two days.</p>\n    <label for=\"qty\">Quantity</label> <input id=\"qty\" type=\"number\" value=\"1\" min=\"1\">\n    <button type=\"button\">Add to cart</button>\n    <p><a href=\"/cart\">View cart</a> · <a href=\"/checkout\">Checkout</a></p>\n  </main>\n  <footer><p>Footer</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "schema_rules_merchant_listing_complete",
+        "file": "tests/fixtures/detection_corpus_nonwcag/schema_rules/schema_rules_merchant_listing_complete.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Espresso grinder</title>\n  <script type=\"application/ld+json\">\n  {\"@context\": \"https://schema.org\", \"@type\": \"Product\", \"name\": \"Espresso grinder\", \"image\": \"https://example.com/grinder.jpg\", \"description\": \"Conical burr grinder\", \"sku\": \"EG-1\", \"brand\": {\"@type\": \"Brand\", \"name\": \"Example\"}, \"offers\": {\"@type\": \"Offer\", \"price\": \"89.00\", \"priceCurrency\": \"EUR\", \"availability\": \"https://schema.org/InStock\"}}\n  </script>\n</head>\n<body>\n  <header><p>Example</p></header>\n  <main>\n    <h1>Espresso grinder</h1>\n    <p>Price: 89.00 EUR. In stock, ships in two days.</p>\n    <label for=\"qty\">Quantity</label> <input id=\"qty\" type=\"number\" value=\"1\" min=\"1\">\n    <button type=\"button\">Add to cart</button>\n    <p><a href=\"/cart\">View cart</a> · <a href=\"/checkout\">Checkout</a></p>\n  </main>\n  <footer><p>Footer</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

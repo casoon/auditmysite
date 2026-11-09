@@ -311,6 +311,7 @@ mod tests {
                 "Die Seite erzwingt eine bestimmte Bildschirmausrichtung (Hoch- oder Querformat)."
                     .into(),
             help_url: None,
+            understanding_url: None,
             occurrence_count: 1,
             priority_score: 1.0,
             confidence: "very_high".into(),

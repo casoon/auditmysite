@@ -1,0 +1,41 @@
+{
+  "id": "zoom/viewport-scale-limited",
+  "url": "https://casoon.github.io/auditmysite/rules/zoom/viewport-scale-limited/",
+  "domain": "wcag",
+  "title": "Viewport meta tag prevents zooming to 500%",
+  "outcome": "hint-only",
+  "area": "Accessibility, Visual Presentation",
+  "criterion": "1.4.4",
+  "level": "AA",
+  "axe_id": "zoom/viewport-scale-limited",
+  "severity": "medium",
+  "user_impact": "Users with low vision cannot magnify the page content enough.",
+  "technical_impact": "maximum-scale in the viewport meta tag set below 5.",
+  "checks": [
+    {
+      "contract_id": "zoom/viewport-scale-limited",
+      "outcome": "hint-only",
+      "source": "Best practice beyond WCAG 2.2 SC 1.4.4 (zoom capped between 200 and 500 percent)",
+      "applicability": "meta name=viewport elements that allow at least 200 percent zoom.",
+      "expectation": "A best-practice finding at the meta element when maximum-scale is at least 2\nbut below 5: 1.4.4 is met, but users who need more magnification are capped.\nmaximum-scale=2 is reported, 5 is not; below 2 is zoom/viewport-locked\ninstead and not reported twice. Not a WCAG failure (auditmysite currently\nfiles it under 1.4.4, see the G6 report).",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "visual_viewport_scale_two",
+        "file": "tests/fixtures/detection_corpus/visual_viewport_scale_two.html",
+        "verdict": "needs_review",
+        "selector": "meta#vp",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta id=\"vp\" name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=2\">\n<title>Viewport limiting zoom to 200 percent</title>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Recipe collection</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Viewport limiting zoom to 200 percent</h1>\n  <p>Mix flour, water and salt, then let the dough rest for an hour.</p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "visual_viewport_scale_five",
+        "file": "tests/fixtures/detection_corpus/visual_viewport_scale_five.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta id=\"vp\" name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes\">\n<title>Viewport allowing zoom to 500 percent</title>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Recipe collection</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Viewport allowing zoom to 500 percent</h1>\n  <p>Mix flour, water and salt, then let the dough rest for an hour.</p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

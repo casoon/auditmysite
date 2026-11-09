@@ -51,6 +51,17 @@
 
 `severity_counts`, `occurrence_counts`, `violation_count` and `violated_rule_count` stay WCAG-only.
 
+### Rule documentation links
+
+`findings[].help_url` is the finding's page on the project site, `https://casoon.github.io/auditmysite/rules/<page_id>/` (`taxonomy::rule_doc_url`): the page id verbatim, `/` as path separator, a trailing slash. A page id contains only lowercase letters, digits, `-`, `_`, `.` and `/`, and is always an id the finding carries (`audit::rule_docs`):
+
+- WCAG findings: the `rule_id` (`images/alt-missing`).
+- Security header findings: the `rule_id` (`security.headers.<issue_type>`). The headers that share an issue type (`missing_header`) are one finding and one page, which lists each header's check.
+- Vulnerable-library findings: the `rule_id` (`best_practices.vulnerable_libraries.<name>`).
+- Structured-data findings about missing required properties: `seo.schema.schema_rule_missing_<feature>_<property>` carries the feature key, and the page is the feature's, `seo.schema.schema_rule_missing_<feature>`.
+
+Every other finding (SEO, mobile, UX, the other structured-data issues, ...) has no page and no `help_url`. `findings[].understanding_url` is a WCAG criterion's W3C Understanding page; it is absent when the rule names none, and always absent outside WCAG. Before #929 `help_url` held the Understanding page. SARIF `helpUri` and the AI report's `tasks[].help_url` follow `help_url`; the AI report adds `tasks[].understanding_url`. The PDF still prints the Understanding page as the reference. `tests/rule_docs.rs` keeps the generated pages in `site/src/data/rules/` equal to the rule catalogue, the contracts and the corpus, and every `help_url` pointing at one of them. `EVALUATION_VERSION` 8 and cache `fmt` 33 turn stored snapshots and cache entries into misses; `schema_version` stays `2.0` (a field is added, none removed).
+
 ### Finding assurance
 
 `confidence`, `false_positive_risk` and `verification` follow from `assurance`, never from a rule id or category name:

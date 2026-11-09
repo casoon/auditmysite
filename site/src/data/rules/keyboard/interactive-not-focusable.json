@@ -1,0 +1,37 @@
+{
+  "id": "keyboard/interactive-not-focusable",
+  "url": "https://casoon.github.io/auditmysite/rules/keyboard/interactive-not-focusable/",
+  "domain": "wcag",
+  "title": "Content not operable by keyboard",
+  "outcome": "hint-only",
+  "area": "Accessibility, Navigation & Operation",
+  "criterion": "2.1.1",
+  "level": "A",
+  "axe_id": "keyboard",
+  "severity": "critical",
+  "user_impact": "Keyboard users are excluded from functionality.",
+  "technical_impact": "Click handler without keyboard alternative.",
+  "checks": [
+    {
+      "contract_id": "keyboard/interactive-not-focusable",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 2.1.1 Keyboard; WAI-ARIA 1.2 §5.3 widget roles and aria-activedescendant; HTML-AAM (a without href is generic)",
+      "applicability": "Rendered, non-inert elements with an interactive widget role (button, link, checkbox, radio, switch, menuitem*, tab, option, treeitem).",
+      "expectation": "needs_review once per element that exposes an interactive role but cannot\ntake keyboard focus (no tabindex, not natively focusable): operating it from\nthe keyboard depends on script that the markup does not show. Not reported:\nnative controls, natively disabled fields, native <option>, options or items\nwhose ancestor manages focus with aria-activedescendant, elements not\nrendered. An <a> without href has no link role (HTML-AAM: generic) and is\nthe business of keyboard/click-handler-not-focusable, not of this rule. A\ntabindex removed by script after load counts.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "ax_tree",
+        "computed_style"
+      ],
+      "page_level": false,
+      "passing": {
+        "case": "interaction_click_anchor",
+        "file": "tests/fixtures/detection_corpus/interaction_click_anchor.html",
+        "verdict": "absent",
+        "selector": "a#ch-anchor",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Placeholder link with a click handler</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p>Example Travel</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/trips\">Trips</a>\n    </nav>\n    <main id=\"main\">\n        <h1>Your saved trips</h1>\n        <!-- violation (2.1.1): an a element without href is a placeholder, not a link\n             (HTML §4.5.1, HTML-AAM: role generic), and not focusable -->\n        <a id=\"ch-anchor\" onclick=\"this.textContent = 'Saved'\">Save trip</a>\n    </main>\n    <footer><p>Example Travel footer</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

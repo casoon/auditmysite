@@ -32,6 +32,7 @@ mod pipeline;
 pub mod prioritization;
 mod report;
 mod risk_assessment;
+pub mod rule_docs;
 mod scoring;
 pub mod signal_contract;
 pub mod summary;

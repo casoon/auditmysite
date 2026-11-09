@@ -118,6 +118,13 @@ pub struct RuleContract {
     /// that don't declare the rule accept the note, as a review only.
     #[serde(default)]
     pub ambient: bool,
+    /// An automated detector that by design reports only review hints or
+    /// untested entries, never a confirmed violation (the rule's findings are
+    /// `review`/`untested`/best practice in the detector itself). It is the
+    /// "hint only" class of the rule pages. Never derived from the corpus: a
+    /// rule that can fail stays `automatic` even where no corpus page shows it.
+    #[serde(default)]
+    pub review_only: bool,
     pub positive: Vec<String>,
     #[serde(default)]
     pub negative: Vec<String>,

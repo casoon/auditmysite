@@ -1,0 +1,35 @@
+{
+  "id": "keyboard-trap",
+  "url": "https://casoon.github.io/auditmysite/rules/keyboard-trap/",
+  "domain": "wcag",
+  "title": "Keyboard trap — focus cannot leave the element",
+  "outcome": "manual",
+  "area": "Accessibility, Navigation & Operation",
+  "criterion": "2.1.2",
+  "level": "A",
+  "axe_id": "keyboard-trap",
+  "severity": "critical",
+  "user_impact": "The page becomes effectively unusable for keyboard users.",
+  "technical_impact": "Missing focus management in modal elements.",
+  "checks": [
+    {
+      "contract_id": "keyboard-trap",
+      "outcome": "manual",
+      "source": "WCAG 2.2 SC 2.1.2 No Keyboard Trap; WAI-ARIA 1.2 aria-modal, HTML §4.11.4 dialog showModal()",
+      "applicability": "Pages where keyboard focus can be moved to a component: at least one focusable node other than the document root.",
+      "expectation": "On every page with a focusable component: one page-wide UNTESTED note\n(needs_review). In addition one needs_review per modal dialog in the\naccessibility tree (role dialog/alertdialog with modal=true: aria-modal=\"true\"\nor a native dialog opened with showModal()), because a modal deliberately\nkeeps focus and must let it go again. A non-modal dialog (no aria-modal, or\ndialog.show()) adds nothing. A page without any focusable component is not\napplicable: no note. Never pass or violation.",
+      "method": "tree",
+      "capabilities": [
+        "ax_tree"
+      ],
+      "page_level": true,
+      "manual_reason": "Whether focus can leave a component shows only by operating it with the keyboard (Tab, Shift+Tab, Escape); the accessibility tree cannot tell a trap from a well-behaved modal.",
+      "failing": {
+        "case": "interaction_dialog_native",
+        "file": "tests/fixtures/detection_corpus/interaction_dialog_native.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Cookie consent dialog</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n        .panel { border: 1px solid #333; padding: 16px; margin: 16px 0; }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p>Example Garden</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/plants\">Plants</a>\n    </nav>\n    <main id=\"main\">\n        <h1>Summer pruning</h1>\n        <p>Cut back lavender after flowering.</p>\n\n        <!-- needs_review (2.1.2): a native dialog that a script opens with showModal() after load -->\n        <dialog id=\"dlg-native-modal\" aria-labelledby=\"dlg-native-modal-title\">\n            <h2 id=\"dlg-native-modal-title\">Cookie settings</h2>\n            <p>We only use cookies that the site needs.</p>\n            <button type=\"button\">Accept</button>\n            <button type=\"button\">Settings</button>\n        </dialog>\n    </main>\n    <!-- Outside every landmark, but inert behind the open modal: nobody reaches it, so it is\n         not content-outside (#783). -->\n    <div class=\"promo\"><p>Seeds half price this week.</p></div>\n    <footer><p>Example Garden footer</p></footer>\n\n    <script>\n        document.getElementById('dlg-native-modal').showModal();\n    </script>\n</body>\n</html>"
+      }
+    }
+  ]
+}

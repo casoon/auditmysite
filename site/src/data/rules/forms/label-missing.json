@@ -1,0 +1,40 @@
+{
+  "id": "forms/label-missing",
+  "url": "https://casoon.github.io/auditmysite/rules/forms/label-missing/",
+  "domain": "wcag",
+  "title": "Missing form labels",
+  "outcome": "automatic",
+  "area": "Accessibility, Forms & Interaction",
+  "criterion": "3.3.2",
+  "level": "A",
+  "axe_id": "label",
+  "severity": "high",
+  "user_impact": "Users do not know what input is expected.",
+  "technical_impact": "Missing <label> elements.",
+  "checks": [
+    {
+      "contract_id": "forms/label-missing",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 1.3.1, 3.3.2, 4.1.2; HTML-AAM accessible name computation for input, select, textarea",
+      "applicability": "Rendered input (except hidden, submit, button, reset, image), select and textarea elements.",
+      "expectation": "Fails when the field has no programmatic label at all: no label[for], no\nwrapping <label>, no aria-label, no aria-labelledby, no title, no placeholder.\nA title or placeholder names the field (HTML-AAM), so such a field is not this\nviolation but a review under forms/title-only-label or\nforms/placeholder-as-label. Fields that are not rendered (display:none,\nhidden, visibility:hidden) are presented to nobody and are not judged; a\nvisually hidden field that stays in the accessibility tree is. Fields in open\nshadow roots, same-origin frames, inserted after load or shown in one\nviewport only are judged like any other. ARIA widgets (role=textbox) are not\nthis rule's elements; their missing name is names/required-missing.",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "missing_label",
+        "file": "tests/fixtures/detection_corpus/missing_label.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Missing label corpus case</title>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><style>\n  /* #783: page shell, so the case only reports what it is about */\n  .skip, nav a { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea { min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n</style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p><nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav></header>\n<main id=\"main\">\n        <h1>Form with an unlabeled input</h1>\n        <form>\n            <input type=\"text\" name=\"email\">\n            <button type=\"submit\">Send</button>\n        </form>\n    </main>\n<footer><p>Example Shop, 2026</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "form_heuristics_clean",
+        "file": "tests/fixtures/detection_corpus/form_heuristics_clean.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Form heuristics: true negatives (#643)</title>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><style>\n  /* #783: page shell, so the case only reports what it is about */\n  .skip, nav a { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea { min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n</style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p><nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav></header>\n<main id=\"main\">\n        <h1>Booking form</h1>\n        <form>\n            <!-- Mode switch: radios correctly grouped -->\n            <fieldset>\n                <legend>Mode</legend>\n                <label><input type=\"radio\" name=\"mode\" value=\"broken\" checked> Broken</label>\n                <label><input type=\"radio\" name=\"mode\" value=\"fixed\"> Fixed</label>\n            </fieldset>\n\n            <!-- Date field with instructions via aria-describedby: the\n                 description counts as the format instruction -->\n            <label for=\"booking-date\">Date</label>\n            <input type=\"text\" id=\"booking-date\" name=\"date\" inputmode=\"numeric\" aria-describedby=\"booking-date-hint\">\n            <p id=\"booking-date-hint\">Day of travel</p>\n\n            <!-- \"passiert\" contains \"pass\" but is no passport field -->\n            <label for=\"report-what\">Was ist passiert?</label>\n            <textarea id=\"report-what\" name=\"what\" rows=\"4\" aria-describedby=\"report-what-hint\"></textarea>\n            <span id=\"report-what-hint\">Was Sie erwartet haben und was stattdessen passiert ist</span>\n\n            <!-- A single checkbox, and a second one with a different name:\n                 neither is a group -->\n            <label><input type=\"checkbox\" class=\"bill-sr\"> Screen reader view</label>\n            <label><input type=\"checkbox\" name=\"newsletter\"> Send me the newsletter</label>\n\n            <button type=\"submit\">Search</button>\n        </form>\n    </main>\n<footer><p>Example Shop, 2026</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "id": "landmarks/contentinfo-missing",
+  "url": "https://casoon.github.io/auditmysite/rules/landmarks/contentinfo-missing/",
+  "domain": "wcag",
+  "title": "Missing contentinfo landmark",
+  "outcome": "hint-only",
+  "area": "Accessibility, Structure & Semantics",
+  "criterion": "1.3.1",
+  "level": "A",
+  "axe_id": "landmark-contentinfo-present",
+  "severity": "low",
+  "user_impact": "Screen reader users cannot jump straight to the footer with contact and legal information.",
+  "technical_impact": "No element with role=\"contentinfo\" (implicit via a <footer> outside <main>/<article>/<section>, or explicit) present.",
+  "checks": [
+    {
+      "contract_id": "landmarks/contentinfo-missing",
+      "outcome": "hint-only",
+      "source": "WAI-ARIA 1.2 contentinfo role; ARIA Authoring Practices, Landmark Regions; review for SC 1.3.1/2.4.1",
+      "applicability": "Every top-level document. A body without any content has nothing to structure and is not applicable.",
+      "expectation": "Asks for review when the document has no rendered contentinfo landmark: a\nbody-level footer or role=\"contentinfo\". A footer inside an article is the\narticle's footer, not contentinfo. A page may legitimately have no footer, so\nthis is an expectation, not a failure. One review at the html element.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "missing_main_landmark",
+        "file": "tests/fixtures/detection_corpus/missing_main_landmark.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Missing main landmark corpus case</title>\n</head>\n<body>\n    <div>\n        <h1>Page without a main landmark</h1>\n        <p>No main element or role=\"main\" anywhere on this page.</p>\n    </div>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "structure_landmark_duplicates",
+        "file": "tests/fixtures/detection_corpus/structure_landmark_duplicates.html",
+        "verdict": "absent",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Order history – Acme Hardware</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- A single-page app shell (#783). The inactive view's main is hidden,\n         which HTML allows (only one main without the hidden attribute). A\n         promo widget inside main declares itself a banner, and a cookie note\n         declares itself a second contentinfo. The article's header belongs to\n         the article and is no banner. -->\n    <a href=\"#orders\" class=\"skip-link\">Skip to content</a>\n    <header id=\"site-header\">\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Account\">\n        <ul>\n            <li><a href=\"/account/\">Account</a></li>\n            <li><a href=\"/orders/\">Orders</a></li>\n        </ul>\n    </nav>\n    <main id=\"profile\" hidden>\n        <h1>Your profile</h1>\n    </main>\n    <main id=\"orders\">\n        <h1>Order history</h1>\n        <div id=\"promo\" role=\"banner\">\n            <p>Free delivery this week.</p>\n        </div>\n        <article>\n            <header><h2>Order 2026-0412</h2></header>\n            <p>Three boxes of wood screws.</p>\n        </article>\n    </main>\n    <footer id=\"site-footer\">\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n    <div id=\"cookie-note\" role=\"contentinfo\">\n        <p>This site stores your basket in a cookie.</p>\n    </div>\n</body>\n</html>"
+      }
+    }
+  ]
+}

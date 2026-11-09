@@ -1,0 +1,41 @@
+{
+  "id": "dialog/focusable-missing",
+  "url": "https://casoon.github.io/auditmysite/rules/dialog/focusable-missing/",
+  "domain": "wcag",
+  "title": "Illogical focus order",
+  "outcome": "hint-only",
+  "area": "Accessibility, Navigation & Operation",
+  "criterion": "2.4.3",
+  "level": "A",
+  "axe_id": "focus-order-semantics",
+  "severity": "high",
+  "user_impact": "Confusing navigation for keyboard users.",
+  "technical_impact": "DOM order diverges from the visual order.",
+  "checks": [
+    {
+      "contract_id": "dialog/focusable-missing",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 2.4.3 Focus Order and SC 2.1.1 Keyboard; APG Dialog (Modal) pattern",
+      "applicability": "Open dialogs (role dialog/alertdialog, open native <dialog>) in the accessibility tree.",
+      "expectation": "Review when no descendant of the dialog can take focus: keyboard users can neither\noperate nor close it, unless the dialog takes focus itself and Escape closes it, which the markup\ndoes not show. A dialog with an enabled focusable control passes. Closed and hidden dialogs are out\nof scope.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "ax_tree"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "aria_naming_roles",
+        "file": "tests/fixtures/detection_corpus/aria_naming_roles.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>ARIA role naming corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Widgets with role but no accessible name</h1>\n        <div role=\"menuitem\" tabindex=\"0\"></div>\n        <div role=\"slider\" tabindex=\"0\" aria-valuenow=\"5\" aria-valuemin=\"0\" aria-valuemax=\"10\"></div>\n        <div role=\"meter\" aria-valuenow=\"5\" aria-valuemin=\"0\" aria-valuemax=\"10\"></div>\n        <div role=\"progressbar\" aria-valuenow=\"50\" aria-valuemin=\"0\" aria-valuemax=\"100\"></div>\n        <div role=\"switch\" tabindex=\"0\" aria-checked=\"false\"></div>\n        <div role=\"tree\" aria-label=\"Files\"><div role=\"treeitem\" tabindex=\"0\"></div></div>\n        <div role=\"dialog\"></div>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "aria_dialogs_live_valid",
+        "file": "tests/fixtures/detection_corpus/aria_dialogs_live_valid.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Shopping cart - Example shop</title>\n</head>\n<body>\n    <header>\n        <p>Example shop</p>\n    </header>\n    <main>\n        <h1>Shopping cart</h1>\n\n        <!-- Live regions with their default urgency, stated or implicit; a\n             log may change its urgency -->\n        <div id=\"cart-status\" role=\"status\" aria-live=\"polite\">2 items in your cart</div>\n        <div id=\"stock-alert\" role=\"alert\">Only 1 left in stock</div>\n        <output id=\"total\">Total: 59 EUR</output>\n        <div id=\"activity\" role=\"log\" aria-live=\"assertive\">Coupon applied.</div>\n        <!-- aria-live off on an element that is no live region role -->\n        <div id=\"ticker\" aria-live=\"off\">Prices include VAT.</div>\n\n        <!-- Named modal dialog with a control, named by aria-labelledby -->\n        <div id=\"coupon-dlg\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"coupon-title\">\n            <h2 id=\"coupon-title\">Coupon</h2>\n            <button type=\"button\" id=\"coupon-ok\">Apply</button>\n        </div>\n\n        <!-- Open native dialog named by aria-label, with a control -->\n        <dialog open id=\"saved-dlg\" aria-label=\"Cart saved\">\n            <p>Your cart was saved.</p>\n            <button type=\"button\" id=\"saved-ok\">OK</button>\n        </dialog>\n\n        <!-- Closed native dialogs are not presented: no name needed, inert is\n             harmless -->\n        <dialog id=\"closed-dlg\"><p>Not shown.</p></dialog>\n        <dialog id=\"closed-inert-dlg\" inert><p>Not shown either.</p></dialog>\n\n        <!-- Inert background content next to the dialog is the intended use -->\n        <div id=\"background\" inert>\n            <p>Recommended products</p>\n        </div>\n    </main>\n    <footer>\n        <p>Example shop</p>\n    </footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

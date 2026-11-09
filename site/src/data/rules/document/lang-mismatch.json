@@ -1,0 +1,41 @@
+{
+  "id": "document/lang-mismatch",
+  "url": "https://casoon.github.io/auditmysite/rules/document/lang-mismatch/",
+  "domain": "wcag",
+  "title": "Conflicting language declarations",
+  "outcome": "automatic",
+  "area": "Accessibility, Language & Clarity",
+  "criterion": "3.1.1",
+  "level": "A",
+  "axe_id": "html-xml-lang-mismatch",
+  "severity": "medium",
+  "user_impact": "Assistive technologies receive conflicting information about the content's language.",
+  "technical_impact": "lang and xml:lang do not agree on the primary subtag.",
+  "checks": [
+    {
+      "contract_id": "document/lang-mismatch",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 3.1.1 Language of Page; ACT 5b7ae0 (HTML page lang and xml:lang attributes have matching values); HTML §3.2.6.2",
+      "applicability": "The root html element of the top-level document when it has both a non-empty lang and a non-empty xml:lang.",
+      "expectation": "Fails when the primary language subtags of lang and xml:lang differ\n(lang=\"en\" xml:lang=\"de\"): which language applies then depends on the user\nagent. Matching primary subtags with different regions (en-GB / en-US, en /\nen-GB) pass, as ACT 5b7ae0 compares primary subtags. Without xml:lang the rule\ndoes not apply. One finding at the html element.",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "structure_head_defects",
+        "file": "tests/fixtures/detection_corpus/structure_head_defects.html",
+        "verdict": "violation",
+        "selector": "html",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\" xml:lang=\"de\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>\n    </title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n        .is-hidden { display: none; }\n    </style>\n</head>\n<body>\n    <!-- A CMS template with broken head data and empty heading shells (#783):\n         lang and xml:lang name different languages, the title holds only\n         whitespace, and several headings carry no accessible name. -->\n    <a href=\"#main\" class=\"skip-link\">Skip to content</a>\n    <header>\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Main\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/shop/\">Shop</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <h1>Product catalogue</h1>\n        <!-- Empty: no text, and the only image is decorative. -->\n        <h2 id=\"empty-decorative\"><img src=\"divider.png\" alt=\"\"></h2>\n        <p>Hand tools for every workshop.</p>\n        <!-- Named by an image's alternative text: not empty. -->\n        <h2 id=\"named-by-alt\"><img src=\"logo-tools.png\" alt=\"Tools by Acme\"></h2>\n        <p>Hammers, saws and planes.</p>\n        <!-- Named by aria-labelledby: not empty. -->\n        <h2 id=\"named-by-ref\" aria-labelledby=\"garden-label\"></h2>\n        <p id=\"garden-label\">Garden</p>\n        <!-- An ARIA heading with no name is an empty heading as well. -->\n        <div id=\"empty-aria-heading\" role=\"heading\" aria-level=\"2\"></div>\n        <p>Spades and rakes.</p>\n        <!-- Hidden and empty: not rendered, not in the outline. -->\n        <h2 id=\"hidden-empty\" class=\"is-hidden\"></h2>\n        <h2>Contact</h2>\n        <p>Call us during opening hours.</p>\n    </main>\n    <footer>\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "structure_outline_clean",
+        "file": "tests/fixtures/detection_corpus/structure_outline_clean.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\" xml:lang=\"en-GB\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Opening hours and contact – Acme Hardware Berlin</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- Conforming look-alike for the structure rules (#783): every\n         structure the rules look at is present and correct. -->\n    <a href=\"#main\" class=\"skip-link\">Skip to content</a>\n    <header>\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Main\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/shop/\">Shop</a></li>\n            <li><a href=\"/contact/\">Contact</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <h1>Opening hours and contact</h1>\n        <p>Our store in Berlin is open six days a week. We are happy to help you\n           find the right tool for your project, and you can always call us before\n           you visit to check that an item is in stock.</p>\n        <h2>Opening hours</h2>\n        <dl>\n            <div><dt>Monday to Friday</dt><dd>8:00 to 18:00</dd></div>\n            <div><dt>Saturday</dt><dd>9:00 to 14:00</dd></div>\n        </dl>\n        <h2>Directions</h2>\n        <!-- English text with German proper names: names are exempt from\n             3.1.2, and only two German function words occur. -->\n        <p id=\"directions\">The store is a short walk from the Haus der Kunst gallery and the\n           old bridge that locals call die Brücke. Take the tram to the main square, then\n           follow the river for about five minutes until you see our green sign.</p>\n        <article>\n            <h3>Store news</h3>\n            <p>We now stock garden tools from local makers.</p>\n        </article>\n        <section aria-labelledby=\"contact-heading\">\n            <h2 id=\"contact-heading\">Contact</h2>\n            <p>Call us or send a message. Prices include <abbr title=\"value-added tax\">VAT</abbr>.</p>\n            <form action=\"/contact\" method=\"post\">\n                <label for=\"contact-email\">E-mail</label>\n                <input id=\"contact-email\" name=\"email\" type=\"email\" autocomplete=\"email\" aria-describedby=\"contact-hint\">\n                <p id=\"contact-hint\">We reply within one working day.</p>\n                <button type=\"submit\">Send</button>\n            </form>\n        </section>\n    </main>\n    <footer>\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n    <!-- Hidden leftover outside every landmark: not rendered, not content. -->\n    <div hidden>Summer sale banner</div>\n</body>\n</html>"
+      }
+    }
+  ]
+}

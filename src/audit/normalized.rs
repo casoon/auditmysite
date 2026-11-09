@@ -361,9 +361,14 @@ pub struct NormalizedFinding {
     pub title: String,
     /// Beschreibung
     pub description: String,
-    /// Offizielle Referenz zum Kriterium (z.B. WCAG-Understanding-Seite)
+    /// Documentation page of the rule on the project site
+    /// (`taxonomy::rule_doc_url`); absent for findings without a rule page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub help_url: Option<String>,
+    /// Official reference for the criterion (the WCAG Understanding page),
+    /// absent when the rule names none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub understanding_url: Option<String>,
     /// Anzahl Vorkommen
     pub occurrence_count: usize,
     /// Prioritätswert für Maßnahmenplanung (impact × reach / effort)
@@ -1021,7 +1026,8 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 aggregation_key: tax_id,
                 title: display_title,
                 description: first.message.clone(),
-                help_url: first.help_url.clone(),
+                help_url: taxonomy_rule.map(|r| crate::taxonomy::rule_doc_url(r.id)),
+                understanding_url: first.help_url.clone(),
                 occurrence_count,
                 priority_score,
                 confidence,
@@ -1781,6 +1787,50 @@ mod tests {
             1
         );
         n.validate().unwrap();
+    }
+
+    /// #929: `help_url` is the rule's page on the project site whatever the
+    /// rule itself names; the rule's own reference (the W3C Understanding
+    /// page, or nothing) moves to `understanding_url`.
+    #[test]
+    fn help_url_is_the_rule_page_and_the_reference_is_kept_apart() {
+        let mut results = WcagResults::new();
+        for (axe, understanding) in [
+            (
+                "images/alt-missing",
+                Some("https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html"),
+            ),
+            ("buttons/name-missing", None),
+        ] {
+            let mut v = Violation::new(
+                "4.1.2",
+                "Name, Role, Value",
+                crate::cli::WcagLevel::A,
+                Severity::High,
+                "x",
+                "n1",
+            )
+            .with_rule_id(axe)
+            .with_selector("x");
+            v.help_url = understanding.map(str::to_string);
+            results.add_violation(v);
+        }
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+        let n = normalize(&report).normalized;
+        let find = |id: &str| n.findings.iter().find(|f| f.rule_id == id).unwrap();
+        assert_eq!(
+            find("images/alt-missing").help_url.as_deref(),
+            Some("https://casoon.github.io/auditmysite/rules/images/alt-missing/")
+        );
+        assert_eq!(
+            find("images/alt-missing").understanding_url.as_deref(),
+            Some("https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html")
+        );
+        assert_eq!(
+            find("buttons/name-missing").help_url.as_deref(),
+            Some("https://casoon.github.io/auditmysite/rules/buttons/name-missing/")
+        );
+        assert_eq!(find("buttons/name-missing").understanding_url, None);
     }
 
     /// #784 counter-case: the same rule id with different evidence. A

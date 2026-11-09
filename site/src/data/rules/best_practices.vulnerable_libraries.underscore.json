@@ -1,0 +1,34 @@
+{
+  "id": "best_practices.vulnerable_libraries.underscore",
+  "url": "https://casoon.github.io/auditmysite/rules/best_practices.vulnerable_libraries.underscore/",
+  "domain": "libraries",
+  "title": "Underscore: version with known vulnerabilities",
+  "outcome": "automatic",
+  "area": "Security, vulnerable libraries",
+  "checks": [
+    {
+      "contract_id": "Underscore",
+      "outcome": "automatic",
+      "source": "retire.js jsrepository-v4.json (GitHub/NVD advisories), reviewed 2026-10-26; CVE-2021-23358 (< 1.12.1), CVE-2026-27601 (< 1.13.8)",
+      "applicability": "Applies to pages on which the library is detected: its window global (with its version field) or, for jQuery, Bootstrap, AngularJS, Lodash and Handlebars, a script URL whose path names the library and a version.",
+      "expectation": "Fails for every Underscore below 1.13.8; 1.13.8 and later pass. Detected through `_.VERSION` without `_.runInContext` (with it, `_` is Lodash). Underscore has no URL channel in this detector. A page without the library: not applicable. A page that breaks the detection scripts (result missing or malformed) is not run for every library, never clean.",
+      "method": "analyze_vulnerable_libraries",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "vulnerable_libs_underscore_last_vulnerable",
+        "file": "tests/fixtures/detection_corpus_nonwcag/vulnerable_libs/vulnerable_libs_underscore_last_vulnerable.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Underscore just below the fix</title>\n  <script>\n    window._ = { VERSION: \"1.13.7\" };\n  </script>\n</head>\n<body>\n  <header><p>Library corpus</p></header>\n  <main>\n    <h1>Underscore just below the fix</h1>\n\n  </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "vulnerable_libs_current_underscore",
+        "file": "tests/fixtures/detection_corpus_nonwcag/vulnerable_libs/vulnerable_libs_current_underscore.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Current Underscore</title>\n  <script>\n    // 1.13.8 fixes CVE-2026-27601, the last Underscore advisory.\n    window._ = { VERSION: \"1.13.8\" };\n  </script>\n</head>\n<body>\n  <header><p>Library corpus</p></header>\n  <main>\n    <h1>Current Underscore</h1>\n\n  </main>\n</body>\n</html>"
+      }
+    }
+  ]
+}

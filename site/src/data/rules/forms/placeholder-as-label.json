@@ -1,0 +1,42 @@
+{
+  "id": "forms/placeholder-as-label",
+  "url": "https://casoon.github.io/auditmysite/rules/forms/placeholder-as-label/",
+  "domain": "wcag",
+  "title": "Missing form labels",
+  "outcome": "hint-only",
+  "area": "Accessibility, Forms & Interaction",
+  "criterion": "3.3.2",
+  "level": "A",
+  "axe_id": "label",
+  "severity": "high",
+  "user_impact": "Users do not know what input is expected.",
+  "technical_impact": "Missing <label> elements.",
+  "checks": [
+    {
+      "contract_id": "forms/placeholder-as-label",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 3.3.2 Labels or Instructions (Understanding: placeholder text disappears on input); HTML §4.10.5.3.11 placeholder",
+      "applicability": "Rendered input, select and textarea elements with a non-empty placeholder.",
+      "expectation": "Needs review when the placeholder is the only visible label: it names the\nfield, but it disappears as soon as the user types, so whether it suffices as\na label is a human judgement. A field with label[for] or a wrapping <label>\nis not reported. aria-label is not visible, so a field whose only visible\nlabel is the placeholder needs review even when it also has aria-label\n(forms_gap_placeholder_aria). Never a confirmed violation.",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "forms_gap_placeholder_aria",
+        "file": "tests/fixtures/detection_corpus/forms_gap_placeholder_aria.html",
+        "verdict": "needs_review",
+        "selector": "input#porch-note",
+        "html": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Porch delivery</title>\n<style>\n  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }\n  a { color: #0050a0; }\n  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea, [role=\"button\"], [role=\"textbox\"], [role=\"radio\"], [role=\"link\"], [role=\"searchbox\"] {\n    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n</style>\n</head>\n<body>\n<a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p>\n<nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav>\n</header>\n<main id=\"main\">\n<h1>Porch delivery</h1>\n<!-- G2 #783: aria-label names the field, but the only visible label is the placeholder, which disappears on input (3.3.2). Same review as a placeholder-only field. -->\n<form action=\"/porch\" method=\"post\">\n  <p><input id=\"porch-note\" name=\"porch\" type=\"text\" aria-label=\"Porch note\" placeholder=\"Porch note\"></p>\n  <p><button type=\"submit\">Save note</button></p>\n</form>\n</main>\n<footer><p>Example Shop, 2026</p></footer>\n\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "forms_labels",
+        "file": "tests/fixtures/detection_corpus/forms_labels.html",
+        "verdict": "absent",
+        "selector": "input#lbl-ph",
+        "html": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Delivery preferences</title>\n<style>\n  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }\n  a { color: #0050a0; }\n  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea, [role=\"button\"], [role=\"textbox\"], [role=\"radio\"], [role=\"link\"], [role=\"searchbox\"] {\n    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n</style>\n</head>\n<body>\n<a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p>\n<nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav>\n</header>\n<main id=\"main\">\n<h1>Delivery preferences</h1>\n<!-- G2 #783: every labelling mechanism next to fields without one. A field needs a programmatic name (4.1.2, 1.3.1) and a visible label (3.3.2); a placeholder or title names it but is no lasting visible label. -->\n<form action=\"/preferences\" method=\"post\">\n  <p><input id=\"coupon-code\" name=\"coupon\" type=\"text\"></p>\n  <p><textarea id=\"gift-message\" name=\"gift\"></textarea></p>\n  <p><select id=\"wrap-style\" name=\"wrap\"><option>Plain</option><option>Festive</option></select></p>\n  <p><input id=\"voucher\" name=\"voucher\" type=\"text\" placeholder=\"Voucher code\"></p>\n  <p><input id=\"door-code\" name=\"door\" type=\"text\" title=\"Door code\"></p>\n  <p><label for=\"lbl-for\">Gate number</label> <input id=\"lbl-for\" name=\"gate\" type=\"text\"></p>\n  <p><label>Floor <input id=\"lbl-wrap\" name=\"floor\" type=\"text\"></label></p>\n  <p><input id=\"lbl-aria\" name=\"stairs\" type=\"text\" aria-label=\"Stairwell\"></p>\n  <p><span id=\"bell-label\">Doorbell label</span> <input id=\"lbl-by\" name=\"bell\" type=\"text\" aria-labelledby=\"bell-label\"></p>\n  <p><label for=\"lbl-ph\">Courier note</label> <input id=\"lbl-ph\" name=\"note\" type=\"text\" placeholder=\"Leave at the door\"></p>\n  <p><label for=\"lbl-title\">Drop-off spot</label> <input id=\"lbl-title\" name=\"spot\" type=\"text\" title=\"Where to leave the parcel\"></p>\n  <p><label for=\"lbl-select\">Wrapping paper</label> <select id=\"lbl-select\" name=\"paper\"><option>Kraft</option><option>Gloss</option></select></p>\n  <p><label for=\"lbl-area\">Card text</label> <textarea id=\"lbl-area\" name=\"card\"></textarea></p>\n  <p><span id=\"title-aria\" role=\"textbox\" contenteditable=\"true\" tabindex=\"0\" title=\"Gift note\"></span></p>\n  <input type=\"hidden\" name=\"token\" value=\"abc\">\n  <p><button type=\"submit\">Save preferences</button></p>\n</form>\n</main>\n<footer><p>Example Shop, 2026</p></footer>\n\n</body>\n</html>"
+      }
+    }
+  ]
+}

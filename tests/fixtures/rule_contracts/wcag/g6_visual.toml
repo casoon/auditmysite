@@ -85,6 +85,7 @@ id = "contrast/text-undetermined"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=contrast/text-undetermined)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.4.3 Contrast (Minimum); a11y-rules rule 3 (not determinable is not a pass)"
 capabilities = ["dom", "computed_style", "geometry"]
@@ -196,6 +197,7 @@ id = "contrast/control-undetermined"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=contrast/control-undetermined)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.4.11 Non-text Contrast; a11y-rules rule 3 (not determinable is not a pass)"
 capabilities = ["dom", "computed_style", "geometry"]
@@ -233,6 +235,7 @@ id = "text/justified"
 errored = ["error_dom_too_deep", "error_stylesheets_unreadable"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=text/justified)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.4.8 Visual Presentation (Level AAA), bullet 3: text is not justified"
 capabilities = ["dom", "stylesheets"]
@@ -282,6 +285,7 @@ id = "text/line-height-tight"
 errored = ["error_dom_too_deep", "error_stylesheets_unreadable"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=text/line-height-tight)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.4.8 Visual Presentation (Level AAA), bullet 4: line spacing at least space-and-a-half"
 capabilities = ["dom", "stylesheets"]
@@ -358,6 +362,7 @@ id = "motion/reduced-motion-ignored"
 errored = ["error_dom_too_deep", "error_stylesheets_unreadable"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=motion/reduced-motion-ignored)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 2.3.3 Animation from Interactions (Level AAA); Media Queries 5 'prefers-reduced-motion'"
 capabilities = ["dom", "stylesheets"]
@@ -399,6 +404,7 @@ id = "motion/infinite-animation"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=motion/infinite-animation)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 2.2.2 Pause, Stop, Hide (moving content that lasts more than five seconds)"
 capabilities = ["dom", "computed_style"]
@@ -440,6 +446,7 @@ id = "orientation/content-hidden"
 errored = ["error_dom_too_deep", "error_stylesheets_unreadable"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=orientation/content-hidden)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.3.4 Orientation"
 capabilities = ["dom", "stylesheets"]
@@ -566,6 +573,7 @@ id = "zoom/viewport-scale-limited"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=zoom/viewport-scale-limited)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "Best practice beyond WCAG 2.2 SC 1.4.4 (zoom capped between 200 and 500 percent)"
 capabilities = ["dom"]
@@ -602,6 +610,7 @@ id = "zoom/viewport-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=zoom/viewport-missing)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "Best practice (no WCAG criterion): without a viewport declaration mobile browsers lay out at desktop width and scale the page down; CSS Device Adaptation"
 capabilities = ["dom"]
@@ -689,6 +698,7 @@ id = "text-spacing/clipped"
 errored = ["error_page_scripts_sabotaged", "visual_text_spacing_override_defeated"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=text-spacing/clipped)"]
 automation = "automated"
+review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.4.12 Text Spacing; W3C text spacing bookmarklet technique"
 capabilities = ["dom", "computed_style", "geometry"]

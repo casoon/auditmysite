@@ -1,0 +1,41 @@
+{
+  "id": "tables/header-without-data",
+  "url": "https://casoon.github.io/auditmysite/rules/tables/header-without-data/",
+  "domain": "wcag",
+  "title": "Table header without associated data cells",
+  "outcome": "automatic",
+  "area": "Accessibility, Structure & Semantics",
+  "criterion": "1.3.1",
+  "level": "A",
+  "axe_id": "th-has-data-cells",
+  "severity": "high",
+  "user_impact": "Screen readers announce a header that structures no data.",
+  "technical_impact": "Header cell with no associated data cells in the table.",
+  "checks": [
+    {
+      "contract_id": "tables/header-without-data",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 1.3.1 Info and Relationships (H51, H39, H63, H43, F91, F92); HTML §4.9 tabular data; WAI-ARIA 1.2 table/grid/row/cell roles",
+      "applicability": "Every rendered, not aria-hidden table with header cells.",
+      "expectation": "A table with header cells but not a single data cell (<td>, cell, gridcell) has\nheaders that label nothing: violation at each header cell. One data cell, even\nan empty one, is enough to pass; row headers next to data cells pass (#638). A\nrow group without any row means the rows are still loading or hidden: that is\ntables/data-undetermined, not this id.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "table_headers_no_data",
+        "file": "tests/fixtures/detection_corpus/table_headers_no_data.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Table headers without data cells corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Table with headers but no data rows</h1>\n        <table aria-label=\"Empty results\">\n            <thead>\n                <tr><th>Name</th><th>Score</th></tr>\n            </thead>\n            <tbody>\n                <tr><th>No results</th><th>—</th></tr>\n            </tbody>\n        </table>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "table_headers_tbody_ignored",
+        "file": "tests/fixtures/detection_corpus/table_headers_tbody_ignored.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Data table with thead and tbody corpus case</title>\n    <style>\n        .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n        .bar { display: inline-block; width: 4rem; height: .5rem; background: #ddd; }\n        .bar > span { display: block; height: 100%; background: #333; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Levers by sector</h1>\n        <!-- #638: Chrome exposes <thead> as rowgroup but marks <tbody> ignored;\n             its rows and cells (some empty, some starting with an aria-hidden\n             child) are still the header cells' data cells. -->\n        <div class=\"scroll\" role=\"region\" aria-label=\"Lever map\" tabindex=\"0\">\n            <table class=\"map\">\n                <caption class=\"sr-only\">Lever map: sectors and the levers that apply</caption>\n                <thead>\n                    <tr><th scope=\"col\">Sector</th><th scope=\"col\" class=\"num\">Share</th><th scope=\"col\">Generate clean</th><th scope=\"col\">Electrify</th></tr>\n                </thead>\n                <tbody>\n                    <tr><th scope=\"row\">Power and heat</th><td class=\"num\"><span class=\"bar\" aria-hidden=\"true\"><span style=\"width:81.8%\"></span></span>33 %</td><td><span aria-hidden=\"true\">●</span><span class=\"sr-only\">applies</span></td><td></td></tr>\n                    <tr><th scope=\"row\">Transport</th><td class=\"num\"><span class=\"bar\" aria-hidden=\"true\"><span style=\"width:40.8%\"></span></span>16 %</td><td></td><td><span aria-hidden=\"true\">●</span><span class=\"sr-only\">applies</span></td></tr>\n                </tbody>\n            </table>\n        </div>\n    </main>\n</body>\n</html>"
+      }
+    }
+  ]
+}

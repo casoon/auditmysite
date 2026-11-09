@@ -32,7 +32,11 @@ pub struct AiTask {
     pub fix: String,
     pub selector: String,
     pub node_id: String,
+    /// Documentation page of the rule on the project site.
     pub help_url: String,
+    /// Official reference for the criterion (WCAG Understanding page).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub understanding_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub html_snippet: Option<String>,
 }
@@ -93,6 +97,9 @@ pub fn format_ai_json(report: &AuditReport) -> Result<String, ReportContractErro
                 *c += 1;
                 *c
             };
+            let help_url = crate::taxonomy::RuleLookup::by_id(&rule_id)
+                .map(|r| crate::taxonomy::rule_doc_url(r.id))
+                .unwrap_or_default();
             AiTask {
                 task_id: format!("{}-{:03}", rule_id, seq),
                 rule_id,
@@ -104,7 +111,8 @@ pub fn format_ai_json(report: &AuditReport) -> Result<String, ReportContractErro
                 fix: v.fix_suggestion.clone().unwrap_or_default(),
                 selector: v.selector.clone().unwrap_or_default(),
                 node_id: v.node_id.clone(),
-                help_url: v.help_url.clone().unwrap_or_default(),
+                help_url,
+                understanding_url: v.help_url.clone(),
                 html_snippet: v.html_snippet.clone(),
             }
         })
