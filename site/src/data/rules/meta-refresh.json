@@ -1,0 +1,30 @@
+{
+  "id": "meta-refresh",
+  "url": "https://casoon.github.io/auditmysite/rules/meta-refresh/",
+  "title": "Non-adjustable time limit",
+  "outcome": "manual",
+  "criterion": "2.2.1",
+  "level": "A",
+  "axe_id": "meta-refresh",
+  "dimension": "Accessibility",
+  "subcategory": "Navigation & Operation",
+  "issue_class": "Weak",
+  "severity": "high",
+  "user_impact": "Users need more time to enter data and may lose data through timeouts.",
+  "technical_impact": "Missing refresh or timeout handling in the script/markup.",
+  "source": "WCAG 2.2 SC 2.2.1 Timing Adjustable",
+  "applicability": "Every page (a fixed page-wide UNTESTED note).",
+  "expectation": "Emits one page-wide UNTESTED note on every page, never a pass and never a\nviolation. Strictly, 2.2.1 applies only where content sets a time limit, so\na page without scripts or forms would be out of scope; the note is\nunconditional today, which is why no not-applicable case exists.",
+  "method": "page",
+  "capabilities": [
+    "dom"
+  ],
+  "page_level": true,
+  "manual_reason": "Script-driven time limits (setTimeout/setInterval, session expiry) and whether users can turn them off, adjust or extend them are not visible in the DOM. The id is historical: it names the 2.2.1 page note for script time limits, while the actual meta refresh detection is timing/meta-refresh.",
+  "failing": {
+    "case": "visual_meta_refresh_redirect",
+    "file": "tests/fixtures/detection_corpus/visual_meta_refresh_redirect.html",
+    "verdict": "needs_review",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<!-- Upper-case attribute value, leading space and a target URL; 71999 s is\n     one second short of the 20-hour exception. -->\n<meta id=\"slow-redirect\" HTTP-EQUIV=\"REFRESH\" content=\" 71999; url=/news\">\n<title>Ticker page with a refresh and a redirect</title>\n<script>\n  // Inserted by a script: the browser still honours it.\n  var refresh = document.createElement('meta');\n  refresh.id = 'late-refresh';\n  refresh.httpEquiv = 'refresh';\n  refresh.content = '900';\n  document.head.appendChild(refresh);\n</script>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Live ticker</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Match day live ticker</h1>\n  <p>Kick-off is at three in the afternoon.</p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+  }
+}

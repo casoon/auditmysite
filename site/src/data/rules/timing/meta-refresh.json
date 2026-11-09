@@ -1,0 +1,36 @@
+{
+  "id": "timing/meta-refresh",
+  "url": "https://casoon.github.io/auditmysite/rules/timing/meta-refresh/",
+  "title": "Non-adjustable time limit",
+  "outcome": "automatic",
+  "criterion": "2.2.1",
+  "level": "A",
+  "axe_id": "meta-refresh",
+  "dimension": "Accessibility",
+  "subcategory": "Navigation & Operation",
+  "issue_class": "Weak",
+  "severity": "high",
+  "user_impact": "Users need more time to enter data and may lose data through timeouts.",
+  "technical_impact": "Missing refresh or timeout handling in the script/markup.",
+  "source": "WCAG 2.2 SC 2.2.1 Timing Adjustable (20-hour exception); technique H76/F40/F41; HTML 'shared declarative refresh steps'",
+  "applicability": "meta elements with http-equiv=refresh (any case) whose content starts with digits, also when inserted by script.",
+  "expectation": "Fails at the meta element when it reloads or redirects after a delay of\n1 s up to just under 20 hours (71999 s fails, 72000 s is the 20-hour\nexception and passes): users can neither stop nor extend it. Attribute case,\nleading whitespace and a url part do not matter. Content without leading\ndigits is ignored by browsers and passes. A delay of 0 is an immediate\nredirect, not a time limit (H76); it is not exercised in the corpus because\nit would navigate the fixture away.",
+  "method": "shared",
+  "capabilities": [
+    "dom"
+  ],
+  "page_level": false,
+  "failing": {
+    "case": "meta_refresh_present",
+    "file": "tests/fixtures/detection_corpus/meta_refresh_present.html",
+    "verdict": "violation",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta http-equiv=\"refresh\" content=\"120\">\n    <title>Meta refresh corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Page with a short meta-refresh</h1>\n        <p>This page refreshes itself after 120 seconds.</p>\n    </main>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "visual_meta_refresh_exempt",
+    "file": "tests/fixtures/detection_corpus/visual_meta_refresh_exempt.html",
+    "verdict": "pass",
+    "selector": "meta#daily-refresh",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<!-- 72001 s, just over 20 hours: the 20-hour exception of 2.2.1 (\"longer than 20 hours\"). -->\n<meta id=\"daily-refresh\" http-equiv=\"refresh\" content=\"72001\">\n<!-- No leading digits: the browser ignores this declaration. -->\n<meta id=\"broken-refresh\" http-equiv=\"refresh\" content=\"soon; url=/news\">\n<title>Dashboard refreshed once a day</title>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Status board</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Service status</h1>\n  <p>All systems operational.</p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+  }
+}

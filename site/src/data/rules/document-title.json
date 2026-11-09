@@ -1,0 +1,36 @@
+{
+  "id": "document-title",
+  "url": "https://casoon.github.io/auditmysite/rules/document-title/",
+  "title": "Missing or insufficient page title",
+  "outcome": "automatic",
+  "criterion": "2.4.2",
+  "level": "A",
+  "axe_id": "document-title",
+  "dimension": "Accessibility",
+  "subcategory": "Navigation & Operation",
+  "issue_class": "Missing",
+  "severity": "high",
+  "user_impact": "Screen reader users cannot identify the page.",
+  "technical_impact": "Empty or generic <title> tag.",
+  "source": "WCAG 2.2 SC 2.4.2 Page Titled; failure F25 (title that does not identify the contents); G88",
+  "applicability": "Top-level HTML documents whose title element has non-empty text.",
+  "expectation": "Fails when the whole title, trimmed and compared case-insensitively, is an\nauthoring-tool or placeholder default that identifies no content (F25:\n\"Untitled Document\", \"New Page\", \"Untitled\"). A descriptive title that merely\ncontains such a word (\"Index of tool specifications – ...\") passes. A missing\nor empty title is not applicable (document/title-missing, document/title-empty).\nOnly the top-level document's title counts; a default title inside an embedded\nframe document does not make the host page fail. A title written by script\nbefore the audit counts. One finding at the head element.",
+  "method": "page",
+  "capabilities": [
+    "dom"
+  ],
+  "page_level": false,
+  "failing": {
+    "case": "structure_title_untitled",
+    "file": "tests/fixtures/detection_corpus/structure_title_untitled.html",
+    "verdict": "violation",
+    "selector": "head",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>  UNTITLED DOCUMENT  </title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- An editor's default title left in place (#783, WCAG F25): the title\n         exists and is not empty, but it says nothing about the page. Case and\n         surrounding whitespace do not change that. -->\n    <a href=\"#main\" class=\"skip-link\">Skip to content</a>\n    <header>\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Main\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/returns/\">Returns</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <h1>Returns and refunds</h1>\n        <p>You can return unused items within 30 days.</p>\n    </main>\n    <footer>\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "structure_modal_dynamic",
+    "file": "tests/fixtures/detection_corpus/structure_modal_dynamic.html",
+    "verdict": "pass",
+    "html": "<!DOCTYPE html>\n<html>\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title></title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- A consent wall (#783): the application has not rendered yet, and a\n         script sets the page language and the document title and opens a modal\n         dialog after load.\n         While the dialog is open, the page's headings and main landmark are\n         missing for the moment of measurement, not necessarily for the page. -->\n    <div id=\"app\"></div>\n    <dialog id=\"consent\" aria-label=\"Cookie settings\">\n        <p>We use cookies to remember your shopping basket.</p>\n        <form method=\"dialog\">\n            <button value=\"accept\">Accept</button>\n            <button value=\"reject\">Reject</button>\n        </form>\n    </dialog>\n    <script>\n        document.documentElement.lang = 'en';\n        document.title = 'Cookie settings – Acme Hardware';\n        document.getElementById('consent').showModal();\n    </script>\n</body>\n</html>"
+  }
+}

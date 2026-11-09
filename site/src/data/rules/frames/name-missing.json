@@ -1,0 +1,36 @@
+{
+  "id": "frames/name-missing",
+  "url": "https://casoon.github.io/auditmysite/rules/frames/name-missing/",
+  "title": "Iframe without accessible name",
+  "outcome": "automatic",
+  "criterion": "2.4.1",
+  "level": "A",
+  "axe_id": "frame-title",
+  "dimension": "Accessibility",
+  "subcategory": "Content & Alternatives",
+  "issue_class": "Missing",
+  "severity": "high",
+  "user_impact": "Screen reader users cannot identify the purpose and content of the embedded frame.",
+  "technical_impact": "Missing accessible name on iframe/frame.",
+  "source": "WCAG 2.2 SC 4.1.2 Name, Role, Value; ACT cae760 (iframe element has accessible name); H64",
+  "applicability": "iframe elements included in the accessibility tree, also inside open shadow roots: not display:none, not aria-hidden, not role=none/presentation.",
+  "expectation": "Fails for every applicable iframe whose accessible name is empty: no title, an\nempty title, no aria-label or aria-labelledby. A name from title or aria-label\npasses. Frames that are hidden (display:none, aria-hidden) or presentational\nare not exposed as frames and do not apply. One finding per frame, at the\niframe.",
+  "method": "shared",
+  "capabilities": [
+    "dom",
+    "computed_style"
+  ],
+  "page_level": false,
+  "failing": {
+    "case": "frame_missing_title",
+    "file": "tests/fixtures/detection_corpus/frame_missing_title.html",
+    "verdict": "violation",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Frame missing title corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Page with an untitled iframe</h1>\n        <iframe src=\"/embedded-widget\" width=\"300\" height=\"200\"></iframe>\n    </main>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "structure_bypass_missing",
+    "file": "tests/fixtures/detection_corpus/structure_bypass_missing.html",
+    "verdict": "pass",
+    "html": "<!DOCTYPE html>\n<html lang=\"en_US\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- An old intranet page (#783): no <title> at all, a locale-style lang\n         value (\"en_US\" uses an underscore, which BCP 47 does not allow, so\n         the primary subtag is not \"en\"), and a repeated navigation block with\n         no way to bypass it: no heading, no main landmark, no skip link. -->\n    <nav>\n        <a href=\"/\">Intranet home</a>\n        <a href=\"/staff/\">Staff directory</a>\n        <a href=\"/forms/\">Request forms</a>\n        <a href=\"/help/\">IT help desk</a>\n    </nav>\n    <!-- The only heading is hidden, so it bypasses nothing. -->\n    <h1 hidden>Intranet</h1>\n    <div class=\"content\">\n        <p>Holiday requests for next year are due by the end of the month.</p>\n        <p>Use the staff portal to submit them.</p>\n        <!-- An embedded calendar with its own title: it titles the frame\n             document, not this page. -->\n        <iframe title=\"Staff calendar\" width=\"300\" height=\"150\"\n            srcdoc=\"<!DOCTYPE html><html lang='en'><head><title>Staff calendar</title></head><body><p>No events today</p></body></html>\"></iframe>\n    </div>\n</body>\n</html>"
+  }
+}

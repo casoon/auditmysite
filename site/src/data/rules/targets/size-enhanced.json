@@ -1,0 +1,39 @@
+{
+  "id": "targets/size-enhanced",
+  "url": "https://casoon.github.io/auditmysite/rules/targets/size-enhanced/",
+  "title": "Insufficient click target size (AAA)",
+  "outcome": "hint-only",
+  "criterion": "2.5.5",
+  "level": "AAA",
+  "axe_id": "target-size",
+  "dimension": "Accessibility",
+  "subcategory": "Navigation & Operation",
+  "issue_class": "Weak",
+  "severity": "medium",
+  "user_impact": "Users with hand tremors or on mobile devices easily tap the wrong elements.",
+  "technical_impact": "Links, buttons or form controls dimensioned too small in CSS.",
+  "source": "WCAG 2.2 SC 2.5.5 Target Size (Enhanced): 44 x 44 CSS px, exceptions Equivalent, Inline, User agent control, Essential (no spacing exception)",
+  "applicability": "The same pointer targets as targets/size.",
+  "expectation": "needs_review once per target smaller than 44 x 44 CSS px, without a spacing\nexception: 43 px fails, 44 px passes. Same exceptions as targets/size\n(inline, label, visible same-destination equivalent of 44 px, not rendered).\nA target that already fails 2.5.8 is reported once, under targets/size, not\na second time here.",
+  "method": "shared",
+  "capabilities": [
+    "dom",
+    "geometry",
+    "computed_style"
+  ],
+  "page_level": false,
+  "failing": {
+    "case": "target_size_hidden_neighbours",
+    "file": "tests/fixtures/detection_corpus/target_size_hidden_neighbours.html",
+    "verdict": "needs_review",
+    "selector": "a#beside-details",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Target size hidden-neighbour corpus case</title>\n    <style>\n        .row { display: flex; gap: 0; margin: 48px 0; align-items: flex-start; }\n        .row a { display: block; flex: none; width: 16px; height: 16px; overflow: hidden; font-size: 10px; line-height: 16px; }\n        .row a.n { width: 48px; height: 48px; }\n        details, summary { display: block; flex: none; margin: 0; padding: 0; }\n        summary { width: 0; height: 0; overflow: hidden; list-style: none; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Undersized links next to targets that cannot be seen or clicked (#705)</h1>\n        <!-- Each row: a 16x16 link and, directly to its right, a 48x48 neighbour. The 24 px circle\n             around the small link touches the neighbour, so a visible neighbour makes it fail.\n             The neighbours meet the size themselves, so none of them spends the rule's cap. -->\n\n        <!-- violation (control): the neighbour is visible and clickable -->\n        <div class=\"row\">\n            <a id=\"control\" href=\"/control\">C</a>\n            <a class=\"n\" href=\"/control-next\">N</a>\n        </div>\n\n        <!-- pass: the neighbour sits in a closed <details>; Chrome keeps its box but hides it\n             via ::details-content { content-visibility: hidden } (geographia.eu) -->\n        <div class=\"row\">\n            <a id=\"beside-details\" href=\"/details\">D</a>\n            <details class=\"more\">\n                <summary>More</summary>\n                <a class=\"n\" href=\"/details-a\">A</a>\n            </details>\n        </div>\n\n        <!-- pass: the neighbour is inert -->\n        <div class=\"row\">\n            <a id=\"beside-inert\" href=\"/inert\">I</a>\n            <div inert><a class=\"n\" href=\"/inert-next\">N</a></div>\n        </div>\n\n        <!-- pass: the neighbour has pointer-events: none -->\n        <div class=\"row\">\n            <a id=\"beside-no-pointer\" href=\"/no-pointer\">P</a>\n            <a class=\"n\" href=\"/no-pointer-next\" style=\"pointer-events: none\">N</a>\n        </div>\n    </main>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "target_size_animation",
+    "file": "tests/fixtures/detection_corpus/target_size_animation.html",
+    "verdict": "absent",
+    "selector": "a#intro",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Target size during animation corpus case</title>\n    <style>\n        .row { display: flex; gap: 4px; margin: 48px 0; align-items: flex-start; }\n        .row a { display: block; flex: none; height: 48px; overflow: hidden; white-space: nowrap; line-height: 48px; }\n        .big { width: 48px; }\n        /* A logo intro that grows from nothing, like geographia.eu's module name (#706). */\n        @keyframes grow { from { width: 0; } to { width: 120px; } }\n        #intro { width: 120px; animation: grow 1s ease-in; }\n        @keyframes grow-slow { from { width: 12px; } to { width: 120px; } }\n        #slow { width: 120px; animation: grow-slow 3600s linear; }\n        @keyframes spin { to { transform: rotate(360deg); } }\n        .spinner { width: 16px; height: 16px; border: 2px solid; animation: spin 1s linear infinite; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Targets measured while they animate (#706)</h1>\n        <!-- An infinite animation never settles; it must not hold up or suppress anything. -->\n        <div class=\"spinner\" aria-hidden=\"true\"></div>\n\n        <!-- pass: grows from 0 to 120x48 over 1 s; the audit waits for the animation to finish\n             and measures the final size. Measured mid-animation it would be undersized, with a\n             neighbour 4 px away. -->\n        <div class=\"row\">\n            <a id=\"intro\" href=\"/intro\">Atmosphere</a>\n            <a class=\"big\" href=\"/intro-next\">Next</a>\n        </div>\n\n        <!-- pass (not failed, needs review): still growing after the settle budget, so its size is\n             reported as not measured instead of as a violation -->\n        <div class=\"row\">\n            <a id=\"slow\" href=\"/slow\">Slow intro</a>\n            <a class=\"big\" href=\"/slow-next\">Next</a>\n        </div>\n    </main>\n</body>\n</html>"
+  }
+}

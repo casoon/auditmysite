@@ -413,7 +413,7 @@
               "help": {
                 "text": "Add an alt attribute to the image"
               },
-              "helpUri": "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content",
+              "helpUri": "https://casoon.github.io/auditmysite/rules/images/alt-missing/",
               "id": "images/alt-missing",
               "name": "Missing alternative text on images",
               "properties": {
@@ -438,6 +438,7 @@
               "help": {
                 "text": "The page has no title"
               },
+              "helpUri": "https://casoon.github.io/auditmysite/rules/document/title-missing/",
               "id": "document/title-missing",
               "name": "Missing or insufficient page title",
               "properties": {

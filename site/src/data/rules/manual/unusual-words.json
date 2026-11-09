@@ -1,0 +1,30 @@
+{
+  "id": "manual/unusual-words",
+  "url": "https://casoon.github.io/auditmysite/rules/manual/unusual-words/",
+  "title": "Missing explanation of unusual words (AAA)",
+  "outcome": "manual",
+  "criterion": "3.1.3",
+  "level": "AAA",
+  "axe_id": "unusual-words",
+  "dimension": "Accessibility",
+  "subcategory": "Language & Clarity",
+  "issue_class": "Missing",
+  "severity": "low",
+  "user_impact": "Users with cognitive impairments or non-native speakers do not understand the text.",
+  "technical_impact": "Missing glossary linkage or in-text explanation.",
+  "source": "WCAG 2.2 SC 3.1.3 Unusual Words (AAA)",
+  "applicability": "Pages with any visible text (text outside title, script, style, noscript).",
+  "expectation": "One needs_review (UNTESTED) note per page, at the root, on every page with\ntext; never pass or violation. A page without any text (an image with alt\nonly) gets no note.",
+  "method": "shared",
+  "capabilities": [
+    "dom"
+  ],
+  "page_level": true,
+  "manual_reason": "Whether a word is jargon or an idiom, and whether it is explained, is a judgement about language no detector makes.",
+  "failing": {
+    "case": "interaction_static_text",
+    "file": "tests/fixtures/detection_corpus/interaction_static_text.html",
+    "verdict": "needs_review",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Club rules</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button, input { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n    </style>\n</head>\n<body>\n    <header><p>Example Club</p></header>\n    <main>\n        <h1>Club rules</h1>\n        <p>Members pay their fee by the end of January.</p>\n        <p>Guests are welcome on Sundays.</p>\n        <p>The clubhouse closes at ten in the evening.</p>\n    </main>\n    <footer><p>Example Club footer</p></footer>\n</body>\n</html>"
+  }
+}

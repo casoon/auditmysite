@@ -97,6 +97,7 @@ src/
 ├── taxonomy/            # Rule taxonomy & classification
 │   ├── mod.rs
 │   ├── rules.rs         # Canonical rule list (RULES) with metadata
+│   ├── rule_docs.rs     # rule_doc_url(): rule id → page on the project site (help_url, #929)
 │   ├── criteria.rs      # WCAG success-criterion definitions
 │   ├── dimensions.rs    # Dimension enum (Barrierefreiheit, Usability, ...)
 │   ├── issue_class.rs   # IssueClass enum (Fehlend, Falsch, Unvollständig)
@@ -469,6 +470,11 @@ no additional score model. Details per contract live in `docs/OUTPUT_CONTRACT.md
 - **Executable rule contracts** (`tests/fixtures/rule_contracts/`,
   `rule_contract_gate`): every active rule id needs positive, negative, N/A and
   error fixtures; a rule without a contract fails verification.
+- **Rule documentation pages** (#929): one page per rule, generated from the
+  taxonomy, the contracts and the corpus (`tests/common/rule_docs.rs`), committed as
+  JSON under `site/src/data/rules/` and rendered by `site/src/pages/rules/`.
+  `tests/rule_docs.rs` fails when they drift from their sources or a `help_url`
+  has no page; `UPDATE_RULE_DOCS=1 cargo test --test rule_docs` regenerates them.
 - **Checked boundary:** `normalize_checked` is the supported entry;
   `audit::normalize` is a deprecated compatibility API for callers outside the
   crate.
@@ -619,6 +625,7 @@ tests/
 ├── error_handling_tests.rs       # Error paths
 ├── parity_contract.rs            # Frozen-count guard vs. docs/PARITY_CONTRACT.jsonc
 ├── act_mapping.rs                # Rule ids in docs/act-mapping.json (ACT mapping) exist
+├── rule_docs.rs                  # Generated per-rule pages (site/src/data/rules/) match catalogue, contracts, corpus (#929)
 ├── act_testcases.rs              # ACT test case harness (#837): parser/judging unit tests; `#[ignore]` Chrome run via scripts/act-fetch.sh + tests/common/act_harness.rs
 ├── wcag_coverage.rs               # Level A/AA/AAA rule-set coverage checks
 ├── wcag_unit_tests.rs             # Per-rule unit tests (fixtures in wcag_fixtures/)

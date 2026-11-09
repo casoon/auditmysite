@@ -1,0 +1,34 @@
+{
+  "id": "headings/h1-missing",
+  "url": "https://casoon.github.io/auditmysite/rules/headings/h1-missing/",
+  "title": "Missing main heading (h1)",
+  "outcome": "hint-only",
+  "axe_id": "headings/h1-missing",
+  "dimension": "Accessibility",
+  "subcategory": "Structure & Semantics",
+  "issue_class": "Missing",
+  "severity": "medium",
+  "user_impact": "Screen reader users cannot find the start of the main content via heading navigation.",
+  "technical_impact": "No <h1> element in the document.",
+  "source": "Best practice, no WCAG failure: axe page-has-heading-one; WAI tutorial Page Structure: Headings",
+  "applicability": "Documents with at least one rendered heading.",
+  "expectation": "Flags a document that has rendered headings but no rendered level-1 heading:\nneither an h1 nor role=\"heading\" aria-level=\"1\". A hidden h1 (hidden attribute)\ndoes not count. A level-1 heading inside an open shadow root counts. In each\nviewport the rendered h1 may be a different element. Not a WCAG failure (no\ncriterion requires a level); a best-practice violation for the whole document,\nwithout an element.",
+  "method": "shared",
+  "capabilities": [
+    "dom",
+    "computed_style"
+  ],
+  "page_level": true,
+  "failing": {
+    "case": "structure_content_model",
+    "file": "tests/fixtures/detection_corpus/structure_content_model.html",
+    "verdict": "needs_review",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Index of tool specifications – Acme Hardware</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- Product data from a page builder (#783). The feature list wraps its\n         items in a div, which the <ul> content model does not allow; the\n         browser repairs the tree, the markup stays wrong. The definition list\n         groups name-value pairs in div elements, which <dl> does allow, and\n         the table is well-formed. -->\n    <a href=\"#main\" class=\"skip-link\">Skip to content</a>\n    <header>\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Main\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/tools/\">Tools</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <!-- The page's h1 is hidden; the visible outline starts at h2. -->\n        <h1 hidden>Cordless drill CD-18</h1>\n        <p class=\"product-name\">Cordless drill CD-18</p>\n        <h2>Features</h2>\n        <ul id=\"features\">\n            <div class=\"feature-row\">\n                <li>Two speeds</li>\n                <li>LED work light</li>\n            </div>\n        </ul>\n        <h2>Specifications</h2>\n        <dl id=\"specs\">\n            <div><dt>Voltage</dt><dd>18 V</dd></div>\n            <div><dt>Weight</dt><dd>1.4 kg</dd></div>\n        </dl>\n        <h2>Spare parts</h2>\n        <table id=\"parts\">\n            <caption>Spare parts and prices</caption>\n            <thead>\n                <tr><th scope=\"col\">Part</th><th scope=\"col\">Price</th></tr>\n            </thead>\n            <tbody>\n                <tr><td>Battery 2 Ah</td><td>39 EUR</td></tr>\n                <tr><td>Charger</td><td>29 EUR</td></tr>\n            </tbody>\n        </table>\n    </main>\n    <footer>\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "landmark_main_in_shadow_root",
+    "file": "tests/fixtures/detection_corpus/landmark_main_in_shadow_root.html",
+    "verdict": "pass",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Main landmark inside a shadow root corpus case</title>\n</head>\n<body>\n    <!-- The page's landmarks live in an open shadow root, as in web-component\n         app shells. Chrome's accessibility tree exposes the main landmark; a\n         document.querySelectorAll('main') check does not see it and used to\n         report a missing main. -->\n    <app-shell></app-shell>\n    <script>\n        const root = document.querySelector('app-shell').attachShadow({ mode: 'open' });\n        root.innerHTML =\n            '<header><nav aria-label=\"Site\"><a href=\"/\">Home</a></nav></header>' +\n            '<main><h1>Content in a shadow root</h1><p>Text.</p></main>' +\n            '<footer>Footer</footer>';\n    </script>\n</body>\n</html>"
+  }
+}

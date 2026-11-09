@@ -1,0 +1,36 @@
+{
+  "id": "tables/header-missing",
+  "url": "https://casoon.github.io/auditmysite/rules/tables/header-missing/",
+  "title": "Data table without header cells",
+  "outcome": "hint-only",
+  "criterion": "1.3.1",
+  "level": "A",
+  "axe_id": "tables/header-missing",
+  "dimension": "Accessibility",
+  "subcategory": "Structure & Semantics",
+  "issue_class": "Missing",
+  "severity": "high",
+  "user_impact": "Screen reader users hear cell values without their row or column label.",
+  "technical_impact": "No <th> and no cell with role=\"columnheader\"/\"rowheader\".",
+  "source": "WCAG 2.2 SC 1.3.1 Info and Relationships (H51, H39, H63, H43, F91, F92); HTML §4.9 tabular data; WAI-ARIA 1.2 table/grid/row/cell roles",
+  "applicability": "Every rendered, not aria-hidden table: <table> or role table/grid, not presentational.",
+  "expectation": "A table without any header cell (<th>, role columnheader/rowheader) is a\nfailure only for a data table whose headers are visual (F91); a layout table or\na table without visible headers is allowed. Markup cannot tell which, so the\nrule reports REVIEW at the table, never a confirmed violation. Presentational,\nhidden and aria-hidden tables are not judged.",
+  "method": "shared",
+  "capabilities": [
+    "dom",
+    "computed_style"
+  ],
+  "page_level": false,
+  "failing": {
+    "case": "misc_content_checks",
+    "file": "tests/fixtures/detection_corpus/misc_content_checks.html",
+    "verdict": "needs_review",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\" xml:lang=\"de\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=3\">\n    <title>Misc content checks corpus case</title>\n    <style>\n        .low-contrast-checkbox {\n            border: 1px solid #f8f8f8;\n            background: #ffffff;\n        }\n        /* Controls sized to 44px: this case is not about target size. */\n        button, input { min-width: 44px; min-height: 44px; }\n        .inline-link {\n            color: blue;\n            text-decoration: none;\n        }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Image maps, tables, abbreviations, and misc issues</h1>\n\n        <!-- area-alt -->\n        <img src=\"/floorplan.png\" usemap=\"#floor-map\" alt=\"Floor plan\">\n        <map name=\"floor-map\">\n            <area href=\"/room1\" shape=\"rect\" coords=\"0,0,50,50\">\n        </map>\n\n        <!-- input-image-alt -->\n        <input type=\"image\" src=\"/submit.png\">\n\n        <!-- presentation-semantic-children: dropped in #697 — role=\"presentation\" does not\n             strip the semantics of descendants (WAI-ARIA 1.2), so this is no finding -->\n        <div role=\"presentation\">\n            <button>Semantic button inside a presentation container</button>\n        </div>\n\n        <!-- tables/header-missing: data table without any headers -->\n        <table>\n            <tbody>\n                <tr><td>Alice</td><td>90</td></tr>\n                <tr><td>Bob</td><td>85</td></tr>\n            </tbody>\n        </table>\n\n        <!-- redundant-entry: two email fields without reuse/autocomplete -->\n        <form>\n            <label for=\"email-a\">Email</label>\n            <input type=\"email\" id=\"email-a\" name=\"email_a\">\n            <label for=\"email-b\">Confirm email</label>\n            <input type=\"email\" id=\"email-b\" name=\"email_b\">\n        </form>\n\n        <!-- abbreviations -->\n        <p><abbr>W3C</abbr> publishes web standards.</p>\n\n        <!-- modern-attribute-misuse: popovertarget references a missing element -->\n        <button popovertarget=\"missing-popover-id\">Open</button>\n\n        <!-- non-text-contrast-css: checkbox border barely distinguishable from background -->\n        <input type=\"checkbox\" class=\"low-contrast-checkbox\">\n\n        <!-- link-in-text-block: inline link distinguished only by color -->\n        <p>Read our <a href=\"/policy\" class=\"inline-link\">privacy policy</a> for details.</p>\n    </main>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "content_tables_ok",
+    "file": "tests/fixtures/detection_corpus/content_tables_ok.html",
+    "verdict": "pass",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Library statistics</title>\n    <style>\n        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Library statistics</h1>\n        <table id=\"prices\">\n            <caption>Copy and print prices</caption>\n            <thead><tr><th scope=\"col\" id=\"price-item\">Item</th><th scope=\"col\" id=\"price-cost\">Cost</th></tr></thead>\n            <tbody>\n                <tr><td headers=\"price-item\">Black and white page</td><td headers=\"price-cost\">0.10</td></tr>\n                <tr><td headers=\"price-item\">Colour page</td><td headers=\"price-item price-cost\">0.50</td></tr>\n            </tbody>\n        </table>\n        <h2 id=\"hours-heading\">Opening hours</h2>\n        <table id=\"hours\" aria-labelledby=\"hours-heading\">\n            <tr><th scope=\"row\">Monday</th><td>9:00 to 18:00</td></tr>\n            <tr><th scope=\"row\">Sunday</th><td></td></tr>\n        </table>\n        <table id=\"minimal\" aria-label=\"Late returns\">\n            <tr><th id=\"late-head\">Late returns this week</th><td></td></tr>\n        </table>\n        <table id=\"layout\" role=\"presentation\">\n            <tr><td>Address: 1 Market Square</td><td>Phone: 555 0100</td></tr>\n        </table>\n        <div role=\"table\" id=\"aria-branches\" aria-label=\"Branches\">\n            <div role=\"row\"><div role=\"columnheader\">Branch</div><div role=\"columnheader\">Status</div></div>\n            <div role=\"row\"><div role=\"cell\">North</div><div role=\"cell\">Open</div></div>\n        </div>\n        <stat-table></stat-table>\n        <script>\n            customElements.define('stat-table', class extends HTMLElement {\n                connectedCallback() {\n                    this.attachShadow({ mode: 'open' }).innerHTML =\n                        '<table id=\"shadow-stats\"><caption>Visitors</caption>' +\n                        '<tr><th scope=\"col\" id=\"shadow-day\">Day</th><th scope=\"col\">Visitors</th></tr>' +\n                        '<tr><td headers=\"shadow-day\">Monday</td><td>310</td></tr></table>';\n                }\n            });\n        </script>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+  }
+}

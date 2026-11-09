@@ -1,0 +1,38 @@
+{
+  "id": "keyboard/pointer-only",
+  "url": "https://casoon.github.io/auditmysite/rules/keyboard/pointer-only/",
+  "title": "Click handler without keyboard equivalent",
+  "outcome": "hint-only",
+  "criterion": "2.1.1",
+  "level": "A",
+  "axe_id": "click-events-have-key-events",
+  "dimension": "Accessibility",
+  "subcategory": "Navigation & Operation",
+  "issue_class": "Missing",
+  "severity": "high",
+  "user_impact": "Keyboard users cannot trigger the function.",
+  "technical_impact": "onclick on a <div>/<span> without onkeydown/onkeyup, tabindex, or a matching role.",
+  "source": "WCAG 2.2 SC 2.1.1 Keyboard and SC 4.1.2 Name, Role, Value",
+  "applicability": "Rendered elements that look clickable (computed cursor: pointer or an onclick attribute) and are not controls themselves.",
+  "expectation": "needs_review once per element where a pointer cursor starts (not where it is\ninherited) on an element with text that is no control, has no role or\ntabindex, and contains no control: if it does something, the keyboard cannot\nreach it. Not reported: the card pattern (cursor on a box around a link),\nreal controls with a pointer cursor, descendants inheriting the cursor,\nelements already reported by keyboard/click-handler-not-focusable, and\nelements not rendered. A cursor set only by a media query on the phone\nviewport, or by script after load, counts.",
+  "method": "shared",
+  "capabilities": [
+    "dom",
+    "computed_style"
+  ],
+  "page_level": false,
+  "failing": {
+    "case": "pointer_only",
+    "file": "tests/fixtures/detection_corpus/pointer_only.html",
+    "verdict": "needs_review",
+    "selector": "div#search",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Pointer-only corpus case</title>\n    <style>\n        .clicky { cursor: pointer; padding: 8px; width: 120px; }\n        .card { cursor: pointer; padding: 8px; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Elements that look clickable</h1>\n        <!-- needs_review: looks clickable (cursor: pointer), no role, no tabindex, no control inside -->\n        <div class=\"clicky\" id=\"search\">Search</div>\n        <!-- absent: the card pattern — the whole card has cursor: pointer, the link inside is\n             the keyboard route (bundesregierung.de teasers, barrierlab#49) -->\n        <div class=\"card\" id=\"card\">\n            <h2><a href=\"/article\">Article title</a></h2>\n            <p>Teaser text for the article.</p>\n        </div>\n    </main>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "pointer_only",
+    "file": "tests/fixtures/detection_corpus/pointer_only.html",
+    "verdict": "absent",
+    "selector": "div#card",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Pointer-only corpus case</title>\n    <style>\n        .clicky { cursor: pointer; padding: 8px; width: 120px; }\n        .card { cursor: pointer; padding: 8px; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Elements that look clickable</h1>\n        <!-- needs_review: looks clickable (cursor: pointer), no role, no tabindex, no control inside -->\n        <div class=\"clicky\" id=\"search\">Search</div>\n        <!-- absent: the card pattern — the whole card has cursor: pointer, the link inside is\n             the keyboard route (bundesregierung.de teasers, barrierlab#49) -->\n        <div class=\"card\" id=\"card\">\n            <h2><a href=\"/article\">Article title</a></h2>\n            <p>Teaser text for the article.</p>\n        </div>\n    </main>\n</body>\n</html>"
+  }
+}

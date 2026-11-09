@@ -1,0 +1,143 @@
+---
+import Base from '@casoon/pages-theme/layouts/Base.astro';
+import { url } from '@casoon/pages-theme/url';
+import { outcomes, ruleIndex } from '../../lib/rules';
+
+const { counts, rules } = ruleIndex;
+const rows = [
+  { key: 'automatic', count: counts.automatic },
+  { key: 'hint-only', count: counts.hint_only },
+  { key: 'manual', count: counts.manual },
+] as const;
+---
+
+<Base
+  title="Rules"
+  description="Every accessibility rule of auditmysite with its success criterion, outcome class and a passing and a failing example."
+>
+  <div class="page">
+    <h1>Rules</h1>
+    <p class="lead">
+      Every rule the accessibility audit can report has a page here: what it checks, why it is
+      flagged, which success criterion it belongs to and, where the detection corpus has one, a
+      failing and a passing example. The pages are generated from the rule catalogue and the rule
+      contracts, so they cannot drift from what the tool does.
+    </p>
+
+    <h2>Coverage</h2>
+    <table>
+      <caption class="sr-only">Rules by outcome class</caption>
+      <thead>
+        <tr><th scope="col">Outcome class</th><th scope="col">Rules</th><th scope="col">Meaning</th></tr>
+      </thead>
+      <tbody>
+        {rows.map(({ key, count }) => (
+          <tr>
+            <th scope="row">{outcomes[key].label}</th>
+            <td>{count}</td>
+            <td>{outcomes[key].meaning}</td>
+          </tr>
+        ))}
+        <tr><th scope="row">Total</th><td>{counts.total}</td><td></td></tr>
+      </tbody>
+    </table>
+    <p>
+      The class follows from the rule's contract and the corpus, not from a hand-kept list:
+      <em>manual</em> is the contract's own automation field, and of the remaining rules those
+      with a confirmed violation in the corpus are <em>automatic</em>.
+    </p>
+
+    <h2>Addresses</h2>
+    <p>
+      A rule's page is <code>rules/&lt;rule_id&gt;/</code> below this site, with the id unchanged:
+      <code>/</code> stays a path separator, so <code>document/title-missing</code> is at
+      <a href={url('rules/document/title-missing/')}><code>rules/document/title-missing/</code></a>.
+      The <code>help_url</code> of a finding in the JSON, SARIF and AI report points here; the
+      criterion's W3C Understanding page is <code>understanding_url</code>.
+    </p>
+
+    <h2>All rules</h2>
+    <table>
+      <caption class="sr-only">All rules by success criterion</caption>
+      <thead>
+        <tr>
+          <th scope="col">Criterion</th>
+          <th scope="col">Level</th>
+          <th scope="col">Rule</th>
+          <th scope="col">Outcome class</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rules.map((rule) => (
+          <tr>
+            <td>{rule.criterion ?? 'Best practice'}</td>
+            <td>{rule.level ?? ''}</td>
+            <td>
+              <a href={url(`rules/${rule.id}/`)}>{rule.title}</a><br /><code>{rule.id}</code>
+            </td>
+            <td>{outcomes[rule.outcome].label}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</Base>
+
+<style>
+  .page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+  h1 {
+    margin: 0 0 12px;
+    color: var(--heading);
+    font-size: 38px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+  }
+  h2 {
+    margin: 44px 0 12px;
+    color: var(--heading);
+    font-size: 22px;
+    font-weight: 600;
+  }
+  .lead {
+    font-size: 17.5px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14.5px;
+  }
+  th,
+  td {
+    padding: 9px 12px 9px 0;
+    border-top: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  thead th {
+    color: var(--muted);
+    font-weight: 500;
+  }
+  code {
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: var(--code-bg);
+    font-size: 0.86em;
+  }
+  a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+</style>

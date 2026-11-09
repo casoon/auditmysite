@@ -1,0 +1,30 @@
+{
+  "id": "focus-visible",
+  "url": "https://casoon.github.io/auditmysite/rules/focus-visible/",
+  "title": "Focus indicator not visible",
+  "outcome": "manual",
+  "criterion": "2.4.7",
+  "level": "AA",
+  "axe_id": "focus-visible",
+  "dimension": "Accessibility",
+  "subcategory": "Navigation & Operation",
+  "issue_class": "Missing",
+  "severity": "high",
+  "user_impact": "Keyboard users cannot see which element is focused.",
+  "technical_impact": "CSS outline:none without an alternative.",
+  "source": "WCAG 2.2 SC 2.4.7 Focus Visible (and SC 2.1.1 for the plain-element controls the note points at)",
+  "applicability": "Pages whose accessibility tree has more than five nodes and no focusable or interactive node besides the document root.",
+  "expectation": "One needs_review per page (at \"root\") when the page has content (more than\nfive AX nodes) but no focusable or interactive element: 2.4.7 has nothing to\napply to, yet a page without any control is unusual enough that a human\nshould check whether operable content was built from plain elements. A page\nwith focusable elements gets no note from this rule. Never pass or\nviolation.",
+  "method": "tree",
+  "capabilities": [
+    "ax_tree"
+  ],
+  "page_level": true,
+  "manual_reason": "The accessibility tree carries no focus-indicator data; 2.4.7 itself is decided by focus/outline-removed. This rule can only point a human at a page that exposes no focusable element at all, where controls may be built from plain elements.",
+  "failing": {
+    "case": "no_focus_targets",
+    "file": "tests/fixtures/detection_corpus/no_focus_targets.html",
+    "verdict": "needs_review",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Page with no focusable elements and an auto-scrolling marquee</title>\n</head>\n<body>\n    <main>\n        <h1>Announcement</h1>\n        <p>This page has no links, buttons, or form fields anywhere.</p>\n        <marquee>Breaking news scrolls here indefinitely</marquee>\n        <p>Just plain text content beneath the marquee.</p>\n    </main>\n</body>\n</html>"
+  }
+}

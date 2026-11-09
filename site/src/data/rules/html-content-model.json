@@ -1,0 +1,36 @@
+{
+  "id": "html-content-model",
+  "url": "https://casoon.github.io/auditmysite/rules/html-content-model/",
+  "title": "HTML5 content model violation",
+  "outcome": "automatic",
+  "criterion": "1.3.1",
+  "level": "A",
+  "axe_id": "html-content-model",
+  "dimension": "Accessibility",
+  "subcategory": "Structure & Semantics",
+  "issue_class": "Invalid",
+  "severity": "medium",
+  "user_impact": "Screen readers cannot reliably parse the structure, even when it appears superficially valid.",
+  "technical_impact": "Unexpected child element inside a structural container (e.g. <ul>, <table>, <select>).",
+  "source": "WCAG 2.2 SC 1.3.1 Info and Relationships; HTML content models: §4.4.5 ul, §4.4.6 ol, §4.4.9 dl, §4.9 tabular data, §4.10.7 select, §4.10.15 fieldset",
+  "applicability": "The served HTML of the page, where it contains structural containers whose content model AT relies on (dl, table and its sections, ul/ol, select/optgroup, fieldset).",
+  "expectation": "Fails for every content-model violation that occurs inside such a container in\nthe served markup, e.g. a div as a child of ul. The browser repairs or absorbs\nsuch markup, so the accessibility tree can look valid while the structure is\nbroken. Allowed wrappers pass (div grouping dt/dd in dl), and so does a\nwell-formed table. Selector is the container's tag.",
+  "method": "pipeline",
+  "capabilities": [
+    "network"
+  ],
+  "page_level": false,
+  "failing": {
+    "case": "structure_content_model",
+    "file": "tests/fixtures/detection_corpus/structure_content_model.html",
+    "verdict": "violation",
+    "selector": "ul",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Index of tool specifications – Acme Hardware</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- Product data from a page builder (#783). The feature list wraps its\n         items in a div, which the <ul> content model does not allow; the\n         browser repairs the tree, the markup stays wrong. The definition list\n         groups name-value pairs in div elements, which <dl> does allow, and\n         the table is well-formed. -->\n    <a href=\"#main\" class=\"skip-link\">Skip to content</a>\n    <header>\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Main\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/tools/\">Tools</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <!-- The page's h1 is hidden; the visible outline starts at h2. -->\n        <h1 hidden>Cordless drill CD-18</h1>\n        <p class=\"product-name\">Cordless drill CD-18</p>\n        <h2>Features</h2>\n        <ul id=\"features\">\n            <div class=\"feature-row\">\n                <li>Two speeds</li>\n                <li>LED work light</li>\n            </div>\n        </ul>\n        <h2>Specifications</h2>\n        <dl id=\"specs\">\n            <div><dt>Voltage</dt><dd>18 V</dd></div>\n            <div><dt>Weight</dt><dd>1.4 kg</dd></div>\n        </dl>\n        <h2>Spare parts</h2>\n        <table id=\"parts\">\n            <caption>Spare parts and prices</caption>\n            <thead>\n                <tr><th scope=\"col\">Part</th><th scope=\"col\">Price</th></tr>\n            </thead>\n            <tbody>\n                <tr><td>Battery 2 Ah</td><td>39 EUR</td></tr>\n                <tr><td>Charger</td><td>29 EUR</td></tr>\n            </tbody>\n        </table>\n    </main>\n    <footer>\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "structure_outline_clean",
+    "file": "tests/fixtures/detection_corpus/structure_outline_clean.html",
+    "verdict": "pass",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\" xml:lang=\"en-GB\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Opening hours and contact – Acme Hardware Berlin</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- Conforming look-alike for the structure rules (#783): every\n         structure the rules look at is present and correct. -->\n    <a href=\"#main\" class=\"skip-link\">Skip to content</a>\n    <header>\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Main\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/shop/\">Shop</a></li>\n            <li><a href=\"/contact/\">Contact</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <h1>Opening hours and contact</h1>\n        <p>Our store in Berlin is open six days a week. We are happy to help you\n           find the right tool for your project, and you can always call us before\n           you visit to check that an item is in stock.</p>\n        <h2>Opening hours</h2>\n        <dl>\n            <div><dt>Monday to Friday</dt><dd>8:00 to 18:00</dd></div>\n            <div><dt>Saturday</dt><dd>9:00 to 14:00</dd></div>\n        </dl>\n        <h2>Directions</h2>\n        <!-- English text with German proper names: names are exempt from\n             3.1.2, and only two German function words occur. -->\n        <p id=\"directions\">The store is a short walk from the Haus der Kunst gallery and the\n           old bridge that locals call die Brücke. Take the tram to the main square, then\n           follow the river for about five minutes until you see our green sign.</p>\n        <article>\n            <h3>Store news</h3>\n            <p>We now stock garden tools from local makers.</p>\n        </article>\n        <section aria-labelledby=\"contact-heading\">\n            <h2 id=\"contact-heading\">Contact</h2>\n            <p>Call us or send a message. Prices include <abbr title=\"value-added tax\">VAT</abbr>.</p>\n            <form action=\"/contact\" method=\"post\">\n                <label for=\"contact-email\">E-mail</label>\n                <input id=\"contact-email\" name=\"email\" type=\"email\" autocomplete=\"email\" aria-describedby=\"contact-hint\">\n                <p id=\"contact-hint\">We reply within one working day.</p>\n                <button type=\"submit\">Send</button>\n            </form>\n        </section>\n    </main>\n    <footer>\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n    <!-- Hidden leftover outside every landmark: not rendered, not content. -->\n    <div hidden>Summer sale banner</div>\n</body>\n</html>"
+  }
+}

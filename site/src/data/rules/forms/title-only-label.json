@@ -1,0 +1,37 @@
+{
+  "id": "forms/title-only-label",
+  "url": "https://casoon.github.io/auditmysite/rules/forms/title-only-label/",
+  "title": "Form field labeled only via the title attribute",
+  "outcome": "hint-only",
+  "criterion": "1.3.1",
+  "level": "A",
+  "axe_id": "label-title-only",
+  "dimension": "Accessibility",
+  "subcategory": "Structure & Semantics",
+  "issue_class": "Invalid",
+  "severity": "medium",
+  "user_impact": "The title attribute is read inconsistently or not at all by many screen readers; sighted users only see it on hover.",
+  "technical_impact": "Form element without <label>/aria-label, name derived only from title.",
+  "source": "WCAG 2.2 SC 1.3.1, 3.3.2; technique H65 (title attribute to identify form controls)",
+  "applicability": "Rendered text-entry, select, slider and spinbutton fields (native or ARIA) without placeholder.",
+  "expectation": "Needs review when the field's name comes only from its title attribute:\nvisible on mouse hover only, not to keyboard or touch users. H65 allows it\nwhen the purpose is clear from the visible context, so never a confirmed\nviolation. A field with a label and a title is not reported; a field with a\nplaceholder is forms/placeholder-as-label's case.",
+  "method": "shared",
+  "capabilities": [
+    "dom",
+    "ax_tree"
+  ],
+  "page_level": false,
+  "failing": {
+    "case": "forms_extended",
+    "file": "tests/fixtures/detection_corpus/forms_extended.html",
+    "verdict": "needs_review",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Extended form checks corpus case</title>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><style>\n  /* #783: page shell, so the case only reports what it is about */\n  .skip, nav a { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea { min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n</style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p><nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav></header>\n<main id=\"main\">\n        <h1>Error messages, context changes, labels, redundant entry, table headers</h1>\n\n        <input type=\"text\" aria-invalid=\"true\" aria-label=\"Email\">\n\n        <select aria-label=\"Navigate to page\" onchange=\"location.href=this.value\">\n            <option value=\"/a\">Page A</option>\n            <option value=\"/b\">Page B</option>\n        </select>\n\n        <div onfocus=\"this.style.color='red'\" tabindex=\"0\">Non-interactive element with an onfocus handler</div>\n\n        <input type=\"text\" title=\"Search the site\">\n\n        <form>\n            <label for=\"email1\">Email</label>\n            <input id=\"email1\" name=\"email\" type=\"email\">\n            <label for=\"billing-email\">Billing Email</label>\n            <input id=\"billing-email\" name=\"billing_email\" type=\"email\">\n            <button type=\"submit\">Submit</button>\n        </form>\n\n        <table>\n            <thead>\n                <tr><th id=\"col-name\">Name</th></tr>\n            </thead>\n            <tbody>\n                <tr><td headers=\"does-not-exist\">Alice</td></tr>\n            </tbody>\n        </table>\n    </main>\n<footer><p>Example Shop, 2026</p></footer>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "forms_labels",
+    "file": "tests/fixtures/detection_corpus/forms_labels.html",
+    "verdict": "absent",
+    "selector": "input#lbl-title",
+    "html": "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Delivery preferences</title>\n<style>\n  body { font-family: sans-serif; color: #222; background: #fff; line-height: 1.5; margin: 0 16px; }\n  a { color: #0050a0; }\n  .skip, nav a, .solo { display: inline-block; padding: 12px; min-height: 44px; min-width: 44px; box-sizing: border-box; }\n  button, input, select, textarea, [role=\"button\"], [role=\"textbox\"], [role=\"radio\"], [role=\"link\"], [role=\"searchbox\"] {\n    display: inline-block; min-height: 44px; min-width: 44px; box-sizing: border-box; font-size: 1rem; }\n  input[type=\"checkbox\"], input[type=\"radio\"] { width: 44px; height: 44px; }\n  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n</style>\n</head>\n<body>\n<a class=\"skip\" href=\"#main\">Skip to main content</a>\n<header><p>Example Shop</p>\n<nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/help\">Help</a></nav>\n</header>\n<main id=\"main\">\n<h1>Delivery preferences</h1>\n<!-- G2 #783: every labelling mechanism next to fields without one. A field needs a programmatic name (4.1.2, 1.3.1) and a visible label (3.3.2); a placeholder or title names it but is no lasting visible label. -->\n<form action=\"/preferences\" method=\"post\">\n  <p><input id=\"coupon-code\" name=\"coupon\" type=\"text\"></p>\n  <p><textarea id=\"gift-message\" name=\"gift\"></textarea></p>\n  <p><select id=\"wrap-style\" name=\"wrap\"><option>Plain</option><option>Festive</option></select></p>\n  <p><input id=\"voucher\" name=\"voucher\" type=\"text\" placeholder=\"Voucher code\"></p>\n  <p><input id=\"door-code\" name=\"door\" type=\"text\" title=\"Door code\"></p>\n  <p><label for=\"lbl-for\">Gate number</label> <input id=\"lbl-for\" name=\"gate\" type=\"text\"></p>\n  <p><label>Floor <input id=\"lbl-wrap\" name=\"floor\" type=\"text\"></label></p>\n  <p><input id=\"lbl-aria\" name=\"stairs\" type=\"text\" aria-label=\"Stairwell\"></p>\n  <p><span id=\"bell-label\">Doorbell label</span> <input id=\"lbl-by\" name=\"bell\" type=\"text\" aria-labelledby=\"bell-label\"></p>\n  <p><label for=\"lbl-ph\">Courier note</label> <input id=\"lbl-ph\" name=\"note\" type=\"text\" placeholder=\"Leave at the door\"></p>\n  <p><label for=\"lbl-title\">Drop-off spot</label> <input id=\"lbl-title\" name=\"spot\" type=\"text\" title=\"Where to leave the parcel\"></p>\n  <p><label for=\"lbl-select\">Wrapping paper</label> <select id=\"lbl-select\" name=\"paper\"><option>Kraft</option><option>Gloss</option></select></p>\n  <p><label for=\"lbl-area\">Card text</label> <textarea id=\"lbl-area\" name=\"card\"></textarea></p>\n  <p><span id=\"title-aria\" role=\"textbox\" contenteditable=\"true\" tabindex=\"0\" title=\"Gift note\"></span></p>\n  <input type=\"hidden\" name=\"token\" value=\"abc\">\n  <p><button type=\"submit\">Save preferences</button></p>\n</form>\n</main>\n<footer><p>Example Shop, 2026</p></footer>\n\n</body>\n</html>"
+  }
+}

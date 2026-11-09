@@ -1,0 +1,37 @@
+{
+  "id": "status/live-overridden",
+  "url": "https://casoon.github.io/auditmysite/rules/status/live-overridden/",
+  "title": "Status messages not programmatically determinable",
+  "outcome": "automatic",
+  "criterion": "4.1.3",
+  "level": "AA",
+  "axe_id": "aria-live-region-role",
+  "dimension": "Accessibility",
+  "subcategory": "Technical Robustness",
+  "issue_class": "Invalid",
+  "severity": "medium",
+  "user_impact": "Screen readers do not announce status messages correctly.",
+  "technical_impact": "Conflict between role (alert/status/log/timer) and aria-live value.",
+  "source": "WCAG 2.2 SC 4.1.3 Status Messages; WAI-ARIA 1.2 alert, status, log (implicit aria-live) and aria-live",
+  "applicability": "Elements in the accessibility tree with role alert, status or log (explicit or implicit, <output> is status) and an aria-live attribute.",
+  "expectation": "Fails for aria-live=\"off\": updates of the status message are not announced. Changing the\nurgency (alert with polite, status with assertive) is allowed by ARIA and still announced: review.\nThe default urgency, stated or implicit, passes; a log may change its urgency; aria-live on an\nelement without a live role is not this id. Hidden subtrees are out of scope.",
+  "method": "shared",
+  "capabilities": [
+    "dom",
+    "ax_tree"
+  ],
+  "page_level": false,
+  "failing": {
+    "case": "aria_dialogs_live_broken",
+    "file": "tests/fixtures/detection_corpus/aria_dialogs_live_broken.html",
+    "verdict": "violation",
+    "selector": "div#cart-status",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Shopping cart - Example shop</title>\n</head>\n<body>\n    <header>\n        <p>Example shop</p>\n    </header>\n    <main>\n        <h1>Shopping cart</h1>\n\n        <!-- status/live-overridden: the cart status is switched off -->\n        <div id=\"cart-status\" role=\"status\" aria-live=\"off\">2 items in your cart</div>\n        <!-- status/live-overridden (review): urgency changed, still announced -->\n        <div id=\"stock-alert\" role=\"alert\" aria-live=\"polite\">Only 1 left in stock</div>\n        <output id=\"total\" aria-live=\"assertive\">Total: 59 EUR</output>\n\n        <!-- dialog/name-missing and dialog/modal-unmarked: unnamed custom\n             dialog without aria-modal -->\n        <div id=\"coupon-dlg\" role=\"dialog\">\n            <p>Enter your coupon code.</p>\n            <button type=\"button\" id=\"coupon-ok\">Apply</button>\n        </div>\n\n        <!-- dialog/name-missing and dialog/focusable-missing: open native\n             dialog without a name and without anything to focus -->\n        <dialog open id=\"saved-dlg\">\n            <p>Your cart was saved.</p>\n        </dialog>\n\n        <!-- dialog/focusable-missing: named alert dialog, nothing to focus -->\n        <div id=\"timeout-dlg\" role=\"alertdialog\" aria-modal=\"true\" aria-labelledby=\"timeout-title\">\n            <h2 id=\"timeout-title\">Session ending</h2>\n            <p>Your session ends in one minute.</p>\n        </div>\n\n        <!-- inert/dialog-inert: an open dialog that is inert -->\n        <dialog open inert id=\"survey-dlg\" aria-label=\"Quick survey\">\n            <p>How was your visit?</p>\n            <button type=\"button\" id=\"survey-ok\">Answer</button>\n        </dialog>\n        <!-- inert/dialog-inert (review): custom dialog under an inert ancestor;\n             without styles it may as well be a closed one -->\n        <div inert>\n            <div id=\"help-dlg\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Help\">\n                <button type=\"button\" id=\"help-close\">Close</button>\n            </div>\n        </div>\n    </main>\n    <footer>\n        <p>Example shop</p>\n    </footer>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "aria_dialogs_live_valid",
+    "file": "tests/fixtures/detection_corpus/aria_dialogs_live_valid.html",
+    "verdict": "pass",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Shopping cart - Example shop</title>\n</head>\n<body>\n    <header>\n        <p>Example shop</p>\n    </header>\n    <main>\n        <h1>Shopping cart</h1>\n\n        <!-- Live regions with their default urgency, stated or implicit; a\n             log may change its urgency -->\n        <div id=\"cart-status\" role=\"status\" aria-live=\"polite\">2 items in your cart</div>\n        <div id=\"stock-alert\" role=\"alert\">Only 1 left in stock</div>\n        <output id=\"total\">Total: 59 EUR</output>\n        <div id=\"activity\" role=\"log\" aria-live=\"assertive\">Coupon applied.</div>\n        <!-- aria-live off on an element that is no live region role -->\n        <div id=\"ticker\" aria-live=\"off\">Prices include VAT.</div>\n\n        <!-- Named modal dialog with a control, named by aria-labelledby -->\n        <div id=\"coupon-dlg\" role=\"dialog\" aria-modal=\"true\" aria-labelledby=\"coupon-title\">\n            <h2 id=\"coupon-title\">Coupon</h2>\n            <button type=\"button\" id=\"coupon-ok\">Apply</button>\n        </div>\n\n        <!-- Open native dialog named by aria-label, with a control -->\n        <dialog open id=\"saved-dlg\" aria-label=\"Cart saved\">\n            <p>Your cart was saved.</p>\n            <button type=\"button\" id=\"saved-ok\">OK</button>\n        </dialog>\n\n        <!-- Closed native dialogs are not presented: no name needed, inert is\n             harmless -->\n        <dialog id=\"closed-dlg\"><p>Not shown.</p></dialog>\n        <dialog id=\"closed-inert-dlg\" inert><p>Not shown either.</p></dialog>\n\n        <!-- Inert background content next to the dialog is the intended use -->\n        <div id=\"background\" inert>\n            <p>Recommended products</p>\n        </div>\n    </main>\n    <footer>\n        <p>Example shop</p>\n    </footer>\n</body>\n</html>"
+  }
+}

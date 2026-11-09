@@ -1,0 +1,39 @@
+{
+  "id": "contrast/text-undetermined",
+  "url": "https://casoon.github.io/auditmysite/rules/contrast/text-undetermined/",
+  "title": "Insufficient color contrast",
+  "outcome": "hint-only",
+  "criterion": "1.4.3",
+  "level": "AA",
+  "axe_id": "color-contrast",
+  "dimension": "Accessibility",
+  "subcategory": "Visual Presentation",
+  "issue_class": "Weak",
+  "severity": "high",
+  "user_impact": "Text is hard to read for people with low vision or under poor lighting conditions.",
+  "technical_impact": "Contrast ratio below 4.5:1 for normal text.",
+  "source": "WCAG 2.2 SC 1.4.3 Contrast (Minimum); a11y-rules rule 3 (not determinable is not a pass)",
+  "applicability": "Elements carrying rendered, visible text whose foreground or background colour cannot be resolved, or whose centre is covered by a foreign fixed or sticky element.",
+  "expectation": "Reports a review (UNTESTED) instead of a pass or fail when the contrast cannot\nbe measured: glyphs painted transparent over a gradient (background-clip:\ntext), no resolvable colour, or the text covered by a fixed/sticky overlay\nsuch as a cookie banner (the overlay's own text is measurable and not\nreported). Over an image or gradient that can be sampled, a median that\npasses with a 40th percentile that fails is a borderline review under this\nid as well. Text on a solid background never produces this finding. It is\nnever a confirmed violation.",
+  "method": "shared",
+  "capabilities": [
+    "dom",
+    "computed_style",
+    "geometry"
+  ],
+  "page_level": false,
+  "failing": {
+    "case": "visual_contrast_covered",
+    "file": "tests/fixtures/detection_corpus/visual_contrast_covered.html",
+    "verdict": "needs_review",
+    "selector": "p#covered",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Contrast under a fixed banner</title>\n<style>\n  body { margin: 0; background: #ffffff; color: #111111; }\n  #banner { position: fixed; top: 0; left: 0; width: 100%; height: 110px; margin: 0;\n            background: #ffffff; color: #111111; border-bottom: 2px solid #111111; z-index: 10; }\n  #covered { margin: 0; padding-top: 30px; color: #111111; }\n  main { margin-top: 160px; padding: 0 8px; }\n</style>\n</head>\n<body>\n<header>\n  <!-- A fixed banner covers the next paragraph: its contrast cannot be\n       determined with the overlay open, which is a review, not a pass. -->\n  <p id=\"banner\">We use cookies to run this shop.</p>\n  <p id=\"covered\">Opening hours: Monday to Friday, 9 to 18.</p>\n</header>\n<main id=\"main\">\n  <h1>Text behind a fixed overlay</h1>\n  <p id=\"solid\">This paragraph sits on a solid white background.</p>\n</main>\n<footer><p>Footer text</p>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</footer>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "visual_contrast_covered",
+    "file": "tests/fixtures/detection_corpus/visual_contrast_covered.html",
+    "verdict": "pass",
+    "selector": "p#banner",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Contrast under a fixed banner</title>\n<style>\n  body { margin: 0; background: #ffffff; color: #111111; }\n  #banner { position: fixed; top: 0; left: 0; width: 100%; height: 110px; margin: 0;\n            background: #ffffff; color: #111111; border-bottom: 2px solid #111111; z-index: 10; }\n  #covered { margin: 0; padding-top: 30px; color: #111111; }\n  main { margin-top: 160px; padding: 0 8px; }\n</style>\n</head>\n<body>\n<header>\n  <!-- A fixed banner covers the next paragraph: its contrast cannot be\n       determined with the overlay open, which is a review, not a pass. -->\n  <p id=\"banner\">We use cookies to run this shop.</p>\n  <p id=\"covered\">Opening hours: Monday to Friday, 9 to 18.</p>\n</header>\n<main id=\"main\">\n  <h1>Text behind a fixed overlay</h1>\n  <p id=\"solid\">This paragraph sits on a solid white background.</p>\n</main>\n<footer><p>Footer text</p>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</footer>\n</body>\n</html>"
+  }
+}

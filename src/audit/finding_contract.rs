@@ -1281,6 +1281,7 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
         title,
         description: first.message.clone(),
         help_url: None,
+        understanding_url: None,
         occurrence_count,
         priority_score,
         confidence: derived.confidence.to_string(),

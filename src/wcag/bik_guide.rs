@@ -363,6 +363,7 @@ mod tests {
             title: "Test finding".into(),
             description: String::new(),
             help_url: None,
+            understanding_url: None,
             occurrence_count,
             priority_score: 1.0,
             confidence: "very_high".into(),

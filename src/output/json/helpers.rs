@@ -778,6 +778,7 @@ mod tests {
             title: "Restricted screen orientation".into(),
             description: description.into(),
             help_url: None,
+            understanding_url: None,
             occurrence_count: 1,
             priority_score: 1.0,
             confidence: "very_high".into(),

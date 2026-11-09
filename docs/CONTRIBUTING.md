@@ -367,6 +367,7 @@ What the gate enforces:
 ```bash
 cargo test --lib page_rules                       # the level counters
 cargo test --test rule_contract_gate              # browser-free; the contract completeness gate
+UPDATE_RULE_DOCS=1 cargo test --test rule_docs    # regenerates the rule's documentation page (site/src/data/rules/); commit the result
 CORPUS_CASES=my_rule_violation,my_rule_ok,error_page_scripts_sabotaged \
   cargo test --test detection_corpus_test -- --ignored --test-threads=1   # needs Chrome
 scripts/mutation-check.py --rule my-rule          # proves the mutation really fails a test
@@ -377,6 +378,12 @@ cargo clippy --all-targets --all-features -- -D warnings
 `mutation-check.py` first requires the named test to be green on the unmutated
 code, so a corpus case that already fails shows up there as "invalid", not as a
 survivor. Fix the corpus first.
+
+The rule's page on the project site (`rules/<rule_id>/`, the target of `help_url`) is
+generated from the catalogue entry, the contract and the corpus; nothing is written
+for it by hand. `cargo test --test rule_docs` fails until the regenerated files under
+`site/src/data/rules/` are committed. A contract with a thin `expectation`, or without a
+small corpus case, gives a thin page: sections without material are left out.
 
 Finally, add a line under `## [Unreleased]` in `CHANGELOG.md` (see
 [Changelog](#changelog)). If the finding should have its own title, impact text and

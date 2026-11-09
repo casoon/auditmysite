@@ -1,0 +1,36 @@
+{
+  "id": "landmarks/main-duplicate",
+  "url": "https://casoon.github.io/auditmysite/rules/landmarks/main-duplicate/",
+  "title": "Multiple main landmarks",
+  "outcome": "hint-only",
+  "criterion": "1.3.1",
+  "level": "A",
+  "axe_id": "landmark-no-duplicate-main",
+  "dimension": "Accessibility",
+  "subcategory": "Structure & Semantics",
+  "issue_class": "Invalid",
+  "severity": "medium",
+  "user_impact": "Screen reader users who jump to the main content cannot tell which region is meant.",
+  "technical_impact": "More than one element with role=\"main\" (implicit or explicit).",
+  "source": "HTML §4.4.14 the main element (at most one main without the hidden attribute); WAI-ARIA 1.2 main; axe landmark-no-duplicate-main",
+  "applicability": "Documents with at least one rendered main landmark.",
+  "expectation": "Flags a document with more than one rendered main landmark (main or\nrole=\"main\"), at the second one. A main with the hidden attribute does not\ncount: HTML explicitly allows hidden alternative views. Best practice without\na criterion since 4.1.1 was removed.",
+  "method": "shared",
+  "capabilities": [
+    "dom",
+    "computed_style"
+  ],
+  "page_level": false,
+  "failing": {
+    "case": "landmark_granular",
+    "file": "tests/fixtures/detection_corpus/landmark_granular.html",
+    "verdict": "needs_review",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Granular landmark corpus case</title>\n</head>\n<body>\n    <nav>\n        <div role=\"banner\">Banner nested inside a nav landmark (not top-level)</div>\n        <div role=\"main\">Main nested inside a nav landmark (not top-level)</div>\n    </nav>\n    <header>First header (duplicate banner 1 of 2)</header>\n    <header>Second header (duplicate banner 2 of 2)</header>\n    <footer>First footer (duplicate contentinfo 1 of 2)</footer>\n    <footer>Second footer (duplicate contentinfo 2 of 2)</footer>\n    <main>First main region (duplicate main 1 of 2)</main>\n    <div role=\"main\">Second main region (duplicate main 2 of 2)</div>\n    <nav>Unnamed nav A</nav>\n    <nav>Unnamed nav B</nav>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "structure_landmark_duplicates",
+    "file": "tests/fixtures/detection_corpus/structure_landmark_duplicates.html",
+    "verdict": "pass",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Order history – Acme Hardware</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- A single-page app shell (#783). The inactive view's main is hidden,\n         which HTML allows (only one main without the hidden attribute). A\n         promo widget inside main declares itself a banner, and a cookie note\n         declares itself a second contentinfo. The article's header belongs to\n         the article and is no banner. -->\n    <a href=\"#orders\" class=\"skip-link\">Skip to content</a>\n    <header id=\"site-header\">\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Account\">\n        <ul>\n            <li><a href=\"/account/\">Account</a></li>\n            <li><a href=\"/orders/\">Orders</a></li>\n        </ul>\n    </nav>\n    <main id=\"profile\" hidden>\n        <h1>Your profile</h1>\n    </main>\n    <main id=\"orders\">\n        <h1>Order history</h1>\n        <div id=\"promo\" role=\"banner\">\n            <p>Free delivery this week.</p>\n        </div>\n        <article>\n            <header><h2>Order 2026-0412</h2></header>\n            <p>Three boxes of wood screws.</p>\n        </article>\n    </main>\n    <footer id=\"site-footer\">\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n    <div id=\"cookie-note\" role=\"contentinfo\">\n        <p>This site stores your basket in a cookie.</p>\n    </div>\n</body>\n</html>"
+  }
+}

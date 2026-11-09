@@ -1,0 +1,36 @@
+{
+  "id": "headings/skip-level",
+  "url": "https://casoon.github.io/auditmysite/rules/headings/skip-level/",
+  "title": "Skipped heading level",
+  "outcome": "hint-only",
+  "criterion": "1.3.1",
+  "level": "A",
+  "axe_id": "headings/skip-level",
+  "dimension": "Accessibility",
+  "subcategory": "Structure & Semantics",
+  "issue_class": "Invalid",
+  "severity": "medium",
+  "user_impact": "Screen reader users navigating by headings assume that sections are missing.",
+  "technical_impact": "Heading levels do not follow each other without gaps.",
+  "source": "Best practice, no WCAG failure: G141 and H42 (advisory) for SC 1.3.1/2.4.10; axe heading-order",
+  "applicability": "Rendered headings in document order, from the second heading on.",
+  "expectation": "Flags a heading whose level is more than one deeper than the previous rendered\nheading (h2 followed by h4), at that heading. Going back up any number of\nlevels (h3 to h1) or one level down is fine; the first heading may have any\nlevel. Hidden headings (display:none) are not part of the outline, so a hidden\nh5 between two h3 is no skip. Skipping levels is not a WCAG failure (G141 is\nadvisory), so the finding is a best-practice violation without a success\ncriterion.",
+  "method": "shared",
+  "capabilities": [
+    "dom",
+    "computed_style"
+  ],
+  "page_level": false,
+  "failing": {
+    "case": "heading_order",
+    "file": "tests/fixtures/detection_corpus/heading_order.html",
+    "verdict": "needs_review",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Heading order corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Top level heading</h1>\n        <h3>Skipped from h1 to h3</h3>\n        <p>Some content.</p>\n    </main>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "structure_outline_clean",
+    "file": "tests/fixtures/detection_corpus/structure_outline_clean.html",
+    "verdict": "pass",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\" xml:lang=\"en-GB\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Opening hours and contact – Acme Hardware Berlin</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- Conforming look-alike for the structure rules (#783): every\n         structure the rules look at is present and correct. -->\n    <a href=\"#main\" class=\"skip-link\">Skip to content</a>\n    <header>\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Main\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/shop/\">Shop</a></li>\n            <li><a href=\"/contact/\">Contact</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <h1>Opening hours and contact</h1>\n        <p>Our store in Berlin is open six days a week. We are happy to help you\n           find the right tool for your project, and you can always call us before\n           you visit to check that an item is in stock.</p>\n        <h2>Opening hours</h2>\n        <dl>\n            <div><dt>Monday to Friday</dt><dd>8:00 to 18:00</dd></div>\n            <div><dt>Saturday</dt><dd>9:00 to 14:00</dd></div>\n        </dl>\n        <h2>Directions</h2>\n        <!-- English text with German proper names: names are exempt from\n             3.1.2, and only two German function words occur. -->\n        <p id=\"directions\">The store is a short walk from the Haus der Kunst gallery and the\n           old bridge that locals call die Brücke. Take the tram to the main square, then\n           follow the river for about five minutes until you see our green sign.</p>\n        <article>\n            <h3>Store news</h3>\n            <p>We now stock garden tools from local makers.</p>\n        </article>\n        <section aria-labelledby=\"contact-heading\">\n            <h2 id=\"contact-heading\">Contact</h2>\n            <p>Call us or send a message. Prices include <abbr title=\"value-added tax\">VAT</abbr>.</p>\n            <form action=\"/contact\" method=\"post\">\n                <label for=\"contact-email\">E-mail</label>\n                <input id=\"contact-email\" name=\"email\" type=\"email\" autocomplete=\"email\" aria-describedby=\"contact-hint\">\n                <p id=\"contact-hint\">We reply within one working day.</p>\n                <button type=\"submit\">Send</button>\n            </form>\n        </section>\n    </main>\n    <footer>\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n    <!-- Hidden leftover outside every landmark: not rendered, not content. -->\n    <div hidden>Summer sale banner</div>\n</body>\n</html>"
+  }
+}

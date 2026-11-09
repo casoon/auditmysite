@@ -1,0 +1,35 @@
+{
+  "id": "navigation/location-missing",
+  "url": "https://casoon.github.io/auditmysite/rules/navigation/location-missing/",
+  "title": "Missing location indication (AAA)",
+  "outcome": "hint-only",
+  "criterion": "2.4.8",
+  "level": "AAA",
+  "axe_id": "location",
+  "dimension": "Accessibility",
+  "subcategory": "Navigation & Operation",
+  "issue_class": "Missing",
+  "severity": "low",
+  "user_impact": "Users lose orientation within nested websites.",
+  "technical_impact": "Missing breadcrumb navigation or sitemap linkage.",
+  "source": "WCAG 2.2 SC 2.4.8 Location (AAA); techniques G65 (breadcrumb trail), G128 (indicating current location within navigation)",
+  "applicability": "Pages with a navigation (nav or role=navigation) that contains links.",
+  "expectation": "needs_review once per page (page-level, at the root) when the page has a\nnavigation with links but neither marks the current page\n(aria-current=\"page\") nor offers a breadcrumb trail (aria-label containing\n\"breadcrumb\"). Review, not violation: 2.4.8 can also be met by the title,\nheadings or a site map. A breadcrumb or aria-current=\"page\" passes. Pages\nwithout a navigation are not applicable.",
+  "method": "shared",
+  "capabilities": [
+    "dom"
+  ],
+  "page_level": true,
+  "failing": {
+    "case": "interaction_location_missing",
+    "file": "tests/fixtures/detection_corpus/interaction_location_missing.html",
+    "verdict": "needs_review",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Opening hours without a location cue</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p>Example Museum</p></header>\n    <!-- needs_review (2.4.8): site navigation, but no breadcrumb and no aria-current=\"page\" -->\n    <nav aria-label=\"Main\">\n        <a href=\"/\">Home</a>\n        <a href=\"/visit\">Visit</a>\n        <a href=\"/exhibitions\">Exhibitions</a>\n    </nav>\n    <main id=\"main\">\n        <h1>Opening hours</h1>\n        <p>Open Tuesday to Sunday, ten to six.</p>\n    </main>\n    <footer><p>Example Museum footer</p></footer>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "interaction_location_breadcrumb",
+    "file": "tests/fixtures/detection_corpus/interaction_location_breadcrumb.html",
+    "verdict": "absent",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Exhibition page with a breadcrumb</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n    </style>\n</head>\n<body>\n    <header><p>Example Museum</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\">Home</a>\n        <a href=\"/visit\">Visit</a>\n        <a href=\"/exhibitions\">Exhibitions</a>\n    </nav>\n    <!-- absent (2.4.8): the breadcrumb trail shows where the page sits -->\n    <nav aria-label=\"Breadcrumb\">\n        <a href=\"/\">Home</a> /\n        <a href=\"/exhibitions\">Exhibitions</a> /\n        <span>Dutch masters</span>\n    </nav>\n    <main id=\"main\">\n        <h1>Dutch masters</h1>\n        <p>Forty paintings from the seventeenth century.</p>\n    </main>\n    <footer><p>Example Museum footer</p></footer>\n    <script>\n        // absent (2.4.1): the skip link is inserted by a script, before the first link\n        var skip = document.createElement('a');\n        skip.className = 'skip';\n        skip.href = '#main';\n        skip.textContent = 'Skip to main content';\n        document.body.insertBefore(skip, document.body.firstChild);\n    </script>\n</body>\n</html>"
+  }
+}

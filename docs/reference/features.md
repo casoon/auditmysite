@@ -6,6 +6,8 @@ order: 3
 
 ## WCAG rules (Level A and AA)
 
+Every rule has its own page at `https://casoon.github.io/auditmysite/rules/<rule_id>/` (the `help_url` of its findings), with the success criterion, why it is flagged, what it checks, a failing and a passing example from the detection corpus and its outcome class: automatic, hint only or manual. The [rule overview](https://casoon.github.io/auditmysite/rules/) lists them all with the coverage counts. The pages are generated from the rule catalogue and the rule contracts; the list below is a summary.
+
 Core rules:
 - Non-text content (1.1.1)
 - Keyboard access (2.1.1)
@@ -204,7 +206,7 @@ Export findings as a task-oriented JSON list for direct LLM processing:
 auditmysite https://example.com -f ai -o findings.json
 ```
 
-Each entry is a task object with `task_id`, `rule_id`, `impact`, `wcag`, `tags`, `title`, `issue`, `fix`, `selector`, `node_id`, and `help_url` — sorted by impact severity. Suitable for direct use as context in AI-assisted code remediation.
+Each entry is a task object with `task_id`, `rule_id`, `impact`, `wcag`, `tags`, `title`, `issue`, `fix`, `selector`, `node_id`, `help_url` (the rule's page on the project site) and, when the rule names one, `understanding_url` (the W3C Understanding page) — sorted by impact severity. Suitable for direct use as context in AI-assisted code remediation.
 
 ## Non-goals (deliberately deferred)
 

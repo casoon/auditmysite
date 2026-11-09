@@ -1,0 +1,30 @@
+{
+  "id": "timeouts",
+  "url": "https://casoon.github.io/auditmysite/rules/timeouts/",
+  "title": "No warning before inactivity timeout (AAA)",
+  "outcome": "manual",
+  "criterion": "2.2.6",
+  "level": "AAA",
+  "axe_id": "timeouts",
+  "dimension": "Accessibility",
+  "subcategory": "Navigation & Operation",
+  "issue_class": "Risk",
+  "severity": "medium",
+  "user_impact": "Users lose unsaved data without warning.",
+  "technical_impact": "Missing timeout warning system.",
+  "source": "WCAG 2.2 SC 2.2.6 Timeouts (Level AAA)",
+  "applicability": "Every page in an AAA audit (a fixed page-wide UNTESTED note).",
+  "expectation": "Emits one page-wide UNTESTED note in every AAA audit, never a pass and never\na violation. Strictly, 2.2.6 concerns data loss through inactivity, so a page\nwithout any data entry would be out of scope; the note is unconditional\ntoday, which is why no not-applicable case exists.",
+  "method": "page",
+  "capabilities": [
+    "dom"
+  ],
+  "page_level": true,
+  "manual_reason": "Whether an inactivity timeout exists, can lose data and is announced to users depends on server and session behaviour that a single page load cannot observe.",
+  "failing": {
+    "case": "visual_control_contrast",
+    "file": "tests/fixtures/detection_corpus/visual_control_contrast.html",
+    "verdict": "needs_review",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Custom checkbox and switch boundaries</title>\n<style>\n  body { background: #ffffff; color: #111111; }\n  .custom { -webkit-appearance: none; appearance: none; width: 24px; height: 24px; margin: 0 8px 0 0;\n            background: #ffffff; border: 2px solid #cccccc; vertical-align: middle; }\n  #cb-ok { border-color: #767676; }\n  #cb-edge-pass { border-color: #949494; }\n  #cb-edge-fail { border-color: #959595; }\n  .switch { display: inline-block; width: 64px; height: 44px; border: 2px solid #cccccc;\n            border-radius: 22px; background: #ffffff; vertical-align: middle; }\n  .gradient { display: block; padding: 8px; background-image: linear-gradient(90deg, #ffffff, #e8e8e8); }\n  label { display: block; margin: 12px 0; }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Newsletter settings</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Notification preferences</h1>\n  <form action=\"#\">\n    <!-- 1.61:1 against white: below the 3:1 a control boundary needs. -->\n    <label><input type=\"checkbox\" class=\"custom\" id=\"cb-faint\"> Weekly digest</label>\n    <!-- 4.54:1: passes. -->\n    <label><input type=\"checkbox\" class=\"custom\" id=\"cb-ok\"> Product news</label>\n    <!-- Threshold: 3.03:1 passes, 2.995:1 fails (no rounding up). -->\n    <label><input type=\"checkbox\" class=\"custom\" id=\"cb-edge-pass\"> Event invitations</label>\n    <label><input type=\"checkbox\" class=\"custom\" id=\"cb-edge-fail\"> Reminders</label>\n    <!-- Native checkbox: drawn by the browser, no author boundary to measure. -->\n    <label><input type=\"checkbox\" id=\"cb-native\"> Partner offers</label>\n    <!-- Not rendered: nothing to measure. -->\n    <label>Hidden option <input type=\"checkbox\" class=\"custom\" id=\"cb-hidden\" style=\"display: none\"></label>\n    <!-- Background is a gradient: the colour behind the control is unknown. -->\n    <label class=\"gradient\"><input type=\"checkbox\" class=\"custom\" id=\"cb-gradient\"> Surveys</label>\n    <!-- ARIA switch drawn with a div: same 1.61:1 boundary. -->\n    <p><span id=\"sw-label\">Dark mode</span>\n      <span id=\"sw-faint\" class=\"switch\" role=\"switch\" aria-checked=\"false\" aria-labelledby=\"sw-label\" tabindex=\"0\"></span></p>\n    <button type=\"submit\" style=\"min-width: 44px; min-height: 44px\">Save preferences</button>\n  </form>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+  }
+}

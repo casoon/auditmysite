@@ -1,0 +1,38 @@
+{
+  "id": "keyboard/scrollable-region-not-focusable",
+  "url": "https://casoon.github.io/auditmysite/rules/keyboard/scrollable-region-not-focusable/",
+  "title": "Scrollable region not reachable by keyboard",
+  "outcome": "automatic",
+  "criterion": "2.1.1",
+  "level": "A",
+  "axe_id": "scrollable-region-focusable",
+  "dimension": "Accessibility",
+  "subcategory": "Navigation & Operation",
+  "issue_class": "Missing",
+  "severity": "high",
+  "user_impact": "Keyboard users cannot scroll the region and cannot read the hidden content.",
+  "technical_impact": "Element with overflow: auto/scroll and overflowing content, without tabindex and without focusable children.",
+  "source": "WCAG 2.2 SC 2.1.1 Keyboard; axe-core scrollable-region-focusable (13 px tolerance)",
+  "applicability": "Rendered elements other than html/body whose content overflows their box and that contain text.",
+  "expectation": "violation once per scroll region whose content extends more than 13 px\nbeyond its box (scroll overflow), with text to reveal, when neither the\nregion (tabindex >= 0) nor any non-inert element inside can take keyboard\nfocus: the hidden part stays unreachable from the keyboard. Overflow of 13 px\nor less is sub-pixel or padding noise and passes; overflow: hidden is no\nscroll region; a region without text, an inert region and a region that is\nnot rendered are not reported. Overflow on one viewport only (text wrapping\non the phone) counts, as does content a script adds after load.",
+  "method": "shared",
+  "capabilities": [
+    "dom",
+    "geometry",
+    "computed_style"
+  ],
+  "page_level": false,
+  "failing": {
+    "case": "scrollable_region_focusable",
+    "file": "tests/fixtures/detection_corpus/scrollable_region_focusable.html",
+    "verdict": "violation",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Scrollable regions and keyboard access</title>\n    <style>\n        .box { height: 60px; overflow: auto; border: 1px solid #333; }\n        .tall { height: 400px; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Scrollable regions (#717)</h1>\n\n        <!-- violation: scrolls, not focusable, nothing focusable inside -->\n        <div class=\"box menus\"><div class=\"tall\">Only text that needs scrolling to read.</div></div>\n\n        <!-- pass: the region itself is focusable -->\n        <div class=\"box\" tabindex=\"0\" role=\"region\" aria-label=\"Terms\"><div class=\"tall\">Terms text.</div></div>\n\n        <!-- pass: focusable content inside scrolls the region along -->\n        <div class=\"box\"><div class=\"tall\">Links: <a href=\"#a\">first link</a></div></div>\n\n        <!-- pass: overflow hidden, not a scroll region -->\n        <div class=\"box\" style=\"overflow: hidden\"><div class=\"tall\">Clipped text.</div></div>\n\n        <!-- pass: does not overflow -->\n        <div class=\"box\">Short text.</div>\n    </main>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "interaction_scroll_regions",
+    "file": "tests/fixtures/detection_corpus/interaction_scroll_regions.html",
+    "verdict": "pass",
+    "selector": "div#sr-tolerance",
+    "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Scrollable regions and keyboard access</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n        .skip { position: absolute; left: -9999px; }\n        .skip:focus { left: 16px; }\n        .box { height: 100px; overflow: auto; border: 1px solid #333; margin: 8px 0; padding: 0; }\n        .inner { margin: 0; padding: 0; }\n        /* One line on a wide screen, many lines on a phone: overflows on the mobile viewport only. */\n        .narrow-box { height: 40px; overflow: auto; border: 1px solid #333; margin: 8px 0; }\n    </style>\n</head>\n<body>\n    <a class=\"skip\" href=\"#main\">Skip to main content</a>\n    <header><p>Example Library</p></header>\n    <nav aria-label=\"Main\">\n        <a href=\"/\" aria-current=\"page\">Home</a>\n        <a href=\"/catalogue\">Catalogue</a>\n    </nav>\n    <main id=\"main\">\n        <h1>Loan conditions</h1>\n\n        <!-- violation: 30 px beyond the box, not focusable, nothing focusable inside -->\n        <div id=\"sr-over\" class=\"box\"><div class=\"inner\" style=\"height: 130px\">Loan conditions text that needs scrolling.</div></div>\n        <!-- pass: 10 px beyond the box, within the 13 px tolerance for sub-pixel layout -->\n        <div id=\"sr-tolerance\" class=\"box\"><div class=\"inner\" style=\"height: 110px\">Opening hours text.</div></div>\n        <!-- pass: overflows, but the region is focusable and named -->\n        <div id=\"sr-focusable\" class=\"box\" tabindex=\"0\" role=\"region\" aria-label=\"Fees\"><div class=\"inner\" style=\"height: 300px\">Fees text.</div></div>\n        <!-- pass: overflows, but a link inside takes focus and scrolls it along -->\n        <div id=\"sr-link\" class=\"box\"><div class=\"inner\" style=\"height: 300px\">Rules, see <a href=\"#rules\">all rules</a>.</div></div>\n        <!-- pass: overflows, but the only focusable element inside is inert -->\n        <div id=\"sr-inert\" class=\"box\" inert><div class=\"inner\" style=\"height: 300px\">Archived conditions.</div></div>\n        <!-- not reported: overflows, but has no text to reveal -->\n        <div id=\"sr-empty\" class=\"box\"><div class=\"inner\" style=\"height: 300px\"></div></div>\n        <!-- not reported: not rendered -->\n        <div id=\"sr-hidden\" class=\"box\" style=\"display: none\"><div class=\"inner\" style=\"height: 300px\">Hidden text.</div></div>\n        <!-- violation on the mobile viewport only: the text wraps into many lines -->\n        <div id=\"sr-mobile\" class=\"narrow-box\"><p class=\"inner\">Members can borrow up to ten items at a time, renew each item twice online, and return items at any branch of the library network without extra charge. Overdue items cost ten cents a day, and reserved items wait at the counter for one week.</p></div>\n        <!-- violation: filled by a script after load -->\n        <div id=\"sr-dynamic\" class=\"box\"></div>\n    </main>\n    <footer><p>Example Library footer</p></footer>\n    <script>\n        var filler = document.createElement('div');\n        filler.style.height = '300px';\n        filler.textContent = 'Reservation history loaded after the page.';\n        document.getElementById('sr-dynamic').appendChild(filler);\n    </script>\n</body>\n</html>"
+  }
+}

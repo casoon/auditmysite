@@ -1,0 +1,38 @@
+{
+  "id": "display/text-media-visible",
+  "url": "https://casoon.github.io/auditmysite/rules/display/text-media-visible/",
+  "title": "Visualisations visible in text mode",
+  "outcome": "automatic",
+  "criterion": "2.2.2",
+  "level": "A",
+  "axe_id": "display/text-media-visible",
+  "dimension": "Accessibility",
+  "subcategory": "Navigation & Operation",
+  "issue_class": "Invalid",
+  "severity": "medium",
+  "user_impact": "Visitors who chose text mode still get graphics or moving content.",
+  "technical_impact": "[data-viz-live]/[data-viz-static] or figure media visible with html[data-display=text].",
+  "source": "BarrierLab display-mode convention draft v0 (barrierlab/plan/03), anchored to WCAG 2.2 SC 2.2.2; best practice",
+  "applicability": "Pages rendered in text mode (html[data-display=text]) with figure[data-viz].",
+  "expectation": "A best-practice violation at the first rendered visualisation medium of a\nfigure (static/live layer, canvas, svg, img, video, iframe, object, embed)\nthat stays visible in text mode, outside the text layer. Hidden media pass;\nicons up to 32 x 32 px stay allowed (32 x 32 passes, 33 x 33 fails). Outside\ntext mode the rule does not apply.",
+  "method": "page",
+  "capabilities": [
+    "dom",
+    "computed_style",
+    "geometry"
+  ],
+  "page_level": false,
+  "failing": {
+    "case": "visual_display_text_mode_broken",
+    "file": "tests/fixtures/detection_corpus/visual_display_text_mode_broken.html",
+    "verdict": "violation",
+    "selector": "img#s2",
+    "html": "<!DOCTYPE html>\n<!-- Display-mode convention (#653), rendered in text mode, with the text-mode\n     mistakes real pages make: a text layer that stays visually hidden (clip\n     pattern) or transparent in text mode, and still images that are not\n     hidden. A 32x32 icon is allowed, 33x33 is not. -->\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Display modes: text mode that keeps pictures and hides text</title>\n<script>document.documentElement.dataset.display = 'text';</script>\n<style>\n  body { color: #111111; background: #ffffff; }\n  /* Forgot to reveal the text layer in text mode. */\n  #t1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n  #t5 { opacity: 0; }\n  html[data-display=\"text\"] #s1, html[data-display=\"text\"] #s5 { display: none; }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <label for=\"display-toggle\">Display</label>\n  <select id=\"display-toggle\" data-display-toggle style=\"min-width: 44px; min-height: 44px\">\n    <option value=\"visual\">Visual</option>\n    <option value=\"calm\">Calm</option>\n    <option value=\"text\" selected>Text</option>\n  </select>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>River levels</h1>\n  <figure id=\"f1\" data-viz=\"diagram\">\n    <div id=\"s1\" data-viz-static><svg width=\"300\" height=\"120\" aria-hidden=\"true\"><rect width=\"300\" height=\"120\" fill=\"#4575b4\"></rect></svg></div>\n    <div id=\"t1\" data-viz-text><p>The river rose by 80 centimetres overnight.</p></div>\n    <figcaption>River level at the old bridge</figcaption>\n  </figure>\n  <figure id=\"f2\" data-viz=\"diagram\">\n    <img id=\"s2\" data-viz-static width=\"300\" height=\"120\" alt=\"Bar diagram of rainfall\"\n      src=\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='120'%3E%3Crect width='300' height='120' fill='%23336699'/%3E%3C/svg%3E\">\n    <div id=\"t2\" data-viz-text><p>Rainfall was twice the monthly average.</p></div>\n    <figcaption>Rainfall in October</figcaption>\n  </figure>\n  <figure id=\"f3\" data-viz=\"diagram\">\n    <svg id=\"icon3\" width=\"32\" height=\"32\" aria-hidden=\"true\"><circle cx=\"16\" cy=\"16\" r=\"14\" fill=\"#d73027\"></circle></svg>\n    <div id=\"t3\" data-viz-text><p>Flood warning level 2 is in force.</p></div>\n    <figcaption>Warning level</figcaption>\n  </figure>\n  <figure id=\"f4\" data-viz=\"diagram\">\n    <svg id=\"icon4\" width=\"33\" height=\"33\" aria-hidden=\"true\"><circle cx=\"16\" cy=\"16\" r=\"14\" fill=\"#d73027\"></circle></svg>\n    <div id=\"t4\" data-viz-text><p>The ferry is suspended until further notice.</p></div>\n    <figcaption>Ferry status</figcaption>\n  </figure>\n  <figure id=\"f5\" data-viz=\"diagram\">\n    <div id=\"s5\" data-viz-static><svg width=\"300\" height=\"120\" aria-hidden=\"true\"><rect width=\"300\" height=\"120\" fill=\"#91bfdb\"></rect></svg></div>\n    <div id=\"t5\" data-viz-text><p>The water temperature is 11 degrees.</p></div>\n    <figcaption>Water temperature</figcaption>\n  </figure>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "display_modes_conforming",
+    "file": "tests/fixtures/detection_corpus/display_modes_conforming.html",
+    "verdict": "pass",
+    "html": "<!DOCTYPE html>\n<!-- Display-mode convention (#653) followed correctly, rendered in text mode:\n     data-display is set by a blocking script in <head>, the toggle exists,\n     the visualisation's media is hidden in text mode and its text layer is\n     visible. Expect no display/* finding. -->\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Display modes: conforming page</title>\n  <script>document.documentElement.dataset.display = 'text';</script>\n  <style>\n    html[data-display=\"text\"] [data-viz-static],\n    html[data-display=\"text\"] [data-viz-live] { display: none; }\n    html:not([data-display=\"text\"]) [data-viz-text] {\n      position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);\n    }\n  </style>\n</head>\n<body>\n  <header>\n    <nav aria-label=\"Display\">\n      <label for=\"display-toggle\">Display</label>\n      <select id=\"display-toggle\" data-display-toggle>\n        <option value=\"visual\">Visual</option>\n        <option value=\"calm\">Calm</option>\n        <option value=\"text\" selected>Text</option>\n      </select>\n    </nav>\n  </header>\n  <main>\n    <h1>Temperature since 1850</h1>\n    <figure id=\"f1\" data-viz=\"chart\">\n      <div data-viz-static>\n        <svg role=\"img\" aria-label=\"Warming stripes\" width=\"300\" height=\"120\" viewBox=\"0 0 300 120\">\n          <rect width=\"150\" height=\"120\" fill=\"#4575b4\"></rect>\n          <rect x=\"150\" width=\"150\" height=\"120\" fill=\"#d73027\"></rect>\n        </svg>\n      </div>\n      <div data-viz-text>\n        <p>The global mean surface temperature rose by about 1.3 degrees since 1850.</p>\n        <table>\n          <caption>Temperature anomaly</caption>\n          <tr><th scope=\"col\">Year</th><th scope=\"col\">Anomaly</th></tr>\n          <tr><td>1850</td><td>0.0</td></tr>\n          <tr><td>2025</td><td>1.3</td></tr>\n        </table>\n        <p>Source: example data.</p>\n      </div>\n      <figcaption>Global temperature anomaly</figcaption>\n    </figure>\n  </main>\n</body>\n</html>"
+  }
+}

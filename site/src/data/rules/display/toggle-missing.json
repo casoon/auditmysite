@@ -1,0 +1,36 @@
+{
+  "id": "display/toggle-missing",
+  "url": "https://casoon.github.io/auditmysite/rules/display/toggle-missing/",
+  "title": "No display-mode toggle",
+  "outcome": "automatic",
+  "criterion": "2.2.2",
+  "level": "A",
+  "axe_id": "display/toggle-missing",
+  "dimension": "Accessibility",
+  "subcategory": "Navigation & Operation",
+  "issue_class": "Missing",
+  "severity": "medium",
+  "user_impact": "If there really is no toggle, visitors who cannot cope with motion or graphics cannot switch to a calm or text-only display.",
+  "technical_impact": "No [data-display-toggle] element on a page with figure[data-viz].",
+  "source": "BarrierLab display-mode convention draft v0 (barrierlab/plan/03), anchored to WCAG 2.2 SC 2.2.2; best practice",
+  "applicability": "Pages that contain at least one figure[data-viz].",
+  "expectation": "A best-practice finding at the root element when a page with visualisations\nhas no element marked [data-display-toggle] (select, button or any element).\nPages without figure[data-viz] are out of scope.",
+  "method": "shared",
+  "capabilities": [
+    "dom"
+  ],
+  "page_level": true,
+  "failing": {
+    "case": "display_modes_violations",
+    "file": "tests/fixtures/detection_corpus/display_modes_violations.html",
+    "verdict": "violation",
+    "selector": "html",
+    "html": "<!DOCTYPE html>\n<!-- Display-mode convention (#653) broken the ways real pages break it:\n     data-display is only set by a script at the end of <body> (late), there\n     is no [data-display-toggle], the first chart keeps its static picture in\n     text mode and hides its text layer from assistive technology, the second\n     visualisation has no text layer at all and shows its canvas. -->\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Display modes: broken page</title>\n</head>\n<body>\n  <main>\n    <h1>Sea level</h1>\n    <figure id=\"f1\" data-viz=\"chart\">\n      <div id=\"st1\" data-viz-static>\n        <svg width=\"300\" height=\"120\" viewBox=\"0 0 300 120\" aria-hidden=\"true\">\n          <rect width=\"300\" height=\"120\" fill=\"#4575b4\"></rect>\n        </svg>\n      </div>\n      <div id=\"t1\" data-viz-text aria-hidden=\"true\">\n        <p>Sea level rose by about 20 centimetres since 1900.</p>\n      </div>\n      <figcaption>Global mean sea level</figcaption>\n    </figure>\n    <figure id=\"f2\" data-viz=\"diagram\">\n      <canvas id=\"c2\" width=\"300\" height=\"150\" aria-label=\"Water cycle\"></canvas>\n      <figcaption>The water cycle</figcaption>\n    </figure>\n  </main>\n  <script>document.documentElement.dataset.display = 'text';</script>\n</body>\n</html>"
+  },
+  "passing": {
+    "case": "display_modes_conforming",
+    "file": "tests/fixtures/detection_corpus/display_modes_conforming.html",
+    "verdict": "pass",
+    "html": "<!DOCTYPE html>\n<!-- Display-mode convention (#653) followed correctly, rendered in text mode:\n     data-display is set by a blocking script in <head>, the toggle exists,\n     the visualisation's media is hidden in text mode and its text layer is\n     visible. Expect no display/* finding. -->\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Display modes: conforming page</title>\n  <script>document.documentElement.dataset.display = 'text';</script>\n  <style>\n    html[data-display=\"text\"] [data-viz-static],\n    html[data-display=\"text\"] [data-viz-live] { display: none; }\n    html:not([data-display=\"text\"]) [data-viz-text] {\n      position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);\n    }\n  </style>\n</head>\n<body>\n  <header>\n    <nav aria-label=\"Display\">\n      <label for=\"display-toggle\">Display</label>\n      <select id=\"display-toggle\" data-display-toggle>\n        <option value=\"visual\">Visual</option>\n        <option value=\"calm\">Calm</option>\n        <option value=\"text\" selected>Text</option>\n      </select>\n    </nav>\n  </header>\n  <main>\n    <h1>Temperature since 1850</h1>\n    <figure id=\"f1\" data-viz=\"chart\">\n      <div data-viz-static>\n        <svg role=\"img\" aria-label=\"Warming stripes\" width=\"300\" height=\"120\" viewBox=\"0 0 300 120\">\n          <rect width=\"150\" height=\"120\" fill=\"#4575b4\"></rect>\n          <rect x=\"150\" width=\"150\" height=\"120\" fill=\"#d73027\"></rect>\n        </svg>\n      </div>\n      <div data-viz-text>\n        <p>The global mean surface temperature rose by about 1.3 degrees since 1850.</p>\n        <table>\n          <caption>Temperature anomaly</caption>\n          <tr><th scope=\"col\">Year</th><th scope=\"col\">Anomaly</th></tr>\n          <tr><td>1850</td><td>0.0</td></tr>\n          <tr><td>2025</td><td>1.3</td></tr>\n        </table>\n        <p>Source: example data.</p>\n      </div>\n      <figcaption>Global temperature anomaly</figcaption>\n    </figure>\n  </main>\n</body>\n</html>"
+  }
+}
