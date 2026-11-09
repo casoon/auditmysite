@@ -1,0 +1,125 @@
+name: auditmysite
+description: Run an auditmysite WCAG 2.2 AA audit and expose the JSON and SARIF reports as outputs.
+author: casoon
+
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  url:
+    description: Single page to audit. Give exactly one of url, sitemap or url-file.
+    required: false
+  sitemap:
+    description: Sitemap URL; audits the pages listed in it as a batch.
+    required: false
+  url-file:
+    description: File with one URL per line, relative to the workspace; audits them as a batch.
+    required: false
+  version:
+    description: >-
+      Release tag to install, for example v2.0.2. Empty: the action's own tag when it
+      is used as casoon/auditmysite@vX.Y.Z, otherwise the latest release.
+    required: false
+    default: ""
+  browser:
+    description: >-
+      How to get a browser. "ensure" (default) installs a managed Chrome for Testing only if
+      the runner has no browser; "install" always runs `auditmysite browser install`;
+      "none" skips it.
+    required: false
+    default: ensure
+  args:
+    description: >-
+      Extra arguments for both audit runs, split on whitespace (no quoting), for example
+      "--full --level aa --max-pages 20". Do not pass -f or -o.
+    required: false
+    default: ""
+  output-dir:
+    description: Directory for the reports, relative to the workspace.
+    required: false
+    default: auditmysite-report
+
+outputs:
+  report-json:
+    description: Absolute path of report.json.
+    value: ${{ steps.audit.outputs.report-json }}
+  report-sarif:
+    description: Absolute path of report.sarif.
+    value: ${{ steps.audit.outputs.report-sarif }}
+  version:
+    description: The auditmysite release that was installed.
+    value: ${{ steps.install.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install auditmysite
+      id: install
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        ACTION_REF: ${{ github.action_ref }}
+        BIN_DIR: ${{ runner.temp }}/auditmysite-bin
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        version="$INPUT_VERSION"
+        if [ -z "$version" ] && [[ "$ACTION_REF" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          version="$ACTION_REF"
+        fi
+        AUDITMYSITE_VERSION="${version:-latest}" INSTALL_DIR="$BIN_DIR" "$ACTION_PATH/scripts/action-install.sh"
+        echo "$BIN_DIR" >> "$GITHUB_PATH"
+
+    - name: Prepare browser
+      shell: bash
+      env:
+        INPUT_BROWSER: ${{ inputs.browser }}
+        BIN_DIR: ${{ runner.temp }}/auditmysite-bin
+      run: |
+        case "$INPUT_BROWSER" in
+          ensure) "$BIN_DIR/auditmysite" browser ensure --yes ;;
+          install) "$BIN_DIR/auditmysite" browser install ;;
+          none) ;;
+          *) echo "::error::browser must be ensure, install or none (got '$INPUT_BROWSER')"; exit 1 ;;
+        esac
+
+    - name: Audit
+      id: audit
+      shell: bash
+      env:
+        INPUT_URL: ${{ inputs.url }}
+        INPUT_SITEMAP: ${{ inputs.sitemap }}
+        INPUT_URL_FILE: ${{ inputs.url-file }}
+        INPUT_ARGS: ${{ inputs.args }}
+        INPUT_OUTPUT_DIR: ${{ inputs.output-dir }}
+        BIN_DIR: ${{ runner.temp }}/auditmysite-bin
+      run: |
+        set -euo pipefail
+        target=()
+        given=0
+        if [ -n "$INPUT_URL" ]; then target+=("$INPUT_URL"); given=$((given + 1)); fi
+        if [ -n "$INPUT_SITEMAP" ]; then target+=(--sitemap "$INPUT_SITEMAP"); given=$((given + 1)); fi
+        if [ -n "$INPUT_URL_FILE" ]; then target+=(--url-file "$INPUT_URL_FILE"); given=$((given + 1)); fi
+        if [ "$given" -ne 1 ]; then
+          echo "::error::Give exactly one of the inputs url, sitemap or url-file"
+          exit 1
+        fi
+
+        extra=()
+        if [ -n "$INPUT_ARGS" ]; then
+          set -f
+          read -r -a extra <<< "$INPUT_ARGS"
+          set +f
+        fi
+
+        mkdir -p "$INPUT_OUTPUT_DIR"
+        out_dir="$(cd "$INPUT_OUTPUT_DIR" && pwd)"
+        bin="$BIN_DIR/auditmysite"
+
+        # --report-mode: exit 0 once the files are written, so the following upload
+        # step runs; technical failures (browser, timeout, bad arguments) still fail the step.
+        "$bin" "${target[@]}" ${extra[@]+"${extra[@]}"} -f json -o "$out_dir/report.json" --quiet --report-mode
+        "$bin" "${target[@]}" ${extra[@]+"${extra[@]}"} -f sarif -o "$out_dir/report.sarif" --no-screen-reader-report --quiet --report-mode
+
+        echo "report-json=$out_dir/report.json" >> "$GITHUB_OUTPUT"
+        echo "report-sarif=$out_dir/report.sarif" >> "$GITHUB_OUTPUT"
