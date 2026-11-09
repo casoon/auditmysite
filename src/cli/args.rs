@@ -27,9 +27,9 @@ It uses Chrome's Accessibility Tree via CDP for accurate detection of:\n\
 - Heading hierarchy issues (2.4.6)\n\
 - Unlabeled form controls (4.1.2)\n\
 - Insufficient color contrast (1.4.3)\n\n\
-Supported output formats: json, table, pdf, ai.\n\
+Supported output formats: json, table, pdf, ai, summary, sarif.\n\
 Supported inputs: a single URL, --sitemap, or --url-file.\n\n\
-Default single-URL behavior: generate a PDF report in the current directory."
+Default behavior: print a terminal table and write nothing. Use -o <FILE> to write a report."
 )]
 pub struct Args {
     /// Subcommand
@@ -71,17 +71,18 @@ pub struct Args {
     #[arg(short = 'l', long, default_value = "aa", value_enum)]
     pub level: WcagLevel,
 
-    /// Output format: `json`, `table`, `pdf`, or `ai`.
+    /// Output format: `json`, `table`, `pdf`, `ai`, `summary` or `sarif`.
     ///
-    /// Default for a single URL without `-f`: `pdf`.
-    /// Default for batch inputs without `-f`: `table`.
+    /// Without `-f` the format follows the extension of `-o` (`.json`, `.pdf`,
+    /// `.sarif`); otherwise a table is printed and nothing is written.
     #[arg(short = 'f', long, value_enum, global = true)]
     pub format: Option<OutputFormat>,
 
     /// Output file path.
     ///
-    /// Single URL + default PDF mode writes to `./<domain>-<date>-<report-level>.pdf`.
-    /// JSON without `-o` prints to stdout.
+    /// Without `-o`, `table`, `json` and the other text formats print to stdout
+    /// and write no file. `-f pdf` without `-o` writes
+    /// `./<domain>-<date>-<report-level>.pdf`.
     /// With `--per-page-reports`, `-o` is treated as the target directory.
     #[arg(short = 'o', long, value_name = "FILE", global = true)]
     pub output: Option<PathBuf>,
@@ -361,19 +362,20 @@ pub struct Args {
     #[arg(long, value_enum, default_value = "first-n", value_name = "STRATEGY")]
     pub sample_strategy: SampleStrategy,
 
-    /// Do not write the per-page screen-reader sidecar JSON
-    /// (`*-screen-reader-audit.json`).
+    /// Also write the screen-reader sidecar JSON
+    /// (`<output>-screen-reader-audit.json`).
     ///
-    /// The screen-reader summary inside the main report stays.
+    /// Off by default; the screen-reader summary inside the main report is
+    /// always there.
     #[arg(long)]
-    pub no_screen_reader_report: bool,
+    pub screen_reader_report: bool,
 
     /// PDF detail level: `executive`, `standard`, or `technical`.
     #[arg(long, default_value = "standard", value_enum, global = true)]
     pub report_level: ReportLevel,
 
-    /// Report language (PDF text i18n)
-    #[arg(long, default_value = "de", value_parser = ["de", "en"], global = true)]
+    /// Report language (PDF and table text)
+    #[arg(long, default_value = "en", value_parser = ["de", "en"], global = true)]
     pub lang: String,
 
     /// Also write a JSON report alongside the primary output format.
@@ -411,8 +413,8 @@ pub struct Args {
 
     /// How the browser should identify itself when making requests.
     ///
-    /// In interactive mode this is prompted automatically.
-    /// Use `--request-mode bot` to skip the prompt and identify as an audit bot.
+    /// `browser` (default) simulates a real browser; `bot` identifies as an
+    /// audit bot (transparent, RFC 9309).
     #[arg(long, default_value = "browser", value_enum)]
     pub request_mode: RequestMode,
 
@@ -736,10 +738,23 @@ impl Args {
     }
 
     pub fn effective_format(&self) -> OutputFormat {
-        match self.format {
+        if let Some(format) = self.format {
+            return format;
+        }
+        let from_extension = self
+            .output
+            .as_deref()
+            .and_then(|path| path.extension())
+            .and_then(|ext| ext.to_str())
+            .and_then(|ext| match ext.to_ascii_lowercase().as_str() {
+                "json" => Some(OutputFormat::Json),
+                "pdf" => Some(OutputFormat::Pdf),
+                "sarif" => Some(OutputFormat::Sarif),
+                _ => None,
+            });
+        match from_extension {
             Some(format) => format,
             None if self.per_page_reports => OutputFormat::Pdf,
-            None if self.url.is_some() => OutputFormat::Pdf,
             None => OutputFormat::Table,
         }
     }
@@ -977,9 +992,7 @@ mod tests {
         assert!(help.contains("json"));
         assert!(help.contains("table"));
         assert!(help.contains("pdf"));
-        assert!(help.contains(
-            "Default single-URL behavior: generate a PDF report in the current directory."
-        ));
+        assert!(help.contains("Default behavior: print a terminal table and write nothing."));
         // `html-conform` is a module name, not the removed html format.
         assert!(!help.replace("html-conform", "").contains("html"));
         assert!(!help.contains("markdown"));
@@ -1022,7 +1035,7 @@ mod tests {
             include_path: Vec::new(),
             exclude_path: Vec::new(),
             sample_strategy: SampleStrategy::FirstN,
-            no_screen_reader_report: false,
+            screen_reader_report: false,
             dismiss_consent: false,
             exclude_selector: Vec::new(),
             interactive: InteractiveMode::Off,
@@ -1032,7 +1045,7 @@ mod tests {
             state_id: None,
             display: None,
             report_level: ReportLevel::Standard,
-            lang: "de".to_string(),
+            lang: "en".to_string(),
             also_json: false,
             logo: None,
             dev: DevOptions::default(),
@@ -1081,9 +1094,9 @@ mod tests {
     }
 
     #[test]
-    fn test_effective_format_defaults_to_pdf_for_single_url() {
+    fn test_effective_format_defaults_to_table_for_single_url() {
         let args = test_args(Some("https://example.com"));
-        assert_eq!(args.effective_format(), OutputFormat::Pdf);
+        assert_eq!(args.effective_format(), OutputFormat::Table);
     }
 
     #[test]
@@ -1091,6 +1104,43 @@ mod tests {
         let mut args = test_args(None);
         args.sitemap = Some("https://example.com/sitemap.xml".to_string());
         assert_eq!(args.effective_format(), OutputFormat::Table);
+    }
+
+    #[test]
+    fn test_effective_format_follows_the_output_extension() {
+        let mut args = test_args(Some("https://example.com"));
+        for (path, expected) in [
+            ("report.json", OutputFormat::Json),
+            ("report.JSON", OutputFormat::Json),
+            ("report.pdf", OutputFormat::Pdf),
+            ("report.sarif", OutputFormat::Sarif),
+            ("report.txt", OutputFormat::Table),
+            ("report", OutputFormat::Table),
+        ] {
+            args.output = Some(PathBuf::from(path));
+            assert_eq!(args.effective_format(), expected, "{path}");
+        }
+        args.output = Some(PathBuf::from("report.json"));
+        args.format = Some(OutputFormat::Pdf);
+        assert_eq!(args.effective_format(), OutputFormat::Pdf, "-f wins");
+    }
+
+    #[test]
+    fn test_default_run_is_english_and_writes_nothing() {
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+        assert_eq!(args.lang, "en");
+        assert_eq!(args.effective_format(), OutputFormat::Table);
+        assert!(args.output.is_none());
+        assert!(!args.screen_reader_report);
+        assert!(
+            Args::try_parse_from(["auditmysite", "https://example.com", "--lang", "de"]).is_ok()
+        );
+        assert!(Args::try_parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--no-screen-reader-report"
+        ])
+        .is_err());
     }
 
     #[test]

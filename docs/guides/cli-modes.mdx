@@ -16,12 +16,13 @@ auditmysite [OPTIONS] [URL] [COMMAND]
 auditmysite https://example.com
 ```
 
-A detailed, page-specific audit. Without `-f` it writes a PDF, a JSON report and the
-screen-reader sidecar JSON into the current directory. Performance, SEO, security and mobile are
-part of the default single-page run (`--full` states it explicitly).
+A detailed, page-specific audit. Without `-f` or `-o` it prints a table and writes nothing; `-o
+report.json` writes JSON, `-f pdf -o report.pdf` the PDF. Performance, SEO, security and mobile are
+part of the default single-page run (`--full` states it explicitly). A run never asks a question.
 
 When the URL is a site root, auditmysite probes `robots.txt` and common sitemap locations first
-and offers to switch to a sitemap audit. `--prefer-sitemap` switches without asking.
+and prints a hint when it finds one. The audit stays on the URL you gave; `--prefer-sitemap`
+switches to the sitemap audit.
 
 ## Sitemap
 

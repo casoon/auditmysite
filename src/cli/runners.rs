@@ -7,7 +7,6 @@ use std::io::{self, IsTerminal};
 use std::sync::Arc;
 
 use colored::Colorize;
-use dialoguer::Select;
 use tracing::info;
 
 use auditmysite::audit::normalize_checked;
@@ -251,9 +250,9 @@ async fn maybe_offer_sitemap_scan(
     }
 
     if !args.quiet {
-        print!("{} ", "Checking for sitemap...".dimmed());
-        if let Err(e) = std::io::Write::flush(&mut std::io::stdout()) {
-            if io::stdout().is_terminal() {
+        eprint!("{} ", "Checking for sitemap...".dimmed());
+        if let Err(e) = std::io::Write::flush(&mut std::io::stderr()) {
+            if io::stderr().is_terminal() {
                 tracing::debug!("Failed to flush sitemap status line: {}", e);
             }
         }
@@ -261,13 +260,13 @@ async fn maybe_offer_sitemap_scan(
 
     let Some((sitemap_url, url_count)) = discover_populated_sitemap(url).await? else {
         if !args.quiet {
-            println!();
+            eprintln!();
         }
         return Ok(None);
     };
 
     if !args.quiet {
-        println!();
+        eprintln!();
     }
 
     if args.prefer_sitemap {
@@ -279,68 +278,20 @@ async fn maybe_offer_sitemap_scan(
         return Ok(None);
     }
 
-    // dialoguer opens /dev/tty directly — only stdin needs to be a terminal
-    if !io::stdin().is_terminal() {
-        println!();
-        println!("{}", "Sitemap found".cyan().bold());
-        println!(
-            "  {} {} ({} URLs)",
-            "Source:".dimmed(),
-            sitemap_url,
-            url_count
-        );
-        println!(
-            "  {}",
-            "Non-interactive run: only the specified single URL will be audited. Use --prefer-sitemap or --sitemap for a full scan."
-                .dimmed()
-        );
-        println!();
-        return Ok(None);
-    }
-
-    println!();
-    println!("{}", "Sitemap found".cyan().bold());
-    println!(
+    eprintln!();
+    eprintln!("{}", "Sitemap found".cyan().bold());
+    eprintln!(
         "  {} {} ({} URLs)",
         "Source:".dimmed(),
         sitemap_url,
         url_count
     );
-    println!(
+    eprintln!(
         "  {}",
-        "For a base URL, a full sitemap scan is often more useful than just the homepage.".dimmed()
+        "Only the specified single URL is audited. Use --prefer-sitemap or --sitemap for a full scan."
+            .dimmed()
     );
-    println!();
-
-    let sample_label =
-        "Sample scan (20 URLs) — average across pages, good for template issues".to_string();
-    let full_label = format!("Scan sitemap (all {} URLs)", url_count);
-    let items = vec![
-        "Check single URL (homepage)",
-        sample_label.as_str(),
-        full_label.as_str(),
-    ];
-    let selection = Select::new()
-        .with_prompt("How would you like to proceed?")
-        .items(&items)
-        .default(0)
-        .interact()
-        .map_err(|e| AuditError::ConfigError(e.to_string()))?;
-
-    if selection == 1 {
-        let mut batch_args = suggested_sitemap_batch_args(args, sitemap_url);
-        batch_args.max_pages = 20;
-        println!();
-        return run_batch_mode(&batch_args, config).await.map(Some);
-    }
-
-    if selection == 2 {
-        let batch_args = suggested_sitemap_batch_args(args, sitemap_url);
-        println!();
-        return run_batch_mode(&batch_args, config).await.map(Some);
-    }
-
-    println!();
+    eprintln!();
     Ok(None)
 }
 
@@ -348,13 +299,6 @@ pub(crate) fn suggested_sitemap_batch_args(args: &Args, sitemap_url: String) -> 
     let mut batch_args = args.clone();
     batch_args.url = None;
     batch_args.sitemap = Some(sitemap_url);
-
-    // A user who started a single-URL audit without an explicit format expects a
-    // generated report file even when switching into sitemap mode interactively.
-    if batch_args.format.is_none() {
-        batch_args.format = Some(OutputFormat::Pdf);
-    }
-
     batch_args
 }
 

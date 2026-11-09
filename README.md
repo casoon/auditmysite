@@ -36,11 +36,14 @@ Most accessibility CLIs either depend on static parsing or require a heavier run
 auditmysite https://example.com
 ```
 
-By default, a single URL audit runs the full analysis set, prints a compact terminal summary, and writes report artifacts into the current working directory:
+By default, a single URL audit runs the full analysis set and prints a table in the terminal. It writes no file and asks no question; the exit code carries the verdict. Reports are English unless you pass `--lang de`.
 
-- `./example-com-YYYY-MM-DD-single-report.pdf`
-- `./example-com-YYYY-MM-DD-single-report.json`
-- `./example-com-YYYY-MM-DD-single-report-screen-reader-audit.json`
+To keep a report, name the file:
+
+```bash
+auditmysite https://example.com -o report.json          # JSON (format follows the extension)
+auditmysite https://example.com -f pdf -o report.pdf    # PDF
+```
 
 For CI or machine-readable output:
 
@@ -73,11 +76,7 @@ auditmysite --help
 auditmysite https://example.com
 ```
 
-That default command writes report artifacts into the current directory, for example:
-
-- `./example-com-YYYY-MM-DD-single-report.pdf`
-- `./example-com-YYYY-MM-DD-single-report.json`
-- `./example-com-YYYY-MM-DD-single-report-screen-reader-audit.json`
+That default command prints the result as a table and writes nothing.
 
 ### npm
 
@@ -139,20 +138,21 @@ The fastest way to validate your setup:
 auditmysite https://example.com
 ```
 
-That creates the default report set in the current directory. For machine-readable output only:
+That prints the result as a table in the terminal and writes no file. To keep a report:
 
 ```bash
 auditmysite https://example.com -f json -o report.json
+auditmysite https://example.com -f pdf -o report.pdf
 ```
 
 ### Single page
 
 ```bash
-# default: full audit + terminal summary + PDF/JSON in current directory
+# default: full audit, table in the terminal, nothing written
 auditmysite https://example.com
 
-# JSON
-auditmysite https://example.com -f json -o report.json
+# JSON (the format follows the extension of -o)
+auditmysite https://example.com -o report.json
 
 # PDF with explicit path
 auditmysite https://example.com -f pdf -o report.pdf
@@ -165,7 +165,7 @@ Common options:
 
 - `--url-file <FILE>`: audit a list of URLs; `--sitemap <URL>`: audit a sitemap; `--crawl` discovers same-domain pages
 - `--browser-path <PATH>`: use a specific Chrome or Chromium binary
-- `-f json|table|pdf|sarif`, `-o <FILE>`: output format and target; `--lang de|en`: report language
+- `-f json|table|pdf|sarif`, `-o <FILE>`: output format and target; `--lang en|de`: report language (default: `en`)
 - `--modules <list>`: run only the listed modules next to the accessibility checks (`performance`, `seo`, `security`, `mobile`, `html-conform`, `stack`; `a11y` alone for the WCAG rules only). Without it every module runs. `--level A|AA|AAA`: WCAG level
 
 Sitemap, crawl and URL-file runs, per-page reports and browser selection: [Batch audits](docs/guides/batch-audits.md). All options: [CLI and output contract](docs/reference/cli-and-output.md).

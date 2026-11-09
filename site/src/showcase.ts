@@ -86,10 +86,10 @@ const examples_ = [
     slug: 'single-url',
     title: 'Single URL, terminal summary',
     demo: 'single-table',
-    command: 'auditmysite https://www.casoon.de/ --format table --lang en --request-mode browser',
+    command: 'auditmysite https://www.casoon.de/ --format table',
     tags: ['single', 'table'],
     description:
-      'A full single-page audit of casoon.de with the compact terminal summary. The screen-reader sidecar JSON is written next to it. --request-mode skips the prompt an interactive terminal gets.',
+      'A full single-page audit of casoon.de with the compact terminal summary. Nothing is written.',
   },
   {
     slug: 'technician-mode',

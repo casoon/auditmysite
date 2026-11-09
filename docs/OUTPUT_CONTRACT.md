@@ -110,7 +110,7 @@ The report distinguishes what was requested from what was successfully measured:
 
 Confirmed violations remain separate from `accessibility_assessments`, which carries warnings, manual-review items, and positive signals. Measurement failures are not converted into violations or artificial score penalties.
 
-Binary evidence is not embedded in the JSON. The top-level `artifacts` array points to separately written sidecars when available. Whenever screen-reader data exists, `<output>-screen-reader-audit.json` is written next to the report as an intended sidecar (the structured screen-reader audit that the PDF summarizes); `--no-screen-reader-report` suppresses it.
+Binary evidence is not embedded in the JSON. The top-level `artifacts` array points to separately written sidecars when available. Whenever screen-reader data exists, `<output>-screen-reader-audit.json` is written next to the report as an intended sidecar (the structured screen-reader audit that the PDF summarizes) when `--screen-reader-report` asks for it; by default no sidecar is written.
 
 ## Performance Measurement Context
 

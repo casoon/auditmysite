@@ -597,9 +597,9 @@ impl PipelineConfig {
             rule_filter,
             persist_artifacts: true,
             capture_screenshots: args.url.is_some()
-                && matches!(args.format, None | Some(crate::cli::OutputFormat::Pdf)),
+                && args.effective_format() == crate::cli::OutputFormat::Pdf,
             capture_element_evidence: args.url.is_some()
-                && matches!(args.format, None | Some(crate::cli::OutputFormat::Pdf)),
+                && args.effective_format() == crate::cli::OutputFormat::Pdf,
             dismiss_consent: args.dismiss_consent,
             exclude_selectors: toml_cfg
                 .map(|c| c.audit.exclude_selectors.clone())
@@ -2352,7 +2352,7 @@ mod tests {
             include_path: Vec::new(),
             exclude_path: Vec::new(),
             sample_strategy: Default::default(),
-            no_screen_reader_report: false,
+            screen_reader_report: false,
             dismiss_consent: false,
             exclude_selector: Vec::new(),
             interactive: crate::cli::InteractiveMode::Off,
@@ -2361,7 +2361,7 @@ mod tests {
             storage_state: None,
             state_id: None,
             report_level: crate::cli::ReportLevel::Standard,
-            lang: "de".to_string(),
+            lang: "en".to_string(),
             display: None,
             also_json: false,
             logo: None,

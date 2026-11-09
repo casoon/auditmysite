@@ -43,7 +43,7 @@ src/
 │   ├── plan.rs          # Pre-audit plan/banner printing
 │   ├── doctor.rs        # `auditmysite doctor` diagnostics
 │   ├── url_filter.rs    # --include-path/--exclude-path glob selection of batch URLs
-│   └── sitemap_suggest.rs # Sitemap discovery + interactive prompt
+│   └── sitemap_suggest.rs # Sitemap discovery (hint for a base URL; no prompt)
 │
 ├── browser/             # Chrome/Chromium management
 │   ├── mod.rs
@@ -309,7 +309,7 @@ src/
 ├── studio/              # Studio contract types (GUI data contract)
 │   └── mod.rs
 │
-└── i18n/                # Project Fluent (.ftl) loader, default language: German; `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts
+└── i18n/                # Project Fluent (.ftl) loader, library default language: German (the CLI default is English); `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts
     └── mod.rs
 ```
 

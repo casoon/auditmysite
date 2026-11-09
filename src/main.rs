@@ -31,8 +31,6 @@ async fn main() {
     let matches = Args::command().get_matches();
     let interactive_from_cli =
         matches.value_source("interactive") == Some(clap::parser::ValueSource::CommandLine);
-    let request_mode_from_cli =
-        matches.value_source("request_mode") == Some(clap::parser::ValueSource::CommandLine);
     let mut args = Args::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
     app::setup_logging(&args);
 
@@ -43,7 +41,7 @@ async fn main() {
     }
 
     let report_mode = args.report_mode;
-    app::run_and_exit(app::run(args, &config, request_mode_from_cli), report_mode).await
+    app::run_and_exit(app::run(args, &config), report_mode).await
 }
 
 #[cfg(test)]
@@ -208,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn test_suggested_sitemap_batch_args_defaults_to_pdf() {
+    fn test_suggested_sitemap_batch_args_keeps_the_default_format() {
         let args = Args::parse_from(["auditmysite", "https://example.com"]);
         let batch_args =
             suggested_sitemap_batch_args(&args, "https://example.com/sitemap.xml".into());
@@ -218,7 +216,8 @@ mod tests {
             batch_args.sitemap.as_deref(),
             Some("https://example.com/sitemap.xml")
         );
-        assert_eq!(batch_args.format, Some(OutputFormat::Pdf));
+        assert_eq!(batch_args.format, None);
+        assert_eq!(batch_args.effective_format(), OutputFormat::Table);
     }
 
     #[test]
@@ -231,14 +230,21 @@ mod tests {
     }
 
     #[test]
-    fn test_planned_single_outputs_include_auto_json_for_default_pdf() {
+    fn test_planned_single_outputs_write_nothing_by_default() {
         let args = Args::parse_from(["auditmysite", "https://example.com"]);
         let outputs = planned_single_outputs(&args, "https://example.com");
 
-        assert_eq!(outputs.len(), 3);
+        assert_eq!(outputs, vec!["stdout"]);
+    }
+
+    #[test]
+    fn test_planned_single_outputs_include_auto_json_for_pdf_without_output_file() {
+        let args = Args::parse_from(["auditmysite", "https://example.com", "-f", "pdf"]);
+        let outputs = planned_single_outputs(&args, "https://example.com");
+
+        assert_eq!(outputs.len(), 2);
         assert!(outputs[0].ends_with("-single-report.pdf"));
         assert!(outputs[1].ends_with("-single-report.json"));
-        assert!(outputs[2].ends_with("-single-report-screen-reader-audit.json"));
     }
 
     #[test]
@@ -246,9 +252,24 @@ mod tests {
         let args = Args::parse_from(["auditmysite", "https://example.com", "-f", "json"]);
         let outputs = planned_single_outputs(&args, "https://example.com");
 
-        assert_eq!(outputs.len(), 2);
-        assert_eq!(outputs[0], "stdout");
-        assert!(outputs[1].ends_with("-single-report-screen-reader-audit.json"));
+        assert_eq!(outputs, vec!["stdout"]);
+    }
+
+    #[test]
+    fn test_planned_single_outputs_add_the_sidecar_only_on_request() {
+        let args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "-o",
+            "report.json",
+            "--screen-reader-report",
+        ]);
+        let outputs = planned_single_outputs(&args, "https://example.com");
+
+        assert_eq!(
+            outputs,
+            vec!["report.json", "report-screen-reader-audit.json"]
+        );
     }
 
     #[test]

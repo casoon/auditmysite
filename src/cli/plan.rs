@@ -96,7 +96,7 @@ pub(crate) fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
             if args.also_json || args.output.is_none() {
                 outputs.push(default_single_json_output_path(&path).display().to_string());
             }
-            if !args.no_screen_reader_report {
+            if args.screen_reader_report {
                 outputs.push(
                     default_screen_reader_json_output_path(&path)
                         .display()
@@ -118,7 +118,7 @@ pub(crate) fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
                 .output
                 .clone()
                 .unwrap_or_else(|| default_single_pdf_output_path(url, args.report_level));
-            if !args.no_screen_reader_report {
+            if args.screen_reader_report {
                 outputs.push(
                     default_screen_reader_json_output_path(&primary_path)
                         .display()
@@ -231,27 +231,10 @@ mod tests {
     }
 
     #[test]
-    fn planned_single_outputs_skip_the_sidecar_when_suppressed() {
-        let args = Args::parse_from([
-            "auditmysite",
-            "https://example.com",
-            "-f",
-            "json",
-            "--no-screen-reader-report",
-        ]);
-        assert_eq!(
-            planned_single_outputs(&args, "https://example.com"),
-            vec!["stdout"]
-        );
-    }
-
-    #[test]
     fn planned_single_outputs_json_returns_stdout_without_output_flag() {
         let args = Args::parse_from(["auditmysite", "https://example.com", "-f", "json"]);
         let outputs = planned_single_outputs(&args, "https://example.com");
-        assert_eq!(outputs.len(), 2);
-        assert_eq!(outputs[0], "stdout");
-        assert!(outputs[1].ends_with("-single-report-screen-reader-audit.json"));
+        assert_eq!(outputs, vec!["stdout"]);
     }
 
     #[test]
@@ -263,6 +246,19 @@ mod tests {
             "json",
             "-o",
             "out.json",
+        ]);
+        let outputs = planned_single_outputs(&args, "https://example.com");
+        assert_eq!(outputs, vec!["out.json".to_string()]);
+    }
+
+    #[test]
+    fn planned_single_outputs_list_the_sidecar_when_requested() {
+        let args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "-o",
+            "out.json",
+            "--screen-reader-report",
         ]);
         let outputs = planned_single_outputs(&args, "https://example.com");
         assert_eq!(

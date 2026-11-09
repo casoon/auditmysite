@@ -10,26 +10,20 @@ order: 2
 auditmysite https://example.com
 ```
 
-A single URL runs the full analysis set (accessibility plus performance, SEO, security, mobile
-and the heuristic modules), prints a short summary and writes the report files into the current
-directory:
+A single URL runs the full analysis set (accessibility plus performance, SEO, security and
+mobile), prints the result as a table in the terminal and exits with the verdict. It writes no
+file and asks no question.
 
-```text
-example-com-YYYY-MM-DD-single-report.pdf
-example-com-YYYY-MM-DD-single-report.json
-example-com-YYYY-MM-DD-single-report-screen-reader-audit.json
-```
-
-The PDF is in German by default; `--lang en` switches it to English. The JSON is always
-English.
-
-## Terminal summary
+## Keep a report
 
 ```sh
-auditmysite https://example.com --format table
+auditmysite https://example.com -o report.json          # JSON, the format follows the extension
+auditmysite https://example.com -f pdf -o report.pdf    # PDF
 ```
 
-Prints the summary instead of writing a PDF. The screen-reader sidecar JSON is still written.
+Reports and the table are in English by default; `--lang de` switches the PDF and the table to
+German. The JSON is always English. The screen-reader sidecar JSON
+(`report-screen-reader-audit.json`) is written only with `--screen-reader-report`.
 
 ## JSON for CI
 
@@ -51,7 +45,7 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20
 auditmysite --url-file urls.txt -f pdf -o site-report.pdf
 ```
 
-Without `-f`, batch inputs print a table; single URLs write a PDF.
+Without `-f` or an `-o` with a known extension, batch inputs print a table, like single URLs.
 
 Batch reports are aggregated across pages (averages, ranking, recurring issues), not a stack of
 single-page reports. Next: [CLI modes](../../guides/cli-modes/) and

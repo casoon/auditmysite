@@ -39,8 +39,6 @@ async fn main() {
         command,
         matches,
     } = dev_commands::parse_dev_invocation();
-    let request_mode_from_cli =
-        matches.value_source("request_mode") == Some(clap::parser::ValueSource::CommandLine);
     let interactive_from_cli =
         matches.value_source("interactive") == Some(clap::parser::ValueSource::CommandLine);
     let session_from_cli =
@@ -61,8 +59,6 @@ async fn main() {
             )
             .await
         }
-        None => {
-            app::run_and_exit(app::run(args, &config, request_mode_from_cli), report_mode).await
-        }
+        None => app::run_and_exit(app::run(args, &config), report_mode).await,
     }
 }

@@ -49,7 +49,7 @@ page, not the report language.
 auditmysite https://example.com --lang en -o report.pdf
 ```
 
-- Languages: German (default) and English, `--lang de|en`. With `--lang en` the report is
+- Languages: English (default) and German, `--lang en|de`. With `--lang en` the report is
   English throughout, including module tables (security headers, SSL, touch targets, fonts), the
   HTML-validation callout. The report carries no certificate: the grade and score band are
   labels for the automated scope, not a statement of conformance.
@@ -65,8 +65,8 @@ auditmysite https://example.com --lang en -o report.pdf
 
 ## Screen-reader sidecar
 
-Whenever screen-reader data is available, a `…-screen-reader-audit.json` is written next to the
-main report. It models what a screen reader would typically announce, node by node, from name,
+With `--screen-reader-report`, a `…-screen-reader-audit.json` is written next to the main report
+whenever screen-reader data is available. It models what a screen reader would typically announce, node by node, from name,
 role and state. It is rule-based, not a recording of NVDA, JAWS or VoiceOver.
 
 ## Other formats

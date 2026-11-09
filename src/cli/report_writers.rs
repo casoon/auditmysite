@@ -139,7 +139,7 @@ pub(crate) fn output_screen_reader_sidecar(
     report: &auditmysite::AuditReport,
     args: &Args,
 ) -> Result<()> {
-    if args.no_screen_reader_report {
+    if !args.screen_reader_report {
         return Ok(());
     }
     let Some(sr_audit) = report.screen_reader_audit.as_ref() else {

@@ -5,7 +5,7 @@ use std::future::Future;
 use std::io::{self, IsTerminal};
 
 use colored::Colorize;
-use dialoguer::{Input, Select};
+use dialoguer::Input;
 use tracing::error;
 use tracing_subscriber::EnvFilter;
 
@@ -99,7 +99,6 @@ pub(crate) fn setup_logging(args: &Args) {
 pub(crate) async fn run(
     mut args: Args,
     config: &Option<auditmysite::cli::Config>,
-    request_mode_from_cli: bool,
 ) -> Result<auditmysite::Verdict> {
     // Handle subcommands first
     if let Some(ref command) = args.command {
@@ -131,24 +130,6 @@ pub(crate) async fn run(
             format!("https://{}", input)
         };
         args.url = Some(url);
-    }
-
-    // Request-mode prompt: fires whenever terminal + not set from CLI + not a subcommand/compare/scripted mode
-    let is_terminal = io::stdin().is_terminal() && io::stdout().is_terminal();
-    let is_audit_run = args.command.is_none();
-    if is_terminal && !request_mode_from_cli && !args.quiet && is_audit_run {
-        let mode_idx = Select::new()
-            .with_prompt("  Request mode")
-            .items([
-                "Simulate browser  (default, avoids bot detection)",
-                "Identify as bot   (--request-mode bot, transparent)",
-            ])
-            .default(0)
-            .interact()
-            .map_err(|e| AuditError::ConfigError(e.to_string()))?;
-        if mode_idx == 1 {
-            args.request_mode = auditmysite::cli::RequestMode::Bot;
-        }
     }
 
     if let Err(e) = args.validate() {

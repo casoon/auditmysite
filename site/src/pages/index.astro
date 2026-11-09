@@ -29,7 +29,7 @@ const latestRelease = config.changelog
 const quickstart = `# check which browser auditmysite will use
 auditmysite browser detect
 
-# full single-page audit: terminal summary, PDF and JSON in the current directory
+# full single-page audit: a table in the terminal, nothing written
 auditmysite https://example.com
 
 # machine-readable, for CI
@@ -86,7 +86,7 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
       },
       {
         title: 'JSON contract, PDF for people',
-        body: 'The JSON report is canonical English and schema-backed for automation. The PDF is tagged PDF/UA-1 and rendered in German or English (--lang de|en).',
+        body: 'The JSON report is canonical English and schema-backed for automation. The PDF is tagged PDF/UA-1 and rendered in English or German (--lang en|de).',
       },
       {
         title: 'Single pages and whole sites',
@@ -151,7 +151,7 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
         items: [
           { label: 'Report format', keys: ['-f', 'json|pdf|table'] },
           { label: 'Output file', keys: ['-o', '<file>'] },
-          { label: 'PDF language', keys: ['--lang', 'de|en'] },
+          { label: 'Report language (default en)', keys: ['--lang', 'en|de'] },
           { label: 'One JSON per page plus findings.jsonl', keys: ['--per-page-reports', '-f', 'json'] },
         ],
       },

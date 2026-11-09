@@ -11,8 +11,8 @@ Examples grouped by audience and goal.
 Single-URL audit with full module coverage and a custom logo on the cover.
 
 ```bash
-# default: writes a PDF + JSON sidecar to the current directory
-auditmysite https://example.com --full
+# PDF (with -f pdf and no -o: <domain>-<date>-single-report.pdf plus a JSON next to it)
+auditmysite https://example.com --full -f pdf -o reports/customer.pdf
 
 # explicit branding and output path
 auditmysite https://example.com --full --logo ./assets/customer-logo.svg --output reports/customer.pdf
@@ -20,8 +20,8 @@ auditmysite https://example.com --full --logo ./assets/customer-logo.svg --outpu
 # pick a report depth: executive (management), standard (default), technical (developers)
 auditmysite https://example.com --full --report-level executive --output reports/exec.pdf
 
-# PDF language (default: de)
-auditmysite https://example.com --full --lang en --output reports/report-en.pdf
+# PDF language (default: en)
+auditmysite https://example.com --full --lang de --output reports/report-de.pdf
 ```
 
 ## CI / automation (JSON)

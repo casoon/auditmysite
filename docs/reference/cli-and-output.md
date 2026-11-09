@@ -11,7 +11,7 @@ auditmysite [OPTIONS] [URL] [COMMAND]
 ```
 
 Primary commands:
-- `auditmysite <url>`: run a full single-page audit and write PDF/JSON into the current directory
+- `auditmysite <url>`: run a full single-page audit and print a table; nothing is written (`-o report.json` or `-f pdf -o report.pdf` keeps a report)
 - `auditmysite --sitemap <url>`: audit sitemap URLs
 - `auditmysite --url-file <file>`: audit URLs from file
 - `auditmysite <url> --crawl`: discover same-domain pages from a seed URL and audit them as a batch
@@ -26,8 +26,8 @@ Useful flags:
 - `--modules <list>`: choose the modules that run next to the accessibility checks, comma-separated: `performance` (alias `perf`), `seo`, `security`, `mobile`, `html-conform`, `stack`, or `a11y` for the WCAG rules only. Without `--modules` (or with the no-op `--full`) every module runs. `--modules` and `--full` exclude each other.
 - `--reuse-cache`: answer a single-URL run from the stored snapshot of an earlier run with the same configuration; without it every run measures afresh
 - `--include-path <glob>` / `--exclude-path <glob>`: select batch URLs by path before `--max-pages` (repeatable)
-- `--no-screen-reader-report`: do not write the `*-screen-reader-audit.json` sidecar
-- `--lang <de|en>`: set the language for PDF reports (default: `de`)
+- `--screen-reader-report`: also write the `<output>-screen-reader-audit.json` sidecar (off by default)
+- `--lang <en|de>`: set the language of the PDF report and the terminal table (default: `en`)
 - Tech stack detection (`--modules stack`, part of the default set) reads in-page signals only; it sends no requests of its own to the audited host
 - `--interactive <off|basic|full>`: control the Accessibility Journey Layer for interactive checks — tab walk, skip-link, modal focus trap, SPA navigation, form-error announcement, link-text inventory (default: `full`; use `off` for fastest runs). Clicking submit buttons, add-to-cart triggers and quantity steppers is an opt-in: `--allow-state-changes` (with `full`)
 - `--annex <en301549|bik>`: add an opt-in appendix to the PDF report. `en301549` maps findings to EN 301 549 (chapter 9, "Web") clauses — a technical building block for a human-authored accessibility statement, not a statement itself. `bik` regroups the same findings by the chapters of the "BIK für Alle" editorial guide (images/alt text, link text, structure, easy language, PDFs, videos), without adding new checks. The underlying JSON data (`en301549_annex`, `bik_guide`) is always present regardless of this flag; it only gates the PDF section.

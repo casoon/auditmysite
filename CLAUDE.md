@@ -37,7 +37,7 @@ Before every change, clarify which side the code belongs to:
   in the barrierlab repository.
 
 ## Key CLI Modes
-- Single: `auditmysite <URL>`
+- Single: `auditmysite <URL>` (default: table on stdout, English, no file written, no prompt; `-o report.json` / `-f pdf -o report.pdf` write a report)
 - Sitemap: `auditmysite --sitemap <SITEMAP_URL>` (batch from XML sitemap)
 - URL file: `auditmysite --url-file <FILE>` (batch from text file)
 - Full audit: `--full` (enables performance, seo, security, mobile)
