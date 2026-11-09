@@ -185,7 +185,7 @@ async fn run(
     if is_terminal && !request_mode_from_cli && !args.quiet && is_audit_run {
         let mode_idx = Select::new()
             .with_prompt("  Request mode")
-            .items(&[
+            .items([
                 "Simulate browser  (default, avoids bot detection)",
                 "Identify as bot   (--request-mode bot, transparent)",
             ])

@@ -434,12 +434,12 @@ pub(crate) fn extract_links(
 /// Depth-first DOM walk collecting the first `<base href>` and every `<a href>`.
 fn collect_links(handle: &Handle, base_href: &mut Option<String>, hrefs: &mut Vec<String>) {
     if let NodeData::Element { name, attrs, .. } = &handle.data {
-        let tag = name.local.as_ref();
+        let tag: &str = &name.local;
         let attrs = attrs.borrow();
         let href = || {
             attrs
                 .iter()
-                .find(|a| a.name.local.as_ref().eq_ignore_ascii_case("href"))
+                .find(|a| (*a.name.local).eq_ignore_ascii_case("href"))
                 .map(|a| a.value.to_string())
         };
 

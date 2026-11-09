@@ -183,12 +183,12 @@ fn collect_asset_hrefs(root: &Handle, out: &mut Vec<String>) {
     let mut stack = vec![root.clone()];
     while let Some(handle) = stack.pop() {
         if let NodeData::Element { name, attrs, .. } = &handle.data {
-            let tag = name.local.as_ref();
+            let tag: &str = &name.local;
             let attrs = attrs.borrow();
             let attr = |attr_name: &str| {
                 attrs
                     .iter()
-                    .find(|a| a.name.local.as_ref().eq_ignore_ascii_case(attr_name))
+                    .find(|a| (*a.name.local).eq_ignore_ascii_case(attr_name))
                     .map(|a| a.value.to_string())
             };
 

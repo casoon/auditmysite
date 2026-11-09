@@ -112,7 +112,7 @@
             "type": "array",
             "minItems": 2,
             "maxItems": 2,
-            "items": [
+            "prefixItems": [
               { "type": "string" },
               { "type": "string" }
             ]

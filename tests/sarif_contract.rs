@@ -119,8 +119,12 @@ fn golden_file_matches() {
         std::fs::write(&path, &actual).unwrap();
     }
     let expected = std::fs::read_to_string(&path).expect("golden file (UPDATE_GOLDEN=1 writes it)");
+    // Compare parsed values: the key order of a JSON object depends on whether
+    // `serde_json` is built with `preserve_order`, which feature unification
+    // across the workspace can switch on. The content is what the contract pins.
+    let expected_value: Value = serde_json::from_str(&expected).expect("golden file is JSON");
     assert_eq!(
-        actual, expected,
+        value, expected_value,
         "SARIF output changed; review and rerun with UPDATE_GOLDEN=1"
     );
 }
@@ -284,16 +288,18 @@ fn sarif_matches_the_official_schema() {
     let path = std::env::var("AUDITMYSITE_SARIF_SCHEMA")
         .expect("AUDITMYSITE_SARIF_SCHEMA must point at sarif-schema-2.1.0.json");
     let schema: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
-    let compiled = jsonschema::JSONSchema::options()
+    let validator = jsonschema::options()
         .with_draft(jsonschema::Draft::Draft4)
-        .compile(&schema)
+        .build(&schema)
         .expect("schema compiles");
     let sarif = fixture_sarif();
-    let result = compiled.validate(&sarif);
-    if let Err(errors) = result {
-        let messages: Vec<String> = errors
-            .map(|e| format!("{} at {}", e, e.instance_path))
-            .collect();
-        panic!("SARIF violates the 2.1.0 schema:\n{}", messages.join("\n"));
-    }
+    let messages: Vec<String> = validator
+        .iter_errors(&sarif)
+        .map(|e| format!("{} at {}", e, e.instance_path()))
+        .collect();
+    assert!(
+        messages.is_empty(),
+        "SARIF violates the 2.1.0 schema:\n{}",
+        messages.join("\n")
+    );
 }
