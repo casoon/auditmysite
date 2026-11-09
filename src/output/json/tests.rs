@@ -922,7 +922,7 @@ fn test_en301549_annex_present_on_single_detail() {
     let detail = page.detail.as_ref().expect("single report has detail");
     let annex = &detail.en301549_annex;
 
-    assert_eq!(annex.clauses.len(), 50);
+    assert_eq!(annex.clauses.len(), 55);
     assert_eq!(
         annex.standard_version,
         crate::wcag::en301549::EN301549_VERSION
@@ -965,14 +965,14 @@ fn test_en301549_batch_rollup_present_and_page_detail_carries_full_annex() {
     let batch = crate::audit::BatchReport::from_reports(reports, vec![], 0);
     let unified = UnifiedReport::batch(&batch);
 
-    assert_eq!(unified.summary.en301549_rollup.len(), 50);
+    assert_eq!(unified.summary.en301549_rollup.len(), 55);
     for rollup in &unified.summary.en301549_rollup {
         assert_eq!(rollup.affected_pages, 0, "no violations were seeded");
     }
 
     for page in &unified.pages {
         let detail = page.detail.as_ref().expect("batch page detail present");
-        assert_eq!(detail.en301549_annex.clauses.len(), 50);
+        assert_eq!(detail.en301549_annex.clauses.len(), 55);
     }
 }
 

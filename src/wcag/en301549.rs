@@ -1,10 +1,17 @@
 //! EN 301 549 (chapter 9, "Web") clause mapping.
 //!
 //! Promotes the WCAG↔EN table that used to live only inside
-//! `screen_reader::bfsg` into a canonical module: all 50 WCAG 2.1 A/AA
-//! success criteria mapped 1:1 onto their EN 301 549 chapter-9 clause number
-//! (`9.x.y.z` mirrors WCAG `x.y.z`), with English/German titles, plus a pure
-//! per-clause status roll-up over `NormalizedFinding`s.
+//! `screen_reader::bfsg` into a canonical module: all 55 WCAG 2.2 A/AA
+//! success criteria mapped 1:1 onto their EN 301 549 V4.1.1 chapter-9 clause
+//! number (`9.x.y.z` mirrors WCAG `x.y.z`), with English/German titles, plus a
+//! pure per-clause status roll-up over `NormalizedFinding`s.
+//!
+//! Verified against the published EN 301 549 V4.1.1 (2026-09), clause 9: it
+//! requires WCAG 2.2 Level A/AA and keeps the WCAG numbering, with "Void"
+//! placeholders for numbers WCAG no longer uses (9.4.1.1 Parsing was removed
+//! in WCAG 2.2). The three WCAG 2.2 Level AAA criteria (2.4.12, 2.4.13,
+//! 3.3.9) have no normative clause; they appear only in the informative
+//! clause 9.5 (Table 9.1) and so stay outside this table.
 //!
 //! This module produces technical evidence only — never a
 //! Barrierefreiheitserklärung. See `derive_annex` and the disclaimer text
@@ -12,15 +19,17 @@
 
 use crate::audit::normalized::NormalizedFinding;
 
-/// EN 301 549 edition this mapping targets. WCAG 2.1 A/AA aligns 1:1 with
-/// V3.2.1's chapter 9 ("Web"); a future WCAG 2.2 / EN 301 549 v4 mapping is
-/// tracked via a version bump here, not by editing this table in place.
-pub const EN301549_VERSION: &str = "EN 301 549 V3.2.1 (2021-03)";
+/// EN 301 549 edition this mapping targets. V4.1.1 requires WCAG 2.2 A/AA in
+/// chapter 9 ("Web"). Every V3.2.1 (WCAG 2.1) clause number is unchanged in
+/// V4.1.1 except 9.4.1.1 (Parsing), which is now void; V4.1.1 adds 9.2.4.11,
+/// 9.2.5.7, 9.2.5.8, 9.3.2.6, 9.3.3.7 and 9.3.3.8. A later edition is tracked
+/// via a version bump here, not by editing this table in place.
+pub const EN301549_VERSION: &str = "EN 301 549 V4.1.1 (2026-09)";
 
 /// Version of this table's own derivation logic/shape (not the standard
 /// edition — see `EN301549_VERSION`). Bump when `EN301549_WEB_CLAUSES` or the
 /// `derive_annex` status semantics change in a way consumers should notice.
-pub const EN301549_MAPPING_VERSION: u32 = 1;
+pub const EN301549_MAPPING_VERSION: u32 = 2;
 
 /// Cautious, non-legal-conclusion disclaimer shown with the EN 301 549 annex
 /// (JSON `en301549_annex.disclaimer` and the PDF annex callout). Single
@@ -38,7 +47,7 @@ pub const EN301549_DISCLAIMER_DE: &str = "Diese Übersicht ist keine Barrierefre
 /// no added claims beyond the German draft.
 pub const EN301549_DISCLAIMER_EN: &str = "This overview is not an accessibility statement and does not replace one. It covers only the automatically testable part of EN 301 549, chapter 9 (Web), within the audited scope. Criteria requiring manual review, as well as chapters 5\u{2013}8 and 10\u{2013}13, were not assessed. A complete accessibility verification additionally requires a manual audit with assistive technologies (screen reader, keyboard navigation). This information can serve as technical input for drafting a statement.";
 
-/// One WCAG 2.1 A/AA success criterion mapped onto its EN 301 549 clause.
+/// One WCAG 2.2 A/AA success criterion mapped onto its EN 301 549 clause.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct En301549Clause {
     /// WCAG success criterion id, e.g. `"1.1.1"`.
@@ -47,14 +56,16 @@ pub struct En301549Clause {
     pub en_clause: &'static str,
     /// WCAG conformance level: `"A"` or `"AA"`.
     pub wcag_level: &'static str,
-    /// Official English WCAG 2.1 success criterion title.
+    /// Official English WCAG 2.2 success criterion title.
     pub title_en: &'static str,
-    /// German success criterion title (BIK/DIAS WCAG 2.1 translation).
+    /// German success criterion title (BIK/DIAS WCAG 2.1 translation; the
+    /// six criteria new in WCAG 2.2 follow the authorised German translation
+    /// of WCAG 2.2).
     pub title_de: &'static str,
 }
 
-/// All 50 WCAG 2.1 Level A (30) / Level AA (20) success criteria, in WCAG
-/// numeric order, mapped onto EN 301 549 V3.2.1 clause 9.
+/// All 55 WCAG 2.2 Level A (31) / Level AA (24) success criteria, in WCAG
+/// numeric order, mapped onto EN 301 549 V4.1.1 clause 9.
 pub const EN301549_WEB_CLAUSES: &[En301549Clause] = &[
     En301549Clause {
         wcag: "1.1.1",
@@ -288,6 +299,13 @@ pub const EN301549_WEB_CLAUSES: &[En301549Clause] = &[
         title_de: "Fokus sichtbar",
     },
     En301549Clause {
+        wcag: "2.4.11",
+        en_clause: "9.2.4.11",
+        wcag_level: "AA",
+        title_en: "Focus Not Obscured (Minimum)",
+        title_de: "Fokus nicht verdeckt (Minimum)",
+    },
+    En301549Clause {
         wcag: "2.5.1",
         en_clause: "9.2.5.1",
         wcag_level: "A",
@@ -314,6 +332,20 @@ pub const EN301549_WEB_CLAUSES: &[En301549Clause] = &[
         wcag_level: "A",
         title_en: "Motion Actuation",
         title_de: "Bewegungsaktivierung",
+    },
+    En301549Clause {
+        wcag: "2.5.7",
+        en_clause: "9.2.5.7",
+        wcag_level: "AA",
+        title_en: "Dragging Movements",
+        title_de: "Ziehbewegungen",
+    },
+    En301549Clause {
+        wcag: "2.5.8",
+        en_clause: "9.2.5.8",
+        wcag_level: "AA",
+        title_en: "Target Size (Minimum)",
+        title_de: "Zielgröße (Minimum)",
     },
     En301549Clause {
         wcag: "3.1.1",
@@ -358,6 +390,13 @@ pub const EN301549_WEB_CLAUSES: &[En301549Clause] = &[
         title_de: "Konsistente Identifikation",
     },
     En301549Clause {
+        wcag: "3.2.6",
+        en_clause: "9.3.2.6",
+        wcag_level: "A",
+        title_en: "Consistent Help",
+        title_de: "Konsistente Hilfe",
+    },
+    En301549Clause {
         wcag: "3.3.1",
         en_clause: "9.3.3.1",
         wcag_level: "A",
@@ -386,11 +425,18 @@ pub const EN301549_WEB_CLAUSES: &[En301549Clause] = &[
         title_de: "Fehlervermeidung (rechtlich, finanziell, Daten)",
     },
     En301549Clause {
-        wcag: "4.1.1",
-        en_clause: "9.4.1.1",
+        wcag: "3.3.7",
+        en_clause: "9.3.3.7",
         wcag_level: "A",
-        title_en: "Parsing",
-        title_de: "Parsen",
+        title_en: "Redundant Entry",
+        title_de: "Redundante Eingabe",
+    },
+    En301549Clause {
+        wcag: "3.3.8",
+        en_clause: "9.3.3.8",
+        wcag_level: "AA",
+        title_en: "Accessible Authentication (Minimum)",
+        title_de: "Barrierefreie Authentifizierung (Minimum)",
     },
     En301549Clause {
         wcag: "4.1.2",
@@ -427,8 +473,8 @@ pub const OUT_OF_SCOPE_CHAPTERS: &[OutOfScopeChapter] = &[
     },
     OutOfScopeChapter {
         chapter: "6",
-        title_en: "ICT with two-way voice communication",
-        title_de: "IKT mit Zwei-Wege-Sprachkommunikation",
+        title_en: "ICT supporting real-time bidirectional communication",
+        title_de: "IKT zur Unterstützung bidirektionaler Echtzeitkommunikation",
     },
     OutOfScopeChapter {
         chapter: "7",
@@ -447,13 +493,13 @@ pub const OUT_OF_SCOPE_CHAPTERS: &[OutOfScopeChapter] = &[
     },
     OutOfScopeChapter {
         chapter: "11",
-        title_en: "Software",
-        title_de: "Software",
+        title_en: "Non-web software",
+        title_de: "Nicht-Web-Software",
     },
     OutOfScopeChapter {
         chapter: "12",
-        title_en: "Documentation and support services",
-        title_de: "Dokumentation und Support-Dienste",
+        title_en: "Information about products and services",
+        title_de: "Informationen zu Produkten und Dienstleistungen",
     },
     OutOfScopeChapter {
         chapter: "13",
@@ -618,10 +664,11 @@ pub fn derive_batch_rollup<'a>(
 }
 
 /// Number of WCAG findings (category `"wcag"`) whose criterion is not one of
-/// the 50 clauses in `EN301549_WEB_CLAUSES` — WCAG-2.2-only criteria and AAA
-/// findings. These are intentionally excluded from the clause table (EN
-/// 301 549 V3.2.1 == WCAG 2.1 A/AA) but must not be silently dropped from the
-/// annex, hence this footnote count.
+/// the 55 clauses in `EN301549_WEB_CLAUSES` — in practice AAA findings (EN
+/// 301 549 V4.1.1 clauses 9.1–9.4 cover WCAG 2.2 A/AA only; AAA appears just
+/// in the informative clause 9.5). These are intentionally excluded from the
+/// clause table but must not be silently dropped from the annex, hence this
+/// footnote count.
 pub fn out_of_standard_finding_count(findings: &[NormalizedFinding]) -> usize {
     findings
         .iter()
@@ -694,8 +741,8 @@ mod tests {
     }
 
     #[test]
-    fn table_has_exactly_50_entries_30_a_20_aa() {
-        assert_eq!(EN301549_WEB_CLAUSES.len(), 50);
+    fn table_has_exactly_55_entries_31_a_24_aa() {
+        assert_eq!(EN301549_WEB_CLAUSES.len(), 55);
         let a = EN301549_WEB_CLAUSES
             .iter()
             .filter(|c| c.wcag_level == "A")
@@ -704,8 +751,8 @@ mod tests {
             .iter()
             .filter(|c| c.wcag_level == "AA")
             .count();
-        assert_eq!(a, 30, "WCAG 2.1 has exactly 30 Level A criteria");
-        assert_eq!(aa, 20, "WCAG 2.1 has exactly 20 Level AA criteria");
+        assert_eq!(a, 31, "WCAG 2.2 has exactly 31 Level A criteria");
+        assert_eq!(aa, 24, "WCAG 2.2 has exactly 24 Level AA criteria");
     }
 
     #[test]
@@ -727,18 +774,18 @@ mod tests {
         }
     }
 
-    /// Partition guard: every one of the 50 clauses must land in exactly one
+    /// Partition guard: every one of the 55 clauses must land in exactly one
     /// of the three `ClauseStatus` values for a representative findings set
     /// (some violations, most clauses clean) — no clause is dropped, none
     /// duplicated, and a clause with a matching finding always wins over
     /// automated/manual classification.
     #[test]
-    fn partition_covers_all_50_clauses_no_overlap_no_gap() {
+    fn partition_covers_all_55_clauses_no_overlap_no_gap() {
         // Give at least one clause an actual violation.
         let findings = vec![finding("1.1.1", "a11y.alt_text.missing", 3)];
         let rollups = derive_annex(&findings);
 
-        assert_eq!(rollups.len(), 50, "every clause must appear exactly once");
+        assert_eq!(rollups.len(), 55, "every clause must appear exactly once");
 
         let mut seen = std::collections::HashSet::new();
         for r in &rollups {
@@ -775,7 +822,7 @@ mod tests {
             .iter()
             .find(|(id, _)| EN301549_WEB_CLAUSES.iter().any(|c| c.wcag == *id))
         else {
-            return; // nothing automated maps onto the 2.1 table right now
+            return; // nothing automated maps onto the table right now
         };
         let findings = vec![finding(wcag_id, "some.rule", 1)];
         let rollups = derive_annex(&findings);
@@ -811,15 +858,93 @@ mod tests {
 
     #[test]
     fn out_of_standard_findings_are_counted_not_dropped() {
-        // 2.5.8 ("Target Size (Minimum)") is a WCAG 2.2-only criterion, not
-        // part of the 50-clause WCAG 2.1 table.
-        let findings = vec![finding("2.5.8", "a11y.target_size.minimum", 2)];
+        // 2.4.13 ("Focus Appearance") is Level AAA: EN 301 549 V4.1.1 lists it
+        // only in the informative clause 9.5, so it has no clause in the table.
+        let findings = vec![finding("2.4.13", "a11y.focus_appearance.weak", 2)];
         assert_eq!(out_of_standard_finding_count(&findings), 1);
-        // It must not silently appear as a violation against any 2.1 clause.
+        // It must not silently appear as a violation against any clause.
         let rollups = derive_annex(&findings);
         assert!(!rollups
             .iter()
             .any(|r| matches!(r.status, ClauseStatus::ViolationsFound)));
+    }
+
+    /// The six WCAG 2.2 A/AA criteria map to the clause numbers printed in
+    /// EN 301 549 V4.1.1 clause 9 (expected values read from the standard,
+    /// not from this table).
+    #[test]
+    fn wcag22_criteria_map_to_the_published_v4_1_1_clauses() {
+        for (wcag, clause) in [
+            ("2.4.11", "9.2.4.11"),
+            ("2.5.7", "9.2.5.7"),
+            ("2.5.8", "9.2.5.8"),
+            ("3.2.6", "9.3.2.6"),
+            ("3.3.7", "9.3.3.7"),
+            ("3.3.8", "9.3.3.8"),
+        ] {
+            let entry = EN301549_WEB_CLAUSES
+                .iter()
+                .find(|c| c.wcag == wcag)
+                .unwrap_or_else(|| panic!("WCAG {wcag} has no EN 301 549 clause"));
+            assert_eq!(entry.en_clause, clause);
+        }
+        // A finding on a new criterion is a violation of exactly its clause.
+        let findings = vec![finding("2.5.8", "a11y.target_size.minimum", 2)];
+        assert_eq!(out_of_standard_finding_count(&findings), 0);
+        let violated: Vec<_> = derive_annex(&findings)
+            .into_iter()
+            .filter(|r| matches!(r.status, ClauseStatus::ViolationsFound))
+            .map(|r| r.clause.en_clause)
+            .collect();
+        assert_eq!(violated, vec!["9.2.5.8"]);
+    }
+
+    /// The three WCAG 2.2 Level AAA criteria among the nine "new" ones have
+    /// no normative clause in V4.1.1 (only the informative clause 9.5), and
+    /// 4.1.1 Parsing is void (9.4.1.1): none may appear in the table.
+    #[test]
+    fn aaa_criteria_and_void_parsing_have_no_clause() {
+        for wcag in ["2.4.12", "2.4.13", "3.3.9", "4.1.1"] {
+            assert!(
+                !EN301549_WEB_CLAUSES.iter().any(|c| c.wcag == wcag),
+                "WCAG {wcag} must not be mapped to a normative clause"
+            );
+        }
+        assert!(!EN301549_WEB_CLAUSES
+            .iter()
+            .any(|c| c.en_clause == "9.4.1.1"));
+    }
+
+    /// Every WCAG A/AA criterion this tool checks or lists for manual review
+    /// has an EN 301 549 clause, so none silently drops out of the annex.
+    #[test]
+    fn every_checked_wcag_aa_criterion_has_a_clause() {
+        let checked = crate::wcag::coverage::automated_criteria()
+            .iter()
+            .map(|(id, level)| (*id, *level))
+            .chain(
+                crate::wcag::coverage::manual_review_criteria()
+                    .iter()
+                    .map(|(id, level, _)| (*id, *level)),
+            );
+        for (id, level) in checked {
+            if level == "A" || level == "AA" {
+                assert!(
+                    EN301549_WEB_CLAUSES.iter().any(|c| c.wcag == id),
+                    "WCAG {id} ({level}) has no EN 301 549 clause"
+                );
+            }
+        }
+    }
+
+    /// The table is exactly the WCAG 2.2 A/AA catalogue the coverage ratio is
+    /// scoped to.
+    #[test]
+    fn table_size_matches_the_wcag22_aa_total() {
+        assert_eq!(
+            EN301549_WEB_CLAUSES.len(),
+            crate::wcag::coverage::WCAG_AA_TOTAL
+        );
     }
 
     #[test]
@@ -829,7 +954,7 @@ mod tests {
         let pages = [clean_page.as_slice(), violating_page.as_slice()];
 
         let rollup = derive_batch_rollup(pages);
-        assert_eq!(rollup.len(), 50);
+        assert_eq!(rollup.len(), 55);
 
         let clause_111 = rollup
             .iter()
@@ -845,7 +970,7 @@ mod tests {
     #[test]
     fn out_of_scope_chapters_exclude_web_chapter_9() {
         assert!(!OUT_OF_SCOPE_CHAPTERS.iter().any(|c| c.chapter == "9"));
-        // Chapter 13 (relay/emergency services) exists in V3.2.1 and must be
+        // Chapter 13 (relay/emergency services) exists in V4.1.1 and must be
         // named, not silently dropped after chapter 12.
         assert!(OUT_OF_SCOPE_CHAPTERS.iter().any(|c| c.chapter == "13"));
     }

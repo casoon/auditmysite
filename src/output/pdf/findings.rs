@@ -280,9 +280,9 @@ pub(super) fn render_finding_technical(
 
     let header = if !group.wcag_criterion.is_empty() {
         // Flag criteria WCAG 2.2 added (e.g. 2.5.8) inline — they are inside
-        // this report's audit-scope ratio but outside EN 301 549 V3.2.1, which
-        // the BFSG references and which is built on WCAG 2.1. A finding tagged
-        // just "AA" would misrepresent that (#572, plan 54 §1).
+        // this report's audit-scope ratio and EN 301 549 V4.1.1, but were not
+        // part of WCAG 2.1 / EN 301 549 V3.2.1. A finding tagged just "AA"
+        // would hide that (#572, plan 54 §1).
         let wcag22_suffix = if crate::wcag::coverage::is_wcag22_only(&group.wcag_criterion) {
             ", WCAG 2.2"
         } else {

@@ -433,10 +433,11 @@ pub(super) fn derive_expected_impact(
 }
 
 /// `wcag_criterion` gates against `EN301549_WEB_CLAUSES`: a criterion not in
-/// that 50-entry WCAG 2.1 A/AA table (AAA criteria, WCAG-2.2-only criteria
-/// such as 2.5.8) is not covered by EN 301 549 V3.2.1 and returns "low"
-/// regardless of level/severity, rather than "medium" purely from its level
-/// string matching "A"/"AA".
+/// that 55-entry WCAG 2.2 A/AA table (EN 301 549 V4.1.1, clauses 9.1-9.4;
+/// AAA criteria and the retired 4.1.1 Parsing are not in it) is not covered by
+/// the standard's normative clauses and returns "low" regardless of
+/// level/severity, rather than "medium" purely from its level string matching
+/// "A"/"AA".
 ///
 /// A convention rule (`display/*`) is never more than "low" (#704).
 pub(super) fn derive_bfsg_relevance(
