@@ -304,14 +304,17 @@ fn landmark_violations_do_not_move_ai_chunking() {
         report
     };
     let mut broken = WcagResults::new();
-    broken.add_violation(Violation::new(
-        "1.3.1",
-        "Landmark",
-        WcagLevel::A,
-        Severity::Medium,
-        "Content outside landmark regions",
-        "n1",
-    ));
+    broken.add_violation(
+        Violation::new(
+            "1.3.1",
+            "Landmark",
+            WcagLevel::A,
+            Severity::Medium,
+            "Content outside landmark regions",
+            "n1",
+        )
+        .with_rule_id("headings/skip-level"),
+    );
     assert_eq!(
         analyze_ai_visibility(&with_main(WcagResults::new()))
             .chunks
@@ -425,7 +428,8 @@ fn critical_violation_caps_accessibility_score() {
         Severity::Critical,
         "Button has no accessible name",
         "btn1",
-    )];
+    )
+    .with_rule_id("buttons/name-missing")];
     let score = AccessibilityScorer::calculate_score(&violations);
     assert!(
         score <= 49.0,
@@ -437,14 +441,17 @@ fn critical_violation_caps_accessibility_score() {
 #[test]
 fn severity_counts_low_nonzero_with_low_finding() {
     let mut results = WcagResults::new();
-    results.add_violation(Violation::new(
-        "2.4.8",
-        "Location",
-        WcagLevel::AAA,
-        Severity::Low,
-        "No location breadcrumb",
-        "n1",
-    ));
+    results.add_violation(
+        Violation::new(
+            "2.4.8",
+            "Location",
+            WcagLevel::AAA,
+            Severity::Low,
+            "No location breadcrumb",
+            "n1",
+        )
+        .with_rule_id("navigation/location-missing"),
+    );
 
     let report = make_report(results);
     let normalized = normalize(&report);
@@ -463,14 +470,17 @@ fn severity_counts_low_not_upgraded_by_taxonomy_floor() {
     // taxonomy floor max(Low, High) = High silently upgraded these to High,
     // making severity_counts.low always 0 in practice.
     let mut results = WcagResults::new();
-    results.add_violation(Violation::new(
-        "1.3.1",
-        "Info and Relationships",
-        WcagLevel::A,
-        Severity::Low,
-        "List element has no list items",
-        "n1",
-    ));
+    results.add_violation(
+        Violation::new(
+            "1.3.1",
+            "Info and Relationships",
+            WcagLevel::A,
+            Severity::Low,
+            "List element has no list items",
+            "n1",
+        )
+        .with_rule_id("headings/skip-level"),
+    );
 
     let report = make_report(results);
     let normalized = normalize(&report);
@@ -588,22 +598,28 @@ fn security_score_below_100_without_corp() {
 #[test]
 fn summary_severity_counts_matches_accessibility_module() {
     let mut results = WcagResults::new();
-    results.add_violation(Violation::new(
-        "1.1.1",
-        "Non-text Content",
-        WcagLevel::A,
-        Severity::High,
-        "Missing alt",
-        "n1",
-    ));
-    results.add_violation(Violation::new(
-        "1.4.3",
-        "Contrast",
-        WcagLevel::AA,
-        Severity::Medium,
-        "Low contrast",
-        "n2",
-    ));
+    results.add_violation(
+        Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "Missing alt",
+            "n1",
+        )
+        .with_rule_id("images/alt-missing"),
+    );
+    results.add_violation(
+        Violation::new(
+            "1.4.3",
+            "Contrast",
+            WcagLevel::AA,
+            Severity::Medium,
+            "Low contrast",
+            "n2",
+        )
+        .with_rule_id("contrast/text-insufficient"),
+    );
 
     let report = make_report(results);
     let normalized = normalize(&report);
@@ -632,14 +648,17 @@ fn summary_severity_counts_matches_accessibility_module() {
 fn fix_guidance_is_always_present() {
     // Single report with findings: fix_guidance must be a non-null array
     let mut results = WcagResults::new();
-    results.add_violation(Violation::new(
-        "1.1.1",
-        "Non-text Content",
-        WcagLevel::A,
-        Severity::High,
-        "Missing alt",
-        "n1",
-    ));
+    results.add_violation(
+        Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "Missing alt",
+            "n1",
+        )
+        .with_rule_id("images/alt-missing"),
+    );
     let report = make_report(results);
     let normalized = normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);

@@ -27,13 +27,14 @@ impl WcagPrinciple {
 
 /// Ermittelt das WCAG-Erfolgskriterium ("1.1.1", "4.1.2", …) für eine Regel-ID.
 ///
-/// Akzeptiert direkte WCAG-IDs ebenso wie Regel-Slugs (z.B. `aria-hidden-focus`).
+/// Akzeptiert direkte WCAG-IDs ebenso wie Engine-Kennungen (z.B.
+/// `keyboard/hidden-focusable`).
 /// Gibt `None` zurück, wenn keine WCAG-Zuordnung existiert.
 pub fn criterion_for_rule(rule_id: &str) -> Option<String> {
     if is_wcag_criterion(rule_id) {
         return Some(rule_id.to_string());
     }
-    let rule = RuleLookup::by_legacy_wcag_id(rule_id).or_else(|| RuleLookup::by_id(rule_id))?;
+    let rule = RuleLookup::by_id(rule_id)?;
     rule.external_ref
         .and_then(|r| r.strip_prefix("WCAG "))
         .filter(|c| is_wcag_criterion(c))
@@ -73,7 +74,7 @@ mod tests {
     #[test]
     fn slug_rule_resolves_to_criterion() {
         assert_eq!(
-            criterion_for_rule("aria-hidden-focus"),
+            criterion_for_rule("keyboard/hidden-focusable"),
             Some("4.1.2".to_string())
         );
     }

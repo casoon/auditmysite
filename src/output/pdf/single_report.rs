@@ -662,10 +662,11 @@ pub(super) fn cross_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(T
     collapsed
 }
 
-/// Whether a finding group belongs to the accessibility module (`a11y.*`,
-/// `a11y_journey.*`), as opposed to html_conform, security, seo, …
+/// Whether a finding group belongs to the accessibility module (a WCAG
+/// engine rule id such as `images/alt-missing`, or `a11y_journey.*`), as
+/// opposed to html_conform, security, seo, … which carry a `<module>.` prefix.
 fn is_accessibility_rule(rule_id: &str) -> bool {
-    rule_id.starts_with("a11y.") || rule_id.starts_with("a11y_journey.")
+    !rule_id.contains('.') || rule_id.starts_with("a11y_journey.")
 }
 
 /// The measures the key-measures list names, in order, with the number of
@@ -2281,8 +2282,8 @@ mod top_measure_tests {
     #[test]
     fn only_accessibility_rules_are_labelled_accessibility() {
         for id in [
-            "a11y.contrast.weak",
-            "a11y.html_content_model.invalid",
+            "contrast/text-insufficient",
+            "html-content-model",
             "a11y_journey.link_text_duplicate",
         ] {
             assert!(is_accessibility_rule(id), "{id}");

@@ -88,7 +88,7 @@ async fn h2_without_h1_is_one_hint_and_one_charged_cause() {
     assert!(
         findings
             .iter()
-            .all(|f| f["rule_id"] != "a11y.main_heading.missing"),
+            .all(|f| f["rule_id"] != "headings/h1-missing"),
         "{findings:#?}"
     );
 }

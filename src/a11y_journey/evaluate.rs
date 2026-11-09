@@ -39,7 +39,7 @@ pub fn tab_walk(trace: &JourneyTrace, snapshots: &[FocusSnapshot]) -> Vec<Intera
             findings.push(InteractiveFinding::new(
                 "HiddenFocusable",
                 InteractiveFindingKind::HiddenFocusableAriaHidden,
-                Some("a11y.aria_hidden_focus.invalid".to_string()),
+                Some("keyboard/hidden-focusable".to_string()),
                 Severity::High,
                 trace.journey.clone(),
                 None,
@@ -53,7 +53,7 @@ pub fn tab_walk(trace: &JourneyTrace, snapshots: &[FocusSnapshot]) -> Vec<Intera
             findings.push(InteractiveFinding::new(
                 "HiddenFocusable",
                 InteractiveFindingKind::HiddenFocusableInert,
-                Some("a11y.aria_hidden_focus.invalid".to_string()),
+                Some("keyboard/hidden-focusable".to_string()),
                 Severity::High,
                 trace.journey.clone(),
                 None,
@@ -418,7 +418,7 @@ mod tests {
         assert_eq!(findings[0].category, "HiddenFocusable");
         assert_eq!(
             findings[0].maps_to_finding.as_deref(),
-            Some("a11y.aria_hidden_focus.invalid")
+            Some("keyboard/hidden-focusable")
         );
     }
 

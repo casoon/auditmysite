@@ -599,10 +599,10 @@ fn extract_rule_metadata_entries(file: &str, content: &str) -> Vec<RuleMetaEntry
 // 2026-09-06 (plan/1-root-cause-title-occurrence-mismatch.md, "Mechanism 2"):
 // the "2.1.1", "1.4.4", "1.1.1", "4.1.2", and "1.3.1" groups formerly listed
 // here were exactly QA-009's deferred content-authoring task — every axe_id
-// in those groups that previously lacked its own `LEGACY_WCAG_MAP` entry
+// in those groups that previously lacked its own taxonomy entry
 // (and therefore fell back to the shared raw-criterion group key, mixing
 // unrelated checks' severities/occurrence counts into one finding) now has
-// a dedicated taxonomy `Rule` + `LEGACY_WCAG_MAP` entry, so the "mixed
+// a dedicated taxonomy `Rule` (keyed by the engine id since #918), so the "mixed
 // severity in one group" premise these exceptions documented no longer
 // applies — removed as directed by this test's own staleness check.
 // "3.3.2" was the last one: instructions.rs/form_rules.rs shared the axe_id
@@ -612,7 +612,6 @@ const ALLOWED_MIXED_SEVERITY_GROUPS: &[(&str, &str)] = &[];
 
 #[test]
 fn no_undocumented_severity_collisions_in_group_key_mechanism() {
-    use auditmysite::taxonomy::RuleLookup;
     use std::collections::HashMap;
 
     let rules_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/wcag/rules");
@@ -639,17 +638,11 @@ fn no_undocumented_severity_collisions_in_group_key_mechanism() {
         all_entries.len()
     );
 
-    // Effective group key: the rule's own axe_id if the taxonomy has a
-    // dedicated entry for it, otherwise the raw SC id — mirrors
-    // audit::normalized::wcag_group_key exactly.
+    // Group key: the rule's own id — mirrors audit::normalized::wcag_group_key.
+    // Two declarations that share an id are one finding group.
     let mut groups: HashMap<String, Vec<RuleMetaEntry>> = HashMap::new();
     for e in all_entries {
-        let key = if RuleLookup::by_legacy_wcag_id(&e.axe_id).is_some() {
-            e.axe_id.clone()
-        } else {
-            e.id.clone()
-        };
-        groups.entry(key).or_default().push(e);
+        groups.entry(e.axe_id.clone()).or_default().push(e);
     }
 
     let mut violations = Vec::new();

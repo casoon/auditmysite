@@ -25,6 +25,7 @@ fn create_test_report() -> AuditReport {
         "Image missing alt attribute",
         "node-123",
     )
+    .with_rule_id("images/alt-missing")
     .with_role(Some("image".to_string()))
     // Located as enrichment would locate it: a confirmed finding needs
     // evidence, not just a rule id (#784).
@@ -259,6 +260,7 @@ fn test_batch_json_with_root_causes_matches_schema() {
                 "The link has no accessible name.",
                 "n1",
             )
+            .with_rule_id("buttons/name-missing")
             .with_selector("a.mainnav-toggle")
             .with_html_snippet("<a class=\"mainnav-toggle\" href=\"#\"></a>"),
         );

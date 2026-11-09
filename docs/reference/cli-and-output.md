@@ -94,7 +94,7 @@ auditmysite --sitemap https://example.com/sitemap.xml -f sarif -o auditmysite.sa
 What the file contains:
 
 - `tool.driver` carries the name, `informationUri` and the tool version; `rules` has one entry per distinct rule ID, merged across pages, with `shortDescription`, `fullDescription`, `help`, `defaultConfiguration.level` and `properties.precision` (from the finding's confidence). `helpUri` is set only for rules that have a help URL, in practice the WCAG rules (a link to the W3C "Understanding" page); rules of the other modules have none. `properties.wcagCriterion` is present for WCAG rules; `properties.tags` holds the category and dimension.
-- Every finding of the report becomes a result, not only WCAG findings: SEO, security, UX, journey and the other modules are included, each under its own rule ID (for example `a11y.contrast.weak`, `seo.meta.description`). One result is written per occurrence.
+- Every finding of the report becomes a result, not only WCAG findings: SEO, security, UX, journey and the other modules are included, each under its own rule ID (for example `contrast/text-insufficient`, `seo.meta.description`). One result is written per occurrence.
 - `level` follows the severity: critical and high are `error`, medium is `warning`, low is `note`. A finding that only asks for a manual review (`properties.outcome: "review"`) is capped at `note`: it is never presented as a confirmed defect.
 - Checks that did not run are not results and never count as passed. Disabled rules, rules without the data they need, rules that errored, and modules that failed, ran partially or were skipped are listed in `invocations[0].toolExecutionNotifications` (`level` `note`, `warning` or `error`, with `associatedRule` and the page URL). A rule that has nothing to check on a page ("not applicable") is not listed. `executionSuccessful` is `false` when a notification has level `error`.
 
@@ -125,7 +125,7 @@ primaryLocationLineHash = "<hash>:<n>"   (the only key GitHub reads)
 
 ```json
 {
-  "ruleId": "a11y.contrast.weak",
+  "ruleId": "contrast/text-insufficient",
   "ruleIndex": 0,
   "level": "error",
   "message": {

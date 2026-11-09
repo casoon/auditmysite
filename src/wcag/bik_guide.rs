@@ -444,10 +444,10 @@ mod tests {
     #[test]
     fn groups_findings_into_correct_chapters_across_multiple_sources() {
         let findings = vec![
-            wcag_finding("1.1.1", "a11y.alt_text.missing", 3),
-            wcag_finding("1.2.2", "a11y.media_caption.missing", 1),
+            wcag_finding("1.1.1", "images/alt-missing", 3),
+            wcag_finding("1.2.2", "video-caption", 1),
             // Not mapped to any chapter — must not leak into e.g. Structure.
-            wcag_finding("2.1.1", "a11y.keyboard.trap", 2),
+            wcag_finding("2.1.1", "keyboard-trap", 2),
         ];
         let interactive = vec![
             interactive_finding(InteractiveFindingKind::LinkTextGeneric, 5),
@@ -474,7 +474,7 @@ mod tests {
         assert!(images
             .findings
             .iter()
-            .any(|f| f.label == "a11y.alt_text.missing" && f.occurrences == 3));
+            .any(|f| f.label == "images/alt-missing" && f.occurrences == 3));
         assert!(images
             .findings
             .iter()
@@ -511,7 +511,7 @@ mod tests {
         assert!(videos
             .findings
             .iter()
-            .any(|f| f.label == "a11y.media_caption.missing" && f.occurrences == 1));
+            .any(|f| f.label == "video-caption" && f.occurrences == 1));
         assert!(videos
             .findings
             .iter()

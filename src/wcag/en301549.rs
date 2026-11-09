@@ -782,7 +782,7 @@ mod tests {
     #[test]
     fn partition_covers_all_55_clauses_no_overlap_no_gap() {
         // Give at least one clause an actual violation.
-        let findings = vec![finding("1.1.1", "a11y.alt_text.missing", 3)];
+        let findings = vec![finding("1.1.1", "images/alt-missing", 3)];
         let rollups = derive_annex(&findings);
 
         assert_eq!(rollups.len(), 55, "every clause must appear exactly once");
@@ -860,7 +860,7 @@ mod tests {
     fn out_of_standard_findings_are_counted_not_dropped() {
         // 2.4.13 ("Focus Appearance") is Level AAA: EN 301 549 V4.1.1 lists it
         // only in the informative clause 9.5, so it has no clause in the table.
-        let findings = vec![finding("2.4.13", "a11y.focus_appearance.weak", 2)];
+        let findings = vec![finding("2.4.13", "focus-appearance", 2)];
         assert_eq!(out_of_standard_finding_count(&findings), 1);
         // It must not silently appear as a violation against any clause.
         let rollups = derive_annex(&findings);
@@ -950,7 +950,7 @@ mod tests {
     #[test]
     fn batch_rollup_takes_worst_status_and_counts_affected_pages() {
         let clean_page: Vec<NormalizedFinding> = vec![];
-        let violating_page = vec![finding("1.1.1", "a11y.alt_text.missing", 2)];
+        let violating_page = vec![finding("1.1.1", "images/alt-missing", 2)];
         let pages = [clean_page.as_slice(), violating_page.as_slice()];
 
         let rollup = derive_batch_rollup(pages);

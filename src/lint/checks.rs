@@ -943,7 +943,7 @@ mod tests {
         report["pages"][0]["findings"] = json!([
             {
                 "category": "wcag",
-                "rule_id": "a11y.alt_text.missing",
+                "rule_id": "images/alt-missing",
                 "wcag_criterion": "1.1.1",
                 "occurrence_count": occurrence_count
             }
@@ -975,10 +975,10 @@ mod tests {
                 .iter()
                 .any(|f| f.check_id == CHECK_SOURCE_QUALITY_SIGNAL_CONTRADICTS_FINDINGS)
         };
-        assert!(flags("a11y.interactive_name.missing"));
+        assert!(flags("names/required-missing"));
         // 4.1.2, but no missing name (5 rankinglab reports were flagged).
-        assert!(!flags("a11y.aria_prohibited_attr.invalid"));
-        assert!(!flags("a11y.aria_hidden_focus.invalid"));
+        assert!(!flags("aria/attribute-prohibited"));
+        assert!(!flags("keyboard/hidden-focusable"));
     }
 
     #[test]

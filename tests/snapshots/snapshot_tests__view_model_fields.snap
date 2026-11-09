@@ -1,6 +1,5 @@
 ---
 source: tests/snapshot_tests.rs
-assertion_line: 265
 expression: sort_json_keys(value)
 ---
 {
@@ -13,8 +12,8 @@ expression: sort_json_keys(value)
   },
   "finding_count": 2,
   "finding_rule_ids": [
-    "a11y.name_role.missing",
-    "a11y.structure.missing"
+    "buttons/name-missing",
+    "headings/skip-level"
   ],
   "module_count": 8,
   "module_names": [
