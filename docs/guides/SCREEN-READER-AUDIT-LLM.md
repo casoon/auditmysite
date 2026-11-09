@@ -132,8 +132,8 @@ The assessment stays in a chat unless it is brought back to the report. Ask the 
 
 ```bash
 auditmysite https://example.com --annotations annotations.json -f pdf
-# or, without a browser, from the cached audit:
-auditmysite replay https://example.com --annotations annotations.json -f pdf
+# or answer from the stored audit of the earlier run instead of measuring again:
+auditmysite https://example.com --reuse-cache --annotations annotations.json -f pdf
 ```
 
 The reading-flow assessment appears below the screen-reader section, labelled "Assessment (agent)", and in the JSON under `annotations`. It changes no score, outcome or exit code, and an entry that matches nothing is listed as unmatched instead of being dropped.
