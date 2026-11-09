@@ -90,7 +90,7 @@ markup5ever_rcdom = "0.3"
 html-conform = "0.4.2"
 
 # i18n (Project Fluent)
-fluent-bundle = "0.15"
+fluent-bundle = "0.16"
 unic-langid = "0.9"
 
 # PDF report generation via Typst.
