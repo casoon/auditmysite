@@ -281,7 +281,7 @@ fn pseudo_path(url: &str) -> String {
     }
     let mut out = format!("{PSEUDO_PATH_PREFIX}/{host}/{path}");
     if let Some(query) = parsed.query() {
-        let digest = format!("{:x}", Sha256::digest(query.as_bytes()));
+        let digest = hex(&Sha256::digest(query.as_bytes()));
         out.push_str(&format!("__q-{}", &digest[..8]));
     }
     out
@@ -307,8 +307,12 @@ fn fingerprint_hash(
         hasher.update(part.as_bytes());
         hasher.update([0u8]);
     }
-    let hex = format!("{:x}", hasher.finalize());
-    hex[..32].to_string()
+    hex(&hasher.finalize())[..32].to_string()
+}
+
+/// Lowercase hex of a digest (`sha2` 0.11 digests no longer implement `LowerHex`).
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 fn fingerprints(hash: &str, occurrence: usize) -> BTreeMap<&'static str, String> {
