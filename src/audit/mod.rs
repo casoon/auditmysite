@@ -49,6 +49,7 @@ pub use artifacts::{
     to_audit_report, AuditArtifacts, CacheLookup, CacheMiss, DocumentIdentity, ExpectedProfile,
     FetchArtifact, ReplayError, SnapshotArtifact, SnapshotVersions,
 };
+pub(crate) use batch::pool_acquire_timeout_secs;
 pub use batch::{
     analyze_sitemap_diagnostics, analyze_sitemap_diagnostics_with_progress,
     count_sitemap_entries_shallow, parse_sitemap, read_url_file, run_concurrent_batch,
@@ -79,6 +80,8 @@ pub fn normalize(report: &AuditReport) -> AuditContext<'_> {
     normalized::normalize(report)
 }
 pub use baseline::{Baseline, BaselineStatus, BASELINE_CONTRACT, FINDING_ID_SCHEME};
+#[cfg(test)]
+pub(crate) use pipeline::audit_scope_from_config;
 #[cfg(feature = "pdf")]
 pub(crate) use pipeline::with_shared_page_rule_violations;
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};

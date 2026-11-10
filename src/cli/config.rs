@@ -8,6 +8,9 @@ use tracing::info;
 
 use super::args::{Args, InteractiveMode, ModuleChoice, OutputFormat, WcagLevel};
 
+/// The `[budgets]` section; it lives with the evaluation in `audit::budget`.
+pub use crate::audit::budget::BudgetConfig;
+
 const CONFIG_FILENAME: &str = "auditmysite.toml";
 
 /// Configuration file structure
@@ -125,45 +128,6 @@ impl VerdictConfig {
             self.fail_below_score,
             self.warn_below_score,
         )
-    }
-}
-
-#[derive(Debug, Deserialize, Default, Clone)]
-pub struct BudgetConfig {
-    /// Maximum LCP in milliseconds (good: ≤ 2500)
-    pub max_lcp_ms: Option<f64>,
-    /// Maximum FCP in milliseconds (good: ≤ 1800)
-    pub max_fcp_ms: Option<f64>,
-    /// Maximum CLS (good: ≤ 0.1)
-    pub max_cls: Option<f64>,
-    /// Maximum TBT in milliseconds (good: ≤ 200)
-    pub max_tbt_ms: Option<f64>,
-    /// Maximum total JavaScript size in KB
-    pub max_js_kb: Option<f64>,
-    /// Maximum total CSS size in KB
-    pub max_css_kb: Option<f64>,
-    /// Maximum total page size in KB
-    pub max_total_kb: Option<f64>,
-    /// Maximum number of render-blocking scripts
-    pub max_blocking_scripts: Option<u32>,
-    /// Maximum third-party transfer size in KB
-    pub max_third_party_kb: Option<f64>,
-    /// Maximum number of HTTP requests
-    pub max_request_count: Option<u32>,
-}
-
-impl BudgetConfig {
-    pub fn is_empty(&self) -> bool {
-        self.max_lcp_ms.is_none()
-            && self.max_fcp_ms.is_none()
-            && self.max_cls.is_none()
-            && self.max_tbt_ms.is_none()
-            && self.max_js_kb.is_none()
-            && self.max_css_kb.is_none()
-            && self.max_total_kb.is_none()
-            && self.max_blocking_scripts.is_none()
-            && self.max_third_party_kb.is_none()
-            && self.max_request_count.is_none()
     }
 }
 
@@ -414,5 +378,19 @@ seo = true
         let config: Config = toml::from_str(toml_str).unwrap();
         assert!(config.modules.seo.unwrap());
         assert!(config.modules.performance.is_none());
+    }
+
+    /// A `[verdict]` threshold reaches the decision profile.
+    #[test]
+    fn verdict_config_threshold_reaches_the_decision_profile() {
+        assert_eq!(
+            VerdictConfig {
+                fail_below_score: Some(60),
+                ..Default::default()
+            }
+            .profile()
+            .fail_below_score,
+            Some(60)
+        );
     }
 }

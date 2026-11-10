@@ -682,7 +682,6 @@ mod tests {
     /// Every output of `report` publishes `expected`; returns nothing, panics
     /// with the output that disagrees.
     fn assert_every_output_decides(report: &AuditReport, expected: Verdict) {
-        use clap::Parser;
         let ctx = normalize(report);
         ctx.normalized.validate().unwrap();
         let decision = &ctx.normalized.decision;
@@ -703,9 +702,11 @@ mod tests {
             "exit code (main maps the stored decision)"
         );
 
-        let mut args = crate::cli::Args::parse_from(["auditmysite", "https://example.com"]);
-        args.color = crate::cli::ColorPolicy::Never;
-        let terminal = crate::output::terminal::render_single_report(report, &args).unwrap();
+        let options = crate::output::terminal::TerminalOptions {
+            color: crate::model::ColorPolicy::Never,
+            ..Default::default()
+        };
+        let terminal = crate::output::terminal::render_single_report(report, &options).unwrap();
         assert!(
             terminal_says(&terminal, expected),
             "terminal does not say {expected:?}:\n{terminal}"
@@ -746,7 +747,8 @@ mod tests {
         let batch = BatchReport::from_reports(vec![report.clone()], Vec::new(), 1);
         crate::audit::validation::validate_batch(&batch).unwrap();
         assert_eq!(batch.summary.passed, usize::from(expected == Verdict::Pass));
-        let batch_terminal = crate::output::terminal::render_batch_report(&batch, &args).unwrap();
+        let batch_terminal =
+            crate::output::terminal::render_batch_report(&batch, &options).unwrap();
         assert!(
             terminal_says(&batch_terminal, batch.summary.decision.verdict),
             "batch terminal:\n{batch_terminal}"
@@ -809,15 +811,6 @@ mod tests {
         assert_eq!(
             DecisionProfile::resolve(None, None, None, Some(0), None),
             default
-        );
-        assert_eq!(
-            crate::cli::config::VerdictConfig {
-                fail_below_score: Some(60),
-                ..Default::default()
-            }
-            .profile()
-            .fail_below_score,
-            Some(60)
         );
     }
 

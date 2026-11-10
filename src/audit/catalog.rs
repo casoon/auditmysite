@@ -326,9 +326,7 @@ mod tests {
     use super::*;
     use crate::audit::module::AuditModule;
     use crate::audit::Module;
-    use crate::cli::Args;
     use async_trait::async_trait;
-    use clap::Parser;
 
     struct StubModule {
         id: &'static str,
@@ -372,7 +370,7 @@ mod tests {
     }
 
     fn cfg() -> PipelineConfig {
-        PipelineConfig::from(&Args::parse_from(["auditmysite", "https://example.com"]))
+        PipelineConfig::default()
     }
 
     fn ids(modules: &[&dyn AuditModule]) -> Vec<&'static str> {
@@ -518,12 +516,8 @@ mod tests {
                 ..Default::default()
             });
         // AI Visibility is an experimental indicator (#916): ask for it.
-        let cfg = PipelineConfig::from(&Args::parse_from([
-            "auditmysite",
-            "https://example.com",
-            "--experimental",
-            "ai-visibility",
-        ]));
+        let cfg = PipelineConfig::default()
+            .with_experimental(vec![crate::audit::ExperimentalIndicator::AiVisibility]);
         AuditCatalog::standard()
             .derive_all(&mut report, &cfg)
             .unwrap();

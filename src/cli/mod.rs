@@ -5,6 +5,7 @@
 mod args;
 pub mod config;
 pub mod doctor;
+mod from_args;
 pub mod report_lint;
 pub mod url_filter;
 

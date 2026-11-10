@@ -135,22 +135,18 @@ fn analysis_modules_do_not_gain_imports_of_cli_output_or_audit() {
     );
 }
 
-/// `cli` is the entry layer: nothing outside it and `main.rs` names it. The
-/// remaining lines are a baseline that may only shrink, target zero (#934).
+/// `cli` is the entry layer: nothing outside it and `main.rs` names it. No
+/// baseline, every line is a failure (#934).
 #[test]
 fn no_module_outside_cli_gains_imports_of_cli() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut files = Vec::new();
     rust_files(&root.join("src"), &mut files);
     files.retain(|f| !f.starts_with(root.join("src/cli")) && *f != root.join("src/main.rs"));
-    let problems = ratchet_problems(
-        &count_imports_in(&files, &["crate::cli"]),
-        &baseline("cli_imports.txt"),
-    );
+    let found = count_imports_in(&files, &["crate::cli"]);
     assert!(
-        problems.is_empty(),
-        "imports of crate::cli outside cli/ (#934):\n{}",
-        problems.join("\n")
+        found.is_empty(),
+        "crate::cli is named outside cli/ (#934): {found:?}"
     );
 }
 

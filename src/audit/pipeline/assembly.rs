@@ -442,7 +442,7 @@ fn permitted_state_changing_journeys(config: &PipelineConfig) -> Vec<String> {
         .collect()
 }
 
-pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::AuditScope {
+pub(crate) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::AuditScope {
     let catalog = AuditCatalog::standard();
     let mut requested_modules = vec!["accessibility".to_string()];
     if !matches!(config.interactive, crate::model::InteractiveMode::Off) {
@@ -763,15 +763,12 @@ mod experimental_journey_tests {
     use crate::audit::ExperimentalIndicator;
 
     fn config(experimental: Vec<ExperimentalIndicator>) -> PipelineConfig {
-        use clap::Parser;
-        let mut config = PipelineConfig::from_args_and_config(
-            &crate::cli::Args::parse_from(["auditmysite", "https://example.com"]),
-            None,
-        );
-        config.interactive = crate::model::InteractiveMode::Full;
-        config.allow_state_changes = true;
-        config.experimental = experimental;
-        config
+        PipelineConfig {
+            interactive: crate::model::InteractiveMode::Full,
+            allow_state_changes: true,
+            experimental,
+            ..Default::default()
+        }
     }
 
     /// #916: add-to-cart and quantity-stepper belong to the commerce
@@ -1029,15 +1026,12 @@ mod tests {
 
     #[test]
     fn measurement_profile_must_agree_with_the_interactive_depth() {
-        use clap::Parser;
         let config_scope = |interactive: crate::model::InteractiveMode, allow: bool| {
-            let mut config = crate::audit::PipelineConfig::from_args_and_config(
-                &crate::cli::Args::parse_from(["auditmysite", "https://example.com"]),
-                None,
-            );
-            config.interactive = interactive;
-            config.allow_state_changes = allow;
-            audit_scope_from_config(&config)
+            audit_scope_from_config(&crate::audit::PipelineConfig {
+                interactive,
+                allow_state_changes: allow,
+                ..Default::default()
+            })
         };
         // `full` alone only observes; the clicks are an explicit opt-in.
         let observing = config_scope(crate::model::InteractiveMode::Full, false);
@@ -1071,18 +1065,16 @@ mod tests {
 
     #[test]
     fn declared_state_enters_the_profile_by_identity_not_by_value() {
-        use clap::Parser;
-        let mut config = crate::audit::PipelineConfig::from_args_and_config(
-            &crate::cli::Args::parse_from(["auditmysite", "https://example.com"]),
-            None,
-        );
-        config.state_id = Some("logged-in".into());
-        config.storage_state = Some(
-            crate::browser::StorageState::from_bytes(
-                br#"{"cookies":[{"name":"sid","value":"TOPSECRET"}],"origins":[]}"#,
-            )
-            .unwrap(),
-        );
+        let config = crate::audit::PipelineConfig {
+            state_id: Some("logged-in".into()),
+            storage_state: Some(
+                crate::browser::StorageState::from_bytes(
+                    br#"{"cookies":[{"name":"sid","value":"TOPSECRET"}],"origins":[]}"#,
+                )
+                .unwrap(),
+            ),
+            ..Default::default()
+        };
         let scope = audit_scope_from_config(&config);
         let json = serde_json::to_string(&scope).unwrap();
         assert!(json.contains("logged-in") && json.contains("\"cookies\":1"));
@@ -1164,11 +1156,7 @@ mod tests {
     }
 
     fn build_report_with_expected_outcomes() -> AuditReport {
-        use clap::Parser;
-        let config = crate::audit::PipelineConfig::from_args_and_config(
-            &crate::cli::Args::parse_from(["auditmysite", "https://example.com"]),
-            None,
-        );
+        let config = crate::audit::PipelineConfig::default();
         let mut report = report_with_run("accessibility");
         report.accessibility.execution.scope = audit_scope_from_config(&config);
         // The privacy visit records after `audit_page`, like the other extra
@@ -1544,11 +1532,7 @@ mod tests {
 
     #[test]
     fn the_scope_records_the_rule_filter_and_the_frame_rules_it_leaves() {
-        use clap::Parser;
-        let mut config = crate::audit::PipelineConfig::from_args_and_config(
-            &crate::cli::Args::parse_from(["auditmysite", "https://example.com"]),
-            None,
-        );
+        let mut config = crate::audit::PipelineConfig::default();
         assert!(audit_scope_from_config(&config).rule_filter.is_none());
         config.rule_filter.disabled_rules = vec!["image-alt".into()];
         let scope = audit_scope_from_config(&config);
