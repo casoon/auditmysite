@@ -3,6 +3,11 @@
 //! Jede Regel im System hat eine eindeutige ID, gehört zu einer Dimension
 //! und Subkategorie, hat Issue-Klasse, Severity, Score-Impact und
 //! Report-Sichtbarkeitseinstellungen.
+//!
+//! The texts of a rule (title, user impact, technical impact) are not in this
+//! table: they live in `locales/<lang>/rules.ftl` under the key
+//! [`rule_text_key`] and are read through [`Rule::title`],
+//! [`Rule::user_impact`] and [`Rule::technical_impact`] (#935).
 
 use super::{
     dimensions::{Dimension, Subcategory},
@@ -30,24 +35,35 @@ pub struct Rule {
     pub external_level: Option<&'static str>,
     /// Primary axe-core rule ID, if applicable
     pub axe_id: Option<&'static str>,
-    /// Kurztitel (Deutsch)
-    pub title: &'static str,
-    /// Kurztitel (kanonisch Englisch — für JSON)
-    pub title_en: &'static str,
-    /// Beschreibung des Problems
-    pub description: &'static str,
-    /// Auswirkung auf den Nutzer (Deutsch)
-    pub user_impact: &'static str,
-    /// Auswirkung auf den Nutzer (kanonisch Englisch — für JSON)
-    pub user_impact_en: &'static str,
-    /// Technische Auswirkung (Deutsch)
-    pub technical_impact: &'static str,
-    /// Technische Auswirkung (kanonisch Englisch — für JSON)
-    pub technical_impact_en: &'static str,
     /// Score-Abzug-Modell
     pub score_impact: ScoreImpact,
     /// Sichtbarkeit in den verschiedenen Report-Ebenen
     pub report_visibility: ReportVisibility,
+}
+
+/// The Fluent message of a rule's texts in `locales/<lang>/rules.ftl`:
+/// `rule-` plus the rule id, with `/` written as `-` (a Fluent identifier
+/// allows only letters, digits, `_` and `-`).
+pub fn rule_text_key(id: &str) -> String {
+    format!("rule-{}", id.replace('/', "-"))
+}
+
+impl Rule {
+    /// Short title (`en = true` canonical English, as in the JSON; otherwise
+    /// German).
+    pub fn title(&self, en: bool) -> String {
+        crate::i18n::text(&rule_text_key(self.id), en)
+    }
+
+    /// Effect on the user (`en = true` canonical English, otherwise German).
+    pub fn user_impact(&self, en: bool) -> String {
+        crate::i18n::attr_text(&rule_text_key(self.id), "user-impact", en)
+    }
+
+    /// Technical effect (`en = true` canonical English, otherwise German).
+    pub fn technical_impact(&self, en: bool) -> String {
+        crate::i18n::attr_text(&rule_text_key(self.id), "technical-impact", en)
+    }
 }
 
 /// Welche Report-Ebenen zeigen diese Regel
@@ -104,13 +120,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.1.1"),
         external_level: Some("A"),
         axe_id: Some("image-alt"),
-        title: "Fehlende Alternativtexte bei Bildern",
-        title_en: "Missing alternative text on images",
-        description: "Bilder haben keinen beschreibenden Alternativtext.",
-        user_impact: "Screenreader-Nutzer erhalten keine Bildinformation.",
-        user_impact_en: "Screen reader users receive no image information.",
-        technical_impact: "Nicht-konforme Bildauszeichnung im Markup.",
-        technical_impact_en: "Non-conformant image markup.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 10.0,
@@ -127,13 +136,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.1.1"),
         external_level: Some("A"),
         axe_id: Some("image-alt"),
-        title: "Fehlende Alternativtexte bei Bildern",
-        title_en: "Missing alternative text on images",
-        description: "Bilder haben keinen beschreibenden Alternativtext.",
-        user_impact: "Screenreader-Nutzer erhalten keine Bildinformation.",
-        user_impact_en: "Screen reader users receive no image information.",
-        technical_impact: "Nicht-konforme Bildauszeichnung im Markup.",
-        technical_impact_en: "Non-conformant image markup.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 10.0,
@@ -150,13 +152,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.1.1"),
         external_level: Some("A"),
         axe_id: Some("images/alt-suspicious"),
-        title: "Vermutlich nichtssagender Alternativtext",
-        title_en: "Alternative text probably not descriptive",
-        description: "Der Alternativtext eines Bildes ist ein Dateiname, ein Füllwort wie „Bild\" oder „Logo\" oder kürzer als drei Zeichen.",
-        user_impact: "Screenreader-Nutzer hören einen Text, der den Bildinhalt nicht vermittelt.",
-        user_impact_en: "Screen reader users hear text that does not convey the image content.",
-        technical_impact: "alt-Attribut vorhanden, aber ohne beschreibenden Inhalt.",
-        technical_impact_en: "alt attribute present but without descriptive content.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 4.0,
@@ -173,13 +168,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.2.2"),
         external_level: Some("A"),
         axe_id: Some("video-caption"),
-        title: "Fehlende Untertitel für Videos",
-        title_en: "Missing captions for videos",
-        description: "Für aufgezeichnete Videoinhalte sind keine Untertitel vorhanden.",
-        user_impact: "Gehörlose oder schwerhörige Nutzer können gesprochene Inhalte nicht wahrnehmen.",
-        user_impact_en: "Deaf or hard-of-hearing users cannot perceive spoken content.",
-        technical_impact: "Fehlendes track-Element für Untertitel.",
-        technical_impact_en: "Missing track element for captions.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 10.0,
@@ -196,13 +184,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.2.8"),
         external_level: Some("AAA"),
         axe_id: Some("media-alt"),
-        title: "Fehlende Medienalternative (AAA)",
-        title_en: "Missing media alternative (AAA)",
-        description: "Für aufgezeichnete Videos oder Audios ist keine vollständige Medienalternative vorhanden.",
-        user_impact: "Nutzer, die keine Videos oder Audios abspielen können, erhalten keine Textalternative.",
-        user_impact_en: "Users who cannot play video or audio receive no text alternative.",
-        technical_impact: "Fehlendes Transkript oder Audiobeschreibung.",
-        technical_impact_en: "Missing transcript or audio description.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -210,7 +191,6 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-
     // ── Struktur & Semantik ───────────────────────────────────────────────
     Rule {
         id: "order/visual-mismatch",
@@ -221,13 +201,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.2"),
         external_level: Some("A"),
         axe_id: Some("css-order-reading-sequence"),
-        title: "Visuelle Reihenfolge weicht von der Vorlese-Reihenfolge ab",
-        title_en: "Visual order diverges from the reading order",
-        description: "Ein Flex-Container nutzt CSS `order`, um Kindelemente visuell umzusortieren, ohne dies per `aria-owns` im Accessibility-Baum nachzuziehen.",
-        user_impact: "Screenreader-Nutzer hören Inhalte in einer anderen Reihenfolge, als sie sehende Nutzer visuell wahrnehmen.",
-        user_impact_en: "Screen reader users hear content in a different sequence than sighted users perceive visually.",
-        technical_impact: "CSS `order` verändert die visuelle Reihenfolge, der DOM- und Accessibility-Baum bleiben unverändert.",
-        technical_impact_en: "CSS `order` changes the visual sequence while the DOM and accessibility tree stay unchanged.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 3.0,
@@ -244,13 +217,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.10"),
         external_level: Some("AAA"),
         axe_id: Some("heading-order"),
-        title: "Fehlende Abschnittsüberschriften",
-        title_en: "Missing section headings",
-        description: "Längere Inhalte sind nicht durch Abschnittsüberschriften gegliedert.",
-        user_impact: "Nutzer können Inhalte nicht gezielt ansteuern.",
-        user_impact_en: "Users cannot jump directly to specific content.",
-        technical_impact: "Fehlende Sub-Headings in langen Inhaltsblöcken.",
-        technical_impact_en: "Missing sub-headings in long content blocks.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 3.0,
@@ -267,13 +233,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.4"),
         external_level: Some("AA"),
         axe_id: Some("css-orientation-lock"),
-        title: "Eingeschränkte Bildschirmausrichtung",
-        title_en: "Restricted screen orientation",
-        description: "Die Seite dreht ihre Wurzel (html oder body) um eine Vierteldrehung und erzwingt damit eine bestimmte Bildschirmausrichtung (Hoch- oder Querformat).",
-        user_impact: "Nutzer mit fest montierten Bildschirmen (z. B. am Rollstuhl) können die Seite nicht lesen.",
-        user_impact_en: "Users with fixed-mount screens (e.g. wheelchair-mounted) cannot read the page.",
-        technical_impact: "Berechnetes transform (Matrix) oder rotate an html oder body dreht um eine Vierteldrehung, gemessen im geprüften Viewport.",
-        technical_impact_en: "The computed transform (matrix) or rotate of html or body turns by a quarter turn, measured in the audited viewport.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 10.0,
@@ -290,13 +249,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.4"),
         external_level: Some("AA"),
         axe_id: Some("css-orientation-lock"),
-        title: "Eingeschränkte Bildschirmausrichtung",
-        title_en: "Restricted screen orientation",
-        description: "Die Seite erzwingt eine bestimmte Bildschirmausrichtung (Hoch- oder Querformat).",
-        user_impact: "Nutzer mit fest montierten Bildschirmen (z. B. am Rollstuhl) können die Seite nicht lesen.",
-        user_impact_en: "Users with fixed-mount screens (e.g. wheelchair-mounted) cannot read the page.",
-        technical_impact: "CSS-Medienabfragen blockieren die Ausrichtung.",
-        technical_impact_en: "CSS media queries lock the orientation.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 10.0,
@@ -304,7 +256,6 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_ALL,
     },
-
     // ── Navigation & Bedienung ────────────────────────────────────────────
     Rule {
         id: "keyboard/interactive-not-focusable",
@@ -315,13 +266,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.1.1"),
         external_level: Some("A"),
         axe_id: Some("keyboard"),
-        title: "Inhalte nicht per Tastatur bedienbar",
-        title_en: "Content not operable by keyboard",
-        description: "Funktionen nur mit Maus bedienbar.",
-        user_impact: "Tastaturnutzer sind von Funktionen ausgeschlossen.",
-        user_impact_en: "Keyboard users are excluded from functionality.",
-        technical_impact: "Click-Handler ohne Tastatur-Alternative.",
-        technical_impact_en: "Click handler without keyboard alternative.",
         score_impact: ScoreImpact {
             base_penalty: 5.0,
             max_penalty: 15.0,
@@ -338,13 +282,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.1.2"),
         external_level: Some("A"),
         axe_id: Some("keyboard-trap"),
-        title: "Tastaturfalle — Fokus kann nicht verlassen werden",
-        title_en: "Keyboard trap — focus cannot leave the element",
-        description: "Tastaturfokus bleibt an bestimmten Stellen hängen.",
-        user_impact: "Seite wird faktisch unbenutzbar für Tastaturnutzer.",
-        user_impact_en: "The page becomes effectively unusable for keyboard users.",
-        technical_impact: "Fehlende Fokus-Verwaltung in modalen Elementen.",
-        technical_impact_en: "Missing focus management in modal elements.",
         score_impact: ScoreImpact {
             base_penalty: 10.0,
             max_penalty: 15.0,
@@ -361,13 +298,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.1"),
         external_level: Some("A"),
         axe_id: Some("bypass"),
-        title: "Fehlende Sprungnavigation",
-        title_en: "Missing bypass navigation",
-        description: "Kein Skip-Link oder Mechanismus zum Überspringen wiederkehrender Blöcke.",
-        user_impact: "Tastaturnutzer müssen bei jedem Seitenwechsel durch die Navigation tabben.",
-        user_impact_en: "Keyboard users must tab through the navigation on every page change.",
-        technical_impact: "Fehlender Skip-Link, fehlende HTML5-Landmarks.",
-        technical_impact_en: "Missing skip link, missing HTML5 landmarks.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 8.0,
@@ -384,13 +314,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.2"),
         external_level: Some("A"),
         axe_id: Some("document-title"),
-        title: "Fehlender oder unzureichender Seitentitel",
-        title_en: "Missing or insufficient page title",
-        description: "Seite hat keinen aussagekräftigen Title-Tag.",
-        user_impact: "Screenreader-Nutzer können die Seite nicht identifizieren.",
-        user_impact_en: "Screen reader users cannot identify the page.",
-        technical_impact: "Leeres oder generisches <title>-Tag.",
-        technical_impact_en: "Empty or generic <title> tag.",
         score_impact: ScoreImpact {
             base_penalty: 5.0,
             max_penalty: 5.0,
@@ -407,13 +330,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.2"),
         external_level: Some("A"),
         axe_id: Some("document-title"),
-        title: "Fehlender oder unzureichender Seitentitel",
-        title_en: "Missing or insufficient page title",
-        description: "Seite hat keinen aussagekräftigen Title-Tag.",
-        user_impact: "Screenreader-Nutzer können die Seite nicht identifizieren.",
-        user_impact_en: "Screen reader users cannot identify the page.",
-        technical_impact: "Leeres oder generisches <title>-Tag.",
-        technical_impact_en: "Empty or generic <title> tag.",
         score_impact: ScoreImpact {
             base_penalty: 5.0,
             max_penalty: 5.0,
@@ -430,13 +346,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.2"),
         external_level: Some("A"),
         axe_id: Some("document-title"),
-        title: "Fehlender oder unzureichender Seitentitel",
-        title_en: "Missing or insufficient page title",
-        description: "Seite hat keinen aussagekräftigen Title-Tag.",
-        user_impact: "Screenreader-Nutzer können die Seite nicht identifizieren.",
-        user_impact_en: "Screen reader users cannot identify the page.",
-        technical_impact: "Leeres oder generisches <title>-Tag.",
-        technical_impact_en: "Empty or generic <title> tag.",
         score_impact: ScoreImpact {
             base_penalty: 5.0,
             max_penalty: 5.0,
@@ -453,13 +362,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("landmark-unique"),
-        title: "Landmarks nicht eindeutig benannt",
-        title_en: "Landmarks are not uniquely named",
-        description: "Mehrere Landmarks desselben Typs haben denselben zugänglichen Namen.",
-        user_impact: "Screenreader-Nutzer können gleichartige Bereiche nicht unterscheiden.",
-        user_impact_en: "Screen reader users cannot distinguish similar regions.",
-        technical_impact: "Mehrfach verwendete Landmark-Rollen ohne eindeutige aria-label/aria-labelledby-Werte.",
-        technical_impact_en: "Repeated landmark roles without unique aria-label/aria-labelledby values.",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 4.0,
@@ -476,13 +378,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.3"),
         external_level: Some("A"),
         axe_id: Some("focus-order-semantics"),
-        title: "Unlogische Fokus-Reihenfolge",
-        title_en: "Illogical focus order",
-        description: "Tab-Reihenfolge entspricht nicht der visuellen Reihenfolge.",
-        user_impact: "Verwirrende Navigation für Tastaturnutzer.",
-        user_impact_en: "Confusing navigation for keyboard users.",
-        technical_impact: "DOM-Reihenfolge weicht von visueller Reihenfolge ab.",
-        technical_impact_en: "DOM order diverges from the visual order.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -499,13 +394,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.4"),
         external_level: Some("A"),
         axe_id: Some("link-name"),
-        title: "Unklare oder generische Linktexte",
-        title_en: "Unclear or generic link text",
-        description: "Links mit Texten wie 'hier', 'mehr', 'weiterlesen'.",
-        user_impact: "Screenreader-Linklisten zeigen nichtssagende Texte.",
-        user_impact_en: "Screen reader link lists show meaningless text.",
-        technical_impact: "Generische Link-Texte ohne Kontext.",
-        technical_impact_en: "Generic link text without context.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 5.0,
@@ -522,13 +410,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.4"),
         external_level: Some("A"),
         axe_id: Some("link-name"),
-        title: "Unklare oder generische Linktexte",
-        title_en: "Unclear or generic link text",
-        description: "Links mit Texten wie 'hier', 'mehr', 'weiterlesen'.",
-        user_impact: "Screenreader-Linklisten zeigen nichtssagende Texte.",
-        user_impact_en: "Screen reader link lists show meaningless text.",
-        technical_impact: "Generische Link-Texte ohne Kontext.",
-        technical_impact_en: "Generic link text without context.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 5.0,
@@ -545,13 +426,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.4"),
         external_level: Some("A"),
         axe_id: Some("link-name"),
-        title: "Unklare oder generische Linktexte",
-        title_en: "Unclear or generic link text",
-        description: "Links mit Texten wie 'hier', 'mehr', 'weiterlesen'.",
-        user_impact: "Screenreader-Linklisten zeigen nichtssagende Texte.",
-        user_impact_en: "Screen reader link lists show meaningless text.",
-        technical_impact: "Generische Link-Texte ohne Kontext.",
-        technical_impact_en: "Generic link text without context.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 5.0,
@@ -568,13 +442,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.7"),
         external_level: Some("AA"),
         axe_id: Some("focus-visible"),
-        title: "Fokus-Indikator nicht sichtbar",
-        title_en: "Focus indicator not visible",
-        description: "Kein visueller Fokus-Rahmen bei Tastaturnavigation.",
-        user_impact: "Tastaturnutzer sehen nicht, welches Element fokussiert ist.",
-        user_impact_en: "Keyboard users cannot see which element is focused.",
-        technical_impact: "CSS outline:none ohne Alternative.",
-        technical_impact_en: "CSS outline:none without an alternative.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 8.0,
@@ -591,13 +458,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.11"),
         external_level: Some("AA"),
         axe_id: Some("focus-not-obscured-minimum"),
-        title: "Fokussiertes Element vollständig verdeckt",
-        title_en: "Focused element entirely obscured",
-        description: "Nach dem Fokussieren und Scrollen liegt jeder Abtastpunkt eines Bedienelements unter einem fixierten oder sticky-positionierten Element.",
-        user_impact: "Tastaturnutzer springen per Tab auf ein Element, das durch einen Sticky-Header, -Footer, ein Cookie-Banner o. ä. vollständig verdeckt ist und daher nicht sichtbar ist.",
-        user_impact_en: "Keyboard users tab to an element that is entirely covered by a sticky header, footer, cookie banner, or similar overlay and is therefore not visible.",
-        technical_impact: "Fokuslauf: Element fokussiert, mit scrollIntoView({block:'nearest'}) ins Bild gescrollt, 3×3 Punkte per elementsFromPoint abgetastet; alle Punkte unter einem position: fixed/sticky-Element.",
-        technical_impact_en: "Focus pass: element focused, scrolled into view with scrollIntoView({block:'nearest'}), 3×3 points sampled with elementsFromPoint; every point lies under a position: fixed/sticky element.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 2.0,
@@ -614,13 +474,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.12"),
         external_level: Some("AAA"),
         axe_id: Some("focus-not-obscured-enhanced"),
-        title: "Fokussiertes Element teilweise verdeckt",
-        title_en: "Focused element partially obscured",
-        description: "Nach dem Fokussieren und Scrollen liegt mindestens ein Abtastpunkt eines Bedienelements unter einem fixierten oder sticky-positionierten Element.",
-        user_impact: "Tastaturnutzer springen per Tab auf ein Element, dessen sichtbarer Bereich durch einen Sticky-Header, -Footer, ein Cookie-Banner o. ä. teilweise verdeckt wird.",
-        user_impact_en: "Keyboard users tab to an element whose visible area is partially covered by a sticky header, footer, cookie banner, or similar overlay.",
-        technical_impact: "Fokuslauf wie bei focus/obscured; mindestens ein Abtastpunkt unter einem position: fixed/sticky-Element.",
-        technical_impact_en: "Focus pass as for focus/obscured; at least one sample point lies under a position: fixed/sticky element.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 2.0,
@@ -637,13 +490,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.5.3"),
         external_level: Some("A"),
         axe_id: Some("label-in-name"),
-        title: "Sichtbarer Text ≠ zugänglicher Name",
-        title_en: "Visible text ≠ accessible name",
-        description: "Sichtbarer Text und aria-label stimmen nicht überein.",
-        user_impact: "Sprachsteuerungsnutzer können Element nicht ansprechen.",
-        user_impact_en: "Voice-control users cannot address the element.",
-        technical_impact: "aria-label weicht vom sichtbaren Text ab.",
-        technical_impact_en: "aria-label diverges from the visible text.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -660,13 +506,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.2.1"),
         external_level: Some("A"),
         axe_id: Some("meta-refresh"),
-        title: "Nicht anpassbare Zeitbegrenzung",
-        title_en: "Non-adjustable time limit",
-        description: "Zeitbegrenzungen auf der Seite können nicht deaktiviert oder verlängert werden.",
-        user_impact: "Nutzer benötigen mehr Zeit für die Eingabe und können durch Timeouts Daten verlieren.",
-        user_impact_en: "Users need more time to enter data and may lose data through timeouts.",
-        technical_impact: "Fehlendes Refresh- oder Timeout-Handling im Script/Markup.",
-        technical_impact_en: "Missing refresh or timeout handling in the script/markup.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 10.0,
@@ -683,13 +522,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.2.1"),
         external_level: Some("A"),
         axe_id: Some("meta-refresh"),
-        title: "Nicht anpassbare Zeitbegrenzung",
-        title_en: "Non-adjustable time limit",
-        description: "Zeitbegrenzungen auf der Seite können nicht deaktiviert oder verlängert werden.",
-        user_impact: "Nutzer benötigen mehr Zeit für die Eingabe und können durch Timeouts Daten verlieren.",
-        user_impact_en: "Users need more time to enter data and may lose data through timeouts.",
-        technical_impact: "Fehlendes Refresh- oder Timeout-Handling im Script/Markup.",
-        technical_impact_en: "Missing refresh or timeout handling in the script/markup.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 10.0,
@@ -706,13 +538,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.2.2"),
         external_level: Some("A"),
         axe_id: Some("pause-stop-hide"),
-        title: "Fehlende Pause-/Stopp-/Ausblenden-Kontrolle",
-        title_en: "Missing pause/stop/hide control",
-        description: "Automatisch startender, dauerhaft laufender Inhalt (z. B. `<marquee>` oder eine unendlich wiederholende CSS-Animation über 5 Sekunden pro Zyklus) bietet keine erkennbare Möglichkeit, ihn zu pausieren, zu stoppen oder auszublenden.",
-        user_impact: "Nutzer mit Aufmerksamkeits- oder kognitiven Einschränkungen sowie Screenreader-Nutzer werden durch dauerhaft laufende Bewegung abgelenkt oder gestört und können sie nicht deaktivieren.",
-        user_impact_en: "Users with attention or cognitive impairments, and screen reader users, are distracted or disrupted by continuously running motion they cannot turn off.",
-        technical_impact: "`<marquee>`-Element ohne Pause-Steuerung oder Element mit animation-iteration-count: infinite über 5 Sekunden pro Zyklus ohne erkennbare Pause-Kontrolle oder prefers-reduced-motion-Unterstützung.",
-        technical_impact_en: "`<marquee>` element without pause control, or an element with animation-iteration-count: infinite exceeding 5 seconds per cycle with no detectable pause control or prefers-reduced-motion support.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 2.0,
@@ -729,13 +554,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.2.3"),
         external_level: Some("AAA"),
         axe_id: Some("no-timing"),
-        title: "Zeitbegrenzung vorhanden (AAA)",
-        title_en: "Timing present (AAA)",
-        description: "Die Seite verwendet essenzielle Zeitbegrenzungen ohne Möglichkeit der Deaktivierung.",
-        user_impact: "Nutzer können Aufgaben nicht in ihrem eigenen Tempo abschließen.",
-        user_impact_en: "Users cannot complete tasks at their own pace.",
-        technical_impact: "Aktive Zeitbegrenzungen auf der Seite.",
-        technical_impact_en: "Active time limits on the page.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -752,13 +570,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.2.4"),
         external_level: Some("AAA"),
         axe_id: Some("no-interruptions"),
-        title: "Nicht unterdrückbare Unterbrechungen (AAA)",
-        title_en: "Non-suppressible interruptions (AAA)",
-        description: "Die Seite zeigt Warnungen oder Popups, die der Nutzer nicht verschieben kann.",
-        user_impact: "Nutzer mit kognitiven Einschränkungen oder Screenreader-Nutzer werden abgelenkt.",
-        user_impact_en: "Users with cognitive impairments or screen reader users are distracted.",
-        technical_impact: "Unerwartete Dialoge oder assertive Live-Regionen.",
-        technical_impact_en: "Unexpected dialogs or assertive live regions.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -775,13 +586,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.2.5"),
         external_level: Some("AAA"),
         axe_id: Some("re-authenticate"),
-        title: "Keine Datenspeicherung bei Reauthentifizierung (AAA)",
-        title_en: "No data preservation on re-authentication (AAA)",
-        description: "Eingegebene Daten gehen verloren, wenn eine Session abläuft und sich der Nutzer neu anmeldet.",
-        user_impact: "Nutzer müssen alle Formulardaten erneut eingeben.",
-        user_impact_en: "Users must re-enter all form data.",
-        technical_impact: "Fehlende Session-Datensicherung.",
-        technical_impact_en: "Missing session data preservation.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -798,13 +602,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.2.6"),
         external_level: Some("AAA"),
         axe_id: Some("timeouts"),
-        title: "Keine Warnung vor Inaktivitäts-Timeout (AAA)",
-        title_en: "No warning before inactivity timeout (AAA)",
-        description: "Der Nutzer wird vor einem Timeout nicht über drohenden Datenverlust gewarnt.",
-        user_impact: "Nutzer verlieren ungespeicherte Daten ohne Vorwarnung.",
-        user_impact_en: "Users lose unsaved data without warning.",
-        technical_impact: "Fehlendes Timeout-Warnsystem.",
-        technical_impact_en: "Missing timeout warning system.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -821,13 +618,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.8"),
         external_level: Some("AAA"),
         axe_id: Some("location"),
-        title: "Fehlende Positionsangabe (AAA)",
-        title_en: "Missing location indication (AAA)",
-        description: "Es gibt keine Orientierungshilfe (wie Breadcrumbs), um den aktuellen Ort in einem Webauftritt anzuzeigen.",
-        user_impact: "Nutzer verlieren die Orientierung auf verschachtelten Webseiten.",
-        user_impact_en: "Users lose orientation within nested websites.",
-        technical_impact: "Fehlende Breadcrumb-Navigation oder Sitemap-Verbindung.",
-        technical_impact_en: "Missing breadcrumb navigation or sitemap linkage.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -844,13 +634,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.9"),
         external_level: Some("AAA"),
         axe_id: Some("link-name-only"),
-        title: "Unklare Linkbeschriftung ohne Kontext (AAA)",
-        title_en: "Unclear link label without context (AAA)",
-        description: "Der Zweck eines Links geht nicht allein aus dem Linktext hervor.",
-        user_impact: "Nutzer müssen den gesamten Absatz lesen, um das Ziel eines Links zu verstehen.",
-        user_impact_en: "Users must read the entire paragraph to understand a link's destination.",
-        technical_impact: "Generischer Linktext wie 'Mehr lesen' oder 'Hier klicken'.",
-        technical_impact_en: "Generic link text such as 'read more' or 'click here'.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -867,13 +650,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.2.5"),
         external_level: Some("AAA"),
         axe_id: None,
-        title: "Neues Fenster ohne Ankündigung (AAA)",
-        title_en: "New window without notice (AAA)",
-        description: "Ein Link öffnet ein neues Fenster oder Tab, ohne es im Linktext anzukündigen.",
-        user_impact: "Nutzer verlieren unerwartet den Kontext; der Zurück-Button führt nicht zurück.",
-        user_impact_en: "Users unexpectedly lose context; the back button does not lead back.",
-        technical_impact: "target=\"_blank\" ohne Hinweis im zugänglichen Namen.",
-        technical_impact_en: "target=\"_blank\" without a notice in the accessible name.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -890,13 +666,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.5.1"),
         external_level: Some("A"),
         axe_id: Some("pointer-gestures"),
-        title: "Fehlende Alternative für Zeigergesten",
-        title_en: "Missing alternative for pointer gestures",
-        description: "Funktionen erfordern komplexe Mehrfinger- oder Pfadgesten ohne einfache Klick-Alternative.",
-        user_impact: "Nutzer mit motorischen Einschränkungen können die Funktionen nicht bedienen.",
-        user_impact_en: "Users with motor impairments cannot operate the functionality.",
-        technical_impact: "Erforderliche Touch-Gesten ohne Klick-Fallback.",
-        technical_impact_en: "Required touch gestures without a click fallback.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -913,13 +682,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.5.2"),
         external_level: Some("A"),
         axe_id: Some("pointer-cancellation"),
-        title: "Auslösung von Aktionen bei Zeigerberührung",
-        title_en: "Action triggered on pointer down",
-        description: "Aktionen werden sofort beim Drücken (down-event) statt beim Loslassen (up-event) ausgeführt.",
-        user_impact: "Nutzer können versehentlich Aktionen auslösen, ohne diese abbrechen zu können.",
-        user_impact_en: "Users may trigger actions accidentally without being able to cancel them.",
-        technical_impact: "Event-Handler reagieren auf mousedown oder touchstart statt click oder mouseup.",
-        technical_impact_en: "Event handlers respond to mousedown or touchstart instead of click or mouseup.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -936,13 +698,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.5.4"),
         external_level: Some("A"),
         axe_id: Some("motion-actuation"),
-        title: "Fehlende Alternative für Bewegungseingabe",
-        title_en: "Missing alternative for motion actuation",
-        description: "Aktionen, die durch Schütteln oder Bewegen des Geräts ausgelöst werden, haben keine klassische Bedienalternative.",
-        user_impact: "Nutzer, die das Gerät nicht bewegen können, sind von den Funktionen ausgeschlossen.",
-        user_impact_en: "Users who cannot move the device are excluded from the functionality.",
-        technical_impact: "Nutzen von Device-Motion-APIs ohne UI-Bedienelemente.",
-        technical_impact_en: "Use of device-motion APIs without UI controls.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -959,13 +714,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.5.5"),
         external_level: Some("AAA"),
         axe_id: Some("target-size"),
-        title: "Unzureichende Klickzielgröße (AAA)",
-        title_en: "Insufficient click target size (AAA)",
-        description: "Bedienelemente haben eine Klickfläche von weniger als 44x44 CSS-Pixeln.",
-        user_impact: "Nutzer mit zittrigen Händen oder auf Mobilgeräten klicken leicht auf falsche Elemente.",
-        user_impact_en: "Users with hand tremors or on mobile devices easily tap the wrong elements.",
-        technical_impact: "Zu kleine Abmessungen von Links, Buttons oder Formularelementen im CSS.",
-        technical_impact_en: "Links, buttons or form controls dimensioned too small in CSS.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -982,13 +730,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.5.8"),
         external_level: Some("AA"),
         axe_id: Some("target-size-minimum"),
-        title: "Unzureichende Klickzielgröße",
-        title_en: "Insufficient click target size",
-        description: "Bedienelemente haben eine Klickfläche von weniger als 24x24 CSS-Pixeln.",
-        user_impact: "Nutzer mit zittrigen Händen oder auf Mobilgeräten klicken leicht auf falsche Elemente.",
-        user_impact_en: "Users with hand tremors or on mobile devices easily tap the wrong elements.",
-        technical_impact: "Zu kleine Abmessungen von Links, Buttons oder Formularelementen im CSS.",
-        technical_impact_en: "Links, buttons or form controls dimensioned too small in CSS.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -996,7 +737,6 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-
     // ── Formulare & Interaktion ───────────────────────────────────────────
     Rule {
         id: "forms/autocomplete-invalid",
@@ -1007,13 +747,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.5"),
         external_level: Some("AA"),
         axe_id: Some("autocomplete-valid"),
-        title: "Fehlende Eingabezweck-Kennzeichnung",
-        title_en: "Missing input purpose identification",
-        description: "Formularfelder ohne autocomplete-Attribut.",
-        user_impact: "Kein Autofill möglich, Eingabe fehleranfälliger.",
-        user_impact_en: "No autofill possible, data entry more error-prone.",
-        technical_impact: "Fehlende autocomplete-Attribute.",
-        technical_impact_en: "Missing autocomplete attributes.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 5.0,
@@ -1030,13 +763,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.5"),
         external_level: Some("AA"),
         axe_id: Some("autocomplete-valid"),
-        title: "Fehlende Eingabezweck-Kennzeichnung",
-        title_en: "Missing input purpose identification",
-        description: "Formularfelder ohne autocomplete-Attribut.",
-        user_impact: "Kein Autofill möglich, Eingabe fehleranfälliger.",
-        user_impact_en: "No autofill possible, data entry more error-prone.",
-        technical_impact: "Fehlende autocomplete-Attribute.",
-        technical_impact_en: "Missing autocomplete attributes.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 5.0,
@@ -1053,13 +779,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.3.2"),
         external_level: Some("A"),
         axe_id: Some("label"),
-        title: "Fehlende Formularbeschriftungen",
-        title_en: "Missing form labels",
-        description: "Formularfelder ohne sichtbare Labels.",
-        user_impact: "Nutzer wissen nicht, welche Eingaben erwartet werden.",
-        user_impact_en: "Users do not know what input is expected.",
-        technical_impact: "Fehlende <label>-Elemente.",
-        technical_impact_en: "Missing <label> elements.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -1076,13 +795,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.3.2"),
         external_level: Some("A"),
         axe_id: Some("label"),
-        title: "Fehlende Formularbeschriftungen",
-        title_en: "Missing form labels",
-        description: "Formularfelder ohne sichtbare Labels.",
-        user_impact: "Nutzer wissen nicht, welche Eingaben erwartet werden.",
-        user_impact_en: "Users do not know what input is expected.",
-        technical_impact: "Fehlende <label>-Elemente.",
-        technical_impact_en: "Missing <label> elements.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -1099,13 +811,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.3.2"),
         external_level: Some("A"),
         axe_id: Some("label"),
-        title: "Fehlende Formularbeschriftungen",
-        title_en: "Missing form labels",
-        description: "Formularfelder ohne sichtbare Labels.",
-        user_impact: "Nutzer wissen nicht, welche Eingaben erwartet werden.",
-        user_impact_en: "Users do not know what input is expected.",
-        technical_impact: "Fehlende <label>-Elemente.",
-        technical_impact_en: "Missing <label> elements.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -1122,13 +827,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.3.2"),
         external_level: Some("A"),
         axe_id: Some("label"),
-        title: "Fehlende Formularbeschriftungen",
-        title_en: "Missing form labels",
-        description: "Formularfelder ohne sichtbare Labels.",
-        user_impact: "Nutzer wissen nicht, welche Eingaben erwartet werden.",
-        user_impact_en: "Users do not know what input is expected.",
-        technical_impact: "Fehlende <label>-Elemente.",
-        technical_impact_en: "Missing <label> elements.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -1145,13 +843,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.3.2"),
         external_level: Some("A"),
         axe_id: Some("label"),
-        title: "Fehlende Formularbeschriftungen",
-        title_en: "Missing form labels",
-        description: "Formularfelder ohne sichtbare Labels.",
-        user_impact: "Nutzer wissen nicht, welche Eingaben erwartet werden.",
-        user_impact_en: "Users do not know what input is expected.",
-        technical_impact: "Fehlende <label>-Elemente.",
-        technical_impact_en: "Missing <label> elements.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -1168,13 +859,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.3.7"),
         external_level: Some("A"),
         axe_id: Some("redundant-entry"),
-        title: "Fehlende Wiederverwendung bereits eingegebener Daten",
-        title_en: "Missing reuse of previously entered data",
-        description: "Formular fragt dieselbe Information (z. B. E-Mail, Name, Adresse) mehrfach ab, ohne Autocomplete, Vorbefüllung oder eine \"wie oben\"-Option anzubieten.",
-        user_impact: "Nutzer müssen bereits eingegebene Daten erneut eintippen, was Zeit kostet und besonders für Menschen mit motorischen oder kognitiven Einschränkungen eine zusätzliche Hürde darstellt.",
-        user_impact_en: "Users must retype data they already entered, which costs time and is an extra burden especially for people with motor or cognitive impairments.",
-        technical_impact: "Formularfelder ohne autocomplete-Attribut, Vorbefüllung oder Wiederverwendungs-Option für bereits erfasste Werte.",
-        technical_impact_en: "Form fields without an autocomplete attribute, prefilled value, or reuse option for already-captured values.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 2.0,
@@ -1191,13 +875,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.3.8"),
         external_level: Some("AA"),
         axe_id: Some("accessible-auth-paste-blocked"),
-        title: "Einfügen in Passwort- oder Code-Feld blockiert",
-        title_en: "Paste blocked in password or code field",
-        description: "Ein Passwort- oder Einmalcode-Feld unterbindet das Einfügen, sodass Zugangsdaten abgetippt oder auswendig eingegeben werden müssen.",
-        user_impact: "Nutzer können weder einen Passwort-Manager noch die Zwischenablage verwenden. Wer sich Passwörter nicht merken oder fehlerfrei abschreiben kann, etwa wegen kognitiver oder motorischer Einschränkungen, scheitert an der Anmeldung.",
-        user_impact_en: "Users can use neither a password manager nor the clipboard. Anyone who cannot memorise passwords or transcribe them accurately, for example because of cognitive or motor impairments, fails to sign in.",
-        technical_impact: "Ein synthetisches paste-Ereignis wird abgebrochen, und der Probetext steht danach nicht im Feld (paste-Handler mit preventDefault() oder return false); gemessen auch in gleich-ursprünglichen Rahmen und offenen Shadow Roots.",
-        technical_impact_en: "A synthetic paste event is cancelled and the probe text is not in the field afterwards (a paste handler calling preventDefault() or returning false); measured in same-origin frames and open shadow roots too.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 8.0,
@@ -1214,13 +891,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.3.8"),
         external_level: Some("AA"),
         axe_id: Some("accessible-auth-captcha"),
-        title: "CAPTCHA im Anmeldeformular prüfen",
-        title_en: "Review CAPTCHA in authentication form",
-        description: "Ein Anmeldeformular enthält ein CAPTCHA. Ob es eine Objekterkennung ist oder eine Alternative ohne kognitiven Test angeboten wird, lässt sich nicht automatisch feststellen.",
-        user_impact: "Text- und Rätsel-CAPTCHAs sperren Menschen mit kognitiven Einschränkungen, Legasthenie oder Sehbehinderung von der Anmeldung aus, wenn es keine Alternative gibt.",
-        user_impact_en: "Text and puzzle CAPTCHAs lock people with cognitive impairments, dyslexia or low vision out of signing in when no alternative is offered.",
-        technical_impact: "Interaktives CAPTCHA-Widget (reCAPTCHA, hCaptcha, Bild-CAPTCHA) in einem Formular mit Passwort- oder Einmalcode-Feld.",
-        technical_impact_en: "Interactive CAPTCHA widget (reCAPTCHA, hCaptcha, image CAPTCHA) in a form with a password or one-time-code field.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 2.0,
@@ -1237,13 +907,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.2.2"),
         external_level: Some("A"),
         axe_id: Some("form-no-submit"),
-        title: "Formular ohne Absende-Button",
-        title_en: "Form without submit button",
-        description: "Formular mit Eingabefeldern hat keinen expliziten Submit-Button.",
-        user_impact: "Tastatur- und Screenreader-Nutzer erkennen den Abschluss der Eingabe schwerer.",
-        user_impact_en: "Keyboard and screen reader users have a harder time completing the form.",
-        technical_impact: "Fehlendes Submit-Control im Formular.",
-        technical_impact_en: "Missing submit control in the form.",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 4.0,
@@ -1260,13 +923,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.3.5"),
         external_level: Some("AAA"),
         axe_id: Some("help"),
-        title: "Fehlende Ausfüllhilfe (AAA)",
-        title_en: "Missing input help (AAA)",
-        description: "Für Eingabefelder gibt es keine kontextsensitive Ausfüllhilfe.",
-        user_impact: "Nutzer wissen nicht, welches Format oder welche Daten in ein Feld eingegeben werden müssen.",
-        user_impact_en: "Users do not know what format or data to enter in a field.",
-        technical_impact: "Fehlendes Formular-Hilfesystem.",
-        technical_impact_en: "Missing form help system.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -1274,7 +930,6 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-
     // ── Sprache & Verständlichkeit ────────────────────────────────────────
     Rule {
         id: "document/lang-missing",
@@ -1290,13 +945,6 @@ pub static RULES: &[Rule] = &[
         // erzeugt weiterhin `iframe_rules`, aber fuer das Dokument *im* iframe
         // -- ein anderer Befund.
         axe_id: Some("document/lang-missing"),
-        title: "Fehlende Sprachangabe",
-        title_en: "Missing language declaration",
-        description: "Kein lang-Attribut im HTML-Tag.",
-        user_impact: "Screenreader liest mit falscher Aussprache vor.",
-        user_impact_en: "Screen readers read aloud with incorrect pronunciation.",
-        technical_impact: "Fehlendes lang-Attribut.",
-        technical_impact_en: "Missing lang attribute.",
         score_impact: ScoreImpact {
             base_penalty: 10.0,
             max_penalty: 12.5,
@@ -1318,13 +966,6 @@ pub static RULES: &[Rule] = &[
         // erzeugt weiterhin `iframe_rules`, aber fuer das Dokument *im* iframe
         // -- ein anderer Befund.
         axe_id: Some("document/lang-missing"),
-        title: "Fehlende Sprachangabe",
-        title_en: "Missing language declaration",
-        description: "Kein lang-Attribut im HTML-Tag.",
-        user_impact: "Screenreader liest mit falscher Aussprache vor.",
-        user_impact_en: "Screen readers read aloud with incorrect pronunciation.",
-        technical_impact: "Fehlendes lang-Attribut.",
-        technical_impact_en: "Missing lang attribute.",
         score_impact: ScoreImpact {
             base_penalty: 10.0,
             max_penalty: 12.5,
@@ -1341,13 +982,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.2.1"),
         external_level: Some("A"),
         axe_id: Some("focus-no-context-change"),
-        title: "Unerwartete Kontextänderung bei Fokus",
-        title_en: "Unexpected context change on focus",
-        description: "Fokuserhalt löst unerwartete Kontextänderung aus.",
-        user_impact: "Verwirrende Seitenänderungen für Tastaturnutzer.",
-        user_impact_en: "Confusing page changes for keyboard users.",
-        technical_impact: "onfocus-Handler lösen Navigation aus.",
-        technical_impact_en: "onfocus handlers trigger navigation.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 8.0,
@@ -1364,13 +998,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.2.1"),
         external_level: Some("A"),
         axe_id: Some("focus-no-context-change"),
-        title: "Unerwartete Kontextänderung bei Fokus",
-        title_en: "Unexpected context change on focus",
-        description: "Fokuserhalt löst unerwartete Kontextänderung aus.",
-        user_impact: "Verwirrende Seitenänderungen für Tastaturnutzer.",
-        user_impact_en: "Confusing page changes for keyboard users.",
-        technical_impact: "onfocus-Handler lösen Navigation aus.",
-        technical_impact_en: "onfocus handlers trigger navigation.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 8.0,
@@ -1387,13 +1014,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.2.2"),
         external_level: Some("A"),
         axe_id: Some("input-no-context-change"),
-        title: "Unerwartete Kontextänderung bei Eingabe",
-        title_en: "Unexpected context change on input",
-        description: "Formularänderung löst unangekündigte Kontextänderung aus.",
-        user_impact: "Verwirrende Änderungen beim Ausfüllen.",
-        user_impact_en: "Confusing changes while filling out forms.",
-        technical_impact: "Auto-submit bei onchange.",
-        technical_impact_en: "Auto-submit on onchange.",
         score_impact: ScoreImpact {
             base_penalty: 2.0,
             max_penalty: 5.0,
@@ -1410,13 +1030,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.1.3"),
         external_level: Some("AAA"),
         axe_id: Some("unusual-words"),
-        title: "Fehlende Erklärung unüblicher Wörter (AAA)",
-        title_en: "Missing explanation of unusual words (AAA)",
-        description: "Für ungewöhnliche Wörter, Jargon oder Redewendungen gibt es keine Definitionen.",
-        user_impact: "Nutzer mit kognitiven Einschränkungen oder Fremdsprachler verstehen den Text nicht.",
-        user_impact_en: "Users with cognitive impairments or non-native speakers do not understand the text.",
-        technical_impact: "Fehlende Glossar-Verlinkung oder Erklärung im Text.",
-        technical_impact_en: "Missing glossary linkage or in-text explanation.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -1433,13 +1046,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.1.2"),
         external_level: Some("AA"),
         axe_id: Some("language/part-unmarked"),
-        title: "Anderssprachiger Textteil ohne lang prüfen",
-        title_en: "Check text in another language without lang",
-        description: "Ein Textabschnitt scheint in einer anderen Sprache als die Seite verfasst, ohne dass ein lang-Attribut das auszeichnet.",
-        user_impact: "Screenreader lesen den Abschnitt mit der Aussprache der Seitensprache vor; er wird schwer verständlich.",
-        user_impact_en: "Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.",
-        technical_impact: "Heuristische Spracherkennung je Textblock; Seiten, die weder Deutsch noch Englisch sind, bleiben ungeprüft.",
-        technical_impact_en: "Heuristic language detection per text block; pages that are neither German nor English stay untested.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 2.0,
@@ -1456,13 +1062,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.1.2"),
         external_level: Some("AA"),
         axe_id: Some("language/part-unmarked"),
-        title: "Anderssprachiger Textteil ohne lang prüfen",
-        title_en: "Check text in another language without lang",
-        description: "Ein Textabschnitt scheint in einer anderen Sprache als die Seite verfasst, ohne dass ein lang-Attribut das auszeichnet.",
-        user_impact: "Screenreader lesen den Abschnitt mit der Aussprache der Seitensprache vor; er wird schwer verständlich.",
-        user_impact_en: "Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.",
-        technical_impact: "Heuristische Spracherkennung je Textblock; Seiten, die weder Deutsch noch Englisch sind, bleiben ungeprüft.",
-        technical_impact_en: "Heuristic language detection per text block; pages that are neither German nor English stay untested.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 2.0,
@@ -1479,13 +1078,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.1.4"),
         external_level: Some("AAA"),
         axe_id: Some("abbreviations"),
-        title: "Fehlende Erklärung von Abkürzungen (AAA)",
-        title_en: "Missing explanation of abbreviations (AAA)",
-        description: "Abkürzungen werden nicht bei ihrer ersten Verwendung oder über ein Mechanismus erklärt.",
-        user_impact: "Nutzer verstehen den Inhalt nicht, wenn sie die Abkürzung nicht kennen.",
-        user_impact_en: "Users do not understand the content if they do not know the abbreviation.",
-        technical_impact: "Fehlendes abbr-Tag mit title-Attribut.",
-        technical_impact_en: "Missing abbr tag with title attribute.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -1493,7 +1085,6 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-
     // ── Visuelle Darstellung / Kontrast ───────────────────────────────────
     Rule {
         id: "contrast/text-insufficient",
@@ -1504,13 +1095,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.3"),
         external_level: Some("AA"),
         axe_id: Some("color-contrast"),
-        title: "Unzureichender Farbkontrast",
-        title_en: "Insufficient color contrast",
-        description: "Text hat nicht genügend Kontrast zum Hintergrund.",
-        user_impact: "Text bei Sehschwäche oder ungünstigen Lichtverhältnissen schwer lesbar.",
-        user_impact_en: "Text is hard to read for people with low vision or under poor lighting conditions.",
-        technical_impact: "Kontrastverhältnis unter 4.5:1 für normalen Text.",
-        technical_impact_en: "Contrast ratio below 4.5:1 for normal text.",
         score_impact: ScoreImpact {
             base_penalty: 5.0,
             max_penalty: 12.0,
@@ -1527,13 +1111,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.3"),
         external_level: Some("AA"),
         axe_id: Some("color-contrast"),
-        title: "Unzureichender Farbkontrast",
-        title_en: "Insufficient color contrast",
-        description: "Text hat nicht genügend Kontrast zum Hintergrund.",
-        user_impact: "Text bei Sehschwäche oder ungünstigen Lichtverhältnissen schwer lesbar.",
-        user_impact_en: "Text is hard to read for people with low vision or under poor lighting conditions.",
-        technical_impact: "Kontrastverhältnis unter 4.5:1 für normalen Text.",
-        technical_impact_en: "Contrast ratio below 4.5:1 for normal text.",
         score_impact: ScoreImpact {
             base_penalty: 5.0,
             max_penalty: 12.0,
@@ -1550,13 +1127,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.6"),
         external_level: Some("AAA"),
         axe_id: Some("color-contrast-enhanced"),
-        title: "Erhöhter Farbkontrast nicht erreicht (AAA)",
-        title_en: "Enhanced color contrast not met (AAA)",
-        description: "Text erreicht den Mindestkontrast, aber nicht den erhöhten Kontrast von 7:1.",
-        user_impact: "Für Menschen mit deutlich eingeschränktem Sehvermögen bleibt der Text schwer lesbar.",
-        user_impact_en: "Text remains hard to read for people with substantially reduced vision.",
-        technical_impact: "Kontrastverhältnis unter 7:1 für normalen Text bzw. 4,5:1 für großen Text.",
-        technical_impact_en: "Contrast ratio below 7:1 for normal text or 4.5:1 for large text.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -1573,13 +1143,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.4"),
         external_level: Some("AA"),
         axe_id: Some("meta-viewport"),
-        title: "Text nicht ausreichend skalierbar",
-        title_en: "Text not sufficiently resizable",
-        description: "Texte können nicht auf 200% vergrößert werden.",
-        user_impact: "Nutzer mit Sehschwäche verlieren Inhalte bei Vergrößerung.",
-        user_impact_en: "Users with low vision lose content when zooming in.",
-        technical_impact: "Feste Pixelwerte, overflow:hidden.",
-        technical_impact_en: "Fixed pixel values, overflow:hidden.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -1596,13 +1159,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.4"),
         external_level: Some("AA"),
         axe_id: Some("zoom/viewport-missing"),
-        title: "Fehlende Viewport-Angabe",
-        title_en: "Missing viewport declaration",
-        description: "Das Dokument hat kein viewport-Meta-Tag. Mobile Browser legen dann eine Desktop-Breite zugrunde und verkleinern die Seite.",
-        user_impact: "Auf Mobilgeräten erscheint der Text unter jeder lesbaren Größe; wer vergrößert, muss waagerecht scrollen. Am Desktop ändert sich nichts.",
-        user_impact_en: "On mobile devices the text appears below any readable size; zooming in forces horizontal scrolling. Desktop browsers are not affected.",
-        technical_impact: "Kein <meta name=\"viewport\"> im Dokument.",
-        technical_impact_en: "No <meta name=\"viewport\"> in the document.",
         // Geringeres Gewicht (#702): Desktop-Browser ignorieren das Tag, Zoomen
         // per Geste bleibt moeglich; die Folge trifft nur Mobilgeraete (Seite
         // in Desktop-Breite, verkleinert, beim Vergroessern waagerechtes
@@ -1623,13 +1179,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.10"),
         external_level: Some("AA"),
         axe_id: Some("css-overflow-hidden"),
-        title: "Kein Reflow bei 320 CSS-Pixeln",
-        title_en: "No reflow at 320 CSS pixels",
-        description: "Seite erfordert horizontales Scrollen bei einer Ansichtsbreite von 320 CSS-Pixeln.",
-        user_impact: "Nutzer, die auf 400 % zoomen, müssen in zwei Richtungen scrollen — Inhalte werden unzugänglich.",
-        user_impact_en: "Users zooming to 400% must scroll in two directions — content becomes inaccessible.",
-        technical_impact: "Feste Breiten oder overflow:hidden verhindern responsives Reflow.",
-        technical_impact_en: "Fixed widths or overflow:hidden prevent responsive reflow.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 10.0,
@@ -1646,13 +1195,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.11"),
         external_level: Some("AA"),
         axe_id: Some("non-text-contrast"),
-        title: "Unzureichender Kontrast bei UI-Elementen",
-        title_en: "Insufficient contrast for UI elements",
-        description: "Bedienelemente haben nicht genügend Kontrast.",
-        user_impact: "Interaktive Elemente schwer erkennbar.",
-        user_impact_en: "Interactive elements are hard to recognize.",
-        technical_impact: "Kontrastverhältnis UI-Elemente unter 3:1.",
-        technical_impact_en: "Contrast ratio of UI elements below 3:1.",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 5.0,
@@ -1669,13 +1211,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.11"),
         external_level: Some("AA"),
         axe_id: Some("non-text-contrast"),
-        title: "Unzureichender Kontrast bei UI-Elementen",
-        title_en: "Insufficient contrast for UI elements",
-        description: "Bedienelemente haben nicht genügend Kontrast.",
-        user_impact: "Interaktive Elemente schwer erkennbar.",
-        user_impact_en: "Interactive elements are hard to recognize.",
-        technical_impact: "Kontrastverhältnis UI-Elemente unter 3:1.",
-        technical_impact_en: "Contrast ratio of UI elements below 3:1.",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 5.0,
@@ -1692,13 +1227,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.12"),
         external_level: Some("AA"),
         axe_id: Some("text-spacing"),
-        title: "Inhalt bei erhöhtem Zeilen-/Wortabstand abgeschnitten",
-        title_en: "Content clipped when text spacing is increased",
-        description: "Ein Container mit overflow:hidden schneidet Text ab, sobald WCAG-Mindestabstände für Zeilenhöhe, Buchstaben- und Wortabstand angewendet werden.",
-        user_impact: "Nutzer, die Zeilen-/Wortabstand für bessere Lesbarkeit anpassen, verlieren Inhalte.",
-        user_impact_en: "Users who increase line/letter/word spacing for readability lose content.",
-        technical_impact: "Fixe Höhe/Breite mit overflow:hidden auf Textcontainern; gemessen vor und nach dem Überschreiben des Textabstands, nur neu abgeschnittener Text zählt.",
-        technical_impact_en: "Fixed height/width with overflow:hidden on text containers; measured before and after overriding the text spacing, only newly clipped text counts.",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 5.0,
@@ -1715,13 +1243,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.1"),
         external_level: Some("A"),
         axe_id: Some("link-in-text-block"),
-        title: "Link nur durch Farbe unterscheidbar",
-        title_en: "Link distinguishable by color only",
-        description: "Inline-Link hebt sich vom Fließtext nur durch Farbe ab, ohne weitere visuelle Unterscheidung.",
-        user_impact: "Nutzer mit Farbsehschwäche können Links im Text nicht erkennen.",
-        user_impact_en: "Users with color vision deficiency cannot recognize in-text links.",
-        technical_impact: "Kein Unterstrich, Fettschrift oder anderes nicht-farbliches Merkmal vorhanden.",
-        technical_impact_en: "No underline, bold weight or other non-color cue present.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 8.0,
@@ -1738,13 +1259,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.3.3"),
         external_level: Some("AAA"),
         axe_id: Some("prefers-reduced-motion"),
-        title: "Animationen ohne prefers-reduced-motion",
-        title_en: "Animations without prefers-reduced-motion",
-        description: "Seite definiert Animationen oder Übergänge, berücksichtigt aber nicht das Systemsetting prefers-reduced-motion.",
-        user_impact: "Nutzer mit vestibulären Störungen oder Photosensitivität können Bewegung nicht deaktivieren.",
-        user_impact_en: "Users with vestibular disorders or photosensitivity cannot disable motion.",
-        technical_impact: "Kein @media (prefers-reduced-motion) in den Stylesheets.",
-        technical_impact_en: "No @media (prefers-reduced-motion) in the stylesheets.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 4.0,
@@ -1761,13 +1275,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.13"),
         external_level: Some("AA"),
         axe_id: Some("content-on-hover-focus"),
-        title: "Unzugängliche Hover- oder Fokus-Inhalte (Tooltips)",
-        title_en: "Inaccessible hover or focus content (tooltips)",
-        description: "Zusatzinhalte bei Hover/Fokus (Tooltips) sind unzugänglich, nicht steuerbar oder unvollständig verknüpft.",
-        user_impact: "Nutzer können Tooltip-Inhalte nicht lesen, diese nicht per Tastatur schließen, oder sie werden von Screenreadern ignoriert.",
-        user_impact_en: "Users cannot read tooltip content, cannot dismiss it via keyboard, or it is ignored by screen readers.",
-        technical_impact: "Unvollständige ARIA-Verknüpfung (aria-describedby) oder fehlende Steuerungsmöglichkeiten.",
-        technical_impact_en: "Incomplete ARIA linkage (aria-describedby) or missing controls.",
         score_impact: ScoreImpact {
             base_penalty: 2.0,
             max_penalty: 6.0,
@@ -1784,13 +1291,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.2"),
         external_level: Some("A"),
         axe_id: Some("media/audio-autoplay"),
-        title: "Selbststartender Ton ohne Steuerung prüfen",
-        title_en: "Check autoplaying audio for a control",
-        description: "Ein <audio>-Element startet automatisch und ist nicht stummgeschaltet.",
-        user_impact: "Ton, der von selbst startet, übertönt die Sprachausgabe von Screenreadern.",
-        user_impact_en: "Audio that starts on its own drowns out screen reader speech.",
-        technical_impact: "<audio autoplay> ohne muted; ob der Ton länger als drei Sekunden läuft und sich anhalten lässt, steht nicht im Markup.",
-        technical_impact_en: "<audio autoplay> without muted; whether it plays longer than three seconds and can be paused is not in the markup.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -1807,13 +1307,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.8"),
         external_level: Some("AAA"),
         axe_id: Some("visual-presentation"),
-        title: "Eingeschränkte visuelle Darstellung von Text (AAA)",
-        title_en: "Limited visual presentation of text (AAA)",
-        description: "Der Text hat unzureichenden Zeilenabstand oder ist im Blocksatz formatiert.",
-        user_impact: "Nutzer mit Sehbehinderungen oder Legasthenie haben Probleme beim Lesen.",
-        user_impact_en: "Users with visual impairments or dyslexia have difficulty reading.",
-        technical_impact: "Unzureichendes CSS-Styling für Zeilenabstand oder Blocksatz-Formatierung.",
-        technical_impact_en: "Insufficient CSS styling for line spacing or justified-text formatting.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -1830,13 +1323,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.8"),
         external_level: Some("AAA"),
         axe_id: Some("visual-presentation"),
-        title: "Eingeschränkte visuelle Darstellung von Text (AAA)",
-        title_en: "Limited visual presentation of text (AAA)",
-        description: "Der Text hat unzureichenden Zeilenabstand oder ist im Blocksatz formatiert.",
-        user_impact: "Nutzer mit Sehbehinderungen oder Legasthenie haben Probleme beim Lesen.",
-        user_impact_en: "Users with visual impairments or dyslexia have difficulty reading.",
-        technical_impact: "Unzureichendes CSS-Styling für Zeilenabstand oder Blocksatz-Formatierung.",
-        technical_impact_en: "Insufficient CSS styling for line spacing or justified-text formatting.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -1853,13 +1339,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.8"),
         external_level: Some("AAA"),
         axe_id: Some("visual-presentation"),
-        title: "Eingeschränkte visuelle Darstellung von Text (AAA)",
-        title_en: "Limited visual presentation of text (AAA)",
-        description: "Der Text hat unzureichenden Zeilenabstand oder ist im Blocksatz formatiert.",
-        user_impact: "Nutzer mit Sehbehinderungen oder Legasthenie haben Probleme beim Lesen.",
-        user_impact_en: "Users with visual impairments or dyslexia have difficulty reading.",
-        technical_impact: "Unzureichendes CSS-Styling für Zeilenabstand oder Blocksatz-Formatierung.",
-        technical_impact_en: "Insufficient CSS styling for line spacing or justified-text formatting.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -1867,7 +1346,6 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-
     // ── Technische Robustheit ─────────────────────────────────────────────
     Rule {
         id: "keyboard/hidden-focusable",
@@ -1878,13 +1356,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("aria-hidden-focus"),
-        title: "Fokussierbares Element versteckt vor Screenreadern",
-        title_en: "Focusable element hidden from screen readers",
-        description: "Interaktives Element ist über aria-hidden=\"true\" vor AT versteckt, aber per Tastatur erreichbar.",
-        user_impact: "Tastaturnutzer erreichen Elemente, die Screenreader nicht ankündigen — unsichtbare Stolperfallen.",
-        user_impact_en: "Keyboard users reach elements that screen readers do not announce — invisible traps.",
-        technical_impact: "aria-hidden=\"true\" auf fokussierbarem Element oder seinem Vorfahren.",
-        technical_impact_en: "aria-hidden=\"true\" on a focusable element or its ancestor.",
         score_impact: ScoreImpact {
             base_penalty: 6.0,
             max_penalty: 15.0,
@@ -1901,13 +1372,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.3"),
         external_level: Some("AA"),
         axe_id: Some("aria-live-region-role"),
-        title: "Statusmeldungen nicht programmatisch bestimmbar",
-        title_en: "Status messages not programmatically determinable",
-        description: "ARIA-Live-Regionen haben eine inkonsistente Kombination aus role und aria-live.",
-        user_impact: "Screenreader kündigt Statusmeldungen nicht korrekt an.",
-        user_impact_en: "Screen readers do not announce status messages correctly.",
-        technical_impact: "Konflikt zwischen role (alert/status/log/timer) und aria-live-Wert.",
-        technical_impact_en: "Conflict between role (alert/status/log/timer) and aria-live value.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 8.0,
@@ -1924,15 +1388,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("aria-required-attr"),
-        title: "Pflicht-ARIA-Attribut fehlt",
-        title_en: "Required ARIA attribute missing",
-        description:
-            "Ein Element mit ARIA-Rolle besitzt nicht alle fuer diese Rolle erforderlichen Attribute.",
-        user_impact: "Assistive Technologien koennen Zustand oder Wert des Elements nicht verlaesslich vermitteln.",
-        user_impact_en:
-            "Assistive technologies cannot reliably expose the element state or value.",
-        technical_impact: "Rolle und ARIA-Attributsatz sind unvollstaendig.",
-        technical_impact_en: "Role and ARIA attribute set are incomplete.",
         score_impact: ScoreImpact {
             base_penalty: 6.0,
             max_penalty: 15.0,
@@ -1949,14 +1404,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("aria-required-parent"),
-        title: "Element außerhalb des erforderlichen Eltern-Kontexts",
-        title_en: "Element outside its required parent context",
-        description: "Ein Element mit einer ARIA-Rolle, die einen bestimmten Eltern-Kontext voraussetzt (z. B. tab, option, gridcell), hat keinen passenden Vorfahren mit dieser Rolle.",
-        user_impact: "Assistive Technologien können die Beziehung des Elements zu seiner Gruppe (z. B. Tab zu Tableiste) nicht vermitteln.",
-        user_impact_en:
-            "Assistive technologies cannot convey the element's relationship to its group (e.g. a tab to its tab list).",
-        technical_impact: "Fehlender struktureller Eltern-Kontext für die verwendete ARIA-Rolle.",
-        technical_impact_en: "Missing structural parent context for the ARIA role in use.",
         score_impact: ScoreImpact {
             base_penalty: 6.0,
             max_penalty: 15.0,
@@ -1973,13 +1420,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("modern-attribute-misuse"),
-        title: "Ungültige moderne Interaktionsattribute",
-        title_en: "Invalid modern interaction attributes",
-        description: "popover-, inert- oder Dialog-Attribute erzeugen eine nicht programmatisch bestimmbare Interaktion.",
-        user_impact: "Screenreader- und Tastaturnutzer erreichen Dialoge, Popover oder gesperrte Bereiche nicht zuverlässig.",
-        user_impact_en: "Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.",
-        technical_impact: "Defekte popovertarget-Bezüge, unbenannte Oberflächen oder aktiver Fokus innerhalb inert markierter Bereiche.",
-        technical_impact_en: "Broken popovertarget references, unnamed surfaces, or active focus inside inert regions.",
         score_impact: ScoreImpact {
             base_penalty: 4.0,
             max_penalty: 10.0,
@@ -1996,13 +1436,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("modern-attribute-misuse"),
-        title: "Ungültige moderne Interaktionsattribute",
-        title_en: "Invalid modern interaction attributes",
-        description: "popover-, inert- oder Dialog-Attribute erzeugen eine nicht programmatisch bestimmbare Interaktion.",
-        user_impact: "Screenreader- und Tastaturnutzer erreichen Dialoge, Popover oder gesperrte Bereiche nicht zuverlässig.",
-        user_impact_en: "Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.",
-        technical_impact: "Defekte popovertarget-Bezüge, unbenannte Oberflächen oder aktiver Fokus innerhalb inert markierter Bereiche.",
-        technical_impact_en: "Broken popovertarget references, unnamed surfaces, or active focus inside inert regions.",
         score_impact: ScoreImpact {
             base_penalty: 4.0,
             max_penalty: 10.0,
@@ -2019,13 +1452,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("modern-attribute-misuse"),
-        title: "Ungültige moderne Interaktionsattribute",
-        title_en: "Invalid modern interaction attributes",
-        description: "popover-, inert- oder Dialog-Attribute erzeugen eine nicht programmatisch bestimmbare Interaktion.",
-        user_impact: "Screenreader- und Tastaturnutzer erreichen Dialoge, Popover oder gesperrte Bereiche nicht zuverlässig.",
-        user_impact_en: "Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.",
-        technical_impact: "Defekte popovertarget-Bezüge, unbenannte Oberflächen oder aktiver Fokus innerhalb inert markierter Bereiche.",
-        technical_impact_en: "Broken popovertarget references, unnamed surfaces, or active focus inside inert regions.",
         score_impact: ScoreImpact {
             base_penalty: 4.0,
             max_penalty: 10.0,
@@ -2042,13 +1468,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("modern-attribute-misuse"),
-        title: "Ungültige moderne Interaktionsattribute",
-        title_en: "Invalid modern interaction attributes",
-        description: "popover-, inert- oder Dialog-Attribute erzeugen eine nicht programmatisch bestimmbare Interaktion.",
-        user_impact: "Screenreader- und Tastaturnutzer erreichen Dialoge, Popover oder gesperrte Bereiche nicht zuverlässig.",
-        user_impact_en: "Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.",
-        technical_impact: "Defekte popovertarget-Bezüge, unbenannte Oberflächen oder aktiver Fokus innerhalb inert markierter Bereiche.",
-        technical_impact_en: "Broken popovertarget references, unnamed surfaces, or active focus inside inert regions.",
         score_impact: ScoreImpact {
             base_penalty: 4.0,
             max_penalty: 10.0,
@@ -2065,13 +1484,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("aria-prohibited-attr"),
-        title: "Verbotene ARIA-Attribute",
-        title_en: "Prohibited ARIA attributes",
-        description: "ARIA-Attribute werden auf einer Rolle verwendet, die sie nicht erlaubt.",
-        user_impact: "Screenreader erhalten widersprüchliche oder ungültige Semantik.",
-        user_impact_en: "Screen readers receive contradictory or invalid semantics.",
-        technical_impact: "ARIA-Attribute passen nicht zur impliziten oder expliziten Rolle.",
-        technical_impact_en: "ARIA attributes do not match the implicit or explicit role.",
         score_impact: ScoreImpact {
             base_penalty: 4.0,
             max_penalty: 10.0,
@@ -2088,13 +1500,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("aria-allowed-attr"),
-        title: "ARIA-Attribut für diese Rolle nicht zulässig",
-        title_en: "ARIA attribute not allowed for this role",
-        description: "Ein ARIA-Attribut wird auf einer Rolle verwendet, für die es laut ARIA-Spezifikation nicht vorgesehen ist.",
-        user_impact: "Assistive Technologien ignorieren das Attribut oder interpretieren es falsch.",
-        user_impact_en: "Assistive technologies ignore the attribute or interpret it incorrectly.",
-        technical_impact: "Attribut-Rollen-Kombination entspricht nicht der ARIA-Spezifikation.",
-        technical_impact_en: "The attribute/role combination does not match the ARIA specification.",
         score_impact: ScoreImpact {
             base_penalty: 4.0,
             max_penalty: 10.0,
@@ -2111,13 +1516,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("aria-valid-attr-value"),
-        title: "Ungültiger Wert eines ARIA-Attributs",
-        title_en: "Invalid ARIA attribute value",
-        description: "Ein ARIA-Attribut enthält einen Wert, der für seinen Typ nicht zulässig ist (z. B. ein Boolean-Attribut ohne \"true\"/\"false\", oder ein ID-Verweis auf ein nicht existierendes Element).",
-        user_impact: "Assistive Technologien können Zustand oder Beziehung des Elements nicht korrekt vermitteln.",
-        user_impact_en: "Assistive technologies cannot correctly convey the element's state or relationship.",
-        technical_impact: "Attributwert entspricht nicht dem in der ARIA-Spezifikation definierten Werttyp.",
-        technical_impact_en: "Attribute value does not match the value type defined in the ARIA specification.",
         score_impact: ScoreImpact {
             base_penalty: 4.0,
             max_penalty: 10.0,
@@ -2134,13 +1532,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("aria-valid-attr"),
-        title: "Leerer Verweis in ARIA-Beziehungsattribut",
-        title_en: "Empty reference in an ARIA relationship attribute",
-        description: "Ein Beziehungsattribut wie aria-controls, aria-owns oder aria-activedescendant ist vorhanden, verweist aber auf keinen Wert.",
-        user_impact: "Assistive Technologien können die beabsichtigte Beziehung zwischen den Elementen nicht auflösen.",
-        user_impact_en: "Assistive technologies cannot resolve the intended relationship between the elements.",
-        technical_impact: "Beziehungsattribut ohne gültige ID-Referenz.",
-        technical_impact_en: "Relationship attribute without a valid ID reference.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 8.0,
@@ -2157,13 +1548,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("aria-roles"),
-        title: "Ungültige ARIA-Rolle",
-        title_en: "Invalid ARIA role",
-        description: "Ein role-Attribut enthält einen Wert, der keine gültige ARIA-Rolle ist.",
-        user_impact: "Assistive Technologien können die Funktion des Elements nicht bestimmen.",
-        user_impact_en: "Assistive technologies cannot determine the element's function.",
-        technical_impact: "Rollenwert ist in der ARIA-Spezifikation nicht definiert.",
-        technical_impact_en: "Role value is not defined in the ARIA specification.",
         score_impact: ScoreImpact {
             base_penalty: 4.0,
             max_penalty: 10.0,
@@ -2180,13 +1564,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("aria-roles"),
-        title: "Ungültige ARIA-Rolle",
-        title_en: "Invalid ARIA role",
-        description: "Ein role-Attribut enthält einen Wert, der keine gültige ARIA-Rolle ist.",
-        user_impact: "Assistive Technologien können die Funktion des Elements nicht bestimmen.",
-        user_impact_en: "Assistive technologies cannot determine the element's function.",
-        technical_impact: "Rollenwert ist in der ARIA-Spezifikation nicht definiert.",
-        technical_impact_en: "Role value is not defined in the ARIA specification.",
         score_impact: ScoreImpact {
             base_penalty: 4.0,
             max_penalty: 10.0,
@@ -2203,13 +1580,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("aria-attr-name-invalid"),
-        title: "Ungültiger ARIA-Attributname",
-        title_en: "Invalid ARIA attribute name",
-        description: "Ein Attribut beginnt mit \"aria-\", ist aber kein in der ARIA-Spezifikation definiertes Attribut (z. B. Tippfehler).",
-        user_impact: "Assistive Technologien ignorieren das Attribut vollständig.",
-        user_impact_en: "Assistive technologies ignore the attribute entirely.",
-        technical_impact: "Attributname existiert nicht in der ARIA-Spezifikation.",
-        technical_impact_en: "Attribute name does not exist in the ARIA specification.",
         score_impact: ScoreImpact {
             base_penalty: 4.0,
             max_penalty: 10.0,
@@ -2226,13 +1596,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.1.1"),
         external_level: Some("A"),
         axe_id: Some("html-xml-lang-mismatch"),
-        title: "Widersprüchliche Sprachangaben",
-        title_en: "Conflicting language declarations",
-        description: "Die Attribute lang und xml:lang geben unterschiedliche Primärsprachen an.",
-        user_impact: "Assistive Technologien erhalten widersprüchliche Angaben zur Sprache des Inhalts.",
-        user_impact_en: "Assistive technologies receive conflicting information about the content's language.",
-        technical_impact: "lang und xml:lang stimmen im Primary-Subtag nicht überein.",
-        technical_impact_en: "lang and xml:lang do not agree on the primary subtag.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 8.0,
@@ -2249,13 +1612,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("td-headers-attr"),
-        title: "Ungültiger Headers-Verweis in Tabellenzelle",
-        title_en: "Invalid headers reference in a table cell",
-        description: "Eine Tabellenzelle referenziert über das headers-Attribut eine leere oder nicht existierende Header-ID.",
-        user_impact: "Screenreader können der Zelle keine oder eine falsche Spalten-/Zeilenüberschrift zuordnen.",
-        user_impact_en: "Screen readers cannot associate the cell with its correct column/row header, or none at all.",
-        technical_impact: "headers-Attribut verweist nicht auf eine gültige th-Zelle derselben Tabelle.",
-        technical_impact_en: "headers attribute does not reference a valid th cell in the same table.",
         score_impact: ScoreImpact {
             base_penalty: 4.0,
             max_penalty: 10.0,
@@ -2272,13 +1628,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("th-has-data-cells"),
-        title: "Tabellenüberschrift ohne zugehörige Datenzellen",
-        title_en: "Table header without associated data cells",
-        description: "Eine Tabellenüberschrift (th) hat keine zugehörigen Datenzellen in derselben Tabelle.",
-        user_impact: "Screenreader kündigen eine Überschrift an, die keine Daten strukturiert.",
-        user_impact_en: "Screen readers announce a header that structures no data.",
-        technical_impact: "Header-Zelle ohne zugeordnete Datenzellen in der Tabelle.",
-        technical_impact_en: "Header cell with no associated data cells in the table.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 8.0,
@@ -2295,13 +1644,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("th-has-data-cells"),
-        title: "Tabellenüberschrift ohne zugehörige Datenzellen",
-        title_en: "Table header without associated data cells",
-        description: "Eine Tabellenüberschrift (th) hat keine zugehörigen Datenzellen in derselben Tabelle.",
-        user_impact: "Screenreader kündigen eine Überschrift an, die keine Daten strukturiert.",
-        user_impact_en: "Screen readers announce a header that structures no data.",
-        technical_impact: "Header-Zelle ohne zugeordnete Datenzellen in der Tabelle.",
-        technical_impact_en: "Header cell with no associated data cells in the table.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 8.0,
@@ -2318,13 +1660,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("aria-tablist-tabpanel"),
-        title: "Tableiste ohne zugehöriges Tab-Panel",
-        title_en: "Tab list without an associated tab panel",
-        description: "Ein Element mit role=tablist hat kein zugehöriges Element mit role=tabpanel im Baum.",
-        user_impact: "Screenreader-Nutzer können nach Aktivieren eines Tabs den zugehörigen Inhalt nicht auffinden.",
-        user_impact_en: "Screen reader users cannot locate the content associated with a tab after activating it.",
-        technical_impact: "tablist ohne begleitendes tabpanel-Element.",
-        technical_impact_en: "tablist without an accompanying tabpanel element.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 8.0,
@@ -2341,13 +1676,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("aria/tab-selected-missing"),
-        title: "Kein Tab als ausgewählt ausgezeichnet",
-        title_en: "No tab marked as selected",
-        description: "Keiner der Tabs einer Tableiste trägt aria-selected=\"true\".",
-        user_impact: "Screenreader-Nutzer erfahren nicht, welcher Tab aktiv ist und zu welchem der sichtbare Inhalt gehört.",
-        user_impact_en: "Screen reader users are not told which tab is active and which one the visible content belongs to.",
-        technical_impact: "tablist ohne tab mit aria-selected=\"true\".",
-        technical_impact_en: "tablist without a tab carrying aria-selected=\"true\".",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 4.0,
@@ -2364,13 +1692,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("patterns/accordion-controls-missing"),
-        title: "Aufgeklappter Button ohne Verweis auf seinen Bereich",
-        title_en: "Expanded button without a reference to its region",
-        description: "Ein aufgeklappter Button (aria-expanded=\"true\") verweist nicht per aria-controls auf den Bereich, den er steuert.",
-        user_impact: "Screenreader-Nutzer erfahren nicht, welcher Bereich aufgeklappt wurde.",
-        user_impact_en: "Screen reader users are not told which region was expanded.",
-        technical_impact: "aria-expanded=\"true\" ohne aria-controls; WAI-ARIA verlangt es nicht, die APG nennt es beim Disclosure-Muster optional.",
-        technical_impact_en: "aria-expanded=\"true\" without aria-controls; WAI-ARIA does not require it, the APG lists it as optional for the disclosure pattern.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 4.0,
@@ -2387,13 +1708,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("dialog/modal-unmarked"),
-        title: "Dialog nicht als modal ausgezeichnet",
-        title_en: "Dialog not marked as modal",
-        description: "Ein Element mit role=\"dialog\" trägt kein aria-modal=\"true\".",
-        user_impact: "Ist der Dialog modal gemeint, lesen Screenreader den Inhalt dahinter weiter, als wäre er erreichbar.",
-        user_impact_en: "If the dialog is meant to be modal, screen readers keep reading the content behind it as if it were reachable.",
-        technical_impact: "role=\"dialog\" ohne aria-modal=\"true\"; ob der Dialog modal gemeint ist, zeigt erst sein Verhalten.",
-        technical_impact_en: "role=\"dialog\" without aria-modal=\"true\"; whether the dialog is meant to be modal only shows in its behavior.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 4.0,
@@ -2410,13 +1724,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("aria-combobox-options"),
-        title: "Combobox ohne Optionsliste",
-        title_en: "Combobox without an options list",
-        description: "Ein Element mit role=combobox hat keine zugehörige listbox oder option im Baum.",
-        user_impact: "Screenreader-Nutzer erfahren nicht, welche Auswahlmöglichkeiten die Combobox bietet.",
-        user_impact_en: "Screen reader users cannot tell what choices the combobox offers.",
-        technical_impact: "combobox ohne verknüpfte listbox/option-Elemente.",
-        technical_impact_en: "combobox without associated listbox/option elements.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 8.0,
@@ -2433,13 +1740,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.1"),
         external_level: Some("A"),
         axe_id: Some("frame-title"),
-        title: "Iframe ohne zugänglichen Namen",
-        title_en: "Iframe without accessible name",
-        description: "Iframe oder Frame hat keinen title, aria-label oder aria-labelledby.",
-        user_impact: "Screenreader-Nutzer erkennen Zweck und Inhalt des eingebetteten Frames nicht.",
-        user_impact_en: "Screen reader users cannot identify the purpose and content of the embedded frame.",
-        technical_impact: "Fehlender zugänglicher Name auf iframe/frame.",
-        technical_impact_en: "Missing accessible name on iframe/frame.",
         score_impact: ScoreImpact {
             base_penalty: 4.0,
             max_penalty: 10.0,
@@ -2456,13 +1756,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("frame-tested"),
-        title: "Cross-origin Iframe: manuell prüfen",
-        title_en: "Cross-origin iframe: review manually",
-        description: "Cross-origin iframes können nicht automatisch auf Barrierefreiheit geprüft werden.",
-        user_impact: "Eingebettete Inhalte (Karten, Videos, Consent-Widgets) sind möglicherweise für Screenreader-Nutzer unzugänglich.",
-        user_impact_en: "Embedded content (maps, videos, consent widgets) may be inaccessible to screen reader users.",
-        technical_impact: "Iframe-Inhalt ist über CDP nicht erreichbar — automatische Regelprüfung nicht möglich.",
-        technical_impact_en: "Iframe content is unreachable via CDP — automatic rule checking is not possible.",
         score_impact: ScoreImpact {
             base_penalty: 0.0,
             max_penalty: 0.0,
@@ -2488,13 +1781,6 @@ pub static RULES: &[Rule] = &[
         // `duplicate-id-aria` (widerspruechliche `aria-owns`) bleibt eine
         // eigene Regel und haengt an `a11y.duplicate_id_aria.invalid`.
         axe_id: Some("ids/duplicate"),
-        title: "Mehrfach vergebene ID wird referenziert",
-        title_en: "Referenced ID is assigned more than once",
-        description: "Ein Element verweist per IDREF (z. B. label for, headers, aria-labelledby) auf eine ID, die im Dokument mehrfach vorkommt.",
-        user_impact: "Assistierende Technik kann die Beziehung nicht eindeutig auflösen und gibt Name oder Beschreibung des falschen Elements aus.",
-        user_impact_en: "Assistive technology cannot resolve the relationship unambiguously and announces the name or description of the wrong element.",
-        technical_impact: "Dieselbe ID kommt im DOM mehrfach vor und wird von einem for-, headers- oder aria-Attribut referenziert.",
-        technical_impact_en: "The same ID occurs more than once in the DOM and is referenced by a for, headers or aria attribute.",
         score_impact: ScoreImpact {
             base_penalty: 5.0,
             max_penalty: 15.0,
@@ -2511,13 +1797,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.1.1"),
         external_level: Some("A"),
         axe_id: Some("server-side-image-map"),
-        title: "Server-seitige Image-Map verwendet",
-        title_en: "Server-side image map used",
-        description: "Ein Bild nutzt eine server-seitige Image-Map (ismap-Attribut) statt einer client-seitigen Variante.",
-        user_impact: "Tastatur- und Screenreader-Nutzer können die einzelnen Bildbereiche nicht ansteuern.",
-        user_impact_en: "Keyboard and screen reader users cannot target the individual image regions.",
-        technical_impact: "ismap-Attribut auf einem Bild ohne äquivalente clientseitige Alternative.",
-        technical_impact_en: "ismap attribute on an image without an equivalent client-side alternative.",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 4.0,
@@ -2534,13 +1813,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.1.1"),
         external_level: Some("A"),
         axe_id: Some("svg-img-alt"),
-        title: "Fehlender Alternativtext bei SVG-Grafiken",
-        title_en: "Missing alternative text on SVG graphics",
-        description: "Eine SVG-Grafik mit informativem Inhalt hat keinen Alternativtext (title, aria-label).",
-        user_impact: "Screenreader-Nutzer erhalten keine Information über den Inhalt der Grafik.",
-        user_impact_en: "Screen reader users receive no information about the graphic's content.",
-        technical_impact: "SVG ohne <title>-Kindelement, aria-label oder aria-labelledby.",
-        technical_impact_en: "SVG without a <title> child element, aria-label, or aria-labelledby.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -2557,13 +1829,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.1.1"),
         external_level: Some("A"),
         axe_id: Some("area-alt"),
-        title: "Fehlender Alternativtext bei Image-Map-Bereichen",
-        title_en: "Missing alternative text on image map areas",
-        description: "Ein aktiver <area>-Bereich einer Image-Map hat keinen Alternativtext.",
-        user_impact: "Screenreader-Nutzer erfahren nicht, wohin ein anklickbarer Bildbereich führt.",
-        user_impact_en: "Screen reader users are not told where a clickable image region leads.",
-        technical_impact: "<area>-Element ohne alt-Attribut.",
-        technical_impact_en: "<area> element without an alt attribute.",
         score_impact: ScoreImpact {
             base_penalty: 2.0,
             max_penalty: 6.0,
@@ -2580,13 +1845,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.1.1"),
         external_level: Some("A"),
         axe_id: Some("input-image-alt"),
-        title: "Fehlender Alternativtext bei Bild-Buttons",
-        title_en: "Missing alternative text on image buttons",
-        description: "Ein <input type=\"image\">-Button (z. B. eine Bild-Absende-Schaltfläche) hat keinen Alternativtext.",
-        user_impact: "Screenreader-Nutzer erfahren nicht, welche Aktion der Button auslöst.",
-        user_impact_en: "Screen reader users are not told what action the button triggers.",
-        technical_impact: "<input type=\"image\"> ohne alt-Attribut.",
-        technical_impact_en: "<input type=\"image\"> without an alt attribute.",
         score_impact: ScoreImpact {
             base_penalty: 2.0,
             max_penalty: 6.0,
@@ -2603,13 +1861,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.1.1"),
         external_level: Some("A"),
         axe_id: Some("object-alt"),
-        title: "Fehlende Textalternative bei eingebetteten Objekten",
-        title_en: "Missing text alternative on embedded objects",
-        description: "Ein <object>-Element (eingebettetes Bild/Dokument) hat keine Textalternative.",
-        user_impact: "Screenreader-Nutzer erhalten keine Information über den Inhalt des eingebetteten Objekts.",
-        user_impact_en: "Screen reader users receive no information about the embedded object's content.",
-        technical_impact: "<object> ohne Textinhalt oder aria-label.",
-        technical_impact_en: "<object> without text content or aria-label.",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 5.0,
@@ -2626,13 +1877,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("html-content-model"),
-        title: "Verletzung des HTML5-Content-Models",
-        title_en: "HTML5 content model violation",
-        description: "Ein strukturelles Element (Liste, Tabelle, Formular, Select) enthält Inhalt, der sein HTML5-Content-Model verletzt — das kann Screenreader-Semantik brechen, selbst wenn der resultierende Accessibility-Tree oberflächlich gültig aussieht.",
-        user_impact: "Screenreader können die Struktur nicht zuverlässig auswerten, auch wenn sie augenscheinlich korrekt wirkt.",
-        user_impact_en: "Screen readers cannot reliably parse the structure, even when it appears superficially valid.",
-        technical_impact: "Unerwartetes Kindelement innerhalb eines strukturellen Containers (z. B. <ul>, <table>, <select>).",
-        technical_impact_en: "Unexpected child element inside a structural container (e.g. <ul>, <table>, <select>).",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 4.0,
@@ -2649,13 +1893,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("form-field-group"),
-        title: "Fehlende Gruppierung verwandter Formularfelder",
-        title_en: "Missing grouping for related form fields",
-        description: "Zusammengehörige Radio-Buttons oder Checkboxen sind nicht mit <fieldset>/<legend> oder role=\"group\" gruppiert.",
-        user_impact: "Screenreader-Nutzer erkennen nicht, dass mehrere Felder zu einer Frage/Gruppe gehören.",
-        user_impact_en: "Screen reader users cannot tell that several fields belong to one question/group.",
-        technical_impact: "Radio-Buttons/Checkboxen ohne umschließendes <fieldset> mit <legend>.",
-        technical_impact_en: "Radio buttons/checkboxes without an enclosing <fieldset> with <legend>.",
         score_impact: ScoreImpact {
             base_penalty: 1.2,
             max_penalty: 3.5,
@@ -2672,13 +1909,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("landmarks/not-top-level"),
-        title: "Landmark ist verschachtelt",
-        title_en: "Landmark is nested",
-        description: "Ein Kopf-, Fuß- oder Hauptinhaltsbereich (banner, contentinfo, main) liegt innerhalb eines anderen Landmarks statt auf oberster Ebene.",
-        user_impact: "Screenreader-Nutzer, die per Landmark-Navigation springen, landen in einem unerwarteten Kontext.",
-        user_impact_en: "Screen reader users who jump via landmark navigation land in an unexpected context.",
-        technical_impact: "<header>/<footer>/<main> bzw. role=\"banner\"/\"contentinfo\"/\"main\" ist Nachfahre eines anderen Landmarks.",
-        technical_impact_en: "<header>/<footer>/<main> or role=\"banner\"/\"contentinfo\"/\"main\" is a descendant of another landmark.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 3.0,
@@ -2695,13 +1925,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("landmark-no-duplicate-banner"),
-        title: "Mehrere Banner-Landmarks",
-        title_en: "Multiple banner landmarks",
-        description: "Die Seite hat mehr als einen Banner-Bereich (<header>/role=\"banner\"); erlaubt ist höchstens einer.",
-        user_impact: "Screenreader-Nutzer können den 'Kopfbereich' der Seite nicht eindeutig zuordnen.",
-        user_impact_en: "Screen reader users cannot uniquely identify the page's 'header' region.",
-        technical_impact: "Mehr als ein Element mit role=\"banner\" (implizit oder explizit).",
-        technical_impact_en: "More than one element with role=\"banner\" (implicit or explicit).",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 3.0,
@@ -2718,13 +1941,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("landmark-no-duplicate-contentinfo"),
-        title: "Mehrere Contentinfo-Landmarks",
-        title_en: "Multiple contentinfo landmarks",
-        description: "Die Seite hat mehr als einen Fußbereich (<footer>/role=\"contentinfo\"); erlaubt ist höchstens einer.",
-        user_impact: "Screenreader-Nutzer können den 'Fußbereich' der Seite nicht eindeutig zuordnen.",
-        user_impact_en: "Screen reader users cannot uniquely identify the page's 'footer' region.",
-        technical_impact: "Mehr als ein Element mit role=\"contentinfo\" (implizit oder explizit).",
-        technical_impact_en: "More than one element with role=\"contentinfo\" (implicit or explicit).",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 3.0,
@@ -2741,13 +1957,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("landmark-no-duplicate-main"),
-        title: "Mehrere Main-Landmarks",
-        title_en: "Multiple main landmarks",
-        description: "Die Seite hat mehr als einen Hauptinhaltsbereich (<main>/role=\"main\"); erlaubt ist genau einer.",
-        user_impact: "Screenreader-Nutzer, die zum Hauptinhalt springen, wissen nicht, welcher Bereich gemeint ist.",
-        user_impact_en: "Screen reader users who jump to the main content cannot tell which region is meant.",
-        technical_impact: "Mehr als ein Element mit role=\"main\" (implizit oder explizit).",
-        technical_impact_en: "More than one element with role=\"main\" (implicit or explicit).",
         score_impact: ScoreImpact {
             base_penalty: 1.2,
             max_penalty: 3.5,
@@ -2764,13 +1973,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("landmark-banner-present"),
-        title: "Fehlender Banner-Landmark",
-        title_en: "Missing banner landmark",
-        description: "Die Seite hat keinen Banner-Bereich (<header> bzw. role=\"banner\").",
-        user_impact: "Assistierende Technologien können den Kopfbereich der Seite nicht identifizieren.",
-        user_impact_en: "Assistive technologies cannot identify the site header.",
-        technical_impact: "Kein Element mit role=\"banner\" (implizit über <header> oder explizit) vorhanden.",
-        technical_impact_en: "No element with role=\"banner\" (implicit via <header> or explicit) present.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 3.0,
@@ -2787,13 +1989,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("landmark-navigation-present"),
-        title: "Fehlender Navigations-Landmark",
-        title_en: "Missing navigation landmark",
-        description: "Die Seite hat keinen Navigationsbereich (<nav> bzw. role=\"navigation\").",
-        user_impact: "Screenreader-Nutzer können nicht direkt zur Navigation springen.",
-        user_impact_en: "Screen reader users cannot jump straight to the navigation.",
-        technical_impact: "Kein Element mit role=\"navigation\" (implizit über <nav> oder explizit) vorhanden.",
-        technical_impact_en: "No element with role=\"navigation\" (implicit via <nav> or explicit) present.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -2810,13 +2005,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("landmark-contentinfo-present"),
-        title: "Fehlender Fußbereich-Landmark (contentinfo)",
-        title_en: "Missing contentinfo landmark",
-        description: "Die Seite hat keinen Fußbereich als Landmark (<footer> auf oberster Ebene bzw. role=\"contentinfo\").",
-        user_impact: "Screenreader-Nutzer können den Fußbereich mit Kontakt, Impressum und Rechtlichem nicht direkt ansteuern.",
-        user_impact_en: "Screen reader users cannot jump straight to the footer with contact and legal information.",
-        technical_impact: "Kein Element mit role=\"contentinfo\" (implizit über ein <footer> außerhalb von <main>/<article>/<section> oder explizit) vorhanden.",
-        technical_impact_en: "No element with role=\"contentinfo\" (implicit via a <footer> outside <main>/<article>/<section>, or explicit) present.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -2835,13 +2023,6 @@ pub static RULES: &[Rule] = &[
         // Geteilte Kennung `lists/item-outside-list`; die leere Liste hat seit
         // Plan 56 einen eigenen Eintrag (`a11y.list_empty.invalid`).
         axe_id: Some("lists/item-outside-list"),
-        title: "Listenelemente ohne Listen-Container",
-        title_en: "List items outside a list container",
-        description: "Listenelemente (<li> oder role=\"listitem\") liegen nicht innerhalb eines Listen-Containers (<ul>/<ol> oder role=\"list\").",
-        user_impact: "Screenreader-Nutzer erhalten keine Ansage der Listenlänge/-struktur.",
-        user_impact_en: "Screen reader users receive no announcement of the list's length/structure.",
-        technical_impact: "<li> außerhalb von <ul>/<ol>.",
-        technical_impact_en: "<li> outside <ul>/<ol>.",
         score_impact: ScoreImpact {
             base_penalty: 1.2,
             max_penalty: 3.5,
@@ -2858,13 +2039,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("headings/skip-level"),
-        title: "Übersprungene Überschriftenebene",
-        title_en: "Skipped heading level",
-        description: "Die Überschriftenhierarchie springt über eine Ebene (z. B. von h1 direkt auf h3).",
-        user_impact: "Screenreader-Nutzer, die über Überschriften navigieren, vermuten fehlende Abschnitte.",
-        user_impact_en: "Screen reader users navigating by headings assume that sections are missing.",
-        technical_impact: "Überschriftenebenen folgen nicht lückenlos aufeinander.",
-        technical_impact_en: "Heading levels do not follow each other without gaps.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -2881,13 +2055,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.6"),
         external_level: Some("AA"),
         axe_id: Some("headings/empty"),
-        title: "Leere Überschrift",
-        title_en: "Empty heading",
-        description: "Ein Überschriften-Element enthält keinen Text.",
-        user_impact: "Screenreader-Nutzer stoßen in der Überschriftenliste auf einen Eintrag ohne Inhalt.",
-        user_impact_en: "Screen reader users find an entry without content in the list of headings.",
-        technical_impact: "<h1>–<h6> bzw. role=\"heading\" ohne Text und ohne aria-label.",
-        technical_impact_en: "<h1>–<h6> or role=\"heading\" without text and without aria-label.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -2905,13 +2072,6 @@ pub static RULES: &[Rule] = &[
         external_ref: None,
         external_level: None,
         axe_id: Some("headings/h1-missing"),
-        title: "Fehlende Hauptüberschrift (h1)",
-        title_en: "Missing main heading (h1)",
-        description: "Die Seite hat keine Überschrift der Ebene 1.",
-        user_impact: "Screenreader-Nutzer finden den Einstieg in den Hauptinhalt nicht über die Überschriftennavigation.",
-        user_impact_en: "Screen reader users cannot find the start of the main content via heading navigation.",
-        technical_impact: "Kein <h1>-Element im Dokument.",
-        technical_impact_en: "No <h1> element in the document.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -2928,13 +2088,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("headings/h1-multiple"),
-        title: "Mehrere Hauptüberschriften (h1)",
-        title_en: "Multiple main headings (h1)",
-        description: "Die Seite hat mehr als eine Überschrift der Ebene 1. In HTML zulässig, aber prüfenswert.",
-        user_impact: "Screenreader-Nutzer können den eigentlichen Seitentitel schwerer vom Rest unterscheiden.",
-        user_impact_en: "Screen reader users find it harder to tell the actual page title from the rest.",
-        technical_impact: "Mehrere <h1>-Elemente im Dokument.",
-        technical_impact_en: "Several <h1> elements in the document.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -2951,13 +2104,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("lists/invalid-structure"),
-        title: "Liste mit unzulässigen Kindelementen",
-        title_en: "List with invalid child elements",
-        description: "Eine Liste enthält direkte Kinder, die keine Listenelemente sind.",
-        user_impact: "Screenreader-Nutzer hören eine falsche Anzahl von Listeneinträgen oder verlieren Inhalte.",
-        user_impact_en: "Screen reader users hear a wrong number of list items or lose content.",
-        technical_impact: "Direkte Kinder von <ul>/<ol>/role=\"list\" sind keine <li>/role=\"listitem\".",
-        technical_impact_en: "Direct children of <ul>/<ol>/role=\"list\" are not <li>/role=\"listitem\".",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -2974,13 +2120,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("lists/empty"),
-        title: "Leere Liste",
-        title_en: "Empty list",
-        description: "Eine Liste enthält keine Listenelemente.",
-        user_impact: "Screenreader kündigen eine Liste ohne Inhalt an.",
-        user_impact_en: "Screen readers announce a list without content.",
-        technical_impact: "<ul>/<ol>/role=\"list\" ohne <li>/role=\"listitem\".",
-        technical_impact_en: "<ul>/<ol>/role=\"list\" without <li>/role=\"listitem\".",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -2997,13 +2136,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("lists/term-without-definition"),
-        title: "Begriff ohne Definition in Definitionsliste",
-        title_en: "Term without definition in a description list",
-        description: "Ein Begriff (<dt>) in einer Definitionsliste hat keine zugehörige Definition (<dd>).",
-        user_impact: "Screenreader-Nutzer können Begriff und Definition nicht als zusammengehörig erkennen.",
-        user_impact_en: "Screen reader users cannot recognize the term and its definition as belonging together.",
-        technical_impact: "<dt> ohne folgendes <dd> in der <dl>.",
-        technical_impact_en: "<dt> without a following <dd> inside the <dl>.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -3020,13 +2152,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("tables/header-missing"),
-        title: "Datentabelle ohne Kopfzellen",
-        title_en: "Data table without header cells",
-        description: "Eine Datentabelle hat keine Kopfzellen, die Zeilen oder Spalten beschriften.",
-        user_impact: "Screenreader-Nutzer hören Zellwerte ohne die zugehörige Zeilen- oder Spaltenbeschriftung.",
-        user_impact_en: "Screen reader users hear cell values without their row or column label.",
-        technical_impact: "Kein <th> und keine Zelle mit role=\"columnheader\"/\"rowheader\".",
-        technical_impact_en: "No <th> and no cell with role=\"columnheader\"/\"rowheader\".",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -3043,13 +2168,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("tables/name-missing"),
-        title: "Datentabelle ohne Namen",
-        title_en: "Data table without a name",
-        description: "Eine Datentabelle hat weder <caption> noch aria-label.",
-        user_impact: "Screenreader-Nutzer erfahren beim Betreten der Tabelle nicht, worum es in ihr geht.",
-        user_impact_en: "Screen reader users are not told what the table is about when entering it.",
-        technical_impact: "Kein <caption> und kein aria-label an der Tabelle.",
-        technical_impact_en: "No <caption> and no aria-label on the table.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -3066,13 +2184,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("tables/presentational-with-headers"),
-        title: "Layouttabelle mit Kopfzellen",
-        title_en: "Layout table with header cells",
-        description: "Eine als präsentational ausgezeichnete Tabelle enthält Kopfzellen.",
-        user_impact: "Screenreader-Nutzer erhalten widersprüchliche Signale, ob es sich um eine Datentabelle handelt.",
-        user_impact_en: "Screen reader users receive contradictory signals about whether this is a data table.",
-        technical_impact: "role=\"presentation\"/\"none\" an einer Tabelle mit <th>.",
-        technical_impact_en: "role=\"presentation\"/\"none\" on a table with <th>.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -3089,13 +2200,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.1.1"),
         external_level: Some("A"),
         axe_id: Some("document/lang-invalid"),
-        title: "Ungültige Sprachangabe der Seite",
-        title_en: "Invalid page language",
-        description: "Das lang-Attribut am html-Element ist kein gültiger BCP-47-Sprachcode.",
-        user_impact: "Screenreader wählen eine falsche oder die Standard-Aussprache.",
-        user_impact_en: "Screen readers choose a wrong or the default pronunciation.",
-        technical_impact: "Ungültiger Wert im lang-Attribut des html-Elements.",
-        technical_impact_en: "Invalid value in the html element's lang attribute.",
         score_impact: ScoreImpact {
             base_penalty: 10.0,
             max_penalty: 12.5,
@@ -3112,13 +2216,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.3"),
         external_level: Some("A"),
         axe_id: Some("keyboard/positive-tabindex"),
-        title: "Positiver tabindex verändert die Fokusreihenfolge",
-        title_en: "Positive tabindex changes the focus order",
-        description: "Ein Element hat einen tabindex größer als 0 und springt damit in der Tab-Reihenfolge vor alle übrigen Elemente.",
-        user_impact: "Tastaturnutzer erreichen Elemente in einer Reihenfolge, die nicht dem Seitenaufbau entspricht.",
-        user_impact_en: "Keyboard users reach elements in an order that does not match the page layout.",
-        technical_impact: "tabindex-Wert größer als 0.",
-        technical_impact_en: "tabindex value greater than 0.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -3135,13 +2232,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("label-title-only"),
-        title: "Formularfeld-Beschriftung nur über title-Attribut",
-        title_en: "Form field labeled only via the title attribute",
-        description: "Ein Formularfeld bezieht seinen zugänglichen Namen ausschließlich aus dem title-Attribut statt aus einem sichtbaren Label.",
-        user_impact: "Das title-Attribut wird von vielen Screenreadern inkonsistent oder gar nicht vorgelesen; sehende Nutzer sehen es nur bei Hover.",
-        user_impact_en: "The title attribute is read inconsistently or not at all by many screen readers; sighted users only see it on hover.",
-        technical_impact: "Formularelement ohne <label>/aria-label, Name kommt nur aus title.",
-        technical_impact_en: "Form element without <label>/aria-label, name derived only from title.",
         score_impact: ScoreImpact {
             base_penalty: 1.2,
             max_penalty: 3.5,
@@ -3158,13 +2248,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.4.4"),
         external_level: Some("AA"),
         axe_id: Some("zoom/viewport-scale-limited"),
-        title: "Zoom auf 500% durch Viewport-Meta-Tag verhindert",
-        title_en: "Viewport meta tag prevents zooming to 500%",
-        description: "Das viewport-Meta-Tag begrenzt maximum-scale so stark, dass Nutzer nicht auf mindestens 500% zoomen können.",
-        user_impact: "Sehbehinderte Nutzer können den Seiteninhalt nicht ausreichend vergrößern.",
-        user_impact_en: "Users with low vision cannot magnify the page content enough.",
-        technical_impact: "maximum-scale im viewport-Meta-Tag unter 5 gesetzt.",
-        technical_impact_en: "maximum-scale in the viewport meta tag set below 5.",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 4.0,
@@ -3181,13 +2264,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.1.1"),
         external_level: Some("A"),
         axe_id: Some("click-events-have-key-events"),
-        title: "Klick-Handler ohne Tastatur-Äquivalent",
-        title_en: "Click handler without keyboard equivalent",
-        description: "Ein nicht-interaktives Element (z. B. <div>) hat einen Klick-Handler, aber keinen entsprechenden Tastatur-Event-Handler.",
-        user_impact: "Tastaturnutzer können die Funktion nicht auslösen.",
-        user_impact_en: "Keyboard users cannot trigger the function.",
-        technical_impact: "onclick auf einem <div>/<span> ohne onkeydown/onkeyup, tabindex oder passende Rolle.",
-        technical_impact_en: "onclick on a <div>/<span> without onkeydown/onkeyup, tabindex, or a matching role.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -3204,13 +2280,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.1.1"),
         external_level: Some("A"),
         axe_id: Some("click-events-have-key-events"),
-        title: "Klick-Handler ohne Tastatur-Äquivalent",
-        title_en: "Click handler without keyboard equivalent",
-        description: "Ein nicht-interaktives Element (z. B. <div>) hat einen Klick-Handler, aber keinen entsprechenden Tastatur-Event-Handler.",
-        user_impact: "Tastaturnutzer können die Funktion nicht auslösen.",
-        user_impact_en: "Keyboard users cannot trigger the function.",
-        technical_impact: "onclick auf einem <div>/<span> ohne onkeydown/onkeyup, tabindex oder passende Rolle.",
-        technical_impact_en: "onclick on a <div>/<span> without onkeydown/onkeyup, tabindex, or a matching role.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -3227,13 +2296,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.1"),
         external_level: Some("A"),
         axe_id: Some("landmark-one-main"),
-        title: "Kein Hauptinhaltsbereich als Sprungziel",
-        title_en: "No main-content region as a bypass target",
-        description: "Die Seite hat keinen <main>-Bereich, der als Sprungziel zum Überspringen wiederkehrender Blöcke dienen könnte.",
-        user_impact: "Tastaturnutzer haben kein verlässliches Ziel, um wiederkehrende Navigation zu überspringen.",
-        user_impact_en: "Keyboard users have no reliable target to bypass repeated navigation blocks.",
-        technical_impact: "Kein Element mit role=\"main\" (implizit über <main> oder explizit) vorhanden.",
-        technical_impact_en: "No element with role=\"main\" (implicit via <main> or explicit) present.",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 4.0,
@@ -3250,13 +2312,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.1"),
         external_level: Some("A"),
         axe_id: Some("skip-link"),
-        title: "Fehlender Skip-Link",
-        title_en: "Missing skip link",
-        description: "Die Seite hat eine Navigation, aber keinen Skip-Link, um sie zu überspringen und direkt zum Inhalt zu springen.",
-        user_impact: "Tastaturnutzer müssen bei jedem Seitenwechsel durch die gesamte Navigation tabben.",
-        user_impact_en: "Keyboard users must tab through the entire navigation on every page change.",
-        technical_impact: "Kein Link mit erkennbarem 'skip'/'zum Inhalt'-Text oder Anker auf #main/#content am Seitenanfang.",
-        technical_impact_en: "No link with a recognizable 'skip'/'to content' text or anchor to #main/#content at the top of the page.",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 4.0,
@@ -3273,13 +2328,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.7"),
         external_level: Some("AA"),
         axe_id: Some("focus-visible"),
-        title: "Kein sichtbarer Fokusindikator gemessen",
-        title_en: "No visible focus indicator measured",
-        description: "Beim Fokussieren ändert sich an einem Bedienelement weder Umriss, Schatten, Rahmen, Hintergrund noch Text.",
-        user_impact: "Tastaturnutzer sehen nicht, welches Element gerade fokussiert ist.",
-        user_impact_en: "Keyboard users cannot see which element currently has focus.",
-        technical_impact: "Fokuslauf: die berechneten Stile des Elements vor und nach dem Fokussieren sind gleich, soweit sie als Indikator taugen (outline, box-shadow, border, background, color, text-decoration).",
-        technical_impact_en: "Focus pass: the element's computed styles before and after focusing are equal, as far as they can serve as an indicator (outline, box-shadow, border, background, color, text-decoration).",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -3296,13 +2344,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.4.7"),
         external_level: Some("AA"),
         axe_id: Some("focus-visible-outline-none"),
-        title: "Fokus-Indikator per CSS entfernt",
-        title_en: "Focus indicator removed via CSS",
-        description: "CSS entfernt den sichtbaren Fokusrahmen (outline: none/0) ohne einen gleichwertigen Ersatz bereitzustellen.",
-        user_impact: "Tastaturnutzer sehen nicht, welches Element gerade fokussiert ist.",
-        user_impact_en: "Keyboard users cannot see which element currently has focus.",
-        technical_impact: "outline: none/0 in :focus-Regeln ohne alternative sichtbare Fokusmarkierung.",
-        technical_impact_en: "outline: none/0 in :focus rules without an alternative visible focus indicator.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -3319,13 +2360,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.1.1"),
         external_level: Some("A"),
         axe_id: Some("scrollable-region-focusable"),
-        title: "Scrollbarer Bereich per Tastatur nicht erreichbar",
-        title_en: "Scrollable region not reachable by keyboard",
-        description: "Ein Bereich mit eigenem Scrollbalken ist nicht fokussierbar und enthält keine fokussierbaren Elemente.",
-        user_impact: "Tastaturnutzer können den Bereich nicht scrollen und den verdeckten Inhalt nicht lesen.",
-        user_impact_en: "Keyboard users cannot scroll the region and cannot read the hidden content.",
-        technical_impact: "Element mit overflow: auto/scroll und überlaufendem Inhalt, ohne tabindex und ohne fokussierbare Kinder.",
-        technical_impact_en: "Element with overflow: auto/scroll and overflowing content, without tabindex and without focusable children.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 10.0,
@@ -3342,13 +2376,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 3.3.1"),
         external_level: Some("A"),
         axe_id: Some("input-error-message"),
-        title: "Ungültiges Feld ohne zugängliche Fehlerbeschreibung",
-        title_en: "Invalid field without an accessible error description",
-        description: "Ein als ungültig markiertes Formularfeld hat keine zugängliche Beschreibung des Fehlers.",
-        user_impact: "Screenreader-Nutzer erfahren, dass ein Fehler vorliegt, aber nicht welcher.",
-        user_impact_en: "Screen reader users learn that an error exists, but not what it is.",
-        technical_impact: "aria-invalid=\"true\" ohne description/aria-describedby auf ein sichtbares Fehlerelement.",
-        technical_impact_en: "aria-invalid=\"true\" without a description/aria-describedby pointing to a visible error element.",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 4.0,
@@ -3368,13 +2395,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("duplicate-id-aria"),
-        title: "ARIA-Referenz zeigt auf mehrdeutige ID",
-        title_en: "ARIA reference points to an ambiguous ID",
-        description: "Ein ARIA-Attribut wie aria-owns/aria-describedby/aria-labelledby verweist auf eine ID, die im Dokument mehrfach vergeben ist.",
-        user_impact: "Assistierende Technologien können nicht zuverlässig bestimmen, welches Element gemeint ist.",
-        user_impact_en: "Assistive technologies cannot reliably determine which element is referenced.",
-        technical_impact: "Referenzierte ID kommt im DOM mehr als einmal vor.",
-        technical_impact_en: "The referenced ID occurs more than once in the DOM.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 10.0,
@@ -3391,13 +2411,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("aria-label"),
-        title: "Interaktives Element ohne aussagekräftigen Namen",
-        title_en: "Interactive element without a meaningful name",
-        description: "Ein interaktives Element hat keinen zugänglichen Namen, oder der Name besteht nur aus einem Icon/Symbol ohne Beschreibung.",
-        user_impact: "Screenreader-Nutzer erfahren nicht, wozu das Element dient.",
-        user_impact_en: "Screen reader users are not told what the element does.",
-        technical_impact: "Fehlendes oder rein symbolisches aria-label/aria-labelledby/Textinhalt.",
-        technical_impact_en: "Missing or purely symbolic aria-label/aria-labelledby/text content.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -3414,13 +2427,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("aria-label"),
-        title: "Interaktives Element ohne aussagekräftigen Namen",
-        title_en: "Interactive element without a meaningful name",
-        description: "Ein interaktives Element hat keinen zugänglichen Namen, oder der Name besteht nur aus einem Icon/Symbol ohne Beschreibung.",
-        user_impact: "Screenreader-Nutzer erfahren nicht, wozu das Element dient.",
-        user_impact_en: "Screen reader users are not told what the element does.",
-        technical_impact: "Fehlendes oder rein symbolisches aria-label/aria-labelledby/Textinhalt.",
-        technical_impact_en: "Missing or purely symbolic aria-label/aria-labelledby/text content.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -3437,13 +2443,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("title-only-description"),
-        title: "Natives title-Attribut als einzige Beschreibung",
-        title_en: "Native title attribute as the only description",
-        description: "Ein interaktives Element wird nur über das native title-Attribut beschrieben, ohne sichtbare Beschriftung, aria-label oder aria-labelledby (Best Practice).",
-        user_impact: "Der Tooltip des title-Attributs erscheint nur bei Mauszeiger-Hover; per Tastatur und auf Touchgeräten bleibt der Zweck des Elements unsichtbar.",
-        user_impact_en: "The title attribute's tooltip only appears on mouse hover; with a keyboard and on touch devices the element's purpose stays invisible.",
-        technical_impact: "Der zugängliche Name stammt nur aus dem title-Attribut; kein Textinhalt, kein aria-label, kein aria-labelledby.",
-        technical_impact_en: "The accessible name comes only from the title attribute; no text content, no aria-label, no aria-labelledby.",
         score_impact: ScoreImpact {
             base_penalty: 1.0,
             max_penalty: 4.0,
@@ -3460,13 +2459,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("description-duplicates-name"),
-        title: "Beschreibung wiederholt den Namen",
-        title_en: "Description repeats the name",
-        description: "Zugänglicher Name und zugängliche Beschreibung eines Elements sind identisch (Best Practice).",
-        user_impact: "Screenreader sagen denselben Text zweimal an, ohne zusätzliche Information.",
-        user_impact_en: "Screen readers announce the same text twice without adding information.",
-        technical_impact: "aria-describedby oder title liefert denselben Text wie der Name.",
-        technical_impact_en: "aria-describedby or title yields the same text as the name.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 2.0,
@@ -3483,13 +2475,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("aria-required-children"),
-        title: "Erforderliche Kindelemente einer ARIA-Rolle fehlen",
-        title_en: "Required child elements of an ARIA role are missing",
-        description: "Ein Element mit einer Composite-ARIA-Rolle (z. B. tablist) fehlt eines der laut ARIA-Spezifikation erforderlichen Kindelemente (z. B. zugehörige tabpanels).",
-        user_impact: "Assistierende Technologien können die Beziehung zwischen den Widget-Teilen nicht auswerten.",
-        user_impact_en: "Assistive technologies cannot resolve the relationship between the widget's parts.",
-        technical_impact: "z. B. role=\"tablist\" ohne zugehörige role=\"tabpanel\"-Elemente.",
-        technical_impact_en: "e.g. role=\"tablist\" without corresponding role=\"tabpanel\" elements.",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 4.0,
@@ -3506,13 +2491,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("dialog-name"),
-        title: "Dialog ohne zugänglichen Namen",
-        title_en: "Dialog without an accessible name",
-        description: "Ein Dialog (role=\"dialog\"/\"alertdialog\") hat keinen zugänglichen Namen.",
-        user_impact: "Screenreader-Nutzer erfahren beim Öffnen des Dialogs nicht, worum es geht.",
-        user_impact_en: "Screen reader users are not told what the dialog is about when it opens.",
-        technical_impact: "Dialog-Element ohne aria-label oder aria-labelledby auf den Dialogtitel.",
-        technical_impact_en: "Dialog element without aria-label or aria-labelledby pointing to the dialog title.",
         score_impact: ScoreImpact {
             base_penalty: 2.0,
             max_penalty: 6.0,
@@ -3529,13 +2507,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("control-missing-label"),
-        title: "Formularelement, Link oder Button ohne zugänglichen Namen",
-        title_en: "Form control, link, or button without an accessible name",
-        description: "Ein Formularfeld, Link oder Button hat keinen zugänglichen Namen (weder sichtbares Label noch aria-label/aria-labelledby).",
-        user_impact: "Screenreader-Nutzer erfahren nicht, welche Eingabe erwartet wird oder wohin ein Link/Button führt.",
-        user_impact_en: "Screen reader users are not told what input is expected or where a link/button leads.",
-        technical_impact: "Formularelement/Link/Button ohne <label>, aria-label, aria-labelledby oder Textinhalt.",
-        technical_impact_en: "Form control/link/button without <label>, aria-label, aria-labelledby, or text content.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -3552,13 +2523,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("control-missing-label"),
-        title: "Formularelement, Link oder Button ohne zugänglichen Namen",
-        title_en: "Form control, link, or button without an accessible name",
-        description: "Ein Formularfeld, Link oder Button hat keinen zugänglichen Namen (weder sichtbares Label noch aria-label/aria-labelledby).",
-        user_impact: "Screenreader-Nutzer erfahren nicht, welche Eingabe erwartet wird oder wohin ein Link/Button führt.",
-        user_impact_en: "Screen reader users are not told what input is expected or where a link/button leads.",
-        technical_impact: "Formularelement/Link/Button ohne <label>, aria-label, aria-labelledby oder Textinhalt.",
-        technical_impact_en: "Form control/link/button without <label>, aria-label, aria-labelledby, or text content.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -3575,13 +2539,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("link-as-button"),
-        title: "Link als Button-Ersatz ohne Tastenrolle",
-        title_en: "Link used as a button substitute without a matching role",
-        description: "Ein Link (<a>) mit href=\"#\" oder javascript:-Pseudo-URL und onclick-Handler wird wie ein Button verwendet, ohne role=\"button\" zu tragen.",
-        user_impact: "Assistierende Technologien kündigen das Element als Link an, obwohl es sich wie ein Button verhält — Tastaturnutzer erwarten das falsche Bedienverhalten.",
-        user_impact_en: "Assistive technologies announce the element as a link even though it behaves like a button — keyboard users expect the wrong interaction.",
-        technical_impact: "<a href=\"#\">/<a href=\"javascript:...\"> mit onclick, ohne role=\"button\".",
-        technical_impact_en: "<a href=\"#\">/<a href=\"javascript:...\"> with onclick, without role=\"button\".",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 2.0,
@@ -3598,13 +2555,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("redundant-role"),
-        title: "Redundante ARIA-Rolle",
-        title_en: "Redundant ARIA role",
-        description: "Ein Element trägt ein role-Attribut, das exakt der bereits impliziten Rolle des HTML-Elements entspricht (z. B. <button role=\"button\">).",
-        user_impact: "Kein unmittelbarer Nutzerschaden, aber unnötiges Risiko für Inkonsistenzen bei zukünftigen Änderungen.",
-        user_impact_en: "No immediate user harm, but an unnecessary risk of inconsistency in future changes.",
-        technical_impact: "role-Attribut dupliziert die native implizite Rolle des Tags.",
-        technical_impact_en: "role attribute duplicates the tag's native implicit role.",
         score_impact: ScoreImpact {
             base_penalty: 0.3,
             max_penalty: 1.5,
@@ -3621,13 +2571,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("redundant-role"),
-        title: "Redundante ARIA-Rolle",
-        title_en: "Redundant ARIA role",
-        description: "Ein Element trägt ein role-Attribut, das exakt der bereits impliziten Rolle des HTML-Elements entspricht (z. B. <button role=\"button\">).",
-        user_impact: "Kein unmittelbarer Nutzerschaden, aber unnötiges Risiko für Inkonsistenzen bei zukünftigen Änderungen.",
-        user_impact_en: "No immediate user harm, but an unnecessary risk of inconsistency in future changes.",
-        technical_impact: "role-Attribut dupliziert die native implizite Rolle des Tags.",
-        technical_impact_en: "role attribute duplicates the tag's native implicit role.",
         score_impact: ScoreImpact {
             base_penalty: 0.3,
             max_penalty: 1.5,
@@ -3644,13 +2587,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("summary-name"),
-        title: "Summary-Element ohne zugänglichen Namen",
-        title_en: "Summary element without an accessible name",
-        description: "Ein <summary>-Element (Aufklapp-Auslöser in <details>) hat keinen zugänglichen Namen.",
-        user_impact: "Screenreader-Nutzer erfahren nicht, was der Aufklapp-Bereich enthält, bevor sie ihn öffnen.",
-        user_impact_en: "Screen reader users are not told what the disclosure section contains before opening it.",
-        technical_impact: "<summary> ohne Textinhalt oder aria-label.",
-        technical_impact_en: "<summary> without text content or aria-label.",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 4.0,
@@ -3667,13 +2603,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("region"),
-        title: "Inhalt außerhalb einer Landmark-Region",
-        title_en: "Content outside a landmark region",
-        description: "Inhalt außerhalb einer Landmark-Region.",
-        user_impact: "Inhalt außerhalb einer Landmark-Region.",
-        user_impact_en: "Content outside a landmark region.",
-        technical_impact: "Inhalt außerhalb einer Landmark-Region.",
-        technical_impact_en: "Content outside a landmark region.",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 4.0,
@@ -3690,13 +2619,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.1.1"),
         external_level: Some("A"),
         axe_id: Some("focusable-no-role"),
-        title: "Fokussierbares Element ohne interaktive Rolle",
-        title_en: "Focusable element without an interactive role",
-        description: "Fokussierbares Element ohne interaktive Rolle.",
-        user_impact: "Fokussierbares Element ohne interaktive Rolle.",
-        user_impact_en: "Focusable element without an interactive role.",
-        technical_impact: "Fokussierbares Element ohne interaktive Rolle.",
-        technical_impact_en: "Focusable element without an interactive role.",
         score_impact: ScoreImpact {
             base_penalty: 2.0,
             max_penalty: 6.0,
@@ -3713,13 +2635,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.2.2"),
         external_level: Some("A"),
         axe_id: Some("display/toggle-missing"),
-        title: "Kein Umschalter für Darstellungsmodi",
-        title_en: "No display-mode toggle",
-        description: "Die Seite enthält Visualisierungen (figure[data-viz]), aber keinen Umschalter [data-display-toggle] (Best Practice, Darstellungs-Konvention).",
-        user_impact: "Fehlt der Umschalter tatsächlich, kann nicht auf eine ruhige oder reine Textdarstellung wechseln, wer Bewegung oder Grafiken nicht verträgt.",
-        user_impact_en: "If there really is no toggle, visitors who cannot cope with motion or graphics cannot switch to a calm or text-only display.",
-        technical_impact: "Kein Element mit [data-display-toggle] auf einer Seite mit figure[data-viz].",
-        technical_impact_en: "No [data-display-toggle] element on a page with figure[data-viz].",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 4.0,
@@ -3736,13 +2651,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.2.2"),
         external_level: Some("A"),
         axe_id: Some("display/init-missing"),
-        title: "Darstellungsmodus wird zu spät gesetzt",
-        title_en: "Display mode set too late",
-        description: "html[data-display] fehlt oder wird erst nach Beginn des Seitenkörpers gesetzt (Best Practice, Darstellungs-Konvention).",
-        user_impact: "Die Seite kann kurz in der falschen Darstellung erscheinen, etwa mit Animation, bevor die gewählte ruhige Darstellung greift.",
-        user_impact_en: "The page can briefly render in the wrong mode, for example with animation, before the chosen calm mode applies.",
-        technical_impact: "data-display nicht per blockierendem Skript im <head> gesetzt.",
-        technical_impact_en: "data-display not set by a blocking script in <head>.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 1.5,
@@ -3759,13 +2667,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.2.2"),
         external_level: Some("A"),
         axe_id: Some("display/text-media-visible"),
-        title: "Grafiken im Textmodus sichtbar",
-        title_en: "Visualisations visible in text mode",
-        description: "Im Darstellungsmodus text zeigt eine Visualisierung weiterhin Canvas, SVG, Video oder Bild (Best Practice, Darstellungs-Konvention).",
-        user_impact: "Wer den Textmodus gewählt hat, bekommt trotzdem Grafiken oder bewegte Inhalte.",
-        user_impact_en: "Visitors who chose text mode still get graphics or moving content.",
-        technical_impact: "[data-viz-live]/[data-viz-static] oder Medien der figure bei html[data-display=text] sichtbar.",
-        technical_impact_en: "[data-viz-live]/[data-viz-static] or figure media visible with html[data-display=text].",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 4.0,
@@ -3782,13 +2683,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.1.1"),
         external_level: Some("A"),
         axe_id: Some("display/text-not-visible"),
-        title: "Textschicht einer Visualisierung fehlt im Textmodus",
-        title_en: "Visualisation text layer missing in text mode",
-        description: "Im Darstellungsmodus text hat eine Visualisierung kein sichtbares, nicht-leeres [data-viz-text] (Best Practice, Darstellungs-Konvention).",
-        user_impact: "Im Textmodus geht die Aussage der Grafik verloren.",
-        user_impact_en: "In text mode the statement of the visualisation is lost.",
-        technical_impact: "[data-viz-text] fehlt, ist leer oder bei html[data-display=text] nicht sichtbar.",
-        technical_impact_en: "[data-viz-text] missing, empty or not visible with html[data-display=text].",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -3805,13 +2699,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.1.1"),
         external_level: Some("A"),
         axe_id: Some("display/text-not-visible"),
-        title: "Textschicht einer Visualisierung fehlt im Textmodus",
-        title_en: "Visualisation text layer missing in text mode",
-        description: "Im Darstellungsmodus text hat eine Visualisierung kein sichtbares, nicht-leeres [data-viz-text] (Best Practice, Darstellungs-Konvention).",
-        user_impact: "Im Textmodus geht die Aussage der Grafik verloren.",
-        user_impact_en: "In text mode the statement of the visualisation is lost.",
-        technical_impact: "[data-viz-text] fehlt, ist leer oder bei html[data-display=text] nicht sichtbar.",
-        technical_impact_en: "[data-viz-text] missing, empty or not visible with html[data-display=text].",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -3828,13 +2715,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.1.1"),
         external_level: Some("A"),
         axe_id: Some("display/text-hidden"),
-        title: "Textschicht einer Visualisierung für Hilfstechnik verborgen",
-        title_en: "Visualisation text layer hidden from assistive technology",
-        description: "[data-viz-text] ist per hidden, aria-hidden, inert oder CSS aus dem Accessibility Tree entfernt (Best Practice, Darstellungs-Konvention).",
-        user_impact: "Screenreader-Nutzer erfahren die Aussage der Grafik nicht.",
-        user_impact_en: "Screen reader users do not get the statement of the visualisation.",
-        technical_impact: "hidden, aria-hidden=true, inert oder display:none/visibility:hidden an [data-viz-text] oder einem Vorfahren.",
-        technical_impact_en: "hidden, aria-hidden=true, inert or display:none/visibility:hidden on [data-viz-text] or an ancestor.",
         score_impact: ScoreImpact {
             base_penalty: 2.5,
             max_penalty: 8.0,
@@ -3851,13 +2731,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.1.1"),
         external_level: Some("A"),
         axe_id: Some("viz/caption-missing"),
-        title: "Visualisierung ohne Beschriftung",
-        title_en: "Visualisation without a caption",
-        description: "Eine Visualisierung (figure[data-viz]) hat kein <figcaption> als Kind (Best Practice, Darstellungs-Konvention).",
-        user_impact: "Nichts benennt die Visualisierung kurz; wer sie nicht sieht, erfährt nicht, worum es geht, bevor er sich durch die Textschicht liest.",
-        user_impact_en: "Nothing names the visualisation in a few words; those who cannot see it do not learn what it is about before reading through the text layer.",
-        technical_impact: "figure[data-viz] ohne <figcaption> als direktes Kind.",
-        technical_impact_en: "figure[data-viz] without a <figcaption> as a direct child.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 2.0,
@@ -3874,13 +2747,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 2.2.2"),
         external_level: Some("A"),
         axe_id: Some("viz/static-missing"),
-        title: "Bewegte Visualisierung ohne Standbild",
-        title_en: "Moving visualisation without a still image",
-        description: "Eine bewegte oder bedienbare Visualisierung (data-viz=\"3d\" oder \"interactive\") hat kein Standbild [data-viz-static] (Best Practice, Darstellungs-Konvention).",
-        user_impact: "Im ruhigen Modus ersetzt nichts die Bewegung; wer Bewegung nicht verträgt, sieht entweder sie oder gar nichts.",
-        user_impact_en: "In calm mode nothing replaces the motion; those who cannot cope with motion get either the motion or nothing.",
-        technical_impact: "figure[data-viz=3d|interactive] ohne Nachfahre mit [data-viz-static].",
-        technical_impact_en: "figure[data-viz=3d|interactive] without a descendant carrying [data-viz-static].",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 4.0,
@@ -3897,13 +2763,6 @@ pub static RULES: &[Rule] = &[
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
         axe_id: Some("viz/table-missing"),
-        title: "Diagramm ohne Wertetabelle",
-        title_en: "Chart without a values table",
-        description: "Ein Diagramm (data-viz=\"chart\") hat keine <table> mit seinen Werten (Best Practice, Darstellungs-Konvention; Prüfhinweis).",
-        user_impact: "Die Beziehungen zwischen den Werten gehen verloren, wenn die Textschicht sie nicht auf andere Weise vermittelt.",
-        user_impact_en: "The relations between the values are lost unless the text layer conveys them another way.",
-        technical_impact: "figure[data-viz=chart] ohne <table> im Teilbaum.",
-        technical_impact_en: "figure[data-viz=chart] without a <table> in its subtree.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 2.0,
@@ -3981,6 +2840,135 @@ mod tests {
         assert_eq!(len_before, ids.len(), "Duplicate rule IDs found");
     }
 
+    const RULES_FTL_DE: &str = include_str!("../../locales/de/rules.ftl");
+    const RULES_FTL_EN: &str = include_str!("../../locales/en/rules.ftl");
+
+    /// What a `rules.ftl` defines: every message with a value as `key`, every
+    /// attribute as `key.attribute`. The file holds one text per line, so any
+    /// other line than a comment or `name = text` fails here.
+    fn ftl_entries(ftl: &str) -> std::collections::BTreeSet<String> {
+        let mut entries = std::collections::BTreeSet::new();
+        let mut message = "";
+        for line in ftl.lines() {
+            if line.is_empty() || line.starts_with('#') {
+                continue;
+            }
+            let (name, text) = line
+                .split_once(" = ")
+                .unwrap_or_else(|| panic!("not a `name = text` line: {line}"));
+            assert!(!text.trim().is_empty(), "no text: {line}");
+            match name.strip_prefix("    .") {
+                Some(attribute) => entries.insert(format!("{message}.{attribute}")),
+                None => {
+                    message = name;
+                    entries.insert(name.to_string())
+                }
+            };
+        }
+        entries
+    }
+
+    /// The entries `RULES` needs in each `rules.ftl`.
+    fn expected_entries() -> std::collections::BTreeSet<String> {
+        RULES
+            .iter()
+            .flat_map(|rule| {
+                let key = rule_text_key(rule.id);
+                [
+                    format!("{key}.user-impact"),
+                    format!("{key}.technical-impact"),
+                    key,
+                ]
+            })
+            .collect()
+    }
+
+    #[test]
+    fn rule_text_keys_are_distinct_fluent_identifiers() {
+        let mut ids_by_key = std::collections::BTreeMap::new();
+        for rule in RULES {
+            let key = rule_text_key(rule.id);
+            assert!(
+                key.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-'),
+                "{key} (rule {}) is not a Fluent identifier",
+                rule.id
+            );
+            if let Some(other) = ids_by_key.insert(key.clone(), rule.id) {
+                panic!("rules {other} and {} share the key {key}", rule.id);
+            }
+        }
+    }
+
+    /// Every rule has its title and both impacts in German and English, and
+    /// neither file holds a message or attribute no rule reads.
+    #[test]
+    fn rules_ftl_holds_exactly_the_texts_of_the_catalogue() {
+        let expected = expected_entries();
+        for (locale, ftl) in [("de", RULES_FTL_DE), ("en", RULES_FTL_EN)] {
+            let entries = ftl_entries(ftl);
+            let missing: Vec<_> = expected.difference(&entries).collect();
+            let unused: Vec<_> = entries.difference(&expected).collect();
+            assert!(
+                missing.is_empty(),
+                "missing in {locale}/rules.ftl: {missing:?}"
+            );
+            assert!(
+                unused.is_empty(),
+                "in {locale}/rules.ftl without a rule: {unused:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn de_and_en_rules_ftl_have_identical_key_sets() {
+        let de = ftl_entries(RULES_FTL_DE);
+        let en = ftl_entries(RULES_FTL_EN);
+        let de_only: Vec<_> = de.difference(&en).collect();
+        let en_only: Vec<_> = en.difference(&de).collect();
+        assert!(de_only.is_empty(), "only in de/rules.ftl: {de_only:?}");
+        assert!(en_only.is_empty(), "only in en/rules.ftl: {en_only:?}");
+    }
+
+    /// The lookup the reports use resolves for every rule: a missing message
+    /// would come back as its key.
+    #[test]
+    fn every_rule_text_resolves_in_both_languages() {
+        for rule in RULES {
+            let key = rule_text_key(rule.id);
+            for en in [false, true] {
+                for text in [
+                    rule.title(en),
+                    rule.user_impact(en),
+                    rule.technical_impact(en),
+                ] {
+                    assert!(
+                        !text.is_empty() && !text.starts_with(&key),
+                        "{} (en = {en}): {text:?}",
+                        rule.id
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn english_rule_texts_have_no_german_umlauts() {
+        for rule in RULES {
+            for text in [
+                rule.title(true),
+                rule.user_impact(true),
+                rule.technical_impact(true),
+            ] {
+                assert!(
+                    !text.contains(['ä', 'ö', 'ü', 'Ä', 'Ö', 'Ü', 'ß']),
+                    "{}: EN text has an umlaut: {text}",
+                    rule.id
+                );
+            }
+        }
+    }
+
     /// Export every rule text of the catalogue into one data file for review:
     /// one record per rule id, language and field, sorted.
     ///
@@ -3991,23 +2979,10 @@ mod tests {
     fn export_all_rule_texts() {
         let mut records: Vec<(&str, &str, &str, String)> = Vec::new();
         for rule in RULES {
-            for (lang, title, user_impact, technical_impact) in [
-                ("de", rule.title, rule.user_impact, rule.technical_impact),
-                (
-                    "en",
-                    rule.title_en,
-                    rule.user_impact_en,
-                    rule.technical_impact_en,
-                ),
-            ] {
-                records.push((rule.id, lang, "title", title.to_string()));
-                records.push((rule.id, lang, "user_impact", user_impact.to_string()));
-                records.push((
-                    rule.id,
-                    lang,
-                    "technical_impact",
-                    technical_impact.to_string(),
-                ));
+            for (lang, en) in [("de", false), ("en", true)] {
+                records.push((rule.id, lang, "title", rule.title(en)));
+                records.push((rule.id, lang, "user_impact", rule.user_impact(en)));
+                records.push((rule.id, lang, "technical_impact", rule.technical_impact(en)));
             }
         }
         records.sort();

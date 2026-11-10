@@ -129,12 +129,16 @@ In the rendered PDF:
 
 ### Localization Boundaries
 
-AuditMySite currently has three localization surfaces. Keep new text in the
+AuditMySite currently has four localization surfaces. Keep new text in the
 surface that owns its lifecycle:
 
 - `locales/{de,en}/report.ftl`: runtime report labels, headings, table columns,
   callout titles, status labels, and short reusable PDF/JSON presentation text.
   New PDF renderer text should start here.
+- `locales/{de,en}/rules.ftl`: the texts of the rule catalogue
+  (`src/taxonomy/rules.rs`): one message per rule id, the title as its value,
+  user impact and technical impact as attributes. Read through `Rule::title`,
+  `Rule::user_impact` and `Rule::technical_impact`.
 - `src/output/explanations.rs`: WCAG rule explanations, examples, user impact,
   causes, fix recommendations, owner role, and effort. These are rule catalog
   facts rather than layout labels. Do not add generic report UI copy here.

@@ -104,7 +104,7 @@ src/
 │
 ├── taxonomy/            # Rule taxonomy & classification
 │   ├── mod.rs
-│   ├── rules.rs         # Canonical rule list (RULES) with metadata
+│   ├── rules.rs         # Canonical rule list (RULES) with metadata; a rule's texts come from `locales/<lang>/rules.ftl` via `Rule::title`/`user_impact`/`technical_impact(en)`, key = `rule_text_key(id)` (#935)
 │   ├── rule_docs.rs     # rule_doc_url(): rule id → page on the project site (help_url, #929)
 │   ├── criteria.rs      # WCAG success-criterion definitions
 │   ├── dimensions.rs    # Dimension enum (Barrierefreiheit, Usability, ...)
@@ -320,8 +320,12 @@ src/
 ├── studio/              # Studio contract types (GUI data contract)
 │   └── mod.rs
 │
-└── i18n/                # Project Fluent (.ftl) loader, library default language: German (the CLI default is English); `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts
+└── i18n/                # Project Fluent (.ftl) loader, library default language: German (the CLI default is English); one bundle per language from `locales/<lang>/report.ftl` (report texts) and `rules.ftl` (rule catalogue texts, one message per rule id with attributes, #935); `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts, `I18n::attr` = message attributes
     └── mod.rs
+
+locales/                 # Fluent sources, compiled in with include_str!
+├── de/                  # report.ftl, rules.ftl
+└── en/                  # same key sets as de/ (guard tests in i18n and taxonomy::rules)
 ```
 
 ## Data Flow

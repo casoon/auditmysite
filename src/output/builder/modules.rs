@@ -20,7 +20,7 @@ pub(super) fn derive_accessibility_lever(i18n: &I18n, normalized: &NormalizedRep
             finding.title.clone()
         } else {
             crate::taxonomy::RuleLookup::by_id(&finding.rule_id)
-                .map(|r| r.title.to_string())
+                .map(|r| r.title(false))
                 .unwrap_or_else(|| finding.title.clone())
         };
         i18n.t_args(

@@ -17,17 +17,27 @@ impl I18n {
         // Disable Unicode bidi isolates so format_pattern doesn't wrap
         // interpolated values in U+2068 / U+2069 isolate marks.
         bundle.set_use_isolating(false);
-        let ftl = match locale {
-            "en" => include_str!("../../locales/en/report.ftl"),
-            _ => include_str!("../../locales/de/report.ftl"),
+        // Report texts and the rule catalogue texts (`taxonomy::rules`) are
+        // two resources of the one bundle.
+        let sources = match locale {
+            "en" => [
+                include_str!("../../locales/en/report.ftl"),
+                include_str!("../../locales/en/rules.ftl"),
+            ],
+            _ => [
+                include_str!("../../locales/de/report.ftl"),
+                include_str!("../../locales/de/rules.ftl"),
+            ],
         };
-        let resource = Arc::new(
-            FluentResource::try_new(ftl.to_string())
-                .map_err(|e| anyhow::anyhow!("Failed to parse FTL: {:?}", e))?,
-        );
-        bundle
-            .add_resource(resource)
-            .map_err(|e| anyhow::anyhow!("Failed to add FTL resource: {:?}", e))?;
+        for ftl in sources {
+            let resource = Arc::new(
+                FluentResource::try_new(ftl.to_string())
+                    .map_err(|e| anyhow::anyhow!("Failed to parse FTL: {:?}", e))?,
+            );
+            bundle
+                .add_resource(resource)
+                .map_err(|e| anyhow::anyhow!("Failed to add FTL resource: {:?}", e))?;
+        }
         Ok(Self {
             locale: locale.to_string(),
             bundle,
@@ -44,6 +54,23 @@ impl I18n {
         let mut errors = vec![];
         self.bundle
             .format_pattern(pattern, None, &mut errors)
+            .to_string()
+    }
+
+    /// The attribute `attr` of the message `key` (`.attr = …` below
+    /// `key = …` in the locale file). Falls back to `key.attr` on missing
+    /// entries.
+    pub fn attr(&self, key: &str, attr: &str) -> String {
+        let Some(attribute) = self
+            .bundle
+            .get_message(key)
+            .and_then(|msg| msg.get_attribute(attr))
+        else {
+            return format!("{key}.{attr}");
+        };
+        let mut errors = vec![];
+        self.bundle
+            .format_pattern(attribute.value(), None, &mut errors)
             .to_string()
     }
 
@@ -119,6 +146,12 @@ pub fn count_text(key: &str, n: usize, en: bool) -> String {
 /// functions as [`count_text`].
 pub fn text(key: &str, en: bool) -> String {
     SHARED.with(|bundles| bundles[usize::from(en)].t(key))
+}
+
+/// An attribute of a message of the shared bundles ([`I18n::attr`]), for the
+/// same pure text functions as [`count_text`].
+pub fn attr_text(key: &str, attr: &str, en: bool) -> String {
+    SHARED.with(|bundles| bundles[usize::from(en)].attr(key, attr))
 }
 
 #[cfg(test)]
