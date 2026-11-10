@@ -812,15 +812,6 @@ mod tests {
             DecisionProfile::resolve(None, None, None, Some(0), None),
             default
         );
-        assert_eq!(
-            crate::cli::config::VerdictConfig {
-                fail_below_score: Some(60),
-                ..Default::default()
-            }
-            .profile()
-            .fail_below_score,
-            Some(60)
-        );
     }
 
     /// Thresholds compare the accessibility score at the documented

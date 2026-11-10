@@ -38,9 +38,10 @@ src/
 │   ├── report_level.rs  # `ReportLevel` (`--report-level`)
 │   └── annex_kind.rs    # `AnnexKind` (`--annex`)
 │
-├── cli/                 # Command-line interface
+├── cli/                 # Command-line interface, the entry layer: nothing outside `cli/` and `main.rs` names `crate::cli` (#934, strict in `tests/architecture_test.rs`)
 │   ├── args.rs          # Clap argument parsing (Args, OutputFormat; re-exports the `model` value types)
-│   ├── config.rs        # auditmysite.toml config support
+│   ├── config.rs        # auditmysite.toml config support (re-exports `BudgetConfig` from `audit::budget`)
+│   ├── from_args.rs     # The configuration of the layers below, built from `Args` and the TOML `Config`: `PipelineConfig::from_args_and_config`, `From<&Args>` for `PipelineConfig`, `BatchConfig` and `output::terminal::TerminalOptions`, `ColorPolicy` → `ColorMode` (#934)
 │   ├── app.rs           # Shared by both binaries: logging, signals, exit code, the audit run
 │   ├── commands.rs      # Subcommand handlers (browser, doctor)
 │   ├── dev_commands.rs  # Maintainer commands of `auditmysite-dev` only (plan, replay, accname-diff, report-lint, --debug-typ, --export-snapshot, #912)
@@ -157,7 +158,7 @@ src/
 │   ├── verdict.rs       # Decision contract: versioned profile, the only verdict policy (single + batch); stored in NormalizedReport/BatchSummary
 │   ├── management_risk.rs # Risk dimensions shared by the JSON and PDF outputs
 │   ├── batch_consistency.rs # Cross-page consistency checks (incl. WCAG 3.2.6 help comparison)
-│   ├── budget.rs        # Concurrency/rate budgeting
+│   ├── budget.rs        # Performance budgets: `BudgetConfig` (the `[budgets]` section of auditmysite.toml) and its evaluation against a report
 │   ├── crawl.rs         # Link crawling (html5ever-based)
 │   ├── duplicate.rs     # Duplicate-page detection
 │   ├── exclusion.rs     # Audit exclusions (--exclude-selector, [data-audit-exclude]) and their report block
@@ -167,7 +168,7 @@ src/
 │
 ├── output/              # Report generation
 │   ├── mod.rs
-│   ├── cli.rs           # Terminal table output
+│   ├── terminal.rs      # Terminal table output; the renderers take `TerminalOptions` (report level, language, colour mode, file target), which `cli` builds from `Args` (#934)
 │   ├── json.rs          # JSON reports (via NormalizedReport)
 │   ├── json/            # JSON detail/helper builders
 │   ├── sr_audit_json.rs # Standalone screen-reader audit JSON sidecar

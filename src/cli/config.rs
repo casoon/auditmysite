@@ -379,4 +379,18 @@ seo = true
         assert!(config.modules.seo.unwrap());
         assert!(config.modules.performance.is_none());
     }
+
+    /// A `[verdict]` threshold reaches the decision profile.
+    #[test]
+    fn verdict_config_threshold_reaches_the_decision_profile() {
+        assert_eq!(
+            VerdictConfig {
+                fail_below_score: Some(60),
+                ..Default::default()
+            }
+            .profile()
+            .fail_below_score,
+            Some(60)
+        );
+    }
 }
