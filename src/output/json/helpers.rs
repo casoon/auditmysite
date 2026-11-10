@@ -1104,4 +1104,113 @@ mod tests {
             assert_eq!(area.main_driver, "No detected driver", "{}", area.area);
         }
     }
+
+    // Batch averages, outliers, extremes and the weight basis; each assertion kills a mutation in
+    // tests/fixtures/mutation_contracts/batch_and_lint.toml (#117).
+
+    fn report_at(
+        url: &str,
+        score: u32,
+        modules: &[(&str, u32, bool)],
+    ) -> crate::audit::normalized::NormalizedReport {
+        let mut report = make_report(vec![]);
+        report.url = url.to_string();
+        report.score = score;
+        report.module_scores = modules
+            .iter()
+            .map(|(name, module_score, contributes)| {
+                crate::audit::normalized::ModuleScoreEntry::new(
+                    name,
+                    *module_score,
+                    "measured",
+                    *contributes,
+                )
+            })
+            .collect();
+        report
+    }
+
+    #[test]
+    fn batch_average_is_the_truncated_mean_of_the_page_scores() {
+        assert_eq!(average_accessibility_score(&[]), 0);
+        assert_eq!(
+            average_accessibility_score(&[report_at("a", 100, &[])]),
+            100
+        );
+        // 171 / 2 = 85.5
+        let pair = [report_at("a", 90, &[]), report_at("b", 81, &[])];
+        assert_eq!(average_accessibility_score(&pair), 85);
+    }
+
+    #[test]
+    fn a_page_exactly_15_points_below_the_batch_average_is_an_outlier() {
+        // average (90 + 60) / 2 = 75, delta of b is -15
+        let at_edge =
+            build_internal_comparison(&[report_at("a", 90, &[]), report_at("b", 60, &[])]);
+        assert_eq!(at_edge.outlier_urls.len(), 1);
+        assert_eq!(at_edge.outlier_urls[0].url, "b");
+        assert_eq!(at_edge.outlier_urls[0].delta_points, -15);
+        assert_eq!(at_edge.outlier_urls[0].batch_average, 75);
+        // average (90 + 61) / 2 = 75, delta of b is -14
+        let inside = build_internal_comparison(&[report_at("a", 90, &[]), report_at("b", 61, &[])]);
+        assert!(inside.outlier_urls.is_empty());
+    }
+
+    #[test]
+    fn module_extremes_name_the_best_and_the_worst_page() {
+        let reports = [
+            report_at("a", 90, &[("Performance", 80, true)]),
+            report_at("b", 90, &[("Performance", 50, true), ("SEO", 70, true)]),
+            report_at("c", 90, &[("Performance", 65, true)]),
+        ];
+        let comparison = build_internal_comparison(&reports);
+        let performance = comparison
+            .module_extremes
+            .iter()
+            .find(|e| e.module == "Performance")
+            .expect("performance extreme");
+        assert_eq!(
+            (performance.best_url.as_str(), performance.best_score),
+            ("a", 80)
+        );
+        assert_eq!(
+            (performance.worst_url.as_str(), performance.worst_score),
+            ("b", 50)
+        );
+        let seo = comparison
+            .module_extremes
+            .iter()
+            .find(|e| e.module == "SEO")
+            .expect("seo extreme");
+        assert_eq!((seo.best_url.as_str(), seo.worst_url.as_str()), ("b", "b"));
+    }
+
+    #[test]
+    fn weight_basis_is_the_lowest_contributing_basis_of_the_batch() {
+        let both = [("Accessibility", 80, true), ("Performance", 50, true)];
+        let only_a11y = [("Accessibility", 80, true)];
+        let mixed = [report_at("a", 80, &both), report_at("b", 80, &only_a11y)];
+        assert_eq!(overall_score_weight_basis(&mixed), 40);
+        assert!(!weight_basis_is_uniform(&mixed));
+
+        // Two neighbours that agree do not make a batch uniform when a third differs.
+        let two_of_three = [
+            report_at("a", 80, &both),
+            report_at("b", 80, &both),
+            report_at("c", 80, &only_a11y),
+        ];
+        assert!(!weight_basis_is_uniform(&two_of_three));
+
+        let same = [report_at("a", 80, &both), report_at("b", 80, &both)];
+        assert_eq!(overall_score_weight_basis(&same), 60);
+        assert!(weight_basis_is_uniform(&same));
+
+        // A module that did not contribute adds nothing, whatever weight it carries.
+        let mut skipped = report_at("c", 80, &only_a11y);
+        let mut ghost =
+            crate::audit::normalized::ModuleScoreEntry::new("Performance", 50, "partial", false);
+        ghost.weight_pct = 20;
+        skipped.module_scores.push(ghost);
+        assert_eq!(overall_score_weight_basis(&[skipped]), 40);
+    }
 }

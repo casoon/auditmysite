@@ -13,6 +13,7 @@ barrierlab are verified there, by barrierlab's own catalog, and skipped.
     scripts/mutation-check.py                 # all local mutations
     scripts/mutation-check.py --rule image-alt
     scripts/mutation-check.py --rule scoring-soft-floor-start   # a code mutation id
+    scripts/mutation-check.py --code          # rule mutations plus all code mutations
     scripts/mutation-check.py --list
 
 A mutation only counts as killed when the named test is green on the
@@ -41,7 +42,7 @@ CONTRACTS = ROOT / "tests" / "fixtures" / "rule_contracts"
 CODE_CONTRACTS = ROOT / "tests" / "fixtures" / "mutation_contracts"
 
 
-def mutations(rule_filter):
+def mutations(rule_filter, include_code=False):
     for path in sorted(CONTRACTS.rglob("*.toml")):
         with path.open("rb") as f:
             data = tomllib.load(f)
@@ -52,6 +53,10 @@ def mutations(rule_filter):
                 if m["target"].startswith("barrierlab:"):
                     continue
                 yield path.stem, rule["id"], m
+    # Opt-in: the CI mutation shards run this script without flags and their wall time is
+    # already close to the job limit, so code mutations run only on `--code` or when named.
+    if not (include_code or rule_filter):
+        return
     for path in sorted(CODE_CONTRACTS.rglob("*.toml")):
         with path.open("rb") as f:
             data = tomllib.load(f)
@@ -187,12 +192,15 @@ def shard(todo, part):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--rule", action="append", default=[])
+    parser.add_argument("--code", action="store_true",
+                        help="also run the code mutations of tests/fixtures/mutation_contracts "
+                             "(score computation, batch aggregation, lint); named ids always run")
     parser.add_argument("--list", action="store_true")
     parser.add_argument("--shard", type=parse_shard, default=None, metavar="K/N",
                         help="run only the K-th of N disjoint, complete parts (K in 1..N)")
     args = parser.parse_args()
 
-    todo = shard(list(mutations(set(args.rule))), args.shard)
+    todo = shard(list(mutations(set(args.rule), args.code)), args.shard)
     if args.list:
         for domain, rule_id, m in todo:
             print(f"{domain}/{rule_id}: {m['change']} -> {m['killed_by']}")

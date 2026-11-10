@@ -1,0 +1,162 @@
+# Mutations of the batch aggregation, the letter-grade bands and the report-lint checks (#117).
+# See scoring.toml for the format.
+
+[[mutation]]
+id = "batch-average-divisor"
+target = "src/output/json/helpers.rs"
+change = "divide the batch score sum by one page too many"
+find = "reports.iter().map(|r| r.score).sum::<u32>() / reports.len() as u32"
+replace = "reports.iter().map(|r| r.score).sum::<u32>() / (reports.len() as u32 + 1)"
+killed_by = "lib:output::json::helpers"
+
+[[mutation]]
+id = "batch-outlier-boundary"
+target = "src/output/json/helpers.rs"
+change = "an outlier needs more than 15 points below the average"
+find = "(delta <= -15).then(|| UrlOutlier {"
+replace = "(delta < -15).then(|| UrlOutlier {"
+killed_by = "lib:output::json::helpers"
+
+[[mutation]]
+id = "batch-outlier-threshold"
+target = "src/output/json/helpers.rs"
+change = "an outlier is already 14 points below the average"
+find = "(delta <= -15).then(|| UrlOutlier {"
+replace = "(delta <= -14).then(|| UrlOutlier {"
+killed_by = "lib:output::json::helpers"
+
+[[mutation]]
+id = "batch-extremes-swapped"
+target = "src/output/json/helpers.rs"
+change = "swap best and worst page of a module"
+find = "scored.first().copied()?;\n            let (best_report, best_score) = scored.last().copied()?;"
+replace = "scored.last().copied()?;\n            let (best_report, best_score) = scored.first().copied()?;"
+killed_by = "lib:output::json::helpers"
+
+[[mutation]]
+id = "batch-weight-basis-max"
+target = "src/output/json/helpers.rs"
+change = "publish the highest weight basis instead of the lowest"
+find = "page_weight_bases(reports).into_iter().min().unwrap_or(0)"
+replace = "page_weight_bases(reports).into_iter().max().unwrap_or(0)"
+killed_by = "lib:output::json::helpers"
+
+[[mutation]]
+id = "batch-weight-basis-uniform-any"
+target = "src/output/json/helpers.rs"
+change = "call a batch uniform when any neighbouring pair agrees"
+find = "bases.windows(2).all(|pair| pair[0] == pair[1])"
+replace = "bases.windows(2).any(|pair| pair[0] == pair[1])"
+killed_by = "lib:output::json::helpers"
+
+[[mutation]]
+id = "batch-weight-basis-counts-non-contributing"
+target = "src/output/json/helpers.rs"
+change = "count weight of modules that did not contribute"
+find = ".iter()\n                .filter(|m| m.contributes_to_overall)\n                .map(|m| m.weight_pct)\n                .sum()"
+replace = ".iter()\n                .map(|m| m.weight_pct)\n                .sum()"
+killed_by = "lib:output::json::helpers"
+
+[[mutation]]
+id = "grade-band-rounding"
+target = "src/registry/bands.rs"
+change = "truncate the score instead of rounding before the band lookup"
+find = "let rounded = score.round() as i64;"
+replace = "let rounded = score.floor() as i64;"
+killed_by = "lib:registry::bands"
+
+[[mutation]]
+id = "grade-band-edge"
+target = "src/registry/bands.rs"
+change = "a band starts above its lower bound, not at it"
+find = ".find(|entry| rounded >= entry.0)"
+replace = ".find(|entry| rounded > entry.0)"
+killed_by = "lib:registry::bands"
+
+[[mutation]]
+id = "lint-score-alias-severity"
+target = "src/lint/checks.rs"
+change = "report the score alias as Low instead of High"
+find = "actual: alias.to_string(),\n            severity: Severity::High,"
+replace = "actual: alias.to_string(),\n            severity: Severity::Low,"
+killed_by = "lib:lint::checks"
+
+[[mutation]]
+id = "lint-single-only-accessibility"
+target = "src/lint/checks.rs"
+change = "compare only accessibility_score between summary and page"
+find = "for field in [\"accessibility_score\", \"overall_score\"] {"
+replace = "for field in [\"accessibility_score\"] {"
+killed_by = "lib:lint::checks"
+
+[[mutation]]
+id = "lint-single-one-direction"
+target = "src/lint/checks.rs"
+change = "flag a summary score only when it is above the page score"
+find = "if summary_val != page_val {"
+replace = "if summary_val > page_val {"
+killed_by = "lib:lint::checks"
+
+[[mutation]]
+id = "lint-grade-severity"
+target = "src/lint/checks.rs"
+change = "report a wrong grade as High instead of Critical"
+find = "actual: grade.to_string(),\n                severity: Severity::Critical,"
+replace = "actual: grade.to_string(),\n                severity: Severity::High,"
+killed_by = "lib:lint::checks"
+
+[[mutation]]
+id = "lint-counts-sum-ignores-low"
+target = "src/lint/checks.rs"
+change = "leave the low count out of the severity sum"
+find = "+ node.get(\"medium\")?.as_i64()?\n            + node.get(\"low\")?.as_i64()?,"
+replace = "+ node.get(\"medium\")?.as_i64()?,"
+killed_by = "lib:lint::checks"
+
+[[mutation]]
+id = "lint-counts-total-one-direction"
+target = "src/lint/checks.rs"
+change = "flag a counts total only when it exceeds the sum"
+find = "if total != sum {"
+replace = "if total > sum {"
+killed_by = "lib:lint::checks"
+
+[[mutation]]
+id = "lint-scope-exact-one-direction"
+target = "src/lint/checks.rs"
+change = "an exact scope count may be below the total"
+find = "ScopeRelation::Exact => scope_count != total,"
+replace = "ScopeRelation::Exact => scope_count > total,"
+killed_by = "lib:lint::checks"
+
+[[mutation]]
+id = "lint-scope-at-most-edge"
+target = "src/lint/checks.rs"
+change = "an at-most scope count may not equal the total"
+find = "ScopeRelation::AtMost => scope_count > total,"
+replace = "ScopeRelation::AtMost => scope_count >= total,"
+killed_by = "lib:lint::checks"
+
+[[mutation]]
+id = "lint-scope-severity"
+target = "src/lint/checks.rs"
+change = "report a scope mismatch as Low instead of Medium"
+find = "actual: scope_count.to_string(),\n                severity: Severity::Medium,"
+replace = "actual: scope_count.to_string(),\n                severity: Severity::Low,"
+killed_by = "lib:lint::checks"
+
+[[mutation]]
+id = "lint-batch-summary-relation"
+target = "src/lint/checks.rs"
+change = "treat the batch summary as exact and a single summary as at-most"
+find = "let summary_relation = if is_batch {"
+replace = "let summary_relation = if !is_batch {"
+killed_by = "lib:lint::checks"
+
+[[mutation]]
+id = "lint-page-relation"
+target = "src/lint/checks.rs"
+change = "check page counts as at-most instead of exact"
+find = "check_node(page, &format!(\"pages[{i}]\"), ScopeRelation::Exact, findings);"
+replace = "check_node(page, &format!(\"pages[{i}]\"), ScopeRelation::AtMost, findings);"
+killed_by = "lib:lint::checks"

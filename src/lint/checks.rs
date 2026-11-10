@@ -1060,6 +1060,102 @@ mod tests {
             .iter()
             .any(|f| f.check_id == CHECK_PDF_SCORE_TRACEABLE));
     }
+
+    // Directions, severities and boundaries of the checks; each assertion kills a mutation in
+    // tests/fixtures/mutation_contracts/batch_and_lint.toml (#117).
+
+    fn lint_findings(report: &Value) -> Vec<LintFinding> {
+        let mut findings = Vec::new();
+        run_all_checks(report, &mut findings);
+        findings
+    }
+
+    fn finding_of(report: &Value, check_id: &str) -> Option<LintFinding> {
+        lint_findings(report)
+            .into_iter()
+            .find(|f| f.check_id == check_id)
+    }
+
+    #[test]
+    fn the_score_alias_is_a_high_finding() {
+        let mut report = clean_single_report();
+        report["summary"]["score"] = json!(82);
+        let finding = finding_of(&report, CHECK_SCORE_ALIAS).expect("alias flagged");
+        assert!(matches!(finding.severity, Severity::High));
+    }
+
+    #[test]
+    fn a_summary_score_below_the_page_score_is_flagged_too() {
+        let mut report = clean_single_report();
+        report["summary"]["overall_score"] = json!(80);
+        let finding =
+            finding_of(&report, CHECK_SINGLE_SUMMARY_MATCHES_PAGE).expect("lower summary flagged");
+        assert_eq!(finding.expected, "82");
+        assert_eq!(finding.actual, "80");
+    }
+
+    #[test]
+    fn a_wrong_grade_is_a_critical_finding() {
+        let mut report = clean_single_report();
+        report["summary"]["grade"] = json!("A");
+        let finding = finding_of(&report, CHECK_GRADE_MATCHES_SCORE).expect("grade flagged");
+        assert!(matches!(finding.severity, Severity::Critical));
+    }
+
+    #[test]
+    fn the_severity_total_counts_all_four_severities_in_both_directions() {
+        // critical 1 + high 2 + low 1 = 4, not the stated 3
+        let mut report = clean_single_report();
+        report["summary"]["severity_counts"]["low"] = json!(1);
+        let finding =
+            finding_of(&report, CHECK_SEVERITY_TOTAL_SUM).expect("low is part of the sum");
+        assert_eq!(finding.expected, "4");
+
+        // a total below the sum is wrong, and so is one above it
+        let mut below = clean_single_report();
+        below["summary"]["severity_counts"]["total"] = json!(2);
+        assert!(finding_of(&below, CHECK_SEVERITY_TOTAL_SUM).is_some());
+        let mut above = clean_single_report();
+        above["summary"]["severity_counts"]["total"] = json!(4);
+        assert!(finding_of(&above, CHECK_SEVERITY_TOTAL_SUM).is_some());
+    }
+
+    #[test]
+    fn a_single_scope_count_must_equal_the_total_in_both_directions() {
+        let mut below = clean_single_report();
+        below["summary"]["violated_rule_count"] = json!(2);
+        let finding = finding_of(&below, CHECK_VIOLATED_RULE_COUNT_SCOPE)
+            .expect("a count below the total is flagged");
+        assert_eq!(finding.expected, "3");
+        assert!(matches!(finding.severity, Severity::Medium));
+
+        let mut above = clean_single_report();
+        above["summary"]["violated_rule_count"] = json!(4);
+        assert!(finding_of(&above, CHECK_VIOLATED_RULE_COUNT_SCOPE).is_some());
+    }
+
+    #[test]
+    fn every_page_of_a_batch_is_checked_exactly() {
+        let mut report = clean_batch_report();
+        // the page's own severity total is 2, so one distinct rule is not exact
+        report["pages"][0]["violated_rule_count"] = json!(1);
+        let finding = finding_of(&report, CHECK_VIOLATED_RULE_COUNT_SCOPE)
+            .expect("page counts are exact, not at-most");
+        assert_eq!(finding.evidence_path, "pages[0].violated_rule_count");
+    }
+
+    #[test]
+    fn a_batch_summary_count_may_equal_but_not_exceed_the_total() {
+        let mut equal = clean_batch_report();
+        equal["summary"]["violated_rule_count"] = json!(35);
+        assert!(finding_of(&equal, CHECK_VIOLATED_RULE_COUNT_SCOPE).is_none());
+
+        let mut above = clean_batch_report();
+        above["summary"]["violated_rule_count"] = json!(36);
+        let finding = finding_of(&above, CHECK_VIOLATED_RULE_COUNT_SCOPE)
+            .expect("a count above the total is flagged");
+        assert_eq!(finding.expected, "<= 35");
+    }
 }
 
 #[cfg(test)]

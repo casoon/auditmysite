@@ -74,13 +74,8 @@ find = "} else if urgent_occurrences >= 5 {"
 replace = "} else if urgent_occurrences >= 6 {"
 killed_by = "lib:audit::scoring"
 
-[[mutation]]
-id = "scoring-highest-severity-wins"
-target = "src/audit/scoring.rs"
-change = "keep the lowest severity of a rule instead of the highest"
-find = "if v.severity > entry.1 {"
-replace = "if v.severity < entry.1 {"
-killed_by = "lib:audit::scoring"
+# Not listed: "highest severity of a rule wins" went away with the taxonomy rework (#918); the
+# per-criterion penalty no longer depends on the severity of a finding.
 
 [[mutation]]
 id = "scoring-level-a-urgent"

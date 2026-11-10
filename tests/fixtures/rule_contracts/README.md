@@ -76,7 +76,7 @@ barrierlab's own mutation catalog.
 
 Code that is no rule (score computation, penalty curves, caps) has its mutations in
 `tests/fixtures/mutation_contracts/*.toml`: `[[mutation]]` entries with an `id` and the same
-fields as above, run by the same script (`--rule <id>`). A mutation that cannot change any
+fields as above, run by the same script, but only with `--code` or `--rule <id>` (the CI shards run without flags, and their wall time is near the job limit). A mutation that cannot change any
 observable result (an equivalent mutant) is left out with a comment saying why.
 
 ## Corpus verdicts

@@ -955,8 +955,9 @@ mod score_invariants {
 
     #[test]
     fn only_a_level_a_high_finding_holds_the_score_below_the_top_band() {
-        let aa = score(&[violation("x.1", WcagLevel::AA, Severity::High, 0)]);
-        let a = score(&[violation("x.1", WcagLevel::A, Severity::High, 0)]);
+        // A criterion with a penalty: a finding without one never reaches the cap.
+        let aa = score(&[violation("1.1.1", WcagLevel::AA, Severity::High, 0)]);
+        let a = score(&[violation("1.1.1", WcagLevel::A, Severity::High, 0)]);
         assert!(aa > 89.0, "AA high finding: {aa}");
         assert!(a <= 89.0, "A high finding: {a}");
     }
