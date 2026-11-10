@@ -866,8 +866,8 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                     rule.dimension.label(true).to_string(),
                     rule.subcategory.label(true).to_string(),
                     rule.issue_class.label(true).to_string(),
-                    rule.user_impact_en.to_string(),
-                    rule.technical_impact_en.to_string(),
+                    rule.user_impact(true),
+                    rule.technical_impact(true),
                     ScoreImpactData {
                         base_penalty: rule.score_impact.base_penalty,
                         max_penalty: rule.score_impact.max_penalty,
@@ -999,7 +999,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
             // canonical English (#406); the PDF re-derives the localized title
             // from the taxonomy at render time.
             let display_title = taxonomy_rule
-                .map(|r| r.title_en.to_string())
+                .map(|r| r.title(true))
                 .unwrap_or_else(|| first.rule_name.clone());
 
             let id = a11y_report::FindingId::new(&tax_id, std::iter::empty()).to_string();

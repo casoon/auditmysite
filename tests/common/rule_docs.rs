@@ -363,7 +363,7 @@ pub fn pages() -> Vec<RulePage> {
             id: rule.id.to_string(),
             url: rule_doc_url(rule.id),
             domain: Domain::Wcag,
-            title: rule.title_en.to_string(),
+            title: rule.title(true),
             outcome: page_outcome(&checks),
             area: format!(
                 "{}, {}",
@@ -377,8 +377,8 @@ pub fn pages() -> Vec<RulePage> {
             level: rule.external_level.map(str::to_string),
             axe_id: rule.axe_id.map(str::to_string),
             severity: Some(rule.severity.label_en().to_lowercase()),
-            user_impact: Some(rule.user_impact_en.to_string()),
-            technical_impact: Some(rule.technical_impact_en.to_string()),
+            user_impact: Some(rule.user_impact(true)),
+            technical_impact: Some(rule.technical_impact(true)),
             checks,
         });
     }

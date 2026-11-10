@@ -390,7 +390,8 @@ small corpus case, gives a thin page: sections without material are left out.
 Finally, add a line under `## [Unreleased]` in `CHANGELOG.md` (see
 [Changelog](#changelog)). If the finding should have its own title, impact text and
 score weight in the report rather than the defaults, add an entry to
-`src/taxonomy/rules.rs`; say so in the pull request if you are unsure.
+`src/taxonomy/rules.rs` and its texts to `locales/de/rules.ftl` and
+`locales/en/rules.ftl`; say so in the pull request if you are unsure.
 
 ## Code conventions
 

@@ -49,9 +49,9 @@ pub(super) fn localized_finding_text(
         .or_else(|| RuleLookup::by_wcag(&finding.wcag_criterion));
     match rule {
         Some(r) => (
-            r.title.to_string(),
-            r.user_impact.to_string(),
-            r.technical_impact.to_string(),
+            r.title(false),
+            r.user_impact(false),
+            r.technical_impact(false),
         ),
         None => (
             finding.title.clone(),
