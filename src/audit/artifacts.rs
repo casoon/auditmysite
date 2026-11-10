@@ -916,6 +916,7 @@ pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport 
         run_context: crate::audit::RunContext {
             indexability: Default::default(),
             decision_profile: artifacts.audit.decision.profile.clone(),
+            baseline: None,
         },
         url: artifacts.audit.url.clone(),
         wcag_level: artifacts.audit.wcag_level,

@@ -88,6 +88,17 @@ UX, Journey, AI Visibility, Content Visibility, Source Quality and Commerce are 
 
 `noindex` is judged against the page goal. `--expect-indexable true` (or `[audit] expect_indexable = true`, implied for sitemap runs) makes it a gate: the SEO score is capped at 39 and the decision gets the reason `technical_blockers`. `false` excludes it as intended. Without either, the finding is listed with `applicability: unknown` and has no score effect.
 
+### Finding id stability
+
+`pages[].findings[].id` (`F-` and eight hex digits) identifies one rule on one page. It is the hash (FNV-1a 64, upper 32 bits, `a11y_report::FindingId`) of the rule id alone, so it is the same on every page and in every run, and the findings baseline (below) relies on exactly that. What it does not depend on, and must never start to depend on: elements, selectors, occurrence counts, their order, messages, severity, score, page content, tool version, language, viewport or the modules that ran.
+
+What changes an id:
+
+- **The rule id.** A renamed rule is a new finding to every existing baseline (its old id reads as `fixed`, the new one as `new`). Renames are therefore changelog entries (the 2.0 rule catalogue, #918, was such a change).
+- **The id derivation.** A change of `FindingId`'s key moves every id. `FINDING_ID_SCHEME` (`audit::baseline`) must be raised in the same change; a baseline written under another scheme is refused, and so is a baseline whose ids this tool would not derive from the recorded rules.
+
+What follows: a baseline entry means "this rule is reported on this URL", not "these elements". A new element violating an already known rule is not a new finding; the baseline stays quiet about it. Use the pattern ids (`findings[].patterns[].id`, `RC-` and eight hex digits, rule and normalized selector) for element-level comparison; the baseline does not use them. `tests/baseline_gating.rs` pins the ids of known rules (`finding_ids_of_known_rules_are_pinned`) and checks that reordering and element changes leave an id and the baseline digest alone.
+
 ## Decision Contract
 
 `decision` (top level and on every page) is the one PASS/WARN/FAIL of the report; the terminal, JSON, summary feed, Studio, PDF, the batch `passed` count and the exit code all project it. It carries `contract` (`auditmysite.decision/3`), the `profile` it was computed with (`name` `default` or `custom`, from `[verdict]`), `verdict` and `reasons`.
@@ -114,6 +125,28 @@ Every path that publishes a decision reads the stored one and validates before w
 | Exit code | stored decision (`0` pass, `1` warn, `2` fail) | `exit_code_of_the_process_is_the_exported_verdict` (real binary, needs Chrome), `batch_with_only_failed_urls_exits_2_without_a_score` |
 
 Batch: a page counts as passed when its own decision passes; the batch `decision` applies the same profile to the summary (legal flags, blocking issues, technical blockers and the average accessibility score). All pages of a batch share one profile.
+
+## Findings Baseline
+
+`--write-baseline <file>` records the finding ids of the run, `--baseline <file>` gates a later run against them: findings whose id is in the file are `known`, do not affect the verdict or the exit code, and are counted instead of listed. A baseline is a gating filter, not a suppression: scores, `findings[]`, `severity_counts` and every summary total stay as measured.
+
+**File** (`auditmysite.baseline/1`): `contract`, `id_scheme` (`FINDING_ID_SCHEME`, 1), `tool_version`, `created_at` and `pages[]` with `url` and `findings[]` (`id`, `rule`). The `rule` makes a committed file reviewable in a diff, and the reader checks every `id` against it. A batch writes one entry per audited URL, a single run one. Every finding of the run is recorded, known or not, so `--baseline old.json --write-baseline new.json` accepts the current state.
+
+**Usage errors** (exit 3, before any audit): a file that is not JSON or not a baseline, another `contract`, an `id_scheme` this tool does not use, an `id` that is not the id of its `rule`, a URL listed twice, an unreadable file; and `--write-baseline` with `--display all`. A baseline that cannot be used is never read as an empty one.
+
+**Scoping.** A finding is known per page: the key is `url` (the audited URL as in `pages[].url`) plus the finding id. The same rule on another URL is new unless that URL lists it. A URL the baseline does not list has no known findings (`pages[].baseline.page_listed: false`).
+
+**What is gated.** Under a baseline the decision reads the verdict inputs without the known findings: legal flags, blocking issues (`pages[].baseline.gate`), technical blockers and the open WCAG findings of the "any finding" warning. The `fail_below_score` and `warn_below_score` thresholds are not baselined (the score is unchanged), nor is the audit quality; the legal flag raised by the screen-reader BFSG verdict has no finding id and is never known. A batch decision reads `summary.baseline.gate` the same way. Exit codes are those of the decision (`0`, `1`, `2`); `--write-baseline` does not change the exit code of its own run (use `--report-mode` to only record).
+
+**Reporting.**
+- `pages[].findings[].known: true` marks a known finding (the field is absent otherwise).
+- `pages[].baseline` (single and batch): `digest`, `page_listed`, `known`, `new`, `fixed` (baseline entries of this page without a finding in this run) with `fixed_ids`, and `gate`. `fixed` also counts entries of modules that did not run this time, and entries of renamed rules.
+- Batch only, top level `baseline` (`summary.baseline` internally): `digest`, `known`, `new`, `fixed`, `unmatched_pages` (pages the baseline lists that this run did not audit) and `gate` (`legal_flags`, `blocking_issues`, `technical_blockers`, `open_violations`).
+- `decision.profile.baseline_digest` is the SHA-256 over the recorded `url` and finding id pairs (not over `created_at` or `tool_version`, so rewriting an identical baseline keeps it). A gated decision never has the profile name `default`; a result with and without baseline cannot be mistaken for each other.
+- The terminal table and the PDF show one line (`Baseline: n known, m new, k fixed findings`), no per-finding rows.
+- A page whose stored `baseline` status, known flags or profile digest disagree fails validation as `baseline`, and so does a batch whose `baseline` block is not the sum of its pages.
+
+Not covered: SARIF `baselineState` and any history of baselines. Cache replays (`--reuse-cache`, `replay`) are gated again under the current `--baseline`; the baseline is not part of the audit signature because it changes no measurement.
 
 
 ## Execution Scope and Audit Quality
@@ -171,6 +204,7 @@ Not measured: user interaction (INP stays an estimate and is only set when inter
 
 A report that contradicts itself is rejected with machine-readable codes (`ReportContractError.violations[].code`, `audit::CONTRACT_CODES`). The codes, by area:
 
+- Baseline: `baseline`.
 - Scores and decision: `score_range`, `grade`, `overall_score`, `average_score`, `score_method`, `module_grade`, `module_weight`, `module_identity`, `weighted_measurement`, `viewport_score`, `semantic_score_cap`, `gate_score_cap`, `passed`, `decision`, `decision_contract`, `decision_profile`, `cause_charged_twice`.
 - Findings and counts: `finding_domain`, `finding_identity`, `finding_inventory`, `finding_occurrences`, `occurrence_counts`, `severity_counts`, `rule_findings_preserved`.
 - Execution scope: `requested_execution`, `requested_rule_outcome`, `rule_outcome_duplicate`, `rule_outcome_above_level`, `rule_outcome_filtered`, `requested_subcheck_outcome`, `frame_rule_outcome_missing`, `frame_rule_outcome_duplicate`, `frame_rule_outcome_unexpected`, `frame_rule_outcome_above_level`, `measurement_profile_read_only`, `measurement_profile_journeys`, `browser_provenance`.

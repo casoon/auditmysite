@@ -199,8 +199,11 @@ async fn run_single(
         }
     }
 
+    apply_baseline(&mut report, args)?;
     // The decision stored by normalization under the run's profile (#781).
-    let verdict_result = normalize_checked(&report)?.normalized.decision;
+    let normalized = normalize_checked(&report)?.normalized;
+    write_baseline(args, std::slice::from_ref(&normalized))?;
+    let verdict_result = normalized.decision;
     output_single_report(&report, args)?;
     print_verdict(&verdict_result, args.quiet);
     Ok(RunOutcome {
@@ -210,6 +213,43 @@ async fn run_single(
             report.accessibility.execution.display_modes.as_ref(),
         ))),
     })
+}
+
+/// Gates `report` against `--baseline` (#930): its known findings stay out of
+/// the decision. The file was checked by `Args::validate`.
+fn apply_baseline(report: &mut auditmysite::AuditReport, args: &Args) -> Result<()> {
+    if let Some(baseline) = args.load_baseline().map_err(AuditError::ConfigError)? {
+        baseline.apply(report);
+    }
+    Ok(())
+}
+
+/// `--write-baseline` (#930): records every finding of the run. A run that
+/// measured nothing has nothing to record and must not overwrite a good file.
+fn write_baseline(args: &Args, reports: &[auditmysite::audit::NormalizedReport]) -> Result<()> {
+    let Some(path) = &args.write_baseline else {
+        return Ok(());
+    };
+    if reports.is_empty() {
+        eprintln!(
+            "{} no URL produced a report; baseline {} not written",
+            "Warning:".yellow().bold(),
+            path.display()
+        );
+        return Ok(());
+    }
+    let baseline = auditmysite::audit::Baseline::from_reports(reports, chrono::Utc::now());
+    baseline.write(path)?;
+    if !args.quiet {
+        eprintln!(
+            "{} {} findings on {} pages written to {}",
+            "Baseline:".cyan().bold(),
+            baseline.finding_count(),
+            baseline.file().pages.len(),
+            path.display()
+        );
+    }
+    Ok(())
 }
 
 /// Decides and emits a report that came from a stored snapshot (cache hit or
@@ -225,7 +265,10 @@ pub(crate) fn emit_replayed(
         .as_ref()
         .map(|c| c.effective_verdict_config().profile())
         .unwrap_or_default();
-    let verdict_result = normalize_checked(&report)?.normalized.decision;
+    apply_baseline(&mut report, args)?;
+    let normalized = normalize_checked(&report)?.normalized;
+    write_baseline(args, std::slice::from_ref(&normalized))?;
+    let verdict_result = normalized.decision;
     output_single_report(&report, args)?;
     if args.effective_format() == OutputFormat::Json {
         output_screen_reader_sidecar(&report, args)?;
@@ -508,6 +551,17 @@ async fn run_batch(
     };
 
     let mut batch_report = run_concurrent_batch(urls, &batch_config, progress).await?;
+    if let Some(baseline) = args.load_baseline().map_err(AuditError::ConfigError)? {
+        batch_report = batch_report.with_baseline(&baseline);
+    }
+    if args.write_baseline.is_some() {
+        let normalized = batch_report
+            .reports
+            .iter()
+            .map(|r| normalize_checked(r).map(|ctx| ctx.normalized))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        write_baseline(args, &normalized)?;
+    }
     batch_report = batch_report.with_sample(sample);
 
     if url_source == "sitemap" {

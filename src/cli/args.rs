@@ -264,6 +264,26 @@ pub struct Args {
     #[arg(long = "expect-indexable", value_name = "BOOL")]
     pub expect_indexable: Option<bool>,
 
+    /// Gate this run against a findings baseline written by `--write-baseline`:
+    /// findings whose id is in the file are `known` and do not affect the
+    /// exit code; only new findings do.
+    ///
+    /// Scores and the finding list stay unchanged. In a batch a finding is
+    /// known per URL. The score thresholds of `[verdict]` are not baselined.
+    /// A malformed file, or one written under another finding id scheme,
+    /// exits 3. The baseline's digest is stored in `decision.profile`.
+    #[arg(long, value_name = "FILE")]
+    pub baseline: Option<PathBuf>,
+
+    /// Write the finding ids of this run (with URL, tool version and time) to
+    /// FILE as a baseline for later `--baseline` runs.
+    ///
+    /// Records every finding of the run, known or not. The verdict and exit
+    /// code of this run are unaffected; combine with `--report-mode` to only
+    /// record. Not written when no URL produced a report.
+    #[arg(long = "write-baseline", value_name = "FILE")]
+    pub write_baseline: Option<PathBuf>,
+
     /// Which cookies, storage and cache the audited pages share.
     ///
     /// `isolated` (default) — every URL runs in a browser context of its own,
@@ -813,12 +833,32 @@ impl Args {
             .transpose()
     }
 
+    /// The findings baseline, if `--baseline` names one.
+    pub fn load_baseline(&self) -> Result<Option<crate::audit::Baseline>, String> {
+        self.baseline
+            .as_deref()
+            .map(|path| {
+                crate::audit::Baseline::read(path).map_err(|e| match e {
+                    crate::error::AuditError::ConfigError(message) => message,
+                    other => other.to_string(),
+                })
+            })
+            .transpose()
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         // Subcommands don't need URL validation
         if self.command.is_some() {
             return Ok(());
         }
         self.load_storage_state()?;
+        self.load_baseline()?;
+        if self.write_baseline.is_some() && self.display == Some(DisplaySelection::All) {
+            return Err(
+                "--write-baseline records one run; --display all runs one audit per mode"
+                    .to_string(),
+            );
+        }
 
         // At least one input source required
         if self.url.is_none() && self.sitemap.is_none() && self.url_file.is_none() {
@@ -1040,6 +1080,8 @@ mod tests {
     fn test_args(url: Option<&str>) -> Args {
         Args {
             expect_indexable: None,
+            baseline: None,
+            write_baseline: None,
             command: None,
             url: url.map(|s| s.to_string()),
             sitemap: None,

@@ -232,6 +232,9 @@ pub struct SummaryBlock {
     /// `verdict` field above is a prose sentence, not this (plan 34).
     pub ci_verdict: crate::audit::verdict::Verdict,
     pub ci_verdict_reasons: Vec<crate::audit::verdict::VerdictReasonKind>,
+    /// Known/new/fixed findings against the findings baseline (#930); `None`
+    /// without `--baseline`.
+    pub baseline: Option<crate::audit::BaselineStatus>,
     /// True when the run did not complete in full. The rating is then marked
     /// provisional at the front of the report instead of only in the
     /// methodology appendix (plan 44).
@@ -1413,6 +1416,8 @@ pub struct PortfolioSummary {
     pub total_violations: usize,
     pub duration_ms: u64,
     pub verdict_text: String,
+    /// The batch's findings baseline (#930); `None` without `--baseline`.
+    pub baseline: Option<crate::audit::baseline::BatchBaselineSummary>,
     pub worst_urls: Vec<(String, f32)>,
     pub best_urls: Vec<(String, f32)>,
     pub severity_distribution: SeverityDistribution,

@@ -310,6 +310,17 @@ fn render_overall_rating(
         });
     }
 
+    if let Some(baseline) = &vm.summary.baseline {
+        body.push(' ');
+        body.push_str(&crate::audit::baseline::summary_text(
+            baseline.known,
+            baseline.new,
+            baseline.fixed,
+            None,
+            en,
+        ));
+    }
+
     // A run that did not complete may still state a rating, but not as a
     // settled one — and it has to say so here, not on page ~60 (plan 44).
     if vm.summary.run_is_partial {

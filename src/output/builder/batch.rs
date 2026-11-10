@@ -843,6 +843,7 @@ pub fn build_batch_presentation_with_normalized(
             total_violations: batch.summary.total_violations,
             duration_ms: batch.total_duration_ms,
             verdict_text,
+            baseline: batch.summary.baseline.clone(),
             worst_urls,
             best_urls,
             severity_distribution,

@@ -140,6 +140,12 @@ pub struct UnifiedReport {
     /// the scores or the exit code.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub annotations: Option<crate::annotations::AnnotationsBlock>,
+    /// Batch only — the findings baseline the run was gated against (#930):
+    /// known, new and fixed findings and the verdict inputs left after the
+    /// known ones. The page-level view is `pages[].baseline`. Absent without
+    /// `--baseline`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub baseline: Option<crate::audit::baseline::BatchBaselineSummary>,
 }
 
 #[derive(Debug, Serialize)]
@@ -591,6 +597,10 @@ pub struct PageEntry {
     pub finding_inventory: Vec<crate::audit::finding_contract::InventoryEntry>,
     /// The page's stored decision (#781).
     pub decision: VerdictResult,
+    /// Known, new and fixed findings of this page against the findings
+    /// baseline (#930). Absent without `--baseline`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub baseline: Option<crate::audit::BaselineStatus>,
     pub audit_flags: Vec<crate::audit::normalized::AuditFlag>,
     pub audit_quality: crate::audit::AuditQuality,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -1190,6 +1200,7 @@ impl UnifiedReport {
             collection_errors,
             decision: batch_report.summary.decision.clone(),
             annotations: None,
+            baseline: batch_report.summary.baseline.clone(),
         }
     }
 
@@ -1333,6 +1344,7 @@ impl UnifiedReport {
             collection_errors: Vec::new(),
             decision: ctx.normalized.decision.clone(),
             annotations: None,
+            baseline: None,
         }
     }
 
@@ -1421,6 +1433,7 @@ impl UnifiedReport {
             collection_errors: Vec::new(),
             decision: normalized.decision.clone(),
             annotations: None,
+            baseline: None,
         }
     }
 }

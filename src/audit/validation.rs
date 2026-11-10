@@ -53,6 +53,7 @@ pub const CONTRACT_CODES: &[&str] = &[
     "accessibility_module",
     "audit_quality",
     "average_score",
+    "baseline",
     "batch_aggregation",
     "browser_provenance",
     "cause_charged_twice",
@@ -680,6 +681,34 @@ impl NormalizedReport {
             ),
         );
 
+        // A baseline-gated page (#930): the known findings, the counts and
+        // the digest of the profile describe one classification.
+        let known = self.findings.iter().filter(|f| f.known).count();
+        match &self.baseline {
+            Some(baseline) => check(
+                baseline.known == known
+                    && baseline.known + baseline.new == self.findings.len()
+                    && baseline.fixed == baseline.fixed_ids.len()
+                    && self.decision.profile.baseline_digest.as_deref()
+                        == Some(baseline.digest.as_str()),
+                "baseline",
+                "baseline".into(),
+                format!(
+                    "{} known and {} new findings do not match {} findings ({known} marked \
+                     known) or the profile's baseline digest",
+                    baseline.known,
+                    baseline.new,
+                    self.findings.len()
+                ),
+            ),
+            None => check(
+                known == 0 && self.decision.profile.baseline_digest.is_none(),
+                "baseline",
+                "baseline".into(),
+                "known findings or a baseline digest without a baseline status".into(),
+            ),
+        }
+
         // Every collected problem has one representation (#780).
         let mut finding_ids = HashSet::new();
         for finding in &self.findings {
@@ -850,8 +879,10 @@ pub fn validate_batch(batch: &BatchReport) -> Result<(), ReportContractError> {
     let mut violations = Vec::new();
     let mut total = 0u64;
     let mut passed = 0usize;
+    let mut pages = Vec::with_capacity(batch.reports.len());
     for (index, report) in batch.reports.iter().enumerate() {
         let context = super::normalized::normalize(report);
+        pages.push(context.normalized.clone());
         if let Err(error) = context.normalized.validate() {
             violations.extend(error.violations.into_iter().map(|mut v| {
                 v.path = format!("reports[{index}].{}", v.path);
@@ -869,6 +900,31 @@ pub fn validate_batch(batch: &BatchReport) -> Result<(), ReportContractError> {
         }
     }
     let count = batch.reports.len();
+    // The batch's baseline block (#930) is the sum of its pages' statuses;
+    // `unmatched_pages` needs the file and is not checked here.
+    let baseline_matches = match (
+        &batch.summary.baseline,
+        super::baseline::summarize_batch(&pages),
+    ) {
+        (None, None) => true,
+        (Some(stored), Some(expected)) => {
+            stored.digest == expected.digest
+                && stored.known == expected.known
+                && stored.new == expected.new
+                && stored.fixed == expected.fixed
+                && stored.gate == expected.gate
+        }
+        (Some(_), None) => count == 0,
+        (None, Some(_)) => false,
+    };
+    if !baseline_matches {
+        violations.push(ContractViolation {
+            code: "baseline",
+            path: "summary.baseline".into(),
+            message: "the batch baseline block must be the sum of its pages' baseline statuses"
+                .into(),
+        });
+    }
     let expected_average = (count > 0).then(|| total as f64 / count as f64);
     let summary = &batch.summary;
     for (valid, path, message) in [

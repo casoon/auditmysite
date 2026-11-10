@@ -145,6 +145,19 @@ pub fn render_single_report_for(
         rm_report = rm_report.add_next_step(NextStep::new(&item.action));
     }
 
+    if let Some(baseline) = &normalized.normalized.baseline {
+        rm_report = rm_report.add_scope_note(runemark::report::ScopeNote::new(
+            "Baseline",
+            vec![crate::audit::baseline::summary_text(
+                baseline.known,
+                baseline.new,
+                baseline.fixed,
+                None,
+                args.lang != "de",
+            )],
+        ));
+    }
+
     let lines = experimental_lines(&report.experimental, args.lang != "de");
     if !lines.is_empty() {
         rm_report = rm_report.add_scope_note(runemark::report::ScopeNote::new(
@@ -278,6 +291,18 @@ pub fn render_batch_report(
             vec![format!(
                 "{} of {} discovered URLs ({})",
                 sample.audited, sample.total_discovered, sample.source
+            )],
+        ));
+    }
+    if let Some(baseline) = &batch_report.summary.baseline {
+        rm_report = rm_report.add_scope_note(runemark::report::ScopeNote::new(
+            "Baseline",
+            vec![crate::audit::baseline::summary_text(
+                baseline.known,
+                baseline.new,
+                baseline.fixed,
+                Some(baseline.unmatched_pages),
+                args.lang != "de",
             )],
         ));
     }

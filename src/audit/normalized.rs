@@ -62,6 +62,11 @@ pub struct NormalizedReport {
     /// The decision under the stored profile (#781): the one PASS/WARN/FAIL
     /// every output projects.
     pub decision: crate::audit::verdict::VerdictResult,
+    /// Known, new and fixed findings against the findings baseline and the
+    /// verdict inputs left after the known ones (#930). Absent without
+    /// `--baseline`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline: Option<crate::audit::baseline::BaselineStatus>,
     /// Severity-Zähler — zählt **Findings** (eine Zeile pro Regel + Severity).
     pub severity_counts: SeverityCounts,
     /// Severity-Zähler — zählt **Element-Occurrences** (alle betroffenen Elemente).
@@ -304,6 +309,10 @@ pub struct NormalizedFinding {
     /// run, also when an element is added (2.0 finding model, plan 100).
     #[serde(default)]
     pub id: String,
+    /// The finding's id is in the findings baseline (`--baseline`, #930): it
+    /// does not affect the decision. Present only when `true`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub known: bool,
     /// The element patterns of this finding, most occurrences first, at most
     /// [`MAX_PATTERNS`]. A pattern id equals the root-cause id of that rule
     /// and pattern, so the same template on several pages shares it.
@@ -1004,6 +1013,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
             );
 
             NormalizedFinding {
+                known: false,
                 id,
                 patterns,
                 pattern_count,
@@ -1655,6 +1665,36 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         overall_score,
     );
 
+    // The findings baseline (#930) marks the known findings; the verdict
+    // reads the inputs that remain without them.
+    let baseline = report.run_context.baseline.as_ref().map(|page| {
+        crate::audit::baseline::classify(
+            page,
+            report
+                .run_context
+                .decision_profile
+                .baseline_digest
+                .as_deref()
+                .unwrap_or_default(),
+            &mut findings,
+            |open| {
+                let open_risk = compute_risk_assessment(
+                    open,
+                    &occurrence_counts,
+                    &interactive_findings,
+                    screen_reader.as_ref(),
+                    score,
+                    overall_score,
+                );
+                (
+                    open_risk.legal_flags,
+                    open_risk.blocking_issues,
+                    open_risk.keyboard_blocking_issues,
+                )
+            },
+        )
+    });
+
     let accessibility_subcategory_scores = compute_accessibility_subcategory_scores(violations);
     let security_category_scores = report
         .security
@@ -1682,6 +1722,7 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         findings,
         finding_inventory,
         decision: crate::audit::verdict::VerdictResult::undecided(),
+        baseline,
         severity_counts,
         occurrence_counts,
         accessibility_assessments: normalize_assessments(&report.accessibility.wcag_results),

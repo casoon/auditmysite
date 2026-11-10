@@ -2368,6 +2368,8 @@ mod tests {
     fn test_pipeline_config_from_args() {
         let args = Args {
             expect_indexable: None,
+            baseline: None,
+            write_baseline: None,
             command: None,
             url: Some("https://example.com".to_string()),
             sitemap: None,

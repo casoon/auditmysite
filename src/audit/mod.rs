@@ -4,6 +4,7 @@
 
 mod access_block;
 pub mod artifacts;
+pub mod baseline;
 mod batch;
 pub mod batch_consistency;
 pub mod budget;
@@ -75,6 +76,7 @@ pub use normalized::{AuditContext, NormalizedReport};
 pub fn normalize(report: &AuditReport) -> AuditContext<'_> {
     normalized::normalize(report)
 }
+pub use baseline::{Baseline, BaselineStatus, BASELINE_CONTRACT, FINDING_ID_SCHEME};
 #[cfg(feature = "pdf")]
 pub(crate) use pipeline::with_shared_page_rule_violations;
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};

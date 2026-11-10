@@ -218,6 +218,19 @@ pub(super) fn render_batch_cover(
                 .with_line_height("1.4em")
                 .with_max_width("100%"),
         );
+    if let Some(baseline) = &pres.portfolio_summary.baseline {
+        builder = builder.add_component(
+            Label::new(crate::audit::baseline::summary_text(
+                baseline.known,
+                baseline.new,
+                baseline.fixed,
+                Some(baseline.unmatched_pages),
+                crate::output::localized::is_english(i18n),
+            ))
+            .with_size("8.5pt")
+            .with_color(crate::output::pdf::design::tokens::MUTED),
+        );
+    }
 
     // The scope note used to close page 2, which it overflowed onto an
     // otherwise empty page 3 (plan 108). It now opens the contents page; an

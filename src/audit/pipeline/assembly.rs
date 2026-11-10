@@ -320,6 +320,7 @@ pub(super) fn aggregate_report(
     report.run_context = crate::audit::RunContext {
         indexability: config.indexability,
         decision_profile: config.decision_profile.clone(),
+        baseline: None,
     };
     report.accessibility.execution.navigation = navigation;
     report.accessibility.execution.environment.source = "live".to_string();

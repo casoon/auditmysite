@@ -97,3 +97,67 @@ mod dev_binary {
         }
     }
 }
+
+/// `--baseline` / `--write-baseline` (#930) are in the user help, and a
+/// baseline that is not usable is a usage error (exit 3) before any audit.
+mod baseline_flags {
+    use std::process::Command;
+
+    fn run(args: &[&str]) -> (Option<i32>, String) {
+        let output = Command::new(env!("CARGO_BIN_EXE_auditmysite"))
+            .args(args)
+            .output()
+            .expect("failed to run auditmysite");
+        let mut text = String::from_utf8_lossy(&output.stdout).to_string();
+        text.push_str(&String::from_utf8_lossy(&output.stderr));
+        (output.status.code(), text)
+    }
+
+    #[test]
+    fn the_help_lists_both_flags() {
+        let (code, help) = run(&["--help"]);
+        assert_eq!(code, Some(0));
+        assert!(help.contains("--baseline <FILE>"), "{help}");
+        assert!(help.contains("--write-baseline <FILE>"), "{help}");
+    }
+
+    #[test]
+    fn a_malformed_baseline_exits_3() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("baseline.json");
+        let path = path.to_str().unwrap();
+
+        std::fs::write(path, "not json").unwrap();
+        let (code, text) = run(&["https://example.com", "--baseline", path]);
+        assert_eq!(code, Some(3), "{text}");
+        assert!(text.contains("not a baseline file"), "{text}");
+
+        std::fs::write(
+            path,
+            r#"{"contract":"auditmysite.baseline/1","id_scheme":99,"tool_version":"x","created_at":"2026-11-09T10:00:00Z","pages":[]}"#,
+        )
+        .unwrap();
+        let (code, text) = run(&["https://example.com", "--baseline", path]);
+        assert_eq!(code, Some(3), "{text}");
+        assert!(text.contains("finding id scheme"), "{text}");
+
+        let (code, text) = run(&["https://example.com", "--baseline", "/nonexistent/b.json"]);
+        assert_eq!(code, Some(3), "{text}");
+        assert!(text.contains("cannot read"), "{text}");
+    }
+
+    #[test]
+    fn a_baseline_is_written_for_one_run_only() {
+        let (code, text) = run(&[
+            "https://example.com",
+            "--display",
+            "all",
+            "-o",
+            "x.json",
+            "--write-baseline",
+            "b.json",
+        ]);
+        assert_eq!(code, Some(3), "{text}");
+        assert!(text.contains("--write-baseline records one run"), "{text}");
+    }
+}
