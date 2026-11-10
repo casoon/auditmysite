@@ -4541,4 +4541,52 @@ mod tests {
             "link-name-context explanation should ask for manual verification: de={de} en={en}"
         );
     }
+
+    /// Export every explanation text into one data file for review: one
+    /// record per table key, field and language, sorted.
+    ///
+    /// Ignored by default; run on demand to (re)generate the file:
+    ///   cargo test --lib export_all_explanation_texts -- --ignored --nocapture
+    #[test]
+    #[ignore = "run on demand to regenerate reports/explanation-texts.json"]
+    fn export_all_explanation_texts() {
+        let mut records: Vec<(&str, &str, &str, String)> = Vec::new();
+        for (key, expl) in EXPLANATIONS {
+            for lang in ["de", "en"] {
+                for (field, text) in [
+                    ("customer_title", expl.customer_title_for(lang)),
+                    ("customer_description", expl.customer_description_for(lang)),
+                    ("user_impact", expl.user_impact_for(lang)),
+                    ("typical_cause", expl.typical_cause_for(lang)),
+                    ("recommendation", expl.recommendation_for(lang)),
+                    ("technical_note", expl.technical_note_for(lang)),
+                ] {
+                    records.push((key, field, lang, text.to_string()));
+                }
+            }
+        }
+        records.sort();
+        let records: Vec<serde_json::Value> = records
+            .into_iter()
+            .map(|(key, field, lang, text)| {
+                serde_json::json!({
+                    "key": key,
+                    "field": field,
+                    "lang": lang,
+                    "text": text,
+                })
+            })
+            .collect();
+
+        let out_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("reports");
+        std::fs::create_dir_all(&out_dir).expect("create reports/");
+        let out_path = out_dir.join("explanation-texts.json");
+        let out = serde_json::to_string_pretty(&records).expect("serialize explanation texts");
+        std::fs::write(&out_path, out).expect("write reports/explanation-texts.json");
+        eprintln!(
+            "Wrote {} explanation text records to {}",
+            records.len(),
+            out_path.display()
+        );
+    }
 }
