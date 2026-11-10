@@ -827,16 +827,17 @@ mod tests {
         //    technical note), one record per rule × locale.
         for (rule_key, expl) in crate::output::explanations::all() {
             for locale in ["de", "en"] {
+                let en = locale == "en";
                 records.push(serde_json::json!({
                     "source": "explanations_rs",
                     "module": rule_key,
                     "area_locale": locale,
-                    "customer_title": expl.customer_title_for(locale),
-                    "customer_description": expl.customer_description_for(locale),
-                    "user_impact": expl.user_impact_for(locale),
-                    "typical_cause": expl.typical_cause_for(locale),
-                    "recommendation": expl.recommendation_for(locale),
-                    "technical_note": expl.technical_note_for(locale),
+                    "customer_title": expl.customer_title(en),
+                    "customer_description": expl.customer_description(en),
+                    "user_impact": expl.user_impact(en),
+                    "typical_cause": expl.typical_cause(en),
+                    "recommendation": expl.recommendation(en),
+                    "technical_note": expl.technical_note(en),
                 }));
             }
         }

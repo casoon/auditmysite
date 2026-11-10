@@ -17,8 +17,9 @@ impl I18n {
         // Disable Unicode bidi isolates so format_pattern doesn't wrap
         // interpolated values in U+2068 / U+2069 isolate marks.
         bundle.set_use_isolating(false);
-        // Report texts and the rule catalogue texts (`taxonomy::rules`) are
-        // two resources of the one bundle.
+        // Report texts and the rule texts (the catalogue of `taxonomy::rules`
+        // and the explanations of `output::explanations`) are two resources
+        // of the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -152,6 +153,34 @@ pub fn text(key: &str, en: bool) -> String {
 /// same pure text functions as [`count_text`].
 pub fn attr_text(key: &str, attr: &str, en: bool) -> String {
     SHARED.with(|bundles| bundles[usize::from(en)].attr(key, attr))
+}
+
+/// What a `rules.ftl` defines: every message with a value as `key`, every
+/// attribute as `key.attribute`. The file holds one text per line, so any
+/// other line than a comment or `name = text` fails here, and so does a
+/// message or attribute that is defined twice.
+#[cfg(test)]
+pub(crate) fn ftl_entries(ftl: &str) -> std::collections::BTreeSet<String> {
+    let mut entries = std::collections::BTreeSet::new();
+    let mut message = "";
+    for line in ftl.lines() {
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let (name, text) = line
+            .split_once(" = ")
+            .unwrap_or_else(|| panic!("not a `name = text` line: {line}"));
+        assert!(!text.trim().is_empty(), "no text: {line}");
+        let is_new = match name.strip_prefix("    .") {
+            Some(attribute) => entries.insert(format!("{message}.{attribute}")),
+            None => {
+                message = name;
+                entries.insert(name.to_string())
+            }
+        };
+        assert!(is_new, "defined twice: {line}");
+    }
+    entries
 }
 
 #[cfg(test)]

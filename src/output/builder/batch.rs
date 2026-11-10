@@ -1685,6 +1685,7 @@ fn normalized_finding_groups(i18n: &I18n, normalized: &NormalizedReport) -> Vec<
 
 fn finding_group_from_normalized(i18n: &I18n, acc: &NormalizedFindingAccumulator) -> FindingGroup {
     let locale = i18n.locale();
+    let en = locale == "en";
     let finding = &acc.finding;
     // Shared axe_id -> rule_id -> wcag_criterion order; without the axe_id
     // step the batch report hits the same collapse as the single JSON path
@@ -1711,20 +1712,20 @@ fn finding_group_from_normalized(i18n: &I18n, acc: &NormalizedFindingAccumulator
             // The rule's taxonomy title, as in the JSON, not the explanation's
             // criterion fallback (plans 59, 64).
             localized_finding_text(locale, finding).0,
-            expl.customer_description_for(locale).to_string(),
-            expl.user_impact_for(locale).to_string(),
+            expl.customer_description(en),
+            expl.user_impact(en),
             derive_business_impact(
                 i18n,
-                expl.user_impact_for(locale),
+                &expl.user_impact(en),
                 dimension_label,
                 acc.severity,
                 Some(finding.subcategory_kind.label(false)),
                 acc.count,
                 finding.bfsg_relevance.as_str(),
             ),
-            expl.typical_cause_for(locale).to_string(),
-            expl.recommendation_for(locale).to_string(),
-            expl.technical_note_for(locale).to_string(),
+            expl.typical_cause(en),
+            expl.recommendation(en),
+            expl.technical_note(en),
             expl.responsible_role,
             expl.effort_estimate,
             derive_execution_priority(acc.severity, expl.effort_estimate, dimension_label),

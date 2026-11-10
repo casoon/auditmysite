@@ -471,7 +471,7 @@ pub(super) fn build_fix_guidance(normalized: &NormalizedReport) -> Vec<FixGuidan
             FixGuidance {
                 rule_id: finding.rule_id.clone(),
                 title: expl
-                    .map(|e| e.customer_title_en.to_string())
+                    .map(|e| e.customer_title(true))
                     .unwrap_or_else(|| finding.title.clone()),
                 wcag_criterion: finding.wcag_criterion.clone(),
                 severity: format!("{:?}", finding.severity).to_lowercase(),
@@ -486,9 +486,9 @@ pub(super) fn build_fix_guidance(normalized: &NormalizedReport) -> Vec<FixGuidan
                 bfsg_relevance: finding.bfsg_relevance.clone(),
                 occurrence_count: finding.occurrence_count,
                 problem: expl
-                    .map(|e| e.customer_description_en.to_string())
+                    .map(|e| e.customer_description(true))
                     .unwrap_or_else(|| finding.description.clone()),
-                user_impact: expl.map(|e| e.user_impact_en.to_string()).or_else(|| {
+                user_impact: expl.map(|e| e.user_impact(true)).or_else(|| {
                     if finding.user_impact.is_empty() {
                         None
                     } else {
@@ -496,13 +496,13 @@ pub(super) fn build_fix_guidance(normalized: &NormalizedReport) -> Vec<FixGuidan
                     }
                 }),
                 typical_cause: expl
-                    .map(|e| e.typical_cause_en.to_string())
+                    .map(|e| e.typical_cause(true))
                     .filter(|s| !s.is_empty()),
                 recommendation: expl
-                    .map(|e| e.recommendation_en.to_string())
+                    .map(|e| e.recommendation(true))
                     .filter(|s| !s.is_empty()),
                 technical_note: expl
-                    .map(|e| e.technical_note_en.to_string())
+                    .map(|e| e.technical_note(true))
                     .filter(|s| !s.is_empty()),
                 code_example,
                 affected_selectors,

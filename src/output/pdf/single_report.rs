@@ -1337,7 +1337,7 @@ fn render_assessment_and_execution_notes(
                 .as_deref()
                 .and_then(crate::output::explanations::get_explanation)
                 .or_else(|| crate::output::explanations::get_explanation(&finding.rule))
-                .map(|explanation| explanation.recommendation_for(i18n.locale()).to_string())
+                .map(|explanation| explanation.recommendation(en))
                 .unwrap_or_else(|| {
                     if en {
                         "Verify this criterion manually on the rendered page.".to_string()
@@ -1368,7 +1368,7 @@ fn render_assessment_and_execution_notes(
                 .as_deref()
                 .and_then(crate::output::explanations::get_explanation)
                 .or_else(|| crate::output::explanations::get_explanation(&finding.rule))
-                .map(|explanation| explanation.recommendation_for(i18n.locale()).to_string())
+                .map(|explanation| explanation.recommendation(en))
                 .unwrap_or_else(|| {
                     if en {
                         "Confirm this heuristic signal manually.".to_string()

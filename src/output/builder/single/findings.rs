@@ -13,6 +13,7 @@ pub(super) fn finding_group_from_normalized(
     f: &crate::audit::normalized::NormalizedFinding,
 ) -> FindingGroup {
     let locale = i18n.locale();
+    let en = locale == "en";
     // Shared axe_id -> rule_id -> wcag_criterion order; see
     // `explanations::resolve_explanation` for why it must not be reordered
     // (#571, #357, plan 32).
@@ -35,20 +36,20 @@ pub(super) fn finding_group_from_normalized(
             // would rename e.g. an invalid ARIA value to "missing name/role"
             // (plan 59).
             localized_finding_text(locale, f).0,
-            expl.customer_description_for(locale).to_string(),
-            expl.user_impact_for(locale).to_string(),
+            expl.customer_description(en),
+            expl.user_impact(en),
             derive_business_impact(
                 i18n,
-                expl.user_impact_for(locale),
+                &expl.user_impact(en),
                 f.dimension.as_str(),
                 f.severity,
                 Some(f.subcategory_kind.label(false)),
                 f.occurrence_count,
                 f.bfsg_relevance.as_str(),
             ),
-            expl.typical_cause_for(locale).to_string(),
-            expl.recommendation_for(locale).to_string(),
-            expl.technical_note_for(locale).to_string(),
+            expl.typical_cause(en),
+            expl.recommendation(en),
+            expl.technical_note(en),
             expl.responsible_role,
             expl.effort_estimate,
         )
