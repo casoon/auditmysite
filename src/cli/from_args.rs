@@ -5,9 +5,10 @@
 //! TOML [`Config`](super::config::Config). The constructors that read them are
 //! impl blocks here, on the types of the layers they configure.
 
-use super::{Args, ModuleChoice, RequestMode};
+use super::{Args, ColorPolicy, ModuleChoice, RequestMode};
 use crate::audit::{pool_acquire_timeout_secs, BatchConfig, ExperimentalIndicator, PipelineConfig};
 use crate::browser::{BrowserOptions, PoolConfig};
+use crate::output::terminal::{ColorMode, TerminalOptions};
 
 /// The requested indicators, sorted and without duplicates.
 fn normalized_experimental(requested: &[ExperimentalIndicator]) -> Vec<ExperimentalIndicator> {
@@ -153,6 +154,27 @@ impl From<&Args> for BatchConfig {
             concurrency: args.effective_concurrency(),
             max_urls: args.max_pages,
             pool_config,
+        }
+    }
+}
+
+impl From<ColorPolicy> for ColorMode {
+    fn from(policy: ColorPolicy) -> Self {
+        match policy {
+            ColorPolicy::Auto => ColorMode::Auto,
+            ColorPolicy::Always => ColorMode::Always,
+            ColorPolicy::Never => ColorMode::Never,
+        }
+    }
+}
+
+impl From<&Args> for TerminalOptions {
+    fn from(args: &Args) -> Self {
+        TerminalOptions {
+            report_level: args.report_level,
+            lang: args.lang.clone(),
+            color: ColorMode::from(args.color),
+            writing_to_file: args.output.is_some(),
         }
     }
 }
@@ -782,6 +804,45 @@ journey_budget_ms = 1234
             pipeline.journey_budget_ms,
             crate::a11y_journey::DEFAULT_BUDGET_MS
         );
+    }
+
+    /// `TerminalOptions::default()` is documented as the plain
+    /// `auditmysite <URL>` run; this holds the two together.
+    #[test]
+    fn terminal_options_default_is_the_default_cli_run() {
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+        let from_args = TerminalOptions::from(&args);
+        let default = TerminalOptions::default();
+        assert_eq!(from_args.report_level, default.report_level);
+        assert_eq!(from_args.lang, default.lang);
+        assert_eq!(from_args.color, default.color);
+        assert_eq!(from_args.writing_to_file, default.writing_to_file);
+    }
+
+    #[test]
+    fn terminal_options_follow_the_arguments() {
+        let args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--lang",
+            "de",
+            "--color",
+            "never",
+            "--report-level",
+            "executive",
+            "-o",
+            "report.txt",
+        ]);
+        let options = TerminalOptions::from(&args);
+        assert_eq!(options.report_level, args.report_level);
+        assert_ne!(
+            options.report_level,
+            TerminalOptions::default().report_level
+        );
+        assert_eq!(options.lang, "de");
+        assert_eq!(options.color, ColorMode::Never);
+        assert!(options.writing_to_file);
+        assert_eq!(ColorMode::from(ColorPolicy::Always), ColorMode::Always);
     }
 
     #[test]

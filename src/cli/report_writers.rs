@@ -95,7 +95,10 @@ fn output_single_report_with(
             }
         }
         OutputFormat::Table => {
-            let output = auditmysite::output::terminal::render_single_report(report, args)?;
+            let output = auditmysite::output::terminal::render_single_report(
+                report,
+                &auditmysite::output::terminal::TerminalOptions::from(args),
+            )?;
             output_text(&output, &args.output, "Table", args.quiet)?;
         }
         OutputFormat::Pdf => {
@@ -105,7 +108,9 @@ fn output_single_report_with(
                     println!(
                         "{}",
                         auditmysite::output::terminal::render_single_report_for(
-                            report, args, false
+                            report,
+                            &auditmysite::output::terminal::TerminalOptions::from(args),
+                            false
                         )?
                     );
                 }
@@ -246,7 +251,10 @@ pub(crate) fn output_batch_report(
             output_text(&output, &args.output, "JSON batch", args.quiet)?;
         }
         OutputFormat::Table => {
-            let output = auditmysite::output::terminal::render_batch_report(batch_report, args)?;
+            let output = auditmysite::output::terminal::render_batch_report(
+                batch_report,
+                &auditmysite::output::terminal::TerminalOptions::from(args),
+            )?;
             output_text(&output, &args.output, "Table batch", args.quiet)?;
         }
         OutputFormat::Pdf => {

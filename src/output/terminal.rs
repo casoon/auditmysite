@@ -9,24 +9,59 @@
 
 use runemark::report::RenderOptions;
 use runemark::{
-    ColorMode, Console, Finding, FindingGroup as RmFindingGroup, Metric, NextStep, Report, Tone,
-    Verdict,
+    Console, Finding, FindingGroup as RmFindingGroup, Metric, NextStep, Report, Tone, Verdict,
 };
+
+/// Colour mode of the rendered text, the type of [`TerminalOptions::color`].
+pub use runemark::ColorMode;
 
 use crate::audit::{
     normalize_checked, validate_batch, AuditReport, BatchReport, ReportContractError,
 };
-use crate::cli::{Args, ColorPolicy};
+use crate::model::ReportLevel;
 use crate::output::builder::{build_batch_presentation, build_view_model};
 use crate::output::report_model::ReportConfig;
 use crate::taxonomy::Severity;
 
-impl From<ColorPolicy> for ColorMode {
-    fn from(policy: ColorPolicy) -> Self {
-        match policy {
-            ColorPolicy::Auto => ColorMode::Auto,
-            ColorPolicy::Always => ColorMode::Always,
-            ColorPolicy::Never => ColorMode::Never,
+/// What the terminal renderers need to know about a run.
+///
+/// [`TerminalOptions::default`] is the plain `auditmysite <URL>` run. Start
+/// from it and assign what differs:
+///
+/// ```
+/// use auditmysite::output::terminal::{ColorMode, TerminalOptions};
+///
+/// let mut options = TerminalOptions::default();
+/// options.color = ColorMode::Never;
+/// options.lang = "de".to_string();
+/// ```
+///
+/// Non-exhaustive: a new option is a new field, so code outside this crate
+/// cannot write the struct literal.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct TerminalOptions {
+    /// Report level of the view model the table is built from
+    /// (`--report-level`).
+    pub report_level: ReportLevel,
+    /// Report language, `"en"` or `"de"` (`--lang`).
+    pub lang: String,
+    /// Colour mode (`--color`).
+    pub color: ColorMode,
+    /// Whether the rendered text is written to a file (`--output`). A file
+    /// carries no ANSI bytes unless `color` is [`ColorMode::Always`].
+    pub writing_to_file: bool,
+}
+
+impl Default for TerminalOptions {
+    /// The plain `auditmysite <URL>` run: standard report level, English,
+    /// colour by terminal detection, printed to the terminal.
+    fn default() -> Self {
+        Self {
+            report_level: ReportLevel::Standard,
+            lang: "en".to_string(),
+            color: ColorMode::Auto,
+            writing_to_file: false,
         }
     }
 }
@@ -59,11 +94,11 @@ fn render_options() -> RenderOptions {
     }
 }
 
-fn report_config(args: &Args) -> ReportConfig {
+fn report_config(options: &TerminalOptions) -> ReportConfig {
     ReportConfig {
-        level: args.report_level,
+        level: options.report_level,
         logo_path: None,
-        locale: args.lang.clone(),
+        locale: options.lang.clone(),
         annex: None,
     }
 }
@@ -76,11 +111,11 @@ fn report_config(args: &Args) -> ReportConfig {
 /// result to a path (`--output`) pass `writing_to_file: true` to force
 /// `Never`, unless the user explicitly asked for `--color always`. A pure
 /// terminal preview (e.g. the pre-PDF table preview) passes `false`.
-fn console_for(args: &Args, writing_to_file: bool) -> Console {
-    let mode = if writing_to_file && args.color != ColorPolicy::Always {
+fn console_for(options: &TerminalOptions, writing_to_file: bool) -> Console {
+    let mode = if writing_to_file && options.color != ColorMode::Always {
         ColorMode::Never
     } else {
-        ColorMode::from(args.color)
+        options.color
     };
     Console::stdout(mode)
 }
@@ -88,22 +123,23 @@ fn console_for(args: &Args, writing_to_file: bool) -> Console {
 /// Renders a single-page audit as a decision-oriented Runemark report.
 pub fn render_single_report(
     report: &AuditReport,
-    args: &Args,
+    options: &TerminalOptions,
 ) -> Result<String, ReportContractError> {
-    render_single_report_for(report, args, args.output.is_some())
+    render_single_report_for(report, options, options.writing_to_file)
 }
 
 /// Renders a single-page audit, with explicit control over whether the
 /// result will be written to a file (see `console_for`) — used by the
 /// pre-PDF terminal preview, which always targets the terminal regardless of
 /// `--output` (that flag controls the PDF's path, not this preview's).
+/// `writing_to_file` replaces [`TerminalOptions::writing_to_file`].
 pub fn render_single_report_for(
     report: &AuditReport,
-    args: &Args,
+    options: &TerminalOptions,
     writing_to_file: bool,
 ) -> Result<String, ReportContractError> {
     let normalized = normalize_checked(report)?;
-    let vm = build_view_model(&normalized, &report_config(args));
+    let vm = build_view_model(&normalized, &report_config(options));
 
     let verdict = terminal_verdict(normalized.normalized.decision.verdict);
 
@@ -153,15 +189,15 @@ pub fn render_single_report_for(
                 baseline.new,
                 baseline.fixed,
                 None,
-                args.lang != "de",
+                options.lang != "de",
             )],
         ));
     }
 
-    let lines = experimental_lines(&report.experimental, args.lang != "de");
+    let lines = experimental_lines(&report.experimental, options.lang != "de");
     if !lines.is_empty() {
         rm_report = rm_report.add_scope_note(runemark::report::ScopeNote::new(
-            if args.lang == "de" {
+            if options.lang == "de" {
                 "Experimentelle Indikatoren (nicht validiert, ohne Einfluss auf Score und Urteil)"
             } else {
                 "Experimental indicators (unvalidated, no effect on score or verdict)"
@@ -170,7 +206,7 @@ pub fn render_single_report_for(
         ));
     }
 
-    let console = console_for(args, writing_to_file);
+    let console = console_for(options, writing_to_file);
     Ok(rm_report.render_with_options(console, render_options()))
 }
 
@@ -261,7 +297,7 @@ fn terminal_verdict(verdict: crate::audit::Verdict) -> Verdict {
 /// the batch as the primary issue groups, not a stack of per-page reports.
 pub fn render_batch_report(
     batch_report: &BatchReport,
-    args: &Args,
+    options: &TerminalOptions,
 ) -> Result<String, ReportContractError> {
     validate_batch(batch_report)?;
     let presentation = build_batch_presentation(batch_report);
@@ -302,7 +338,7 @@ pub fn render_batch_report(
                 baseline.new,
                 baseline.fixed,
                 Some(baseline.unmatched_pages),
-                args.lang != "de",
+                options.lang != "de",
             )],
         ));
     }
@@ -338,7 +374,7 @@ pub fn render_batch_report(
         )));
     }
 
-    let console = console_for(args, args.output.is_some());
+    let console = console_for(options, options.writing_to_file);
     Ok(rm_report.render_with_options(console, render_options()))
 }
 
@@ -347,14 +383,13 @@ mod tests {
     use super::*;
     use crate::audit::normalized::normalize;
     use crate::audit::BatchError;
-    use crate::cli::Args;
     use crate::wcag::WcagResults;
-    use clap::Parser;
 
-    fn test_args() -> Args {
-        let mut args = Args::parse_from(["auditmysite", "https://example.com"]);
-        args.color = ColorPolicy::Never;
-        args
+    fn test_options() -> TerminalOptions {
+        TerminalOptions {
+            color: ColorMode::Never,
+            ..Default::default()
+        }
     }
 
     fn fixture_report() -> AuditReport {
@@ -385,17 +420,17 @@ mod tests {
     /// #916: the table lists experimental indicators only when they ran.
     #[test]
     fn table_lists_experimental_indicators_only_when_they_ran() {
-        let args = test_args();
-        let plain = render_single_report(&fixture_report(), &args).unwrap();
+        let options = test_options();
+        let plain = render_single_report(&fixture_report(), &options).unwrap();
         assert!(!plain.contains("Experimental"), "{plain}");
 
         let mut report = fixture_report();
         report.experimental.ux = Some(crate::analyze_ux(&crate::AXTree::new()));
-        let table = render_single_report(&report, &args).unwrap();
+        let table = render_single_report(&report, &options).unwrap();
         assert!(table.contains("Experimental indicators"), "{table}");
         assert!(table.contains("UX: "), "{table}");
 
-        let mut german = args.clone();
+        let mut german = options.clone();
         german.lang = "de".to_string();
         let table = render_single_report(&report, &german).unwrap();
         assert!(table.contains("Experimentelle Indikatoren"), "{table}");
@@ -425,8 +460,8 @@ mod tests {
     #[test]
     fn single_report_renders_deterministically_at_width_40_and_80() {
         let report = fixture_report();
-        let args = test_args();
-        let vm = build_view_model(&normalize(&report), &report_config(&args));
+        let options = test_options();
+        let vm = build_view_model(&normalize(&report), &report_config(&options));
         let rm_report = Report::new(&vm.meta.title, Verdict::Passed);
         let console = Console::stdout(ColorMode::Never);
 
@@ -461,13 +496,13 @@ mod tests {
             results,
             42,
         );
-        let args = test_args();
+        let options = test_options();
         assert_eq!(
             normalize(&broken).normalized.decision.verdict,
             crate::audit::Verdict::Fail
         );
-        let clean_out = render_single_report(&clean, &args).unwrap();
-        let broken_out = render_single_report(&broken, &args).unwrap();
+        let clean_out = render_single_report(&clean, &options).unwrap();
+        let broken_out = render_single_report(&broken, &options).unwrap();
         assert!(clean_out.starts_with("[OK]"), "{clean_out}");
         assert!(broken_out.starts_with("[FAIL]"), "{broken_out}");
     }
@@ -493,7 +528,7 @@ mod tests {
             results,
             42,
         );
-        let output = render_single_report(&report, &test_args()).unwrap();
+        let output = render_single_report(&report, &test_options()).unwrap();
         assert!(output.contains("more finding(s)"), "{output}");
         assert!(output.contains(DETAILS_HINT), "{output}");
         assert!(!output.contains("--details"), "{output}");
@@ -502,49 +537,49 @@ mod tests {
     #[test]
     fn single_report_never_emits_ansi_under_color_never() {
         let report = fixture_report();
-        let args = test_args();
-        let output = render_single_report(&report, &args).unwrap();
+        let options = test_options();
+        let output = render_single_report(&report, &options).unwrap();
         assert!(!has_ansi(&output));
-        assert!(output.contains(&vm_title(&report, &args)));
+        assert!(output.contains(&vm_title(&report, &options)));
     }
 
-    fn vm_title(report: &AuditReport, args: &Args) -> String {
-        let vm = build_view_model(&normalize(report), &report_config(args));
+    fn vm_title(report: &AuditReport, options: &TerminalOptions) -> String {
+        let vm = build_view_model(&normalize(report), &report_config(options));
         vm.meta.title
     }
 
     #[test]
     fn single_report_emits_ansi_under_color_always() {
         let report = fixture_report();
-        let mut args = test_args();
-        args.color = ColorPolicy::Always;
-        let output = render_single_report(&report, &args).unwrap();
+        let mut options = test_options();
+        options.color = ColorMode::Always;
+        let output = render_single_report(&report, &options).unwrap();
         assert!(has_ansi(&output));
     }
 
     #[test]
     fn writing_to_file_forces_no_color_even_under_auto() {
         let report = fixture_report();
-        let mut args = test_args();
-        args.color = ColorPolicy::Auto;
-        let with_file = render_single_report_for(&report, &args, true).unwrap();
+        let mut options = test_options();
+        options.color = ColorMode::Auto;
+        let with_file = render_single_report_for(&report, &options, true).unwrap();
         assert!(!has_ansi(&with_file));
     }
 
     #[test]
     fn writing_to_file_does_not_override_explicit_color_always() {
         let report = fixture_report();
-        let mut args = test_args();
-        args.color = ColorPolicy::Always;
-        let with_file = render_single_report_for(&report, &args, true).unwrap();
+        let mut options = test_options();
+        options.color = ColorMode::Always;
+        let with_file = render_single_report_for(&report, &options, true).unwrap();
         assert!(has_ansi(&with_file));
     }
 
     #[test]
     fn batch_report_never_emits_ansi_under_color_never() {
         let batch = fixture_batch();
-        let args = test_args();
-        let output = render_batch_report(&batch, &args).unwrap();
+        let options = test_options();
+        let output = render_batch_report(&batch, &options).unwrap();
         assert!(!has_ansi(&output));
         assert!(output.contains("example.com"));
     }
@@ -552,8 +587,8 @@ mod tests {
     #[test]
     fn batch_report_states_score_coverage_when_urls_failed() {
         let batch = fixture_batch();
-        let args = test_args();
-        let output = render_batch_report(&batch, &args).unwrap();
+        let options = test_options();
+        let output = render_batch_report(&batch, &options).unwrap();
         assert!(output.contains("Scores cover 1 of 2 URLs; 1 could not be audited"));
     }
 
@@ -576,7 +611,7 @@ mod tests {
             None,
             "the presentation model carries no stand-in zero"
         );
-        let output = render_batch_report(&batch, &test_args()).unwrap();
+        let output = render_batch_report(&batch, &test_options()).unwrap();
         let line = output
             .lines()
             .find(|line| line.contains("Avg. score"))
@@ -591,8 +626,8 @@ mod tests {
     #[test]
     fn batch_report_lists_errors_as_next_steps() {
         let batch = fixture_batch();
-        let args = test_args();
-        let output = render_batch_report(&batch, &args).unwrap();
+        let options = test_options();
+        let output = render_batch_report(&batch, &options).unwrap();
         assert!(output.contains("broken"));
     }
 

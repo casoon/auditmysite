@@ -134,8 +134,7 @@ fn the_same_entries_accept_the_consistent_report() {
 /// of the contract, and still serves the consistent one.
 #[test]
 fn ai_json_terminal_and_finding_rows_refuse_contradictory_data() {
-    use clap::Parser;
-    let args = auditmysite::cli::Args::parse_from(["auditmysite", "https://example.com"]);
+    let options = auditmysite::output::terminal::TerminalOptions::default();
     let bad = contradictory();
     let good = consistent();
 
@@ -160,19 +159,19 @@ fn ai_json_terminal_and_finding_rows_refuse_contradictory_data() {
         "format_ai_json",
     );
     expected(
-        codes(&auditmysite::output::terminal::render_single_report(&bad, &args).unwrap_err()),
+        codes(&auditmysite::output::terminal::render_single_report(&bad, &options).unwrap_err()),
         "render_single_report",
     );
     expected(
         codes(
-            &auditmysite::output::terminal::render_single_report_for(&bad, &args, true)
+            &auditmysite::output::terminal::render_single_report_for(&bad, &options, true)
                 .unwrap_err(),
         ),
         "render_single_report_for",
     );
     // A batch is refused with the page's index in the data path.
     let batch_error =
-        auditmysite::output::terminal::render_batch_report(&batch(contradictory()), &args)
+        auditmysite::output::terminal::render_batch_report(&batch(contradictory()), &options)
             .unwrap_err();
     assert!(
         batch_error
@@ -189,9 +188,9 @@ fn ai_json_terminal_and_finding_rows_refuse_contradictory_data() {
     );
 
     assert!(auditmysite::output::format_ai_json(&good).is_ok());
-    assert!(auditmysite::output::terminal::render_single_report(&good, &args).is_ok());
+    assert!(auditmysite::output::terminal::render_single_report(&good, &options).is_ok());
     assert!(
-        auditmysite::output::terminal::render_batch_report(&batch(consistent()), &args).is_ok()
+        auditmysite::output::terminal::render_batch_report(&batch(consistent()), &options).is_ok()
     );
     let checked = normalize_checked(&good).unwrap().normalized;
     assert!(auditmysite::output::technician::finding_rows(&good, &checked).is_ok());

@@ -472,18 +472,17 @@ fn the_baseline_blocks_match_the_published_schemas() {
 
 #[test]
 fn the_table_shows_a_compact_known_count_only_under_a_baseline() {
-    use clap::Parser;
-
     let accepted = report("https://example.com/", &[(BUTTONS, "b"), (IMAGES, "i")]);
     let baseline = baseline_of(&[&report("https://example.com/", &[(BUTTONS, "b")])]);
-    let args = auditmysite::cli::Args::parse_from(["auditmysite", "https://example.com/"]);
+    let options = auditmysite::output::terminal::TerminalOptions::default();
 
-    let plain = auditmysite::output::terminal::render_single_report(&accepted, &args).unwrap();
+    let plain = auditmysite::output::terminal::render_single_report(&accepted, &options).unwrap();
     assert!(!plain.contains("known"), "{plain}");
 
     let mut gated_report = accepted;
     baseline.apply(&mut gated_report);
-    let text = auditmysite::output::terminal::render_single_report(&gated_report, &args).unwrap();
+    let text =
+        auditmysite::output::terminal::render_single_report(&gated_report, &options).unwrap();
     assert!(
         text.contains("Baseline: 1 known, 1 new, 0 fixed findings"),
         "{text}"
