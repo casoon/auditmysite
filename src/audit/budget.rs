@@ -242,7 +242,7 @@ mod tests {
 
     fn empty_report() -> AuditReport {
         use crate::audit::report::AuditReport;
-        use crate::cli::WcagLevel;
+        use crate::model::WcagLevel;
         use crate::wcag::WcagResults;
         AuditReport::new(
             "https://example.com".to_string(),

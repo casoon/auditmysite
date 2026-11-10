@@ -151,8 +151,8 @@ fn severity_order(severity: crate::wcag::Severity) -> u8 {
 #[cfg(test)]
 mod html_conform_recommendations_tests {
     use super::*;
-    use crate::cli::WcagLevel;
     use crate::html_conform::{HtmlConformAnalysis, HtmlConformFinding};
+    use crate::model::WcagLevel;
     use crate::wcag::WcagResults;
 
     fn finding(rule_id: &str, severity: &str, message: &str) -> HtmlConformFinding {

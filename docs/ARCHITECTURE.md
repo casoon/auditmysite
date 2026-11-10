@@ -31,8 +31,15 @@ src/
 ├── bin/
 │   └── auditmysite-dev.rs # Maintainer binary, `dev-tools` feature (not installed by `cargo install`, #912)
 │
+├── model/               # Shared value types (#934): named by cli, audit, analysis modules and output; imports nothing else from the crate
+│   ├── mod.rs
+│   ├── wcag_level.rs    # `WcagLevel` (re-exported by `wcag` and `cli`)
+│   ├── interactive_mode.rs # `InteractiveMode` (`--interactive`, `audit_scope.interactive_mode`)
+│   ├── report_level.rs  # `ReportLevel` (`--report-level`)
+│   └── annex_kind.rs    # `AnnexKind` (`--annex`)
+│
 ├── cli/                 # Command-line interface
-│   ├── args.rs          # Clap argument parsing (Args, WcagLevel, OutputFormat, AnnexKind)
+│   ├── args.rs          # Clap argument parsing (Args, OutputFormat; re-exports the `model` value types)
 │   ├── config.rs        # auditmysite.toml config support
 │   ├── app.rs           # Shared by both binaries: logging, signals, exit code, the audit run
 │   ├── commands.rs      # Subcommand handlers (browser, doctor)
@@ -79,7 +86,6 @@ src/
 │   ├── mod.rs
 │   ├── engine.rs        # Rule orchestration; `TREE_RULES` is the AX-tree rule registration
 │   ├── expectation.rs   # Expected rule outcomes per level/filter/viewport, derived from the registrations; counting unit of checks (#778)
-│   ├── level.rs         # `WcagLevel` (re-exported by `cli`), so analysis code needs no CLI import
 │   ├── types.rs         # Violation, Severity, WcagResults
 │   ├── coverage.rs      # WCAG success-criterion coverage accounting
 │   ├── en301549.rs      # EN 301 549 (chapter 9, Web) clause mapping + annex derivation

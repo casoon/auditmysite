@@ -18,8 +18,8 @@ use crate::accessibility::{fetch_dom_capture, AXTree};
 use crate::audit::collection::{evaluate_js_value, Collected};
 use crate::audit::exclusion::ExclusionScope;
 use crate::audit::PipelineConfig;
-use crate::cli::WcagLevel;
 use crate::interaction::stability::wait_for_finite_animations;
+use crate::model::WcagLevel;
 use crate::wcag::{self, Violation, WcagResults};
 
 /// Reason on the contrast outcomes when the page declares a dark scheme but

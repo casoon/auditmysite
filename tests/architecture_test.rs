@@ -43,39 +43,47 @@ fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// Code lines (not comments) containing any of `needles`, per file.
-fn count_imports(needles: &[&str]) -> BTreeMap<String, usize> {
+/// Code lines (not comments) of `files` containing any of `needles`, per file.
+fn count_imports_in(files: &[PathBuf], needles: &[&str]) -> BTreeMap<String, usize> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut counts = BTreeMap::new();
-    for module in ANALYSIS_MODULES {
-        let mut files = Vec::new();
-        let dir = root.join("src").join(module);
-        if dir.is_dir() {
-            rust_files(&dir, &mut files);
-        }
-        for file in files {
-            let n = fs::read_to_string(&file)
+    for file in files {
+        let n = fs::read_to_string(file)
+            .unwrap()
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("//"))
+            .filter(|l| needles.iter().any(|n| l.contains(n)))
+            .count();
+        if n > 0 {
+            let rel = file
+                .strip_prefix(root)
                 .unwrap()
-                .lines()
-                .filter(|l| !l.trim_start().starts_with("//"))
-                .filter(|l| needles.iter().any(|n| l.contains(n)))
-                .count();
-            if n > 0 {
-                let rel = file
-                    .strip_prefix(root)
-                    .unwrap()
-                    .to_string_lossy()
-                    .to_string();
-                counts.insert(rel, n);
-            }
+                .to_string_lossy()
+                .to_string();
+            counts.insert(rel, n);
         }
     }
     counts
 }
 
-fn baseline() -> BTreeMap<String, usize> {
+/// Code lines (not comments) containing any of `needles`, per file of the
+/// analysis modules.
+fn count_imports(needles: &[&str]) -> BTreeMap<String, usize> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut files = Vec::new();
+    for module in ANALYSIS_MODULES {
+        let dir = root.join("src").join(module);
+        if dir.is_dir() {
+            rust_files(&dir, &mut files);
+        }
+    }
+    count_imports_in(&files, needles)
+}
+
+fn baseline(name: &str) -> BTreeMap<String, usize> {
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/architecture/backward_imports.txt");
+        .join("tests/fixtures/architecture")
+        .join(name);
     fs::read_to_string(path)
         .unwrap()
         .lines()
@@ -98,10 +106,8 @@ fn ratchet_problems(
     let mut problems = Vec::new();
     for (file, n) in actual {
         match allowed.get(file) {
-            None => problems.push(format!("{file}: {n} new import(s) of cli/output/audit")),
-            Some(max) if n > max => problems.push(format!(
-                "{file}: {n} imports of cli/output/audit, baseline {max}"
-            )),
+            None => problems.push(format!("{file}: {n} new import(s)")),
+            Some(max) if n > max => problems.push(format!("{file}: {n} imports, baseline {max}")),
             Some(max) if n < max => problems.push(format!(
                 "{file}: now {n}, baseline {max} — lower the baseline"
             )),
@@ -118,10 +124,57 @@ fn ratchet_problems(
 
 #[test]
 fn analysis_modules_do_not_gain_imports_of_cli_output_or_audit() {
-    let problems = ratchet_problems(&count_imports(BACKWARD_IMPORTS), &baseline());
+    let problems = ratchet_problems(
+        &count_imports(BACKWARD_IMPORTS),
+        &baseline("backward_imports.txt"),
+    );
     assert!(
         problems.is_empty(),
-        "dependency direction (plan 96):\n{}",
+        "dependency direction (plan 96), imports of cli/output/audit:\n{}",
+        problems.join("\n")
+    );
+}
+
+/// `cli` is the entry layer: nothing outside it and `main.rs` names it. The
+/// remaining lines are a baseline that may only shrink, target zero (#934).
+#[test]
+fn no_module_outside_cli_gains_imports_of_cli() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut files = Vec::new();
+    rust_files(&root.join("src"), &mut files);
+    files.retain(|f| !f.starts_with(root.join("src/cli")) && *f != root.join("src/main.rs"));
+    let problems = ratchet_problems(
+        &count_imports_in(&files, &["crate::cli"]),
+        &baseline("cli_imports.txt"),
+    );
+    assert!(
+        problems.is_empty(),
+        "imports of crate::cli outside cli/ (#934):\n{}",
+        problems.join("\n")
+    );
+}
+
+/// `model` holds the shared value types and sits below every other module.
+#[test]
+fn model_imports_nothing_else_from_the_crate() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut files = Vec::new();
+    rust_files(&root.join("src/model"), &mut files);
+    assert!(!files.is_empty(), "src/model has no Rust files");
+    let mut problems = Vec::new();
+    for file in files {
+        for (i, line) in fs::read_to_string(&file).unwrap().lines().enumerate() {
+            if line.trim_start().starts_with("//") {
+                continue;
+            }
+            if line.replace("crate::model", "").contains("crate::") {
+                problems.push(format!("{}:{}: {}", file.display(), i + 1, line.trim()));
+            }
+        }
+    }
+    assert!(
+        problems.is_empty(),
+        "model must not import from other modules of the crate:\n{}",
         problems.join("\n")
     );
 }

@@ -25,8 +25,8 @@ use crate::output::localized::is_english;
 
 use crate::audit::normalized::AuditContext;
 use crate::audit::summary::analyze_with_locale;
-use crate::cli::ReportLevel;
 use crate::i18n::I18n;
+use crate::model::ReportLevel;
 use crate::output::report_model::*;
 
 use super::actions::{derive_action_plan, humanize_action_text};
@@ -510,7 +510,7 @@ mod tests {
     use super::build_view_model;
     use crate::audit::normalized::normalize;
     use crate::audit::AuditReport;
-    use crate::cli::WcagLevel;
+    use crate::model::WcagLevel;
     use crate::output::report_model::ReportConfig;
     use crate::wcag::{Severity, Violation, WcagResults};
 

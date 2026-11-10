@@ -347,7 +347,7 @@ impl NormalizedReport {
                 "execution.scope.measurement_profile".into(),
                 "read_only must match the listed state-changing journeys".into(),
             );
-            let expected = crate::cli::InteractiveMode::from_scope_name(
+            let expected = crate::model::InteractiveMode::from_scope_name(
                 &self.execution.scope.interactive_mode,
             )
             .map(|mode| {
@@ -450,9 +450,9 @@ impl NormalizedReport {
         }
         // A rule above the configured level did not run.
         let level = match self.execution.scope.wcag_level.as_str() {
-            "A" => Some(crate::cli::WcagLevel::A),
-            "AA" => Some(crate::cli::WcagLevel::AA),
-            "AAA" => Some(crate::cli::WcagLevel::AAA),
+            "A" => Some(crate::model::WcagLevel::A),
+            "AA" => Some(crate::model::WcagLevel::AA),
+            "AAA" => Some(crate::model::WcagLevel::AAA),
             _ => None,
         };
         if let Some(level) = level {
@@ -1020,7 +1020,7 @@ mod tests {
     fn report_with_journeys(mode: &str, journeys: &[&str]) -> crate::audit::AuditReport {
         let mut report = crate::audit::AuditReport::new(
             "https://example.com".to_string(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             crate::wcag::WcagResults::new(),
             10,
         );

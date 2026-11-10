@@ -208,7 +208,7 @@ mod tests {
     fn take_from_moves_the_results_out_of_the_ordinary_fields() {
         let mut report = AuditReport::new(
             "https://example.com".to_string(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             crate::wcag::WcagResults::new(),
             0,
         );

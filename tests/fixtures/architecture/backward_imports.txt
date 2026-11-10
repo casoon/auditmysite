@@ -7,7 +7,7 @@ src/a11y_journey/evaluate.rs 2
 src/a11y_journey/form_error.rs 1
 src/a11y_journey/link_inventory.rs 1
 src/a11y_journey/menu_journey.rs 1
-src/a11y_journey/mod.rs 30
+src/a11y_journey/mod.rs 29
 src/a11y_journey/modal_journey.rs 1
 src/a11y_journey/quantity_stepper.rs 1
 src/a11y_journey/skip_link.rs 1

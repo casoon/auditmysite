@@ -1336,7 +1336,7 @@ mod tests {
     fn small_touch_targets_count_their_elements_not_one_problem() {
         let mut report = AuditReport::new(
             "https://example.com".into(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             WcagResults::new(),
             100,
         );
@@ -1466,7 +1466,7 @@ mod tests {
     fn heuristic_domains_are_never_automatically_confirmed() {
         let mut report = AuditReport::new(
             "https://example.com".into(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             WcagResults::new(),
             100,
         );
@@ -1660,7 +1660,7 @@ mod tests {
     fn page(noindex: bool, expectation: IndexabilityExpectation) -> AuditReport {
         let mut report = AuditReport::new(
             "https://example.com".into(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             WcagResults::new(),
             100,
         );
@@ -1795,7 +1795,7 @@ mod tests {
             crate::wcag::Violation::new(
                 "3.1.1",
                 "Language of page",
-                crate::cli::WcagLevel::A,
+                crate::model::WcagLevel::A,
                 Severity::High,
                 "html element has no lang attribute",
                 "n1",
@@ -1805,7 +1805,7 @@ mod tests {
         );
         let mut report = AuditReport::new(
             "https://example.com".into(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             results,
             100,
         );
@@ -1888,7 +1888,7 @@ mod tests {
     fn missing_h1_is_one_cause_charged_by_seo_only() {
         let mut report = AuditReport::new(
             "https://example.com".into(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             WcagResults::new(),
             100,
         );

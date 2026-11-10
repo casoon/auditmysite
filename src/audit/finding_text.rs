@@ -96,7 +96,7 @@ mod tests {
     fn report() -> AuditReport {
         let mut report = AuditReport::new(
             "https://example.com".into(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             WcagResults::new(),
             100,
         );

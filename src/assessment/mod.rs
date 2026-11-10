@@ -560,7 +560,7 @@ mod tests {
 
     #[test]
     fn content_signal_violation_from_wcag_violation() {
-        use crate::cli::WcagLevel;
+        use crate::model::WcagLevel;
         use crate::wcag::types::Violation;
 
         let v = Violation::new(
@@ -635,7 +635,7 @@ mod tests {
 
     #[test]
     fn content_signal_from_violation_maps_violation_evidence() {
-        use crate::cli::WcagLevel;
+        use crate::model::WcagLevel;
         use crate::wcag::types::{Evidence, Violation};
 
         let v = Violation::new(
@@ -664,7 +664,7 @@ mod tests {
 
     #[test]
     fn content_signal_from_violation_uses_selector_fallback_when_no_evidence() {
-        use crate::cli::WcagLevel;
+        use crate::model::WcagLevel;
         use crate::wcag::types::Violation;
 
         let v = Violation::new(

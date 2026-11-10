@@ -1903,7 +1903,7 @@ fn representative_occurrence_from_normalized(
 mod duplicate_content_tests {
     use super::*;
     use crate::audit::AuditReport;
-    use crate::cli::WcagLevel;
+    use crate::model::WcagLevel;
     use crate::seo::{HeadingStructure, MetaTags, SeoAnalysis};
     use crate::wcag::WcagResults;
 
@@ -2318,7 +2318,7 @@ mod duplicate_content_tests {
 mod minification_inconsistency_tests {
     use super::*;
     use crate::audit::AuditReport;
-    use crate::cli::WcagLevel;
+    use crate::model::WcagLevel;
     use crate::performance::{
         CoverageAnalysis, MinificationAnalysis, PerformanceScore, RenderBlockingAnalysis,
         ScriptCoverageEntry, UnminifiedAsset, UnusedCssAnalysis, UnusedJsAnalysis, WebVitals,
@@ -2638,7 +2638,7 @@ mod minification_inconsistency_tests {
 mod redirect_chain_issue_tests {
     use super::*;
     use crate::audit::AuditReport;
-    use crate::cli::WcagLevel;
+    use crate::model::WcagLevel;
     use crate::seo::page_health::{PageHealthAnalysis, RedirectHop};
     use crate::seo::SeoAnalysis;
     use crate::wcag::WcagResults;
@@ -2740,7 +2740,7 @@ mod interactive_summary_tests {
     use super::*;
     use crate::audit::normalized::{InteractiveFinding, InteractiveFindingKind};
     use crate::audit::AuditReport;
-    use crate::cli::WcagLevel;
+    use crate::model::WcagLevel;
     use crate::wcag::WcagResults;
 
     fn report_with_categories(url: &str, categories: &[&str]) -> AuditReport {

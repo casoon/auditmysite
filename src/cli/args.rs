@@ -551,40 +551,7 @@ pub enum BrowserAction {
     Path,
 }
 
-pub use crate::wcag::WcagLevel;
-
-/// Depth of the Accessibility-Journey-Layer.
-#[derive(ValueEnum, Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum InteractiveMode {
-    /// No interactive phase.
-    #[value(name = "off")]
-    Off,
-    /// Tab walk, skip link, obvious pattern journeys.
-    #[value(name = "basic")]
-    Basic,
-    /// Adds SPA navigation, form-error announcement, link/outline export.
-    #[default]
-    #[value(name = "full")]
-    Full,
-}
-
-impl InteractiveMode {
-    /// The mode named in `audit_scope.interactive_mode`; `None` for a name
-    /// this version does not know.
-    pub fn from_scope_name(name: &str) -> Option<Self> {
-        match name {
-            "off" => Some(Self::Off),
-            "basic" => Some(Self::Basic),
-            "full" => Some(Self::Full),
-            _ => None,
-        }
-    }
-
-    pub fn is_enabled(self) -> bool {
-        !matches!(self, InteractiveMode::Off)
-    }
-}
+pub use crate::model::{AnnexKind, InteractiveMode, ReportLevel, WcagLevel};
 
 /// `--display`: one mode of the data-display convention, or `all` (#653).
 #[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
@@ -650,28 +617,6 @@ impl ModuleChoice {
     }
 }
 
-/// Optional regulatory/editorial PDF appendix sections (opt-in, see `--annex`).
-#[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AnnexKind {
-    /// EN 301 549 (chapter 9, "Web") clause mapping annex.
-    #[value(name = "en301549")]
-    En301549,
-    /// "BIK für Alle" editorial accessibility guide chapter mapping.
-    #[value(name = "bik")]
-    Bik,
-}
-
-impl std::fmt::Display for WcagLevel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            WcagLevel::A => write!(f, "A"),
-            WcagLevel::AA => write!(f, "AA"),
-            WcagLevel::AAA => write!(f, "AAA"),
-        }
-    }
-}
-
 /// Output format options
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum OutputFormat {
@@ -693,31 +638,6 @@ pub enum OutputFormat {
     /// SARIF 2.1.0 output for GitHub Code Scanning and other SARIF consumers
     #[value(name = "sarif")]
     Sarif,
-}
-
-/// Report detail level for PDF reports
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
-pub enum ReportLevel {
-    /// Executive summary — compact overview for management
-    #[value(name = "executive")]
-    Executive,
-    /// Standard report — all chapters (default)
-    #[default]
-    #[value(name = "standard")]
-    Standard,
-    /// Technical report — extended appendix with full details
-    #[value(name = "technical")]
-    Technical,
-}
-
-impl std::fmt::Display for ReportLevel {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ReportLevel::Executive => write!(f, "executive"),
-            ReportLevel::Standard => write!(f, "standard"),
-            ReportLevel::Technical => write!(f, "technical"),
-        }
-    }
 }
 
 /// Terminal color policy for `--format table` and batch progress output (#529).
@@ -1062,13 +982,6 @@ impl Args {
 mod tests {
     use super::*;
     use clap::CommandFactory;
-
-    #[test]
-    fn test_wcag_level_display() {
-        assert_eq!(WcagLevel::A.to_string(), "A");
-        assert_eq!(WcagLevel::AA.to_string(), "AA");
-        assert_eq!(WcagLevel::AAA.to_string(), "AAA");
-    }
 
     #[test]
     fn test_output_format_display() {

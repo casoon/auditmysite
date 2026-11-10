@@ -213,7 +213,7 @@ impl AccessibilityScorer {
         let level_a_urgent = violations
             .iter()
             .filter(|v| {
-                v.level == crate::cli::WcagLevel::A
+                v.level == crate::model::WcagLevel::A
                     && matches!(v.severity, Severity::Critical | Severity::High)
             })
             .count();
@@ -261,7 +261,7 @@ impl AccessibilityScorer {
         let level_a_urgent_count = violations
             .iter()
             .filter(|v| {
-                v.level == crate::cli::WcagLevel::A
+                v.level == crate::model::WcagLevel::A
                     && matches!(v.severity, Severity::High | Severity::Critical)
             })
             .count();
@@ -355,7 +355,7 @@ mod tests {
 
     #[test]
     fn test_score_with_errors() {
-        use crate::cli::WcagLevel;
+        use crate::model::WcagLevel;
 
         let violations = vec![
             Violation::new(
@@ -387,7 +387,7 @@ mod tests {
 
     #[test]
     fn test_score_with_warnings() {
-        use crate::cli::WcagLevel;
+        use crate::model::WcagLevel;
 
         let violations = vec![Violation::new(
             "2.4.4",
@@ -406,7 +406,7 @@ mod tests {
 
     #[test]
     fn test_critical_penalty_no_headings() {
-        use crate::cli::WcagLevel;
+        use crate::model::WcagLevel;
 
         let violations = vec![Violation::new(
             "2.4.6",
@@ -426,7 +426,7 @@ mod tests {
 
     #[test]
     fn test_score_floor_at_zero() {
-        use crate::cli::WcagLevel;
+        use crate::model::WcagLevel;
 
         // Create many violations across ALL mapped rules to exceed 100 penalty
         let rules = [
@@ -467,7 +467,7 @@ mod tests {
 
     #[test]
     fn test_catastrophic_band_stays_discriminating() {
-        use crate::cli::WcagLevel;
+        use crate::model::WcagLevel;
 
         let rules = [
             ("1.1.1", "Non-text Content"),
@@ -519,7 +519,7 @@ mod tests {
 
     #[test]
     fn test_diversity_penalises_breadth() {
-        use crate::cli::WcagLevel;
+        use crate::model::WcagLevel;
 
         // 5× the same High violation — a focused failure.
         let same: Vec<Violation> = (0..5)
@@ -618,7 +618,7 @@ mod tests {
         results.violations.push(Violation::new(
             "1.4.3",
             "Contrast",
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             Severity::High,
             "Low contrast",
             "n1",
@@ -666,7 +666,7 @@ mod tests {
         results.violations.push(Violation::new(
             "1.4.3",
             "Contrast",
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             Severity::High,
             "Low contrast",
             "n1",
@@ -689,7 +689,7 @@ mod tests {
 
     #[test]
     fn test_coverage_leaves_criteria_above_the_audited_level_out() {
-        use crate::cli::WcagLevel;
+        use crate::model::WcagLevel;
         use crate::wcag::RuleRun;
         use a11y_report::NotRun;
         // An AA run as the pipeline stores it: the shared AAA rule ran, then
@@ -722,7 +722,7 @@ mod tests {
 
     #[test]
     fn test_statistics_calculation() {
-        use crate::cli::WcagLevel;
+        use crate::model::WcagLevel;
 
         let violations = vec![
             Violation::new(
@@ -775,7 +775,7 @@ mod tests {
 #[cfg(test)]
 mod score_invariants {
     use super::*;
-    use crate::cli::WcagLevel;
+    use crate::model::WcagLevel;
 
     /// Success criteria with a cost row (`taxonomy::criterion_impact`).
     const RULES: &[&str] = &[

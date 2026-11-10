@@ -44,8 +44,8 @@ use self::single_report::{
     render_tech_details,
 };
 use crate::audit::{normalize_checked, AuditReport};
-use crate::cli::ReportLevel;
 use crate::i18n::I18n;
+use crate::model::ReportLevel;
 use crate::output::builder::{build_view_model, extract_domain};
 use crate::output::report_model::*;
 

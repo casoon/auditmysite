@@ -577,7 +577,7 @@ mod tests {
     use super::*;
     use crate::audit::normalized::normalize;
     use crate::audit::AuditReport;
-    use crate::cli::WcagLevel;
+    use crate::model::WcagLevel;
     use crate::wcag::{Violation, WcagResults};
 
     fn sample_report(url: &str) -> AuditReport {

@@ -25,7 +25,7 @@ mod tests {
     use super::*;
     use crate::audit::normalized::normalize;
     use crate::audit::{AuditReport, BatchReport};
-    use crate::cli::{ReportLevel, WcagLevel};
+    use crate::model::{ReportLevel, WcagLevel};
     use crate::output::report_model::ReportConfig;
     use crate::performance::{PerformanceGrade, PerformanceScore, WebVitals};
     use crate::seo::technical::TechnicalSeo;

@@ -3,7 +3,7 @@
 mod tests {
     use super::super::*;
     use crate::audit::{AuditReport, BatchReport, PageScreenshots, ScreenshotStatus};
-    use crate::cli::{AnnexKind, ReportLevel, WcagLevel};
+    use crate::model::{AnnexKind, ReportLevel, WcagLevel};
     use crate::util::truncate_url;
     use crate::wcag::{Severity, Violation, WcagResults};
     use std::path::PathBuf;

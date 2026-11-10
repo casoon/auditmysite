@@ -898,7 +898,7 @@ pub fn exclusion_note(report: &ExclusionReport, i18n: &crate::i18n::I18n) -> Opt
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::WcagLevel;
+    use crate::model::WcagLevel;
     use crate::wcag::types::Severity;
 
     fn finding(rule_id: &str, node_id: &str) -> Violation {

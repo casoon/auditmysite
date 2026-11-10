@@ -6,7 +6,7 @@
 
 use std::path::PathBuf;
 
-use crate::cli::ReportLevel;
+use crate::model::ReportLevel;
 use crate::wcag::Severity;
 
 /// Signal detail: category name mapped to a list of (check_label, passed, detail).
@@ -19,7 +19,7 @@ pub struct ReportConfig {
     pub locale: String,
     /// Opt-in regulatory PDF appendix section (see `--annex`). `None` by
     /// default — these sections are not part of the default report.
-    pub annex: Option<crate::cli::AnnexKind>,
+    pub annex: Option<crate::model::AnnexKind>,
 }
 
 impl Default for ReportConfig {

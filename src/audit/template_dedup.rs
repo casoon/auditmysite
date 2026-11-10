@@ -247,7 +247,7 @@ mod tests {
         let mut violation = Violation::new(
             "4.1.2",
             "x",
-            crate::cli::WcagLevel::A,
+            crate::model::WcagLevel::A,
             Severity::High,
             "The link has no accessible name.",
             "n1",
@@ -261,8 +261,12 @@ mod tests {
         }
         let mut results = WcagResults::new();
         results.add_violation(violation);
-        let report =
-            crate::audit::AuditReport::new(url.to_string(), crate::cli::WcagLevel::AA, results, 1);
+        let report = crate::audit::AuditReport::new(
+            url.to_string(),
+            crate::model::WcagLevel::AA,
+            results,
+            1,
+        );
         crate::audit::normalized::normalize(&report).normalized
     }
 
