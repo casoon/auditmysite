@@ -2,7 +2,7 @@
   "id": "keyboard-trap",
   "url": "https://casoon.github.io/auditmysite/rules/keyboard-trap/",
   "domain": "wcag",
-  "title": "Keyboard trap — focus cannot leave the element",
+  "title": "Keyboard trap cannot be automatically tested",
   "outcome": "manual",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.1.2",

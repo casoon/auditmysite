@@ -1,6 +1,11 @@
-# Rule catalogue texts: one message per rule id of `src/taxonomy/rules.rs`
-# (`RULES`), in the order of that table. The message value is the title,
-# the attributes carry the user impact and the technical impact.
+# Rule texts: one message per rule id of `src/taxonomy/rules.rs` (`RULES`),
+# in the order of that table. The message value is the title, shown for the
+# rule everywhere (finding, `fix_guidance[]`, PDF, table). The attributes
+# `.user-impact` and `.technical-impact` are the catalogue texts and exist for
+# every rule. A rule that has an explanation entry under its own id (the
+# entry key is the rule id, see `RULE_ENTRIES` in `src/output/explanations.rs`)
+# also carries the explanation texts `.description`, `.explanation-user-impact`,
+# `.typical-cause`, `.recommendation` and `.technical-note`.
 # The key is `rule-` plus the rule id with `/` written as `-`
 # (`taxonomy::rules::rule_text_key`).
 
@@ -17,6 +22,11 @@ rule-images-alt-missing = Fehlende Alternativtexte bei Bildern
 rule-images-alt-suspicious = Vermutlich nichtssagender Alternativtext
     .user-impact = Screenreader-Nutzer hören einen Text, der den Bildinhalt nicht vermittelt.
     .technical-impact = alt-Attribut vorhanden, aber ohne beschreibenden Inhalt.
+    .description = Ein Bild hat einen Alternativtext, der den Inhalt vermutlich nicht beschreibt: einen Dateinamen, ein Füllwort wie „Bild" oder „Logo" oder nur ein, zwei Zeichen.
+    .explanation-user-impact = Screenreader-Nutzer hören einen Text, der ihnen den Bildinhalt nicht vermittelt.
+    .typical-cause = Das CMS übernimmt den Dateinamen als Alternativtext, oder das Pflichtfeld wurde mit einem Platzhalter gefüllt.
+    .recommendation = Prüfen, ob der Text das Bild beschreibt; sonst durch eine Beschreibung ersetzen, bei dekorativen Bildern durch alt="".
+    .technical-note = Heuristisch erkannt, deshalb zur Prüfung: alt="5" am Bild einer Fünf ist richtig.
 
 rule-video-caption = Fehlende Untertitel für Videos
     .user-impact = Gehörlose oder schwerhörige Nutzer können gesprochene Inhalte nicht wahrnehmen.
@@ -36,9 +46,14 @@ rule-headings-section-without-heading = Fehlende Abschnittsüberschriften
     .user-impact = Nutzer können Inhalte nicht gezielt ansteuern.
     .technical-impact = Fehlende Sub-Headings in langen Inhaltsblöcken.
 
-rule-orientation-root-rotated = Eingeschränkte Bildschirmausrichtung
+rule-orientation-root-rotated = Seite erzwingt eine Bildschirmausrichtung durch Drehung der Wurzel
     .user-impact = Nutzer mit fest montierten Bildschirmen (z. B. am Rollstuhl) können die Seite nicht lesen.
     .technical-impact = Berechnetes transform (Matrix) oder rotate an html oder body dreht um eine Vierteldrehung, gemessen im geprüften Viewport.
+    .description = Das Wurzelelement (html oder body) ist um eine Vierteldrehung gedreht. Damit lässt sich die Seite nur in einer Ausrichtung nutzen, außer die Ausrichtung ist wesentlich.
+    .explanation-user-impact = Menschen, deren Gerät fest montiert ist, etwa am Rollstuhl, können die Ausrichtung nicht wechseln und sehen die Seite gedreht oder abgeschnitten.
+    .typical-cause = Ein transform: rotate(90deg) oder rotate: 90deg auf html oder body, das im Hochformat das Querformat nachbilden soll.
+    .recommendation = Die Drehung entfernen und das Layout in beiden Ausrichtungen nutzbar machen. Nur wenn eine Ausrichtung wesentlich ist (Klavier, Bankscheck), darf sie festgelegt werden.
+    .technical-note = Gemessen wird die berechnete transform-Matrix und die Eigenschaft rotate von html und body im geprüften Viewport; eine Sperre nur in der anderen Ausrichtung zeigt der Lauf im jeweils anderen Viewport. Ob eine Ausrichtung wesentlich ist, entscheidet ein Mensch.
 
 rule-orientation-content-hidden = Eingeschränkte Bildschirmausrichtung
     .user-impact = Nutzer mit fest montierten Bildschirmen (z. B. am Rollstuhl) können die Seite nicht lesen.
@@ -50,9 +65,14 @@ rule-keyboard-interactive-not-focusable = Inhalte nicht per Tastatur bedienbar
     .user-impact = Tastaturnutzer sind von Funktionen ausgeschlossen.
     .technical-impact = Click-Handler ohne Tastatur-Alternative.
 
-rule-keyboard-trap = Tastaturfalle — Fokus kann nicht verlassen werden
+rule-keyboard-trap = Tastaturfalle nicht automatisch prüfbar
     .user-impact = Seite wird faktisch unbenutzbar für Tastaturnutzer.
     .technical-impact = Fehlende Fokus-Verwaltung in modalen Elementen.
+    .description = Ob der Tastaturfokus in einem Dialog, Karussell oder individuellen JavaScript-Bedienelement hängen bleiben kann, lässt sich nicht automatisiert feststellen. Das erfordert manuelles Navigieren ausschließlich mit der Tab-Taste.
+    .explanation-user-impact = Personen, die ausschließlich mit der Tastatur oder einem Screenreader navigieren, können in einem Bedienelement stecken bleiben und die Seite nicht mehr per Tastatur verlassen.
+    .typical-cause = Individuelle Dialoge, Karussells oder Widgets mit eigener JavaScript-Fokusverwaltung, die keinen Weg zurück per Escape-Taste, erreichbarem Schließen-Button oder dokumentiertem Tastaturkürzel vorsehen.
+    .recommendation = Für jeden fokussierbaren Bereich einen Weg zum Verlassen per Tastatur sicherstellen: Escape-Taste, ein per Tab erreichbarer, sichtbarer Schließen-Button, oder ein dokumentiertes Tastaturkürzel.
+    .technical-note = Nur mit Tab/Shift+Tab durch die Seite navigieren und prüfen, ob jeder Dialog/jedes Widget verlassen werden kann. Bei eigener Fokusverwaltung: Escape-Handler und einen erreichbaren Schließen-Button implementieren.
 
 rule-headings-none = Fehlende Sprungnavigation
     .user-impact = Tastaturnutzer müssen bei jedem Seitenwechsel durch die Navigation tabben.
@@ -97,10 +117,20 @@ rule-focus-visible = Fokus-Indikator nicht sichtbar
 rule-focus-obscured = Fokussiertes Element vollständig verdeckt
     .user-impact = Tastaturnutzer springen per Tab auf ein Element, das durch einen Sticky-Header, -Footer, ein Cookie-Banner o. ä. vollständig verdeckt ist und daher nicht sichtbar ist.
     .technical-impact = Fokuslauf: Element fokussiert, mit scrollIntoView({"{"}block:'nearest'{"}"}) ins Bild gescrollt, 3×3 Punkte per elementsFromPoint abgetastet; alle Punkte unter einem position: fixed/sticky-Element.
+    .description = Nach dem Fokussieren und Scrollen liegt jeder Abtastpunkt eines Bedienelements unter einem fixierten oder klebenden Element, etwa einer Kopfleiste oder einem Cookie-Banner.
+    .explanation-user-impact = Tastaturnutzer springen mit Tab auf ein Element, das sie nicht sehen, und wissen nicht, wo der Fokus ist.
+    .typical-cause = Eine fixierte oder klebende Leiste, die tiefer reicht als scroll-padding-top, oder ein Banner, das Bedienelemente der Seite überdeckt.
+    .recommendation = scroll-padding-top mindestens so groß wie die fixierte Leiste setzen und Banner so einbauen, dass sie keine Bedienelemente überdecken.
+    .technical-note = Gemessen wird nach dem Fokussieren mit scrollIntoView({"{"} block: 'nearest' {"}"}), 3 mal 3 Punkte je Bedienelement per elementsFromPoint. Ein echtes Tab scrollt womöglich anders; der Wert ist deshalb ein Hinweis zum Prüfen, kein Beleg. Auch der Hinweis auf eine Leiste, die tiefer reicht als scroll-padding-top, gehört zu dieser Kennung.
 
 rule-focus-obscured-enhanced = Fokussiertes Element teilweise verdeckt
     .user-impact = Tastaturnutzer springen per Tab auf ein Element, dessen sichtbarer Bereich durch einen Sticky-Header, -Footer, ein Cookie-Banner o. ä. teilweise verdeckt wird.
     .technical-impact = Fokuslauf wie bei focus/obscured; mindestens ein Abtastpunkt unter einem position: fixed/sticky-Element.
+    .description = Nach dem Fokussieren und Scrollen liegt mindestens ein Abtastpunkt eines Bedienelements unter einem fixierten oder klebenden Element (Stufe AAA).
+    .explanation-user-impact = Tastaturnutzer sehen ein fokussiertes Bedienelement nur zum Teil und erkennen Beschriftung oder Zustand womöglich nicht.
+    .typical-cause = Ein klebender Fuß, Chat-Button oder Cookie-Banner, der den Rand der Seite überdeckt.
+    .recommendation = Platz unter und über fixierten Elementen freihalten (scroll-padding, Seitenabstand) oder die Elemente verkleinern.
+    .technical-note = Dieselbe Messung wie bei focus/obscured, andere Schwelle: jeder überdeckte Abtastpunkt wird gemeldet. Die Abtastung nähert „irgendein Teil“ nur an, das Ergebnis bleibt ein Hinweis zum Prüfen.
 
 rule-label-in-name-mismatch = Sichtbarer Text ≠ zugänglicher Name
     .user-impact = Sprachsteuerungsnutzer können Element nicht ansprechen.
@@ -145,6 +175,11 @@ rule-links-purpose-link-only = Unklare Linkbeschriftung ohne Kontext (AAA)
 rule-links-new-window-unannounced = Neues Fenster ohne Ankündigung (AAA)
     .user-impact = Nutzer verlieren unerwartet den Kontext; der Zurück-Button führt nicht zurück.
     .technical-impact = target="_blank" ohne Hinweis im zugänglichen Namen.
+    .description = Ein Link öffnet ein neues Fenster oder Tab (target="_blank"), ohne das im Linktext anzukündigen. WCAG 3.2.5 (AAA) verlangt, dass solche Kontextwechsel nur auf Anforderung geschehen; die Ankündigung im Linktext ist die übliche Lösung.
+    .explanation-user-impact = Screenreader- und Lupennutzer merken den Fensterwechsel oft nicht; der Zurück-Button führt dann nicht zur vorherigen Seite.
+    .typical-cause = Externe Links oder PDF-Downloads, die per target="_blank" geöffnet werden.
+    .recommendation = Im Linktext ankündigen, z. B. "(öffnet in neuem Fenster)", oder auf target="_blank" verzichten.
+    .technical-note = Ein sichtbares Symbol reicht nur mit Textalternative im zugänglichen Namen (Technik G201).
 
 rule-manual-pointer-gestures = Fehlende Alternative für Zeigergesten
     .user-impact = Nutzer mit motorischen Einschränkungen können die Funktionen nicht bedienen.
@@ -203,14 +238,29 @@ rule-forms-redundant-entry = Fehlende Wiederverwendung bereits eingegebener Date
 rule-auth-paste-blocked = Einfügen in Passwort- oder Code-Feld blockiert
     .user-impact = Nutzer können weder einen Passwort-Manager noch die Zwischenablage verwenden. Wer sich Passwörter nicht merken oder fehlerfrei abschreiben kann, etwa wegen kognitiver oder motorischer Einschränkungen, scheitert an der Anmeldung.
     .technical-impact = Ein synthetisches paste-Ereignis wird abgebrochen, und der Probetext steht danach nicht im Feld (paste-Handler mit preventDefault() oder return false); gemessen auch in gleich-ursprünglichen Rahmen und offenen Shadow Roots.
+    .description = Ein Passwort- oder Einmalcode-Feld bricht das paste-Ereignis ab und fügt den Text nicht selbst ein. Passwortmanager und die Zwischenablage funktionieren dort nicht.
+    .explanation-user-impact = Wer sich Passwörter nicht merken oder fehlerfrei abschreiben kann, etwa wegen kognitiver oder motorischer Einschränkungen, scheitert an der Anmeldung.
+    .typical-cause = Ein paste-Handler mit preventDefault() oder onpaste="return false", meist als vermeintliche Sicherheitsmaßnahme.
+    .recommendation = Den Handler entfernen. Wird der Text bereinigt, den bereinigten Text selbst in das Feld einfügen, statt das Einfügen zu verbieten.
+    .technical-note = Gemessen wird ein synthetisches, abbrechbares paste-Ereignis an Passwort- und Codefeldern, auch in gleich-ursprünglichen Rahmen und offenen Shadow Roots; der Feldwert wird danach wiederhergestellt. Das Ereignis ist nicht vertrauenswürdig (isTrusted ist false): Ein Handler, der nur auf echte Ereignisse oder Tastendrücke reagiert, bleibt unsichtbar. autocomplete="off" ist kein Befund.
 
 rule-auth-captcha = CAPTCHA im Anmeldeformular prüfen
     .user-impact = Text- und Rätsel-CAPTCHAs sperren Menschen mit kognitiven Einschränkungen, Legasthenie oder Sehbehinderung von der Anmeldung aus, wenn es keine Alternative gibt.
     .technical-impact = Interaktives CAPTCHA-Widget (reCAPTCHA, hCaptcha, Bild-CAPTCHA) in einem Formular mit Passwort- oder Einmalcode-Feld.
+    .description = Ein Anmeldeformular enthält ein Captcha. Ob es ein Objekterkennungstest ist oder eine Alternative ohne Denkaufgabe angeboten wird, muss geprüft werden.
+    .explanation-user-impact = Wer verzerrte Zeichen nicht lesen, abschreiben oder sich merken kann, kommt an der Anmeldung nicht vorbei.
+    .typical-cause = Ein Text- oder Bildrätsel-Captcha gegen Bots, ohne zweiten Weg.
+    .recommendation = Eine Anmeldung ohne Denkaufgabe anbieten, etwa Passkey, E-Mail-Link oder eine Bot-Prüfung ohne Interaktion. Ein Objekterkennungstest ist auf Stufe AA zulässig.
+    .technical-note = Prüfhinweis: Art des Tests und Alternativen stehen nicht im Markup. Ein Captcha im Kontaktformular gehört nicht zu 3.3.8.
 
 rule-forms-no-submit = Formular ohne Absende-Button
     .user-impact = Tastatur- und Screenreader-Nutzer erkennen den Abschluss der Eingabe schwerer.
     .technical-impact = Fehlendes Submit-Control im Formular.
+    .description = Ein Formular sammelt Eingaben, hat aber keinen Button und kein anderes Element, mit dem es ausdrücklich abgeschickt wird.
+    .explanation-user-impact = Ohne Absende-Element bleibt unklar, wann die Eingabe gilt. Wird das Formular stattdessen beim Ändern eines Felds abgeschickt, wechselt der Kontext unangekündigt.
+    .typical-cause = Filter- und Suchformulare, die per Skript beim Ändern eines Felds abgeschickt werden, oder ein Button außerhalb des Formulars ohne form-Attribut.
+    .recommendation = Einen Button type="submit" ins Formular setzen oder per form-Attribut zuordnen. Ändert ein Formular nur Inhalte auf der Seite, genügt eine Prüfung, dass dabei kein Kontextwechsel passiert.
+    .technical-note = Ohne action und ohne Textfeld kann nur ein Skript das Formular abschicken; dann ist der Befund ein Prüfhinweis (#728).
 
 rule-manual-help = Fehlende Ausfüllhilfe (AAA)
     .user-impact = Nutzer wissen nicht, welches Format oder welche Daten in ein Feld eingegeben werden müssen.
@@ -249,6 +299,11 @@ rule-language-part-undetermined = Anderssprachiger Textteil ohne lang prüfen
 rule-language-part-unmarked = Anderssprachiger Textteil ohne lang prüfen
     .user-impact = Screenreader lesen den Abschnitt mit der Aussprache der Seitensprache vor; er wird schwer verständlich.
     .technical-impact = Heuristische Spracherkennung je Textblock; Seiten, die weder Deutsch noch Englisch sind, bleiben ungeprüft.
+    .description = Ein Textabschnitt scheint in einer anderen Sprache verfasst als die Seite, ohne dass ein lang-Attribut das auszeichnet.
+    .explanation-user-impact = Screenreader lesen den Abschnitt mit der Aussprache der Seitensprache vor; er wird schwer verständlich.
+    .typical-cause = Zitate, Produktnamen oder Teaser in einer anderen Sprache ohne lang.
+    .recommendation = Den Abschnitt mit lang auszeichnen, etwa <p lang="en">.
+    .technical-note = Prüfhinweis: Die Spracherkennung ist eine Heuristik und kennt Deutsch und Englisch. Auf Seiten in anderen Sprachen bleibt die Prüfung als ungeprüft vermerkt.
 
 rule-language-abbreviation-unexpanded = Fehlende Erklärung von Abkürzungen (AAA)
     .user-impact = Nutzer verstehen den Inhalt nicht, wenn sie die Abkürzung nicht kennen.
@@ -268,13 +323,23 @@ rule-contrast-text-enhanced = Erhöhter Farbkontrast nicht erreicht (AAA)
     .user-impact = Für Menschen mit deutlich eingeschränktem Sehvermögen bleibt der Text schwer lesbar.
     .technical-impact = Kontrastverhältnis unter 7:1 für normalen Text bzw. 4,5:1 für großen Text.
 
-rule-zoom-viewport-locked = Text nicht ausreichend skalierbar
+rule-zoom-viewport-locked = Zoom durch Viewport-Meta-Tag gesperrt
     .user-impact = Nutzer mit Sehschwäche verlieren Inhalte bei Vergrößerung.
     .technical-impact = Feste Pixelwerte, overflow:hidden.
+    .description = Das viewport-Meta-Tag verhindert das Zoomen (user-scalable=no) oder begrenzt es auf weniger als 200 %.
+    .explanation-user-impact = Menschen mit Sehbeeinträchtigung können die Seite auf Mobilgeräten nicht vergrößern und verlieren Inhalte.
+    .typical-cause = user-scalable=no oder maximum-scale=1, gesetzt, um versehentliches Zoomen zu verhindern oder ein Layout zu stabilisieren.
+    .recommendation = user-scalable=no und maximum-scale aus dem viewport-Meta-Tag entfernen.
+    .technical-note = Eine Grenze zwischen 200 % und 500 % ist kein Verstoß gegen 1.4.4 und wird getrennt gemeldet.
 
 rule-zoom-viewport-missing = Fehlende Viewport-Angabe
     .user-impact = Auf Mobilgeräten erscheint der Text unter jeder lesbaren Größe; wer vergrößert, muss waagerecht scrollen. Am Desktop ändert sich nichts.
     .technical-impact = Kein <meta name="viewport"> im Dokument.
+    .description = Das Dokument hat kein viewport-Meta-Tag. Mobile Browser legen dann eine Desktop-Breite zugrunde und verkleinern die Seite.
+    .explanation-user-impact = Auf Mobilgeräten erscheint der Text unter jeder lesbaren Größe; wer vergrößert, muss waagerecht scrollen. Am Desktop ändert sich nichts.
+    .typical-cause = Das Template setzt kein viewport-Meta-Tag, etwa bei älteren oder rein für Desktop gebauten Seiten.
+    .recommendation = Im <head> ein viewport-Meta-Tag mit width=device-width ergänzen.
+    .technical-note = Desktop-Browser ignorieren das Tag; betroffen ist nur die Darstellung auf Mobilgeräten. Das Layout muss danach auch in schmalen Viewports funktionieren (1.4.10 Reflow).
 
 rule-css-overflow-hidden = Kein Reflow bei 320 CSS-Pixeln
     .user-impact = Nutzer, die auf 400 % zoomen, müssen in zwei Richtungen scrollen — Inhalte werden unzugänglich.
@@ -307,6 +372,11 @@ rule-patterns-tooltip-unreferenced = Unzugängliche Hover- oder Fokus-Inhalte (T
 rule-media-audio-autoplay = Selbststartender Ton ohne Steuerung prüfen
     .user-impact = Ton, der von selbst startet, übertönt die Sprachausgabe von Screenreadern.
     .technical-impact = <audio autoplay> ohne muted; ob der Ton länger als drei Sekunden läuft und sich anhalten lässt, steht nicht im Markup.
+    .description = Ein Audio-Element startet beim Laden der Seite von selbst und ist nicht stummgeschaltet.
+    .explanation-user-impact = Ton, der von selbst startet, übertönt die Sprachausgabe von Screenreadern; Nutzer finden die Steuerung dann kaum noch.
+    .typical-cause = <audio autoplay> für Hintergrundmusik oder Werbung.
+    .recommendation = Ton nicht automatisch starten oder eine Steuerung zum Anhalten bzw. Leiserstellen am Anfang der Seite anbieten.
+    .technical-note = Prüfhinweis (WCAG 1.4.2): Ob der Ton länger als drei Sekunden läuft und sich anhalten lässt, steht nicht im Markup.
 
 rule-text-justified = Eingeschränkte visuelle Darstellung von Text (AAA)
     .user-impact = Nutzer mit Sehbehinderungen oder Legasthenie haben Probleme beim Lesen.
@@ -325,6 +395,11 @@ rule-visual-presentation = Eingeschränkte visuelle Darstellung von Text (AAA)
 rule-keyboard-hidden-focusable = Fokussierbares Element versteckt vor Screenreadern
     .user-impact = Tastaturnutzer erreichen Elemente, die Screenreader nicht ankündigen — unsichtbare Stolperfallen.
     .technical-impact = aria-hidden="true" auf fokussierbarem Element oder seinem Vorfahren.
+    .description = Ein interaktives Element ist über aria-hidden="true" vor Screenreadern versteckt, kann aber dennoch mit der Tastatur (Tabulator) fokussiert werden.
+    .explanation-user-impact = Tastaturnutzer steuern auf unsichtbare Elemente (Fokus-Stolperfallen), während Screenreader-Nutzer keinerlei Rückmeldung über dieses Element erhalten.
+    .typical-cause = Es wurde aria-hidden="true" verwendet, um ein Element visuell auszublenden, ohne tabindex="-1" zu setzen oder das Element per display:none zu verstecken.
+    .recommendation = Wenn ein Element vollständig versteckt sein soll, display:none oder visibility:hidden verwenden. Soll es nur vor Screenreadern versteckt sein, muss es unfokussierbar sein (tabindex="-1").
+    .technical-note = Focusable elements (a, button, input) inside an aria-hidden="true" tree must either be removed from tab order or hidden completely.
 
 rule-status-live-overridden = Statusmeldungen nicht programmatisch bestimmbar
     .user-impact = Screenreader kündigt Statusmeldungen nicht korrekt an.
@@ -333,18 +408,33 @@ rule-status-live-overridden = Statusmeldungen nicht programmatisch bestimmbar
 rule-aria-required-attribute-missing = Pflicht-ARIA-Attribut fehlt
     .user-impact = Assistive Technologien koennen Zustand oder Wert des Elements nicht verlaesslich vermitteln.
     .technical-impact = Rolle und ARIA-Attributsatz sind unvollstaendig.
+    .description = Ein Element trägt eine Rolle, die einen Zustand ansagt (etwa checkbox oder slider), aber nicht das Attribut, das diesen Zustand trägt.
+    .explanation-user-impact = Screenreader-Nutzer erfahren nicht, ob ein Schalter an ist oder welchen Wert ein Regler hat.
+    .typical-cause = Selbst gebaute Bedienelemente setzen die Rolle, pflegen den Zustand aber nur visuell.
+    .recommendation = Das geforderte Attribut setzen und bei jeder Zustandsänderung aktualisieren, oder ein natives Element verwenden.
+    .technical-note = Etwa aria-checked für checkbox/radio/switch, aria-expanded für combobox, aria-valuenow für slider/spinbutton/meter.
 
 rule-aria-required-parent-missing = Element außerhalb des erforderlichen Eltern-Kontexts
     .user-impact = Assistive Technologien können die Beziehung des Elements zu seiner Gruppe (z. B. Tab zu Tableiste) nicht vermitteln.
     .technical-impact = Fehlender struktureller Eltern-Kontext für die verwendete ARIA-Rolle.
+    .description = Ein Element mit einer Rolle wie tab, option oder listitem steht nicht in einem Element mit der dafür erforderlichen Rolle.
+    .explanation-user-impact = Screenreader können das Element keinem Widget zuordnen; Position und Anzahl („Tab 2 von 3") werden nicht angesagt.
+    .typical-cause = Ein Element mit eigener Rolle dazwischen, etwa ein <li> zwischen role="tablist" und role="tab".
+    .recommendation = Das Element direkt in den erforderlichen Behälter setzen oder die Zwischenelemente mit role="presentation" neutralisieren.
+    .technical-note = Geprüft wird am DOM. Ein <li> in einer Liste, die per role etwas anderes geworden ist, bleibt ein listitem, auch wenn der Browser es im Accessibility-Tree glättet.
 
 rule-inert-dialog-inert = Ungültige moderne Interaktionsattribute
     .user-impact = Screenreader- und Tastaturnutzer erreichen Dialoge, Popover oder gesperrte Bereiche nicht zuverlässig.
     .technical-impact = Defekte popovertarget-Bezüge, unbenannte Oberflächen oder aktiver Fokus innerhalb inert markierter Bereiche.
 
-rule-modern-attribute-misuse = Ungültige moderne Interaktionsattribute
+rule-modern-attribute-misuse = Fehlerhafte Dialog- oder Popover-Steuerung
     .user-impact = Screenreader- und Tastaturnutzer erreichen Dialoge, Popover oder gesperrte Bereiche nicht zuverlässig.
     .technical-impact = Defekte popovertarget-Bezüge, unbenannte Oberflächen oder aktiver Fokus innerhalb inert markierter Bereiche.
+    .description = Moderne HTML-Attribute für Popover, Dialoge oder gesperrte Bereiche sind unvollständig oder widersprüchlich eingesetzt.
+    .explanation-user-impact = Tastatur- und Screenreader-Nutzer können Oberflächen öffnen, fokussieren oder verlassen, ohne eine verständliche Rückmeldung zu erhalten.
+    .typical-cause = popovertarget verweist auf ein fehlendes Element, ein sichtbarer Dialog hat keinen zugänglichen Namen, oder ein aktiver Bereich ist gleichzeitig inert markiert.
+    .recommendation = Popover-Ziele prüfen, sichtbare Dialoge und Menüs benennen und inert nur für tatsächlich inaktive Bereiche verwenden.
+    .technical-note = popovertarget muss auf ein Element mit popover zeigen. Offene Dialoge, Menüs und Popover brauchen aria-label, aria-labelledby oder einen geeigneten Namen.
 
 rule-popover-target-invalid = Ungültige moderne Interaktionsattribute
     .user-impact = Screenreader- und Tastaturnutzer erreichen Dialoge, Popover oder gesperrte Bereiche nicht zuverlässig.
@@ -357,18 +447,38 @@ rule-popover-target-missing = Ungültige moderne Interaktionsattribute
 rule-aria-attribute-prohibited = Verbotene ARIA-Attribute
     .user-impact = Screenreader erhalten widersprüchliche oder ungültige Semantik.
     .technical-impact = ARIA-Attribute passen nicht zur impliziten oder expliziten Rolle.
+    .description = Für bestimmte HTML-Elemente oder ARIA-Rollen werden Attribute verwendet, die für diese Rolle nicht zulässig oder sinnvoll sind.
+    .explanation-user-impact = Screenreader erhalten widersprüchliche oder fehlerhafte Signale, was die Bedienbarkeit der Website beeinträchtigen kann.
+    .typical-cause = Verwendung von ARIA-Attributen (wie aria-label oder aria-expanded) auf Elementen, die keine interaktive Rolle haben (z. B. span oder div ohne role).
+    .recommendation = Prüfe die ARIA-Spezifikation für die jeweilige Rolle. Verwende ARIA-Attribute nur auf passenden Elementen und Rollen.
+    .technical-note = Prohibited attributes on generic elements: <span aria-label="text"> is invalid. Use native elements or valid roles (e.g. role="button").
 
 rule-aria-attribute-not-allowed = ARIA-Attribut für diese Rolle nicht zulässig
     .user-impact = Assistive Technologien ignorieren das Attribut oder interpretieren es falsch.
     .technical-impact = Attribut-Rollen-Kombination entspricht nicht der ARIA-Spezifikation.
+    .description = Ein Element trägt ein ARIA-Attribut, das seine Rolle nicht unterstützt, oder eines, das neben einem nativen Attribut nicht stehen darf.
+    .explanation-user-impact = Screenreader ignorieren das Attribut oder erhalten widersprüchliche Angaben zu Zustand und Wert.
+    .typical-cause = Zustände wie aria-expanded oder aria-checked an Elementen ohne passende Rolle, etwa an einem div.
+    .recommendation = Das Attribut an das Element mit der passenden Rolle verschieben, eine passende Rolle setzen oder das Attribut entfernen.
+    .technical-note = Geurteilt wird über die explizite oder implizite Rolle. Dazu die Fälle aus ARIA in HTML, etwa aria-checked an einer nativen Checkbox.
 
 rule-aria-attribute-value-invalid = Ungültiger Wert eines ARIA-Attributs
     .user-impact = Assistive Technologien können Zustand oder Beziehung des Elements nicht korrekt vermitteln.
     .technical-impact = Attributwert entspricht nicht dem in der ARIA-Spezifikation definierten Werttyp.
+    .description = Ein ARIA-Attribut hat einen Wert außerhalb seines Wertebereichs, etwa aria-expanded="yes".
+    .explanation-user-impact = Browser fallen auf den Vorgabewert zurück; der Zustand wird Screenreader-Nutzern falsch oder gar nicht angesagt.
+    .typical-cause = Werte aus anderen Konventionen (yes/no, 1/0) oder Tippfehler in Token-Werten.
+    .recommendation = Nur die Werte verwenden, die die ARIA-Spezifikation für das Attribut vorsieht, etwa true oder false.
+    .technical-note = Unbekannte Werte von aria-current und aria-invalid gelten nach ARIA 1.2 als true und werden nicht gemeldet.
 
 rule-aria-reference-missing = Leerer Verweis in ARIA-Beziehungsattribut
     .user-impact = Assistive Technologien können die beabsichtigte Beziehung zwischen den Elementen nicht auflösen.
     .technical-impact = Beziehungsattribut ohne gültige ID-Referenz.
+    .description = Ein ARIA-Beziehungsattribut (etwa aria-controls oder aria-labelledby) ist leer oder verweist auf eine ID, die es auf der Seite nicht gibt.
+    .explanation-user-impact = Screenreader können die Beziehung nicht herstellen: Beschriftung, Beschreibung oder gesteuerter Bereich fehlen.
+    .typical-cause = Die ID des Ziels wurde umbenannt oder wird erst später per Skript erzeugt; Komponenten setzen das Attribut, bevor das Ziel existiert.
+    .recommendation = Das Attribut auf die ID eines vorhandenen Elements setzen oder es entfernen.
+    .technical-note = Geprüft werden aria-labelledby, aria-describedby, aria-controls, aria-owns und aria-activedescendant.
 
 rule-aria-role-abstract = Ungültige ARIA-Rolle
     .user-impact = Assistive Technologien können die Funktion des Elements nicht bestimmen.
@@ -377,26 +487,51 @@ rule-aria-role-abstract = Ungültige ARIA-Rolle
 rule-aria-role-invalid = Ungültige ARIA-Rolle
     .user-impact = Assistive Technologien können die Funktion des Elements nicht bestimmen.
     .technical-impact = Rollenwert ist in der ARIA-Spezifikation nicht definiert.
+    .description = Ein role-Attribut enthält einen Wert, den es in WAI-ARIA nicht gibt, oder eine abstrakte Rolle, die nicht ausgezeichnet werden darf.
+    .explanation-user-impact = Browser ignorieren die Rolle; Screenreader sagen das Element anders an als beabsichtigt.
+    .typical-cause = Tippfehler, erfundene Rollen oder abstrakte Rollen wie widget oder landmark.
+    .recommendation = Eine Rolle aus der ARIA-Spezifikation verwenden oder das role-Attribut entfernen und ein natives Element nutzen.
+    .technical-note = Rollen unterscheiden Groß- und Kleinschreibung: role="Button" ist ungültig.
 
 rule-aria-attribute-unknown = Ungültiger ARIA-Attributname
     .user-impact = Assistive Technologien ignorieren das Attribut vollständig.
     .technical-impact = Attributname existiert nicht in der ARIA-Spezifikation.
+    .description = Ein Element trägt ein aria-*-Attribut, das es in WAI-ARIA nicht gibt – meist ein Tippfehler.
+    .explanation-user-impact = Der Browser ignoriert das Attribut; die gemeinte Beschriftung, Beziehung oder der gemeinte Zustand fehlt.
+    .typical-cause = Falsch geschriebene Attribute wie aria-labeledby statt aria-labelledby.
+    .recommendation = Den Namen gegen die ARIA-Spezifikation prüfen und korrigieren oder das Attribut entfernen.
+    .technical-note = Attribute aus dem Entwurf von WAI-ARIA 1.3, die Browser schon umsetzen (etwa aria-description), gelten als bekannt.
 
-rule-document-lang-mismatch = Widersprüchliche Sprachangaben
+rule-document-lang-mismatch = lang und xml:lang widersprechen sich
     .user-impact = Assistive Technologien erhalten widersprüchliche Angaben zur Sprache des Inhalts.
     .technical-impact = lang und xml:lang stimmen im Primary-Subtag nicht überein.
+    .description = Das <html>-Element trägt lang und xml:lang mit unterschiedlichen Sprachen.
+    .explanation-user-impact = Screenreader wählen je nach Attribut eine andere Sprache und sprechen die Seite womöglich falsch aus.
+    .typical-cause = Aus XHTML übernommene Vorlagen, bei denen nur eines der Attribute angepasst wurde.
+    .recommendation = xml:lang entfernen oder auf denselben Wert wie lang setzen.
+    .technical-note = Verglichen wird die Primärsprache beider Attribute.
 
 rule-tables-headers-attr-invalid = Ungültiger Headers-Verweis in Tabellenzelle
     .user-impact = Screenreader können der Zelle keine oder eine falsche Spalten-/Zeilenüberschrift zuordnen.
     .technical-impact = headers-Attribut verweist nicht auf eine gültige th-Zelle derselben Tabelle.
+    .description = Eine Tabellenzelle verweist per headers auf eine ID, die keine Kopfzelle derselben Tabelle ist.
+    .explanation-user-impact = Screenreader lesen zur Zelle den falschen oder gar keinen Kopf vor.
+    .typical-cause = Umbenannte oder kopierte IDs, Verweise auf Zellen anderer Tabellen.
+    .recommendation = headers nur auf IDs von <th> derselben Tabelle zeigen lassen oder bei einfachen Tabellen ganz auf scope setzen.
+    .technical-note = Geprüft wird nur an Zellen (td, th und ihre Rollen); nur dort definiert HTML das Attribut.
 
 rule-tables-data-undetermined = Tabellenüberschrift ohne zugehörige Datenzellen
     .user-impact = Screenreader kündigen eine Überschrift an, die keine Daten strukturiert.
     .technical-impact = Header-Zelle ohne zugeordnete Datenzellen in der Tabelle.
 
-rule-tables-header-without-data = Tabellenüberschrift ohne zugehörige Datenzellen
+rule-tables-header-without-data = Tabellenkopf ohne Datenzellen
     .user-impact = Screenreader kündigen eine Überschrift an, die keine Daten strukturiert.
     .technical-impact = Header-Zelle ohne zugeordnete Datenzellen in der Tabelle.
+    .description = Eine Kopfzelle (<th>) bezieht sich auf keine Datenzelle – die Tabelle hat Überschriften, aber keine Daten darunter oder daneben.
+    .explanation-user-impact = Screenreader können Datenzellen keinem Kopf zuordnen; die Tabelle wirkt leer oder falsch aufgebaut.
+    .typical-cause = Tabellen, die nur zur Anordnung dienen, oder Datenzeilen, die per Skript erst später erscheinen.
+    .recommendation = Kopfzellen nur dort einsetzen, wo Daten folgen; Layout ohne <table> umsetzen.
+    .technical-note = Leere Datenzellen, Zellen mit aria-hidden-Inhalt und Spaltenköpfe über Zeilenköpfen zählen nicht als Fehler. Ein noch nicht dargestellter Zeilenvorrat ergibt einen Hinweis (ungeprüft) statt eines Verstoßes.
 
 rule-aria-tabpanel-missing = Tableiste ohne zugehöriges Tab-Panel
     .user-impact = Screenreader-Nutzer können nach Aktivieren eines Tabs den zugehörigen Inhalt nicht auffinden.
@@ -405,30 +540,65 @@ rule-aria-tabpanel-missing = Tableiste ohne zugehöriges Tab-Panel
 rule-aria-tab-selected-missing = Kein Tab als ausgewählt ausgezeichnet
     .user-impact = Screenreader-Nutzer erfahren nicht, welcher Tab aktiv ist und zu welchem der sichtbare Inhalt gehört.
     .technical-impact = tablist ohne tab mit aria-selected="true".
+    .description = Keiner der Tabs einer Tableiste trägt aria-selected="true".
+    .explanation-user-impact = Screenreader-Nutzer erfahren nicht, welcher Tab aktiv ist und zu welchem der sichtbare Inhalt gehört.
+    .typical-cause = Der aktive Tab wird nur per CSS-Klasse hervorgehoben.
+    .recommendation = Am aktiven Tab aria-selected="true" setzen und beim Wechsel mitführen.
+    .technical-note = Zur Prüfung: ARIA 1.2 sagt SHOULD. Tabs ohne das Attribut gelten als nicht ausgewählt, das ist für die inaktiven richtig.
 
 rule-patterns-accordion-controls-missing = Aufgeklappter Button ohne Verweis auf seinen Bereich
     .user-impact = Screenreader-Nutzer erfahren nicht, welcher Bereich aufgeklappt wurde.
     .technical-impact = aria-expanded="true" ohne aria-controls; WAI-ARIA verlangt es nicht, die APG nennt es beim Disclosure-Muster optional.
+    .description = Ein aufgeklappter Button (aria-expanded="true") verweist nicht per aria-controls auf den Bereich, den er steuert.
+    .explanation-user-impact = Screenreader-Nutzer erfahren nicht, welcher Bereich aufgeklappt wurde, und können nicht direkt dorthin springen.
+    .typical-cause = Akkordeon- oder Aufklapp-Skripte, die nur aria-expanded umschalten.
+    .recommendation = Am Button aria-controls auf die ID des gesteuerten Bereichs setzen.
+    .technical-note = Prüfhinweis: WAI-ARIA verlangt aria-controls nicht, die APG nennt es beim Disclosure-Muster optional. Ein <summary> braucht es nicht.
 
 rule-dialog-modal-unmarked = Dialog nicht als modal ausgezeichnet
     .user-impact = Ist der Dialog modal gemeint, lesen Screenreader den Inhalt dahinter weiter, als wäre er erreichbar.
     .technical-impact = role="dialog" ohne aria-modal="true"; ob der Dialog modal gemeint ist, zeigt erst sein Verhalten.
+    .description = Ein Element mit role="dialog" trägt kein aria-modal="true". Ob der Dialog modal gemeint ist, muss geprüft werden.
+    .explanation-user-impact = Ist der Dialog modal gemeint, lesen Screenreader den Inhalt dahinter weiter, als wäre er erreichbar.
+    .typical-cause = Ein selbst gebauter Dialog aus einem div mit role="dialog", ohne aria-modal.
+    .recommendation = Einen modalen Dialog mit aria-modal="true" auszeichnen oder ein natives <dialog> mit showModal() verwenden. Ein nicht modaler Dialog braucht das Attribut nicht.
+    .technical-note = ARIA verlangt aria-modal nicht; der Hinweis ist eine Prüfempfehlung, kein Verstoß.
 
-rule-aria-combobox-popup-missing = Combobox ohne Optionsliste
+rule-aria-combobox-popup-missing = Aufgeklappte Combobox ohne Verweis auf ihr Popup
     .user-impact = Screenreader-Nutzer erfahren nicht, welche Auswahlmöglichkeiten die Combobox bietet.
     .technical-impact = combobox ohne verknüpfte listbox/option-Elemente.
+    .description = Eine Combobox ist als aufgeklappt ausgezeichnet, verweist aber nicht per aria-controls auf ihre Auswahlliste.
+    .explanation-user-impact = Screenreader-Nutzer erfahren nicht, welche Auswahlmöglichkeiten die Combobox bietet, und erreichen sie nicht.
+    .typical-cause = Die Liste steht neben der Combobox statt darin, und aria-controls fehlt.
+    .recommendation = aria-controls an der Combobox auf die ID der Liste setzen.
+    .technical-note = ARIA 1.2 verlangt aria-controls (MUST). Ein Popup im eigenen Teilbaum oder per aria-owns (ARIA 1.1) wird weiter anerkannt.
 
 rule-frames-name-missing = Iframe ohne zugänglichen Namen
     .user-impact = Screenreader-Nutzer erkennen Zweck und Inhalt des eingebetteten Frames nicht.
     .technical-impact = Fehlender zugänglicher Name auf iframe/frame.
+    .description = Ein <iframe> hat keinen zugänglichen Namen (title, aria-label oder aria-labelledby).
+    .explanation-user-impact = Screenreader nennen beim Betreten des Rahmens nur „Rahmen“; Nutzer erfahren nicht, was darin steckt, und können ihn nicht gezielt überspringen.
+    .typical-cause = Eingebettete Karten, Videos, Widgets oder Werbung ohne title-Attribut.
+    .recommendation = Jedem sichtbaren <iframe> ein title geben, das seinen Inhalt beschreibt.
+    .technical-note = WCAG-Technik H64. Rahmen mit role="none"/"presentation", hidden, aria-hidden oder Breite und Höhe 0/1 zählen nicht.
 
 rule-frames-cross-origin = Cross-origin Iframe: manuell prüfen
     .user-impact = Eingebettete Inhalte (Karten, Videos, Consent-Widgets) sind möglicherweise für Screenreader-Nutzer unzugänglich.
     .technical-impact = Iframe-Inhalt ist über CDP nicht erreichbar — automatische Regelprüfung nicht möglich.
+    .description = Das Dokument in einem iframe war für das Prüfwerkzeug nicht lesbar und blieb deshalb ungeprüft. Der Rahmen hat einen fremden Ursprung, oder seine Navigation war nicht abgeschlossen.
+    .explanation-user-impact = Eingebettete Inhalte wie Karten, Buchungs- oder Einwilligungsdialoge können für Screenreader- und Tastaturnutzer unzugänglich sein, ohne dass der Bericht es zeigt.
+    .typical-cause = Inhalte von Drittanbietern in einem iframe mit fremdem Ursprung; die Seite kann deren Dokument nicht lesen.
+    .recommendation = Den Rahmeninhalt von Hand prüfen oder seine Adresse für sich prüfen; beim Anbieter nach einer barrierefreien Einbettung fragen.
+    .technical-note = Eine Abdeckungsnotiz, keine Konformitätsprüfung und an kein Erfolgskriterium gebunden. Gemessen wird, ob contentDocument des Rahmens lesbar ist; Rahmen, die präsentational, versteckt oder höchstens 1 px groß sind, bleiben außen vor. Ohne die Messung steht die Regel als nicht gelaufen im Bericht.
 
 rule-ids-duplicate = Mehrfach vergebene ID wird referenziert
     .user-impact = Assistierende Technik kann die Beziehung nicht eindeutig auflösen und gibt Name oder Beschreibung des falschen Elements aus.
     .technical-impact = Dieselbe ID kommt im DOM mehrfach vor und wird von einem for-, headers- oder aria-Attribut referenziert.
+    .description = Mehrere Elemente auf der Seite tragen dieselbe id, und ein anderes Element verweist darauf (z. B. label for, aria-labelledby). Welches der Elemente gemeint ist, ist damit nicht mehr bestimmbar.
+    .explanation-user-impact = Screenreader lösen die Beziehung auf das falsche Element auf und geben einen falschen Namen oder eine falsche Beschreibung aus.
+    .typical-cause = Wiederholt eingebundene Komponenten oder Templates (z. B. Menüpunkte, Widgets), die eine statische ID statt einer pro Instanz eindeutigen ID verwenden.
+    .recommendation = Jede ID nur einmal im Dokument vergeben. Bei wiederverwendeten Komponenten die ID dynamisch generieren (z. B. mit Index oder Slug).
+    .technical-note = IDs eindeutig machen, etwa durch Anhängen eines Index oder einer eindeutigen Kennung pro Komponenteninstanz.
 
 rule-images-server-side-map = Server-seitige Image-Map verwendet
     .user-impact = Tastatur- und Screenreader-Nutzer können die einzelnen Bildbereiche nicht ansteuern.
@@ -453,6 +623,11 @@ rule-objects-alt-missing = Fehlende Textalternative bei eingebetteten Objekten
 rule-html-content-model = Verletzung des HTML5-Content-Models
     .user-impact = Screenreader können die Struktur nicht zuverlässig auswerten, auch wenn sie augenscheinlich korrekt wirkt.
     .technical-impact = Unerwartetes Kindelement innerhalb eines strukturellen Containers (z. B. <ul>, <table>, <select>).
+    .description = Ein strukturelles Element (Liste, Tabelle, Formular, Select) enthält Inhalt, der sein HTML5-Content-Model verletzt — das kann Screenreader-Semantik brechen, selbst wenn der resultierende Accessibility-Tree oberflächlich gültig aussieht.
+    .explanation-user-impact = Screenreader können die Struktur nicht zuverlässig auswerten, auch wenn sie augenscheinlich korrekt wirkt.
+    .typical-cause = Unerwartetes Kindelement innerhalb eines strukturellen Containers (z. B. <ul>, <table>, <select>).
+    .recommendation = Das Markup an das HTML5-Content-Model des Elements anpassen (z. B. darf ein <dl> nur direkt <dt>/<dd>-Gruppen, <div>, <script> oder <template> enthalten). Der Browser kann ungültige Kindelemente beim Aufbau des Accessibility-Trees still 'heilen' — der Defekt bleibt für rollenbasierte Prüfungen unsichtbar, verwirrt assistierende Technologie aber trotzdem.
+    .technical-note = Unerwartetes Kindelement innerhalb eines strukturellen Containers (z. B. <ul>, <table>, <select>).
 
 rule-forms-group-missing = Fehlende Gruppierung verwandter Formularfelder
     .user-impact = Screenreader-Nutzer erkennen nicht, dass mehrere Felder zu einer Frage/Gruppe gehören.
@@ -461,6 +636,11 @@ rule-forms-group-missing = Fehlende Gruppierung verwandter Formularfelder
 rule-landmarks-not-top-level = Landmark ist verschachtelt
     .user-impact = Screenreader-Nutzer, die per Landmark-Navigation springen, landen in einem unerwarteten Kontext.
     .technical-impact = <header>/<footer>/<main> bzw. role="banner"/"contentinfo"/"main" ist Nachfahre eines anderen Landmarks.
+    .description = Ein Kopf-, Fuß- oder Hauptinhaltsbereich (banner, contentinfo, main) liegt innerhalb eines anderen Landmarks statt auf oberster Ebene.
+    .explanation-user-impact = Screenreader-Nutzer, die per Landmark-Navigation zu Kopf, Fuß oder Hauptinhalt springen, landen in einem unerwarteten Kontext.
+    .typical-cause = role="banner", role="contentinfo" oder <main> innerhalb von <main>, <nav>, <aside> oder einem benannten Bereich.
+    .recommendation = Kopf-, Fuß- und Hauptinhaltsbereich auf die oberste Ebene der Seite verschieben, außerhalb jedes anderen Landmarks.
+    .technical-note = Ein <header>/<footer> in <main>, <article> oder <section> ist ohnehin kein banner/contentinfo; gemeldet werden explizite Rollen und <main>. Welche Rolle betroffen ist, steht im Befundtext.
 
 rule-landmarks-banner-duplicate = Mehrere Banner-Landmarks
     .user-impact = Screenreader-Nutzer können den 'Kopfbereich' der Seite nicht eindeutig zuordnen.
@@ -486,57 +666,122 @@ rule-landmarks-contentinfo-missing = Fehlender Fußbereich-Landmark (contentinfo
     .user-impact = Screenreader-Nutzer können den Fußbereich mit Kontakt, Impressum und Rechtlichem nicht direkt ansteuern.
     .technical-impact = Kein Element mit role="contentinfo" (implizit über ein <footer> außerhalb von <main>/<article>/<section> oder explizit) vorhanden.
 
-rule-lists-item-outside-list = Listenelemente ohne Listen-Container
+rule-lists-item-outside-list = Listeneintrag außerhalb einer Liste
     .user-impact = Screenreader-Nutzer erhalten keine Ansage der Listenlänge/-struktur.
     .technical-impact = <li> außerhalb von <ul>/<ol>.
+    .description = Ein Listeneintrag (<li> oder role="listitem") steht nicht innerhalb einer Liste.
+    .explanation-user-impact = Screenreader kündigen einen Listeneintrag an, ohne dass es eine Liste mit Länge und Position gibt.
+    .typical-cause = Das umschließende <ul>/<ol> fehlt, etwa weil eine Komponente nur die Einträge rendert, oder role="listitem" steht auf einem beliebigen Element.
+    .recommendation = Listeneinträge in ein <ul> oder <ol> (bzw. role="list") einbetten, oder die Listen-Semantik entfernen, wenn es keine Liste ist.
+    .technical-note = Ein <li> braucht ein <ul>, <ol> oder <menu> als Elternelement; role="listitem" braucht role="list" als Vorfahren.
 
 rule-headings-skip-level = Übersprungene Überschriftenebene
     .user-impact = Screenreader-Nutzer, die über Überschriften navigieren, vermuten fehlende Abschnitte.
     .technical-impact = Überschriftenebenen folgen nicht lückenlos aufeinander.
+    .description = Die Überschriften springen über eine Ebene, etwa von h2 direkt auf h4. Die Gliederung der Seite ist dadurch lückenhaft.
+    .explanation-user-impact = Screenreader-Nutzer navigieren über die Überschriftenliste und vermuten bei einer fehlenden Ebene übersehene Inhalte.
+    .typical-cause = Überschriftenebenen werden nach Schriftgröße statt nach Gliederung gewählt, oder Komponenten bringen eine feste Ebene mit.
+    .recommendation = Überschriften lückenlos verschachteln (h1, h2, h3 …) und die Optik per CSS steuern, nicht über die Ebene.
+    .technical-note = Auf eine Überschrift der Ebene n folgt höchstens Ebene n+1. Komponenten sollten die Ebene als Parameter annehmen.
 
 rule-headings-empty = Leere Überschrift
     .user-impact = Screenreader-Nutzer stoßen in der Überschriftenliste auf einen Eintrag ohne Inhalt.
     .technical-impact = <h1>–<h6> bzw. role="heading" ohne Text und ohne aria-label.
+    .description = Ein Überschriften-Element hat keinen Text. Es steht in der Gliederung der Seite, sagt aber nichts.
+    .explanation-user-impact = Screenreader-Nutzer navigieren über die Überschriftenliste und treffen auf einen Eintrag ohne Namen.
+    .typical-cause = Überschriften-Tags als Abstandshalter oder für Icons, oder CMS-Felder, die leer bleiben, während das Tag trotzdem ausgegeben wird.
+    .recommendation = Leere Überschriften entfernen oder mit einem sinnvollen Text füllen; Abstände per CSS setzen.
+    .technical-note = Das Tag nur rendern, wenn der Titel vorhanden ist. Ein Icon allein benennt keine Überschrift.
 
 rule-headings-h1-missing = Fehlende Hauptüberschrift (h1)
     .user-impact = Screenreader-Nutzer finden den Einstieg in den Hauptinhalt nicht über die Überschriftennavigation.
     .technical-impact = Kein <h1>-Element im Dokument.
+    .description = Die Seite hat keine Überschrift der Ebene 1, die ihr Thema benennt.
+    .explanation-user-impact = Screenreader-Nutzer springen gezielt zur h1, um das Thema der Seite zu erfahren, und finden keine.
+    .typical-cause = Das Logo oder ein Bild übernimmt die Rolle der Überschrift, oder das Template setzt die Hauptüberschrift als h2 oder als formatierten Text.
+    .recommendation = Jeder Seite genau eine h1 mit ihrem Thema geben, am Anfang des Hauptinhalts.
+    .technical-note = Die h1 gehört in <main>, nicht ins Logo im Header.
 
 rule-headings-h1-multiple = Mehrere Hauptüberschriften (h1)
     .user-impact = Screenreader-Nutzer können den eigentlichen Seitentitel schwerer vom Rest unterscheiden.
     .technical-impact = Mehrere <h1>-Elemente im Dokument.
+    .description = Die Seite hat mehr als eine Überschrift der Ebene 1. HTML erlaubt das, es sollte aber gewollt sein.
+    .explanation-user-impact = Screenreader-Nutzer können den eigentlichen Seitentitel schwerer von anderen Abschnitten unterscheiden.
+    .typical-cause = Logo, Teaser oder Seitenleiste verwenden ebenfalls h1, oft aus einem gemeinsamen Template.
+    .recommendation = Prüfen, ob jede h1 wirklich ein Hauptthema der Seite benennt; alle anderen auf h2 oder tiefer setzen.
+    .technical-note = Ein Hinweis zur Prüfung, kein Verstoß: Die Einordnung hängt vom Aufbau der Seite ab.
 
 rule-lists-invalid-structure = Liste mit unzulässigen Kindelementen
     .user-impact = Screenreader-Nutzer hören eine falsche Anzahl von Listeneinträgen oder verlieren Inhalte.
     .technical-impact = Direkte Kinder von <ul>/<ol>/role="list" sind keine <li>/role="listitem".
+    .description = Eine Liste (<ul>, <ol> oder role="list") enthält direkte Kindelemente, die keine Listeneinträge sind.
+    .explanation-user-impact = Screenreader nennen eine falsche Zahl an Einträgen oder lesen Teile der Liste ohne Listenzusammenhang vor.
+    .typical-cause = Wrapper-<div>s, Trennlinien oder Überschriften direkt in der Liste, oft aus einem Slider- oder Menü-Baustein.
+    .recommendation = Alle Inhalte der Liste in <li>-Elemente legen; Wrapper und Trenner in die Einträge verschieben oder per CSS erzeugen.
+    .technical-note = Direkte Kinder von <ul>/<ol> dürfen nur <li>, <script> und <template> sein.
 
 rule-lists-empty = Leere Liste
     .user-impact = Screenreader kündigen eine Liste ohne Inhalt an.
     .technical-impact = <ul>/<ol>/role="list" ohne <li>/role="listitem".
+    .description = Eine Liste enthält keinen einzigen Listeneintrag.
+    .explanation-user-impact = Screenreader kündigen eine Liste an, auf die nichts folgt.
+    .typical-cause = Listen, die per Skript oder aus dem CMS befüllt werden und leer bleiben, oder Listen-Markup als reiner Layout-Container.
+    .recommendation = Leere Listen nicht ausgeben, oder das Listen-Element erst rendern, wenn Einträge vorhanden sind.
+    .technical-note = Beim Rendern prüfen, ob Einträge vorliegen; ein Layout-Container braucht kein <ul>.
 
 rule-lists-term-without-definition = Begriff ohne Definition in Definitionsliste
     .user-impact = Screenreader-Nutzer können Begriff und Definition nicht als zusammengehörig erkennen.
     .technical-impact = <dt> ohne folgendes <dd> in der <dl>.
+    .description = In einer Beschreibungsliste (<dl>) steht ein Begriff (<dt>) ohne zugehörige Beschreibung (<dd>).
+    .explanation-user-impact = Screenreader lesen einen Begriff vor, zu dem keine Erklärung folgt.
+    .typical-cause = Leere Felder im CMS, oder <dl> als Layout für Beschriftung und Wert, bei dem der Wert fehlt.
+    .recommendation = Zu jedem <dt> mindestens ein <dd> ausgeben, oder den Begriff weglassen, wenn es keine Beschreibung gibt.
+    .technical-note = Geprüft wird unter demselben Elternelement, auch innerhalb von <div>-Gruppen in der <dl>.
 
 rule-tables-header-missing = Datentabelle ohne Kopfzellen
     .user-impact = Screenreader-Nutzer hören Zellwerte ohne die zugehörige Zeilen- oder Spaltenbeschriftung.
     .technical-impact = Kein <th> und keine Zelle mit role="columnheader"/"rowheader".
+    .description = Eine Tabelle hat keine Kopfzellen, die ihre Zeilen oder Spalten beschriften.
+    .explanation-user-impact = Screenreader-Nutzer hören beim Durchgehen der Zellen nur Werte, ohne zu erfahren, zu welcher Spalte oder Zeile sie gehören.
+    .typical-cause = Die Kopfzeile ist mit <td> und fetter Schrift gestaltet statt mit <th>, oder die Tabelle dient nur dem Layout.
+    .recommendation = Kopfzellen als <th> auszeichnen (mit scope="col" bzw. scope="row"). Dient die Tabelle nur dem Layout, durch CSS-Layout ersetzen oder role="presentation" setzen.
+    .technical-note = Kopfzellen sind <th> oder Elemente mit role="columnheader"/"rowheader" irgendwo in der Tabelle.
 
 rule-tables-name-missing = Datentabelle ohne Namen
     .user-impact = Screenreader-Nutzer erfahren beim Betreten der Tabelle nicht, worum es in ihr geht.
     .technical-impact = Kein <caption> und kein aria-label an der Tabelle.
+    .description = Eine Tabelle hat weder eine <caption> noch einen Namen über aria-label oder aria-labelledby.
+    .explanation-user-impact = Wer sich die Tabellen einer Seite auflisten lässt, sieht nur „Tabelle“ und muss jede öffnen, um die richtige zu finden.
+    .typical-cause = Die Beschriftung steht als Überschrift oder Absatz über der Tabelle, ohne mit ihr verknüpft zu sein.
+    .recommendation = Der Tabelle eine <caption> geben oder die vorhandene Überschrift per aria-labelledby verknüpfen. Ob ein Name nötig ist, hängt vom Kontext ab.
+    .technical-note = Ein Hinweis zur Prüfung, kein Verstoß: <caption> als erstes Kind der <table>, oder aria-labelledby auf die Überschrift.
 
 rule-tables-presentational-with-headers = Layouttabelle mit Kopfzellen
     .user-impact = Screenreader-Nutzer erhalten widersprüchliche Signale, ob es sich um eine Datentabelle handelt.
     .technical-impact = role="presentation"/"none" an einer Tabelle mit <th>.
+    .description = Eine Tabelle ist als reines Layout ausgezeichnet (role="presentation" oder "none"), enthält aber Kopfzellen.
+    .explanation-user-impact = Assistierende Technik erhält widersprüchliche Angaben: keine Tabelle laut Rolle, Tabellenstruktur laut Kopfzellen.
+    .typical-cause = role="presentation" wurde pauschal auf Tabellen gesetzt, darunter auch echte Datentabellen.
+    .recommendation = Bei Datentabellen role="presentation" entfernen. Bei Layouttabellen <th> durch <td> ersetzen.
+    .technical-note = Eine Tabelle mit <th> oder role="columnheader"/"rowheader" darf nicht role="presentation"/"none" tragen.
 
 rule-document-lang-invalid = Ungültige Sprachangabe der Seite
     .user-impact = Screenreader wählen eine falsche oder die Standard-Aussprache.
     .technical-impact = Ungültiger Wert im lang-Attribut des html-Elements.
+    .description = Das lang-Attribut der Seite ist gesetzt, enthält aber keinen gültigen Sprachcode (etwa „english“ statt „en“).
+    .explanation-user-impact = Screenreader erkennen die Sprache nicht und lesen den Text mit der falschen oder der Standard-Aussprache vor.
+    .typical-cause = Sprachname statt Sprachcode, Unterstrich statt Bindestrich (de_DE) oder ein leerer Wert aus dem Template.
+    .recommendation = Einen gültigen BCP-47-Code eintragen, etwa lang="de" oder lang="de-DE".
+    .technical-note = Primärkennung aus zwei oder drei Buchstaben, danach nur alphanumerische Untertags, getrennt durch Bindestriche.
 
 rule-keyboard-positive-tabindex = Positiver tabindex verändert die Fokusreihenfolge
     .user-impact = Tastaturnutzer erreichen Elemente in einer Reihenfolge, die nicht dem Seitenaufbau entspricht.
     .technical-impact = tabindex-Wert größer als 0.
+    .description = Ein Element hat einen tabindex größer als 0 und wird damit vor allen anderen Elementen fokussiert, unabhängig von seiner Position auf der Seite.
+    .explanation-user-impact = Tastaturnutzer springen beim Tabben unvorhersehbar durch die Seite und verlieren die Orientierung.
+    .typical-cause = Versuche, einzelne Elemente per tabindex="1" nach vorne zu holen, oft aus Formular- oder Such-Widgets.
+    .recommendation = Positive tabindex-Werte entfernen und die Reihenfolge über die Reihenfolge im HTML herstellen; tabindex="0" oder "-1" genügen.
+    .technical-note = Nur tabindex="0" (in der natürlichen Reihenfolge fokussierbar) und "-1" (nur per Skript fokussierbar) verwenden.
 
 rule-forms-title-only-label = Formularfeld-Beschriftung nur über title-Attribut
     .user-impact = Das title-Attribut wird von vielen Screenreadern inkonsistent oder gar nicht vorgelesen; sehende Nutzer sehen es nur bei Hover.
@@ -545,6 +790,11 @@ rule-forms-title-only-label = Formularfeld-Beschriftung nur über title-Attribut
 rule-zoom-viewport-scale-limited = Zoom auf 500% durch Viewport-Meta-Tag verhindert
     .user-impact = Sehbehinderte Nutzer können den Seiteninhalt nicht ausreichend vergrößern.
     .technical-impact = maximum-scale im viewport-Meta-Tag unter 5 gesetzt.
+    .description = Das viewport-Meta-Tag begrenzt maximum-scale auf einen Wert unter 5. Nutzer können die Seite auf Mobilgeräten damit nicht auf 500 % vergrößern.
+    .explanation-user-impact = Sehbehinderte Nutzer können den Seiteninhalt nicht ausreichend vergrößern.
+    .typical-cause = maximum-scale wurde gesetzt, um versehentliches Zoomen zu verhindern oder ein Layout zu stabilisieren.
+    .recommendation = maximum-scale entfernen oder auf mindestens 5 setzen.
+    .technical-note = Best Practice: 1.4.4 verlangt 200 % und ist bei dieser Grenze erfüllt. Liegt die Grenze unter 2 oder ist user-scalable=no gesetzt, meldet die Prüfung einen eigenen 1.4.4-Verstoß.
 
 rule-keyboard-click-handler-not-focusable = Klick-Handler ohne Tastatur-Äquivalent
     .user-impact = Tastaturnutzer können die Funktion nicht auslösen.
@@ -578,9 +828,14 @@ rule-forms-error-unidentified = Ungültiges Feld ohne zugängliche Fehlerbeschre
     .user-impact = Screenreader-Nutzer erfahren, dass ein Fehler vorliegt, aber nicht welcher.
     .technical-impact = aria-invalid="true" ohne description/aria-describedby auf ein sichtbares Fehlerelement.
 
-rule-aria-owns-conflict = ARIA-Referenz zeigt auf mehrdeutige ID
+rule-aria-owns-conflict = Element gehört per aria-owns zu mehreren Elementen
     .user-impact = Assistierende Technologien können nicht zuverlässig bestimmen, welches Element gemeint ist.
     .technical-impact = Referenzierte ID kommt im DOM mehr als einmal vor.
+    .description = Dieselbe ID steht im aria-owns mehrerer Elemente. Welches Element der Besitzer ist, bleibt offen.
+    .explanation-user-impact = Assistierende Technologien können das Element keinem Widget eindeutig zuordnen; Name, Rolle und Wert werden unzuverlässig.
+    .typical-cause = Mehrfach eingebundene Komponenten, die auf dieselbe Liste zeigen, oder eine doppelt vergebene ID.
+    .recommendation = Jedes Element nur im aria-owns eines einzigen Elements aufführen.
+    .technical-note = WAI-ARIA 1.2: Eine ID darf zu keinem Zeitpunkt im aria-owns mehr als eines anderen Elements stehen.
 
 rule-names-required-missing = Interaktives Element ohne aussagekräftigen Namen
     .user-impact = Screenreader-Nutzer erfahren nicht, wozu das Element dient.
@@ -597,10 +852,20 @@ rule-names-title-only = Natives title-Attribut als einzige Beschreibung
 rule-description-duplicates-name = Beschreibung wiederholt den Namen
     .user-impact = Screenreader sagen denselben Text zweimal an, ohne zusätzliche Information.
     .technical-impact = aria-describedby oder title liefert denselben Text wie der Name.
+    .description = Zugänglicher Name und zugängliche Beschreibung eines Elements sind identisch. Das Element hat einen Namen; die doppelte Ansage ist Best Practice, kein fehlender Name.
+    .explanation-user-impact = Screenreader sagen denselben Text zweimal an, ohne zusätzliche Information.
+    .typical-cause = title oder aria-describedby wiederholt den sichtbaren Text oder das aria-label, etwa title="Schließen" an einem Button „Schließen".
+    .recommendation = Die Beschreibung entfernen oder mit einer Information füllen, die über den Namen hinausgeht.
+    .technical-note = Best Practice, verankert an WCAG 4.1.2. Verglichen werden Name und Beschreibung aus dem Accessibility-Baum des Browsers.
 
-rule-aria-required-children-missing = Erforderliche Kindelemente einer ARIA-Rolle fehlen
+rule-aria-required-children-missing = Erforderliche Bestandteile einer ARIA-Rolle fehlen
     .user-impact = Assistierende Technologien können die Beziehung zwischen den Widget-Teilen nicht auswerten.
     .technical-impact = z. B. role="tablist" ohne zugehörige role="tabpanel"-Elemente.
+    .description = Ein Behälter wie role="tablist", "list" oder "menu" enthält keines der Elemente, die seine Rolle verlangt.
+    .explanation-user-impact = Screenreader sagen einen leeren oder fehlerhaften Behälter an; Nutzer finden die Einträge nicht.
+    .typical-cause = Die Einträge tragen keine oder eine andere Rolle, oder ein Element mit eigener Rolle steht zwischen Behälter und Einträgen.
+    .recommendation = Den Einträgen die geforderte Rolle geben, etwa role="tab" in einer tablist, oder die Rolle des Behälters entfernen.
+    .technical-note = Geprüft werden nur Behälter mit expliziter Rolle; native Tabellen und Listen geben ihre Bestandteile per HTML vor.
 
 rule-dialog-name-missing = Dialog ohne zugänglichen Namen
     .user-impact = Screenreader-Nutzer erfahren beim Öffnen des Dialogs nicht, worum es geht.
@@ -641,45 +906,93 @@ rule-keyboard-focusable-no-role = Fokussierbares Element ohne interaktive Rolle
 rule-display-toggle-missing = Kein Umschalter für Darstellungsmodi
     .user-impact = Fehlt der Umschalter tatsächlich, kann nicht auf eine ruhige oder reine Textdarstellung wechseln, wer Bewegung oder Grafiken nicht verträgt.
     .technical-impact = Kein Element mit [data-display-toggle] auf einer Seite mit figure[data-viz].
+    .description = Die Seite zeigt Visualisierungen, aber es wurde kein mit [data-display-toggle] markierter Umschalter gefunden.
+    .explanation-user-impact = Fehlt der Umschalter tatsächlich, bleibt an die volle Darstellung gebunden, wer Bewegung, 3D oder Grafiken nicht verträgt.
+    .typical-cause = Visualisierungen nach der Konvention ausgezeichnet, der Umschalter aber nicht eingebaut oder nicht mit [data-display-toggle] markiert.
+    .recommendation = Auf jeder Seite mit Visualisierungen einen bedienbaren Umschalter anbieten, der zwischen visual, calm und text wechselt und die Wahl speichert.
+    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 2.2.2 (Pause, Stop, Hide). Geprüft wird das Element [data-display-toggle] im gerenderten DOM.
 
 rule-display-init-missing = Darstellungsmodus wird zu spät gesetzt
     .user-impact = Die Seite kann kurz in der falschen Darstellung erscheinen, etwa mit Animation, bevor die gewählte ruhige Darstellung greift.
     .technical-impact = data-display nicht per blockierendem Skript im <head> gesetzt.
+    .description = Die gewählte Darstellung wird nicht vor dem ersten Anzeigen der Seite angewendet.
+    .explanation-user-impact = Die Seite kann kurz mit Animation oder Grafiken erscheinen, obwohl eine ruhige Darstellung gewählt wurde.
+    .typical-cause = data-display wird in einem verzögerten oder Modul-Skript gesetzt statt in einem kleinen blockierenden Skript im <head>.
+    .recommendation = Den Modus in einem kleinen, blockierenden Skript im <head> setzen, bevor der Seitenkörper beginnt.
+    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 2.2.2. Gemessen per CDP: ein vor der Navigation injizierter Beobachter hält fest, ob html[data-display] beim Einfügen von <body> bereits gesetzt war.
 
 rule-display-text-media-visible = Grafiken im Textmodus sichtbar
     .user-impact = Wer den Textmodus gewählt hat, bekommt trotzdem Grafiken oder bewegte Inhalte.
     .technical-impact = [data-viz-live]/[data-viz-static] oder Medien der figure bei html[data-display=text] sichtbar.
+    .description = Im Textmodus zeigt eine Visualisierung weiterhin Grafik, Canvas oder Video.
+    .explanation-user-impact = Wer den Textmodus gewählt hat, bekommt trotzdem Grafiken oder bewegte Inhalte.
+    .typical-cause = Die CSS-Regeln für html[data-display="text"] blenden [data-viz-live] oder [data-viz-static] nicht aus.
+    .recommendation = Im Textmodus Live- und Standbild-Teile der Visualisierung ausblenden und nur die Textschicht zeigen.
+    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 2.2.2. Geprüft wird das gerenderte Layout im Modus text; Elemente bis 32×32 px gelten als Icons.
 
-rule-display-text-not-visible = Textschicht einer Visualisierung fehlt im Textmodus
+rule-display-text-not-visible = Textschicht fehlt im Textmodus
     .user-impact = Im Textmodus geht die Aussage der Grafik verloren.
     .technical-impact = [data-viz-text] fehlt, ist leer oder bei html[data-display=text] nicht sichtbar.
+    .description = Im Textmodus zeigt eine Visualisierung keine lesbare Aussage.
+    .explanation-user-impact = Wer den Textmodus gewählt hat, erfährt nicht, was die Grafik aussagt.
+    .typical-cause = [data-viz-text] fehlt, ist leer oder bleibt im Textmodus ausgeblendet.
+    .recommendation = Jede Visualisierung mit einer Textschicht versehen (Kernaussage, bei Diagrammen die Werte als Tabelle, Quelle) und sie im Textmodus anzeigen.
+    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 1.1.1 (Nicht-Text-Inhalt). Geprüft wird das gerenderte Layout im Modus text.
 
-rule-viz-text-missing = Textschicht einer Visualisierung fehlt im Textmodus
+rule-viz-text-missing = Visualisierung ohne Textschicht
     .user-impact = Im Textmodus geht die Aussage der Grafik verloren.
     .technical-impact = [data-viz-text] fehlt, ist leer oder bei html[data-display=text] nicht sichtbar.
+    .description = Eine Visualisierung hat keine mit [data-viz-text] markierte Textschicht oder nur eine leere.
+    .explanation-user-impact = Wer die Grafik nicht sehen kann, erfährt ihre Aussage nicht; der Textmodus hat nichts, was statt der Grafik erscheint.
+    .typical-cause = Die Beschreibung steht in einem Element ohne die Marke [data-viz-text], oder die Visualisierung wurde ohne Textschicht eingebaut.
+    .recommendation = Jeder figure[data-viz] eine Textschicht mit der Aussage geben (bei Diagrammen die Werte, am besten als <table>) und die Quelle nennen.
+    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 1.1.1. Geprüft wird nur, dass Text da ist, nicht ob er die Kernaussage trifft. Aus dem Markup, in jedem Modus.
 
 rule-display-text-hidden = Textschicht einer Visualisierung für Hilfstechnik verborgen
     .user-impact = Screenreader-Nutzer erfahren die Aussage der Grafik nicht.
     .technical-impact = hidden, aria-hidden=true, inert oder display:none/visibility:hidden an [data-viz-text] oder einem Vorfahren.
+    .description = Die Textschicht einer Visualisierung ist für Screenreader ausgeblendet.
+    .explanation-user-impact = Screenreader-Nutzer erfahren die Aussage der Grafik nicht.
+    .typical-cause = hidden, aria-hidden="true", inert oder display:none an [data-viz-text] oder einem umgebenden Element, meist um sie in der grafischen Darstellung zu verstecken.
+    .recommendation = Die Textschicht nur optisch verstecken (visually-hidden), nie für Hilfstechnik.
+    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 1.1.1. Geprüft im gerenderten DOM in jedem Modus, einschließlich berechneter Stile.
 
 rule-viz-caption-missing = Visualisierung ohne Beschriftung
     .user-impact = Nichts benennt die Visualisierung kurz; wer sie nicht sieht, erfährt nicht, worum es geht, bevor er sich durch die Textschicht liest.
     .technical-impact = figure[data-viz] ohne <figcaption> als direktes Kind.
+    .description = Eine Visualisierung hat kein <figcaption>, das sie kurz benennt.
+    .explanation-user-impact = Nichts benennt die Visualisierung kurz; wer sie nicht sieht, muss erst die Textschicht lesen, um zu wissen, worum es geht.
+    .typical-cause = Das <figcaption> fehlt oder steht außerhalb der <figure>.
+    .recommendation = Ein <figcaption> als direktes Kind der figure[data-viz] ergänzen.
+    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 1.1.1. Geprüft wird das Vorhandensein, nicht der Inhalt.
 
 rule-viz-static-missing = Bewegte Visualisierung ohne Standbild
     .user-impact = Im ruhigen Modus ersetzt nichts die Bewegung; wer Bewegung nicht verträgt, sieht entweder sie oder gar nichts.
     .technical-impact = figure[data-viz=3d|interactive] ohne Nachfahre mit [data-viz-static].
+    .description = Eine 3D- oder interaktive Visualisierung hat kein Standbild für den ruhigen Modus.
+    .explanation-user-impact = Wer Bewegung nicht verträgt, bekommt im ruhigen Modus nichts, was die Bewegung ersetzt.
+    .typical-cause = Nur die bewegte Fassung wurde gebaut, ohne ein mit [data-viz-static] markiertes Standbild.
+    .recommendation = Ein Standbild mit [data-viz-static] in die Visualisierung aufnehmen und im ruhigen Modus anstelle der Bewegung zeigen.
+    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 2.2.2. Gilt für data-viz="3d" und "interactive".
 
 rule-viz-table-missing = Diagramm ohne Wertetabelle
     .user-impact = Die Beziehungen zwischen den Werten gehen verloren, wenn die Textschicht sie nicht auf andere Weise vermittelt.
     .technical-impact = figure[data-viz=chart] ohne <table> im Teilbaum.
+    .description = Ein Diagramm hat keine Tabelle mit seinen Werten. Zu prüfen ist, ob die Textschicht sie auch ohne Tabelle vermittelt.
+    .explanation-user-impact = Die Beziehungen zwischen den Werten können verloren gehen, wenn sie nur als Fließtext oder gar nicht vorliegen.
+    .typical-cause = Die Werte stehen nur in der Grafik oder in einem Satz, bei Sparklines oft bewusst.
+    .recommendation = Die Werte als <table> in die Textschicht aufnehmen, sofern ein Satz sie nicht ebenso vollständig trägt.
+    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 1.3.1. Prüfhinweis, kein Verstoß: ob ein Satz genügt, kann nur ein Mensch beurteilen.
 
-# Explanation texts: one message per entry of `EXPLANATIONS` in
-# `src/output/explanations.rs`, in the order of that table. The message value
+# Explanation texts of the entries of `EXPLANATIONS` in
+# `src/output/explanations.rs` that are keyed by a WCAG criterion number or an
+# axe id, in the order of that table: one message per entry. The message value
 # is the customer title, the attributes carry the description, the user
 # impact, the typical cause, the recommendation and the technical note.
 # The key is `explanation-` plus the table key with `.`, `/` and `_` written
-# as `-` (`output::explanations::explanation_text_key`).
+# as `-` (`output::explanations::explanation_text_key`). An entry keyed by a
+# rule id has no message here: its texts are attributes of the rule message
+# above.
 
 ## 1. Perceivable
 
@@ -738,13 +1051,6 @@ explanation-landmark-unique = Landmarks nicht eindeutig benannt
     .typical-cause = Mehrere <nav>-, <aside>- oder role="region"-Elemente auf derselben Seite (z. B. Hauptnavigation und Breadcrumb-Navigation), denen kein aria-label oder aria-labelledby zur Unterscheidung mitgegeben wurde.
     .recommendation = Jedem Landmark derselben Rolle einen eigenen, beschreibenden aria-label geben, z. B. aria-label="Hauptnavigation" und aria-label="Breadcrumb".
     .technical-note = aria-label oder aria-labelledby auf jedem der mehreren gleichrangigen Landmarks ergänzen. Die Namen müssen sich tatsächlich unterscheiden — reine Wiederholung derselben Bezeichnung erfüllt die Regel nicht.
-
-explanation-keyboard-trap = Tastaturfalle nicht automatisch prüfbar
-    .description = Ob der Tastaturfokus in einem Dialog, Karussell oder individuellen JavaScript-Bedienelement hängen bleiben kann, lässt sich nicht automatisiert feststellen. Das erfordert manuelles Navigieren ausschließlich mit der Tab-Taste.
-    .user-impact = Personen, die ausschließlich mit der Tastatur oder einem Screenreader navigieren, können in einem Bedienelement stecken bleiben und die Seite nicht mehr per Tastatur verlassen.
-    .typical-cause = Individuelle Dialoge, Karussells oder Widgets mit eigener JavaScript-Fokusverwaltung, die keinen Weg zurück per Escape-Taste, erreichbarem Schließen-Button oder dokumentiertem Tastaturkürzel vorsehen.
-    .recommendation = Für jeden fokussierbaren Bereich einen Weg zum Verlassen per Tastatur sicherstellen: Escape-Taste, ein per Tab erreichbarer, sichtbarer Schließen-Button, oder ein dokumentiertes Tastaturkürzel.
-    .technical-note = Nur mit Tab/Shift+Tab durch die Seite navigieren und prüfen, ob jeder Dialog/jedes Widget verlassen werden kann. Bei eigener Fokusverwaltung: Escape-Handler und einen erreichbaren Schließen-Button implementieren.
 
 explanation-1-3-5 = Fehlende Eingabezweck-Kennzeichnung
     .description = Formularfelder haben keine maschinenlesbare Kennzeichnung ihres Zwecks. Browser und Hilfstechnologien können dadurch keine Autofill-Vorschläge machen und Nutzern nicht helfen, Formulare schneller auszufüllen.
@@ -853,13 +1159,6 @@ explanation-2-4-4 = Unklare oder generische Linktexte
     .recommendation = Linktexte so formulieren, dass sie auch ohne umgebenden Text verständlich sind (z. B. 'Leistungen im Bereich Webentwicklung' statt 'mehr erfahren').
     .technical-note = Sprechende Linktexte verwenden. Falls visuell knapper Text gewünscht: aria-label oder aria-labelledby für erweiterte Beschreibung.
 
-explanation-links-new-window-unannounced = Neues Fenster ohne Ankündigung
-    .description = Ein Link öffnet ein neues Fenster oder Tab (target="_blank"), ohne das im Linktext anzukündigen. WCAG 3.2.5 (AAA) verlangt, dass solche Kontextwechsel nur auf Anforderung geschehen; die Ankündigung im Linktext ist die übliche Lösung.
-    .user-impact = Screenreader- und Lupennutzer merken den Fensterwechsel oft nicht; der Zurück-Button führt dann nicht zur vorherigen Seite.
-    .typical-cause = Externe Links oder PDF-Downloads, die per target="_blank" geöffnet werden.
-    .recommendation = Im Linktext ankündigen, z. B. "(öffnet in neuem Fenster)", oder auf target="_blank" verzichten.
-    .technical-note = Ein sichtbares Symbol reicht nur mit Textalternative im zugänglichen Namen (Technik G201).
-
 explanation-link-name-context = Generischer Linktext mit möglichem Kontextbezug
     .description = Der Linktext allein ist unspezifisch (z. B. "Start", "weiter"), steht aber neben beschreibendem Text, der den Linkzweck erklären könnte. WCAG 2.4.4 erlaubt es ausdrücklich, den Linkzweck aus dem Linktext zusammen mit seinem Kontext abzuleiten — ob das hier zutrifft, kann nur eine manuelle Prüfung bestätigen.
     .user-impact = Ob der Linkzweck für Screenreader-Nutzer verständlich ist, hängt davon ab, ob der umgebende Text tatsächlich vorgelesen wird, bevor der Link erreicht wird, und ob die Verbindung eindeutig ist. Ohne manuelle Prüfung ist unklar, ob Nutzer davon betroffen sind.
@@ -934,40 +1233,12 @@ explanation-3-3-2 = Fehlende Beschriftungen und Anleitungen bei Formularen
 
 ## 4. Robust
 
-explanation-ids-duplicate = Mehrfach vergebene ID wird referenziert
-    .description = Mehrere Elemente auf der Seite tragen dieselbe id, und ein anderes Element verweist darauf (z. B. label for, aria-labelledby). Welches der Elemente gemeint ist, ist damit nicht mehr bestimmbar.
-    .user-impact = Screenreader lösen die Beziehung auf das falsche Element auf und geben einen falschen Namen oder eine falsche Beschreibung aus.
-    .typical-cause = Wiederholt eingebundene Komponenten oder Templates (z. B. Menüpunkte, Widgets), die eine statische ID statt einer pro Instanz eindeutigen ID verwenden.
-    .recommendation = Jede ID nur einmal im Dokument vergeben. Bei wiederverwendeten Komponenten die ID dynamisch generieren (z. B. mit Index oder Slug).
-    .technical-note = IDs eindeutig machen, etwa durch Anhängen eines Index oder einer eindeutigen Kennung pro Komponenteninstanz.
-
 explanation-4-1-2 = Fehlende Name/Rolle bei Bedienelementen
     .description = Interaktive Elemente (Buttons, Links, Formularfelder) haben keinen zugänglichen Namen oder keine erkennbare Rolle. Assistive Technologien können nicht vermitteln, worum es sich handelt.
     .user-impact = Screenreader-Nutzer hören z. B. nur 'Button' ohne Beschreibung der Funktion, oder ein klickbares Element wird gar nicht als interaktiv erkannt.
     .typical-cause = Buttons oder Links ohne Text oder aria-label. Icon-only-Buttons ohne zugänglichen Namen. Custom-Widgets ohne ARIA-Rollen.
     .recommendation = Alle interaktiven Elemente mit einem verständlichen, zugänglichen Namen versehen. Native HTML-Elemente bevorzugen. Bei Icon-Buttons: aria-label verwenden.
     .technical-note = Buttons: sichtbarer Text oder aria-label. Links: sprechender Linktext. Inputs: verknüpftes <label>. Custom-Widgets: role + aria-label + aria-Zustände.
-
-explanation-keyboard-hidden-focusable = Tastaturfokus auf unsichtbaren Elementen
-    .description = Ein interaktives Element ist über aria-hidden="true" vor Screenreadern versteckt, kann aber dennoch mit der Tastatur (Tabulator) fokussiert werden.
-    .user-impact = Tastaturnutzer steuern auf unsichtbare Elemente (Fokus-Stolperfallen), während Screenreader-Nutzer keinerlei Rückmeldung über dieses Element erhalten.
-    .typical-cause = Es wurde aria-hidden="true" verwendet, um ein Element visuell auszublenden, ohne tabindex="-1" zu setzen oder das Element per display:none zu verstecken.
-    .recommendation = Wenn ein Element vollständig versteckt sein soll, display:none oder visibility:hidden verwenden. Soll es nur vor Screenreadern versteckt sein, muss es unfokussierbar sein (tabindex="-1").
-    .technical-note = Focusable elements (a, button, input) inside an aria-hidden="true" tree must either be removed from tab order or hidden completely.
-
-explanation-aria-attribute-prohibited = Ungültige oder verbotene ARIA-Attribute
-    .description = Für bestimmte HTML-Elemente oder ARIA-Rollen werden Attribute verwendet, die für diese Rolle nicht zulässig oder sinnvoll sind.
-    .user-impact = Screenreader erhalten widersprüchliche oder fehlerhafte Signale, was die Bedienbarkeit der Website beeinträchtigen kann.
-    .typical-cause = Verwendung von ARIA-Attributen (wie aria-label oder aria-expanded) auf Elementen, die keine interaktive Rolle haben (z. B. span oder div ohne role).
-    .recommendation = Prüfe die ARIA-Spezifikation für die jeweilige Rolle. Verwende ARIA-Attribute nur auf passenden Elementen und Rollen.
-    .technical-note = Prohibited attributes on generic elements: <span aria-label="text"> is invalid. Use native elements or valid roles (e.g. role="button").
-
-explanation-modern-attribute-misuse = Fehlerhafte Dialog- oder Popover-Steuerung
-    .description = Moderne HTML-Attribute für Popover, Dialoge oder gesperrte Bereiche sind unvollständig oder widersprüchlich eingesetzt.
-    .user-impact = Tastatur- und Screenreader-Nutzer können Oberflächen öffnen, fokussieren oder verlassen, ohne eine verständliche Rückmeldung zu erhalten.
-    .typical-cause = popovertarget verweist auf ein fehlendes Element, ein sichtbarer Dialog hat keinen zugänglichen Namen, oder ein aktiver Bereich ist gleichzeitig inert markiert.
-    .recommendation = Popover-Ziele prüfen, sichtbare Dialoge und Menüs benennen und inert nur für tatsächlich inaktive Bereiche verwenden.
-    .technical-note = popovertarget muss auf ein Element mit popover zeigen. Offene Dialoge, Menüs und Popover brauchen aria-label, aria-labelledby oder einen geeigneten Namen.
 
 ## SEO rules (no WCAG criterion)
 
@@ -1006,7 +1277,7 @@ explanation-seo-headings-empty-heading = Leere Überschrift
     .recommendation = Leere Überschriften-Elemente entfernen oder mit echtem, beschreibendem Text befüllen. Komponenten sollten das Überschriften-Element nur rendern, wenn ein Titel vorhanden ist.
     .technical-note = WCAG 1.3.1 (Info and Relationships, Level A) und 2.4.6 (Headings and Labels, Level AA) erfordern, dass Überschriften einen erkennbaren, programmatisch verfügbaren Text tragen.
 
-## Rule-specific texts replacing the WCAG-criterion fallback
+## Rule-specific texts keyed by an axe id
 
 explanation-server-side-image-map = Server-seitige Image-Map verwendet
     .description = Ein Bild nutzt eine server-seitige Image-Map (ismap-Attribut) statt einer client-seitigen Variante.
@@ -1042,13 +1313,6 @@ explanation-object-alt = Fehlende Textalternative bei eingebetteten Objekten
     .typical-cause = <object> ohne Textinhalt oder aria-label.
     .recommendation = Eine Textalternative innerhalb des <object>-Elements oder via aria-label bereitstellen.
     .technical-note = <object> ohne Textinhalt oder aria-label.
-
-explanation-html-content-model = Verletzung des HTML5-Content-Models
-    .description = Ein strukturelles Element (Liste, Tabelle, Formular, Select) enthält Inhalt, der sein HTML5-Content-Model verletzt — das kann Screenreader-Semantik brechen, selbst wenn der resultierende Accessibility-Tree oberflächlich gültig aussieht.
-    .user-impact = Screenreader können die Struktur nicht zuverlässig auswerten, auch wenn sie augenscheinlich korrekt wirkt.
-    .typical-cause = Unerwartetes Kindelement innerhalb eines strukturellen Containers (z. B. <ul>, <table>, <select>).
-    .recommendation = Das Markup an das HTML5-Content-Model des Elements anpassen (z. B. darf ein <dl> nur direkt <dt>/<dd>-Gruppen, <div>, <script> oder <template> enthalten). Der Browser kann ungültige Kindelemente beim Aufbau des Accessibility-Trees still 'heilen' — der Defekt bleibt für rollenbasierte Prüfungen unsichtbar, verwirrt assistierende Technologie aber trotzdem.
-    .technical-note = Unerwartetes Kindelement innerhalb eines strukturellen Containers (z. B. <ul>, <table>, <select>).
 
 explanation-form-field-group = Fehlende Gruppierung verwandter Formularfelder
     .description = Zusammengehörige Radio-Buttons oder Checkboxen sind nicht mit <fieldset>/<legend> oder role="group" gruppiert.
@@ -1176,13 +1440,6 @@ explanation-title-only-description = Natives title-Attribut als einzige Beschrei
     .recommendation = Eine sichtbare Beschriftung ergänzen oder den Namen über aria-label/aria-labelledby bzw. ein <label> setzen; title nur für ergänzende Hinweise verwenden.
     .technical-note = Best Practice, verankert an WCAG 4.1.2. Nicht 1.4.13: Der Browser-Tooltip des title-Attributs wird vom User Agent gesteuert und ist dort ausgenommen. Geprüft werden button, a[href] und input mit title, ohne Textinhalt, aria-label und aria-labelledby.
 
-explanation-description-duplicates-name = Beschreibung wiederholt den Namen
-    .description = Zugänglicher Name und zugängliche Beschreibung eines Elements sind identisch. Das Element hat einen Namen; die doppelte Ansage ist Best Practice, kein fehlender Name.
-    .user-impact = Screenreader sagen denselben Text zweimal an, ohne zusätzliche Information.
-    .typical-cause = title oder aria-describedby wiederholt den sichtbaren Text oder das aria-label, etwa title="Schließen" an einem Button „Schließen".
-    .recommendation = Die Beschreibung entfernen oder mit einer Information füllen, die über den Namen hinausgeht.
-    .technical-note = Best Practice, verankert an WCAG 4.1.2. Verglichen werden Name und Beschreibung aus dem Accessibility-Baum des Browsers.
-
 explanation-aria-required-children = Erforderliche Kindelemente einer ARIA-Rolle fehlen
     .description = Ein Element mit einer Composite-ARIA-Rolle (z. B. tablist) fehlt eines der laut ARIA-Spezifikation erforderlichen Kindelemente (z. B. zugehörige tabpanels).
     .user-impact = Assistierende Technologien können die Beziehung zwischen den Widget-Teilen nicht auswerten.
@@ -1225,106 +1482,6 @@ explanation-summary-name = Summary-Element ohne zugänglichen Namen
     .recommendation = Textinhalt im <summary>-Element ergänzen, der beschreibt, was der Aufklapp-Bereich enthält.
     .technical-note = <summary> ohne Textinhalt oder aria-label.
 
-## Shared rule ids with their own taxonomy entry (plan 56)
-
-explanation-headings-skip-level = Übersprungene Überschriftenebene
-    .description = Die Überschriften springen über eine Ebene, etwa von h2 direkt auf h4. Die Gliederung der Seite ist dadurch lückenhaft.
-    .user-impact = Screenreader-Nutzer navigieren über die Überschriftenliste und vermuten bei einer fehlenden Ebene übersehene Inhalte.
-    .typical-cause = Überschriftenebenen werden nach Schriftgröße statt nach Gliederung gewählt, oder Komponenten bringen eine feste Ebene mit.
-    .recommendation = Überschriften lückenlos verschachteln (h1, h2, h3 …) und die Optik per CSS steuern, nicht über die Ebene.
-    .technical-note = Auf eine Überschrift der Ebene n folgt höchstens Ebene n+1. Komponenten sollten die Ebene als Parameter annehmen.
-
-explanation-headings-empty = Leere Überschrift
-    .description = Ein Überschriften-Element hat keinen Text. Es steht in der Gliederung der Seite, sagt aber nichts.
-    .user-impact = Screenreader-Nutzer navigieren über die Überschriftenliste und treffen auf einen Eintrag ohne Namen.
-    .typical-cause = Überschriften-Tags als Abstandshalter oder für Icons, oder CMS-Felder, die leer bleiben, während das Tag trotzdem ausgegeben wird.
-    .recommendation = Leere Überschriften entfernen oder mit einem sinnvollen Text füllen; Abstände per CSS setzen.
-    .technical-note = Das Tag nur rendern, wenn der Titel vorhanden ist. Ein Icon allein benennt keine Überschrift.
-
-explanation-headings-h1-missing = Fehlende Hauptüberschrift (h1)
-    .description = Die Seite hat keine Überschrift der Ebene 1, die ihr Thema benennt.
-    .user-impact = Screenreader-Nutzer springen gezielt zur h1, um das Thema der Seite zu erfahren, und finden keine.
-    .typical-cause = Das Logo oder ein Bild übernimmt die Rolle der Überschrift, oder das Template setzt die Hauptüberschrift als h2 oder als formatierten Text.
-    .recommendation = Jeder Seite genau eine h1 mit ihrem Thema geben, am Anfang des Hauptinhalts.
-    .technical-note = Die h1 gehört in <main>, nicht ins Logo im Header.
-
-explanation-headings-h1-multiple = Mehrere Hauptüberschriften (h1)
-    .description = Die Seite hat mehr als eine Überschrift der Ebene 1. HTML erlaubt das, es sollte aber gewollt sein.
-    .user-impact = Screenreader-Nutzer können den eigentlichen Seitentitel schwerer von anderen Abschnitten unterscheiden.
-    .typical-cause = Logo, Teaser oder Seitenleiste verwenden ebenfalls h1, oft aus einem gemeinsamen Template.
-    .recommendation = Prüfen, ob jede h1 wirklich ein Hauptthema der Seite benennt; alle anderen auf h2 oder tiefer setzen.
-    .technical-note = Ein Hinweis zur Prüfung, kein Verstoß: Die Einordnung hängt vom Aufbau der Seite ab.
-
-explanation-lists-invalid-structure = Liste mit unzulässigen Kindelementen
-    .description = Eine Liste (<ul>, <ol> oder role="list") enthält direkte Kindelemente, die keine Listeneinträge sind.
-    .user-impact = Screenreader nennen eine falsche Zahl an Einträgen oder lesen Teile der Liste ohne Listenzusammenhang vor.
-    .typical-cause = Wrapper-<div>s, Trennlinien oder Überschriften direkt in der Liste, oft aus einem Slider- oder Menü-Baustein.
-    .recommendation = Alle Inhalte der Liste in <li>-Elemente legen; Wrapper und Trenner in die Einträge verschieben oder per CSS erzeugen.
-    .technical-note = Direkte Kinder von <ul>/<ol> dürfen nur <li>, <script> und <template> sein.
-
-explanation-lists-empty = Leere Liste
-    .description = Eine Liste enthält keinen einzigen Listeneintrag.
-    .user-impact = Screenreader kündigen eine Liste an, auf die nichts folgt.
-    .typical-cause = Listen, die per Skript oder aus dem CMS befüllt werden und leer bleiben, oder Listen-Markup als reiner Layout-Container.
-    .recommendation = Leere Listen nicht ausgeben, oder das Listen-Element erst rendern, wenn Einträge vorhanden sind.
-    .technical-note = Beim Rendern prüfen, ob Einträge vorliegen; ein Layout-Container braucht kein <ul>.
-
-explanation-lists-item-outside-list = Listeneintrag außerhalb einer Liste
-    .description = Ein Listeneintrag (<li> oder role="listitem") steht nicht innerhalb einer Liste.
-    .user-impact = Screenreader kündigen einen Listeneintrag an, ohne dass es eine Liste mit Länge und Position gibt.
-    .typical-cause = Das umschließende <ul>/<ol> fehlt, etwa weil eine Komponente nur die Einträge rendert, oder role="listitem" steht auf einem beliebigen Element.
-    .recommendation = Listeneinträge in ein <ul> oder <ol> (bzw. role="list") einbetten, oder die Listen-Semantik entfernen, wenn es keine Liste ist.
-    .technical-note = Ein <li> braucht ein <ul>, <ol> oder <menu> als Elternelement; role="listitem" braucht role="list" als Vorfahren.
-
-explanation-lists-term-without-definition = Begriff ohne Definition
-    .description = In einer Beschreibungsliste (<dl>) steht ein Begriff (<dt>) ohne zugehörige Beschreibung (<dd>).
-    .user-impact = Screenreader lesen einen Begriff vor, zu dem keine Erklärung folgt.
-    .typical-cause = Leere Felder im CMS, oder <dl> als Layout für Beschriftung und Wert, bei dem der Wert fehlt.
-    .recommendation = Zu jedem <dt> mindestens ein <dd> ausgeben, oder den Begriff weglassen, wenn es keine Beschreibung gibt.
-    .technical-note = Geprüft wird unter demselben Elternelement, auch innerhalb von <div>-Gruppen in der <dl>.
-
-explanation-tables-header-missing = Datentabelle ohne Kopfzellen
-    .description = Eine Tabelle hat keine Kopfzellen, die ihre Zeilen oder Spalten beschriften.
-    .user-impact = Screenreader-Nutzer hören beim Durchgehen der Zellen nur Werte, ohne zu erfahren, zu welcher Spalte oder Zeile sie gehören.
-    .typical-cause = Die Kopfzeile ist mit <td> und fetter Schrift gestaltet statt mit <th>, oder die Tabelle dient nur dem Layout.
-    .recommendation = Kopfzellen als <th> auszeichnen (mit scope="col" bzw. scope="row"). Dient die Tabelle nur dem Layout, durch CSS-Layout ersetzen oder role="presentation" setzen.
-    .technical-note = Kopfzellen sind <th> oder Elemente mit role="columnheader"/"rowheader" irgendwo in der Tabelle.
-
-explanation-tables-name-missing = Datentabelle ohne Namen
-    .description = Eine Tabelle hat weder eine <caption> noch einen Namen über aria-label oder aria-labelledby.
-    .user-impact = Wer sich die Tabellen einer Seite auflisten lässt, sieht nur „Tabelle“ und muss jede öffnen, um die richtige zu finden.
-    .typical-cause = Die Beschriftung steht als Überschrift oder Absatz über der Tabelle, ohne mit ihr verknüpft zu sein.
-    .recommendation = Der Tabelle eine <caption> geben oder die vorhandene Überschrift per aria-labelledby verknüpfen. Ob ein Name nötig ist, hängt vom Kontext ab.
-    .technical-note = Ein Hinweis zur Prüfung, kein Verstoß: <caption> als erstes Kind der <table>, oder aria-labelledby auf die Überschrift.
-
-explanation-tables-presentational-with-headers = Layouttabelle mit Kopfzellen
-    .description = Eine Tabelle ist als reines Layout ausgezeichnet (role="presentation" oder "none"), enthält aber Kopfzellen.
-    .user-impact = Assistierende Technik erhält widersprüchliche Angaben: keine Tabelle laut Rolle, Tabellenstruktur laut Kopfzellen.
-    .typical-cause = role="presentation" wurde pauschal auf Tabellen gesetzt, darunter auch echte Datentabellen.
-    .recommendation = Bei Datentabellen role="presentation" entfernen. Bei Layouttabellen <th> durch <td> ersetzen.
-    .technical-note = Eine Tabelle mit <th> oder role="columnheader"/"rowheader" darf nicht role="presentation"/"none" tragen.
-
-explanation-document-lang-invalid = Ungültige Sprachangabe der Seite
-    .description = Das lang-Attribut der Seite ist gesetzt, enthält aber keinen gültigen Sprachcode (etwa „english“ statt „en“).
-    .user-impact = Screenreader erkennen die Sprache nicht und lesen den Text mit der falschen oder der Standard-Aussprache vor.
-    .typical-cause = Sprachname statt Sprachcode, Unterstrich statt Bindestrich (de_DE) oder ein leerer Wert aus dem Template.
-    .recommendation = Einen gültigen BCP-47-Code eintragen, etwa lang="de" oder lang="de-DE".
-    .technical-note = Primärkennung aus zwei oder drei Buchstaben, danach nur alphanumerische Untertags, getrennt durch Bindestriche.
-
-explanation-keyboard-positive-tabindex = Positiver tabindex verändert die Fokusreihenfolge
-    .description = Ein Element hat einen tabindex größer als 0 und wird damit vor allen anderen Elementen fokussiert, unabhängig von seiner Position auf der Seite.
-    .user-impact = Tastaturnutzer springen beim Tabben unvorhersehbar durch die Seite und verlieren die Orientierung.
-    .typical-cause = Versuche, einzelne Elemente per tabindex="1" nach vorne zu holen, oft aus Formular- oder Such-Widgets.
-    .recommendation = Positive tabindex-Werte entfernen und die Reihenfolge über die Reihenfolge im HTML herstellen; tabindex="0" oder "-1" genügen.
-    .technical-note = Nur tabindex="0" (in der natürlichen Reihenfolge fokussierbar) und "-1" (nur per Skript fokussierbar) verwenden.
-
-explanation-zoom-viewport-scale-limited = Zoom durch Viewport-Meta-Tag begrenzt
-    .description = Das viewport-Meta-Tag begrenzt maximum-scale auf einen Wert unter 5. Nutzer können die Seite auf Mobilgeräten damit nicht auf 500 % vergrößern.
-    .user-impact = Sehbehinderte Nutzer können den Seiteninhalt nicht ausreichend vergrößern.
-    .typical-cause = maximum-scale wurde gesetzt, um versehentliches Zoomen zu verhindern oder ein Layout zu stabilisieren.
-    .recommendation = maximum-scale entfernen oder auf mindestens 5 setzen.
-    .technical-note = Best Practice: 1.4.4 verlangt 200 % und ist bei dieser Grenze erfüllt. Liegt die Grenze unter 2 oder ist user-scalable=no gesetzt, meldet die Prüfung einen eigenen 1.4.4-Verstoß.
-
 ## Missing navigation and contentinfo landmark (plan 56)
 
 explanation-landmark-navigation-present = Fehlender Navigations-Landmark
@@ -1341,291 +1498,3 @@ explanation-landmark-contentinfo-present = Fehlender Fußbereich-Landmark (conte
     .recommendation = Den Seitenfuß als <footer> direkt unter <body> auszeichnen, außerhalb von <main>.
     .technical-note = Nur ein <footer> außerhalb von <main>, <article>, <aside>, <nav> und <section> erhält implizit role="contentinfo".
 
-## Measurements on the running page (#1002–#1007)
-
-explanation-frames-cross-origin = Eingebetteter Rahmen konnte nicht geprüft werden
-    .description = Das Dokument in einem iframe war für das Prüfwerkzeug nicht lesbar und blieb deshalb ungeprüft. Der Rahmen hat einen fremden Ursprung, oder seine Navigation war nicht abgeschlossen.
-    .user-impact = Eingebettete Inhalte wie Karten, Buchungs- oder Einwilligungsdialoge können für Screenreader- und Tastaturnutzer unzugänglich sein, ohne dass der Bericht es zeigt.
-    .typical-cause = Inhalte von Drittanbietern in einem iframe mit fremdem Ursprung; die Seite kann deren Dokument nicht lesen.
-    .recommendation = Den Rahmeninhalt von Hand prüfen oder seine Adresse für sich prüfen; beim Anbieter nach einer barrierefreien Einbettung fragen.
-    .technical-note = Eine Abdeckungsnotiz, keine Konformitätsprüfung und an kein Erfolgskriterium gebunden. Gemessen wird, ob contentDocument des Rahmens lesbar ist; Rahmen, die präsentational, versteckt oder höchstens 1 px groß sind, bleiben außen vor. Ohne die Messung steht die Regel als nicht gelaufen im Bericht.
-
-explanation-orientation-root-rotated = Seite erzwingt eine Bildschirmausrichtung durch Drehung der Wurzel
-    .description = Das Wurzelelement (html oder body) ist um eine Vierteldrehung gedreht. Damit lässt sich die Seite nur in einer Ausrichtung nutzen, außer die Ausrichtung ist wesentlich.
-    .user-impact = Menschen, deren Gerät fest montiert ist, etwa am Rollstuhl, können die Ausrichtung nicht wechseln und sehen die Seite gedreht oder abgeschnitten.
-    .typical-cause = Ein transform: rotate(90deg) oder rotate: 90deg auf html oder body, das im Hochformat das Querformat nachbilden soll.
-    .recommendation = Die Drehung entfernen und das Layout in beiden Ausrichtungen nutzbar machen. Nur wenn eine Ausrichtung wesentlich ist (Klavier, Bankscheck), darf sie festgelegt werden.
-    .technical-note = Gemessen wird die berechnete transform-Matrix und die Eigenschaft rotate von html und body im geprüften Viewport; eine Sperre nur in der anderen Ausrichtung zeigt der Lauf im jeweils anderen Viewport. Ob eine Ausrichtung wesentlich ist, entscheidet ein Mensch.
-
-explanation-auth-paste-blocked = Einfügen in Passwort- oder Code-Feld blockiert
-    .description = Ein Passwort- oder Einmalcode-Feld bricht das paste-Ereignis ab und fügt den Text nicht selbst ein. Passwortmanager und die Zwischenablage funktionieren dort nicht.
-    .user-impact = Wer sich Passwörter nicht merken oder fehlerfrei abschreiben kann, etwa wegen kognitiver oder motorischer Einschränkungen, scheitert an der Anmeldung.
-    .typical-cause = Ein paste-Handler mit preventDefault() oder onpaste="return false", meist als vermeintliche Sicherheitsmaßnahme.
-    .recommendation = Den Handler entfernen. Wird der Text bereinigt, den bereinigten Text selbst in das Feld einfügen, statt das Einfügen zu verbieten.
-    .technical-note = Gemessen wird ein synthetisches, abbrechbares paste-Ereignis an Passwort- und Codefeldern, auch in gleich-ursprünglichen Rahmen und offenen Shadow Roots; der Feldwert wird danach wiederhergestellt. Das Ereignis ist nicht vertrauenswürdig (isTrusted ist false): Ein Handler, der nur auf echte Ereignisse oder Tastendrücke reagiert, bleibt unsichtbar. autocomplete="off" ist kein Befund.
-
-explanation-focus-obscured = Fokussiertes Element vollständig verdeckt
-    .description = Nach dem Fokussieren und Scrollen liegt jeder Abtastpunkt eines Bedienelements unter einem fixierten oder klebenden Element, etwa einer Kopfleiste oder einem Cookie-Banner.
-    .user-impact = Tastaturnutzer springen mit Tab auf ein Element, das sie nicht sehen, und wissen nicht, wo der Fokus ist.
-    .typical-cause = Eine fixierte oder klebende Leiste, die tiefer reicht als scroll-padding-top, oder ein Banner, das Bedienelemente der Seite überdeckt.
-    .recommendation = scroll-padding-top mindestens so groß wie die fixierte Leiste setzen und Banner so einbauen, dass sie keine Bedienelemente überdecken.
-    .technical-note = Gemessen wird nach dem Fokussieren mit scrollIntoView({"{"} block: 'nearest' {"}"}), 3 mal 3 Punkte je Bedienelement per elementsFromPoint. Ein echtes Tab scrollt womöglich anders; der Wert ist deshalb ein Hinweis zum Prüfen, kein Beleg. Auch der Hinweis auf eine Leiste, die tiefer reicht als scroll-padding-top, gehört zu dieser Kennung.
-
-explanation-focus-obscured-enhanced = Fokussiertes Element teilweise verdeckt
-    .description = Nach dem Fokussieren und Scrollen liegt mindestens ein Abtastpunkt eines Bedienelements unter einem fixierten oder klebenden Element (Stufe AAA).
-    .user-impact = Tastaturnutzer sehen ein fokussiertes Bedienelement nur zum Teil und erkennen Beschriftung oder Zustand womöglich nicht.
-    .typical-cause = Ein klebender Fuß, Chat-Button oder Cookie-Banner, der den Rand der Seite überdeckt.
-    .recommendation = Platz unter und über fixierten Elementen freihalten (scroll-padding, Seitenabstand) oder die Elemente verkleinern.
-    .technical-note = Dieselbe Messung wie bei focus/obscured, andere Schwelle: jeder überdeckte Abtastpunkt wird gemeldet. Die Abtastung nähert „irgendein Teil“ nur an, das Ergebnis bleibt ein Hinweis zum Prüfen.
-
-## Shared rule ids from #690 without a fitting text
-
-explanation-zoom-viewport-locked = Zoom durch Viewport-Meta-Tag gesperrt
-    .description = Das viewport-Meta-Tag verhindert das Zoomen (user-scalable=no) oder begrenzt es auf weniger als 200 %.
-    .user-impact = Menschen mit Sehbeeinträchtigung können die Seite auf Mobilgeräten nicht vergrößern und verlieren Inhalte.
-    .typical-cause = user-scalable=no oder maximum-scale=1, gesetzt, um versehentliches Zoomen zu verhindern oder ein Layout zu stabilisieren.
-    .recommendation = user-scalable=no und maximum-scale aus dem viewport-Meta-Tag entfernen.
-    .technical-note = Eine Grenze zwischen 200 % und 500 % ist kein Verstoß gegen 1.4.4 und wird getrennt gemeldet.
-
-explanation-zoom-viewport-missing = Fehlende Viewport-Angabe
-    .description = Das Dokument hat kein viewport-Meta-Tag. Mobile Browser legen dann eine Desktop-Breite zugrunde und verkleinern die Seite.
-    .user-impact = Auf Mobilgeräten erscheint der Text unter jeder lesbaren Größe; wer vergrößert, muss waagerecht scrollen. Am Desktop ändert sich nichts.
-    .typical-cause = Das Template setzt kein viewport-Meta-Tag, etwa bei älteren oder rein für Desktop gebauten Seiten.
-    .recommendation = Im <head> ein viewport-Meta-Tag mit width=device-width ergänzen.
-    .technical-note = Desktop-Browser ignorieren das Tag; betroffen ist nur die Darstellung auf Mobilgeräten. Das Layout muss danach auch in schmalen Viewports funktionieren (1.4.10 Reflow).
-
-explanation-aria-reference-missing = ARIA-Verweis ins Leere
-    .description = Ein ARIA-Beziehungsattribut (etwa aria-controls oder aria-labelledby) ist leer oder verweist auf eine ID, die es auf der Seite nicht gibt.
-    .user-impact = Screenreader können die Beziehung nicht herstellen: Beschriftung, Beschreibung oder gesteuerter Bereich fehlen.
-    .typical-cause = Die ID des Ziels wurde umbenannt oder wird erst später per Skript erzeugt; Komponenten setzen das Attribut, bevor das Ziel existiert.
-    .recommendation = Das Attribut auf die ID eines vorhandenen Elements setzen oder es entfernen.
-    .technical-note = Geprüft werden aria-labelledby, aria-describedby, aria-controls, aria-owns und aria-activedescendant.
-
-explanation-aria-required-attribute-missing = Erforderliches ARIA-Attribut fehlt
-    .description = Ein Element trägt eine Rolle, die einen Zustand ansagt (etwa checkbox oder slider), aber nicht das Attribut, das diesen Zustand trägt.
-    .user-impact = Screenreader-Nutzer erfahren nicht, ob ein Schalter an ist oder welchen Wert ein Regler hat.
-    .typical-cause = Selbst gebaute Bedienelemente setzen die Rolle, pflegen den Zustand aber nur visuell.
-    .recommendation = Das geforderte Attribut setzen und bei jeder Zustandsänderung aktualisieren, oder ein natives Element verwenden.
-    .technical-note = Etwa aria-checked für checkbox/radio/switch, aria-expanded für combobox, aria-valuenow für slider/spinbutton/meter.
-
-explanation-images-alt-suspicious = Vermutlich nichtssagender Alternativtext
-    .description = Ein Bild hat einen Alternativtext, der den Inhalt vermutlich nicht beschreibt: einen Dateinamen, ein Füllwort wie „Bild" oder „Logo" oder nur ein, zwei Zeichen.
-    .user-impact = Screenreader-Nutzer hören einen Text, der ihnen den Bildinhalt nicht vermittelt.
-    .typical-cause = Das CMS übernimmt den Dateinamen als Alternativtext, oder das Pflichtfeld wurde mit einem Platzhalter gefüllt.
-    .recommendation = Prüfen, ob der Text das Bild beschreibt; sonst durch eine Beschreibung ersetzen, bei dekorativen Bildern durch alt="".
-    .technical-note = Heuristisch erkannt, deshalb zur Prüfung: alt="5" am Bild einer Fünf ist richtig.
-
-## Shared rule ids from #691 (B1) without a fitting text
-
-explanation-aria-role-invalid = Ungültige ARIA-Rolle
-    .description = Ein role-Attribut enthält einen Wert, den es in WAI-ARIA nicht gibt, oder eine abstrakte Rolle, die nicht ausgezeichnet werden darf.
-    .user-impact = Browser ignorieren die Rolle; Screenreader sagen das Element anders an als beabsichtigt.
-    .typical-cause = Tippfehler, erfundene Rollen oder abstrakte Rollen wie widget oder landmark.
-    .recommendation = Eine Rolle aus der ARIA-Spezifikation verwenden oder das role-Attribut entfernen und ein natives Element nutzen.
-    .technical-note = Rollen unterscheiden Groß- und Kleinschreibung: role="Button" ist ungültig.
-
-explanation-aria-attribute-unknown = Unbekanntes ARIA-Attribut
-    .description = Ein Element trägt ein aria-*-Attribut, das es in WAI-ARIA nicht gibt – meist ein Tippfehler.
-    .user-impact = Der Browser ignoriert das Attribut; die gemeinte Beschriftung, Beziehung oder der gemeinte Zustand fehlt.
-    .typical-cause = Falsch geschriebene Attribute wie aria-labeledby statt aria-labelledby.
-    .recommendation = Den Namen gegen die ARIA-Spezifikation prüfen und korrigieren oder das Attribut entfernen.
-    .technical-note = Attribute aus dem Entwurf von WAI-ARIA 1.3, die Browser schon umsetzen (etwa aria-description), gelten als bekannt.
-
-explanation-aria-attribute-value-invalid = Ungültiger Wert eines ARIA-Attributs
-    .description = Ein ARIA-Attribut hat einen Wert außerhalb seines Wertebereichs, etwa aria-expanded="yes".
-    .user-impact = Browser fallen auf den Vorgabewert zurück; der Zustand wird Screenreader-Nutzern falsch oder gar nicht angesagt.
-    .typical-cause = Werte aus anderen Konventionen (yes/no, 1/0) oder Tippfehler in Token-Werten.
-    .recommendation = Nur die Werte verwenden, die die ARIA-Spezifikation für das Attribut vorsieht, etwa true oder false.
-    .technical-note = Unbekannte Werte von aria-current und aria-invalid gelten nach ARIA 1.2 als true und werden nicht gemeldet.
-
-explanation-aria-owns-conflict = Element gehört per aria-owns zu mehreren Elementen
-    .description = Dieselbe ID steht im aria-owns mehrerer Elemente. Welches Element der Besitzer ist, bleibt offen.
-    .user-impact = Assistierende Technologien können das Element keinem Widget eindeutig zuordnen; Name, Rolle und Wert werden unzuverlässig.
-    .typical-cause = Mehrfach eingebundene Komponenten, die auf dieselbe Liste zeigen, oder eine doppelt vergebene ID.
-    .recommendation = Jedes Element nur im aria-owns eines einzigen Elements aufführen.
-    .technical-note = WAI-ARIA 1.2: Eine ID darf zu keinem Zeitpunkt im aria-owns mehr als eines anderen Elements stehen.
-
-explanation-aria-tab-selected-missing = Kein Tab als ausgewählt ausgezeichnet
-    .description = Keiner der Tabs einer Tableiste trägt aria-selected="true".
-    .user-impact = Screenreader-Nutzer erfahren nicht, welcher Tab aktiv ist und zu welchem der sichtbare Inhalt gehört.
-    .typical-cause = Der aktive Tab wird nur per CSS-Klasse hervorgehoben.
-    .recommendation = Am aktiven Tab aria-selected="true" setzen und beim Wechsel mitführen.
-    .technical-note = Zur Prüfung: ARIA 1.2 sagt SHOULD. Tabs ohne das Attribut gelten als nicht ausgewählt, das ist für die inaktiven richtig.
-
-explanation-aria-combobox-popup-missing = Aufgeklappte Combobox ohne Verweis auf ihr Popup
-    .description = Eine Combobox ist als aufgeklappt ausgezeichnet, verweist aber nicht per aria-controls auf ihre Auswahlliste.
-    .user-impact = Screenreader-Nutzer erfahren nicht, welche Auswahlmöglichkeiten die Combobox bietet, und erreichen sie nicht.
-    .typical-cause = Die Liste steht neben der Combobox statt darin, und aria-controls fehlt.
-    .recommendation = aria-controls an der Combobox auf die ID der Liste setzen.
-    .technical-note = ARIA 1.2 verlangt aria-controls (MUST). Ein Popup im eigenen Teilbaum oder per aria-owns (ARIA 1.1) wird weiter anerkannt.
-
-explanation-aria-attribute-not-allowed = ARIA-Attribut für diese Rolle nicht zulässig
-    .description = Ein Element trägt ein ARIA-Attribut, das seine Rolle nicht unterstützt, oder eines, das neben einem nativen Attribut nicht stehen darf.
-    .user-impact = Screenreader ignorieren das Attribut oder erhalten widersprüchliche Angaben zu Zustand und Wert.
-    .typical-cause = Zustände wie aria-expanded oder aria-checked an Elementen ohne passende Rolle, etwa an einem div.
-    .recommendation = Das Attribut an das Element mit der passenden Rolle verschieben, eine passende Rolle setzen oder das Attribut entfernen.
-    .technical-note = Geurteilt wird über die explizite oder implizite Rolle. Dazu die Fälle aus ARIA in HTML, etwa aria-checked an einer nativen Checkbox.
-
-explanation-aria-required-parent-missing = Element außerhalb des erforderlichen Eltern-Kontexts
-    .description = Ein Element mit einer Rolle wie tab, option oder listitem steht nicht in einem Element mit der dafür erforderlichen Rolle.
-    .user-impact = Screenreader können das Element keinem Widget zuordnen; Position und Anzahl („Tab 2 von 3") werden nicht angesagt.
-    .typical-cause = Ein Element mit eigener Rolle dazwischen, etwa ein <li> zwischen role="tablist" und role="tab".
-    .recommendation = Das Element direkt in den erforderlichen Behälter setzen oder die Zwischenelemente mit role="presentation" neutralisieren.
-    .technical-note = Geprüft wird am DOM. Ein <li> in einer Liste, die per role etwas anderes geworden ist, bleibt ein listitem, auch wenn der Browser es im Accessibility-Tree glättet.
-
-explanation-aria-required-children-missing = Erforderliche Bestandteile einer ARIA-Rolle fehlen
-    .description = Ein Behälter wie role="tablist", "list" oder "menu" enthält keines der Elemente, die seine Rolle verlangt.
-    .user-impact = Screenreader sagen einen leeren oder fehlerhaften Behälter an; Nutzer finden die Einträge nicht.
-    .typical-cause = Die Einträge tragen keine oder eine andere Rolle, oder ein Element mit eigener Rolle steht zwischen Behälter und Einträgen.
-    .recommendation = Den Einträgen die geforderte Rolle geben, etwa role="tab" in einer tablist, oder die Rolle des Behälters entfernen.
-    .technical-note = Geprüft werden nur Behälter mit expliziter Rolle; native Tabellen und Listen geben ihre Bestandteile per HTML vor.
-
-## Shared rule ids from #692 (B2) without a fitting text
-
-explanation-dialog-modal-unmarked = Dialog nicht als modal ausgezeichnet
-    .description = Ein Element mit role="dialog" trägt kein aria-modal="true". Ob der Dialog modal gemeint ist, muss geprüft werden.
-    .user-impact = Ist der Dialog modal gemeint, lesen Screenreader den Inhalt dahinter weiter, als wäre er erreichbar.
-    .typical-cause = Ein selbst gebauter Dialog aus einem div mit role="dialog", ohne aria-modal.
-    .recommendation = Einen modalen Dialog mit aria-modal="true" auszeichnen oder ein natives <dialog> mit showModal() verwenden. Ein nicht modaler Dialog braucht das Attribut nicht.
-    .technical-note = ARIA verlangt aria-modal nicht; der Hinweis ist eine Prüfempfehlung, kein Verstoß.
-
-## Shared rule ids from #693 (B3) without a fitting text
-
-explanation-forms-no-submit = Formular ohne Absende-Element
-    .description = Ein Formular sammelt Eingaben, hat aber keinen Button und kein anderes Element, mit dem es ausdrücklich abgeschickt wird.
-    .user-impact = Ohne Absende-Element bleibt unklar, wann die Eingabe gilt. Wird das Formular stattdessen beim Ändern eines Felds abgeschickt, wechselt der Kontext unangekündigt.
-    .typical-cause = Filter- und Suchformulare, die per Skript beim Ändern eines Felds abgeschickt werden, oder ein Button außerhalb des Formulars ohne form-Attribut.
-    .recommendation = Einen Button type="submit" ins Formular setzen oder per form-Attribut zuordnen. Ändert ein Formular nur Inhalte auf der Seite, genügt eine Prüfung, dass dabei kein Kontextwechsel passiert.
-    .technical-note = Ohne action und ohne Textfeld kann nur ein Skript das Formular abschicken; dann ist der Befund ein Prüfhinweis (#728).
-
-explanation-auth-captcha = Captcha im Anmeldeformular prüfen
-    .description = Ein Anmeldeformular enthält ein Captcha. Ob es ein Objekterkennungstest ist oder eine Alternative ohne Denkaufgabe angeboten wird, muss geprüft werden.
-    .user-impact = Wer verzerrte Zeichen nicht lesen, abschreiben oder sich merken kann, kommt an der Anmeldung nicht vorbei.
-    .typical-cause = Ein Text- oder Bildrätsel-Captcha gegen Bots, ohne zweiten Weg.
-    .recommendation = Eine Anmeldung ohne Denkaufgabe anbieten, etwa Passkey, E-Mail-Link oder eine Bot-Prüfung ohne Interaktion. Ein Objekterkennungstest ist auf Stufe AA zulässig.
-    .technical-note = Prüfhinweis: Art des Tests und Alternativen stehen nicht im Markup. Ein Captcha im Kontaktformular gehört nicht zu 3.3.8.
-
-## Shared rule ids from #694 without a fitting text
-
-explanation-landmarks-not-top-level = Landmark ist verschachtelt
-    .description = Ein Kopf-, Fuß- oder Hauptinhaltsbereich (banner, contentinfo, main) liegt innerhalb eines anderen Landmarks statt auf oberster Ebene.
-    .user-impact = Screenreader-Nutzer, die per Landmark-Navigation zu Kopf, Fuß oder Hauptinhalt springen, landen in einem unerwarteten Kontext.
-    .typical-cause = role="banner", role="contentinfo" oder <main> innerhalb von <main>, <nav>, <aside> oder einem benannten Bereich.
-    .recommendation = Kopf-, Fuß- und Hauptinhaltsbereich auf die oberste Ebene der Seite verschieben, außerhalb jedes anderen Landmarks.
-    .technical-note = Ein <header>/<footer> in <main>, <article> oder <section> ist ohnehin kein banner/contentinfo; gemeldet werden explizite Rollen und <main>. Welche Rolle betroffen ist, steht im Befundtext.
-
-explanation-patterns-accordion-controls-missing = Aufgeklappter Button ohne Verweis auf seinen Bereich
-    .description = Ein aufgeklappter Button (aria-expanded="true") verweist nicht per aria-controls auf den Bereich, den er steuert.
-    .user-impact = Screenreader-Nutzer erfahren nicht, welcher Bereich aufgeklappt wurde, und können nicht direkt dorthin springen.
-    .typical-cause = Akkordeon- oder Aufklapp-Skripte, die nur aria-expanded umschalten.
-    .recommendation = Am Button aria-controls auf die ID des gesteuerten Bereichs setzen.
-    .technical-note = Prüfhinweis: WAI-ARIA verlangt aria-controls nicht, die APG nennt es beim Disclosure-Muster optional. Ein <summary> braucht es nicht.
-
-## Shared rule ids from #697 without a fitting text
-
-explanation-tables-header-without-data = Tabellenkopf ohne Datenzellen
-    .description = Eine Kopfzelle (<th>) bezieht sich auf keine Datenzelle – die Tabelle hat Überschriften, aber keine Daten darunter oder daneben.
-    .user-impact = Screenreader können Datenzellen keinem Kopf zuordnen; die Tabelle wirkt leer oder falsch aufgebaut.
-    .typical-cause = Tabellen, die nur zur Anordnung dienen, oder Datenzeilen, die per Skript erst später erscheinen.
-    .recommendation = Kopfzellen nur dort einsetzen, wo Daten folgen; Layout ohne <table> umsetzen.
-    .technical-note = Leere Datenzellen, Zellen mit aria-hidden-Inhalt und Spaltenköpfe über Zeilenköpfen zählen nicht als Fehler. Ein noch nicht dargestellter Zeilenvorrat ergibt einen Hinweis (ungeprüft) statt eines Verstoßes.
-
-explanation-tables-headers-attr-invalid = headers-Attribut verweist ins Leere
-    .description = Eine Tabellenzelle verweist per headers auf eine ID, die keine Kopfzelle derselben Tabelle ist.
-    .user-impact = Screenreader lesen zur Zelle den falschen oder gar keinen Kopf vor.
-    .typical-cause = Umbenannte oder kopierte IDs, Verweise auf Zellen anderer Tabellen.
-    .recommendation = headers nur auf IDs von <th> derselben Tabelle zeigen lassen oder bei einfachen Tabellen ganz auf scope setzen.
-    .technical-note = Geprüft wird nur an Zellen (td, th und ihre Rollen); nur dort definiert HTML das Attribut.
-
-explanation-document-lang-mismatch = lang und xml:lang widersprechen sich
-    .description = Das <html>-Element trägt lang und xml:lang mit unterschiedlichen Sprachen.
-    .user-impact = Screenreader wählen je nach Attribut eine andere Sprache und sprechen die Seite womöglich falsch aus.
-    .typical-cause = Aus XHTML übernommene Vorlagen, bei denen nur eines der Attribute angepasst wurde.
-    .recommendation = xml:lang entfernen oder auf denselben Wert wie lang setzen.
-    .technical-note = Verglichen wird die Primärsprache beider Attribute.
-
-explanation-language-part-unmarked = Anderssprachiger Textteil ohne lang prüfen
-    .description = Ein Textabschnitt scheint in einer anderen Sprache verfasst als die Seite, ohne dass ein lang-Attribut das auszeichnet.
-    .user-impact = Screenreader lesen den Abschnitt mit der Aussprache der Seitensprache vor; er wird schwer verständlich.
-    .typical-cause = Zitate, Produktnamen oder Teaser in einer anderen Sprache ohne lang.
-    .recommendation = Den Abschnitt mit lang auszeichnen, etwa <p lang="en">.
-    .technical-note = Prüfhinweis: Die Spracherkennung ist eine Heuristik und kennt Deutsch und Englisch. Auf Seiten in anderen Sprachen bleibt die Prüfung als ungeprüft vermerkt.
-
-## Shared rule ids from #696 without a fitting text
-
-explanation-media-audio-autoplay = Selbststartender Ton ohne Steuerung prüfen
-    .description = Ein Audio-Element startet beim Laden der Seite von selbst und ist nicht stummgeschaltet.
-    .user-impact = Ton, der von selbst startet, übertönt die Sprachausgabe von Screenreadern; Nutzer finden die Steuerung dann kaum noch.
-    .typical-cause = <audio autoplay> für Hintergrundmusik oder Werbung.
-    .recommendation = Ton nicht automatisch starten oder eine Steuerung zum Anhalten bzw. Leiserstellen am Anfang der Seite anbieten.
-    .technical-note = Prüfhinweis (WCAG 1.4.2): Ob der Ton länger als drei Sekunden läuft und sich anhalten lässt, steht nicht im Markup.
-
-explanation-frames-name-missing = Eingebetteter Rahmen ohne Namen
-    .description = Ein <iframe> hat keinen zugänglichen Namen (title, aria-label oder aria-labelledby).
-    .user-impact = Screenreader nennen beim Betreten des Rahmens nur „Rahmen“; Nutzer erfahren nicht, was darin steckt, und können ihn nicht gezielt überspringen.
-    .typical-cause = Eingebettete Karten, Videos, Widgets oder Werbung ohne title-Attribut.
-    .recommendation = Jedem sichtbaren <iframe> ein title geben, das seinen Inhalt beschreibt.
-    .technical-note = WCAG-Technik H64. Rahmen mit role="none"/"presentation", hidden, aria-hidden oder Breite und Höhe 0/1 zählen nicht.
-
-explanation-display-toggle-missing = Kein Umschalter für Darstellungsmodi
-    .description = Die Seite zeigt Visualisierungen, aber es wurde kein mit [data-display-toggle] markierter Umschalter gefunden.
-    .user-impact = Fehlt der Umschalter tatsächlich, bleibt an die volle Darstellung gebunden, wer Bewegung, 3D oder Grafiken nicht verträgt.
-    .typical-cause = Visualisierungen nach der Konvention ausgezeichnet, der Umschalter aber nicht eingebaut oder nicht mit [data-display-toggle] markiert.
-    .recommendation = Auf jeder Seite mit Visualisierungen einen bedienbaren Umschalter anbieten, der zwischen visual, calm und text wechselt und die Wahl speichert.
-    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 2.2.2 (Pause, Stop, Hide). Geprüft wird das Element [data-display-toggle] im gerenderten DOM.
-
-explanation-display-init-missing = Darstellungsmodus wird zu spät gesetzt
-    .description = Die gewählte Darstellung wird nicht vor dem ersten Anzeigen der Seite angewendet.
-    .user-impact = Die Seite kann kurz mit Animation oder Grafiken erscheinen, obwohl eine ruhige Darstellung gewählt wurde.
-    .typical-cause = data-display wird in einem verzögerten oder Modul-Skript gesetzt statt in einem kleinen blockierenden Skript im <head>.
-    .recommendation = Den Modus in einem kleinen, blockierenden Skript im <head> setzen, bevor der Seitenkörper beginnt.
-    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 2.2.2. Gemessen per CDP: ein vor der Navigation injizierter Beobachter hält fest, ob html[data-display] beim Einfügen von <body> bereits gesetzt war.
-
-explanation-display-text-media-visible = Grafiken im Textmodus sichtbar
-    .description = Im Textmodus zeigt eine Visualisierung weiterhin Grafik, Canvas oder Video.
-    .user-impact = Wer den Textmodus gewählt hat, bekommt trotzdem Grafiken oder bewegte Inhalte.
-    .typical-cause = Die CSS-Regeln für html[data-display="text"] blenden [data-viz-live] oder [data-viz-static] nicht aus.
-    .recommendation = Im Textmodus Live- und Standbild-Teile der Visualisierung ausblenden und nur die Textschicht zeigen.
-    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 2.2.2. Geprüft wird das gerenderte Layout im Modus text; Elemente bis 32×32 px gelten als Icons.
-
-explanation-display-text-not-visible = Textschicht fehlt im Textmodus
-    .description = Im Textmodus zeigt eine Visualisierung keine lesbare Aussage.
-    .user-impact = Wer den Textmodus gewählt hat, erfährt nicht, was die Grafik aussagt.
-    .typical-cause = [data-viz-text] fehlt, ist leer oder bleibt im Textmodus ausgeblendet.
-    .recommendation = Jede Visualisierung mit einer Textschicht versehen (Kernaussage, bei Diagrammen die Werte als Tabelle, Quelle) und sie im Textmodus anzeigen.
-    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 1.1.1 (Nicht-Text-Inhalt). Geprüft wird das gerenderte Layout im Modus text.
-
-explanation-display-text-hidden = Textschicht für Hilfstechnik verborgen
-    .description = Die Textschicht einer Visualisierung ist für Screenreader ausgeblendet.
-    .user-impact = Screenreader-Nutzer erfahren die Aussage der Grafik nicht.
-    .typical-cause = hidden, aria-hidden="true", inert oder display:none an [data-viz-text] oder einem umgebenden Element, meist um sie in der grafischen Darstellung zu verstecken.
-    .recommendation = Die Textschicht nur optisch verstecken (visually-hidden), nie für Hilfstechnik.
-    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 1.1.1. Geprüft im gerenderten DOM in jedem Modus, einschließlich berechneter Stile.
-
-explanation-viz-text-missing = Visualisierung ohne Textschicht
-    .description = Eine Visualisierung hat keine mit [data-viz-text] markierte Textschicht oder nur eine leere.
-    .user-impact = Wer die Grafik nicht sehen kann, erfährt ihre Aussage nicht; der Textmodus hat nichts, was statt der Grafik erscheint.
-    .typical-cause = Die Beschreibung steht in einem Element ohne die Marke [data-viz-text], oder die Visualisierung wurde ohne Textschicht eingebaut.
-    .recommendation = Jeder figure[data-viz] eine Textschicht mit der Aussage geben (bei Diagrammen die Werte, am besten als <table>) und die Quelle nennen.
-    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 1.1.1. Geprüft wird nur, dass Text da ist, nicht ob er die Kernaussage trifft. Aus dem Markup, in jedem Modus.
-
-explanation-viz-caption-missing = Visualisierung ohne Beschriftung
-    .description = Eine Visualisierung hat kein <figcaption>, das sie kurz benennt.
-    .user-impact = Nichts benennt die Visualisierung kurz; wer sie nicht sieht, muss erst die Textschicht lesen, um zu wissen, worum es geht.
-    .typical-cause = Das <figcaption> fehlt oder steht außerhalb der <figure>.
-    .recommendation = Ein <figcaption> als direktes Kind der figure[data-viz] ergänzen.
-    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 1.1.1. Geprüft wird das Vorhandensein, nicht der Inhalt.
-
-explanation-viz-static-missing = Bewegte Visualisierung ohne Standbild
-    .description = Eine 3D- oder interaktive Visualisierung hat kein Standbild für den ruhigen Modus.
-    .user-impact = Wer Bewegung nicht verträgt, bekommt im ruhigen Modus nichts, was die Bewegung ersetzt.
-    .typical-cause = Nur die bewegte Fassung wurde gebaut, ohne ein mit [data-viz-static] markiertes Standbild.
-    .recommendation = Ein Standbild mit [data-viz-static] in die Visualisierung aufnehmen und im ruhigen Modus anstelle der Bewegung zeigen.
-    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 2.2.2. Gilt für data-viz="3d" und "interactive".
-
-explanation-viz-table-missing = Diagramm ohne Wertetabelle
-    .description = Ein Diagramm hat keine Tabelle mit seinen Werten. Zu prüfen ist, ob die Textschicht sie auch ohne Tabelle vermittelt.
-    .user-impact = Die Beziehungen zwischen den Werten können verloren gehen, wenn sie nur als Fließtext oder gar nicht vorliegen.
-    .typical-cause = Die Werte stehen nur in der Grafik oder in einem Satz, bei Sparklines oft bewusst.
-    .recommendation = Die Werte als <table> in die Textschicht aufnehmen, sofern ein Satz sie nicht ebenso vollständig trägt.
-    .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 1.3.1. Prüfhinweis, kein Verstoß: ob ein Satz genügt, kann nur ein Mensch beurteilen.

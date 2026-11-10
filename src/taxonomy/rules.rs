@@ -7,7 +7,9 @@
 //! The texts of a rule (title, user impact, technical impact) are not in this
 //! table: they live in `locales/<lang>/rules.ftl` under the key
 //! [`rule_text_key`] and are read through [`Rule::title`],
-//! [`Rule::user_impact`] and [`Rule::technical_impact`] (#935).
+//! [`Rule::user_impact`] and [`Rule::technical_impact`] (#935). The same message
+//! holds the explanation texts of a rule that has an entry under its own id
+//! (`output::explanations`); its value is the one title of the rule.
 
 use super::{
     dimensions::{Dimension, Subcategory},
@@ -43,7 +45,9 @@ pub struct Rule {
 
 /// The Fluent message of a rule's texts in `locales/<lang>/rules.ftl`:
 /// `rule-` plus the rule id, with `/` written as `-` (a Fluent identifier
-/// allows only letters, digits, `_` and `-`).
+/// allows only letters, digits, `_` and `-`). One message per rule id: it
+/// carries the catalogue texts and, for a rule with an explanation entry under
+/// its own id, the explanation texts.
 pub fn rule_text_key(id: &str) -> String {
     format!("rule-{}", id.replace('/', "-"))
 }
@@ -2877,9 +2881,11 @@ mod tests {
     }
 
     /// Every rule has its title and both impacts in German and English, and
-    /// neither file holds a `rule-` message or attribute no rule reads. The
-    /// rest of the file is the explanation texts: `output::explanations::tests`
-    /// holds everything that is not a `rule-` message to that table.
+    /// neither file holds a `rule-` message or catalogue attribute no rule
+    /// reads. A rule message may carry further attributes, the explanation
+    /// texts of a rule that has an entry under its own id;
+    /// `output::explanations::tests` holds exactly those, and everything that
+    /// is not a `rule-` message, to the explanation table.
     #[test]
     fn rules_ftl_holds_exactly_the_texts_of_the_catalogue() {
         let expected = expected_entries();
@@ -2887,6 +2893,11 @@ mod tests {
             let entries: std::collections::BTreeSet<String> = ftl_entries(ftl)
                 .into_iter()
                 .filter(|entry| entry.starts_with("rule-"))
+                .filter(|entry| {
+                    !entry.contains('.')
+                        || entry.ends_with(".user-impact")
+                        || entry.ends_with(".technical-impact")
+                })
                 .collect();
             let missing: Vec<_> = expected.difference(&entries).collect();
             let unused: Vec<_> = entries.difference(&expected).collect();

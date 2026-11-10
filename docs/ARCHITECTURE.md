@@ -104,7 +104,7 @@ src/
 │
 ├── taxonomy/            # Rule taxonomy & classification
 │   ├── mod.rs
-│   ├── rules.rs         # Canonical rule list (RULES) with metadata; a rule's texts come from `locales/<lang>/rules.ftl` via `Rule::title`/`user_impact`/`technical_impact(en)`, key = `rule_text_key(id)` (#935)
+│   ├── rules.rs         # Canonical rule list (RULES) with metadata; a rule's texts come from `locales/<lang>/rules.ftl` via `Rule::title`/`user_impact`/`technical_impact(en)`, key = `rule_text_key(id)`: one message per rule id, which also carries the explanation texts of a rule that has an explanation entry under its own id (#935)
 │   ├── rule_docs.rs     # rule_doc_url(): rule id → page on the project site (help_url, #929)
 │   ├── criteria.rs      # WCAG success-criterion definitions
 │   ├── dimensions.rs    # Dimension enum (Barrierefreiheit, Usability, ...)
@@ -193,7 +193,7 @@ src/
 │   │   ├── sanitize.rs  # Drops glyphs no report font can display (PDF/UA)
 │   │   └── detail_modules/ # Per-module chapter renderers
 │   ├── report_model.rs  # ViewModel structs for PDF
-│   ├── explanations.rs  # Explanation table (EXPLANATIONS: owner role, effort, code examples per rule key) and its lookup; the prose comes from `locales/<lang>/rules.ftl` via `RuleExplanation::customer_title`/`customer_description`/`user_impact`/`typical_cause`/`recommendation`/`technical_note(en)`, key = `explanation_text_key(key)` (#935)
+│   ├── explanations.rs  # Explanation table (EXPLANATIONS: owner role, effort, code examples per entry key), the explicit table `RULE_ENTRIES` (which entry each taxonomy rule id uses) and the lookup; the prose comes from `locales/<lang>/rules.ftl` via `RuleExplanation::customer_title`/`customer_description`/`user_impact`/`typical_cause`/`recommendation`/`technical_note(en)`, key = `explanation_text_key(key)`: the rule's message for an entry keyed by a rule id, `explanation-<key>` for an entry keyed by a WCAG criterion or an axe id (#935)
 │   ├── search_experience.rs # Search/AI-visibility presentation helpers
 │   ├── localized.rs     # Locale-aware text helpers
 │   ├── renderer.rs      # Top-level format dispatch
@@ -320,7 +320,7 @@ src/
 ├── studio/              # Studio contract types (GUI data contract)
 │   └── mod.rs
 │
-└── i18n/                # Project Fluent (.ftl) loader, library default language: German (the CLI default is English); one bundle per language from `locales/<lang>/report.ftl` (report texts) and `rules.ftl` (rule catalogue texts, one message per rule id with attributes, and explanation texts, one message per entry of the explanation table with attributes, #935); `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts, `I18n::attr` = message attributes
+└── i18n/                # Project Fluent (.ftl) loader, library default language: German (the CLI default is English); one bundle per language from `locales/<lang>/report.ftl` (report texts) and `rules.ftl` (rule texts, one message per rule id with attributes, including the explanation texts of a rule with an entry under its own id, and explanation texts for the entries keyed by a WCAG criterion or an axe id, one message per entry with attributes, #935); `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts, `I18n::attr` = message attributes
     └── mod.rs
 
 locales/                 # Fluent sources, compiled in with include_str!

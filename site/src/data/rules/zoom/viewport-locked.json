@@ -2,7 +2,7 @@
   "id": "zoom/viewport-locked",
   "url": "https://casoon.github.io/auditmysite/rules/zoom/viewport-locked/",
   "domain": "wcag",
-  "title": "Text not sufficiently resizable",
+  "title": "Zoom blocked by the viewport meta tag",
   "outcome": "automatic",
   "area": "Accessibility, Visual Presentation",
   "criterion": "1.4.4",

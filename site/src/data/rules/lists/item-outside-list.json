@@ -2,7 +2,7 @@
   "id": "lists/item-outside-list",
   "url": "https://casoon.github.io/auditmysite/rules/lists/item-outside-list/",
   "domain": "wcag",
-  "title": "List items outside a list container",
+  "title": "List item outside a list",
   "outcome": "automatic",
   "area": "Accessibility, Structure & Semantics",
   "criterion": "1.3.1",
