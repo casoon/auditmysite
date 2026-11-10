@@ -217,8 +217,12 @@ Whenever a new module is added, renamed, or removed, update `docs/ARCHITECTURE.m
 - **Dependency direction (target state, applies to new code from now on):** analysis modules
   (`seo`, `security`, `performance`, `ux`, …) and `wcag` import neither `cli` nor `output`;
   new shared types (level, status, report models) do not belong in `cli/args.rs` or in the
-  orchestration `audit/pipeline`. Do not add more backward edges — the rework proceeds
-  step by step, not on the side in feature PRs.
+  orchestration `audit/pipeline`. Shared value types (`WcagLevel`, `InteractiveMode`,
+  `ReportLevel`, `AnnexKind`) live in `src/model/`, which imports nothing else from the crate;
+  `cli` only re-exports them (#934). Do not add more backward edges — the rework proceeds
+  step by step, not on the side in feature PRs. `cargo test --test architecture_test` counts
+  them: `tests/fixtures/architecture/backward_imports.txt` for the analysis modules and
+  `cli_imports.txt` for `crate::cli` outside `cli/`; both baselines may only shrink.
 
 ## Current State (v2.0.2)
 `CHANGELOG.md` follows Keep a Changelog (skill `keep-a-changelog`): every user-facing change gets

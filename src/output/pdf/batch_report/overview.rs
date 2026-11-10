@@ -11,8 +11,8 @@ use renderreport::prelude::*;
 use renderreport::Component;
 
 use crate::audit::BatchReport;
-use crate::cli::ReportLevel;
 use crate::i18n::I18n;
+use crate::model::ReportLevel;
 use crate::output::report_model::*;
 use crate::util::short_url;
 
@@ -375,7 +375,7 @@ pub(super) fn render_batch_status_section(
     builder = render_batch_management_risks(builder, pres, i18n);
 
     // EN 301 549 clause roll-up — opt-in only (see `--annex en301549`).
-    if config.annex == Some(crate::cli::AnnexKind::En301549) {
+    if config.annex == Some(crate::model::AnnexKind::En301549) {
         builder = render_batch_en301549_rollup(builder, en301549_rollup, failed_en_criteria, i18n);
     }
 

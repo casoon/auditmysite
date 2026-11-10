@@ -4,8 +4,8 @@ use renderreport::components::charts::{Gauge, GaugeThreshold};
 use renderreport::components::{AuditTable, BenchmarkRow, BenchmarkTable, TableColumn};
 use renderreport::prelude::*;
 
-use crate::cli::ReportLevel;
 use crate::i18n::I18n;
+use crate::model::ReportLevel;
 use crate::output::report_model::*;
 use crate::util::short_url;
 
@@ -449,7 +449,7 @@ pub(super) fn render_batch_tech_url_matrix(
 mod tests {
     use super::*;
     use crate::audit::{AuditReport, BatchReport};
-    use crate::cli::WcagLevel;
+    use crate::model::WcagLevel;
     use crate::wcag::WcagResults;
 
     /// Plan 86: identical scores read as one value on all measured pages,

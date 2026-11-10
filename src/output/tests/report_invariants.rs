@@ -4,7 +4,7 @@
 
 use crate::audit::normalized::normalize;
 use crate::audit::AuditReport;
-use crate::cli::WcagLevel;
+use crate::model::WcagLevel;
 use crate::output::json::UnifiedReport;
 use crate::taxonomy::Severity;
 use crate::wcag::{Violation, WcagResults};

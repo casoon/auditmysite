@@ -1368,7 +1368,7 @@ mod tests {
     fn sitemap_link_graph_uses_audited_internal_targets() {
         let mut report = AuditReport::new(
             "https://example.com/a".to_string(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             crate::wcag::WcagResults::new(),
             10,
         );
@@ -1419,7 +1419,7 @@ mod tests {
     fn sitemap_diagnostics_use_full_sitemap_not_just_the_audited_sample() {
         let mut report = AuditReport::new(
             "https://example.com/audited-page".to_string(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             crate::wcag::WcagResults::new(),
             10,
         );
@@ -1515,7 +1515,7 @@ mod tests {
     fn report_with_links(url: &str, targets: &[&str]) -> AuditReport {
         let mut report = AuditReport::new(
             url.to_string(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             crate::wcag::WcagResults::new(),
             10,
         );

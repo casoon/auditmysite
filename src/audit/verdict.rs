@@ -651,7 +651,7 @@ mod tests {
             Violation::new(
                 "1.1.1",
                 "Non-text Content",
-                crate::cli::WcagLevel::A,
+                crate::model::WcagLevel::A,
                 crate::taxonomy::Severity::High,
                 "Image has no text alternative",
                 "n1",
@@ -661,7 +661,7 @@ mod tests {
         );
         AuditReport::new(
             "https://example.com".to_string(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             results,
             100,
         )
@@ -788,7 +788,7 @@ mod tests {
 
         let clean = AuditReport::new(
             "https://example.com".to_string(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             WcagResults::new(),
             100,
         );
@@ -827,7 +827,7 @@ mod tests {
     fn score_boundaries_follow_the_profile() {
         let clean = AuditReport::new(
             "https://example.com".to_string(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             WcagResults::new(),
             100,
         );
@@ -952,7 +952,7 @@ mod tests {
     fn compact_summary_names_both_scores_and_one_grade_basis() {
         let mut report = AuditReport::new(
             "https://example.com".to_string(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             WcagResults::new(),
             100,
         );
@@ -1006,7 +1006,7 @@ mod tests {
         use crate::audit::{ViewportScoreSet, ViewportScores};
         let mut report = AuditReport::new(
             "https://example.com".to_string(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             WcagResults::new(),
             100,
         );

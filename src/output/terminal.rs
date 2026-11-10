@@ -360,7 +360,7 @@ mod tests {
     fn fixture_report() -> AuditReport {
         AuditReport::new(
             "https://example.com".to_string(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             WcagResults::new(),
             42,
         )
@@ -450,14 +450,14 @@ mod tests {
         results.add_violation(Violation::new(
             "1.1.1",
             "Non-text Content",
-            crate::cli::WcagLevel::A,
+            crate::model::WcagLevel::A,
             crate::taxonomy::Severity::High,
             "Image without alternative text",
             "img-1",
         ));
         let broken = AuditReport::new(
             "https://example.com".to_string(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             results,
             42,
         );
@@ -481,7 +481,7 @@ mod tests {
             results.add_violation(Violation::new(
                 "1.1.1",
                 "Non-text Content",
-                crate::cli::WcagLevel::A,
+                crate::model::WcagLevel::A,
                 crate::taxonomy::Severity::High,
                 format!("Image {i} without alternative text"),
                 format!("img-{i}"),
@@ -489,7 +489,7 @@ mod tests {
         }
         let report = AuditReport::new(
             "https://example.com".to_string(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             results,
             42,
         );

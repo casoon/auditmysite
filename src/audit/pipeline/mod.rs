@@ -52,11 +52,12 @@ use crate::browser::{
     consent::{handle_post_navigation, inject_consent_cookies},
     BrowserManager,
 };
-use crate::cli::{Args, ModuleChoice, WcagLevel};
+use crate::cli::{Args, ModuleChoice};
 use crate::error::Result;
 use crate::interaction::stability::{settle, wait_for_finite_animations, wait_for_page_stability};
 use crate::journey::JourneyAnalysis;
 use crate::mobile::MobileFriendliness;
+use crate::model::WcagLevel;
 use crate::performance::{prepare_coverage_collection, prepare_vitals_collection};
 use crate::security::{analyze_security, BrowserCertificateDetails, SecurityAnalysis};
 use crate::seo::SeoAnalysis;
@@ -407,7 +408,7 @@ pub struct PipelineConfig {
     /// `exclusion::effective_selectors`.
     pub exclude_selectors: Vec<String>,
     /// Accessibility-Journey-Layer mode (off/basic/full).
-    pub interactive: crate::cli::InteractiveMode,
+    pub interactive: crate::model::InteractiveMode,
     /// Whether journeys that can submit a form or change a cart may run
     /// (`--allow-state-changes`); part of the measurement profile.
     pub allow_state_changes: bool,
@@ -460,7 +461,7 @@ impl Default for PipelineConfig {
             capture_element_evidence: false,
             dismiss_consent: false,
             exclude_selectors: Vec::new(),
-            interactive: crate::cli::InteractiveMode::Full,
+            interactive: crate::model::InteractiveMode::Full,
             allow_state_changes: false,
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
             session: crate::browser::SessionPolicy::Isolated,
@@ -505,7 +506,7 @@ impl PipelineConfig {
 
     /// Run the Accessibility-Journey-Layer in this mode.
     #[must_use]
-    pub fn with_interactive(mut self, interactive: crate::cli::InteractiveMode) -> Self {
+    pub fn with_interactive(mut self, interactive: crate::model::InteractiveMode) -> Self {
         self.interactive = interactive;
         self
     }
@@ -535,7 +536,7 @@ impl PipelineConfig {
 
     pub fn active_module_labels(&self) -> Vec<&'static str> {
         let mut labels = vec!["Accessibility"];
-        if !matches!(self.interactive, crate::cli::InteractiveMode::Off) {
+        if !matches!(self.interactive, crate::model::InteractiveMode::Off) {
             labels.push("Accessibility Journey");
         }
         let catalog = AuditCatalog::standard();
@@ -2491,12 +2492,12 @@ mod tests {
             screen_reader_report: false,
             dismiss_consent: false,
             exclude_selector: Vec::new(),
-            interactive: crate::cli::InteractiveMode::Off,
+            interactive: crate::model::InteractiveMode::Off,
             allow_state_changes: false,
             session: Default::default(),
             storage_state: None,
             state_id: None,
-            report_level: crate::cli::ReportLevel::Standard,
+            report_level: crate::model::ReportLevel::Standard,
             lang: "en".to_string(),
             display: None,
             also_json: false,
@@ -3048,7 +3049,7 @@ mod tests {
         let mut narrowed = PipelineConfig::default()
             .with_wcag_level(WcagLevel::AAA)
             .with_modules(ModuleSet::none().with(Module::Seo).with(Module::Privacy))
-            .with_interactive(crate::cli::InteractiveMode::Off);
+            .with_interactive(crate::model::InteractiveMode::Off);
         narrowed.lang = "de".to_string();
         assert_eq!(
             narrowed.audit_signature(),
@@ -3127,7 +3128,7 @@ mod tests {
                     .with(Module::Seo)
                     .with(Module::Mobile),
             )
-            .with_interactive(crate::cli::InteractiveMode::Off);
+            .with_interactive(crate::model::InteractiveMode::Off);
         config.lang = "de".to_string();
         config
     }

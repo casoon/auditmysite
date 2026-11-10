@@ -315,7 +315,7 @@ mod tests {
     fn page(url: &str, privacy: crate::privacy::PrivacyAnalysis) -> crate::audit::AuditReport {
         let mut r = crate::audit::AuditReport::new(
             url.to_string(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             crate::wcag::WcagResults::new(),
             100,
         );

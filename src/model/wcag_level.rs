@@ -1,5 +1,4 @@
 //! WCAG conformance level, shared by the rules, the engine and the CLI.
-//! It lives here, not in `cli`, so analysis code needs no import from the CLI layer.
 
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
@@ -22,4 +21,26 @@ pub enum WcagLevel {
     /// Level AAA - Maximum conformance
     #[value(name = "aaa", alias = "AAA")]
     AAA,
+}
+
+impl std::fmt::Display for WcagLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WcagLevel::A => write!(f, "A"),
+            WcagLevel::AA => write!(f, "AA"),
+            WcagLevel::AAA => write!(f, "AAA"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_wcag_level_display() {
+        assert_eq!(WcagLevel::A.to_string(), "A");
+        assert_eq!(WcagLevel::AA.to_string(), "AA");
+        assert_eq!(WcagLevel::AAA.to_string(), "AAA");
+    }
 }

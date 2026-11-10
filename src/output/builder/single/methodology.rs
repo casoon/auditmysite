@@ -609,8 +609,8 @@ mod tests {
     use crate::audit::normalized::normalize;
     use crate::audit::AuditQualityStatus;
     use crate::audit::AuditReport;
-    use crate::cli::WcagLevel;
     use crate::i18n::I18n;
+    use crate::model::WcagLevel;
     use crate::wcag::WcagResults;
 
     fn report_with_quality_status(status: AuditQualityStatus) -> NormalizedReport {

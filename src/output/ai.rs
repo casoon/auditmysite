@@ -244,7 +244,7 @@ pub fn format_ai_json_with_annotations(
 mod tests {
     use super::*;
     use crate::audit::AuditReport;
-    use crate::cli::WcagLevel;
+    use crate::model::WcagLevel;
     use crate::taxonomy::Severity;
     use crate::wcag::{Violation, WcagResults};
 

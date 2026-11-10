@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use crate::audit::experimental::ExperimentalIndicators;
 use crate::audit::scoring::{AccessibilityScorer, ViolationStatistics};
 use crate::browser::ThrottleProfile;
-use crate::cli::WcagLevel;
 use crate::mobile::MobileFriendliness;
+use crate::model::WcagLevel;
 use crate::performance::{
     AnimationAnalysis, ContentWeight, CoverageAnalysis, CriticalChain, MinificationAnalysis,
     PerformanceScore, RenderBlockingAnalysis, ThirdPartyAttribution, WebVitals,

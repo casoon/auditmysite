@@ -504,7 +504,7 @@ mod tests {
         // missing robots.txt, headings and text as absent signals.
         let mut report = AuditReport::new(
             "https://example.com".into(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             crate::wcag::WcagResults::new(),
             100,
         );

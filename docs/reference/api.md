@@ -22,7 +22,7 @@ from it and change what differs:
 
 ```rust
 use auditmysite::audit::{Module, ModuleSet, PipelineConfig};
-use auditmysite::cli::WcagLevel;
+use auditmysite::model::WcagLevel;
 
 let mut config = PipelineConfig::default()
     .with_wcag_level(WcagLevel::AAA)

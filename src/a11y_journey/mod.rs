@@ -27,9 +27,9 @@ use chromiumoxide::Page;
 
 use crate::accessibility::AXTree;
 use crate::audit::normalized::{AccessibilityJourney, InteractiveFinding};
-use crate::cli::InteractiveMode;
 use crate::commerce::{CommerceAnalysis, CommercePageKind};
 use crate::error::Result;
+use crate::model::InteractiveMode;
 use crate::patterns::{JourneyCandidate, JourneyKind, PatternAnalysis};
 
 /// Inputs the journey orchestrator needs. Kept narrow on purpose so the

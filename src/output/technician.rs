@@ -305,7 +305,7 @@ mod tests {
     use super::*;
     use crate::audit::normalized::normalize;
     use crate::audit::BatchError;
-    use crate::cli::WcagLevel;
+    use crate::model::WcagLevel;
     use crate::wcag::{Violation, WcagResults};
 
     fn report(url: &str, violations: Vec<Violation>) -> AuditReport {

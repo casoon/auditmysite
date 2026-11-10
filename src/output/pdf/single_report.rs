@@ -34,8 +34,8 @@ use super::findings::render_finding_technical;
 use super::helpers::{manual_recheck_instruction, map_severity, priority_label_i18n};
 use super::wcag_coverage::render_wcag_coverage_section;
 use crate::audit::AuditReport;
-use crate::cli::{AnnexKind, ReportLevel};
 use crate::i18n::I18n;
+use crate::model::{AnnexKind, ReportLevel};
 use crate::output::module::active_report_modules;
 use crate::output::report_model::*;
 
@@ -2537,7 +2537,7 @@ pub(super) mod risk_and_strength_tests {
             crate::wcag::Violation::new(
                 "1.1.1",
                 "Non-text Content",
-                crate::cli::WcagLevel::A,
+                crate::model::WcagLevel::A,
                 crate::wcag::Severity::High,
                 "Image missing alt",
                 "node-img",
@@ -2548,7 +2548,7 @@ pub(super) mod risk_and_strength_tests {
         );
         let report = AuditReport::new(
             "https://example.com".into(),
-            crate::cli::WcagLevel::AA,
+            crate::model::WcagLevel::AA,
             results,
             100,
         );

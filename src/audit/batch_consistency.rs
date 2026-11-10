@@ -935,7 +935,7 @@ fn canonical_host(url: &str) -> Option<String> {
 mod tests {
     use super::*;
     use crate::audit::report::AuditReport;
-    use crate::cli::WcagLevel;
+    use crate::model::WcagLevel;
     use crate::patterns::{PatternAnalysis, PatternConfidence, RecognizedPattern};
     use crate::seo::technical::TechnicalSeo;
     use crate::seo::{HeadingStructure, SeoAnalysis};

@@ -1429,7 +1429,7 @@ mod tests {
     use crate::audit::normalized::InteractiveFinding;
     use crate::audit::AuditReport;
     use crate::audit::ViolationStatistics;
-    use crate::cli::WcagLevel;
+    use crate::model::WcagLevel;
     use crate::taxonomy::Severity;
     use crate::wcag::WcagResults;
 

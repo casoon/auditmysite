@@ -445,7 +445,7 @@ fn permitted_state_changing_journeys(config: &PipelineConfig) -> Vec<String> {
 pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::AuditScope {
     let catalog = AuditCatalog::standard();
     let mut requested_modules = vec!["accessibility".to_string()];
-    if !matches!(config.interactive, crate::cli::InteractiveMode::Off) {
+    if !matches!(config.interactive, crate::model::InteractiveMode::Off) {
         requested_modules.push("accessibility_journey".to_string());
     }
     requested_modules.extend(
@@ -768,7 +768,7 @@ mod experimental_journey_tests {
             &crate::cli::Args::parse_from(["auditmysite", "https://example.com"]),
             None,
         );
-        config.interactive = crate::cli::InteractiveMode::Full;
+        config.interactive = crate::model::InteractiveMode::Full;
         config.allow_state_changes = true;
         config.experimental = experimental;
         config
@@ -793,7 +793,7 @@ mod experimental_journey_tests {
 mod tests {
     use super::*;
     use crate::audit::{ExecutionStatus, ModuleRun};
-    use crate::cli::WcagLevel;
+    use crate::model::WcagLevel;
     use crate::wcag::WcagResults;
 
     #[test]
@@ -1030,7 +1030,7 @@ mod tests {
     #[test]
     fn measurement_profile_must_agree_with_the_interactive_depth() {
         use clap::Parser;
-        let config_scope = |interactive: crate::cli::InteractiveMode, allow: bool| {
+        let config_scope = |interactive: crate::model::InteractiveMode, allow: bool| {
             let mut config = crate::audit::PipelineConfig::from_args_and_config(
                 &crate::cli::Args::parse_from(["auditmysite", "https://example.com"]),
                 None,
@@ -1040,13 +1040,13 @@ mod tests {
             audit_scope_from_config(&config)
         };
         // `full` alone only observes; the clicks are an explicit opt-in.
-        let observing = config_scope(crate::cli::InteractiveMode::Full, false);
+        let observing = config_scope(crate::model::InteractiveMode::Full, false);
         assert!(observing.measurement_profile.read_only);
-        let full = config_scope(crate::cli::InteractiveMode::Full, true);
+        let full = config_scope(crate::model::InteractiveMode::Full, true);
         assert!(!full.measurement_profile.read_only);
         assert!(!full.measurement_profile.state_changing_journeys.is_empty());
         assert_eq!(full.measurement_profile.session_policy, "isolated");
-        let basic = config_scope(crate::cli::InteractiveMode::Basic, true);
+        let basic = config_scope(crate::model::InteractiveMode::Basic, true);
         assert!(basic.measurement_profile.read_only);
 
         // A read-only mode claiming a state-changing journey is rejected.
@@ -1288,7 +1288,7 @@ mod tests {
         // Not run with a reason is the honest outcome for it.
         for run in &mut report.accessibility.wcag_results.rule_outcomes {
             if crate::wcag::expectation::registered_min_level(&run.rule_id)
-                .is_some_and(|min| min > crate::cli::WcagLevel::A)
+                .is_some_and(|min| min > crate::model::WcagLevel::A)
             {
                 *run = crate::wcag::RuleRun::not_run(&run.rule_id, crate::wcag::NotRun::Disabled)
                     .in_viewport(run.viewport.clone().unwrap());
@@ -1304,7 +1304,7 @@ mod tests {
         let mut report = report_with_expected_outcomes();
         let scope = &report.accessibility.execution.scope;
         assert!(!scope.frame_rules.is_empty(), "the scope names frame rules");
-        let level = crate::cli::WcagLevel::AA;
+        let level = crate::model::WcagLevel::AA;
         let outcomes = scope
             .frame_rules
             .iter()
@@ -1396,7 +1396,7 @@ mod tests {
             .iter()
             .filter(|id| {
                 crate::wcag::expectation::registered_min_level(id)
-                    .is_some_and(|min| min > crate::cli::WcagLevel::A)
+                    .is_some_and(|min| min > crate::model::WcagLevel::A)
             })
             .cloned()
             .collect();
@@ -1426,7 +1426,7 @@ mod tests {
             .iter_mut()
             .for_each(|run| {
                 if crate::wcag::expectation::registered_min_level(&run.rule_id)
-                    .is_some_and(|min| min > crate::cli::WcagLevel::A)
+                    .is_some_and(|min| min > crate::model::WcagLevel::A)
                 {
                     *run =
                         crate::wcag::RuleRun::not_run(&run.rule_id, crate::wcag::NotRun::Disabled)

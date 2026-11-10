@@ -31,7 +31,7 @@ use tracing::{info, warn};
 
 use crate::accessibility::{AXTree, DomCapture};
 use crate::audit::exclusion::ExclusionScope;
-use crate::cli::WcagLevel;
+use crate::model::WcagLevel;
 use crate::wcag::types::fold_rule_run;
 use crate::wcag::{self, RuleFilterConfig, RuleRun, Violation, WcagResults};
 

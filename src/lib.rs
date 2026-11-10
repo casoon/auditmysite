@@ -18,7 +18,7 @@
 //! ```no_run
 //! use auditmysite::browser::BrowserManager;
 //! use auditmysite::audit::{run_single_audit, ModuleSet, PipelineConfig};
-//! use auditmysite::cli::WcagLevel;
+//! use auditmysite::model::WcagLevel;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
@@ -62,7 +62,8 @@
 //!   [`taxonomy`], [`assessment`], [`registry`]
 //! - Output: [`output`] (JSON, table, PDF), [`lint`] (report-lint),
 //!   [`studio`] (types shared with auditmysite_studio), [`i18n`]
-//! - Entry points and support: [`cli`], [`error`], [`util`]
+//! - Entry points and support: [`cli`], [`model`] (shared value types),
+//!   [`error`], [`util`]
 //!
 //! See `docs/ARCHITECTURE.md` for the full module structure.
 //!
@@ -96,6 +97,7 @@ pub mod interaction;
 pub mod journey;
 pub mod lint;
 pub mod mobile;
+pub mod model;
 pub mod output;
 pub mod patterns;
 pub mod performance;

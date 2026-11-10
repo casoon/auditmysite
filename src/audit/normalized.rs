@@ -16,8 +16,8 @@ use crate::audit::module_scores::build_module_scores;
 use crate::audit::report::{AuditReport, PerformanceResults, ViewportScores};
 use crate::audit::risk_assessment::compute_risk_assessment;
 use crate::audit::scoring::{AccessibilityScorer, PrincipleCoverage};
-use crate::cli::WcagLevel;
 use crate::mobile::MobileFriendliness;
+use crate::model::WcagLevel;
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
 use crate::taxonomy::{ReportVisibility, RuleLookup, Scaling, Severity};
@@ -1810,7 +1810,7 @@ mod tests {
                 Violation::new(
                     "4.1.2",
                     "Name, Role, Value",
-                    crate::cli::WcagLevel::A,
+                    crate::model::WcagLevel::A,
                     Severity::High,
                     "control has no accessible name",
                     selector,
@@ -1855,7 +1855,7 @@ mod tests {
             let mut v = Violation::new(
                 "4.1.2",
                 "Name, Role, Value",
-                crate::cli::WcagLevel::A,
+                crate::model::WcagLevel::A,
                 Severity::High,
                 "x",
                 "n1",

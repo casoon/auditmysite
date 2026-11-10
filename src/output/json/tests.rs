@@ -1,6 +1,6 @@
 use super::*;
 use crate::audit::normalized::normalize;
-use crate::cli::WcagLevel;
+use crate::model::WcagLevel;
 use crate::wcag::WcagResults;
 
 fn first_page(report: &UnifiedReport) -> &PageEntry {
