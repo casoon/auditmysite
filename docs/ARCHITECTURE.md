@@ -36,12 +36,13 @@ src/
 │   ├── wcag_level.rs    # `WcagLevel` (re-exported by `wcag` and `cli`)
 │   ├── interactive_mode.rs # `InteractiveMode` (`--interactive`, `audit_scope.interactive_mode`)
 │   ├── report_level.rs  # `ReportLevel` (`--report-level`)
-│   └── annex_kind.rs    # `AnnexKind` (`--annex`)
+│   ├── annex_kind.rs    # `AnnexKind` (`--annex`)
+│   └── color_policy.rs  # `ColorPolicy` (`--color`)
 │
 ├── cli/                 # Command-line interface, the entry layer: nothing outside `cli/` and `main.rs` names `crate::cli` (#934, strict in `tests/architecture_test.rs`)
 │   ├── args.rs          # Clap argument parsing (Args, OutputFormat; re-exports the `model` value types)
 │   ├── config.rs        # auditmysite.toml config support (re-exports `BudgetConfig` from `audit::budget`)
-│   ├── from_args.rs     # The configuration of the layers below, built from `Args` and the TOML `Config`: `PipelineConfig::from_args_and_config`, `From<&Args>` for `PipelineConfig`, `BatchConfig` and `output::terminal::TerminalOptions`, `ColorPolicy` → `ColorMode` (#934)
+│   ├── from_args.rs     # The configuration of the layers below, built from `Args` and the TOML `Config`: `PipelineConfig::from_args_and_config`, `From<&Args>` for `PipelineConfig`, `BatchConfig` and `output::terminal::TerminalOptions` (#934)
 │   ├── app.rs           # Shared by both binaries: logging, signals, exit code, the audit run
 │   ├── commands.rs      # Subcommand handlers (browser, doctor)
 │   ├── dev_commands.rs  # Maintainer commands of `auditmysite-dev` only (plan, replay, accname-diff, report-lint, --debug-typ, --export-snapshot, #912)
@@ -168,7 +169,7 @@ src/
 │
 ├── output/              # Report generation
 │   ├── mod.rs
-│   ├── terminal.rs      # Terminal table output; the renderers take `TerminalOptions` (report level, language, colour mode, file target), which `cli` builds from `Args` (#934)
+│   ├── terminal.rs      # Terminal table output; the renderers take `TerminalOptions` (report level, language, `ColorPolicy`, file target), which `cli` builds from `Args`; the `runemark` colour mode stays internal (#934)
 │   ├── json.rs          # JSON reports (via NormalizedReport)
 │   ├── json/            # JSON detail/helper builders
 │   ├── sr_audit_json.rs # Standalone screen-reader audit JSON sidecar

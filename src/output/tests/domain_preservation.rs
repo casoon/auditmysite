@@ -8,9 +8,10 @@ use std::collections::BTreeSet;
 use crate::audit::finding_contract::{Disposition, FindingDomain};
 use crate::audit::normalized::{normalize, InteractiveFinding, InteractiveFindingKind};
 use crate::audit::AuditReport;
+use crate::model::ColorPolicy;
 use crate::model::WcagLevel;
 use crate::output::report_model::ReportConfig;
-use crate::output::terminal::{ColorMode, TerminalOptions};
+use crate::output::terminal::TerminalOptions;
 use crate::taxonomy::Severity;
 use crate::wcag::WcagResults;
 
@@ -720,7 +721,7 @@ fn terminal_lists_the_view_model_findings_per_tier() {
     let ctx = normalize(&report);
     let vm = crate::output::builder::build_view_model(&ctx, &ReportConfig::default());
     let options = TerminalOptions {
-        color: ColorMode::Never,
+        color: ColorPolicy::Never,
         ..Default::default()
     };
     let terminal = crate::output::terminal::render_single_report(&report, &options).unwrap();

@@ -219,7 +219,7 @@ Whenever a new module is added, renamed, or removed, update `docs/ARCHITECTURE.m
   (`seo`, `security`, `performance`, `ux`, …) and `wcag` import neither `cli` nor `output`;
   new shared types (level, status, report models) do not belong in `cli/args.rs` or in the
   orchestration `audit/pipeline`. Shared value types (`WcagLevel`, `InteractiveMode`,
-  `ReportLevel`, `AnnexKind`) live in `src/model/`, which imports nothing else from the crate;
+  `ReportLevel`, `AnnexKind`, `ColorPolicy`) live in `src/model/`, which imports nothing else from the crate;
   `cli` only re-exports them (#934). `cli` is the entry layer: nothing outside `src/cli/` and
   `src/main.rs` names `crate::cli`; what a lower layer needs from the arguments it takes as its
   own type (`PipelineConfig`, `BatchConfig`, `output::terminal::TerminalOptions`), built in

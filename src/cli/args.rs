@@ -551,7 +551,7 @@ pub enum BrowserAction {
     Path,
 }
 
-pub use crate::model::{AnnexKind, InteractiveMode, ReportLevel, WcagLevel};
+pub use crate::model::{AnnexKind, ColorPolicy, InteractiveMode, ReportLevel, WcagLevel};
 
 /// `--display`: one mode of the data-display convention, or `all` (#653).
 #[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
@@ -638,21 +638,6 @@ pub enum OutputFormat {
     /// SARIF 2.1.0 output for GitHub Code Scanning and other SARIF consumers
     #[value(name = "sarif")]
     Sarif,
-}
-
-/// Terminal color policy for `--format table` and batch progress output (#529).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
-pub enum ColorPolicy {
-    /// Color only for an interactive terminal, honouring `NO_COLOR` (default)
-    #[default]
-    #[value(name = "auto")]
-    Auto,
-    /// Always emit ANSI color
-    #[value(name = "always")]
-    Always,
-    /// Never emit ANSI color
-    #[value(name = "never")]
-    Never,
 }
 
 /// Batch lifecycle progress policy, independent of `--quiet` (#530).

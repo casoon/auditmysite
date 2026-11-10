@@ -9,19 +9,27 @@
 
 use runemark::report::RenderOptions;
 use runemark::{
-    Console, Finding, FindingGroup as RmFindingGroup, Metric, NextStep, Report, Tone, Verdict,
+    ColorMode, Console, Finding, FindingGroup as RmFindingGroup, Metric, NextStep, Report, Tone,
+    Verdict,
 };
-
-/// Colour mode of the rendered text, the type of [`TerminalOptions::color`].
-pub use runemark::ColorMode;
 
 use crate::audit::{
     normalize_checked, validate_batch, AuditReport, BatchReport, ReportContractError,
 };
-use crate::model::ReportLevel;
+use crate::model::{ColorPolicy, ReportLevel};
 use crate::output::builder::{build_batch_presentation, build_view_model};
 use crate::output::report_model::ReportConfig;
 use crate::taxonomy::Severity;
+
+impl From<ColorPolicy> for ColorMode {
+    fn from(policy: ColorPolicy) -> Self {
+        match policy {
+            ColorPolicy::Auto => ColorMode::Auto,
+            ColorPolicy::Always => ColorMode::Always,
+            ColorPolicy::Never => ColorMode::Never,
+        }
+    }
+}
 
 /// What the terminal renderers need to know about a run.
 ///
@@ -29,10 +37,11 @@ use crate::taxonomy::Severity;
 /// from it and assign what differs:
 ///
 /// ```
-/// use auditmysite::output::terminal::{ColorMode, TerminalOptions};
+/// use auditmysite::model::ColorPolicy;
+/// use auditmysite::output::terminal::TerminalOptions;
 ///
 /// let mut options = TerminalOptions::default();
-/// options.color = ColorMode::Never;
+/// options.color = ColorPolicy::Never;
 /// options.lang = "de".to_string();
 /// ```
 ///
@@ -46,10 +55,10 @@ pub struct TerminalOptions {
     pub report_level: ReportLevel,
     /// Report language, `"en"` or `"de"` (`--lang`).
     pub lang: String,
-    /// Colour mode (`--color`).
-    pub color: ColorMode,
+    /// Colour policy (`--color`).
+    pub color: ColorPolicy,
     /// Whether the rendered text is written to a file (`--output`). A file
-    /// carries no ANSI bytes unless `color` is [`ColorMode::Always`].
+    /// carries no ANSI bytes unless `color` is [`ColorPolicy::Always`].
     pub writing_to_file: bool,
 }
 
@@ -60,7 +69,7 @@ impl Default for TerminalOptions {
         Self {
             report_level: ReportLevel::Standard,
             lang: "en".to_string(),
-            color: ColorMode::Auto,
+            color: ColorPolicy::Auto,
             writing_to_file: false,
         }
     }
@@ -112,10 +121,10 @@ fn report_config(options: &TerminalOptions) -> ReportConfig {
 /// `Never`, unless the user explicitly asked for `--color always`. A pure
 /// terminal preview (e.g. the pre-PDF table preview) passes `false`.
 fn console_for(options: &TerminalOptions, writing_to_file: bool) -> Console {
-    let mode = if writing_to_file && options.color != ColorMode::Always {
+    let mode = if writing_to_file && options.color != ColorPolicy::Always {
         ColorMode::Never
     } else {
-        options.color
+        ColorMode::from(options.color)
     };
     Console::stdout(mode)
 }
@@ -387,7 +396,7 @@ mod tests {
 
     fn test_options() -> TerminalOptions {
         TerminalOptions {
-            color: ColorMode::Never,
+            color: ColorPolicy::Never,
             ..Default::default()
         }
     }
@@ -552,16 +561,23 @@ mod tests {
     fn single_report_emits_ansi_under_color_always() {
         let report = fixture_report();
         let mut options = test_options();
-        options.color = ColorMode::Always;
+        options.color = ColorPolicy::Always;
         let output = render_single_report(&report, &options).unwrap();
         assert!(has_ansi(&output));
+    }
+
+    #[test]
+    fn color_policy_maps_to_the_console_mode() {
+        assert_eq!(ColorMode::from(ColorPolicy::Auto), ColorMode::Auto);
+        assert_eq!(ColorMode::from(ColorPolicy::Always), ColorMode::Always);
+        assert_eq!(ColorMode::from(ColorPolicy::Never), ColorMode::Never);
     }
 
     #[test]
     fn writing_to_file_forces_no_color_even_under_auto() {
         let report = fixture_report();
         let mut options = test_options();
-        options.color = ColorMode::Auto;
+        options.color = ColorPolicy::Auto;
         let with_file = render_single_report_for(&report, &options, true).unwrap();
         assert!(!has_ansi(&with_file));
     }
@@ -570,7 +586,7 @@ mod tests {
     fn writing_to_file_does_not_override_explicit_color_always() {
         let report = fixture_report();
         let mut options = test_options();
-        options.color = ColorMode::Always;
+        options.color = ColorPolicy::Always;
         let with_file = render_single_report_for(&report, &options, true).unwrap();
         assert!(has_ansi(&with_file));
     }

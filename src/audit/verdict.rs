@@ -703,7 +703,7 @@ mod tests {
         );
 
         let options = crate::output::terminal::TerminalOptions {
-            color: crate::output::terminal::ColorMode::Never,
+            color: crate::model::ColorPolicy::Never,
             ..Default::default()
         };
         let terminal = crate::output::terminal::render_single_report(report, &options).unwrap();
