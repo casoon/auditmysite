@@ -2130,4 +2130,52 @@ mod tests {
             out_path.display()
         );
     }
+
+    /// Export which table entry every lookup resolves to, for review: the
+    /// result of `get_explanation` and of `resolve_explanation` (axe id, rule
+    /// id, criterion) for every taxonomy rule, and of `get_explanation` for
+    /// every table key.
+    ///
+    /// Ignored by default; run on demand to (re)generate the file:
+    ///   cargo test --lib export_explanation_resolution -- --ignored --nocapture
+    #[test]
+    #[ignore = "run on demand to regenerate reports/explanation-resolution.json"]
+    fn export_explanation_resolution() {
+        use std::collections::BTreeMap;
+        let key_of = |e: Option<&RuleExplanation>| e.map(|e| e.key);
+        let mut by_rule_id = BTreeMap::new();
+        let mut by_resolve = BTreeMap::new();
+        for rule in crate::taxonomy::rules::RULES {
+            let criterion = rule
+                .external_ref
+                .and_then(|r| r.strip_prefix("WCAG "))
+                .unwrap_or("");
+            by_rule_id.insert(rule.id, key_of(get_explanation(rule.id)));
+            by_resolve.insert(
+                rule.id,
+                key_of(resolve_explanation(rule.axe_id, rule.id, criterion)),
+            );
+        }
+        let by_table_key: BTreeMap<_, _> = EXPLANATIONS
+            .iter()
+            .map(|(key, _)| (*key, key_of(get_explanation(key))))
+            .collect();
+
+        let out_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("reports");
+        std::fs::create_dir_all(&out_dir).expect("create reports/");
+        let out_path = out_dir.join("explanation-resolution.json");
+        let out = serde_json::to_string_pretty(&serde_json::json!({
+            "get_explanation_by_rule_id": by_rule_id,
+            "resolve_explanation_by_rule": by_resolve,
+            "get_explanation_by_table_key": by_table_key,
+        }))
+        .expect("serialize explanation resolution");
+        std::fs::write(&out_path, out).expect("write reports/explanation-resolution.json");
+        eprintln!(
+            "Wrote the resolution of {} rules and {} table keys to {}",
+            by_rule_id.len(),
+            by_table_key.len(),
+            out_path.display()
+        );
+    }
 }
