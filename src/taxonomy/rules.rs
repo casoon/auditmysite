@@ -3980,4 +3980,58 @@ mod tests {
         ids.dedup();
         assert_eq!(len_before, ids.len(), "Duplicate rule IDs found");
     }
+
+    /// Export every rule text of the catalogue into one data file for review:
+    /// one record per rule id, language and field, sorted.
+    ///
+    /// Ignored by default; run on demand to (re)generate the file:
+    ///   cargo test --lib export_all_rule_texts -- --ignored --nocapture
+    #[test]
+    #[ignore = "run on demand to regenerate reports/rule-texts.json"]
+    fn export_all_rule_texts() {
+        let mut records: Vec<(&str, &str, &str, String)> = Vec::new();
+        for rule in RULES {
+            for (lang, title, user_impact, technical_impact) in [
+                ("de", rule.title, rule.user_impact, rule.technical_impact),
+                (
+                    "en",
+                    rule.title_en,
+                    rule.user_impact_en,
+                    rule.technical_impact_en,
+                ),
+            ] {
+                records.push((rule.id, lang, "title", title.to_string()));
+                records.push((rule.id, lang, "user_impact", user_impact.to_string()));
+                records.push((
+                    rule.id,
+                    lang,
+                    "technical_impact",
+                    technical_impact.to_string(),
+                ));
+            }
+        }
+        records.sort();
+        let records: Vec<serde_json::Value> = records
+            .into_iter()
+            .map(|(rule_id, lang, field, text)| {
+                serde_json::json!({
+                    "rule_id": rule_id,
+                    "lang": lang,
+                    "field": field,
+                    "text": text,
+                })
+            })
+            .collect();
+
+        let out_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("reports");
+        std::fs::create_dir_all(&out_dir).expect("create reports/");
+        let out_path = out_dir.join("rule-texts.json");
+        let out = serde_json::to_string_pretty(&records).expect("serialize rule texts");
+        std::fs::write(&out_path, out).expect("write reports/rule-texts.json");
+        eprintln!(
+            "Wrote {} rule text records to {}",
+            records.len(),
+            out_path.display()
+        );
+    }
 }
