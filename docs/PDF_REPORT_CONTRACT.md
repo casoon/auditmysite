@@ -138,10 +138,17 @@ surface that owns its lifecycle:
 - `locales/{de,en}/rules.ftl`: the texts of the rule catalogue
   (`src/taxonomy/rules.rs`): one message per rule id, the title as its value,
   user impact and technical impact as attributes. Read through `Rule::title`,
-  `Rule::user_impact` and `Rule::technical_impact`.
-- `src/output/explanations.rs`: WCAG rule explanations, examples, user impact,
-  causes, fix recommendations, owner role, and effort. These are rule catalog
-  facts rather than layout labels. Do not add generic report UI copy here.
+  `Rule::user_impact` and `Rule::technical_impact`. The same files hold the
+  explanation texts of `src/output/explanations.rs`: one message
+  `explanation-<key>` per entry of the explanation table, the customer title as
+  its value, description, user impact, typical cause, recommendation and
+  technical note as attributes. Read through the methods of `RuleExplanation`
+  (`customer_title`, `customer_description`, `user_impact`, `typical_cause`,
+  `recommendation`, `technical_note`).
+- `src/output/explanations.rs`: the explanation table itself: which rule keys
+  have an explanation, owner role, effort, and the code examples (canonical
+  English). These are rule catalog facts rather than layout labels; their prose
+  lives in `rules.ftl`. Do not add generic report UI copy here.
 - `src/audit/interpretation.rs`: computed interpretation sentences that depend
   on normalized audit signals and must be available before the output layer is
   built. Prefer Fluent keys in the interpretation model when the text is a fixed

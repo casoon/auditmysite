@@ -193,7 +193,7 @@ src/
 │   │   ├── sanitize.rs  # Drops glyphs no report font can display (PDF/UA)
 │   │   └── detail_modules/ # Per-module chapter renderers
 │   ├── report_model.rs  # ViewModel structs for PDF
-│   ├── explanations.rs  # interpret_score() and shared explanation text
+│   ├── explanations.rs  # Explanation table (EXPLANATIONS: owner role, effort, code examples per rule key) and its lookup; the prose comes from `locales/<lang>/rules.ftl` via `RuleExplanation::customer_title`/`customer_description`/`user_impact`/`typical_cause`/`recommendation`/`technical_note(en)`, key = `explanation_text_key(key)` (#935)
 │   ├── search_experience.rs # Search/AI-visibility presentation helpers
 │   ├── localized.rs     # Locale-aware text helpers
 │   ├── renderer.rs      # Top-level format dispatch
@@ -320,12 +320,12 @@ src/
 ├── studio/              # Studio contract types (GUI data contract)
 │   └── mod.rs
 │
-└── i18n/                # Project Fluent (.ftl) loader, library default language: German (the CLI default is English); one bundle per language from `locales/<lang>/report.ftl` (report texts) and `rules.ftl` (rule catalogue texts, one message per rule id with attributes, #935); `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts, `I18n::attr` = message attributes
+└── i18n/                # Project Fluent (.ftl) loader, library default language: German (the CLI default is English); one bundle per language from `locales/<lang>/report.ftl` (report texts) and `rules.ftl` (rule catalogue texts, one message per rule id with attributes, and explanation texts, one message per entry of the explanation table with attributes, #935); `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts, `I18n::attr` = message attributes
     └── mod.rs
 
 locales/                 # Fluent sources, compiled in with include_str!
 ├── de/                  # report.ftl, rules.ftl
-└── en/                  # same key sets as de/ (guard tests in i18n and taxonomy::rules)
+└── en/                  # same key sets as de/ (guard tests in i18n, taxonomy::rules and output::explanations)
 ```
 
 ## Data Flow

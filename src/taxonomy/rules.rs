@@ -2775,6 +2775,7 @@ pub static RULES: &[Rule] = &[
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::i18n::ftl_entries;
 
     #[test]
     fn test_rule_lookup_by_id() {
@@ -2843,31 +2844,6 @@ mod tests {
     const RULES_FTL_DE: &str = include_str!("../../locales/de/rules.ftl");
     const RULES_FTL_EN: &str = include_str!("../../locales/en/rules.ftl");
 
-    /// What a `rules.ftl` defines: every message with a value as `key`, every
-    /// attribute as `key.attribute`. The file holds one text per line, so any
-    /// other line than a comment or `name = text` fails here.
-    fn ftl_entries(ftl: &str) -> std::collections::BTreeSet<String> {
-        let mut entries = std::collections::BTreeSet::new();
-        let mut message = "";
-        for line in ftl.lines() {
-            if line.is_empty() || line.starts_with('#') {
-                continue;
-            }
-            let (name, text) = line
-                .split_once(" = ")
-                .unwrap_or_else(|| panic!("not a `name = text` line: {line}"));
-            assert!(!text.trim().is_empty(), "no text: {line}");
-            match name.strip_prefix("    .") {
-                Some(attribute) => entries.insert(format!("{message}.{attribute}")),
-                None => {
-                    message = name;
-                    entries.insert(name.to_string())
-                }
-            };
-        }
-        entries
-    }
-
     /// The entries `RULES` needs in each `rules.ftl`.
     fn expected_entries() -> std::collections::BTreeSet<String> {
         RULES
@@ -2901,12 +2877,17 @@ mod tests {
     }
 
     /// Every rule has its title and both impacts in German and English, and
-    /// neither file holds a message or attribute no rule reads.
+    /// neither file holds a `rule-` message or attribute no rule reads. The
+    /// rest of the file is the explanation texts: `output::explanations::tests`
+    /// holds everything that is not a `rule-` message to that table.
     #[test]
     fn rules_ftl_holds_exactly_the_texts_of_the_catalogue() {
         let expected = expected_entries();
         for (locale, ftl) in [("de", RULES_FTL_DE), ("en", RULES_FTL_EN)] {
-            let entries = ftl_entries(ftl);
+            let entries: std::collections::BTreeSet<String> = ftl_entries(ftl)
+                .into_iter()
+                .filter(|entry| entry.starts_with("rule-"))
+                .collect();
             let missing: Vec<_> = expected.difference(&entries).collect();
             let unused: Vec<_> = entries.difference(&expected).collect();
             assert!(
