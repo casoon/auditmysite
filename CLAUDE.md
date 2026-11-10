@@ -96,7 +96,8 @@ Common pitfall: new fields in `NormalizedReport` break struct initializers in
 `PipelineConfig` is `#[non_exhaustive]` and built from `PipelineConfig::default()` (the default
 CLI run) plus `with_*` setters or field assignment (#933), so a new field no longer breaks Studio
 or the doc example in `src/lib.rs`: give it its value in `Default` and let `from_args_and_config`
-set it from the arguments; the test `default_is_the_default_cli_run` fails if the two disagree.
+set it from the arguments; the test `default_is_the_default_cli_run` fails if the two disagree
+(both live in `src/cli/from_args.rs`, #934).
 
 ## Workflows (`.github/workflows/`)
 - The repo is public: Quick CI runs on PRs and pushes to `main`; full QA runs via `workflow_call`
@@ -219,10 +220,13 @@ Whenever a new module is added, renamed, or removed, update `docs/ARCHITECTURE.m
   new shared types (level, status, report models) do not belong in `cli/args.rs` or in the
   orchestration `audit/pipeline`. Shared value types (`WcagLevel`, `InteractiveMode`,
   `ReportLevel`, `AnnexKind`) live in `src/model/`, which imports nothing else from the crate;
-  `cli` only re-exports them (#934). Do not add more backward edges — the rework proceeds
-  step by step, not on the side in feature PRs. `cargo test --test architecture_test` counts
-  them: `tests/fixtures/architecture/backward_imports.txt` for the analysis modules and
-  `cli_imports.txt` for `crate::cli` outside `cli/`; both baselines may only shrink.
+  `cli` only re-exports them (#934). `cli` is the entry layer: nothing outside `src/cli/` and
+  `src/main.rs` names `crate::cli`; what a lower layer needs from the arguments it takes as its
+  own type (`PipelineConfig`, `BatchConfig`, `output::terminal::TerminalOptions`), built in
+  `src/cli/from_args.rs`. Do not add more backward edges — the rework proceeds step by step,
+  not on the side in feature PRs. `cargo test --test architecture_test` enforces both: the
+  `cli` rule is strict, and `tests/fixtures/architecture/backward_imports.txt` counts the
+  analysis-module imports as a baseline that may only shrink.
 
 ## Current State (v2.0.2)
 `CHANGELOG.md` follows Keep a Changelog (skill `keep-a-changelog`): every user-facing change gets
