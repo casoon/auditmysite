@@ -308,6 +308,65 @@ fn test_batch_json_report_generation() {
     assert_matches_schema(&parsed, "json-batch-report.schema.json");
 }
 
+/// `--annotations` (#961): the `annotations` block is part of the published
+/// contract, in single and batch reports, and the rest of the report stays
+/// valid and unchanged.
+#[test]
+fn test_annotations_block_matches_both_schemas() {
+    use auditmysite::annotations::AnnotationFile;
+
+    let report = create_test_report();
+    let normalized = normalize(&report);
+    let finding = &normalized.normalized.findings[0];
+    let text = serde_json::json!({
+        "schema": 1,
+        "annotations": [
+            {
+                "finding_id": finding.id,
+                "pattern_id": finding.patterns[0].id,
+                "author": { "kind": "agent", "name": "reviewer-agent 0.1" },
+                "assessment": "likely_issue",
+                "reasoning": "The alt text repeats the file name.",
+                "evidence": [{ "kind": "text", "text": "IMG_2041.jpg" }],
+                "created": "2026-11-06",
+                "future_field": true
+            },
+            {
+                "scope": "reading_flow",
+                "author": { "kind": "human", "name": "reviewer" },
+                "assessment": "undetermined",
+                "reasoning": "Navigation announced twice."
+            },
+            {
+                "finding_id": "F-00000000",
+                "author": { "kind": "human", "name": "reviewer" },
+                "assessment": "likely_fine",
+                "reasoning": "Gone since the last run."
+            }
+        ]
+    })
+    .to_string();
+    let file = AnnotationFile::parse(&text, "a.json", std::path::Path::new(".")).unwrap();
+
+    let resolved = file.resolve_normalized(&[&normalized.normalized]);
+    let single = UnifiedReport::single(&normalized, &report).with_annotations(&resolved);
+    let parsed: serde_json::Value = serde_json::from_str(&single.to_json(false).unwrap()).unwrap();
+    assert_eq!(parsed["annotations"]["counts"]["matched"], 1);
+    assert_eq!(parsed["annotations"]["counts"]["unmatched"], 2);
+    assert_matches_schema(&parsed, "json-report.schema.json");
+
+    let batch = BatchReport::from_reports(vec![report.clone()], vec![], 1500);
+    let batch_normalized = normalize(&batch.reports[0]);
+    let resolved = file.resolve_normalized(&[&batch_normalized.normalized]);
+    let json = UnifiedReport::batch(&batch).with_annotations(&resolved);
+    let parsed: serde_json::Value = serde_json::from_str(&json.to_json(false).unwrap()).unwrap();
+    assert_eq!(
+        parsed["annotations"]["matched"][0]["url"],
+        "https://example.com"
+    );
+    assert_matches_schema(&parsed, "json-batch-report.schema.json");
+}
+
 // ─── Studio Contract Tests ────────────────────────────────────────
 
 #[test]

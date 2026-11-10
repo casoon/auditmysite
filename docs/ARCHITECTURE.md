@@ -25,6 +25,7 @@ src/
 ├── main.rs              # CLI entry point
 ├── lib.rs               # Library exports
 ├── error.rs             # Error types (AuditError)
+├── annotations.rs       # --annotations (#961): reads the barrierlab annotation file, matches it to findings; outputs render the result apart from the findings
 ├── util.rs              # Utility functions
 │
 ├── bin/

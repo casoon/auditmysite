@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 use colored::Colorize;
 
+use auditmysite::annotations::{AnnotationFile, Resolved};
 use auditmysite::audit::{normalize_checked, validate_batch};
 use auditmysite::cli::{Args, OutputFormat};
 use auditmysite::error::{AuditError, Result};
@@ -14,11 +15,14 @@ use auditmysite::error::{AuditError, Result};
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::technician;
 use auditmysite::output::{
-    export_snapshot_yaml, export_sr_audit, format_ai_json, format_sarif, format_summary,
-    UnifiedReport,
+    export_snapshot_yaml, export_sr_audit, format_ai_json_with_annotations, format_sarif,
+    format_summary, UnifiedReport,
 };
 #[cfg(feature = "pdf")]
-use auditmysite::output::{generate_batch_pdf, generate_batch_typ, generate_pdf, generate_typ};
+use auditmysite::output::{
+    generate_batch_pdf_with_annotations, generate_batch_typ_with_annotations,
+    generate_pdf_with_annotations, generate_typ_with_annotations,
+};
 
 #[cfg(feature = "pdf")]
 use crate::output_paths::output_bytes;
@@ -29,12 +33,57 @@ use crate::output_paths::{
     per_page_output_directory, per_page_output_path,
 };
 
+/// Formats that show annotations; for the others the option is reported as
+/// unused rather than silently ignored.
+fn warn_annotations_unused(args: &Args, format: OutputFormat) {
+    if args.annotations.is_some()
+        && !args.quiet
+        && !matches!(
+            format,
+            OutputFormat::Json | OutputFormat::Pdf | OutputFormat::Ai
+        )
+    {
+        eprintln!(
+            "{} --annotations has no effect with -f {format} (shown in json, pdf and ai only)",
+            "Warning:".yellow().bold(),
+        );
+    }
+}
+
+fn load_annotation_file(args: &Args) -> Result<Option<AnnotationFile>> {
+    args.annotations
+        .as_deref()
+        .map(AnnotationFile::load)
+        .transpose()
+        .map_err(|e| AuditError::ConfigError(e.to_string()))
+}
+
 pub(crate) fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Result<()> {
     let normalized = normalize_checked(report)?;
+    warn_annotations_unused(args, args.effective_format());
+    let annotations =
+        load_annotation_file(args)?.map(|file| file.resolve_normalized(&[&normalized.normalized]));
+    output_single_report_with(report, &normalized, args, annotations.as_ref())
+}
+
+/// `annotations` is already matched (a per-page batch report receives its own
+/// slice of the run's matches); `args.annotations` is not read here.
+fn output_single_report_with(
+    report: &auditmysite::AuditReport,
+    normalized: &auditmysite::audit::AuditContext<'_>,
+    args: &Args,
+    annotations: Option<&Resolved>,
+) -> Result<()> {
+    let single_json = || -> Result<String> {
+        let mut unified = UnifiedReport::single(normalized, report);
+        if let Some(resolved) = annotations {
+            unified = unified.with_annotations(resolved);
+        }
+        unified.to_json(true)
+    };
     match args.effective_format() {
         OutputFormat::Json => {
-            let unified = UnifiedReport::single(&normalized, report);
-            let output = unified.to_json(true)?;
+            let output = single_json()?;
             output_text(&output, &args.output, "JSON", args.quiet)?;
             if let Some(ref snap_path) = args.dev.export_snapshot {
                 export_snapshot_yaml(report, snap_path).map_err(|e| AuditError::OutputError {
@@ -74,23 +123,21 @@ pub(crate) fn output_single_report(report: &auditmysite::AuditReport, args: &Arg
                     locale: args.lang.clone(),
                     annex: args.annex,
                 };
-                let pdf_bytes = generate_pdf(report, &config).map_err(|e| {
-                    AuditError::ReportGenerationFailed {
+                let pdf_bytes = generate_pdf_with_annotations(report, &config, annotations)
+                    .map_err(|e| AuditError::ReportGenerationFailed {
                         reason: e.to_string(),
-                    }
-                })?;
+                    })?;
                 if let Some(json_path) = auto_json_path.as_ref() {
-                    let unified = UnifiedReport::single(&normalized, report);
-                    let json_output = unified.to_json(true)?;
+                    let json_output = single_json()?;
                     output_text(&json_output, &Some(json_path.clone()), "JSON", args.quiet)?;
                 }
                 output_bytes(&pdf_bytes, &path, "PDF", args.quiet)?;
                 if args.dev.debug_typ {
-                    let typ = generate_typ(report, &config).map_err(|e| {
-                        AuditError::ReportGenerationFailed {
+                    let typ = generate_typ_with_annotations(report, &config, annotations).map_err(
+                        |e| AuditError::ReportGenerationFailed {
                             reason: e.to_string(),
-                        }
-                    })?;
+                        },
+                    )?;
                     let typ_path = path.with_extension("typ");
                     output_text(&typ, &Some(typ_path), "Typst source", args.quiet)?;
                 }
@@ -113,7 +160,7 @@ pub(crate) fn output_single_report(report: &auditmysite::AuditReport, args: &Arg
             }
         }
         OutputFormat::Ai => {
-            let output = format_ai_json(report)?;
+            let output = format_ai_json_with_annotations(report, annotations)?;
             output_text(&output, &args.output, "AI JSON", args.quiet)?;
         }
         OutputFormat::Summary => {
@@ -162,15 +209,40 @@ pub(crate) fn output_screen_reader_sidecar(
     Ok(())
 }
 
+/// Match the annotation file against every page of a batch once.
+fn resolve_batch_annotations(
+    batch_report: &auditmysite::audit::BatchReport,
+    args: &Args,
+) -> Result<Option<Resolved>> {
+    let Some(file) = load_annotation_file(args)? else {
+        return Ok(None);
+    };
+    let normalized = batch_report
+        .reports
+        .iter()
+        .map(normalize_checked)
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let refs: Vec<_> = normalized.iter().map(|n| &n.normalized).collect();
+    Ok(Some(file.resolve_normalized(&refs)))
+}
+
 pub(crate) fn output_batch_report(
     batch_report: &auditmysite::audit::BatchReport,
     args: &Args,
 ) -> Result<()> {
     validate_batch(batch_report)?;
+    warn_annotations_unused(args, args.effective_format());
+    let annotations = resolve_batch_annotations(batch_report, args)?;
+    let batch_json = || -> Result<String> {
+        let mut unified = auditmysite::output::UnifiedReport::batch(batch_report);
+        if let Some(resolved) = annotations.as_ref() {
+            unified = unified.with_annotations(resolved);
+        }
+        unified.to_json(true)
+    };
     match args.effective_format() {
         OutputFormat::Json => {
-            let unified = auditmysite::output::UnifiedReport::batch(batch_report);
-            let output = unified.to_json(true)?;
+            let output = batch_json()?;
             output_text(&output, &args.output, "JSON batch", args.quiet)?;
         }
         OutputFormat::Table => {
@@ -186,10 +258,13 @@ pub(crate) fn output_batch_report(
                     locale: args.lang.clone(),
                     annex: args.annex,
                 };
-                let pdf_bytes = generate_batch_pdf(batch_report, &config).map_err(|e| {
-                    AuditError::ReportGenerationFailed {
-                        reason: e.to_string(),
-                    }
+                let pdf_bytes = generate_batch_pdf_with_annotations(
+                    batch_report,
+                    &config,
+                    annotations.as_ref(),
+                )
+                .map_err(|e| AuditError::ReportGenerationFailed {
+                    reason: e.to_string(),
                 })?;
                 let path = args
                     .output
@@ -199,15 +274,17 @@ pub(crate) fn output_batch_report(
 
                 // Auto-generate JSON alongside batch PDF
                 let json_path = path.with_extension("json");
-                let unified = UnifiedReport::batch(batch_report);
-                let json_output = unified.to_json(true)?;
+                let json_output = batch_json()?;
                 output_text(&json_output, &Some(json_path), "JSON batch", args.quiet)?;
 
                 if args.dev.debug_typ {
-                    let typ = generate_batch_typ(batch_report, &config).map_err(|e| {
-                        AuditError::ReportGenerationFailed {
-                            reason: e.to_string(),
-                        }
+                    let typ = generate_batch_typ_with_annotations(
+                        batch_report,
+                        &config,
+                        annotations.as_ref(),
+                    )
+                    .map_err(|e| AuditError::ReportGenerationFailed {
+                        reason: e.to_string(),
                     })?;
                     let typ_path = path.with_extension("typ");
                     output_text(&typ, &Some(typ_path), "Typst source batch", args.quiet)?;
@@ -225,7 +302,10 @@ pub(crate) fn output_batch_report(
             let outputs = batch_report
                 .reports
                 .iter()
-                .map(format_ai_json)
+                .map(|r| {
+                    let page = annotations.as_ref().map(|a| a.for_url(&r.url));
+                    format_ai_json_with_annotations(r, page.as_ref())
+                })
                 .collect::<std::result::Result<Vec<String>, _>>()?;
             let combined = format!("[\n{}\n]", outputs.join(",\n"));
             output_text(&combined, &args.output, "AI JSON batch", args.quiet)?;
@@ -277,6 +357,8 @@ pub(crate) fn output_batch_as_single_reports(
         );
     }
 
+    warn_annotations_unused(args, args.effective_format());
+    let annotations = resolve_batch_annotations(batch_report, args)?;
     let mut index_entries = HashMap::new();
     let mut rows = Vec::new();
     for report in &batch_report.reports {
@@ -291,7 +373,13 @@ pub(crate) fn output_batch_as_single_reports(
             single_args.report_level,
         );
         single_args.output = Some(path.clone());
-        output_single_report(report, &single_args)?;
+        let page_annotations = annotations.as_ref().map(|a| a.for_url(&report.url));
+        output_single_report_with(
+            report,
+            &normalize_checked(report)?,
+            &single_args,
+            page_annotations.as_ref(),
+        )?;
 
         if with_aggregates {
             let normalized = normalize_checked(report)?.normalized;

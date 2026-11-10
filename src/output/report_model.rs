@@ -152,6 +152,10 @@ pub struct ReportViewModel {
     /// them in the run language while the JSON keeps canonical English
     /// (#406, plan 35).
     pub management_risks: Vec<crate::audit::management_risk::ManagementRiskKind>,
+    /// External assessments of `--annotations` (#961). Set by the PDF entry
+    /// point, never by the view-model builder: nothing in the view model is
+    /// derived from them.
+    pub annotations: Option<crate::annotations::Resolved>,
 }
 
 pub struct PositiveSignal {
@@ -674,6 +678,8 @@ pub struct NarrativeArc {
 pub struct FindingGroup {
     pub title: String,
     pub rule_id: String,
+    /// `findings[].id` of the JSON (`F-…`); the key annotations attach by.
+    pub finding_id: String,
     pub wcag_criterion: String,
     pub wcag_level: String,
     /// Official reference URL for the criterion (e.g. WCAG Understanding page).

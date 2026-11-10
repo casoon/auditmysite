@@ -1386,3 +1386,30 @@ seo-cookie-inventory-risky =
         [one] ohne Secure/SameSite-Signal
        *[other] ohne Secure/SameSite-Signal
     }
+
+annotations-section-title = Einschätzungen
+annotations-section-intro = Externe Einschätzungen aus einer Annotationsdatei. Jede steht bei dem Befund, auf den sie sich bezieht. Es sind keine Befunde, und sie haben weder Ergebnis, Schweregrad, Wert, Risikostufe noch Exit-Code verändert.
+annotations-counts = { $total } Einschätzungen: { $agent } von Agenten, { $human } von Reviewern. { $matched } trafen einen Befund dieses Laufs, { $unmatched } keinen.
+annotations-label-agent = Einschätzung (Agent)
+annotations-label-human = Einschätzung (Reviewer)
+annotations-value-likely-issue = wahrscheinlich ein Problem
+annotations-value-likely-fine = wahrscheinlich unproblematisch
+annotations-value-undetermined = offen
+annotations-scope-reading-flow = Lesefluss
+annotations-evidence = Belege
+annotations-pattern = Elementmuster
+annotations-matched-title = Einschätzungen je Seite
+annotations-unmatched-title = Nicht zugeordnete Einschätzungen
+annotations-unmatched-intro = Diese Einschätzungen treffen in diesem Lauf nichts (der Befund kann behoben oder das Element geändert sein). Sie werden aufgeführt, nicht verworfen.
+annotations-col-page = Seite
+annotations-col-target = Befund
+annotations-col-author = Urheber
+annotations-col-assessment = Einschätzung
+annotations-col-reasoning = Begründung
+annotations-col-reason = Grund
+annotations-reason-finding-not-found = kein Befund mit dieser Kennung
+annotations-reason-pattern-not-found = Befund vorhanden, Elementmuster nicht
+annotations-reason-url-not-audited = Seite in diesem Lauf nicht geprüft
+annotations-reason-url-required = Lesefluss braucht in einem Lauf über mehrere Seiten eine URL
+annotations-reason-no-reading-flow = Seite hat keine Screenreader-Prüfung
+annotations-warnings-title = Hinweise zur Annotationsdatei

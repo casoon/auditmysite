@@ -37,6 +37,7 @@ Useful flags:
 - `--check-ssr-content`: reload the page with JavaScript disabled and flag an SSR/hydration content gap when essential content only appears client-side; one extra reload, requires the `seo` module (the default set or `--modules seo`), single-URL mode only
 - `--display <calm|text|visual|all>`: audit one display mode of the `data-display` convention — see [Display modes](../../guides/display-modes/)
 - `--exclude-selector <CSS>` (repeatable): drop findings inside the subtree a CSS selector matches — for markup that is broken on purpose, such as teaching specimens (see [Excluding intentional specimens](../../guides/excluding-specimens/))
+- `--annotations <file.json>`: show external assessments of findings next to them in the report, without changing any result, see [Annotations](#annotations)
 - `--color <auto|always|never>` / `--progress <auto|always|never>`: terminal color and batch progress policy; `--progress` is independent of `--quiet`
 
 For the full current interface, use:
@@ -179,6 +180,31 @@ Status: the SARIF structure, the fingerprints and the not-run handling are cover
 
 Schema check: download `sarif-2.1/schema/sarif-schema-2.1.0.json` from [oasis-tcs/sarif-spec](https://github.com/oasis-tcs/sarif-spec) (OASIS licence terms, so it is not vendored here) and run `AUDITMYSITE_SARIF_SCHEMA=<file> cargo test --test sarif_contract -- --ignored`.
 
+## Annotations
+
+`--annotations <file.json>` reads assessments that a person or an agent made after the rules ran (whether an alt text really says nothing, what a reading-flow pass noticed) and shows them next to the findings they belong to. The file format is defined once, in barrierlab: [annotation file](https://github.com/casoon/barrierlab/blob/main/docs/a11y/reference/annotations.md) with its [JSON Schema](https://github.com/casoon/barrierlab/blob/main/docs/a11y/reference/annotations.schema.json) (schema `1`; unknown fields are ignored). auditmysite reads it and stores nothing between runs.
+
+```bash
+auditmysite https://example.com --annotations annotations.json -f pdf
+auditmysite --sitemap https://example.com/sitemap.xml --annotations annotations.json -f json -o batch.json
+```
+
+What an annotation does not do: it never changes an outcome, severity, score, `legal_flags`, risk level, verdict, exit code or `--fail-on` result. `assessment` is `likely_issue`, `likely_fine` or `undetermined`; none of them turns a `review` finding into a failure or a pass. Without the option every output is byte-identical to a run that never heard of annotations.
+
+Matching:
+- `finding_id` (`F-…`) matches `pages[].findings[].id`; `pattern_id` (`RC-…`) narrows it to one `findings[].patterns[].id`. The ids depend on the rule and the normalised element pattern, so when an element changes, an old annotation becomes unmatched instead of attaching to something else.
+- In a batch run an annotation with `url` applies to that page only, one without `url` to every page that has the finding. URLs compare equal up to a trailing slash.
+- Scope `reading_flow` attaches to the page's screen-reader audit section. In a run of several pages it needs `url`.
+- An annotation that matches nothing is listed as unmatched with a reason (`finding_not_found`, `pattern_not_found`, `url_not_audited`, `url_required`, `no_reading_flow`), never dropped.
+
+Where it shows:
+- **JSON** (`-f json`, also the JSON written next to a PDF): a top-level `annotations` block with `counts`, `matched` (each with the `url` and `finding_id` it attached to) and `unmatched`; `warnings` lists evidence screenshots that were not found next to the file. The block is part of both JSON schemas; the findings themselves are untouched.
+- **PDF:** below each annotated finding as a callout titled "Assessment (agent)" or "Assessment (reviewer)" (German: "Einschätzung (Agent)" / "Einschätzung (Reviewer)") followed by the value, the reasoning, the author and the evidence. The screen-reader section shows the `reading_flow` ones. A short "Assessments" section gives the counts per author kind and lists the unmatched. The batch PDF aggregates findings across pages, so there the section lists every matched assessment per page instead of marking individual findings; the executive level, which has no finding cards, does the same.
+- **`-f ai`:** tasks of an annotated finding carry `finding_id` and `annotations`; with `pattern_id` only the tasks of that element pattern do. Annotations that sit on no task (reading flow, findings that are not WCAG tasks, unmatched) are in a top-level `annotations` object.
+- **table, SARIF, summary:** unchanged; the option prints a warning there instead of being ignored silently. With `--per-page-reports` each page file gets the matches of its page and the annotations that matched no page of the run.
+
+The file is validated when the arguments are parsed, before any page is loaded: an unreadable file, invalid JSON or a violation of the schema (a missing `finding_id` for scope `finding`, an `assessment` of `fail`, an empty `reasoning`, an unknown `author.kind`) stops the run with a message naming the annotation and exit code 2, like any other invalid argument. A missing evidence file is only a warning.
+
 ## Output Contract
 
 JSON output is treated as an automation contract.
@@ -195,6 +221,7 @@ Key fields in a single-page report:
 - `audit_scope` and `execution_environment` — requested modules, viewports, throttle profiles, interaction mode, browser context, and live/cache provenance
 - `audit_quality` plus `pages[].detail.module_runs` and `pages[].detail.rule_outcomes` — distinguish complete, partial, failed, skipped, and non-applicable checks so a measurement failure cannot look like a clean result
 - `pages[].detail.accessibility_assessments` — structured warnings, manual-review items, and positive signals kept separate from confirmed violations and scoring
+- `annotations` — external assessments read from `--annotations`; present only with that option, see [Annotations](#annotations)
 - `artifacts` — descriptors for separately written evidence or screen-reader sidecars without embedding binary data in the main JSON
 - `build_id` — git short-SHA of the binary that produced the report (suffixed `-dirty` for builds from uncommitted changes, `unknown` for builds without a `.git` directory), so two reports with the same `tool_version` can be told apart
 - `pages[].detail.en301549_annex` and `pages[].detail.bik_guide` — findings mapped to EN 301 549 clauses and to the "BIK für Alle" editorial guide chapters; always present, independent of `--annex`

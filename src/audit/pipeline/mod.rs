@@ -2419,6 +2419,7 @@ mod tests {
             annex: None,
             request_mode: crate::cli::RequestMode::Browser,
             report_mode: false,
+            annotations: None,
         };
 
         let config = PipelineConfig::from(&args);

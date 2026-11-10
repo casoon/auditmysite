@@ -135,6 +135,11 @@ pub struct UnifiedReport {
     /// version and the profile it was computed with. The page's (single) or
     /// the batch summary's stored decision; never recomputed here.
     pub decision: VerdictResult,
+    /// External assessments read from `--annotations`, shown apart from the
+    /// findings (#961). Absent without the option; never read by the verdict,
+    /// the scores or the exit code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<crate::annotations::AnnotationsBlock>,
 }
 
 #[derive(Debug, Serialize)]
@@ -1184,7 +1189,14 @@ impl UnifiedReport {
             errors,
             collection_errors,
             decision: batch_report.summary.decision.clone(),
+            annotations: None,
         }
+    }
+
+    /// Attach the matched and unmatched annotations of this run (#961).
+    pub fn with_annotations(mut self, resolved: &crate::annotations::Resolved) -> Self {
+        self.annotations = Some(resolved.to_block());
+        self
     }
 
     /// Serialize to a JSON string.
@@ -1320,6 +1332,7 @@ impl UnifiedReport {
             errors: Vec::new(),
             collection_errors: Vec::new(),
             decision: ctx.normalized.decision.clone(),
+            annotations: None,
         }
     }
 
@@ -1407,6 +1420,7 @@ impl UnifiedReport {
             errors: Vec::new(),
             collection_errors: Vec::new(),
             decision: normalized.decision.clone(),
+            annotations: None,
         }
     }
 }

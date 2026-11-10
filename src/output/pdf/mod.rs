@@ -3,6 +3,7 @@
 //! Pure layout layer — receives pre-computed ViewModel blocks and maps them
 //! directly to renderreport components. Zero data transformation here.
 
+mod annotations;
 mod appendix;
 mod batch_report;
 mod bik_guide;
@@ -20,7 +21,10 @@ mod score_drivers;
 mod single_report;
 mod wcag_coverage;
 
-pub use self::batch_report::{generate_batch_pdf, generate_batch_typ};
+pub use self::batch_report::{
+    generate_batch_pdf, generate_batch_pdf_with_annotations, generate_batch_typ,
+    generate_batch_typ_with_annotations,
+};
 
 use crate::output::localized::is_english;
 use renderreport::components::advanced::{
@@ -61,8 +65,18 @@ const PAGE_MOBILE_SCREENSHOT_ASSET: &str = "/auditmysite-mobile-preview.png";
 //   Page 6+ — Tech Details (implement: WCAG details, code examples, modules)
 
 pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Result<Vec<u8>> {
+    generate_pdf_with_annotations(report, config, None)
+}
+
+/// [`generate_pdf`] with the external assessments of `--annotations` (#961).
+/// `None` renders exactly what `generate_pdf` renders.
+pub fn generate_pdf_with_annotations(
+    report: &AuditReport,
+    config: &ReportConfig,
+    annotations: Option<&crate::annotations::Resolved>,
+) -> anyhow::Result<Vec<u8>> {
     let pdf_bytes: anyhow::Result<Vec<u8>> = (|| {
-        let (engine, mut built_report) = build_single_report(report, config)?;
+        let (engine, mut built_report) = build_single_report(report, config, annotations)?;
         self::sanitize::render_pdf_sanitized(&engine, &mut built_report)
     })();
     cleanup_screenshot_temps(report);
@@ -75,8 +89,17 @@ pub fn generate_pdf(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 /// checks (issue #239) — lets reviewers inspect completeness and wording without
 /// going through the heavy PDF + pdftotext pipeline.
 pub fn generate_typ(report: &AuditReport, config: &ReportConfig) -> anyhow::Result<String> {
+    generate_typ_with_annotations(report, config, None)
+}
+
+/// [`generate_typ`] with the external assessments of `--annotations` (#961).
+pub fn generate_typ_with_annotations(
+    report: &AuditReport,
+    config: &ReportConfig,
+    annotations: Option<&crate::annotations::Resolved>,
+) -> anyhow::Result<String> {
     let typ: anyhow::Result<String> = (|| {
-        let (engine, mut built_report) = build_single_report(report, config)?;
+        let (engine, mut built_report) = build_single_report(report, config, annotations)?;
         self::sanitize::sanitize_request(&mut built_report, &Default::default());
         Ok(engine.render_typ(&built_report)?)
     })();
@@ -87,13 +110,15 @@ pub fn generate_typ(report: &AuditReport, config: &ReportConfig) -> anyhow::Resu
 fn build_single_report(
     report: &AuditReport,
     config: &ReportConfig,
+    annotations: Option<&crate::annotations::Resolved>,
 ) -> anyhow::Result<(
     std::sync::Arc<renderreport::Engine>,
     renderreport::RenderRequest,
 )> {
     let normalized = normalize_checked(report)?;
     let engine = create_engine();
-    let vm = build_view_model(&normalized, config);
+    let mut vm = build_view_model(&normalized, config);
+    vm.annotations = annotations.cloned();
     let i18n = I18n::new(&config.locale)?;
 
     let mut builder = engine
@@ -253,6 +278,10 @@ fn build_single_report(
 
     // Executive level stops here
     if vm.meta.report_level == ReportLevel::Executive {
+        // No finding cards at this level, so the assessments are listed here.
+        if let Some(resolved) = vm.annotations.as_ref() {
+            builder = self::annotations::render_assessments_section(builder, resolved, true, &i18n);
+        }
         builder = builder
             .add_component(
                 Callout::info(&vm.methodology.limitations)

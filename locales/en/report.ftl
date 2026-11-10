@@ -1383,3 +1383,30 @@ seo-cookie-inventory-risky =
         [one] without Secure/SameSite signal
        *[other] without Secure/SameSite signal
     }
+
+annotations-section-title = Assessments
+annotations-section-intro = External assessments read from an annotation file. Each one is shown next to the finding it belongs to. They are not findings and changed no outcome, severity, score, risk level or exit code.
+annotations-counts = { $total } assessments: { $agent } by agents, { $human } by reviewers. { $matched } matched a finding of this run, { $unmatched } matched none.
+annotations-label-agent = Assessment (agent)
+annotations-label-human = Assessment (reviewer)
+annotations-value-likely-issue = likely an issue
+annotations-value-likely-fine = likely fine
+annotations-value-undetermined = undetermined
+annotations-scope-reading-flow = Reading flow
+annotations-evidence = Evidence
+annotations-pattern = Element pattern
+annotations-matched-title = Assessments by page
+annotations-unmatched-title = Unmatched assessments
+annotations-unmatched-intro = These assessments match nothing in this run (the finding may be fixed or the element changed). They are listed, not dropped.
+annotations-col-page = Page
+annotations-col-target = Finding
+annotations-col-author = Author
+annotations-col-assessment = Assessment
+annotations-col-reasoning = Reasoning
+annotations-col-reason = Why unmatched
+annotations-reason-finding-not-found = no finding with this id
+annotations-reason-pattern-not-found = finding present, element pattern not
+annotations-reason-url-not-audited = page not audited in this run
+annotations-reason-url-required = reading flow needs a page URL in a multi-page run
+annotations-reason-no-reading-flow = page has no screen-reader audit
+annotations-warnings-title = Notes on the annotation file

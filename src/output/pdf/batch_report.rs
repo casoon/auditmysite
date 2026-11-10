@@ -28,13 +28,31 @@ use privacy::render_batch_privacy;
 use seo::*;
 
 pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow::Result<Vec<u8>> {
-    let (engine, mut built_report) = build_batch_report(batch, config)?;
+    generate_batch_pdf_with_annotations(batch, config, None)
+}
+
+/// [`generate_batch_pdf`] with the external assessments of `--annotations`
+/// (#961): the batch report lists them in its "Assessments" section.
+pub fn generate_batch_pdf_with_annotations(
+    batch: &BatchReport,
+    config: &ReportConfig,
+    annotations: Option<&crate::annotations::Resolved>,
+) -> anyhow::Result<Vec<u8>> {
+    let (engine, mut built_report) = build_batch_report(batch, config, annotations)?;
     super::sanitize::render_pdf_sanitized(&engine, &mut built_report)
 }
 
 /// Render the intermediate Typst source for a batch report (hidden `--debug-typ`).
 pub fn generate_batch_typ(batch: &BatchReport, config: &ReportConfig) -> anyhow::Result<String> {
-    let (engine, mut built_report) = build_batch_report(batch, config)?;
+    generate_batch_typ_with_annotations(batch, config, None)
+}
+
+pub fn generate_batch_typ_with_annotations(
+    batch: &BatchReport,
+    config: &ReportConfig,
+    annotations: Option<&crate::annotations::Resolved>,
+) -> anyhow::Result<String> {
+    let (engine, mut built_report) = build_batch_report(batch, config, annotations)?;
     super::sanitize::sanitize_request(&mut built_report, &Default::default());
     Ok(engine.render_typ(&built_report)?)
 }
@@ -42,6 +60,7 @@ pub fn generate_batch_typ(batch: &BatchReport, config: &ReportConfig) -> anyhow:
 fn build_batch_report(
     batch: &BatchReport,
     config: &ReportConfig,
+    annotations: Option<&crate::annotations::Resolved>,
 ) -> anyhow::Result<(
     std::sync::Arc<renderreport::Engine>,
     renderreport::RenderRequest,
@@ -124,6 +143,10 @@ fn build_batch_report(
 
     if let Some(ref consistency) = batch.consistency {
         builder = render_batch_consistency(builder, consistency, &pres, &i18n);
+    }
+
+    if let Some(resolved) = annotations {
+        builder = super::annotations::render_assessments_section(builder, resolved, true, &i18n);
     }
 
     builder = render_next_steps_batch(builder, &pres, &i18n);

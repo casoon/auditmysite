@@ -867,6 +867,7 @@ mod tests {
         FindingGroup {
             title: title.to_string(),
             rule_id: rule_id.to_string(),
+            finding_id: String::new(),
             wcag_criterion: String::new(),
             wcag_level: String::new(),
             help_url: None,

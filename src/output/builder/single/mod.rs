@@ -487,6 +487,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         appendix: build_appendix_block_from_normalized(&config.locale, &normalized.normalized),
         positive_signals: build_positive_signals(&config.locale, normalized),
         management_risks,
+        annotations: None,
     }
 }
 
