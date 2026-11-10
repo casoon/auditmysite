@@ -124,7 +124,7 @@ src/
 │   ├── dark_scheme.rs   # Second pass of the shared `contrast/*` rules under `prefers-color-scheme: dark` emulation when the page declares a dark scheme; findings keep the rule id and carry `color_scheme: dark` evidence (#917)
 │   ├── capture_collectors.rs # Capture-layer collectors (navigation, AX tree, consent, exclusion, frames, stability, rule execution, journeys) projected onto the contract
 │   ├── pipeline/        # Single page audit flow
-│   │   ├── mod.rs       # PipelineConfig, run_single_audit/audit_page (desktop + mobile pass), rule runs, artifact persistence
+│   │   ├── mod.rs       # PipelineConfig (`#[non_exhaustive]`, `Default` = the default CLI run, `with_*` setters), run_single_audit/audit_page (desktop + mobile pass), rule runs, artifact persistence
 │   │   ├── assembly.rs  # Sync post-processing: WCAG merge, viewport scores, report aggregation, module runs, audit quality
 │   │   └── throttled.rs # Throttled performance passes (single URL), tab recovery, canonical LhMobile adoption
 │   ├── batch.rs         # Sitemap/batch processing
@@ -139,6 +139,7 @@ src/
 │   ├── finding_titles.rs # German titles of non-WCAG findings by rule_id (JSON keeps the English check title)
 │   ├── finding_derive.rs # Derived finding fields: priority score, assurance (confidence/verification from detection method + evidence quality), complexity/expected-impact kinds + texts, BFSG relevance
 │   ├── signal_contract.rs # Versioned contracts of the heuristic signals (target, method, applicability, evidence, uncertainty, permitted interpretation, validation status); see docs/calibration.md
+│   ├── module_set.rs    # `Module` and `ModuleSet`: the modules a run selects next to the accessibility checks (`PipelineConfig.modules`, #933)
 │   ├── module_scores.rs # Per-module score entries (build_module_scores, UX/Journey a11y penalties)
 │   ├── risk_assessment.rs # RiskAssessment of the normalized report (level, thresholds, legal/blocking counts)
 │   ├── scoring.rs       # Score calculation

@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use tracing::warn;
 
 use crate::audit::module::{AuditModule, ModuleContext, ModuleData};
-use crate::audit::PipelineConfig;
+use crate::audit::{Module, PipelineConfig};
 use crate::error::Result;
 
 use super::analyze_html_conform;
@@ -26,7 +26,7 @@ impl AuditModule for HtmlConformModule {
     }
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
-        cfg.check_html_conform
+        cfg.modules.contains(Module::HtmlConform)
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {

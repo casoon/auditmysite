@@ -8,7 +8,7 @@
 use async_trait::async_trait;
 
 use crate::audit::module::{AuditModule, ModuleContext, ModuleData};
-use crate::audit::{AuditReport, PipelineConfig};
+use crate::audit::{AuditReport, Module, PipelineConfig};
 use crate::error::Result;
 
 use super::analyze_content_visibility;
@@ -26,7 +26,7 @@ impl AuditModule for ContentVisibilityModule {
     }
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
-        cfg.check_seo && cfg.runs_experimental_module("content_visibility")
+        cfg.modules.contains(Module::Seo) && cfg.runs_experimental_module("content_visibility")
     }
 
     fn depends_on(&self) -> &'static [&'static str] {

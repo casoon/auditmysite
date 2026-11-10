@@ -122,14 +122,16 @@ pub trait AuditModule: Send + Sync {
     /// ```
     /// use async_trait::async_trait;
     /// use auditmysite::audit::module::AuditModule;
-    /// use auditmysite::audit::PipelineConfig;
+    /// use auditmysite::audit::{Module, PipelineConfig};
     ///
     /// struct SeoModule;
     ///
     /// #[async_trait]
     /// impl AuditModule for SeoModule {
     ///     fn id(&self) -> &'static str { "seo" }
-    ///     fn is_enabled(&self, cfg: &PipelineConfig) -> bool { cfg.check_seo }
+    ///     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
+    ///         cfg.modules.contains(Module::Seo)
+    ///     }
     /// }
     ///
     /// assert_eq!(SeoModule.id(), "seo");
@@ -141,8 +143,8 @@ pub trait AuditModule: Send + Sync {
     }
 
     /// Whether this module should run in the current pipeline configuration.
-    /// Mirrors the existing `PipelineConfig.check_*` flags; A3 wires each
-    /// module's gate to the corresponding flag.
+    /// Mirrors `PipelineConfig.modules` and the sub-check flags; A3 wires each
+    /// module's gate to the corresponding entry.
     ///
     /// ```
     /// use async_trait::async_trait;

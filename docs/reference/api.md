@@ -14,6 +14,33 @@ library. The generated reference for every module, type and function is on
 One example: the `Baseline` type in the `audit` module (`from_violations`, `diff`, `load`,
 `save`) compares WCAG violations of a saved JSON report with a later run.
 
+### Configuring a run
+
+`PipelineConfig` (module `audit`) describes one audit. `PipelineConfig::default()` is the default
+CLI run: WCAG AA, the six modules of `--full`, no privacy check, no experimental indicators. Start
+from it and change what differs:
+
+```rust
+use auditmysite::audit::{Module, ModuleSet, PipelineConfig};
+use auditmysite::cli::WcagLevel;
+
+let mut config = PipelineConfig::default()
+    .with_wcag_level(WcagLevel::AAA)
+    .with_modules(ModuleSet::none().with(Module::Seo).with(Module::Mobile));
+config.timeout_secs = 60;
+config.persist_artifacts = false;
+```
+
+- `modules: ModuleSet` selects the modules that run next to the accessibility checks
+  (`Module::Performance`, `Seo`, `Security`, `Mobile`, `HtmlConform`, `Stack`, `Privacy`).
+  `ModuleSet::full()` is the six `--full` modules without `Privacy`, `ModuleSet::none()` the
+  accessibility checks alone; `with`, `without`, `contains`, `iter` and collecting from an
+  iterator of `Module` do the rest.
+- The setters cover what a run audits: `with_wcag_level`, `with_modules`, `with_experimental`
+  and `with_interactive`. Every other option is a public field and is assigned.
+- The struct and `Module` are `#[non_exhaustive]`: a new option or module is not a breaking
+  change, and code outside the crate cannot write the struct literal.
+
 ## Contracts and schemas
 
 | File | Content |

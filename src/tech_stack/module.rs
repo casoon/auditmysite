@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use tracing::warn;
 
 use crate::audit::module::{AuditModule, ModuleContext, ModuleData};
-use crate::audit::PipelineConfig;
+use crate::audit::{Module, PipelineConfig};
 use crate::error::Result;
 
 use super::analyze_tech_stack;
@@ -22,7 +22,7 @@ impl AuditModule for TechStackModule {
     }
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
-        cfg.check_stack
+        cfg.modules.contains(Module::Stack)
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {
@@ -40,45 +40,15 @@ impl AuditModule for TechStackModule {
 mod tests {
     use super::TechStackModule;
     use crate::audit::module::AuditModule;
-    use crate::audit::PipelineConfig;
-    use crate::cli::InteractiveMode;
-    use crate::wcag::WcagLevel;
+    use crate::audit::{Module, ModuleSet, PipelineConfig};
 
     fn config_with_stack(check_stack: bool) -> PipelineConfig {
-        PipelineConfig {
-            wcag_level: WcagLevel::AA,
-            timeout_secs: 30,
-            stability_budget_ms: 1500,
-            verbose: false,
-            full_audit: false,
-            check_performance: false,
-            check_seo: false,
-            check_security: false,
-            check_mobile: false,
-            check_html_conform: false,
-            check_privacy: false,
-            perf_runs: 1,
-            check_isolate_third_party_impact: false,
-            check_ssr_content: false,
-            check_stack,
-            experimental: Vec::new(),
-            rule_filter: crate::wcag::RuleFilterConfig::default(),
-            persist_artifacts: false,
-            capture_screenshots: false,
-            capture_element_evidence: false,
-            dismiss_consent: false,
-            exclude_selectors: Vec::new(),
-            interactive: InteractiveMode::Off,
-            allow_state_changes: false,
-            journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
-            session: Default::default(),
-            storage_state: None,
-            state_id: None,
-            lang: "de".to_string(),
-            display_mode: None,
-            indexability: Default::default(),
-            decision_profile: Default::default(),
-        }
+        let modules = if check_stack {
+            ModuleSet::none().with(Module::Stack)
+        } else {
+            ModuleSet::none()
+        };
+        PipelineConfig::default().with_modules(modules)
     }
 
     #[test]

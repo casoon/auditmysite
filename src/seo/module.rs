@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use tracing::warn;
 
 use crate::audit::module::{AuditModule, ModuleContext, ModuleData};
-use crate::audit::{AuditReport, PipelineConfig};
+use crate::audit::{AuditReport, Module, PipelineConfig};
 use crate::error::Result;
 
 use super::analyze_seo;
@@ -27,7 +27,7 @@ impl AuditModule for SeoModule {
     }
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
-        cfg.check_seo
+        cfg.modules.contains(Module::Seo)
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {

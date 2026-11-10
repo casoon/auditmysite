@@ -16,7 +16,7 @@ use tracing::warn;
 use crate::audit::collection::{CollectionMethod, CollectorSpec};
 use crate::audit::module::{AuditModule, ModuleContext, ModuleData};
 use crate::audit::PerformanceResults;
-use crate::audit::PipelineConfig;
+use crate::audit::{Module, PipelineConfig};
 use crate::error::Result;
 
 use super::{
@@ -38,7 +38,7 @@ impl AuditModule for PerformanceModule {
     }
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
-        cfg.check_performance
+        cfg.modules.contains(Module::Performance)
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {

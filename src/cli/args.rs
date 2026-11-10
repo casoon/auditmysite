@@ -634,6 +634,22 @@ pub enum ModuleChoice {
     Stack,
 }
 
+impl ModuleChoice {
+    /// The pipeline module this choice selects; `a11y` selects none.
+    pub fn module(self) -> Option<crate::audit::Module> {
+        use crate::audit::Module;
+        match self {
+            ModuleChoice::A11y => None,
+            ModuleChoice::Performance => Some(Module::Performance),
+            ModuleChoice::Seo => Some(Module::Seo),
+            ModuleChoice::Security => Some(Module::Security),
+            ModuleChoice::Mobile => Some(Module::Mobile),
+            ModuleChoice::HtmlConform => Some(Module::HtmlConform),
+            ModuleChoice::Stack => Some(Module::Stack),
+        }
+    }
+}
+
 /// Optional regulatory/editorial PDF appendix sections (opt-in, see `--annex`).
 #[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -822,6 +838,26 @@ impl Args {
     /// Whether no module selection narrows the default analysis set.
     pub fn full_audit_enabled(&self) -> bool {
         self.modules.is_empty()
+    }
+
+    /// The modules of the run for the pipeline: every module by default, only
+    /// the listed ones with `--modules`, plus the privacy check with
+    /// `--privacy-check`.
+    pub fn module_set(&self) -> crate::audit::ModuleSet {
+        use crate::audit::{Module, ModuleSet};
+        let selected = if self.modules.is_empty() {
+            ModuleSet::full()
+        } else {
+            self.modules
+                .iter()
+                .filter_map(|choice| choice.module())
+                .collect()
+        };
+        if self.privacy_check {
+            selected.with(Module::Privacy)
+        } else {
+            selected
+        }
     }
 
     /// Validate arguments
