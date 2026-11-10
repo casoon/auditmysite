@@ -22,8 +22,7 @@ use super::report::{
     RobotsSitemapConflict, SitemapDiagnostics, SitemapHttpIssue,
 };
 use super::Module;
-use crate::browser::{BrowserOptions, BrowserPool, PoolConfig, PAGE_RETURN_BUDGET_SECS};
-use crate::cli::{Args, RequestMode};
+use crate::browser::{BrowserPool, PoolConfig, PAGE_RETURN_BUDGET_SECS};
 use crate::error::{AuditError, Result};
 use crate::seo::{BotClass, RobotsAudit};
 use crate::util::build_browser_client;
@@ -39,41 +38,6 @@ pub struct BatchConfig {
     pub max_urls: usize,
     /// Pool configuration
     pub pool_config: PoolConfig,
-}
-
-impl From<&Args> for BatchConfig {
-    fn from(args: &Args) -> Self {
-        let pool_config = PoolConfig {
-            max_pages: args.effective_concurrency(),
-            browser_options: BrowserOptions {
-                // Parallel pages share one window; only then are tabs hidden.
-                focus_emulation: args.effective_concurrency() > 1,
-                session: args.session,
-                chrome_path: args.chrome_path.clone(),
-                no_sandbox: args.no_sandbox,
-                disable_images: args.disable_images,
-                timeout_secs: args.effective_timeout(),
-                verbose: args.verbose,
-                user_agent_override: (args.request_mode == RequestMode::Bot).then(|| {
-                    concat!(
-                        "auditmysite/",
-                        env!("CARGO_PKG_VERSION"),
-                        " (+https://github.com/casoon/auditmysite)"
-                    )
-                    .to_string()
-                }),
-                ..BrowserOptions::default()
-            },
-            acquire_timeout_secs: pool_acquire_timeout_secs(args.effective_timeout()),
-        };
-
-        Self {
-            pipeline: PipelineConfig::from(args),
-            concurrency: args.effective_concurrency(),
-            max_urls: args.max_pages,
-            pool_config,
-        }
-    }
 }
 
 /// Error from a single URL audit within a batch.
@@ -1239,21 +1203,6 @@ mod tests {
         // -t 120 as in the issue: 120 s page creation + 480 s attempt budget
         // + 15 s page return.
         assert_eq!(pool_acquire_timeout_secs(120), 615);
-    }
-
-    #[test]
-    fn batch_config_derives_pool_wait_from_timeout() {
-        use clap::Parser;
-        let args = Args::parse_from(["auditmysite", "https://example.com", "-c", "2", "-t", "120"]);
-        let config = BatchConfig::from(&args);
-        assert_eq!(config.pool_config.acquire_timeout_secs, 615);
-
-        let args = Args::parse_from(["auditmysite", "https://example.com"]);
-        let config = BatchConfig::from(&args);
-        assert_eq!(
-            config.pool_config.acquire_timeout_secs,
-            pool_acquire_timeout_secs(30)
-        );
     }
 
     #[test]

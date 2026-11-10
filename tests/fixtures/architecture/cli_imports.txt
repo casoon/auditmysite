@@ -2,11 +2,7 @@
 # `cli` is the entry layer; shared value types live in `model`. What is left are the consumers of
 # `Args` and the TOML config. Target: zero (#934, plan 96).
 # The baseline may only shrink: lower a count when a file loses imports, drop the line at zero.
-src/audit/batch.rs 1
 src/audit/budget.rs 1
-src/audit/catalog.rs 1
-src/audit/pipeline/assembly.rs 5
-src/audit/pipeline/mod.rs 14
 src/audit/verdict.rs 3
 src/output/terminal.rs 2
 src/output/tests/domain_preservation.rs 1
