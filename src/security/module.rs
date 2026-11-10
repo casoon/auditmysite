@@ -2,7 +2,7 @@
 //!
 //! Security analysis is URL-only and viewport-independent. Today
 //! `audit_page` fetches it once before the desktop/mobile passes and the
-//! per-pass `PipelineConfig` has `check_security = false`, so this module
+//! per-pass `PipelineConfig` has `Module::Security` removed, so this module
 //! is registered in the catalog but inert during `extract_snapshot`.
 //! A future refactor can hoist the top-level fetch into the catalog.
 
@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use tracing::warn;
 
 use crate::audit::module::{AuditModule, ModuleContext, ModuleData};
-use crate::audit::PipelineConfig;
+use crate::audit::{Module, PipelineConfig};
 use crate::error::Result;
 
 use super::analyze_security;
@@ -28,7 +28,7 @@ impl AuditModule for SecurityModule {
     }
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
-        cfg.check_security
+        cfg.modules.contains(Module::Security)
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {

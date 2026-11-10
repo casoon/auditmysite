@@ -6,12 +6,12 @@
 //! landmark from one hidden by an overlay (e.g. a consent banner covering
 //! `<main>` on mobile).
 //!
-//! Gate matches the previous inline behavior: `check_mobile || check_seo`.
+//! Gate matches the previous inline behavior: `Module::Mobile` or `Module::Seo`.
 
 use async_trait::async_trait;
 
 use crate::audit::module::{AuditModule, ModuleContext, ModuleData};
-use crate::audit::PipelineConfig;
+use crate::audit::{Module, PipelineConfig};
 use crate::error::Result;
 
 use super::analyze_journey_with_page_context;
@@ -69,7 +69,8 @@ impl AuditModule for JourneyModule {
     }
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
-        (cfg.check_mobile || cfg.check_seo) && cfg.runs_experimental_module("journey")
+        (cfg.modules.contains(Module::Mobile) || cfg.modules.contains(Module::Seo))
+            && cfg.runs_experimental_module("journey")
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {

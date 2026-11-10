@@ -26,6 +26,7 @@ pub mod interpretation;
 pub mod management_risk;
 pub mod module;
 mod module_scores;
+mod module_set;
 pub mod normalized;
 pub mod occurrence_analysis;
 pub mod performance_interpretation;
@@ -59,6 +60,7 @@ pub use crawl::{analyze_crawl_links, crawl_site, CrawlNode, CrawlResult};
 pub use duplicate::{detect_near_duplicates, DuplicatePair};
 pub use experimental::{ExperimentalIndicator, ExperimentalIndicators};
 pub use module::{AuditModule, ModuleContext, ModuleData, Viewport};
+pub use module_set::{Module, ModuleSet};
 pub use normalized::{AuditContext, NormalizedReport};
 
 /// Infallible normalization of a raw report: it derives a model even from a

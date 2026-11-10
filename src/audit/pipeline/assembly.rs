@@ -4,7 +4,7 @@
 
 use tracing::warn;
 
-use super::{PipelineConfig, SnapshotData};
+use super::{Module, PipelineConfig, SnapshotData};
 use crate::audit::catalog::AuditCatalog;
 use crate::audit::report::AuditReport;
 use crate::browser::ThrottleProfile;
@@ -459,7 +459,7 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
     let extra_checks = crate::audit::support_matrix::ExtraCheckRequest {
         isolate_third_party_impact: config.check_isolate_third_party_impact,
         check_ssr_content: config.check_ssr_content,
-        privacy_check: config.check_privacy,
+        privacy_check: config.modules.contains(Module::Privacy),
         ..Default::default()
     };
     let requested_subchecks = extra_checks.requested_subchecks();
@@ -470,7 +470,7 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
         requested_rules: crate::wcag::expectation::expected_rules(
             config.wcag_level,
             &config.rule_filter,
-            config.check_html_conform,
+            config.modules.contains(Module::HtmlConform),
         )
         .into_iter()
         .map(|rule| crate::audit::RequestedRule {
@@ -490,7 +490,7 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
             (!record.is_empty()).then_some(record)
         },
         wcag_level: config.wcag_level.to_string(),
-        full_audit: config.full_audit,
+        full_audit: config.is_full_audit(),
         measurement_profile: crate::audit::MeasurementProfile {
             version: crate::audit::MEASUREMENT_PROFILE_VERSION,
             session_policy: config.session.as_str().to_string(),
@@ -511,7 +511,7 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
         },
         interactive_mode: format!("{:?}", config.interactive).to_lowercase(),
         journey_budget_ms: config.journey_budget_ms,
-        throttling_profiles: if config.check_performance {
+        throttling_profiles: if config.modules.contains(Module::Performance) {
             ThrottleProfile::AUTO_PROFILES
                 .iter()
                 .map(|profile| profile.label().to_string())

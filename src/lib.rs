@@ -17,7 +17,7 @@
 //!
 //! ```no_run
 //! use auditmysite::browser::BrowserManager;
-//! use auditmysite::audit::{run_single_audit, PipelineConfig};
+//! use auditmysite::audit::{run_single_audit, ModuleSet, PipelineConfig};
 //! use auditmysite::cli::WcagLevel;
 //!
 //! #[tokio::main]
@@ -25,41 +25,13 @@
 //!     // Create browser manager (auto-detects Chrome)
 //!     let browser = BrowserManager::new().await?;
 //!
-//!     // Configure the audit
-//!     let config = PipelineConfig {
-//!         wcag_level: WcagLevel::AA,
-//!         full_audit: false,
-//!         timeout_secs: 30,
-//!         stability_budget_ms: 1500,
-//!         verbose: false,
-//!         check_performance: false,
-//!         check_seo: false,
-//!         check_security: false,
-//!         check_mobile: false,
-//!         check_html_conform: false,
-//!         check_privacy: false,
-//!         perf_runs: 1,
-//!         check_isolate_third_party_impact: false,
-//!         check_ssr_content: false,
-//!         check_stack: false,
-//!         experimental: Vec::new(),
-//!         rule_filter: auditmysite::wcag::RuleFilterConfig::default(),
-//!         persist_artifacts: true,
-//!         capture_screenshots: false,
-//!         capture_element_evidence: false,
-//!         dismiss_consent: false,
-//!         exclude_selectors: Vec::new(),
-//!         interactive: auditmysite::cli::InteractiveMode::Off,
-//!         allow_state_changes: false,
-//!         journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
-//!         session: Default::default(),
-//!         storage_state: None,
-//!         state_id: None,
-//!         lang: "de".to_string(),
-//!         display_mode: None,
-//!         indexability: Default::default(),
-//!         decision_profile: Default::default(),
-//!     };
+//!     // Configure the audit. `PipelineConfig::default()` is the default CLI
+//!     // run (WCAG AA, every module); this narrows it to the accessibility
+//!     // checks. Fields without a `with_*` setter are assigned directly.
+//!     let mut config = PipelineConfig::default()
+//!         .with_wcag_level(WcagLevel::AA)
+//!         .with_modules(ModuleSet::none());
+//!     config.timeout_secs = 30;
 //!
 //!     // Run audit
 //!     let report = run_single_audit("https://example.com", &browser, &config).await?;

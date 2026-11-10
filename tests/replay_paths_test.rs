@@ -13,7 +13,7 @@ mod common;
 use auditmysite::audit::normalized::NormalizedReport;
 use auditmysite::audit::{
     cached_report, content_hash, normalize_checked, profile_differences, replay, run_single_audit,
-    CacheMiss, ExpectedProfile, ReplayError, SnapshotArtifact,
+    CacheMiss, ExpectedProfile, Module, ModuleSet, ReplayError, SnapshotArtifact,
 };
 use auditmysite::browser::StorageState;
 use auditmysite::{BrowserManager, BrowserOptions, PipelineConfig, WcagLevel};
@@ -46,40 +46,10 @@ fn isolated_home() {
 }
 
 fn config() -> PipelineConfig {
-    PipelineConfig {
-        wcag_level: WcagLevel::AA,
-        timeout_secs: 30,
-        stability_budget_ms: 1500,
-        verbose: false,
-        full_audit: false,
-        check_performance: false,
-        check_seo: true,
-        check_security: false,
-        check_mobile: false,
-        check_html_conform: false,
-        check_privacy: false,
-        perf_runs: 1,
-        check_isolate_third_party_impact: false,
-        check_ssr_content: false,
-        check_stack: false,
-        experimental: Vec::new(),
-        rule_filter: auditmysite::wcag::RuleFilterConfig::default(),
-        persist_artifacts: true,
-        capture_screenshots: false,
-        capture_element_evidence: false,
-        dismiss_consent: false,
-        exclude_selectors: Vec::new(),
-        interactive: auditmysite::cli::InteractiveMode::Off,
-        allow_state_changes: false,
-        journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
-        session: Default::default(),
-        storage_state: None,
-        state_id: None,
-        lang: "en".to_string(),
-        display_mode: None,
-        indexability: Default::default(),
-        decision_profile: Default::default(),
-    }
+    PipelineConfig::default()
+        .with_wcag_level(WcagLevel::AA)
+        .with_modules(ModuleSet::none().with(Module::Seo))
+        .with_interactive(auditmysite::cli::InteractiveMode::Off)
 }
 
 async fn browser() -> BrowserManager {
@@ -178,11 +148,9 @@ fn another_measurement_profile_is_not_the_same_measurement() {
     )
     .unwrap();
         let digest = declared.digest.clone();
-        let in_state = PipelineConfig {
-            storage_state: Some(declared),
-            state_id: Some("settings-route".to_string()),
-            ..config()
-        };
+        let mut in_state = config();
+        in_state.storage_state = Some(declared);
+        in_state.state_id = Some("settings-route".to_string());
 
         // Same configuration twice: the same content, no difference to explain.
         let first = fresh(&fixture.url, &plain).await;

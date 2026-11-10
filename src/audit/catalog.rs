@@ -325,6 +325,7 @@ impl Default for AuditCatalog {
 mod tests {
     use super::*;
     use crate::audit::module::AuditModule;
+    use crate::audit::Module;
     use crate::cli::Args;
     use async_trait::async_trait;
     use clap::Parser;
@@ -571,12 +572,14 @@ mod tests {
     #[test]
     fn foundation_security_scope_includes_library_checks_without_performance() {
         let mut cfg = cfg();
-        cfg.check_performance = false;
-        cfg.check_security = true;
+        cfg.modules = cfg
+            .modules
+            .without(Module::Performance)
+            .with(Module::Security);
         assert!(AuditCatalog::standard()
             .enabled(&cfg)
             .any(|m| m.id() == "best_practices"));
-        cfg.check_security = false;
+        cfg.modules = cfg.modules.without(Module::Security);
         assert!(!AuditCatalog::standard()
             .enabled(&cfg)
             .any(|m| m.id() == "best_practices"));
