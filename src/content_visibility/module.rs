@@ -3,13 +3,12 @@
 //! Runs during the derive phase **after** both `source_quality` and
 //! `ai_visibility` have produced their fields — the content-visibility
 //! analysis reads them for EEAT, content-depth and topical-authority
-//! signals. Always enabled — matches the unconditional call site this
-//! replaces in `aggregate_report`.
+//! signals. Enabled by `--experimental content-visibility` (#916).
 
 use async_trait::async_trait;
 
 use crate::audit::module::{AuditModule, ModuleContext, ModuleData};
-use crate::audit::{AuditReport, PipelineConfig};
+use crate::audit::{AuditReport, Module, PipelineConfig};
 use crate::error::Result;
 
 use super::analyze_content_visibility;
@@ -27,7 +26,7 @@ impl AuditModule for ContentVisibilityModule {
     }
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
-        cfg.check_seo
+        cfg.modules.contains(Module::Seo) && cfg.runs_experimental_module("content_visibility")
     }
 
     fn depends_on(&self) -> &'static [&'static str] {

@@ -46,12 +46,13 @@ use super::report::{
 };
 use crate::accessibility::{enrich_violations_with_page, extract_ax_tree, AXTree};
 use crate::audit::scoring::AccessibilityScorer;
+use crate::audit::{ExperimentalIndicator, Module, ModuleSet};
 use crate::best_practices::{prepare_console_collection, BestPracticesAnalysis};
 use crate::browser::{
     consent::{handle_post_navigation, inject_consent_cookies},
     BrowserManager,
 };
-use crate::cli::{Args, WcagLevel};
+use crate::cli::{Args, ModuleChoice, WcagLevel};
 use crate::error::Result;
 use crate::interaction::stability::{settle, wait_for_finite_animations, wait_for_page_stability};
 use crate::journey::JourneyAnalysis;
@@ -323,8 +324,25 @@ impl SnapshotData {
 
 // ── Pipeline config ───────────────────────────────────────────────────────────
 
-/// Audit pipeline configuration
+/// Audit pipeline configuration.
+///
+/// [`PipelineConfig::default`] is the default CLI run. Start from it and
+/// change what differs, with the `with_*` setters or by assigning a field:
+///
+/// ```
+/// use auditmysite::audit::{Module, ModuleSet, PipelineConfig};
+/// use auditmysite::cli::WcagLevel;
+///
+/// let mut config = PipelineConfig::default()
+///     .with_wcag_level(WcagLevel::AAA)
+///     .with_modules(ModuleSet::none().with(Module::Seo));
+/// config.timeout_secs = 60;
+/// ```
+///
+/// Non-exhaustive: a new option is a new field, so code outside this crate
+/// cannot write the struct literal (nor `PipelineConfig { .., ..base }`).
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct PipelineConfig {
     /// WCAG conformance level to check
     pub wcag_level: WcagLevel,
@@ -334,31 +352,18 @@ pub struct PipelineConfig {
     pub stability_budget_ms: u64,
     /// Whether to be verbose
     pub verbose: bool,
-    /// Whether the user selected the full-audit preset.
-    pub full_audit: bool,
-    /// Run performance analysis
-    pub check_performance: bool,
-    /// Run SEO analysis
-    pub check_seo: bool,
-    /// Run security analysis
-    pub check_security: bool,
-    /// Run mobile friendliness analysis
-    pub check_mobile: bool,
-    /// Run HTML5 spec-conformance checking (html-conform crate). Part of
-    /// `--full`, no dedicated CLI flag.
-    pub check_html_conform: bool,
-    /// Run the pre-consent privacy check (#871): one extra visit in a clean
-    /// browser context, classified into technical findings. Opt-in via
-    /// `--privacy-check`, not part of `--full`. Runs once per URL
-    /// (`run_extra_page_checks`), in single and batch mode alike.
-    pub check_privacy: bool,
+    /// Modules that run next to the accessibility checks (#933).
+    /// [`ModuleSet::full`] is `--full`; [`Module::Privacy`] is the opt-in
+    /// `--privacy-check` and not part of it. The privacy check runs once per
+    /// URL (`run_extra_page_checks`), in single and batch mode alike.
+    pub modules: ModuleSet,
     /// Measurement runs per throttle profile (`--perf-runs`, at least 1). The
     /// reported run is the median; the spread is stored beside it.
     pub perf_runs: u32,
     /// Run the opt-in isolated third-party script impact measurement
     /// (#531): reload the page once per top third-party origin with that
     /// origin's requests blocked via CDP, and diff TBT against the baseline.
-    /// Requires `check_performance` to also be true (a TBT baseline and the
+    /// Requires [`Module::Performance`] in `modules` (a TBT baseline and the
     /// third-party attribution must exist) — costly even relative to other
     /// `--full` checks, one extra full page reload per isolated origin
     /// (capped at `performance::MAX_ISOLATED_ORIGINS`). Runs in single and
@@ -368,13 +373,15 @@ pub struct PipelineConfig {
     /// page once with JavaScript execution disabled via CDP
     /// `Emulation.setScriptExecutionDisabled` and compare visible content
     /// length against the normal, JavaScript-enabled load. Requires
-    /// `check_seo` to also be true — the resulting finding is attached to
-    /// `content_visibility`, which itself is only derived when SEO checking
-    /// is active. Costly like the other opt-in extra-reload passes: one
+    /// [`Module::Seo`] in `modules` and the experimental content-visibility
+    /// indicator to run — the resulting finding is attached to it, and it is
+    /// only derived when SEO checking is active. Costly like the other opt-in extra-reload passes: one
     /// extra full page reload. Runs in single and batch mode alike.
     pub check_ssr_content: bool,
-    /// Run tech stack detection (in-page signals only)
-    pub check_stack: bool,
+    /// Experimental indicators asked for with `--experimental` (#916). None is
+    /// part of a full audit; the ones they are derived from run with them
+    /// (see [`PipelineConfig::runs_indicator`]).
+    pub experimental: Vec<crate::audit::ExperimentalIndicator>,
     /// `[rules] disabled`/`enabled_only` from `auditmysite.toml`, by axe_id.
     /// Consulted by `check_all_with_config` for tree-based rules, by
     /// `wcag::shared::retain_allowed` for the shared rules (own id or a legacy
@@ -428,7 +435,104 @@ pub struct PipelineConfig {
     pub decision_profile: crate::audit::verdict::DecisionProfile,
 }
 
+impl Default for PipelineConfig {
+    /// The default CLI run (`auditmysite <URL>` without a config file): WCAG
+    /// AA, every module of [`ModuleSet::full`], no privacy check, no
+    /// experimental indicators, the full interactive phase, English.
+    ///
+    /// The CLI builds its configuration on top of this value
+    /// ([`PipelineConfig::from_args_and_config`]); the test
+    /// `default_is_the_default_cli_run` holds the two together.
+    fn default() -> Self {
+        Self {
+            wcag_level: WcagLevel::AA,
+            timeout_secs: 30,
+            stability_budget_ms: 1500,
+            verbose: false,
+            modules: ModuleSet::full(),
+            perf_runs: 1,
+            check_isolate_third_party_impact: false,
+            check_ssr_content: false,
+            experimental: Vec::new(),
+            rule_filter: crate::wcag::RuleFilterConfig::default(),
+            persist_artifacts: true,
+            capture_screenshots: false,
+            capture_element_evidence: false,
+            dismiss_consent: false,
+            exclude_selectors: Vec::new(),
+            interactive: crate::cli::InteractiveMode::Full,
+            allow_state_changes: false,
+            journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
+            session: crate::browser::SessionPolicy::Isolated,
+            storage_state: None,
+            state_id: None,
+            lang: "en".to_string(),
+            display_mode: None,
+            indexability: Default::default(),
+            decision_profile: Default::default(),
+        }
+    }
+}
+
+/// Setters for what a run audits: the conformance level, the modules, the
+/// experimental indicators and the interactive phase. Every other option is
+/// assigned as a field.
 impl PipelineConfig {
+    /// Check this WCAG conformance level.
+    #[must_use]
+    pub fn with_wcag_level(mut self, wcag_level: WcagLevel) -> Self {
+        self.wcag_level = wcag_level;
+        self
+    }
+
+    /// Run these modules next to the accessibility checks.
+    #[must_use]
+    pub fn with_modules(mut self, modules: ModuleSet) -> Self {
+        self.modules = modules;
+        self
+    }
+
+    /// Run these experimental indicators (and the ones they are derived
+    /// from, see [`PipelineConfig::runs_indicator`]).
+    #[must_use]
+    pub fn with_experimental(
+        mut self,
+        experimental: Vec<crate::audit::ExperimentalIndicator>,
+    ) -> Self {
+        self.experimental = experimental;
+        self
+    }
+
+    /// Run the Accessibility-Journey-Layer in this mode.
+    #[must_use]
+    pub fn with_interactive(mut self, interactive: crate::cli::InteractiveMode) -> Self {
+        self.interactive = interactive;
+        self
+    }
+}
+
+impl PipelineConfig {
+    /// Whether the run is a full audit: every module of [`ModuleSet::full`]
+    /// runs. Stored as `full_audit` in the report.
+    pub fn is_full_audit(&self) -> bool {
+        self.modules.contains_all(ModuleSet::full())
+    }
+
+    /// Whether an experimental indicator runs: it was asked for, or an asked
+    /// for indicator is derived from it.
+    pub fn runs_indicator(&self, indicator: crate::audit::ExperimentalIndicator) -> bool {
+        crate::audit::ExperimentalIndicator::closure(&self.experimental).contains(&indicator)
+    }
+
+    /// [`PipelineConfig::runs_indicator`] by module id (`ux`, `journey`,
+    /// `ai_visibility`, `content_visibility`, `source_quality`, `commerce`),
+    /// for the module catalog, which does not name the indicator enum.
+    pub fn runs_experimental_module(&self, module_id: &str) -> bool {
+        crate::audit::ExperimentalIndicator::closure(&self.experimental)
+            .iter()
+            .any(|indicator| indicator.id() == module_id)
+    }
+
     pub fn active_module_labels(&self) -> Vec<&'static str> {
         let mut labels = vec!["Accessibility"];
         if !matches!(self.interactive, crate::cli::InteractiveMode::Off) {
@@ -474,26 +578,34 @@ impl PipelineConfig {
         // 29 for the removal of the design_quality, ai_transparency and
         // network_dns module fields (#915).
         // 30 for the removal of the dark_mode module field (#917).
-        const CACHE_FMT: u8 = 30;
+        // 31 for the engine rule id as the finding `rule_id` (#918).
+        // 32 for the experimental indicators moving into `experimental` (#916).
+        // 33 for `help_url` as the rule page and the new `understanding_url` (#929).
+        const CACHE_FMT: u8 = 33;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};html_conform={};privacy={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};html_conform={};privacy={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};experimental={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
-            self.check_performance as u8,
-            self.check_seo as u8,
-            self.check_security as u8,
-            self.check_mobile as u8,
-            self.check_html_conform as u8,
-            self.check_privacy as u8,
+            self.modules.contains(Module::Performance) as u8,
+            self.modules.contains(Module::Seo) as u8,
+            self.modules.contains(Module::Security) as u8,
+            self.modules.contains(Module::Mobile) as u8,
+            self.modules.contains(Module::HtmlConform) as u8,
+            self.modules.contains(Module::Privacy) as u8,
             self.check_isolate_third_party_impact as u8,
             self.perf_runs,
             self.check_ssr_content as u8,
-            self.check_stack as u8,
+            self.modules.contains(Module::Stack) as u8,
+            crate::audit::ExperimentalIndicator::closure(&self.experimental)
+                .iter()
+                .map(|i| i.flag_name())
+                .collect::<Vec<_>>()
+                .join(","),
             self.dismiss_consent as u8,
             self.interactive,
             self.allow_state_changes as u8,
@@ -509,6 +621,19 @@ impl PipelineConfig {
             self.indexability,
         )
     }
+}
+
+/// The requested indicators, sorted and without duplicates.
+fn normalized_experimental(requested: &[ExperimentalIndicator]) -> Vec<ExperimentalIndicator> {
+    let mut list = requested.to_vec();
+    list.sort();
+    list.dedup();
+    list
+}
+
+/// Whether `--experimental` asks for `indicator` or something derived from it.
+fn experimental_requested(args: &Args, indicator: ExperimentalIndicator) -> bool {
+    ExperimentalIndicator::closure(&args.experimental).contains(&indicator)
 }
 
 impl From<&Args> for PipelineConfig {
@@ -527,18 +652,22 @@ impl PipelineConfig {
     pub fn for_viewport(&self, viewport: Viewport) -> Self {
         match viewport {
             Viewport::Desktop => Self {
-                check_seo: false,
-                check_security: false,
-                check_mobile: false,
-                check_html_conform: false,
-                check_privacy: false,
+                modules: self
+                    .modules
+                    .without(Module::Seo)
+                    .without(Module::Security)
+                    .without(Module::Mobile)
+                    .without(Module::HtmlConform)
+                    .without(Module::Privacy)
+                    .without(Module::Stack),
                 perf_runs: 1,
-                check_stack: false,
                 ..self.clone()
             },
             Viewport::Mobile => Self {
-                check_security: false,
-                check_privacy: false,
+                modules: self
+                    .modules
+                    .without(Module::Security)
+                    .without(Module::Privacy),
                 ..self.clone()
             },
         }
@@ -548,10 +677,12 @@ impl PipelineConfig {
         args: &Args,
         toml_cfg: Option<&crate::cli::config::Config>,
     ) -> Self {
-        let full_audit = args.full_audit_enabled();
+        // The default run is defined once, in `Default`: what neither an
+        // argument nor the config file sets comes from there.
+        let defaults = Self::default();
         let journey_budget_ms = toml_cfg
             .and_then(|c| c.interactive.journey_budget_ms)
-            .unwrap_or(crate::a11y_journey::DEFAULT_BUDGET_MS);
+            .unwrap_or(defaults.journey_budget_ms);
         let rule_filter = crate::wcag::RuleFilterConfig {
             // `ignore` was a previously-dead, undocumented synonym for
             // `disabled` (#561, follow-up to #560) — folded in here rather
@@ -575,31 +706,25 @@ impl PipelineConfig {
             timeout_secs: args.effective_timeout(),
             stability_budget_ms: args.stability_budget_ms,
             verbose: args.verbose,
-            full_audit,
-            check_performance: (full_audit || args.performance) && !args.skip_performance,
-            check_seo: full_audit || args.seo,
-            check_security: full_audit || args.security,
-            check_mobile: (full_audit || args.mobile) && !args.skip_mobile,
-            check_html_conform: full_audit || args.html_conform,
-            check_privacy: args.privacy_check,
+            modules: args.module_set(),
             perf_runs: args.perf_runs,
             // Requires performance checking itself active — an isolation
             // pass without a baseline TBT/third-party attribution to diff
             // against is meaningless (see doc comment on the field).
             check_isolate_third_party_impact: args.isolate_third_party_impact
-                && (full_audit || args.performance)
-                && !args.skip_performance,
+                && args.module_enabled(ModuleChoice::Performance),
             // Requires SEO checking itself active — the resulting finding
             // is attached to `content_visibility`, which is only derived
-            // when `check_seo` is true (see `ContentVisibilityModule::is_enabled`).
-            check_ssr_content: args.check_ssr_content && (full_audit || args.seo),
-            check_stack: full_audit || args.stack,
+            // with the SEO module (see `ContentVisibilityModule::is_enabled`).
+            check_ssr_content: args.check_ssr_content
+                && args.module_enabled(ModuleChoice::Seo)
+                && experimental_requested(args, ExperimentalIndicator::ContentVisibility),
+            experimental: normalized_experimental(&args.experimental),
             rule_filter,
-            persist_artifacts: true,
             capture_screenshots: args.url.is_some()
-                && matches!(args.format, None | Some(crate::cli::OutputFormat::Pdf)),
+                && args.effective_format() == crate::cli::OutputFormat::Pdf,
             capture_element_evidence: args.url.is_some()
-                && matches!(args.format, None | Some(crate::cli::OutputFormat::Pdf)),
+                && args.effective_format() == crate::cli::OutputFormat::Pdf,
             dismiss_consent: args.dismiss_consent,
             exclude_selectors: toml_cfg
                 .map(|c| c.audit.exclude_selectors.clone())
@@ -633,7 +758,9 @@ impl PipelineConfig {
             },
             decision_profile: toml_cfg
                 .map(|c| c.effective_verdict_config().profile())
-                .unwrap_or_default(),
+                .unwrap_or(defaults.decision_profile),
+            // Not a CLI option: `persist_artifacts`.
+            ..defaults
         }
     }
 }
@@ -760,7 +887,7 @@ pub(crate) async fn run_extra_page_checks(
     // Pre-consent privacy findings (#871): a visit in a clean browser
     // context of its own, independent of `page`. The module run is created
     // here because the check does not go through the catalog.
-    if config.check_privacy {
+    if config.modules.contains(Module::Privacy) {
         run_privacy_check(url, browser, report).await;
     }
 
@@ -784,7 +911,7 @@ pub(crate) async fn run_extra_page_checks(
             log.into_records(),
         );
         if let Some(gap) = gap {
-            if let Some(cv) = report.discoverability.content_visibility.as_mut() {
+            if let Some(cv) = report.experimental.content_visibility.as_mut() {
                 crate::content_visibility::append_ssr_content_gap_signal(cv, &gap);
             }
         }
@@ -826,7 +953,7 @@ async fn audit_on_page(
 
     run_extra_page_checks(page, url, browser, config, &mut report).await;
 
-    if config.check_performance {
+    if config.modules.contains(Module::Performance) {
         let content_weight = report
             .performance
             .as_ref()
@@ -883,7 +1010,7 @@ pub async fn audit_page(
 
     // Enable bypassing CSP on the page
     let _ = page.execute(SetBypassCspParams::new(true)).await;
-    let mut security_events = if config.check_security {
+    let mut security_events = if config.modules.contains(Module::Security) {
         match page
             .event_listener::<EventVisibleSecurityStateChanged>()
             .await
@@ -906,7 +1033,7 @@ pub async fn audit_page(
     // Security collections run outside the module catalog; they are folded
     // into the security run once it exists (#774).
     let security_collection = crate::audit::collection::CollectionLog::new();
-    let mut security: Option<SecurityAnalysis> = if config.check_security {
+    let mut security: Option<SecurityAnalysis> = if config.modules.contains(Module::Security) {
         match analyze_security(url, &security_collection).await {
             Ok(s) => Some(s),
             Err(e) => {
@@ -1217,7 +1344,7 @@ pub async fn audit_page(
             .collect(),
     };
     let mut primary_snap = primary_snap;
-    if config.check_security {
+    if config.modules.contains(Module::Security) {
         primary_snap.module_runs.push(crate::audit::ModuleRun {
             module: "security".to_string(),
             status: if primary_snap.security.is_some() {
@@ -1431,7 +1558,7 @@ pub async fn audit_page(
         initial_url: url,
         locale: &config.lang,
         budget_ms: config.journey_budget_ms,
-        commerce: report.commerce.as_ref(),
+        commerce: report.experimental.commerce.as_ref(),
     };
     match crate::a11y_journey::run(journey_ctx).await {
         Ok(Some(out)) => {
@@ -1531,7 +1658,7 @@ pub(super) fn measured_html_conform_score(
 /// console too (#777). Failures are logged here and surface as failed
 /// collections when the results are read.
 async fn prepare_pass_collection(page: &Page, pass: &str, config: &PipelineConfig) {
-    if config.check_performance {
+    if config.modules.contains(Module::Performance) {
         if let Err(e) = prepare_vitals_collection(page).await {
             warn!("Vitals observer injection failed ({pass}): {}", e);
         }
@@ -1654,17 +1781,7 @@ async fn capture_screenshot_with_metadata(page: &Page) -> crate::error::Result<V
 
     // Query viewport metadata
     let eval_res = page
-        .evaluate(
-            "(() => {
-                return {
-                    dpr: window.devicePixelRatio || 1.0,
-                    width: window.innerWidth || 1280,
-                    height: window.innerHeight || 800,
-                    scrollX: window.scrollX || window.pageXOffset || 0,
-                    scrollY: window.scrollY || window.pageYOffset || 0
-                };
-             })()",
-        )
+        .evaluate(include_str!("js/viewport_metadata.js"))
         .await
         .map_err(|e| crate::error::AuditError::NavigationFailed {
             url: "viewport-metadata".to_string(),
@@ -1718,7 +1835,7 @@ async fn extract_snapshot(
     // Eight collection modules run through the AuditCatalog. Per-module
     // failure semantics (warn + None) live inside each `impl AuditModule`.
     // Security is registered in the catalog but `is_enabled` returns false
-    // here — per-pass configs set `check_security = false` so it stays None
+    // here — per-pass configs drop `Module::Security` so it stays None
     // in the snapshot and the top-level fetch in `audit_page` provides the
     // actual SecurityAnalysis.
     let collection = crate::audit::collection::CollectionLog::new();
@@ -1788,7 +1905,13 @@ async fn run_rules(
     // sie, statt dass das `<svg>` gar nicht geprueft wird.
     //
     // Aus demselben Abruf entstehen die Dokumente der iframes (#715).
-    let capture = crate::accessibility::fetch_dom_capture(page).await;
+    // Dazu die Messungen an der laufenden Seite (Rahmen, Drehung, Einfügen,
+    // Fokus, Textabstand), soweit eine Regel sie liest.
+    let capture = crate::accessibility::fetch_dom_capture_with_probes(
+        page,
+        wcag::shared::probe_selection(config.wcag_level, &config.rule_filter),
+    )
+    .await;
     // Die Stylesheets für die geteilten Regeln über Stylesheets (Fokusrahmen,
     // reduzierte Bewegung, Ausrichtung, Blocksatz/Zeilenabstand). Ohne sie
     // stehen diese als `CapabilityMissing` im Bericht, statt zu bestehen.
@@ -1969,7 +2092,7 @@ async fn run_rules(
     // The module was requested but its collection delivered nothing (failed
     // or timed out): the rule did not run, and says so (#778).
     if snapshot.html_conform.is_none()
-        && config.check_html_conform
+        && config.modules.contains(Module::HtmlConform)
         && viewport_label == crate::wcag::expectation::MOBILE
         && config
             .rule_filter
@@ -2329,6 +2452,8 @@ mod tests {
     fn test_pipeline_config_from_args() {
         let args = Args {
             expect_indexable: None,
+            baseline: None,
+            write_baseline: None,
             command: None,
             url: Some("https://example.com".to_string()),
             sitemap: None,
@@ -2350,30 +2475,20 @@ mod tests {
             quiet: false,
             color: crate::cli::ColorPolicy::Auto,
             progress: crate::cli::ProgressPolicy::Auto,
-            detect_chrome: false,
             full: false,
-            performance: false,
-            skip_performance: false,
-            seo: false,
-            security: false,
-            mobile: false,
-            skip_mobile: false,
+            modules: Vec::new(),
+            experimental: Vec::new(),
             privacy_check: false,
             isolate_third_party_impact: false,
             perf_runs: 1,
             check_ssr_content: false,
-            stack: false,
             reuse_cache: false,
-            force_refresh: false,
-            no_sitemap_suggest: false,
             prefer_sitemap: false,
             per_page_reports: false,
             include_path: Vec::new(),
             exclude_path: Vec::new(),
             sample_strategy: Default::default(),
-            no_screen_reader_report: false,
-            html_conform: false,
-            technician: false,
+            screen_reader_report: false,
             dismiss_consent: false,
             exclude_selector: Vec::new(),
             interactive: crate::cli::InteractiveMode::Off,
@@ -2382,25 +2497,25 @@ mod tests {
             storage_state: None,
             state_id: None,
             report_level: crate::cli::ReportLevel::Standard,
-            lang: "de".to_string(),
+            lang: "en".to_string(),
             display: None,
             also_json: false,
             logo: None,
-            debug_typ: false,
-            export_snapshot: None,
+            dev: Default::default(),
             annex: None,
             request_mode: crate::cli::RequestMode::Browser,
             report_mode: false,
+            annotations: None,
         };
 
         let config = PipelineConfig::from(&args);
         assert_eq!(config.wcag_level, WcagLevel::AA);
         assert_eq!(config.timeout_secs, 30);
         assert!(config.verbose);
-        assert!(config.check_performance);
-        assert!(config.check_mobile);
-        assert!(config.check_seo);
-        assert!(config.check_security);
+        assert!(config.modules.contains(Module::Performance));
+        assert!(config.modules.contains(Module::Mobile));
+        assert!(config.modules.contains(Module::Seo));
+        assert!(config.modules.contains(Module::Security));
     }
 
     #[test]
@@ -2412,19 +2527,72 @@ mod tests {
             "Accessibility Journey",
             "Best Practices",
             "HTML Conformance",
-            "Journey",
             "Mobile",
             "Performance",
             "Security",
             "SEO",
-            "AI Visibility",
             "Tech Stack",
-            "Commerce",
-            "UX",
-            "Source Quality",
-            "Content Visibility",
         ];
         assert_eq!(config.active_module_labels(), expected);
+    }
+
+    /// #916: the experimental indicators are in no default run, and an
+    /// indicator brings the ones it is derived from.
+    #[test]
+    fn experimental_indicators_run_only_when_asked_for() {
+        use crate::audit::ExperimentalIndicator as I;
+        let config =
+            PipelineConfig::from(&Args::parse_from(["auditmysite", "https://example.com"]));
+        for indicator in I::ALL {
+            assert!(!config.runs_indicator(indicator), "{indicator:?}");
+        }
+
+        let config = PipelineConfig::from(&Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--experimental",
+            "content-visibility,commerce",
+        ]));
+        for indicator in [
+            I::ContentVisibility,
+            I::SourceQuality,
+            I::AiVisibility,
+            I::Ux,
+            I::Commerce,
+        ] {
+            assert!(config.runs_indicator(indicator), "{indicator:?}");
+        }
+        assert!(!config.runs_indicator(I::Journey));
+        let labels = config.active_module_labels();
+        assert!(labels.contains(&"Content Visibility") && labels.contains(&"Commerce"));
+        assert!(!labels.contains(&"Journey"));
+
+        // --full says nothing about them.
+        let config = PipelineConfig::from(&Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--full",
+        ]));
+        assert!(I::ALL.iter().all(|i| !config.runs_indicator(*i)));
+    }
+
+    #[test]
+    fn the_experimental_selection_is_part_of_the_cache_signature() {
+        let plain = PipelineConfig::from(&Args::parse_from(["auditmysite", "https://example.com"]));
+        let ux = PipelineConfig::from(&Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--experimental",
+            "ux",
+        ]));
+        let ux_twice = PipelineConfig::from(&Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--experimental",
+            "ux,ux",
+        ]));
+        assert_ne!(plain.audit_signature(), ux.audit_signature());
+        assert_eq!(ux.audit_signature(), ux_twice.audit_signature());
     }
 
     #[test]
@@ -2432,35 +2600,66 @@ mod tests {
         let config = PipelineConfig::from(&Args::parse_from([
             "auditmysite",
             "https://example.com",
-            "--skip-performance",
-            "--skip-mobile",
+            "--modules",
+            "a11y",
         ]));
-        let expected = vec![
-            "Accessibility",
-            "Accessibility Journey",
-            "AI Visibility",
-            "Source Quality",
-        ];
+        let expected = vec!["Accessibility", "Accessibility Journey"];
         assert_eq!(config.active_module_labels(), expected);
     }
 
     #[test]
-    fn technician_preset_runs_only_fixable_finding_modules() {
-        let mut args = Args::parse_from([
+    fn full_audit_follows_the_modules_that_run() {
+        let config_for = |extra: &[&str]| {
+            let mut argv = vec!["auditmysite", "https://example.com"];
+            argv.extend_from_slice(extra);
+            PipelineConfig::from_args_and_config(&Args::parse_from(argv), None)
+        };
+        assert!(config_for(&[]).is_full_audit());
+        assert!(config_for(&["--full"]).is_full_audit());
+        assert!(
+            config_for(&["--privacy-check"]).is_full_audit(),
+            "the opt-in privacy check does not make a run less than full"
+        );
+        assert!(
+            config_for(&[
+                "--modules",
+                "performance,seo,security,mobile,html-conform,stack"
+            ])
+            .is_full_audit(),
+            "all six modules listed by name are a full audit"
+        );
+        assert!(!config_for(&["--modules", "a11y"]).is_full_audit());
+        assert!(
+            !config_for(&["--modules", "performance,seo,security,mobile,html-conform"])
+                .is_full_audit(),
+            "one module short is not a full audit"
+        );
+        assert!(PipelineConfig::default().is_full_audit());
+        assert!(!PipelineConfig::default()
+            .with_modules(ModuleSet::full().without(Module::Stack))
+            .is_full_audit());
+    }
+
+    #[test]
+    fn seo_and_html_conform_selection_runs_only_fixable_finding_modules() {
+        let args = Args::parse_from([
             "auditmysite",
             "--sitemap",
             "https://example.com/sitemap.xml",
-            "--technician",
+            "--modules",
+            "seo,html-conform",
         ]);
-        args.apply_technician_preset();
         let config = PipelineConfig::from_args_and_config(&args, None);
-        assert!(!config.full_audit);
-        assert!(!config.check_performance, "no throttled performance passes");
-        assert!(!config.check_mobile);
-        assert!(!config.check_security);
-        assert!(!config.check_stack);
-        assert!(config.check_seo);
-        assert!(config.check_html_conform);
+        assert!(!config.is_full_audit());
+        assert!(
+            !config.modules.contains(Module::Performance),
+            "no throttled performance passes"
+        );
+        assert!(!config.modules.contains(Module::Mobile));
+        assert!(!config.modules.contains(Module::Security));
+        assert!(!config.modules.contains(Module::Stack));
+        assert!(config.modules.contains(Module::Seo));
+        assert!(config.modules.contains(Module::HtmlConform));
         let labels = config.active_module_labels();
         assert!(labels.contains(&"Accessibility"));
         assert!(labels.contains(&"HTML Conformance"));
@@ -2479,20 +2678,26 @@ mod tests {
         let config =
             |argv: &[&str]| PipelineConfig::from_args_and_config(&Args::parse_from(argv), None);
         let full = config(&["auditmysite", "https://example.com", "--full"]);
-        assert!(!full.check_privacy);
+        assert!(!full.modules.contains(Module::Privacy));
         assert!(!audit_scope_from_config(&full)
             .requested_modules
             .contains(&"privacy".to_string()));
         assert!(!full.active_module_labels().contains(&"Privacy"));
 
         let opted_in = config(&["auditmysite", "https://example.com", "--privacy-check"]);
-        assert!(opted_in.check_privacy);
+        assert!(opted_in.modules.contains(Module::Privacy));
         assert!(audit_scope_from_config(&opted_in)
             .requested_modules
             .contains(&"privacy".to_string()));
         assert!(opted_in.active_module_labels().contains(&"Privacy"));
-        assert!(!opted_in.for_viewport(Viewport::Desktop).check_privacy);
-        assert!(!opted_in.for_viewport(Viewport::Mobile).check_privacy);
+        assert!(!opted_in
+            .for_viewport(Viewport::Desktop)
+            .modules
+            .contains(Module::Privacy));
+        assert!(!opted_in
+            .for_viewport(Viewport::Mobile)
+            .modules
+            .contains(Module::Privacy));
         // The removed pre-release spelling is not accepted.
         assert!(Args::try_parse_from(["auditmysite", "https://example.com", "--privacy"]).is_err());
     }
@@ -2512,6 +2717,8 @@ mod tests {
             "--full",
             "--isolate-third-party-impact",
             "--check-ssr-content",
+            "--experimental",
+            "content-visibility",
             "--privacy-check",
         ];
         let expected = vec![
@@ -2547,7 +2754,8 @@ mod tests {
                 "auditmysite",
                 "--url-file",
                 "urls.txt",
-                "--performance",
+                "--modules",
+                "performance",
                 "--check-ssr-content",
                 "--isolate-third-party-impact"
             ]),
@@ -2564,10 +2772,10 @@ mod tests {
         let module_sets: [&[&str]; 6] = [
             &[],
             &["--full"],
-            &["--performance"],
-            &["--seo"],
-            &["--full", "--skip-performance"],
-            &["--performance", "--seo"],
+            &["--modules", "performance"],
+            &["--modules", "seo"],
+            &["--modules", "a11y"],
+            &["--modules", "performance,seo"],
         ];
         let checks = ["--isolate-third-party-impact", "--check-ssr-content"];
         let (mut accepted, mut rejected) = (0, 0);
@@ -2578,6 +2786,7 @@ mod tests {
                         .into_iter()
                         .chain(target.iter().copied())
                         .chain(modules.iter().copied())
+                        .chain(["--experimental", "content-visibility"])
                         .chain([check])
                         .collect();
                     let args = Args::parse_from(&argv);
@@ -2608,7 +2817,8 @@ mod tests {
         let e = reject(&[
             "auditmysite",
             "https://example.com",
-            "--seo",
+            "--modules",
+            "seo",
             "--isolate-third-party-impact",
         ]);
         assert!(
@@ -2619,7 +2829,8 @@ mod tests {
             "auditmysite",
             "--url-file",
             "Cargo.toml",
-            "--performance",
+            "--modules",
+            "performance",
             "--check-ssr-content",
         ]);
         assert!(
@@ -2659,6 +2870,8 @@ mod tests {
             "--full",
             "--isolate-third-party-impact",
             "--check-ssr-content",
+            "--experimental",
+            "content-visibility",
             "--privacy-check",
         ];
         let scope = |target: &[&str]| {
@@ -2750,71 +2963,173 @@ mod tests {
     }
 
     #[test]
-    fn html_conform_flag_enables_the_module_without_full() {
-        let args = Args::parse_from(["auditmysite", "https://example.com", "--seo"]);
-        assert!(!PipelineConfig::from_args_and_config(&args, None).check_html_conform);
+    fn html_conform_module_runs_by_default_and_when_selected() {
+        let args = Args::parse_from(["auditmysite", "https://example.com"]);
+        assert!(PipelineConfig::from_args_and_config(&args, None)
+            .modules
+            .contains(Module::HtmlConform));
+        let args = Args::parse_from(["auditmysite", "https://example.com", "--modules", "seo"]);
+        assert!(!PipelineConfig::from_args_and_config(&args, None)
+            .modules
+            .contains(Module::HtmlConform));
         let args = Args::parse_from([
             "auditmysite",
             "https://example.com",
-            "--seo",
-            "--html-conform",
+            "--modules",
+            "seo,html-conform",
         ]);
-        assert!(PipelineConfig::from_args_and_config(&args, None).check_html_conform);
+        assert!(PipelineConfig::from_args_and_config(&args, None)
+            .modules
+            .contains(Module::HtmlConform));
     }
 
-    /// Scope of the library check (#773): `--security` alone collects it,
-    /// independent of performance; with neither flag it stays off.
+    /// Scope of the library check (#773): `--modules security` alone collects
+    /// it, independent of performance; with neither it stays off.
     #[test]
     fn security_only_audit_runs_the_library_check() {
         use crate::audit::module::AuditModule;
         use crate::best_practices::{module::collects_best_practices, BestPracticesModule};
 
-        let args = Args::parse_from(["auditmysite", "https://example.com", "--security"]);
+        let args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--modules",
+            "security",
+        ]);
         let cfg = PipelineConfig::from_args_and_config(&args, None);
-        assert!(!cfg.check_performance, "fixture must be security-only");
+        assert!(
+            !cfg.modules.contains(Module::Performance),
+            "fixture must be security-only"
+        );
         assert!(BestPracticesModule.is_enabled(&cfg));
         assert!(collects_best_practices(&cfg));
 
         let mut off = cfg;
-        off.check_security = false;
+        off.modules = off.modules.without(Module::Security);
         assert!(!BestPracticesModule.is_enabled(&off));
         assert!(!collects_best_practices(&off));
     }
 
-    fn test_pipeline_config() -> PipelineConfig {
-        PipelineConfig {
-            wcag_level: WcagLevel::AA,
-            timeout_secs: 30,
-            stability_budget_ms: 1500,
-            verbose: false,
-            full_audit: false,
-            check_performance: true,
-            check_seo: true,
-            check_security: false,
-            check_mobile: true,
-            check_html_conform: false,
-            check_privacy: false,
-            perf_runs: 1,
-            check_isolate_third_party_impact: false,
-            check_ssr_content: false,
-            check_stack: false,
-            rule_filter: crate::wcag::RuleFilterConfig::default(),
-            persist_artifacts: true,
-            capture_screenshots: false,
-            capture_element_evidence: false,
-            dismiss_consent: false,
-            exclude_selectors: Vec::new(),
-            interactive: crate::cli::InteractiveMode::Off,
-            allow_state_changes: false,
-            journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
-            session: Default::default(),
-            storage_state: None,
-            state_id: None,
-            lang: "de".to_string(),
-            display_mode: None,
-            indexability: Default::default(),
-            decision_profile: Default::default(),
+    /// One definition of the default run (#933): the configuration of a plain
+    /// `auditmysite <URL>` and `PipelineConfig::default()` are the same value,
+    /// in every field. `Debug` prints all of them, so a new field is covered
+    /// without touching this test.
+    #[test]
+    fn default_is_the_default_cli_run() {
+        let cli = PipelineConfig::from_args_and_config(
+            &Args::parse_from(["auditmysite", "https://example.com"]),
+            None,
+        );
+        let default = PipelineConfig::default();
+        assert_eq!(cli.audit_signature(), default.audit_signature());
+        assert_eq!(format!("{cli:#?}"), format!("{default:#?}"));
+    }
+
+    /// The cache fingerprint keeps the form it had with the seven `check_*`
+    /// fields (#933). The expected strings are written out from that format,
+    /// not taken from a run; only the crate version is filled in. A `CACHE_FMT`
+    /// bump changes `fmt=` here and nothing else.
+    #[test]
+    fn audit_signature_keeps_its_form_with_the_module_set() {
+        let version = env!("CARGO_PKG_VERSION");
+
+        assert_eq!(
+            PipelineConfig::default().audit_signature(),
+            format!(
+                "v={version};fmt=33;level=AA;perf=1;seo=1;sec=1;mobile=1;html_conform=1;\
+                 privacy=0;isolate_tp_impact=0;perf_runs=1;ssr_content=0;stack=1;experimental=;\
+                 consent=0;interactive=Full;state_changes=0;journey_budget_ms=15000;\
+                 session=isolated;state_id=;state=;lang=en;disabled=;enabled_only=;\
+                 exclude=[data-audit-exclude];display=site_default;\
+                 indexable=IndexabilityExpectation {{ expected: None, source: Undeclared }}"
+            )
+        );
+
+        let mut narrowed = PipelineConfig::default()
+            .with_wcag_level(WcagLevel::AAA)
+            .with_modules(ModuleSet::none().with(Module::Seo).with(Module::Privacy))
+            .with_interactive(crate::cli::InteractiveMode::Off);
+        narrowed.lang = "de".to_string();
+        assert_eq!(
+            narrowed.audit_signature(),
+            format!(
+                "v={version};fmt=33;level=AAA;perf=0;seo=1;sec=0;mobile=0;html_conform=0;\
+                 privacy=1;isolate_tp_impact=0;perf_runs=1;ssr_content=0;stack=0;experimental=;\
+                 consent=0;interactive=Off;state_changes=0;journey_budget_ms=15000;\
+                 session=isolated;state_id=;state=;lang=de;disabled=;enabled_only=;\
+                 exclude=[data-audit-exclude];display=site_default;\
+                 indexable=IndexabilityExpectation {{ expected: None, source: Undeclared }}"
+            )
+        );
+
+        // Each module sets its own key and no other.
+        let keys = [
+            (Module::Performance, "perf"),
+            (Module::Seo, "seo"),
+            (Module::Security, "sec"),
+            (Module::Mobile, "mobile"),
+            (Module::HtmlConform, "html_conform"),
+            (Module::Privacy, "privacy"),
+            (Module::Stack, "stack"),
+        ];
+        for (module, _) in keys {
+            let signature = PipelineConfig::default()
+                .with_modules(ModuleSet::none().with(module))
+                .audit_signature();
+            for (other, key) in keys {
+                let expected = format!(";{key}={};", u8::from(other == module));
+                assert!(signature.contains(&expected), "{module:?}: {signature}");
+            }
         }
+    }
+
+    #[test]
+    fn module_choices_map_to_the_module_set() {
+        let modules = |extra: &[&str]| {
+            let argv = ["auditmysite", "https://example.com"]
+                .iter()
+                .chain(extra)
+                .copied();
+            PipelineConfig::from_args_and_config(&Args::parse_from(argv), None).modules
+        };
+        assert_eq!(modules(&[]), ModuleSet::full());
+        assert_eq!(modules(&["--full"]), ModuleSet::full());
+        assert_eq!(modules(&["--modules", "a11y"]), ModuleSet::none());
+        assert_eq!(
+            modules(&["--modules", "a11y,seo,html-conform,stack"]),
+            ModuleSet::none()
+                .with(Module::Seo)
+                .with(Module::HtmlConform)
+                .with(Module::Stack)
+        );
+        assert_eq!(
+            modules(&["--modules", "performance,security,mobile"]),
+            ModuleSet::none()
+                .with(Module::Performance)
+                .with(Module::Security)
+                .with(Module::Mobile)
+        );
+        assert_eq!(
+            modules(&["--privacy-check"]),
+            ModuleSet::full().with(Module::Privacy)
+        );
+        assert_eq!(
+            modules(&["--modules", "a11y", "--privacy-check"]),
+            ModuleSet::none().with(Module::Privacy)
+        );
+    }
+
+    fn test_pipeline_config() -> PipelineConfig {
+        let mut config = PipelineConfig::default()
+            .with_modules(
+                ModuleSet::none()
+                    .with(Module::Performance)
+                    .with(Module::Seo)
+                    .with(Module::Mobile),
+            )
+            .with_interactive(crate::cli::InteractiveMode::Off);
+        config.lang = "de".to_string();
+        config
     }
 
     #[test]
@@ -2829,7 +3144,7 @@ mod tests {
 
         // Toggling a module changes the signature.
         let mut other = test_pipeline_config();
-        other.check_security = true;
+        other.modules = other.modules.with(Module::Security);
         assert_ne!(base_sig, other.audit_signature());
 
         // Repeated performance runs store a spread a single run does not (#791).
@@ -2975,11 +3290,14 @@ journey_budget_ms = 1234
         let config = PipelineConfig::from_args_and_config(&args, None);
         let desktop = config.for_viewport(Viewport::Desktop);
 
-        assert!(!desktop.check_seo);
-        assert!(!desktop.check_security);
-        assert!(!desktop.check_mobile);
-        assert!(!desktop.check_stack);
-        assert_eq!(desktop.check_performance, config.check_performance);
+        assert!(!desktop.modules.contains(Module::Seo));
+        assert!(!desktop.modules.contains(Module::Security));
+        assert!(!desktop.modules.contains(Module::Mobile));
+        assert!(!desktop.modules.contains(Module::Stack));
+        assert_eq!(
+            desktop.modules.contains(Module::Performance),
+            config.modules.contains(Module::Performance)
+        );
     }
 
     #[test]
@@ -2988,10 +3306,19 @@ journey_budget_ms = 1234
         let config = PipelineConfig::from_args_and_config(&args, None);
         let mobile = config.for_viewport(Viewport::Mobile);
 
-        assert!(!mobile.check_security);
-        assert_eq!(mobile.check_seo, config.check_seo);
-        assert_eq!(mobile.check_mobile, config.check_mobile);
-        assert_eq!(mobile.check_stack, config.check_stack);
+        assert!(!mobile.modules.contains(Module::Security));
+        assert_eq!(
+            mobile.modules.contains(Module::Seo),
+            config.modules.contains(Module::Seo)
+        );
+        assert_eq!(
+            mobile.modules.contains(Module::Mobile),
+            config.modules.contains(Module::Mobile)
+        );
+        assert_eq!(
+            mobile.modules.contains(Module::Stack),
+            config.modules.contains(Module::Stack)
+        );
     }
 
     #[test]

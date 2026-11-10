@@ -1,0 +1,51 @@
+{
+  "id": "security.headers.public_source_map",
+  "url": "https://casoon.github.io/auditmysite/rules/security.headers.public_source_map/",
+  "domain": "security",
+  "title": "Public source map",
+  "outcome": "automatic",
+  "area": "Security, response headers",
+  "checks": [
+    {
+      "contract_id": "Source Map:public_source_map",
+      "label": "Source Map",
+      "outcome": "automatic",
+      "source": "ECMA-426 Source Map Format (sourceMappingURL linking); OWASP WSTG-INFO-05 (review webpage content for information leakage)",
+      "applicability": "Applies to documents that load external scripts or stylesheets.",
+      "expectation": "Fails when a script or stylesheet of the page names a source map (trailing sourceMappingURL comment) and that map URL answers 2xx. A named map that is not served (404) and an inline data: map pass. A page without external scripts or stylesheets: not applicable. If the page itself cannot be fetched (transport error, error status) or no asset answers, the check is not run (errored) — never 'no leak'. Method limitation: assets are taken from the served HTML, so scripts inserted after load are not inspected.",
+      "method": "analyze_security",
+      "capabilities": [
+        "network"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "security_source_map_public",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/security_source_map_public.expected.json",
+        "verdict": "violation",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      },
+      "passing": {
+        "case": "security_source_map_inline",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/security_source_map_inline.expected.json",
+        "verdict": "pass",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      }
+    }
+  ]
+}

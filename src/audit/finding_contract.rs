@@ -299,9 +299,9 @@ const TARGET_SIZE_SMALL: &str = "page.target_size.small";
 
 fn shared_cause_for_wcag(rule_id: &str) -> Option<&'static str> {
     match rule_id {
-        "a11y.language.missing" => Some(LANG_MISSING),
-        "a11y.resize_text.weak" => Some(ZOOM_LOCKED),
-        "a11y.target_size_minimum.small" => Some(TARGET_SIZE_SMALL),
+        "document/lang-missing" => Some(LANG_MISSING),
+        "zoom/viewport-locked" => Some(ZOOM_LOCKED),
+        "targets/size" => Some(TARGET_SIZE_SMALL),
         _ => None,
     }
 }
@@ -1092,7 +1092,6 @@ fn collect(
 fn journey_cause(rule: &str) -> &'static str {
     crate::taxonomy::RuleLookup::by_id(rule)
         .map(|r| r.id)
-        .or_else(|| crate::taxonomy::RuleLookup::by_legacy_wcag_id(rule).map(|r| r.id))
         .unwrap_or("a11y.unmapped")
 }
 
@@ -1250,7 +1249,10 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
         .clone()
         .unwrap_or_else(|| check_title(&first.check));
 
+    let help_url = crate::audit::rule_docs::finding_help_url(&rule_id);
+
     NormalizedFinding {
+        known: false,
         id,
         patterns,
         pattern_count,
@@ -1281,7 +1283,8 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
         aggregation_key: rule_id,
         title,
         description: first.message.clone(),
-        help_url: None,
+        help_url,
+        understanding_url: None,
         occurrence_count,
         priority_score,
         confidence: derived.confidence.to_string(),
@@ -1312,7 +1315,7 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
 }
 
 /// Readable title from a check code: `no_canonical` → `No canonical`.
-fn check_title(check: &str) -> String {
+pub fn check_title(check: &str) -> String {
     let text = check.replace(['_', '.'], " ");
     let mut chars = text.chars();
     match chars.next() {
@@ -1427,8 +1430,8 @@ mod tests {
         let n = normalize(&report).normalized;
         n.validate().unwrap();
         for (a11y_rule, mobile_rule) in [
-            ("a11y.target_size_minimum.small", "mobile.small_targets"),
-            ("a11y.resize_text.weak", "mobile.not_scalable"),
+            ("targets/size", "mobile.small_targets"),
+            ("zoom/viewport-locked", "mobile.not_scalable"),
         ] {
             let a11y = n.findings.iter().find(|f| f.rule_id == a11y_rule).unwrap();
             let mobile = n
@@ -1553,6 +1556,49 @@ mod tests {
         let f = group_finding(vec![c], 5);
         assert_eq!(f.assurance.method, DetectionMethod::Review);
         assert_eq!(f.verification, "manual_review_recommended");
+    }
+
+    /// #929: a finding of the security, structured-data and library checks
+    /// links to its page by the id it carries; any other collected check has
+    /// no page and no link.
+    #[test]
+    fn collected_findings_link_to_their_page_by_their_id() {
+        let finding = |source: &'static str, check: &str| {
+            group_finding(
+                vec![Collected::new(
+                    FindingDomain::Security,
+                    source,
+                    check,
+                    Severity::High,
+                    "x".to_string(),
+                    FindingScoring::none(),
+                    LocationScope::Page,
+                )],
+                5,
+            )
+        };
+        let url = |source, check| finding(source, check).help_url;
+        assert_eq!(
+            url("security.headers", "missing_header").as_deref(),
+            Some("https://casoon.github.io/auditmysite/rules/security.headers.missing_header/")
+        );
+        assert_eq!(
+            url("best_practices.vulnerable_libraries", "jquery").as_deref(),
+            Some(
+                "https://casoon.github.io/auditmysite/rules/best_practices.vulnerable_libraries.jquery/"
+            )
+        );
+        assert_eq!(
+            url("seo.schema", "schema_rule_missing_product_snippet_offers").as_deref(),
+            Some(
+                "https://casoon.github.io/auditmysite/rules/seo.schema.schema_rule_missing_product_snippet/"
+            )
+        );
+        assert_eq!(url("seo.meta", "description"), None);
+        assert_eq!(
+            finding("security.headers", "missing_header").understanding_url,
+            None
+        );
     }
 
     #[test]
@@ -1797,7 +1843,7 @@ mod tests {
             .collect();
         for expected in [
             (
-                "a11y.language.missing",
+                "document/lang-missing",
                 "Accessibility".to_string(),
                 ScoringEffect::Deduction,
             ),
@@ -1928,6 +1974,6 @@ mod tests {
         assert!(n
             .findings
             .iter()
-            .all(|f| !f.rule_id.starts_with("a11y.main_heading")));
+            .all(|f| !f.rule_id.starts_with("headings/h1-")));
     }
 }

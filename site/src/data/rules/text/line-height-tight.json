@@ -1,0 +1,41 @@
+{
+  "id": "text/line-height-tight",
+  "url": "https://casoon.github.io/auditmysite/rules/text/line-height-tight/",
+  "domain": "wcag",
+  "title": "Limited visual presentation of text (AAA)",
+  "outcome": "hint-only",
+  "area": "Accessibility, Visual Presentation",
+  "criterion": "1.4.8",
+  "level": "AAA",
+  "axe_id": "visual-presentation",
+  "severity": "low",
+  "user_impact": "Users with visual impairments or dyslexia have difficulty reading.",
+  "technical_impact": "Insufficient CSS styling for line spacing or justified-text formatting.",
+  "checks": [
+    {
+      "contract_id": "text/line-height-tight",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 1.4.8 Visual Presentation (Level AAA), bullet 4: line spacing at least space-and-a-half",
+      "applicability": "Blocks of text: paragraphs with text content that are rendered.",
+      "expectation": "One page-level review when at least one rendered paragraph has an effective\nline height below 1.5 times the font size, from a stylesheet, the style\nattribute, or a media query applying in an audited viewport. Exactly 1.5\npasses, 1.4 does not. A tight value on html (normalize.css) that the\nparagraphs override does not count; captions and headings are not blocks of\ntext. Review, not a violation.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "stylesheets"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "visual_text_inline_style",
+        "file": "tests/fixtures/detection_corpus/visual_text_inline_style.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Justified paragraph set with an inline style</title>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>City library news</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Opening of the new reading room</h1>\n  <!-- CMS output: the alignment and line height sit in the style attribute,\n       not in a stylesheet. The paragraph is still justified and tight. -->\n  <p style=\"text-align: justify; line-height: 1.2\">The new reading room on the second floor\n     opens next Monday. It offers forty quiet desks, daylight from three sides and a small\n     collection of local history for everyone with a library card.</p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "visual_text_presentation_ok",
+        "file": "tests/fixtures/detection_corpus/visual_text_presentation_ok.html",
+        "verdict": "absent",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Readable paragraphs with a tight heading and caption</title>\n<style>\n  /* normalize.css default on html, overridden where paragraphs are set. */\n  html { line-height: 1.15; }\n  body { color: #111111; background: #ffffff; }\n  p { line-height: 1.6; text-align: left; }\n  /* Not blocks of text: a justified heading and a compact caption. */\n  h1 { text-align: justify; line-height: 1.1; }\n  figcaption { line-height: 1.2; }\n  /* Collapsed legal text: justified and tight, but not presented. */\n  .legal { text-align: justify; line-height: 1.2; }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>City library news</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Opening of the new reading room</h1>\n  <p>The new reading room on the second floor opens next Monday. It offers forty\n     quiet desks, daylight from three sides and a small collection of local history.</p>\n  <p class=\"legal\" hidden>Terms of use: the reading room is open to all card holders under\n     the library rules in force at the time of the visit.</p>\n  <figure>\n    <img src=\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='120'%3E%3Crect width='240' height='120' fill='%23336699'/%3E%3C/svg%3E\"\n         alt=\"Floor plan of the second floor\" width=\"240\" height=\"120\">\n    <figcaption>Second floor, reading room on the left</figcaption>\n  </figure>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

@@ -151,6 +151,11 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
     "context/on-focus",
     "context/autofocus",
     "auth/captcha",
+    // The paste probe walks same-origin frames and open shadow roots, so the
+    // fields of an embedded sign-in form are measured too (#1006). The other
+    // probe rules judge the top document: its frames, its fixed bars, its
+    // root (the abolished JavaScript rules read the top document only).
+    "auth/paste-blocked",
     "keyboard/focusable-no-role",
     "keyboard/interactive-not-focusable",
     "dialog/focusable-missing",
@@ -441,17 +446,7 @@ struct OwnerProbe {
 }
 
 /// The same "not perceivable" criteria as `iframe_rules`' scan.
-const OWNER_PROBE_JS: &str = r#"
-  var el = this;
-  var role = (el.getAttribute('role') || '').toLowerCase();
-  var hidden = role === 'none' || role === 'presentation'
-    || el.hasAttribute('hidden') || el.getAttribute('aria-hidden') === 'true';
-  var st = window.getComputedStyle(el);
-  if (st && (st.display === 'none' || st.visibility === 'hidden' || st.visibility === 'collapse')) hidden = true;
-  var r = el.getBoundingClientRect();
-  if (r.width <= 1 || r.height <= 1) hidden = true;
-  return { selector: __amsCssSelector(el), hidden: hidden };
-"#;
+const OWNER_PROBE_JS: &str = include_str!("js/frame_owner_probe.js");
 
 async fn probe_owner(page: &Page, backend_id: i64) -> Option<OwnerProbe> {
     let resolved = page

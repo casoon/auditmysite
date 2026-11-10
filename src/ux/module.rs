@@ -1,12 +1,12 @@
 //! `AuditModule` implementation for UX collection (#332).
 //!
 //! UX is computed synchronously from the AX tree. Gated on
-//! `check_seo || check_mobile` to match today's behavior.
+//! `Module::Seo` or `Module::Mobile` and on `--experimental ux` (#916).
 
 use async_trait::async_trait;
 
 use crate::audit::module::{AuditModule, ModuleContext, ModuleData};
-use crate::audit::PipelineConfig;
+use crate::audit::{Module, PipelineConfig};
 use crate::error::Result;
 
 use super::analyze_ux;
@@ -24,7 +24,8 @@ impl AuditModule for UxModule {
     }
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
-        cfg.check_seo || cfg.check_mobile
+        (cfg.modules.contains(Module::Seo) || cfg.modules.contains(Module::Mobile))
+            && cfg.runs_experimental_module("ux")
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {

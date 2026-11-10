@@ -1,0 +1,42 @@
+{
+  "id": "aria/owns-conflict",
+  "url": "https://casoon.github.io/auditmysite/rules/aria/owns-conflict/",
+  "domain": "wcag",
+  "title": "ARIA reference points to an ambiguous ID",
+  "outcome": "automatic",
+  "area": "Accessibility, Technical Robustness",
+  "criterion": "4.1.2",
+  "level": "A",
+  "axe_id": "duplicate-id-aria",
+  "severity": "high",
+  "user_impact": "Assistive technologies cannot reliably determine which element is referenced.",
+  "technical_impact": "The referenced ID occurs more than once in the DOM.",
+  "checks": [
+    {
+      "contract_id": "aria/owns-conflict",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 aria-owns (\"An element's ID MUST NOT be specified in more than one other element's aria-owns attribute at any time\")",
+      "applicability": "Elements in the accessibility tree with aria-owns.",
+      "expectation": "Fails when an id already owned by one element's aria-owns appears in another element's\naria-owns; the owner is then undetermined. Reported once, at the second owner. Owners of distinct ids\npass. Hidden owners are out of scope; ids compare within one tree (document or shadow root).",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "ax_tree"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "aria_attrs_invalid",
+        "file": "tests/fixtures/detection_corpus/aria_attrs_invalid.html",
+        "verdict": "violation",
+        "selector": "div#owner-b",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Account settings - Example shop</title>\n</head>\n<body>\n    <header>\n        <p>Example shop</p>\n    </header>\n    <main>\n        <h1>Account settings</h1>\n\n        <h2>Contact</h2>\n        <!-- aria/attribute-unknown: typo, the hint is never announced -->\n        <label for=\"email\">E-mail address</label>\n        <input id=\"email\" type=\"email\" autocomplete=\"email\" aria-describeby=\"email-hint\">\n        <p id=\"email-hint\">We only use it for order confirmations.</p>\n\n        <!-- aria/reference-missing: the referenced hint does not exist -->\n        <label for=\"phone\">Phone number</label>\n        <input id=\"phone\" type=\"tel\" autocomplete=\"tel\" aria-describedby=\"phone-hint\">\n\n        <!-- aria/attribute-value-invalid: aria-pressed is a tristate -->\n        <button type=\"button\" id=\"mute\" aria-pressed=\"yes\">Mute notifications</button>\n\n        <!-- aria/attribute-value-invalid: aria-level is an integer -->\n        <div id=\"privacy-heading\" role=\"heading\" aria-level=\"two\">Privacy</div>\n\n        <!-- aria/attribute-not-allowed: ARIA in HTML forbids aria-checked on a\n             native checkbox -->\n        <input type=\"checkbox\" id=\"agree\" aria-checked=\"true\">\n        <label for=\"agree\">Share my wish list</label>\n\n        <!-- aria/attribute-not-allowed: listitem does not support aria-selected -->\n        <ul id=\"sections\">\n            <li id=\"sec-overview\" aria-selected=\"true\">Overview</li>\n            <li id=\"sec-details\">Details</li>\n        </ul>\n\n        <!-- aria/attribute-prohibited: naming is prohibited on paragraph -->\n        <p id=\"lead\" aria-label=\"Introduction\">Manage how we contact you.</p>\n        <p id=\"lead-2\" aria-labelledby=\"privacy-heading\">Your data stays with us.</p>\n\n        <!-- aria/owns-conflict: two groups claim the same element -->\n        <div role=\"group\" id=\"owner-a\" aria-label=\"Billing\" aria-owns=\"shared-address\"></div>\n        <div role=\"group\" id=\"owner-b\" aria-label=\"Shipping\" aria-owns=\"shared-address\"></div>\n        <p id=\"shared-address\">Main Street 1, 12345 Sampletown</p>\n\n        <!-- aria/reference-missing: an expanded button points at nothing -->\n        <button type=\"button\" id=\"more-btn\" aria-expanded=\"true\" aria-controls=\"more-panel\">More options</button>\n    </main>\n    <footer>\n        <p>Example shop</p>\n    </footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "aria_attrs_valid",
+        "file": "tests/fixtures/detection_corpus/aria_attrs_valid.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Account settings - Example shop</title>\n</head>\n<body>\n    <header>\n        <p>Example shop</p>\n    </header>\n    <main>\n        <h1>Account settings</h1>\n\n        <h2>Contact</h2>\n        <!-- Correctly spelled attributes; aria-description is a WAI-ARIA 1.3\n             attribute that browsers already map -->\n        <label for=\"email\">E-mail address</label>\n        <input id=\"email\" type=\"email\" autocomplete=\"email\" aria-describedby=\"email-hint\" aria-description=\"Required for orders\">\n        <p id=\"email-hint\">We only use it for order confirmations.</p>\n\n        <!-- The referenced hint exists but is hidden: referring to hidden\n             content is allowed (accname 1.2, step 2B) -->\n        <label for=\"phone\">Phone number</label>\n        <input id=\"phone\" type=\"tel\" autocomplete=\"tel\" aria-describedby=\"phone-hint\">\n        <p id=\"phone-hint\" hidden>Only used for delivery questions.</p>\n\n        <!-- aria-errormessage only matters while aria-invalid is true -->\n        <label for=\"zip\">Postal code</label>\n        <input id=\"zip\" type=\"text\" autocomplete=\"postal-code\" aria-invalid=\"false\" aria-errormessage=\"zip-error\">\n\n        <!-- Valid tokens, including the boundary values of each value type -->\n        <button type=\"button\" id=\"mute\" aria-pressed=\"mixed\">Mute notifications</button>\n        <button type=\"button\" id=\"filter\" aria-expanded=\"undefined\">Filter</button>\n        <div id=\"privacy-heading\" role=\"heading\" aria-level=\"3\">Privacy</div>\n        <div id=\"storage\" role=\"meter\" aria-label=\"Storage used\" aria-valuenow=\"2.5\" aria-valuemin=\"0\" aria-valuemax=\"1e1\">2.5 of 10 GB</div>\n        <a href=\"/settings\" id=\"current\" aria-current=\"page\">Settings</a>\n\n        <!-- Attributes the role supports; a native checkbox with ARIA it does\n             not duplicate -->\n        <input type=\"checkbox\" id=\"agree\" aria-describedby=\"agree-hint\">\n        <label for=\"agree\">Share my wish list</label>\n        <p id=\"agree-hint\">Friends with the link can see it.</p>\n        <div role=\"checkbox\" id=\"newsletter\" tabindex=\"0\" aria-checked=\"false\" aria-label=\"Newsletter\"></div>\n\n        <!-- Naming is allowed on region and navigation -->\n        <section id=\"data-section\" aria-label=\"Your data\">\n            <p id=\"lead\">Your data stays with us.</p>\n        </section>\n\n        <!-- Each group owns a different element -->\n        <div role=\"group\" id=\"owner-a\" aria-label=\"Billing\" aria-owns=\"billing-address\"></div>\n        <div role=\"group\" id=\"owner-b\" aria-label=\"Shipping\" aria-owns=\"shipping-address\"></div>\n        <p id=\"billing-address\">Main Street 1, 12345 Sampletown</p>\n        <p id=\"shipping-address\">Harbour Road 7, 12345 Sampletown</p>\n\n        <!-- Collapsed: the controlled panel may only be created on opening\n             (WAI-ARIA 1.2 combobox/disclosure, ACT 6a7281) -->\n        <button type=\"button\" id=\"more-btn\" aria-expanded=\"false\" aria-controls=\"more-panel\">More options</button>\n        <button type=\"button\" id=\"less-btn\" aria-expanded=\"true\" aria-controls=\"less-panel\">Fewer options</button>\n        <div id=\"less-panel\">Only the essentials are shown.</div>\n    </main>\n    <footer>\n        <p>Example shop</p>\n    </footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

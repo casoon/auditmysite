@@ -2,41 +2,41 @@
   "case": "forms_signin",
   "expectations": [
     {
-      "rule_id": "accessible-auth-paste-blocked",
+      "rule_id": "auth/paste-blocked",
       "selector": "input#pw-attr",
       "verdict": "violation",
       "occurrences": 1
     },
     {
-      "rule_id": "accessible-auth-paste-blocked",
+      "rule_id": "auth/paste-blocked",
       "selector": "input#pw-listener",
       "verdict": "violation",
       "occurrences": 1
     },
     {
-      "rule_id": "accessible-auth-paste-blocked",
+      "rule_id": "auth/paste-blocked",
       "selector": "input#pw-alert",
       "verdict": "violation",
       "occurrences": 1
     },
     {
-      "rule_id": "accessible-auth-paste-blocked",
+      "rule_id": "auth/paste-blocked",
       "selector": "input#otp-code",
       "verdict": "violation",
       "occurrences": 1
     },
     {
-      "rule_id": "accessible-auth-paste-blocked",
+      "rule_id": "auth/paste-blocked",
       "selector": "input#pw-ok",
       "verdict": "pass"
     },
     {
-      "rule_id": "accessible-auth-paste-blocked",
+      "rule_id": "auth/paste-blocked",
       "selector": "input#pw-sanitise",
       "verdict": "pass"
     },
     {
-      "rule_id": "accessible-auth-paste-blocked",
+      "rule_id": "auth/paste-blocked",
       "selector": "input#pw-readonly",
       "verdict": "pass"
     },

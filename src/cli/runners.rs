@@ -7,15 +7,13 @@ use std::io::{self, IsTerminal};
 use std::sync::Arc;
 
 use colored::Colorize;
-use dialoguer::Select;
 use tracing::info;
 
 use auditmysite::audit::normalize_checked;
 use auditmysite::audit::{
     analyze_crawl_links, analyze_sitemap_diagnostics_with_progress, cached_report, crawl_site,
-    parse_sitemap, read_url_file, replay_report, run_concurrent_batch, run_single_audit,
-    BatchConfig, CacheMiss, CrawlResult, ExpectedProfile, PipelineConfig, SnapshotArtifact,
-    Verdict,
+    parse_sitemap, read_url_file, run_concurrent_batch, run_single_audit, BatchConfig, CacheMiss,
+    CrawlResult, PipelineConfig, Verdict,
 };
 use auditmysite::browser::{BrowserManager, BrowserOptions};
 use auditmysite::cli::url_filter::{select_urls, stratified_sample};
@@ -68,17 +66,25 @@ pub(crate) async fn run_single_mode(
     args: &Args,
     config: &Option<auditmysite::cli::Config>,
 ) -> Result<Verdict> {
-    run_single(args, config).await.map(|o| o.verdict)
+    run_single(args, config, true).await.map(|o| o.verdict)
 }
 
-async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> Result<RunOutcome> {
+/// `offer_sitemap`: look for a sitemap behind a base URL and offer to scan it.
+/// `--display all` runs one URL several times and keeps it at that URL.
+async fn run_single(
+    args: &Args,
+    config: &Option<auditmysite::cli::Config>,
+    offer_sitemap: bool,
+) -> Result<RunOutcome> {
     let url = args
         .url
         .as_ref()
         .ok_or_else(|| AuditError::ConfigError("URL required".to_string()))?;
 
-    if let Some(batch_verdict) = maybe_offer_sitemap_scan(args, url, config).await? {
-        return Ok(RunOutcome::verdict_only(batch_verdict));
+    if offer_sitemap {
+        if let Some(batch_verdict) = maybe_offer_sitemap_scan(args, url, config).await? {
+            return Ok(RunOutcome::verdict_only(batch_verdict));
+        }
     }
 
     print_single_audit_plan(args, url);
@@ -88,7 +94,7 @@ async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> R
 
     info!("Starting audit for: {}", url);
 
-    if args.reuse_cache && !args.force_refresh {
+    if args.reuse_cache {
         let expected_signature = PipelineConfig::from(args).audit_signature();
         // The stored snapshot is replayed (#790), not reconstructed: an entry
         // that is incomplete, from other versions or for another audit
@@ -193,8 +199,11 @@ async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> R
         }
     }
 
+    apply_baseline(&mut report, args)?;
     // The decision stored by normalization under the run's profile (#781).
-    let verdict_result = normalize_checked(&report)?.normalized.decision;
+    let normalized = normalize_checked(&report)?.normalized;
+    write_baseline(args, std::slice::from_ref(&normalized))?;
+    let verdict_result = normalized.decision;
     output_single_report(&report, args)?;
     print_verdict(&verdict_result, args.quiet);
     Ok(RunOutcome {
@@ -206,11 +215,48 @@ async fn run_single(args: &Args, config: &Option<auditmysite::cli::Config>) -> R
     })
 }
 
+/// Gates `report` against `--baseline` (#930): its known findings stay out of
+/// the decision. The file was checked by `Args::validate`.
+fn apply_baseline(report: &mut auditmysite::AuditReport, args: &Args) -> Result<()> {
+    if let Some(baseline) = args.load_baseline().map_err(AuditError::ConfigError)? {
+        baseline.apply(report);
+    }
+    Ok(())
+}
+
+/// `--write-baseline` (#930): records every finding of the run. A run that
+/// measured nothing has nothing to record and must not overwrite a good file.
+fn write_baseline(args: &Args, reports: &[auditmysite::audit::NormalizedReport]) -> Result<()> {
+    let Some(path) = &args.write_baseline else {
+        return Ok(());
+    };
+    if reports.is_empty() {
+        eprintln!(
+            "{} no URL produced a report; baseline {} not written",
+            "Warning:".yellow().bold(),
+            path.display()
+        );
+        return Ok(());
+    }
+    let baseline = auditmysite::audit::Baseline::from_reports(reports, chrono::Utc::now());
+    baseline.write(path)?;
+    if !args.quiet {
+        eprintln!(
+            "{} {} findings on {} pages written to {}",
+            "Baseline:".cyan().bold(),
+            baseline.finding_count(),
+            baseline.file().pages.len(),
+            path.display()
+        );
+    }
+    Ok(())
+}
+
 /// Decides and emits a report that came from a stored snapshot (cache hit or
 /// `replay`): judged under this run's decision profile, which is stored with
 /// the report, so every output and the exit code read the same decision
 /// (#781).
-fn emit_replayed(
+pub(crate) fn emit_replayed(
     mut report: auditmysite::AuditReport,
     args: &Args,
     config: &Option<auditmysite::cli::Config>,
@@ -219,7 +265,10 @@ fn emit_replayed(
         .as_ref()
         .map(|c| c.effective_verdict_config().profile())
         .unwrap_or_default();
-    let verdict_result = normalize_checked(&report)?.normalized.decision;
+    apply_baseline(&mut report, args)?;
+    let normalized = normalize_checked(&report)?.normalized;
+    write_baseline(args, std::slice::from_ref(&normalized))?;
+    let verdict_result = normalized.decision;
     output_single_report(&report, args)?;
     if args.effective_format() == OutputFormat::Json {
         output_screen_reader_sidecar(&report, args)?;
@@ -234,66 +283,19 @@ fn emit_replayed(
     })
 }
 
-/// `auditmysite replay <target>`: the stored snapshot, evaluated again
-/// without browser or network. `session_from_cli` says whether `--session`
-/// was given: its default is not an assertion about the snapshot.
-pub(crate) fn run_replay_mode(
-    args: &Args,
-    config: &Option<auditmysite::cli::Config>,
-    target: &str,
-    session_from_cli: bool,
-) -> Result<Verdict> {
-    let path = std::path::Path::new(target);
-    let snapshot = if path.exists() {
-        SnapshotArtifact::read(path)?
-    } else if url::Url::parse(target).is_ok() {
-        SnapshotArtifact::read_cached(target)?
-    } else {
-        return Err(AuditError::ConfigError(format!(
-            "replay target '{target}' is neither an existing snapshot/cache directory nor a URL"
-        )));
-    };
-    let expected = ExpectedProfile {
-        session_policy: session_from_cli.then(|| args.session.as_str().to_string()),
-        state_id: args.state_id.clone(),
-        storage_state_sha256: args
-            .load_storage_state()
-            .map_err(AuditError::ConfigError)?
-            .map(|state| state.digest),
-        // Replay refuses extra-check flags (support matrix), so nothing to assert.
-        extra_checks: None,
-        // A replay measures nothing, so it asserts no browser.
-        browser: None,
-    };
-    let refuse = |e: auditmysite::audit::ReplayError| AuditError::ConfigError(e.to_string());
-    snapshot.check_measurement(&expected).map_err(refuse)?;
-    let report = replay_report(&snapshot).map_err(refuse)?;
-    if !args.quiet {
-        println!(
-            "{} {}",
-            "Replay:".cyan().bold(),
-            format!("{} (no browser, no network)", report.url).dimmed()
-        );
-    }
-    emit_replayed(report, args, config).map(|o| o.verdict)
-}
-
 async fn maybe_offer_sitemap_scan(
     args: &Args,
     url: &str,
     config: &Option<auditmysite::cli::Config>,
 ) -> Result<Option<Verdict>> {
-    if args.no_sitemap_suggest {
-        return Ok(None);
-    }
     if !looks_like_base_url(url) {
         return Ok(None);
     }
 
     if !args.quiet {
-        print!("{} ", "Checking for sitemap...".dimmed());
-        if let Err(e) = std::io::Write::flush(&mut std::io::stdout()) {
-            if io::stdout().is_terminal() {
+        eprint!("{} ", "Checking for sitemap...".dimmed());
+        if let Err(e) = std::io::Write::flush(&mut std::io::stderr()) {
+            if io::stderr().is_terminal() {
                 tracing::debug!("Failed to flush sitemap status line: {}", e);
             }
         }
@@ -301,13 +303,13 @@ async fn maybe_offer_sitemap_scan(
 
     let Some((sitemap_url, url_count)) = discover_populated_sitemap(url).await? else {
         if !args.quiet {
-            println!();
+            eprintln!();
         }
         return Ok(None);
     };
 
     if !args.quiet {
-        println!();
+        eprintln!();
     }
 
     if args.prefer_sitemap {
@@ -319,68 +321,20 @@ async fn maybe_offer_sitemap_scan(
         return Ok(None);
     }
 
-    // dialoguer opens /dev/tty directly — only stdin needs to be a terminal
-    if !io::stdin().is_terminal() {
-        println!();
-        println!("{}", "Sitemap found".cyan().bold());
-        println!(
-            "  {} {} ({} URLs)",
-            "Source:".dimmed(),
-            sitemap_url,
-            url_count
-        );
-        println!(
-            "  {}",
-            "Non-interactive run: only the specified single URL will be audited. Use --prefer-sitemap or --sitemap for a full scan."
-                .dimmed()
-        );
-        println!();
-        return Ok(None);
-    }
-
-    println!();
-    println!("{}", "Sitemap found".cyan().bold());
-    println!(
+    eprintln!();
+    eprintln!("{}", "Sitemap found".cyan().bold());
+    eprintln!(
         "  {} {} ({} URLs)",
         "Source:".dimmed(),
         sitemap_url,
         url_count
     );
-    println!(
+    eprintln!(
         "  {}",
-        "For a base URL, a full sitemap scan is often more useful than just the homepage.".dimmed()
+        "Only the specified single URL is audited. Use --prefer-sitemap or --sitemap for a full scan."
+            .dimmed()
     );
-    println!();
-
-    let sample_label =
-        "Sample scan (20 URLs) — average across pages, good for template issues".to_string();
-    let full_label = format!("Scan sitemap (all {} URLs)", url_count);
-    let items = vec![
-        "Check single URL (homepage)",
-        sample_label.as_str(),
-        full_label.as_str(),
-    ];
-    let selection = Select::new()
-        .with_prompt("How would you like to proceed?")
-        .items(&items)
-        .default(0)
-        .interact()
-        .map_err(|e| AuditError::ConfigError(e.to_string()))?;
-
-    if selection == 1 {
-        let mut batch_args = suggested_sitemap_batch_args(args, sitemap_url);
-        batch_args.max_pages = 20;
-        println!();
-        return run_batch_mode(&batch_args, config).await.map(Some);
-    }
-
-    if selection == 2 {
-        let batch_args = suggested_sitemap_batch_args(args, sitemap_url);
-        println!();
-        return run_batch_mode(&batch_args, config).await.map(Some);
-    }
-
-    println!();
+    eprintln!();
     Ok(None)
 }
 
@@ -388,13 +342,6 @@ pub(crate) fn suggested_sitemap_batch_args(args: &Args, sitemap_url: String) -> 
     let mut batch_args = args.clone();
     batch_args.url = None;
     batch_args.sitemap = Some(sitemap_url);
-
-    // A user who started a single-URL audit without an explicit format expects a
-    // generated report file even when switching into sitemap mode interactively.
-    if batch_args.format.is_none() {
-        batch_args.format = Some(OutputFormat::Pdf);
-    }
-
     batch_args
 }
 
@@ -604,6 +551,17 @@ async fn run_batch(
     };
 
     let mut batch_report = run_concurrent_batch(urls, &batch_config, progress).await?;
+    if let Some(baseline) = args.load_baseline().map_err(AuditError::ConfigError)? {
+        batch_report = batch_report.with_baseline(&baseline);
+    }
+    if args.write_baseline.is_some() {
+        let normalized = batch_report
+            .reports
+            .iter()
+            .map(|r| normalize_checked(r).map(|ctx| ctx.normalized))
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        write_baseline(args, &normalized)?;
+    }
     batch_report = batch_report.with_sample(sample);
 
     if url_source == "sitemap" {
@@ -708,7 +666,6 @@ pub(crate) async fn run_display_all(
             .as_deref()
             .map(|p| crate::output_paths::with_display_suffix(p, suffix));
         // One URL stays one URL across all modes.
-        a.no_sitemap_suggest = true;
         a.prefer_sitemap = false;
         a
     };
@@ -728,7 +685,7 @@ pub(crate) async fn run_display_all(
     let calm = if is_batch {
         run_batch(&calm_args, config, None).await?
     } else {
-        run_single(&calm_args, config).await?
+        run_single(&calm_args, config, false).await?
     };
     verdicts.push(calm.verdict);
 
@@ -737,7 +694,7 @@ pub(crate) async fn run_display_all(
     let text = if is_batch {
         run_batch(&text_args, config, None).await?
     } else {
-        run_single(&text_args, config).await?
+        run_single(&text_args, config, false).await?
     };
     verdicts.push(text.verdict);
 
@@ -755,7 +712,7 @@ pub(crate) async fn run_display_all(
         let visual = if is_batch {
             run_batch(&visual_args, config, Some(calm.visual_only_urls)).await?
         } else {
-            run_single(&visual_args, config).await?
+            run_single(&visual_args, config, false).await?
         };
         verdicts.push(visual.verdict);
     }

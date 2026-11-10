@@ -123,9 +123,10 @@ pub(super) fn finding_group_from_normalized(
     FindingGroup {
         title,
         rule_id: f.rule_id.clone(),
+        finding_id: f.id.clone(),
         wcag_criterion: f.wcag_criterion.clone(),
         wcag_level: f.wcag_level.clone(),
-        help_url: f.help_url.clone(),
+        help_url: f.understanding_url.clone(),
         dimension: Some(f.dimension.clone()),
         subcategory: Some(f.subcategory.clone()),
         issue_class: Some(f.issue_class.clone()),
@@ -187,19 +188,20 @@ mod fallback_tests {
     use crate::i18n::I18n;
     use crate::wcag::Severity;
 
-    /// `a11y.timing.unadjustable` (WCAG 2.2.1) has no `RuleExplanation` entry
+    /// `timing/meta-refresh` (WCAG 2.2.1) has no `RuleExplanation` entry
     /// in `explanations.rs` — a real, currently-uncovered rule (verified by
     /// auditing `EXPLANATIONS` against the taxonomy), so this exercises the
     /// `finding_group_from_normalized` fallback branch. `description` is set
     /// to a raw-English marker that must never surface as `customer_description`.
     fn uncovered_rule_finding() -> NormalizedFinding {
         NormalizedFinding {
+            known: false,
             contract: Default::default(),
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,
             category: "wcag".into(),
-            rule_id: "a11y.timing.unadjustable".into(),
+            rule_id: "timing/meta-refresh".into(),
             wcag_criterion: "2.2.1".into(),
             axe_id: None,
             wcag_level: "A".into(),
@@ -219,11 +221,12 @@ mod fallback_tests {
                 scaling: "Logarithmic".into(),
             },
             report_visibility: ReportVisibilityData::default(),
-            aggregation_key: "a11y.timing.unadjustable".into(),
+            aggregation_key: "timing/meta-refresh".into(),
             title: "Non-adjustable time limit".into(),
             description: "RAW ENGLISH CANARY — must never reach a German customer_description"
                 .into(),
             help_url: None,
+            understanding_url: None,
             occurrence_count: 1,
             priority_score: 1.0,
             confidence: "high".into(),
@@ -262,19 +265,20 @@ mod fallback_tests {
         );
     }
 
-    /// A `region.rs` finding (WCAG 1.3.1, taxonomy id "a11y.structure.missing",
-    /// axe_id "region"). Several unrelated 1.3.1 checks (tables, lists, form
-    /// groups) share that same taxonomy id, so `rule_id` alone would resolve
-    /// to a generic table/list/fieldset explanation — only the `axe_id` is
-    /// specific enough to identify this as a landmark/region finding (#571).
+    /// A `landmarks/content-outside` finding (WCAG 1.3.1). Several unrelated
+    /// 1.3.1 checks (tables, lists, form groups) share the criterion, so the
+    /// criterion alone would resolve to a generic table/list/fieldset
+    /// explanation — only the rule id identifies this as a landmark/region
+    /// finding (#571).
     fn region_finding() -> NormalizedFinding {
         NormalizedFinding {
+            known: false,
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,
-            rule_id: "a11y.structure.missing".into(),
+            rule_id: "landmarks/content-outside".into(),
             wcag_criterion: "1.3.1".into(),
-            axe_id: Some("region".into()),
+            axe_id: Some("landmarks/content-outside".into()),
             title: "Region".into(),
             description: "Element with role 'link' is not contained within a landmark region"
                 .into(),
@@ -305,20 +309,20 @@ mod fallback_tests {
     }
 
     /// A `landmark_granular.rs` `check_landmark_unique` finding (WCAG 1.3.1,
-    /// taxonomy id "a11y.landmark_unique.invalid", axe_id "landmark-unique").
-    /// This taxonomy id's `external_ref` is "WCAG 1.3.1", so
-    /// `get_explanation(rule_id)`'s internal WCAG-id fallback would otherwise
+    /// rule "landmarks/not-unique"). This rule's `external_ref` is
+    /// "WCAG 1.3.1", so `get_explanation`'s internal WCAG-id fallback would otherwise
     /// silently resolve to the generic 1.3.1 explanation written for
     /// tables/lists/forms — same bug class as #571 (region.rs), confirmed
     /// live against a real report (plan/1-root-cause-title-occurrence-mismatch.md).
     fn landmark_unique_finding() -> NormalizedFinding {
         NormalizedFinding {
+            known: false,
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,
-            rule_id: "a11y.landmark_unique.invalid".into(),
+            rule_id: "landmarks/not-unique".into(),
             wcag_criterion: "1.3.1".into(),
-            axe_id: Some("landmark-unique".into()),
+            axe_id: Some("landmarks/not-unique".into()),
             title: "Landmarks are not uniquely named".into(),
             description: "Multiple landmarks of the same role have the same accessible name."
                 .into(),

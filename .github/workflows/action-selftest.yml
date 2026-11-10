@@ -11,6 +11,10 @@ on:
       version:
         description: Release tag to install (empty = latest)
         default: ""
+      verify-attestation:
+        description: Verify the build provenance too (needs a release later than v2.0.2)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -28,6 +32,7 @@ jobs:
         with:
           url: ${{ inputs.url }}
           version: ${{ inputs.version }}
+          verify-attestation: ${{ inputs.verify-attestation }}
       - name: Check the outputs
         env:
           REPORT_JSON: ${{ steps.audit.outputs.report-json }}

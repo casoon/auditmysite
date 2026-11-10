@@ -1,0 +1,183 @@
+---
+import Base from '@casoon/pages-theme/layouts/Base.astro';
+import { url } from '@casoon/pages-theme/url';
+import { outcomes, ruleIndex } from '../../lib/rules';
+
+const { counts, rules, total } = ruleIndex;
+const domainLabel = Object.fromEntries(counts.map((c) => [c.domain, c.label]));
+const sum = (key: 'automatic' | 'hint_only' | 'manual') => counts.reduce((n, c) => n + c[key], 0);
+---
+
+<Base
+  title="Rules"
+  description="Every accessibility rule of auditmysite with its success criterion, outcome class and a passing and a failing example."
+>
+  <div class="page">
+    <h1>Rules</h1>
+    <p class="lead">
+      Every rule of the accessibility audit, and every security header check, structured-data
+      feature and checked JavaScript library, has a page here: what it checks, how it is tested
+      and, where the detection corpus has one, a failing and a passing example. The pages are
+      generated from the rule catalogue and the rule contracts, so they cannot drift from what the
+      tool does.
+    </p>
+
+    <h2>Coverage</h2>
+    <table>
+      <caption class="sr-only">Pages by family and outcome class</caption>
+      <thead>
+        <tr>
+          <th scope="col">Family</th>
+          <th scope="col">Automatic</th>
+          <th scope="col">Hint only</th>
+          <th scope="col">Manual</th>
+          <th scope="col">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {counts.map((c) => (
+          <tr>
+            <th scope="row">{c.label}</th>
+            <td>{c.automatic}</td>
+            <td>{c.hint_only}</td>
+            <td>{c.manual}</td>
+            <td>{c.total}</td>
+          </tr>
+        ))}
+        <tr>
+          <th scope="row">All</th>
+          <td>{sum('automatic')}</td>
+          <td>{sum('hint_only')}</td>
+          <td>{sum('manual')}</td>
+          <td>{total}</td>
+        </tr>
+      </tbody>
+    </table>
+    <dl class="classes">
+      {(Object.keys(outcomes) as (keyof typeof outcomes)[]).map((key) => (
+        <>
+          <dt>{outcomes[key].label}</dt>
+          <dd>{outcomes[key].meaning}</dd>
+        </>
+      ))}
+    </dl>
+    <p>
+      The class is declared by the rule's contract (<code>automation</code> and
+      <code>review_only</code>), not by what the corpus happens to show. A security page can stand
+      for several header checks that surface as one finding.
+    </p>
+
+    <h2>Addresses</h2>
+    <p>
+      A rule's page is <code>rules/&lt;rule_id&gt;/</code> below this site, with the id unchanged:
+      <code>/</code> stays a path separator, so <code>document/title-missing</code> is at
+      <a href={url('rules/document/title-missing/')}><code>rules/document/title-missing/</code></a>.
+      The <code>help_url</code> of a finding in the JSON, SARIF and AI report points here, using
+      the id the finding carries: <code>security.headers.missing_header</code> and
+      <code>best_practices.vulnerable_libraries.jquery</code> for the other families; structured-data
+      findings (<code>seo.schema.schema_rule_missing_&lt;feature&gt;_&lt;property&gt;</code>) point at
+      their feature's page, <code>seo.schema.schema_rule_missing_&lt;feature&gt;</code>. A WCAG
+      criterion's W3C Understanding page is <code>understanding_url</code>.
+    </p>
+
+    <h2>All rules</h2>
+    <table>
+      <caption class="sr-only">All pages, WCAG rules by success criterion</caption>
+      <thead>
+        <tr>
+          <th scope="col">Family</th>
+          <th scope="col">Criterion</th>
+          <th scope="col">Level</th>
+          <th scope="col">Rule</th>
+          <th scope="col">Outcome class</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rules.map((rule) => (
+          <tr>
+            <td>{domainLabel[rule.domain]}</td>
+            <td>{rule.criterion ?? (rule.domain === 'wcag' ? 'Best practice' : '')}</td>
+            <td>{rule.level ?? ''}</td>
+            <td>
+              <a href={url(`rules/${rule.id}/`)}>{rule.title}</a><br /><code>{rule.id}</code>
+            </td>
+            <td>{outcomes[rule.outcome].label}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</Base>
+
+<style>
+  .page {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+  h1 {
+    margin: 0 0 12px;
+    color: var(--heading);
+    font-size: 38px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+  }
+  h2 {
+    margin: 44px 0 12px;
+    color: var(--heading);
+    font-size: 22px;
+    font-weight: 600;
+  }
+  .lead {
+    font-size: 17.5px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14.5px;
+  }
+  th,
+  td {
+    padding: 9px 12px 9px 0;
+    border-top: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  thead th {
+    color: var(--muted);
+    font-weight: 500;
+  }
+  code {
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: var(--code-bg);
+    font-size: 0.86em;
+  }
+  a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+  }
+  .classes {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 6px 24px;
+    margin: 20px 0;
+    font-size: 14.5px;
+  }
+  .classes dt {
+    color: var(--heading);
+    font-weight: 600;
+  }
+  .classes dd {
+    margin: 0;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+</style>

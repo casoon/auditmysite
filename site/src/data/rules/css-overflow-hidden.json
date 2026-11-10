@@ -1,0 +1,42 @@
+{
+  "id": "css-overflow-hidden",
+  "url": "https://casoon.github.io/auditmysite/rules/css-overflow-hidden/",
+  "domain": "wcag",
+  "title": "No reflow at 320 CSS pixels",
+  "outcome": "automatic",
+  "area": "Accessibility, Visual Presentation",
+  "criterion": "1.4.10",
+  "level": "AA",
+  "axe_id": "css-overflow-hidden",
+  "severity": "high",
+  "user_impact": "Users zooming to 400% must scroll in two directions — content becomes inaccessible.",
+  "technical_impact": "Fixed widths or overflow:hidden prevent responsive reflow.",
+  "checks": [
+    {
+      "contract_id": "css-overflow-hidden",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 1.4.10 Reflow (320 CSS px width; exception for content requiring two-dimensional layout)",
+      "applicability": "The page at a 320 x 256 CSS px viewport (run once after the mobile pass), except content that needs two-dimensional layout: data tables, images, maps, diagrams, video, application areas.",
+      "expectation": "Fails when the document needs horizontal scrolling at 320 CSS px (scroll\nwidth more than 5 px beyond the viewport) because of content that should\nreflow; the finding names the widest such element. Exactly 320 px wide\ncontent passes. A fixed width that only applies above 400 px does not apply\nat 320 px. A width capped by script after load passes. Overflow caused only\nby a data table, image or other 2D content is excepted by the criterion and\npasses; a layout table (role=presentation/none) is not excepted. Overflowing\ntext without a wider element box (an unbroken string) still fails. A page\nwhose only wide content is such 2D content (visual_no_text: one image) has\nnothing the criterion applies to.",
+      "method": "pipeline",
+      "capabilities": [
+        "geometry",
+        "interaction"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "visual_reflow_fixed_width",
+        "file": "tests/fixtures/detection_corpus/visual_reflow_fixed_width.html",
+        "verdict": "violation",
+        "selector": "div#promo",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Promotion box with a fixed width</title>\n<style>\n  body { color: #111111; background: #ffffff; }\n  #promo { width: 600px; border: 1px solid #111111; padding: 8px; }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Shop</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Autumn offers</h1>\n  <div id=\"promo\"><p>All garden furniture is twenty percent off until Sunday.</p></div>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "visual_reflow_ok",
+        "file": "tests/fixtures/detection_corpus/visual_reflow_ok.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Responsive page with a wide data table</title>\n<style>\n  body { margin: 0; color: #111111; background: #ffffff; }\n  main, header, footer { padding: 0; }\n  /* Threshold: exactly the 320px viewport. */\n  #exact { width: 320px; box-sizing: border-box; border: 1px solid #111111; }\n  /* Responsive: only wide screens get the fixed width. */\n  @media (min-width: 400px) { #wide-desktop { width: 900px; } }\n  /* Dynamic: capped by a script after load. */\n  #capped-late { width: 600px; }\n  #prices { width: 700px; border-collapse: collapse; }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Shop</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Price list</h1>\n  <div id=\"exact\"><p>Prices valid from October.</p></div>\n  <div id=\"wide-desktop\"><p>Compare all models below.</p></div>\n  <div id=\"capped-late\"><p>Delivery within five working days.</p></div>\n  <!-- A data table needs two-dimensional layout: 1.4.10 excepts it. -->\n  <table id=\"prices\">\n    <caption>Prices per model and size</caption>\n    <tr><th scope=\"col\">Model</th><th scope=\"col\">Small</th><th scope=\"col\">Medium</th><th scope=\"col\">Large</th><th scope=\"col\">Extra large</th></tr>\n    <tr><th scope=\"row\">Larch</th><td>120 euros</td><td>150 euros</td><td>180 euros</td><td>210 euros</td></tr>\n  </table>\n</main>\n<footer><p>Footer text</p></footer>\n<script>\n  window.addEventListener('load', function () {\n    document.getElementById('capped-late').style.maxWidth = '100%';\n  });\n</script>\n</body>\n</html>"
+      }
+    }
+  ]
+}

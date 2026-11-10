@@ -12,7 +12,7 @@ Single-page reports and sitemap/batch reports are intentionally different.
 - Findings overview: a compact, priority-sorted findings matrix precedes the detailed finding cards.
 - Manual review: a fixed list of WCAG criteria that are structurally outside automated testing, and concrete VoiceOver/NVDA self-test steps where a quick manual check is realistic.
 - Accessible output: PDFs are tagged and PDF/UA-1 conformant (structure tree, document language, title, bookmarks); rendering fails with a diagnostic instead of silently producing a non-conformant PDF.
-- Module chapters: each module is its own chapter with a magazine-style opener and a one-line key takeaway. AI Visibility, Content Visibility, and Source Quality are merged into a single "KI & Vertrauen" (AI & Trust) chapter.
+- Module chapters: each module is its own chapter with a magazine-style opener and a one-line key takeaway. The experimental indicators (AI Visibility, Content Visibility, Source Quality, UX, Journey, Commerce) have no chapter; see [Experimental indicators](../../reference/features/#experimental-indicators).
 - Action plan: recommendations as action cards grouped by where the problem lives (systemic vs. local), without time or effort estimates, plus a root-cause distribution chart.
 - Evidence-grade findings: each finding card can include a cropped, highlighted screenshot of the affected element, its DOM path, and (where applicable, e.g. contrast) the measured vs. required value — so a finding stands on its own without re-running the tool.
 - Audit coverage: requested and completed checks, partial measurements, manual-review items, and Journey execution coverage are surfaced explicitly instead of treating missing data as a pass.

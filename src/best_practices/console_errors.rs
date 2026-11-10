@@ -45,41 +45,7 @@ pub struct ConsoleErrorsAnalysis {
 ///
 /// Must be called before `browser.navigate()`. Errors are non-fatal.
 pub async fn prepare_console_collection(page: &Page) -> Result<()> {
-    let script = r#"
-    (function() {
-        window.__auditConsoleErrors = [];
-        var _origError = console.error;
-        var _origWarn = console.warn;
-        console.error = function() {
-            var msg = Array.prototype.slice.call(arguments).map(function(a) {
-                return typeof a === 'object' ? JSON.stringify(a) : String(a);
-            }).join(' ');
-            window.__auditConsoleErrors.push({level: 'error', msg: msg.substring(0, 200)});
-            _origError.apply(console, arguments);
-        };
-        console.warn = function() {
-            var msg = Array.prototype.slice.call(arguments).map(function(a) {
-                return typeof a === 'object' ? JSON.stringify(a) : String(a);
-            }).join(' ');
-            window.__auditConsoleErrors.push({level: 'warn', msg: msg.substring(0, 200)});
-            _origWarn.apply(console, arguments);
-        };
-        window.addEventListener('error', function(e) {
-            var loc = e.filename ? (' at ' + e.filename + ':' + e.lineno) : '';
-            window.__auditConsoleErrors.push({
-                level: 'error',
-                msg: (e.message + loc).substring(0, 200)
-            });
-        });
-        window.addEventListener('unhandledrejection', function(e) {
-            var reason = e.reason ? String(e.reason) : 'unknown';
-            window.__auditConsoleErrors.push({
-                level: 'error',
-                msg: ('Unhandled Promise Rejection: ' + reason).substring(0, 200)
-            });
-        });
-    })();
-    "#;
+    let script = include_str!("js/console_errors_install.js");
 
     page.execute(AddScriptToEvaluateOnNewDocumentParams::new(script))
         .await
@@ -113,14 +79,7 @@ pub async fn take_console_results(
 ) -> crate::audit::collection::Collected<ConsoleErrorsAnalysis> {
     info!("Taking console error results...");
 
-    let js = r#"
-    (() => {
-        // Undefined: the collector was never installed — no measurement,
-        // not "no errors".
-        if (window.__auditConsoleErrors === undefined) return null;
-        return JSON.stringify(window.__auditConsoleErrors);
-    })()
-    "#;
+    let js = include_str!("js/console_errors_read.js");
 
     crate::audit::collection::evaluate_js(page, js)
         .await

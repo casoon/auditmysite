@@ -61,7 +61,7 @@ src/seo/social.rs 7
 src/seo/technical.rs 36
 src/seo/topics.rs 2
 src/tech_stack/mod.rs 3
-src/tech_stack/module.rs 5
+src/tech_stack/module.rs 4
 src/ux/module.rs 2
 src/wcag/bik_guide.rs 4
 src/wcag/en301549.rs 2

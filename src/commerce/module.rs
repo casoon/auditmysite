@@ -8,7 +8,7 @@
 use async_trait::async_trait;
 
 use crate::audit::module::{AuditModule, ModuleContext, ModuleData};
-use crate::audit::{AuditReport, PipelineConfig};
+use crate::audit::{AuditReport, Module, PipelineConfig};
 use crate::error::Result;
 use crate::tech_stack::TechCategory;
 
@@ -28,7 +28,7 @@ impl AuditModule for CommerceModule {
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
         // Derived from the SEO module's structured data; only meaningful when SEO ran.
-        cfg.check_seo
+        cfg.modules.contains(Module::Seo) && cfg.runs_experimental_module("commerce")
     }
 
     fn depends_on(&self) -> &'static [&'static str] {

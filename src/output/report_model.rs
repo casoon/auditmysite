@@ -152,6 +152,10 @@ pub struct ReportViewModel {
     /// them in the run language while the JSON keeps canonical English
     /// (#406, plan 35).
     pub management_risks: Vec<crate::audit::management_risk::ManagementRiskKind>,
+    /// External assessments of `--annotations` (#961). Set by the PDF entry
+    /// point, never by the view-model builder: nothing in the view model is
+    /// derived from them.
+    pub annotations: Option<crate::annotations::Resolved>,
 }
 
 pub struct PositiveSignal {
@@ -228,6 +232,9 @@ pub struct SummaryBlock {
     /// `verdict` field above is a prose sentence, not this (plan 34).
     pub ci_verdict: crate::audit::verdict::Verdict,
     pub ci_verdict_reasons: Vec<crate::audit::verdict::VerdictReasonKind>,
+    /// Known/new/fixed findings against the findings baseline (#930); `None`
+    /// without `--baseline`.
+    pub baseline: Option<crate::audit::BaselineStatus>,
     /// True when the run did not complete in full. The rating is then marked
     /// provisional at the front of the report instead of only in the
     /// methodology appendix (plan 44).
@@ -674,6 +681,8 @@ pub struct NarrativeArc {
 pub struct FindingGroup {
     pub title: String,
     pub rule_id: String,
+    /// `findings[].id` of the JSON (`F-…`); the key annotations attach by.
+    pub finding_id: String,
     pub wcag_criterion: String,
     pub wcag_level: String,
     /// Official reference URL for the criterion (e.g. WCAG Understanding page).
@@ -1407,6 +1416,8 @@ pub struct PortfolioSummary {
     pub total_violations: usize,
     pub duration_ms: u64,
     pub verdict_text: String,
+    /// The batch's findings baseline (#930); `None` without `--baseline`.
+    pub baseline: Option<crate::audit::baseline::BatchBaselineSummary>,
     pub worst_urls: Vec<(String, f32)>,
     pub best_urls: Vec<(String, f32)>,
     pub severity_distribution: SeverityDistribution,

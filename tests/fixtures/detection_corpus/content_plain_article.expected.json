@@ -25,7 +25,7 @@
     {"rule_id": "viz/static-missing", "verdict": "not_applicable"},
     {"rule_id": "viz/table-missing", "verdict": "not_applicable"},
     {"rule_id": "video-caption", "verdict": "not_applicable"},
-    {"rule_id": "frame-tested", "verdict": "absent"},
+    {"rule_id": "frames/cross-origin", "verdict": "absent"},
     {"rule_id": "media-alt", "verdict": "needs_review"}
   ]
 }

@@ -42,6 +42,16 @@ pub enum StabilityStatus {
     Fallback,
 }
 
+/// `js/page_stability.js` with its `__BUDGET_MS__` placeholder filled in.
+fn page_stability_script(budget_ms: u64) -> String {
+    include_str!("js/page_stability.js").replace("__BUDGET_MS__", &budget_ms.to_string())
+}
+
+/// `js/finite_animations.js` with its `__BUDGET_MS__` placeholder filled in.
+fn finite_animations_script(budget_ms: u64) -> String {
+    include_str!("js/finite_animations.js").replace("__BUDGET_MS__", &budget_ms.to_string())
+}
+
 /// Wait until the DOM has been quiet for 200 ms with content rendered, an
 /// application-provided `window.__AUDITMYSITE_READY__ === true` signal is
 /// present, or the bounded budget is exhausted. This deliberately does not
@@ -61,80 +71,7 @@ pub async fn wait_for_page_stability(
     budget_ms: u64,
 ) -> StabilityProvenance {
     let budget_ms = budget_ms.clamp(200, 10_000);
-    let expression = format!(
-        r#"new Promise(resolve => {{
-            const started = performance.now();
-            let mutations = 0;
-            let addedElementNodes = 0;
-            const targets = new Set();
-            let quietTimer;
-            let done = false;
-            // A client-rendered app can sit quiet behind an empty splash
-            // screen while it fetches its first view (eesti.ee: ~400 ms
-            // without a single mutation, #718). Quiet without content is
-            // not settled: keep waiting until something is rendered.
-            const hasContent = () => {{
-                const body = document.body;
-                if (!body) return false;
-                if (document.querySelector('main, [role="main"], h1, h2, h3')) return true;
-                return (body.innerText || '').trim().length > 0;
-            }};
-            let awaitedContent = false;
-            const quiet = () => {{
-                if (hasContent()) {{
-                    finish('stable', awaitedContent ? 'waited for the first rendered content' : null);
-                }} else {{
-                    awaitedContent = true;
-                    quietTimer = setTimeout(quiet, 200);
-                }}
-            }};
-            const finish = (status, reason) => {{
-                if (done) return;
-                done = true;
-                observer.disconnect();
-                clearTimeout(quietTimer);
-                clearTimeout(budgetTimer);
-                resolve({{ status, waited_ms: Math.round(performance.now() - started), mutation_count: mutations, reason }});
-            }};
-            const observer = new MutationObserver(records => {{
-                mutations += records.length;
-                for (const r of records) {{
-                    if (targets.size < 25) targets.add(r.target);
-                    if (r.type === 'childList') {{
-                        for (const n of r.addedNodes) {{
-                            if (n.nodeType === 1) addedElementNodes++;
-                        }}
-                    }}
-                }}
-                clearTimeout(quietTimer);
-                quietTimer = setTimeout(quiet, 200);
-            }});
-            observer.observe(document.documentElement, {{subtree:true, childList:true, attributes:true, characterData:true}});
-            const budgetTimer = setTimeout(() => {{
-                if (!hasContent()) {{
-                    finish('budget_exhausted', 'the page rendered no content within the configured budget');
-                    return;
-                }}
-                let hasRunningAnimation = false;
-                try {{
-                    hasRunningAnimation = typeof document.getAnimations === 'function' &&
-                        document.getAnimations({{subtree:true}}).some(a => a.playState === 'running');
-                }} catch (e) {{}}
-                const boundedTargets = targets.size > 0 && targets.size <= 6;
-                const noContentGrowth = addedElementNodes === 0;
-                if (boundedTargets && (noContentGrowth || hasRunningAnimation)) {{
-                    finish('ongoing_animation', 'DOM mutations stayed confined to a small, stable set of elements without content growth, consistent with a running animation');
-                }} else {{
-                    finish('budget_exhausted', 'DOM did not remain quiet within the configured budget');
-                }}
-            }}, {budget_ms});
-            if (window.__AUDITMYSITE_READY__ === true || document.documentElement.dataset.auditReady === 'true') {{
-                finish('ready_signal', null);
-            }} else {{
-                quietTimer = setTimeout(quiet, 200);
-            }}
-        }})"#
-    );
+    let expression = page_stability_script(budget_ms);
     // `return_by_value`: the promise resolves to an object. Without it CDP
     // hands back a remote-object reference, `value` stays empty, and every
     // call fell through to the defaults below — `budget_exhausted` after the
@@ -243,35 +180,7 @@ impl AnimationSettle {
 /// reporting its mid-animation size.
 pub async fn wait_for_finite_animations(page: &Page, budget_ms: u64) -> AnimationSettle {
     let budget_ms = budget_ms.clamp(200, 10_000);
-    let expression = format!(
-        r#"new Promise(resolve => {{
-            if (typeof document.getAnimations !== 'function') {{
-                resolve({{ settled: true, waited_ms: 0, running: 0 }});
-                return;
-            }}
-            const started = performance.now();
-            const remaining = a => {{
-                const t = a.effect.getComputedTiming();
-                return (t.endTime - (t.localTime || 0)) / Math.abs(a.playbackRate || 1);
-            }};
-            const step = () => {{
-                const elapsed = performance.now() - started;
-                const running = document.getAnimations().filter(a =>
-                    a.playState === 'running' && a.effect && isFinite(a.effect.getComputedTiming().endTime));
-                const left = {budget_ms} - elapsed;
-                const waitable = running.filter(a => remaining(a) <= left);
-                if (running.length === 0 || waitable.length === 0 || left <= 0) {{
-                    resolve({{ settled: running.length === 0, waited_ms: Math.round(elapsed), running: running.length }});
-                    return;
-                }}
-                Promise.race([
-                    Promise.all(waitable.map(a => a.finished.catch(() => null))),
-                    new Promise(r => setTimeout(r, left))
-                ]).then(() => requestAnimationFrame(() => requestAnimationFrame(step)));
-            }};
-            step();
-        }})"#
-    );
+    let expression = finite_animations_script(budget_ms);
     let params = match EvaluateParams::builder()
         .expression(expression)
         .await_promise(true)
@@ -355,8 +264,22 @@ pub async fn settle_after_action(page: &Page) -> StabilityProvenance {
 
 #[cfg(test)]
 mod tests {
-    use super::AnimationSettle;
+    use super::{finite_animations_script, page_stability_script, AnimationSettle};
     use serde_json::json;
+
+    #[test]
+    fn page_stability_script_fills_the_budget_placeholder() {
+        let js = page_stability_script(1234);
+        assert!(js.contains("}, 1234);"), "{js}");
+        assert!(!js.contains("__BUDGET_MS__"));
+    }
+
+    #[test]
+    fn finite_animations_script_fills_the_budget_placeholder() {
+        let js = finite_animations_script(4321);
+        assert!(js.contains("const left = 4321 - elapsed;"), "{js}");
+        assert!(!js.contains("__BUDGET_MS__"));
+    }
 
     #[test]
     fn animation_settle_reads_settled_result() {

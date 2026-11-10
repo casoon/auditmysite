@@ -29,6 +29,13 @@ inputs:
       "none" skips it.
     required: false
     default: ensure
+  verify-attestation:
+    description: >-
+      "true" additionally runs `gh attestation verify` on the downloaded archive and fails
+      without valid signed build provenance. Needs a release with attestation (later than
+      v2.0.2); older releases fail with a clear message. Default "false".
+    required: false
+    default: "false"
   args:
     description: >-
       Extra arguments for both audit runs, split on whitespace (no quoting), for example
@@ -59,6 +66,8 @@ runs:
       shell: bash
       env:
         INPUT_VERSION: ${{ inputs.version }}
+        VERIFY_ATTESTATION: ${{ inputs.verify-attestation }}
+        GH_TOKEN: ${{ github.token }}
         ACTION_REF: ${{ github.action_ref }}
         BIN_DIR: ${{ runner.temp }}/auditmysite-bin
         ACTION_PATH: ${{ github.action_path }}
@@ -119,7 +128,7 @@ runs:
         # --report-mode: exit 0 once the files are written, so the following upload
         # step runs; technical failures (browser, timeout, bad arguments) still fail the step.
         "$bin" "${target[@]}" ${extra[@]+"${extra[@]}"} -f json -o "$out_dir/report.json" --quiet --report-mode
-        "$bin" "${target[@]}" ${extra[@]+"${extra[@]}"} -f sarif -o "$out_dir/report.sarif" --no-screen-reader-report --quiet --report-mode
+        "$bin" "${target[@]}" ${extra[@]+"${extra[@]}"} -f sarif -o "$out_dir/report.sarif" --quiet --report-mode
 
         echo "report-json=$out_dir/report.json" >> "$GITHUB_OUTPUT"
         echo "report-sarif=$out_dir/report.sarif" >> "$GITHUB_OUTPUT"

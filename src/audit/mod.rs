@@ -4,6 +4,7 @@
 
 mod access_block;
 pub mod artifacts;
+pub mod baseline;
 mod batch;
 pub mod batch_consistency;
 pub mod budget;
@@ -14,6 +15,7 @@ mod crawl;
 mod dark_scheme;
 pub mod duplicate;
 pub mod exclusion;
+pub mod experimental;
 pub mod finding_contract;
 mod finding_derive;
 pub mod finding_text;
@@ -24,6 +26,7 @@ pub mod interpretation;
 pub mod management_risk;
 pub mod module;
 mod module_scores;
+mod module_set;
 pub mod normalized;
 pub mod occurrence_analysis;
 pub mod performance_interpretation;
@@ -31,6 +34,7 @@ mod pipeline;
 pub mod prioritization;
 mod report;
 mod risk_assessment;
+pub mod rule_docs;
 mod scoring;
 pub mod signal_contract;
 pub mod summary;
@@ -54,7 +58,9 @@ pub use budget::{evaluate_budgets, BudgetSeverity, BudgetViolation};
 pub use catalog::AuditCatalog;
 pub use crawl::{analyze_crawl_links, crawl_site, CrawlNode, CrawlResult};
 pub use duplicate::{detect_near_duplicates, DuplicatePair};
+pub use experimental::{ExperimentalIndicator, ExperimentalIndicators};
 pub use module::{AuditModule, ModuleContext, ModuleData, Viewport};
+pub use module_set::{Module, ModuleSet};
 pub use normalized::{AuditContext, NormalizedReport};
 
 /// Infallible normalization of a raw report: it derives a model even from a
@@ -72,6 +78,7 @@ pub use normalized::{AuditContext, NormalizedReport};
 pub fn normalize(report: &AuditReport) -> AuditContext<'_> {
     normalized::normalize(report)
 }
+pub use baseline::{Baseline, BaselineStatus, BASELINE_CONTRACT, FINDING_ID_SCHEME};
 #[cfg(feature = "pdf")]
 pub(crate) use pipeline::with_shared_page_rule_violations;
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
@@ -88,7 +95,7 @@ pub use report::{
     SubcheckRun, ThrottledPerfResult, ViewportAuditData, ViewportDefinition, ViewportMetaRefresh,
     ViewportScoreSet, ViewportScores, ViewportScreenshot, MEASUREMENT_PROFILE_VERSION,
 };
-pub(crate) use scoring::{default_impact, score_from_penalties};
+pub(crate) use scoring::score_from_penalties;
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};
 pub use template_dedup::{detect_root_causes, RootCause};
 pub use validation::{

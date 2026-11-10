@@ -11,7 +11,7 @@ auditmysite [OPTIONS] [URL] [COMMAND]
 ```
 
 Primary commands:
-- `auditmysite <url>`: run a full single-page audit and write PDF/JSON into the current directory
+- `auditmysite <url>`: run a full single-page audit and print a table; nothing is written (`-o report.json` or `-f pdf -o report.pdf` keeps a report)
 - `auditmysite --sitemap <url>`: audit sitemap URLs
 - `auditmysite --url-file <file>`: audit URLs from file
 - `auditmysite <url> --crawl`: discover same-domain pages from a seed URL and audit them as a batch
@@ -21,22 +21,24 @@ Primary commands:
 
 Useful flags:
 - `--prefer-sitemap`: if a sitemap is detected for a base URL, switch directly into batch mode
-- `--no-sitemap-suggest`: suppress sitemap probing/suggestion and keep the run on the single URL
 - `--crawl-depth <n>`: limit same-domain crawl discovery depth when using `--crawl`
 - `--per-page-reports`: scan a URL list or sitemap but write one individual report per URL instead of an aggregated batch report; `-o` is treated as a target directory. With `-f json`, `index.json` and `findings.jsonl` are written next to the page files (see [Technician mode](../../guides/technician-mode/))
-- `--technician`: fix-oriented batch preset, see [Technician mode](../../guides/technician-mode/)
+- `--modules <list>`: choose the modules that run next to the accessibility checks, comma-separated: `performance` (alias `perf`), `seo`, `security`, `mobile`, `html-conform`, `stack`, or `a11y` for the WCAG rules only. Without `--modules` (or with the no-op `--full`) every module runs. `--modules` and `--full` exclude each other.
+- `--experimental <list>`: switch on experimental indicators, comma-separated: `ux`, `journey`, `ai-visibility`, `content-visibility`, `source-quality`, `commerce`. Unvalidated heuristics that feed no score; off by default and in no `--full` run. They appear in the JSON under `experimental` and in the table, never in the PDF. See [Experimental indicators](../features/#experimental-indicators)
+- `--reuse-cache`: answer a single-URL run from the stored snapshot of an earlier run with the same configuration; without it every run measures afresh
 - `--include-path <glob>` / `--exclude-path <glob>`: select batch URLs by path before `--max-pages` (repeatable)
-- `--no-screen-reader-report`: do not write the `*-screen-reader-audit.json` sidecar
-- `--html-conform`: run the HTML-conformance module without `--full`
-- `--lang <de|en>`: set the language for PDF reports (default: `de`)
-- `--stack`: enable tech stack detection from in-page signals (included automatically with `--full`); sends no requests of its own to the audited host
+- `--screen-reader-report`: also write the `<output>-screen-reader-audit.json` sidecar (off by default)
+- `--lang <en|de>`: set the language of the PDF report and the terminal table (default: `en`)
+- Tech stack detection (`--modules stack`, part of the default set) reads in-page signals only; it sends no requests of its own to the audited host
 - `--interactive <off|basic|full>`: control the Accessibility Journey Layer for interactive checks — tab walk, skip-link, modal focus trap, SPA navigation, form-error announcement, link-text inventory (default: `full`; use `off` for fastest runs). Clicking submit buttons, add-to-cart triggers and quantity steppers is an opt-in: `--allow-state-changes` (with `full`)
 - `--annex <en301549|bik>`: add an opt-in appendix to the PDF report. `en301549` maps findings to EN 301 549 (chapter 9, "Web") clauses — a technical building block for a human-authored accessibility statement, not a statement itself. `bik` regroups the same findings by the chapters of the "BIK für Alle" editorial guide (images/alt text, link text, structure, easy language, PDFs, videos), without adding new checks. The underlying JSON data (`en301549_annex`, `bik_guide`) is always present regardless of this flag; it only gates the PDF section.
 - `--privacy-check`: opt-in (not part of `--full`), pre-consent privacy findings of one first visit in a clean browser context (requests, cookies, storage keys classified by provider; technical findings with a confidence class, no legal verdict, no score); one extra page load per audited page, see [privacy findings](../privacy-findings.md)
-- `--isolate-third-party-impact`: reload the page once per top-5 third-party origin with that origin blocked and report each origin's Total Blocking Time impact; costly, requires `--full` or `--performance`, single-URL mode only
-- `--check-ssr-content`: reload the page with JavaScript disabled and flag an SSR/hydration content gap when essential content only appears client-side; one extra reload, requires `--full` or `--seo`, single-URL mode only
+- `--isolate-third-party-impact`: reload the page once per top-5 third-party origin with that origin blocked and report each origin's Total Blocking Time impact; costly, requires the `performance` module (the default set or `--modules performance`), single-URL mode only
+- `--check-ssr-content`: reload the page with JavaScript disabled and flag an SSR/hydration content gap when essential content only appears client-side; one extra reload, requires the `seo` module (the default set or `--modules seo`), single-URL mode only
 - `--display <calm|text|visual|all>`: audit one display mode of the `data-display` convention — see [Display modes](../../guides/display-modes/)
 - `--exclude-selector <CSS>` (repeatable): drop findings inside the subtree a CSS selector matches — for markup that is broken on purpose, such as teaching specimens (see [Excluding intentional specimens](../../guides/excluding-specimens/))
+- `--annotations <file.json>`: show external assessments of findings next to them in the report, without changing any result, see [Annotations](#annotations)
+- `--write-baseline <file>` / `--baseline <file>`: record the finding ids of a run, then gate later runs so that only new findings affect the exit code (known findings are marked `known` and counted; scores and the finding list stay unchanged; per URL in a batch). A malformed baseline, or one written under another finding id scheme, exits 3. Format, scoping and the id stability it relies on: [Findings baseline](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#findings-baseline)
 - `--color <auto|always|never>` / `--progress <auto|always|never>`: terminal color and batch progress policy; `--progress` is independent of `--quiet`
 
 For the full current interface, use:
@@ -56,9 +58,9 @@ Measured on 2026-11-08 with auditmysite 2.0.2 (release build), full Google Chrom
 |---|---|---|---|
 | Default | none (same as `--full`) | 14.8 – 54.1 s | 28.0 s |
 | Without journeys | `--interactive off` | 11.5 – 32.9 s | 17.8 s |
-| WCAG rules only | `--interactive off --skip-performance --skip-mobile` | 2.5 – 8.9 s | 7.0 s |
+| WCAG rules only | `--interactive off --modules a11y` | 2.5 – 8.9 s | 7.0 s |
 
-`--skip-performance` or `--skip-mobile` also switches off the other `--full` modules (SEO, security), so the last row is the accessibility tree and the WCAG rules without the rest. Heavy, script-driven pages cost more: bundesregierung.de (54.1 s) and dm.de (53.6 s) were the slowest in the default mode; gov.uk (14.8 s) the fastest.
+`--modules a11y` switches off every other module (performance, mobile, SEO, security, HTML conformance, tech stack), so the last row is the accessibility tree and the WCAG rules without the rest. Heavy, script-driven pages cost more: bundesregierung.de (54.1 s) and dm.de (53.6 s) were the slowest in the default mode; gov.uk (14.8 s) the fastest.
 
 Batch runs share one browser, so the start-up cost is paid once. Same six URLs (gov.uk, gov.ie, casoon.de, mit.edu, bundesregierung.de, berlin.de) as a `--url-file`, `-f json`, default modules:
 
@@ -79,7 +81,7 @@ All six pages were audited in every run. Concurrency does not scale linearly: th
 - `-t, --timeout <secs>`: page load timeout, default 30. It bounds one page, not the run. A page waiting for a free tab waits up to four times `--timeout` (two minutes at least); a page that still gets none is retried one at a time after the parallel phase.
 - `--stability-budget-ms <ms>`: wait for late hydration after navigation, default 1500; the same budget again bounds the wait for finite CSS animations. Paid on every page, so it scales with the page count, not with concurrency.
 - `-m, --max-pages <n>`: caps the number of audited URLs (0 = unlimited). `--include-path` and `--exclude-path` are applied first; `--sample-strategy first-n|stratified` decides which N are kept. This is the main lever on total time, since total time is roughly the page count times the per-page time divided by the concurrency speed-up.
-- `--interactive off`, `--skip-performance`, `--skip-mobile`: reduce the work per page and apply to every page of the batch.
+- `--interactive off`, `--modules`: reduce the work per page and apply to every page of the batch.
 - Single-URL only, not run in batch mode: `--perf-runs`, `--isolate-third-party-impact`, `--check-ssr-content`. `--privacy-check` adds one page load per audited page in either mode. `--crawl` adds link-check requests on top of the page audits.
 
 ## SARIF output
@@ -93,8 +95,8 @@ auditmysite --sitemap https://example.com/sitemap.xml -f sarif -o auditmysite.sa
 
 What the file contains:
 
-- `tool.driver` carries the name, `informationUri` and the tool version; `rules` has one entry per distinct rule ID, merged across pages, with `shortDescription`, `fullDescription`, `help`, `defaultConfiguration.level` and `properties.precision` (from the finding's confidence). `helpUri` is set only for rules that have a help URL, in practice the WCAG rules (a link to the W3C "Understanding" page); rules of the other modules have none. `properties.wcagCriterion` is present for WCAG rules; `properties.tags` holds the category and dimension.
-- Every finding of the report becomes a result, not only WCAG findings: SEO, security, UX, journey and the other modules are included, each under its own rule ID (for example `a11y.contrast.weak`, `seo.meta.description`). One result is written per occurrence.
+- `tool.driver` carries the name, `informationUri` and the tool version; `rules` has one entry per distinct rule ID, merged across pages, with `shortDescription`, `fullDescription`, `help`, `defaultConfiguration.level` and `properties.precision` (from the finding's confidence). `helpUri` is the rule's page on the project site (`https://casoon.github.io/auditmysite/rules/<page_id>/`) for every WCAG rule and for the security header, vulnerable library and structured-data (missing required properties) rules; other rules have none. `properties.wcagCriterion` is present for WCAG rules; `properties.tags` holds the category and dimension.
+- Every finding of the report becomes a result, not only WCAG findings: SEO, security, UX, journey and the other modules are included, each under its own rule ID (for example `contrast/text-insufficient`, `seo.meta.description`). One result is written per occurrence.
 - `level` follows the severity: critical and high are `error`, medium is `warning`, low is `note`. A finding that only asks for a manual review (`properties.outcome: "review"`) is capped at `note`: it is never presented as a confirmed defect.
 - Checks that did not run are not results and never count as passed. Disabled rules, rules without the data they need, rules that errored, and modules that failed, ran partially or were skipped are listed in `invocations[0].toolExecutionNotifications` (`level` `note`, `warning` or `error`, with `associatedRule` and the page URL). A rule that has nothing to check on a page ("not applicable") is not listed. `executionSuccessful` is `false` when a notification has level `error`.
 
@@ -125,7 +127,7 @@ primaryLocationLineHash = "<hash>:<n>"   (the only key GitHub reads)
 
 ```json
 {
-  "ruleId": "a11y.contrast.weak",
+  "ruleId": "contrast/text-insufficient",
   "ruleIndex": 0,
   "level": "error",
   "message": {
@@ -179,6 +181,31 @@ Status: the SARIF structure, the fingerprints and the not-run handling are cover
 
 Schema check: download `sarif-2.1/schema/sarif-schema-2.1.0.json` from [oasis-tcs/sarif-spec](https://github.com/oasis-tcs/sarif-spec) (OASIS licence terms, so it is not vendored here) and run `AUDITMYSITE_SARIF_SCHEMA=<file> cargo test --test sarif_contract -- --ignored`.
 
+## Annotations
+
+`--annotations <file.json>` reads assessments that a person or an agent made after the rules ran (whether an alt text really says nothing, what a reading-flow pass noticed) and shows them next to the findings they belong to. The file format is defined once, in barrierlab: [annotation file](https://github.com/casoon/barrierlab/blob/main/docs/a11y/reference/annotations.md) with its [JSON Schema](https://github.com/casoon/barrierlab/blob/main/docs/a11y/reference/annotations.schema.json) (schema `1`; unknown fields are ignored). auditmysite reads it and stores nothing between runs.
+
+```bash
+auditmysite https://example.com --annotations annotations.json -f pdf
+auditmysite --sitemap https://example.com/sitemap.xml --annotations annotations.json -f json -o batch.json
+```
+
+What an annotation does not do: it never changes an outcome, severity, score, `legal_flags`, risk level, verdict, exit code or `--fail-on` result. `assessment` is `likely_issue`, `likely_fine` or `undetermined`; none of them turns a `review` finding into a failure or a pass. Without the option every output is byte-identical to a run that never heard of annotations.
+
+Matching:
+- `finding_id` (`F-…`) matches `pages[].findings[].id`; `pattern_id` (`RC-…`) narrows it to one `findings[].patterns[].id`. The ids depend on the rule and the normalised element pattern, so when an element changes, an old annotation becomes unmatched instead of attaching to something else.
+- In a batch run an annotation with `url` applies to that page only, one without `url` to every page that has the finding. URLs compare equal up to a trailing slash.
+- Scope `reading_flow` attaches to the page's screen-reader audit section. In a run of several pages it needs `url`.
+- An annotation that matches nothing is listed as unmatched with a reason (`finding_not_found`, `pattern_not_found`, `url_not_audited`, `url_required`, `no_reading_flow`), never dropped.
+
+Where it shows:
+- **JSON** (`-f json`, also the JSON written next to a PDF): a top-level `annotations` block with `counts`, `matched` (each with the `url` and `finding_id` it attached to) and `unmatched`; `warnings` lists evidence screenshots that were not found next to the file. The block is part of both JSON schemas; the findings themselves are untouched.
+- **PDF:** below each annotated finding as a callout titled "Assessment (agent)" or "Assessment (reviewer)" (German: "Einschätzung (Agent)" / "Einschätzung (Reviewer)") followed by the value, the reasoning, the author and the evidence. The screen-reader section shows the `reading_flow` ones. A short "Assessments" section gives the counts per author kind and lists the unmatched. The batch PDF aggregates findings across pages, so there the section lists every matched assessment per page instead of marking individual findings; the executive level, which has no finding cards, does the same.
+- **`-f ai`:** tasks of an annotated finding carry `finding_id` and `annotations`; with `pattern_id` only the tasks of that element pattern do. Annotations that sit on no task (reading flow, findings that are not WCAG tasks, unmatched) are in a top-level `annotations` object.
+- **table, SARIF, summary:** unchanged; the option prints a warning there instead of being ignored silently. With `--per-page-reports` each page file gets the matches of its page and the annotations that matched no page of the run.
+
+The file is validated when the arguments are parsed, before any page is loaded: an unreadable file, invalid JSON or a violation of the schema (a missing `finding_id` for scope `finding`, an `assessment` of `fail`, an empty `reasoning`, an unknown `author.kind`) stops the run with a message naming the annotation and exit code 2, like any other invalid argument. A missing evidence file is only a warning.
+
 ## Output Contract
 
 JSON output is treated as an automation contract.
@@ -188,6 +215,7 @@ JSON output is treated as an automation contract.
 - Batch report schema: [docs/json-batch-report.schema.json](https://github.com/casoon/auditmysite/blob/main/docs/json-batch-report.schema.json)
 
 Key fields in a single-page report:
+- `pages[].baseline`, `pages[].findings[].known`, `decision.profile.baseline_digest` (batch: also top-level `baseline`) — present only with `--baseline`: known, new and fixed findings against a baseline file. Finding ids are stable per rule and page: what changes an id and what must not is in [Finding id stability](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#finding-id-stability)
 - `metric_context` — machine-readable definitions for the 0–100 score scale and the report's scoped count fields
 - `findings` — static WCAG violations and SEO findings
 - `interactive_findings` — journey-phase results (link texts, landmarks, heading outline, focus order, modal traps …); present when `--interactive basic|full` was used
@@ -195,6 +223,7 @@ Key fields in a single-page report:
 - `audit_scope` and `execution_environment` — requested modules, viewports, throttle profiles, interaction mode, browser context, and live/cache provenance
 - `audit_quality` plus `pages[].detail.module_runs` and `pages[].detail.rule_outcomes` — distinguish complete, partial, failed, skipped, and non-applicable checks so a measurement failure cannot look like a clean result
 - `pages[].detail.accessibility_assessments` — structured warnings, manual-review items, and positive signals kept separate from confirmed violations and scoring
+- `annotations` — external assessments read from `--annotations`; present only with that option, see [Annotations](#annotations)
 - `artifacts` — descriptors for separately written evidence or screen-reader sidecars without embedding binary data in the main JSON
 - `build_id` — git short-SHA of the binary that produced the report (suffixed `-dirty` for builds from uncommitted changes, `unknown` for builds without a `.git` directory), so two reports with the same `tool_version` can be told apart
 - `pages[].detail.en301549_annex` and `pages[].detail.bik_guide` — findings mapped to EN 301 549 clauses and to the "BIK für Alle" editorial guide chapters; always present, independent of `--annex`

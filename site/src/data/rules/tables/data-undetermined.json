@@ -1,0 +1,42 @@
+{
+  "id": "tables/data-undetermined",
+  "url": "https://casoon.github.io/auditmysite/rules/tables/data-undetermined/",
+  "domain": "wcag",
+  "title": "Table header without associated data cells",
+  "outcome": "hint-only",
+  "area": "Accessibility, Structure & Semantics",
+  "criterion": "1.3.1",
+  "level": "A",
+  "axe_id": "th-has-data-cells",
+  "severity": "high",
+  "user_impact": "Screen readers announce a header that structures no data.",
+  "technical_impact": "Header cell with no associated data cells in the table.",
+  "checks": [
+    {
+      "contract_id": "tables/data-undetermined",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 1.3.1 Info and Relationships (H51, H39, H63, H43, F91, F92); HTML §4.9 tabular data; WAI-ARIA 1.2 table/grid/row/cell roles",
+      "applicability": "Every rendered table with header cells, no data cell, and a row group without rows.",
+      "expectation": "Header cells, no data cell, and an empty row group (tbody/thead/tfoot or\nrole=rowgroup without a row): the rows are pending or hidden, so whether the\nheaders get data cannot be decided from this state. Reported as UNTESTED\n(review) at the table, never as a violation.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "content_tables_pending",
+        "file": "tests/fixtures/detection_corpus/content_tables_pending.html",
+        "verdict": "needs_review",
+        "selector": "table#pending-results",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Catalogue search</title>\n    <style>\n        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Catalogue search</h1>\n        <p>Results load as you type.</p>\n        <table id=\"pending-results\" aria-label=\"Search results\">\n            <thead><tr><th id=\"results-title\">Title</th><th id=\"results-year\">Year</th></tr></thead>\n            <tbody></tbody>\n        </table>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "content_tables_ok",
+        "file": "tests/fixtures/detection_corpus/content_tables_ok.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Library statistics</title>\n    <style>\n        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Library statistics</h1>\n        <table id=\"prices\">\n            <caption>Copy and print prices</caption>\n            <thead><tr><th scope=\"col\" id=\"price-item\">Item</th><th scope=\"col\" id=\"price-cost\">Cost</th></tr></thead>\n            <tbody>\n                <tr><td headers=\"price-item\">Black and white page</td><td headers=\"price-cost\">0.10</td></tr>\n                <tr><td headers=\"price-item\">Colour page</td><td headers=\"price-item price-cost\">0.50</td></tr>\n            </tbody>\n        </table>\n        <h2 id=\"hours-heading\">Opening hours</h2>\n        <table id=\"hours\" aria-labelledby=\"hours-heading\">\n            <tr><th scope=\"row\">Monday</th><td>9:00 to 18:00</td></tr>\n            <tr><th scope=\"row\">Sunday</th><td></td></tr>\n        </table>\n        <table id=\"minimal\" aria-label=\"Late returns\">\n            <tr><th id=\"late-head\">Late returns this week</th><td></td></tr>\n        </table>\n        <table id=\"layout\" role=\"presentation\">\n            <tr><td>Address: 1 Market Square</td><td>Phone: 555 0100</td></tr>\n        </table>\n        <div role=\"table\" id=\"aria-branches\" aria-label=\"Branches\">\n            <div role=\"row\"><div role=\"columnheader\">Branch</div><div role=\"columnheader\">Status</div></div>\n            <div role=\"row\"><div role=\"cell\">North</div><div role=\"cell\">Open</div></div>\n        </div>\n        <stat-table></stat-table>\n        <script>\n            customElements.define('stat-table', class extends HTMLElement {\n                connectedCallback() {\n                    this.attachShadow({ mode: 'open' }).innerHTML =\n                        '<table id=\"shadow-stats\"><caption>Visitors</caption>' +\n                        '<tr><th scope=\"col\" id=\"shadow-day\">Day</th><th scope=\"col\">Visitors</th></tr>' +\n                        '<tr><td headers=\"shadow-day\">Monday</td><td>310</td></tr></table>';\n                }\n            });\n        </script>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

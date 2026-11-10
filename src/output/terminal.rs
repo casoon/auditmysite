@@ -145,8 +145,104 @@ pub fn render_single_report_for(
         rm_report = rm_report.add_next_step(NextStep::new(&item.action));
     }
 
+    if let Some(baseline) = &normalized.normalized.baseline {
+        rm_report = rm_report.add_scope_note(runemark::report::ScopeNote::new(
+            "Baseline",
+            vec![crate::audit::baseline::summary_text(
+                baseline.known,
+                baseline.new,
+                baseline.fixed,
+                None,
+                args.lang != "de",
+            )],
+        ));
+    }
+
+    let lines = experimental_lines(&report.experimental, args.lang != "de");
+    if !lines.is_empty() {
+        rm_report = rm_report.add_scope_note(runemark::report::ScopeNote::new(
+            if args.lang == "de" {
+                "Experimentelle Indikatoren (nicht validiert, ohne Einfluss auf Score und Urteil)"
+            } else {
+                "Experimental indicators (unvalidated, no effect on score or verdict)"
+            },
+            lines,
+        ));
+    }
+
     let console = console_for(args, writing_to_file);
     Ok(rm_report.render_with_options(console, render_options()))
+}
+
+/// One line per experimental indicator that ran (`--experimental`, #916); the
+/// table lists them only when they were asked for. The only text source of
+/// these lines: `en` selects the language, the analysis stays English.
+fn experimental_lines(
+    experimental: &crate::audit::ExperimentalIndicators,
+    en: bool,
+) -> Vec<String> {
+    use crate::audit::ExperimentalIndicator as I;
+    use crate::output::module::ReportModule;
+
+    let score_of = |value: serde_json::Value| value.get("score").and_then(|s| s.as_u64());
+    let scored = |label: &str, score: Option<u64>| match score {
+        Some(score) => format!("{label}: {score}/100"),
+        None if en => format!("{label}: no score"),
+        None => format!("{label}: kein Score"),
+    };
+    experimental
+        .present()
+        .into_iter()
+        .map(|indicator| match indicator {
+            I::Ux => scored(
+                "UX",
+                experimental.ux.as_ref().and_then(|m| score_of(m.to_json())),
+            ),
+            I::Journey => scored(
+                "Journey",
+                experimental
+                    .journey
+                    .as_ref()
+                    .and_then(|m| score_of(m.to_json())),
+            ),
+            I::AiVisibility => scored(
+                "AI Visibility",
+                experimental
+                    .ai_visibility
+                    .as_ref()
+                    .and_then(|m| score_of(m.to_json())),
+            ),
+            I::SourceQuality => scored(
+                "Source Quality",
+                experimental
+                    .source_quality
+                    .as_ref()
+                    .and_then(|m| score_of(m.to_json())),
+            ),
+            I::ContentVisibility => {
+                let (signals, problems) = experimental
+                    .content_visibility
+                    .as_ref()
+                    .map_or((0, 0), |m| (m.signal_count, m.problem_count));
+                if en {
+                    format!("Content Visibility: {problems} of {signals} signals flagged")
+                } else {
+                    format!("Content Visibility: {problems} von {signals} Signalen auffällig")
+                }
+            }
+            I::Commerce => {
+                let findings = experimental
+                    .commerce
+                    .as_ref()
+                    .map_or(0, |m| m.findings.len());
+                if en {
+                    format!("Commerce: {findings} finding(s)")
+                } else {
+                    format!("Commerce: {findings} Hinweis(e)")
+                }
+            }
+        })
+        .collect()
 }
 
 /// The stored decision in the terminal's vocabulary — a projection, never a
@@ -195,6 +291,18 @@ pub fn render_batch_report(
             vec![format!(
                 "{} of {} discovered URLs ({})",
                 sample.audited, sample.total_discovered, sample.source
+            )],
+        ));
+    }
+    if let Some(baseline) = &batch_report.summary.baseline {
+        rm_report = rm_report.add_scope_note(runemark::report::ScopeNote::new(
+            "Baseline",
+            vec![crate::audit::baseline::summary_text(
+                baseline.known,
+                baseline.new,
+                baseline.fixed,
+                Some(baseline.unmatched_pages),
+                args.lang != "de",
             )],
         ));
     }
@@ -272,6 +380,46 @@ mod tests {
 
     fn has_ansi(s: &str) -> bool {
         s.contains('\x1b')
+    }
+
+    /// #916: the table lists experimental indicators only when they ran.
+    #[test]
+    fn table_lists_experimental_indicators_only_when_they_ran() {
+        let args = test_args();
+        let plain = render_single_report(&fixture_report(), &args).unwrap();
+        assert!(!plain.contains("Experimental"), "{plain}");
+
+        let mut report = fixture_report();
+        report.experimental.ux = Some(crate::analyze_ux(&crate::AXTree::new()));
+        let table = render_single_report(&report, &args).unwrap();
+        assert!(table.contains("Experimental indicators"), "{table}");
+        assert!(table.contains("UX: "), "{table}");
+
+        let mut german = args.clone();
+        german.lang = "de".to_string();
+        let table = render_single_report(&report, &german).unwrap();
+        assert!(table.contains("Experimentelle Indikatoren"), "{table}");
+    }
+
+    /// Localization guard (#406): the English lines hold no German.
+    #[test]
+    fn english_experimental_lines_hold_no_german() {
+        let mut report = fixture_report();
+        report.experimental.ux = Some(crate::analyze_ux(&crate::AXTree::new()));
+        report.experimental.content_visibility = Some(
+            crate::content_visibility::analyze_content_visibility(&fixture_report()),
+        );
+        let lines = experimental_lines(&report.experimental, true);
+        assert_eq!(lines.len(), 2);
+        for line in &lines {
+            assert!(
+                !line.chars().any(|c| "äöüÄÖÜß".contains(c)),
+                "German in an English line: {line}"
+            );
+            assert!(!line.contains("von ") && !line.contains("kein "), "{line}");
+        }
+        let german = experimental_lines(&report.experimental, false);
+        assert!(german.iter().any(|l| l.contains("Signalen")), "{german:?}");
     }
 
     #[test]

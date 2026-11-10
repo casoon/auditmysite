@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use tracing::warn;
 
 use crate::audit::module::{AuditModule, ModuleContext, ModuleData};
-use crate::audit::PipelineConfig;
+use crate::audit::{Module, PipelineConfig};
 use crate::error::Result;
 
 use super::analyze_mobile_friendliness;
@@ -22,7 +22,7 @@ impl AuditModule for MobileModule {
     }
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
-        cfg.check_mobile
+        cfg.modules.contains(Module::Mobile)
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {

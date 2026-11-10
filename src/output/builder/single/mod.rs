@@ -366,6 +366,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
             ),
             ci_verdict: verdict_result.verdict,
             ci_verdict_reasons: verdict_result.reason_kinds,
+            baseline: normalized.normalized.baseline.clone(),
             run_is_partial: normalized.normalized.execution.quality.status
                 != crate::audit::AuditQualityStatus::Complete,
             score_calculation_method: normalized.normalized.score_calculation_method.clone(),
@@ -487,6 +488,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         appendix: build_appendix_block_from_normalized(&config.locale, &normalized.normalized),
         positive_signals: build_positive_signals(&config.locale, normalized),
         management_risks,
+        annotations: None,
     }
 }
 
@@ -515,14 +517,17 @@ mod tests {
     #[test]
     fn view_model_exposes_confidence_and_capabilities() {
         let mut results = WcagResults::new();
-        results.add_violation(Violation::new(
-            "1.1.1",
-            "Non-text Content",
-            WcagLevel::A,
-            Severity::High,
-            "Image missing alt attribute",
-            "node-123",
-        ));
+        results.add_violation(
+            Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                WcagLevel::A,
+                Severity::High,
+                "Image missing alt attribute",
+                "node-123",
+            )
+            .with_rule_id("images/alt-missing"),
+        );
 
         let report = AuditReport::new(
             "https://example.com".to_string(),
@@ -548,14 +553,17 @@ mod tests {
     #[test]
     fn view_model_summary_counts_wcag_occurrences_not_seo_findings() {
         let mut results = WcagResults::new();
-        results.add_violation(Violation::new(
-            "4.1.2",
-            "Name, Role, Value",
-            WcagLevel::A,
-            Severity::High,
-            "Missing accessible name",
-            "node-123",
-        ));
+        results.add_violation(
+            Violation::new(
+                "4.1.2",
+                "Name, Role, Value",
+                WcagLevel::A,
+                Severity::High,
+                "Missing accessible name",
+                "node-123",
+            )
+            .with_rule_id("buttons/name-missing"),
+        );
 
         let mut report = AuditReport::new(
             "https://example.com".to_string(),
@@ -605,14 +613,17 @@ mod tests {
     #[test]
     fn view_model_accessibility_areas_match_the_json_breakdown() {
         let mut results = WcagResults::new();
-        results.add_violation(Violation::new(
-            "1.4.3",
-            "Contrast (Minimum)",
-            WcagLevel::AA,
-            Severity::High,
-            "Insufficient color contrast",
-            "node-1",
-        ));
+        results.add_violation(
+            Violation::new(
+                "1.4.3",
+                "Contrast (Minimum)",
+                WcagLevel::AA,
+                Severity::High,
+                "Insufficient color contrast",
+                "node-1",
+            )
+            .with_rule_id("contrast/text-insufficient"),
+        );
         let report = AuditReport::new(
             "https://example.com".to_string(),
             WcagLevel::AA,
@@ -662,6 +673,7 @@ mod tests {
                 "Image missing alternative text",
                 "node-hero-image",
             )
+            .with_rule_id("images/alt-missing")
             .with_selector("img.hero")
             .with_html_snippet("<img class=\"hero\" src=\"hero.jpg\">")
             .with_fix("Add a meaningful alt attribute"),
@@ -797,22 +809,28 @@ mod tests {
     #[test]
     fn report_archetype_mixed_findings_keeps_breadth_visible() {
         let mut results = WcagResults::new();
-        results.add_violation(Violation::new(
-            "4.1.2",
-            "Name, Role, Value",
-            WcagLevel::A,
-            Severity::High,
-            "Missing accessible name",
-            "node-name",
-        ));
-        results.add_violation(Violation::new(
-            "2.4.4",
-            "Link Purpose",
-            WcagLevel::A,
-            Severity::Medium,
-            "Generic link text",
-            "node-link",
-        ));
+        results.add_violation(
+            Violation::new(
+                "4.1.2",
+                "Name, Role, Value",
+                WcagLevel::A,
+                Severity::High,
+                "Missing accessible name",
+                "node-name",
+            )
+            .with_rule_id("buttons/name-missing"),
+        );
+        results.add_violation(
+            Violation::new(
+                "2.4.4",
+                "Link Purpose",
+                WcagLevel::A,
+                Severity::Medium,
+                "Generic link text",
+                "node-link",
+            )
+            .with_rule_id("links/generic-name"),
+        );
         let mut report = AuditReport::new(
             "https://berkeley.example".to_string(),
             WcagLevel::AA,

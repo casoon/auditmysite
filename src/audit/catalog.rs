@@ -325,6 +325,7 @@ impl Default for AuditCatalog {
 mod tests {
     use super::*;
     use crate::audit::module::AuditModule;
+    use crate::audit::Module;
     use crate::cli::Args;
     use async_trait::async_trait;
     use clap::Parser;
@@ -516,8 +517,15 @@ mod tests {
                 status: crate::audit::ExecutionStatus::Failed,
                 ..Default::default()
             });
+        // AI Visibility is an experimental indicator (#916): ask for it.
+        let cfg = PipelineConfig::from(&Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--experimental",
+            "ai-visibility",
+        ]));
         AuditCatalog::standard()
-            .derive_all(&mut report, &cfg())
+            .derive_all(&mut report, &cfg)
             .unwrap();
         assert!(report.discoverability.ai_visibility.is_none());
         let run = report
@@ -564,12 +572,14 @@ mod tests {
     #[test]
     fn foundation_security_scope_includes_library_checks_without_performance() {
         let mut cfg = cfg();
-        cfg.check_performance = false;
-        cfg.check_security = true;
+        cfg.modules = cfg
+            .modules
+            .without(Module::Performance)
+            .with(Module::Security);
         assert!(AuditCatalog::standard()
             .enabled(&cfg)
             .any(|m| m.id() == "best_practices"));
-        cfg.check_security = false;
+        cfg.modules = cfg.modules.without(Module::Security);
         assert!(!AuditCatalog::standard()
             .enabled(&cfg)
             .any(|m| m.id() == "best_practices"));

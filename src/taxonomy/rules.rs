@@ -13,7 +13,8 @@ use super::{
 
 /// Standard-Regelobjekt
 pub struct Rule {
-    /// Eindeutige Regel-ID (z.B. "a11y.alt_text.missing")
+    /// Eindeutige Regel-ID: die Kennung, die die Engine auf der `Violation`
+    /// trägt (z.B. "images/alt-missing")
     pub id: &'static str,
     /// Audit-Dimension
     pub dimension: Dimension,
@@ -68,12 +69,6 @@ const VIS_STANDARD: ReportVisibility = ReportVisibility {
     technical: true,
 };
 
-const VIS_TECHNICAL: ReportVisibility = ReportVisibility {
-    executive: false,
-    standard: false,
-    technical: true,
-};
-
 /// Lookup-Trait für Regelregister
 pub struct RuleLookup;
 
@@ -91,588 +86,17 @@ impl RuleLookup {
             .find(|r| r.external_ref == Some(search.as_str()))
     }
 
-    /// Regel nach Legacy-WCAG-ID suchen (z.B. "1.1.1")
-    pub fn by_legacy_wcag_id(wcag_id: &str) -> Option<&'static Rule> {
-        LEGACY_WCAG_MAP
-            .iter()
-            .find(|(wid, _)| *wid == wcag_id)
-            .and_then(|(_, rule_id)| Self::by_id(rule_id))
-    }
-
     /// Alle Regeln einer Dimension
     pub fn by_dimension(dim: Dimension) -> Vec<&'static Rule> {
         RULES.iter().filter(|r| r.dimension == dim).collect()
     }
 }
 
-/// Mapping von alter WCAG-ID zu neuer Regel-ID
-static LEGACY_WCAG_MAP: &[(&str, &str)] = &[
-    ("1.1.1", "a11y.alt_text.missing"),
-    ("1.2.1", "a11y.media.alternative"),
-    ("1.2.2", "a11y.captions.missing"),
-    ("1.2.8", "a11y.media_alternative.missing"),
-    ("1.3.1", "a11y.structure.missing"),
-    ("1.3.2", "a11y.meaningful_sequence.invalid"),
-    ("1.3.4", "a11y.orientation.restricted"),
-    ("1.3.6", "a11y.identify_purpose.missing"),
-    ("1.3.5", "a11y.input_purpose.missing"),
-    ("1.4.1", "a11y.color.link_indicator"),
-    ("1.4.3", "a11y.contrast.weak"),
-    ("1.4.4", "a11y.resize_text.weak"),
-    ("1.4.6", "a11y.contrast_enhanced.weak"),
-    ("1.4.7", "a11y.background_audio.uncontrolled"),
-    ("1.4.8", "a11y.visual_presentation.weak"),
-    ("1.4.10", "a11y.reflow.missing"),
-    ("1.4.11", "a11y.non_text_contrast.weak"),
-    ("1.4.12", "a11y.text_spacing.clipped"),
-    ("1.4.13", "a11y.hover.content_visibility"),
-    ("2.1.1", "a11y.keyboard.missing"),
-    ("2.1.2", "a11y.keyboard_trap.risk"),
-    ("2.2.1", "a11y.timing.unadjustable"),
-    ("2.2.2", "a11y.pause_stop_hide.no_control"),
-    ("2.2.3", "a11y.timing.essential"),
-    ("2.2.4", "a11y.interruptions.uncontrollable"),
-    ("2.2.5", "a11y.re_authenticate.data_loss"),
-    ("2.2.6", "a11y.timeouts.unwarned"),
-    ("2.4.1", "a11y.bypass_blocks.missing"),
-    ("2.4.2", "a11y.page_title.missing"),
-    ("2.4.3", "a11y.focus_order.weak"),
-    ("2.4.4", "a11y.link_purpose.weak"),
-    ("2.4.6", "a11y.headings.missing"),
-    ("2.4.7", "a11y.focus_visible.missing"),
-    ("2.4.8", "a11y.location.missing"),
-    ("2.4.9", "a11y.link_purpose_only.weak"),
-    ("2.3.3", "a11y.motion.reduced_motion"),
-    ("2.4.10", "a11y.section_headings.missing"),
-    ("2.5.1", "a11y.pointer_gestures.missing_alternative"),
-    ("2.5.2", "a11y.pointer_cancellation.invalid"),
-    ("2.5.3", "a11y.label_in_name.invalid"),
-    ("2.5.4", "a11y.motion_actuation.missing_alternative"),
-    ("2.5.5", "a11y.target_size_enhanced.small"),
-    ("2.4.11", "a11y.focus_not_obscured_minimum.hidden"),
-    ("2.4.12", "a11y.focus_not_obscured_enhanced.hidden"),
-    ("2.5.8", "a11y.target_size_minimum.small"),
-    ("3.1.1", "a11y.language.missing"),
-    ("3.1.3", "a11y.unusual_words.missing_definition"),
-    ("3.1.4", "a11y.abbreviations.missing"),
-    ("3.2.1", "a11y.on_focus.risk"),
-    ("3.2.2", "a11y.on_input.risk"),
-    ("3.3.1", "a11y.error_id.missing_description"),
-    ("3.3.2", "a11y.form_labels.missing"),
-    ("3.3.5", "a11y.help.missing"),
-    ("3.3.7", "a11y.redundant_entry.missing_reuse"),
-    ("3.3.8", "a11y.accessible_auth.paste_blocked"),
-    ("4.1.1", "a11y.parsing.invalid"),
-    ("4.1.2", "a11y.name_role.missing"),
-    ("4.1.3", "a11y.status_messages.broken"),
-    ("aria-hidden-focus", "a11y.aria_hidden_focus.invalid"),
-    ("aria-required-attr", "a11y.aria_required_attr.missing"),
-    ("aria-required-parent", "a11y.aria_required_parent.invalid"),
-    ("aria-prohibited-attr", "a11y.aria_prohibited_attr.invalid"),
-    ("aria-allowed-attr", "a11y.aria_allowed_attr.invalid"),
-    (
-        "aria-valid-attr-value",
-        "a11y.aria_valid_attr_value.invalid",
-    ),
-    ("aria-valid-attr", "a11y.aria_relationships.invalid"),
-    ("aria-roles", "a11y.aria_roles.invalid"),
-    ("aria-attr-name-invalid", "a11y.aria_attr_name.invalid"),
-    ("html-xml-lang-mismatch", "a11y.language_mismatch.invalid"),
-    ("aria-command-name", "a11y.command_name.missing"),
-    ("aria-input-field-name", "a11y.input_field_name.missing"),
-    ("aria-meter-name", "a11y.meter_name.missing"),
-    ("aria-progressbar-name", "a11y.progressbar_name.missing"),
-    ("aria-toggle-field-name", "a11y.toggle_field_name.missing"),
-    ("aria-dialog-name", "a11y.dialog_name.missing"),
-    ("aria-treeitem-name", "a11y.treeitem_name.missing"),
-    ("td-headers-attr", "a11y.table_headers_ref.invalid"),
-    ("th-has-data-cells", "a11y.table_header_data.missing"),
-    ("aria-tablist-tabpanel", "a11y.tablist_tabpanel.missing"),
-    ("aria-combobox-options", "a11y.combobox_options.missing"),
-    ("frame-tested", "a11y.frame_tested.cross_origin"),
-    ("frame-title", "a11y.frame_title.missing"),
-    ("form-no-submit", "a11y.form_no_submit.missing"),
-    ("landmark-main-present", "a11y.landmark_main.missing"),
-    ("landmark-unique", "a11y.landmark_unique.invalid"),
-    ("modern-attribute-misuse", "a11y.modern_attributes.invalid"),
-    (
-        "presentation-semantic-children",
-        "a11y.presentation_semantic_children.invalid",
-    ),
-    // ── Added to fix the WCAG-criterion grouping fallback (plan/1
-    // root-cause-title-occurrence-mismatch.md, "Mechanism 2"): any axe_id
-    // without its own entry here falls back to `violation.rule` (the raw
-    // WCAG criterion) as its `wcag_group_key`. When two or more distinct,
-    // unrelated checks share one WCAG criterion (common — many checks are
-    // filed under the same success criterion) and neither has its own
-    // entry, their violations silently merge into one NormalizedFinding
-    // with one arbitrary title/explanation and a combined occurrence_count.
-    // Every axe_id below previously lacked an entry and was verified (via
-    // a full source scan of src/wcag/rules/*.rs) to share its WCAG
-    // criterion with at least one other distinct axe_id.
-    (
-        "server-side-image-map",
-        "a11y.image_map_server_side.invalid",
-    ),
-    ("svg-img-alt", "a11y.svg_alt.missing"),
-    (
-        "accessible-auth-paste-blocked",
-        "a11y.accessible_auth.paste_blocked",
-    ),
-    (
-        "accessible-auth-captcha",
-        "a11y.accessible_auth.captcha_review",
-    ),
-    ("area-alt", "a11y.area_alt.missing"),
-    ("input-image-alt", "a11y.input_image_alt.missing"),
-    ("object-alt", "a11y.object_alt.missing"),
-    ("html-content-model", "a11y.html_content_model.invalid"),
-    ("form-field-group", "a11y.form_field_group.missing"),
-    (
-        "landmark-banner-is-top-level",
-        "a11y.landmark_banner_nested.invalid",
-    ),
-    (
-        "landmark-contentinfo-is-top-level",
-        "a11y.landmark_contentinfo_nested.invalid",
-    ),
-    (
-        "landmark-main-is-top-level",
-        "a11y.landmark_main_nested.invalid",
-    ),
-    (
-        "landmark-no-duplicate-banner",
-        "a11y.landmark_banner_duplicate.invalid",
-    ),
-    (
-        "landmark-no-duplicate-contentinfo",
-        "a11y.landmark_contentinfo_duplicate.invalid",
-    ),
-    (
-        "landmark-no-duplicate-main",
-        "a11y.landmark_main_duplicate.invalid",
-    ),
-    ("landmark-banner-present", "a11y.landmark_banner.missing"),
-    // Bis Plan 56 ohne Kennung und damit im 1.3.1-Sammelbucket
-    // `a11y.structure.missing`, zusammen mit Listenfehlern.
-    (
-        "landmark-navigation-present",
-        "a11y.landmark_navigation.missing",
-    ),
-    (
-        "landmark-contentinfo-present",
-        "a11y.landmark_contentinfo.missing",
-    ),
-    ("label-title-only", "a11y.label_title_only.invalid"),
-    (
-        "click-events-have-key-events",
-        "a11y.click_handler_keyboard.missing",
-    ),
-    ("landmark-one-main", "a11y.bypass_main_landmark.missing"),
-    ("skip-link", "a11y.skip_link.missing"),
-    (
-        "focus-visible-outline-none",
-        "a11y.focus_indicator_suppressed.invalid",
-    ),
-    (
-        "scrollable-region-focusable",
-        "a11y.scrollable_region_focus.missing",
-    ),
-    ("input-error-message", "a11y.error_description.missing"),
-    ("duplicate-id-aria", "a11y.duplicate_id_aria.invalid"),
-    ("aria-label", "a11y.interactive_name.missing"),
-    // Best Practice, eigene Eintraege statt der Buckets 1.4.13 bzw.
-    // `aria-label` (#711, #713).
-    ("title-only-description", "a11y.title_only_description.weak"),
-    (
-        "description-duplicates-name",
-        "a11y.description_duplicates_name.redundant",
-    ),
-    (
-        "aria-required-children",
-        "a11y.aria_required_children.missing",
-    ),
-    ("dialog-name", "a11y.dialog_missing_name.invalid"),
-    ("control-missing-label", "a11y.control_name.missing"),
-    ("link-as-button", "a11y.link_as_button.invalid"),
-    ("redundant-role", "a11y.redundant_role.invalid"),
-    ("summary-name", "a11y.summary_name.missing"),
-    ("region", "a11y.landmark_region.missing"),
-    ("focusable-no-role", "a11y.focusable_no_role.invalid"),
-    ("link-name-context", "a11y.link_purpose_context.weak"),
-    ("image-alt", "a11y.alt_text.missing"),
-    ("keyboard", "a11y.keyboard.missing"),
-    ("meta-viewport", "a11y.resize_text.weak"),
-    ("bypass", "a11y.bypass_blocks.missing"),
-    (
-        "aria-invalid-without-describedby",
-        "a11y.error_id.missing_description",
-    ),
-    ("ids/duplicate", "a11y.parsing.invalid"),
-    // `focus-order-semantics` bleibt daneben bestehen: Die AX-baumbasierte
-    // Pruefung in `focus_order.rs` (fokussierbar trotz `aria-hidden`) fuehrt
-    // sie weiter. Abgeloest ist nur die Tabindex-Haelfte.
-    //
-    // Eigener Eintrag statt `a11y.focus_order.weak`: Den fuehrt die
-    // 2.4.3-Gruppe (`focus-order-semantics`, `dialog-no-focusable`) schon,
-    // und zwei Befunde mit derselben Taxonomie-Kennung waeren im Bericht
-    // nicht mehr auseinanderzuhalten (Plan 56).
-    (
-        "keyboard/positive-tabindex",
-        "a11y.positive_tabindex.invalid",
-    ),
-    // ── Geteilte Kennungen unter 1.3.1, 3.1.1 und 1.4.4 (Plan 56) ──
-    // Ohne eigenen Eintrag fielen sie auf ihr WCAG-Kriterium zurueck und
-    // landeten in dessen Sammelbucket: Listen-, Tabellen- und
-    // Ueberschriftenfehler unter „Missing semantic structure" zusammen mit
-    // der fehlenden Navigations-Landmark, der ungueltige Sprachcode unter
-    // „Missing language declaration".
-    ("headings/skip-level", "a11y.heading_level.skipped"),
-    ("headings/h1-missing", "a11y.main_heading.missing"),
-    ("headings/h1-multiple", "a11y.main_heading_multiple.weak"),
-    ("headings/empty", "a11y.heading_empty.invalid"),
-    ("lists/invalid-structure", "a11y.list_children.invalid"),
-    ("lists/empty", "a11y.list_empty.invalid"),
-    ("lists/item-outside-list", "a11y.list_structure.missing"),
-    (
-        "lists/term-without-definition",
-        "a11y.definition_description.missing",
-    ),
-    ("tables/header-missing", "a11y.table_headers.missing"),
-    ("tables/name-missing", "a11y.table_name.missing"),
-    (
-        "tables/presentational-with-headers",
-        "a11y.table_presentational_headers.invalid",
-    ),
-    ("document/lang-invalid", "a11y.page_language.invalid"),
-    // Der Eintrag der abgeloesten Regel `meta-viewport-large` beschreibt
-    // genau diesen Fall (Begrenzung zwischen 200 % und 500 %).
-    (
-        "zoom/viewport-scale-limited",
-        "a11y.viewport_zoom.restricted",
-    ),
-    // ── Geteilte Kennungen aus #690 ──
-    // Jede auf den Eintrag der abgeloesten Regel, wo der denselben Fall
-    // beschreibt. Die Legacy-Kennungen darueber bleiben stehen: Sie loesen
-    // weiter auf und werden von aelteren Berichten und Tests gelesen.
-    ("zoom/viewport-locked", "a11y.resize_text.weak"),
-    ("zoom/viewport-missing", "a11y.viewport_meta.missing"),
-    // Seite und Dokument im iframe teilen 3.1.1 und damit einen Befund; beide
-    // Kennungen muessen aufloesen, sonst findet die Vertragspruefung
-    // `rule_findings_preserved` den Lauf der jeweils anderen nicht wieder.
-    ("document/lang-missing", "a11y.language.missing"),
-    ("html-has-lang", "a11y.language.missing"),
-    ("document/title-missing", "a11y.page_title.missing"),
-    ("document/title-empty", "a11y.page_title.missing"),
-    ("aria/reference-missing", "a11y.aria_relationships.invalid"),
-    (
-        "aria/required-attribute-missing",
-        "a11y.aria_required_attr.missing",
-    ),
-    (
-        "keyboard/hidden-focusable",
-        "a11y.aria_hidden_focus.invalid",
-    ),
-    (
-        "landmarks/main-missing",
-        "a11y.bypass_main_landmark.missing",
-    ),
-    (
-        "landmarks/main-duplicate",
-        "a11y.landmark_main_duplicate.invalid",
-    ),
-    ("landmarks/banner-missing", "a11y.landmark_banner.missing"),
-    (
-        "landmarks/contentinfo-missing",
-        "a11y.landmark_contentinfo.missing",
-    ),
-    (
-        "landmarks/navigation-missing",
-        "a11y.landmark_navigation.missing",
-    ),
-    ("svg/name-missing", "a11y.svg_alt.missing"),
-    ("images/alt-missing", "a11y.alt_text.missing"),
-    ("images/alt-suspicious", "a11y.alt_text.suspicious"),
-    ("links/name-missing", "a11y.control_name.missing"),
-    ("buttons/name-missing", "a11y.control_name.missing"),
-    ("keyboard/skip-link-missing", "a11y.skip_link.missing"),
-    // ── Geteilte Kennungen aus #691 (B1, ARIA) ──
-    // Wie oben: auf den Eintrag der abgeloesten Regel, deren Legacy-Kennung
-    // weiter aufloest.
-    ("aria/role-invalid", "a11y.aria_roles.invalid"),
-    ("aria/role-abstract", "a11y.aria_roles.invalid"),
-    ("aria/attribute-unknown", "a11y.aria_attr_name.invalid"),
-    (
-        "aria/attribute-value-invalid",
-        "a11y.aria_valid_attr_value.invalid",
-    ),
-    ("aria/owns-conflict", "a11y.duplicate_id_aria.invalid"),
-    // Neu: Die beiden abgeloesten Tab-Pruefungen hatten keinen eigenen
-    // Eintrag und fielen in den 4.1.2-Sammelbucket.
-    ("aria/tab-selected-missing", "a11y.tab_selected.missing"),
-    ("aria/tabpanel-missing", "a11y.tablist_tabpanel.missing"),
-    (
-        "aria/combobox-popup-missing",
-        "a11y.combobox_options.missing",
-    ),
-    ("popover/target-missing", "a11y.modern_attributes.invalid"),
-    ("popover/target-invalid", "a11y.modern_attributes.invalid"),
-    ("inert/dialog-inert", "a11y.modern_attributes.invalid"),
-    (
-        "aria/attribute-not-allowed",
-        "a11y.aria_allowed_attr.invalid",
-    ),
-    (
-        "aria/attribute-prohibited",
-        "a11y.aria_prohibited_attr.invalid",
-    ),
-    (
-        "aria/required-parent-missing",
-        "a11y.aria_required_parent.invalid",
-    ),
-    (
-        "aria/required-children-missing",
-        "a11y.aria_required_children.missing",
-    ),
-    // ── Geteilte Kennungen aus #692 (B2, Namen) ──
-    // Wie oben: auf den Eintrag der abgeloesten Regel. `names/*` loesen beide
-    // auf den Eintrag von `aria-label` auf, der fehlende und rein symbolische
-    // Namen schon zusammen beschreibt; die Eintraege der einzelnen
-    // `aria-*-name`-Regeln bleiben fuer aeltere Berichte stehen.
-    ("names/required-missing", "a11y.interactive_name.missing"),
-    ("names/symbol-only", "a11y.interactive_name.missing"),
-    ("dialog/name-missing", "a11y.dialog_missing_name.invalid"),
-    // Neu: `dialog-name` meldete den fehlenden Namen und das fehlende
-    // `aria-modal` unter einer Kennung und damit unter einem Titel.
-    ("dialog/modal-unmarked", "a11y.dialog_modal.missing"),
-    ("summary/name-missing", "a11y.summary_name.missing"),
-    ("status/live-overridden", "a11y.status_messages.broken"),
-    ("label-in-name/mismatch", "a11y.label_in_name.invalid"),
-    // ── Geteilte Kennungen aus #693 (B3, Formulare) ──
-    // Wie oben: auf den Eintrag der abgeloesten Regel, deren Legacy-Kennung
-    // weiter aufloest. Die Faelle aus `instructions` liefen alle unter `label`
-    // und damit unter 3.3.2 auf `a11y.form_labels.missing`; dabei bleibt es,
-    // jetzt aber je Kennung als eigene Gruppe.
-    ("forms/label-missing", "a11y.form_labels.missing"),
-    ("forms/placeholder-as-label", "a11y.form_labels.missing"),
-    ("forms/group-name-missing", "a11y.form_labels.missing"),
-    ("forms/required-unmarked", "a11y.form_labels.missing"),
-    ("forms/instructions-missing", "a11y.form_labels.missing"),
-    ("forms/autocomplete-invalid", "a11y.input_purpose.missing"),
-    ("forms/purpose-missing", "a11y.input_purpose.missing"),
-    ("forms/error-unidentified", "a11y.error_description.missing"),
-    ("forms/group-missing", "a11y.form_field_group.missing"),
-    ("forms/title-only-label", "a11y.label_title_only.invalid"),
-    ("forms/no-submit", "a11y.form_no_submit.missing"),
-    (
-        "forms/redundant-entry",
-        "a11y.redundant_entry.missing_reuse",
-    ),
-    ("context/on-input", "a11y.on_input.risk"),
-    ("context/on-focus", "a11y.on_focus.risk"),
-    ("context/autofocus", "a11y.on_focus.risk"),
-    ("auth/captcha", "a11y.accessible_auth.captcha_review"),
-    // ── Geteilte Kennungen aus #694 (B4, Landmarks, Tastatur, Struktur) ──
-    // Wie oben: auf den Eintrag der abgeloesten Regel, deren Legacy-Kennung
-    // (`landmark-unique`, `region`, `bypass`, `focusable-no-role`,
-    // `keyboard`, …) weiter aufloest. `headings/none` uebernimmt den Eintrag
-    // von `bypass`, der zuletzt nur noch die Seite ohne Ueberschriften
-    // meldete; `dialog/focusable-missing` den der 2.4.3-Gruppe, unter die
-    // `dialog-no-focusable` fiel.
-    ("landmarks/not-unique", "a11y.landmark_unique.invalid"),
-    // Neu: Die drei `*-is-top-level`-Pruefungen hatten je einen Eintrag; die
-    // geteilte Kennung fasst sie zusammen, die Rolle steht im Befundtext.
-    ("landmarks/not-top-level", "a11y.landmark_nested.invalid"),
-    (
-        "landmarks/banner-duplicate",
-        "a11y.landmark_banner_duplicate.invalid",
-    ),
-    (
-        "landmarks/contentinfo-duplicate",
-        "a11y.landmark_contentinfo_duplicate.invalid",
-    ),
-    ("landmarks/content-outside", "a11y.landmark_region.missing"),
-    ("headings/none", "a11y.bypass_blocks.missing"),
-    (
-        "keyboard/focusable-no-role",
-        "a11y.focusable_no_role.invalid",
-    ),
-    (
-        "keyboard/interactive-not-focusable",
-        "a11y.keyboard.missing",
-    ),
-    ("dialog/focusable-missing", "a11y.focus_order.weak"),
-    // Neu: `accordion-no-controls` hatte keinen eigenen Eintrag und fiel in
-    // den 4.1.2-Sammelbucket.
-    (
-        "patterns/accordion-controls-missing",
-        "a11y.accordion_controls.missing",
-    ),
-    // ── Geteilte Kennungen aus #695 (B5, Links und Zeiger) ──
-    // Auf den Eintrag der abgeloesten Regel (`click-events-have-key-events`,
-    // `link-as-button`, `location` ueber 2.4.8), deren Legacy-Kennung weiter
-    // aufloest.
-    (
-        "keyboard/click-handler-not-focusable",
-        "a11y.click_handler_keyboard.missing",
-    ),
-    ("links/used-as-button", "a11y.link_as_button.invalid"),
-    ("navigation/location-missing", "a11y.location.missing"),
-    // ── Geteilte Kennungen aus #696 (B6, Bilder und Medien) ──
-    // Auf die Eintraege der abgeloesten Regeln; `frames/name-missing` bleibt
-    // bei 2.4.1 wie `frame-title`.
-    ("images/area-alt-missing", "a11y.area_alt.missing"),
-    ("images/input-alt-missing", "a11y.input_image_alt.missing"),
-    ("media/audio-autoplay", "a11y.audio_control.missing"),
-    ("objects/alt-missing", "a11y.object_alt.missing"),
-    (
-        "images/server-side-map",
-        "a11y.image_map_server_side.invalid",
-    ),
-    ("frames/name-missing", "a11y.frame_title.missing"),
-    // ── Geteilte Kennungen aus #697 (B7, Tabellen, Dokument, Sprache,
-    // Rollen) ──
-    // Auf die Eintraege der abgeloesten Regeln. `language/*` bekommt einen
-    // eigenen Eintrag: `language-of-parts` hatte keinen und fiel ohne
-    // Taxonomie durch.
-    (
-        "tables/header-without-data",
-        "a11y.table_header_data.missing",
-    ),
-    ("tables/data-undetermined", "a11y.table_header_data.missing"),
-    (
-        "tables/headers-attr-invalid",
-        "a11y.table_headers_ref.invalid",
-    ),
-    ("document/lang-mismatch", "a11y.language_mismatch.invalid"),
-    ("language/part-unmarked", "a11y.language_of_parts.unmarked"),
-    (
-        "language/part-undetermined",
-        "a11y.language_of_parts.unmarked",
-    ),
-    (
-        "language/abbreviation-unexpanded",
-        "a11y.abbreviations.missing",
-    ),
-    ("timing/meta-refresh", "a11y.timing.unadjustable"),
-    (
-        "headings/section-without-heading",
-        "a11y.section_headings.missing",
-    ),
-    ("aria/role-redundant", "a11y.redundant_role.invalid"),
-    // ── Darstellung mit berechneten Stilen (#698) ──
-    // Auf die Eintraege der abgeloesten Regeln (`redundant-role` fuer
-    // `<ul>`/`<ol>`, `link-in-text-block`, `scrollable-region-focusable`).
-    ("lists/role-redundant", "a11y.redundant_role.invalid"),
-    ("color/link-indistinct", "a11y.color.link_indicator"),
-    // Kontrast (#698): auf den Eintrag der abgeloesten Regel `color-contrast`;
-    // 1.4.6 hat einen eigenen AAA-Eintrag.
-    ("contrast/text-insufficient", "a11y.contrast.weak"),
-    ("contrast/text-undetermined", "a11y.contrast.weak"),
-    ("contrast/text-enhanced", "a11y.contrast_enhanced.weak"),
-    (
-        "keyboard/scrollable-region-not-focusable",
-        "a11y.scrollable_region_focus.missing",
-    ),
-    // Heuristiken ueber Layout-Angaben (#698): auf die Eintraege der
-    // abgeloesten Regeln; `keyboard/pointer-only` auf den der Klick-Handler
-    // ohne Tastatur.
-    // Prüfhinweise (#722) und Bedienelement-Kontrast (#698): auf die
-    // Einträge der abgelösten Regeln.
-    (
-        "manual/pointer-gestures",
-        "a11y.pointer_gestures.missing_alternative",
-    ),
-    (
-        "manual/motion-actuation",
-        "a11y.motion_actuation.missing_alternative",
-    ),
-    ("manual/no-timing", "a11y.timing.essential"),
-    ("manual/interruptions", "a11y.interruptions.uncontrollable"),
-    ("manual/re-authenticating", "a11y.re_authenticate.data_loss"),
-    (
-        "manual/unusual-words",
-        "a11y.unusual_words.missing_definition",
-    ),
-    ("manual/help", "a11y.help.missing"),
-    (
-        "contrast/control-insufficient",
-        "a11y.non_text_contrast.weak",
-    ),
-    (
-        "contrast/control-undetermined",
-        "a11y.non_text_contrast.weak",
-    ),
-    ("targets/size", "a11y.target_size_minimum.small"),
-    ("targets/size-enhanced", "a11y.target_size_enhanced.small"),
-    ("order/visual-mismatch", "a11y.meaningful_sequence.invalid"),
-    (
-        "motion/infinite-animation",
-        "a11y.pause_stop_hide.no_control",
-    ),
-    (
-        "keyboard/pointer-only",
-        "a11y.click_handler_keyboard.missing",
-    ),
-    ("names/title-only", "a11y.title_only_description.weak"),
-    (
-        "patterns/tooltip-unreferenced",
-        "a11y.hover.content_visibility",
-    ),
-    // ── Regeln ueber Stylesheets (a11y-rules 0.19) ──
-    // Auf die Eintraege der abgeloesten Regeln (`focus-visible-outline-none`,
-    // `prefers-reduced-motion`, `css-orientation-lock`, `visual-presentation`).
-    (
-        "focus/outline-removed",
-        "a11y.focus_indicator_suppressed.invalid",
-    ),
-    (
-        "motion/reduced-motion-ignored",
-        "a11y.motion.reduced_motion",
-    ),
-    ("orientation/content-hidden", "a11y.orientation.restricted"),
-    ("text/justified", "a11y.visual_presentation.weak"),
-    ("text/line-height-tight", "a11y.visual_presentation.weak"),
-    ("focus-visible", "a11y.focus_visible.missing"),
-    ("link-name", "a11y.link_purpose.weak"),
-    // Linkzweck aus dem geteilten Bestand (Plan 98).
-    ("links/generic-name", "a11y.link_purpose.weak"),
-    ("links/url-name", "a11y.link_purpose.weak"),
-    ("links/single-character-name", "a11y.link_purpose.weak"),
-    ("links/purpose-link-only", "a11y.link_purpose_only.weak"),
-    (
-        "links/new-window-unannounced",
-        "a11y.new_window.unannounced",
-    ),
-    // ── Display-mode convention (#653) — best-practice, own entries so the
-    // five checks do not merge into the 2.2.2 / 1.1.1 buckets.
-    ("display/toggle-missing", "a11y.display_toggle.missing"),
-    ("display/init-missing", "a11y.display_init.late"),
-    (
-        "display/text-media-visible",
-        "a11y.display_text_media.visible",
-    ),
-    (
-        "display/text-not-visible",
-        "a11y.display_text_layer.missing",
-    ),
-    ("display/text-hidden", "a11y.display_text_layer.hidden"),
-    // Static convention rules from a11y-rules (#699).
-    ("viz/text-missing", "a11y.display_text_layer.missing"),
-    ("viz/caption-missing", "a11y.display_caption.missing"),
-    ("viz/static-missing", "a11y.display_static.missing"),
-    ("viz/table-missing", "a11y.display_table.review"),
-];
-
-/// Alle Regeln im System
+/// Alle Regeln im System, je Engine-Kennung (`Violation::rule_id`) ein Eintrag.
 pub static RULES: &[Rule] = &[
-    // ═══════════════════════════════════════════════════════════════════════════
-    // ACCESSIBILITY
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    // ── Inhalte & Alternativen ──────────────────────────────────────────────
+    // ── Inhalte & Alternativen ────────────────────────────────────────────
     Rule {
-        id: "a11y.alt_text.missing",
+        id: "image-alt",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::ContentAlternatives,
         issue_class: IssueClass::Missing,
@@ -695,7 +119,30 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.alt_text.suspicious",
+        id: "images/alt-missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::ContentAlternatives,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 1.1.1"),
+        external_level: Some("A"),
+        axe_id: Some("image-alt"),
+        title: "Fehlende Alternativtexte bei Bildern",
+        title_en: "Missing alternative text on images",
+        description: "Bilder haben keinen beschreibenden Alternativtext.",
+        user_impact: "Screenreader-Nutzer erhalten keine Bildinformation.",
+        user_impact_en: "Screen reader users receive no image information.",
+        technical_impact: "Nicht-konforme Bildauszeichnung im Markup.",
+        technical_impact_en: "Non-conformant image markup.",
+        score_impact: ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "images/alt-suspicious",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::ContentAlternatives,
         issue_class: IssueClass::Weak,
@@ -718,30 +165,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.media.alternative",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::ContentAlternatives,
-        issue_class: IssueClass::Missing,
-        severity: Severity::Medium,
-        external_ref: Some("WCAG 1.2.1"),
-        external_level: Some("A"),
-        axe_id: Some("video-caption"),
-        title: "Fehlende Alternativen für reine Audio- oder Videoinhalte",
-        title_en: "Missing alternatives for audio-only or video-only content",
-        description: "Reine Audio- oder Videoinhalte haben keine alternative Textdarstellung oder Tonspur.",
-        user_impact: "Menschen mit Seh- oder Hörbehinderung können den Inhalt der Medien nicht erfassen.",
-        user_impact_en: "People with visual or hearing impairments cannot access the media content.",
-        technical_impact: "Fehlende alternative Medienbeschreibung.",
-        technical_impact_en: "Missing alternative media description.",
-        score_impact: ScoreImpact {
-            base_penalty: 2.0,
-            max_penalty: 5.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "a11y.captions.missing",
+        id: "video-caption",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::ContentAlternatives,
         issue_class: IssueClass::Missing,
@@ -764,7 +188,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.media_alternative.missing",
+        id: "media-alt",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::ContentAlternatives,
         issue_class: IssueClass::Missing,
@@ -786,55 +210,10 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-    // ── Struktur & Semantik ─────────────────────────────────────────────────
+
+    // ── Struktur & Semantik ───────────────────────────────────────────────
     Rule {
-        id: "a11y.structure.missing",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::StructureSemantics,
-        issue_class: IssueClass::Missing,
-        severity: Severity::High,
-        external_ref: Some("WCAG 1.3.1"),
-        external_level: Some("A"),
-        axe_id: None,
-        title: "Fehlende semantische Struktur",
-        title_en: "Missing semantic structure",
-        description: "Struktur ist visuell, aber nicht im HTML-Code hinterlegt.",
-        user_impact: "Screenreader können Beziehungen zwischen Inhalten nicht erkennen.",
-        user_impact_en: "Screen readers cannot detect relationships between content elements.",
-        technical_impact: "Fehlende HTML5-Semantik und ARIA-Rollen.",
-        technical_impact_en: "Missing HTML5 semantics and ARIA roles.",
-        score_impact: ScoreImpact {
-            base_penalty: 2.5,
-            max_penalty: 8.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "a11y.presentation_semantic_children.invalid",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::StructureSemantics,
-        issue_class: IssueClass::Invalid,
-        severity: Severity::Medium,
-        external_ref: Some("WCAG 1.3.1"),
-        external_level: Some("A"),
-        axe_id: Some("presentation-semantic-children"),
-        title: "Semantische Kinder in presentational Container",
-        title_en: "Semantic children inside presentational container",
-        description: "Ein Element mit role=\"presentation\" oder role=\"none\" enthält semantische Nachfahren.",
-        user_impact: "Screenreader können relevante Struktur oder Bedienobjekte verlieren.",
-        user_impact_en: "Screen readers may lose relevant structure or interactive controls.",
-        technical_impact: "role=\"presentation\"/\"none\" verdeckt semantische Kindelemente.",
-        technical_impact_en: "role=\"presentation\"/\"none\" hides semantic child elements.",
-        score_impact: ScoreImpact {
-            base_penalty: 1.5,
-            max_penalty: 4.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "a11y.meaningful_sequence.invalid",
+        id: "order/visual-mismatch",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Weak,
@@ -857,30 +236,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.headings.missing",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::StructureSemantics,
-        issue_class: IssueClass::Missing,
-        severity: Severity::High,
-        external_ref: Some("WCAG 2.4.6"),
-        external_level: Some("AA"),
-        axe_id: Some("heading-order"),
-        title: "Fehlende oder unzureichende Überschriftenstruktur",
-        title_en: "Missing or insufficient heading structure",
-        description: "Keine oder unlogische Überschriftenhierarchie.",
-        user_impact: "Screenreader-Navigation per Überschrift nicht möglich.",
-        user_impact_en: "Heading-based screen reader navigation is not possible.",
-        technical_impact: "Fehlende Heading-Hierarchie im DOM.",
-        technical_impact_en: "Missing heading hierarchy in the DOM.",
-        score_impact: ScoreImpact {
-            base_penalty: 20.0,
-            max_penalty: 20.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "a11y.section_headings.missing",
+        id: "headings/section-without-heading",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Missing,
@@ -903,7 +259,30 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.orientation.restricted",
+        id: "orientation/root-rotated",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Weak,
+        severity: Severity::High,
+        external_ref: Some("WCAG 1.3.4"),
+        external_level: Some("AA"),
+        axe_id: Some("css-orientation-lock"),
+        title: "Eingeschränkte Bildschirmausrichtung",
+        title_en: "Restricted screen orientation",
+        description: "Die Seite dreht ihre Wurzel (html oder body) um eine Vierteldrehung und erzwingt damit eine bestimmte Bildschirmausrichtung (Hoch- oder Querformat).",
+        user_impact: "Nutzer mit fest montierten Bildschirmen (z. B. am Rollstuhl) können die Seite nicht lesen.",
+        user_impact_en: "Users with fixed-mount screens (e.g. wheelchair-mounted) cannot read the page.",
+        technical_impact: "Berechnetes transform (Matrix) oder rotate an html oder body dreht um eine Vierteldrehung, gemessen im geprüften Viewport.",
+        technical_impact_en: "The computed transform (matrix) or rotate of html or body turns by a quarter turn, measured in the audited viewport.",
+        score_impact: ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "orientation/content-hidden",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Weak,
@@ -925,9 +304,10 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_ALL,
     },
-    // ── Navigation & Bedienung ──────────────────────────────────────────────
+
+    // ── Navigation & Bedienung ────────────────────────────────────────────
     Rule {
-        id: "a11y.keyboard.missing",
+        id: "keyboard/interactive-not-focusable",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Missing,
@@ -950,7 +330,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.keyboard_trap.risk",
+        id: "keyboard-trap",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Risk,
@@ -973,7 +353,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.bypass_blocks.missing",
+        id: "headings/none",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Missing,
@@ -996,7 +376,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.page_title.missing",
+        id: "document-title",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Missing,
@@ -1019,30 +399,53 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.landmark_main.missing",
+        id: "document/title-empty",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Missing,
         severity: Severity::High,
-        external_ref: Some("WCAG 1.3.1"),
+        external_ref: Some("WCAG 2.4.2"),
         external_level: Some("A"),
-        axe_id: Some("landmark-main-present"),
-        title: "Fehlender Hauptbereich",
-        title_en: "Missing main landmark",
-        description: "Die Seite hat kein <main>-Element oder role=\"main\".",
-        user_impact: "Screenreader- und Tastaturnutzer können nicht direkt zum Hauptinhalt springen.",
-        user_impact_en: "Screen reader and keyboard users cannot jump directly to the main content.",
-        technical_impact: "Fehlendes main-Landmark im DOM oder Accessibility Tree.",
-        technical_impact_en: "Missing main landmark in the DOM or accessibility tree.",
+        axe_id: Some("document-title"),
+        title: "Fehlender oder unzureichender Seitentitel",
+        title_en: "Missing or insufficient page title",
+        description: "Seite hat keinen aussagekräftigen Title-Tag.",
+        user_impact: "Screenreader-Nutzer können die Seite nicht identifizieren.",
+        user_impact_en: "Screen reader users cannot identify the page.",
+        technical_impact: "Leeres oder generisches <title>-Tag.",
+        technical_impact_en: "Empty or generic <title> tag.",
         score_impact: ScoreImpact {
-            base_penalty: 3.0,
-            max_penalty: 8.0,
+            base_penalty: 5.0,
+            max_penalty: 5.0,
             occurrence_scaling: Scaling::Fixed,
         },
-        report_visibility: VIS_STANDARD,
+        report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.landmark_unique.invalid",
+        id: "document/title-missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::NavigationInteraction,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 2.4.2"),
+        external_level: Some("A"),
+        axe_id: Some("document-title"),
+        title: "Fehlender oder unzureichender Seitentitel",
+        title_en: "Missing or insufficient page title",
+        description: "Seite hat keinen aussagekräftigen Title-Tag.",
+        user_impact: "Screenreader-Nutzer können die Seite nicht identifizieren.",
+        user_impact_en: "Screen reader users cannot identify the page.",
+        technical_impact: "Leeres oder generisches <title>-Tag.",
+        technical_impact_en: "Empty or generic <title> tag.",
+        score_impact: ScoreImpact {
+            base_penalty: 5.0,
+            max_penalty: 5.0,
+            occurrence_scaling: Scaling::Fixed,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "landmarks/not-unique",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Invalid,
@@ -1065,7 +468,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.focus_order.weak",
+        id: "dialog/focusable-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Weak,
@@ -1088,7 +491,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.link_purpose.weak",
+        id: "links/generic-name",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Weak,
@@ -1111,7 +514,53 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.focus_visible.missing",
+        id: "links/single-character-name",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::NavigationInteraction,
+        issue_class: IssueClass::Weak,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 2.4.4"),
+        external_level: Some("A"),
+        axe_id: Some("link-name"),
+        title: "Unklare oder generische Linktexte",
+        title_en: "Unclear or generic link text",
+        description: "Links mit Texten wie 'hier', 'mehr', 'weiterlesen'.",
+        user_impact: "Screenreader-Linklisten zeigen nichtssagende Texte.",
+        user_impact_en: "Screen reader link lists show meaningless text.",
+        technical_impact: "Generische Link-Texte ohne Kontext.",
+        technical_impact_en: "Generic link text without context.",
+        score_impact: ScoreImpact {
+            base_penalty: 1.0,
+            max_penalty: 5.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "links/url-name",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::NavigationInteraction,
+        issue_class: IssueClass::Weak,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 2.4.4"),
+        external_level: Some("A"),
+        axe_id: Some("link-name"),
+        title: "Unklare oder generische Linktexte",
+        title_en: "Unclear or generic link text",
+        description: "Links mit Texten wie 'hier', 'mehr', 'weiterlesen'.",
+        user_impact: "Screenreader-Linklisten zeigen nichtssagende Texte.",
+        user_impact_en: "Screen reader link lists show meaningless text.",
+        technical_impact: "Generische Link-Texte ohne Kontext.",
+        technical_impact_en: "Generic link text without context.",
+        score_impact: ScoreImpact {
+            base_penalty: 1.0,
+            max_penalty: 5.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "focus-visible",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Missing,
@@ -1134,7 +583,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.focus_not_obscured_minimum.hidden",
+        id: "focus/obscured",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Weak,
@@ -1144,11 +593,11 @@ pub static RULES: &[Rule] = &[
         axe_id: Some("focus-not-obscured-minimum"),
         title: "Fokussiertes Element vollständig verdeckt",
         title_en: "Focused element entirely obscured",
-        description: "Ein fokussierbares Element wird an seiner aktuellen Layout-Position vollständig von einem fixierten oder sticky-positionierten Element überdeckt.",
+        description: "Nach dem Fokussieren und Scrollen liegt jeder Abtastpunkt eines Bedienelements unter einem fixierten oder sticky-positionierten Element.",
         user_impact: "Tastaturnutzer springen per Tab auf ein Element, das durch einen Sticky-Header, -Footer, ein Cookie-Banner o. ä. vollständig verdeckt ist und daher nicht sichtbar ist.",
         user_impact_en: "Keyboard users tab to an element that is entirely covered by a sticky header, footer, cookie banner, or similar overlay and is therefore not visible.",
-        technical_impact: "position: fixed/sticky-Element überlappt vollständig mit einem fokussierbaren Element.",
-        technical_impact_en: "A position: fixed/sticky element fully overlaps a focusable element.",
+        technical_impact: "Fokuslauf: Element fokussiert, mit scrollIntoView({block:'nearest'}) ins Bild gescrollt, 3×3 Punkte per elementsFromPoint abgetastet; alle Punkte unter einem position: fixed/sticky-Element.",
+        technical_impact_en: "Focus pass: element focused, scrolled into view with scrollIntoView({block:'nearest'}), 3×3 points sampled with elementsFromPoint; every point lies under a position: fixed/sticky element.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 2.0,
@@ -1157,7 +606,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.focus_not_obscured_enhanced.hidden",
+        id: "focus/obscured-enhanced",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Weak,
@@ -1167,11 +616,11 @@ pub static RULES: &[Rule] = &[
         axe_id: Some("focus-not-obscured-enhanced"),
         title: "Fokussiertes Element teilweise verdeckt",
         title_en: "Focused element partially obscured",
-        description: "Ein fokussierbares Element wird an seiner aktuellen Layout-Position zumindest teilweise von einem fixierten oder sticky-positionierten Element überdeckt.",
+        description: "Nach dem Fokussieren und Scrollen liegt mindestens ein Abtastpunkt eines Bedienelements unter einem fixierten oder sticky-positionierten Element.",
         user_impact: "Tastaturnutzer springen per Tab auf ein Element, dessen sichtbarer Bereich durch einen Sticky-Header, -Footer, ein Cookie-Banner o. ä. teilweise verdeckt wird.",
         user_impact_en: "Keyboard users tab to an element whose visible area is partially covered by a sticky header, footer, cookie banner, or similar overlay.",
-        technical_impact: "position: fixed/sticky-Element überlappt teilweise mit einem fokussierbaren Element.",
-        technical_impact_en: "A position: fixed/sticky element partially overlaps a focusable element.",
+        technical_impact: "Fokuslauf wie bei focus/obscured; mindestens ein Abtastpunkt unter einem position: fixed/sticky-Element.",
+        technical_impact_en: "Focus pass as for focus/obscured; at least one sample point lies under a position: fixed/sticky element.",
         score_impact: ScoreImpact {
             base_penalty: 0.5,
             max_penalty: 2.0,
@@ -1180,7 +629,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.label_in_name.invalid",
+        id: "label-in-name/mismatch",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Invalid,
@@ -1203,7 +652,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.timing.unadjustable",
+        id: "meta-refresh",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Weak,
@@ -1226,7 +675,30 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.pause_stop_hide.no_control",
+        id: "timing/meta-refresh",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::NavigationInteraction,
+        issue_class: IssueClass::Weak,
+        severity: Severity::High,
+        external_ref: Some("WCAG 2.2.1"),
+        external_level: Some("A"),
+        axe_id: Some("meta-refresh"),
+        title: "Nicht anpassbare Zeitbegrenzung",
+        title_en: "Non-adjustable time limit",
+        description: "Zeitbegrenzungen auf der Seite können nicht deaktiviert oder verlängert werden.",
+        user_impact: "Nutzer benötigen mehr Zeit für die Eingabe und können durch Timeouts Daten verlieren.",
+        user_impact_en: "Users need more time to enter data and may lose data through timeouts.",
+        technical_impact: "Fehlendes Refresh- oder Timeout-Handling im Script/Markup.",
+        technical_impact_en: "Missing refresh or timeout handling in the script/markup.",
+        score_impact: ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "motion/infinite-animation",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Missing,
@@ -1249,7 +721,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.timing.essential",
+        id: "manual/no-timing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Risk,
@@ -1272,7 +744,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.interruptions.uncontrollable",
+        id: "manual/interruptions",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Risk,
@@ -1295,7 +767,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.re_authenticate.data_loss",
+        id: "manual/re-authenticating",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Risk,
@@ -1318,7 +790,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.timeouts.unwarned",
+        id: "timeouts",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Risk,
@@ -1341,7 +813,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.location.missing",
+        id: "navigation/location-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Missing,
@@ -1364,7 +836,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.link_purpose_only.weak",
+        id: "links/purpose-link-only",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Weak,
@@ -1386,9 +858,8 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-    // Plan 98: `links/new-window-unannounced` (Technik G201, 3.2.5 AAA).
     Rule {
-        id: "a11y.new_window.unannounced",
+        id: "links/new-window-unannounced",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Weak,
@@ -1411,7 +882,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.pointer_gestures.missing_alternative",
+        id: "manual/pointer-gestures",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Missing,
@@ -1434,7 +905,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.pointer_cancellation.invalid",
+        id: "pointer-cancellation",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Invalid,
@@ -1457,7 +928,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.motion_actuation.missing_alternative",
+        id: "manual/motion-actuation",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Missing,
@@ -1480,7 +951,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.target_size_enhanced.small",
+        id: "targets/size-enhanced",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Weak,
@@ -1503,7 +974,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.target_size_minimum.small",
+        id: "targets/size",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Weak,
@@ -1525,9 +996,10 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-    // ── Formulare & Interaktion ─────────────────────────────────────────────
+
+    // ── Formulare & Interaktion ───────────────────────────────────────────
     Rule {
-        id: "a11y.input_purpose.missing",
+        id: "forms/autocomplete-invalid",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::FormsInteraction,
         issue_class: IssueClass::Missing,
@@ -1550,7 +1022,30 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.form_labels.missing",
+        id: "forms/purpose-missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::FormsInteraction,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 1.3.5"),
+        external_level: Some("AA"),
+        axe_id: Some("autocomplete-valid"),
+        title: "Fehlende Eingabezweck-Kennzeichnung",
+        title_en: "Missing input purpose identification",
+        description: "Formularfelder ohne autocomplete-Attribut.",
+        user_impact: "Kein Autofill möglich, Eingabe fehleranfälliger.",
+        user_impact_en: "No autofill possible, data entry more error-prone.",
+        technical_impact: "Fehlende autocomplete-Attribute.",
+        technical_impact_en: "Missing autocomplete attributes.",
+        score_impact: ScoreImpact {
+            base_penalty: 1.0,
+            max_penalty: 5.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "forms/group-name-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::FormsInteraction,
         issue_class: IssueClass::Missing,
@@ -1573,7 +1068,99 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.redundant_entry.missing_reuse",
+        id: "forms/instructions-missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::FormsInteraction,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 3.3.2"),
+        external_level: Some("A"),
+        axe_id: Some("label"),
+        title: "Fehlende Formularbeschriftungen",
+        title_en: "Missing form labels",
+        description: "Formularfelder ohne sichtbare Labels.",
+        user_impact: "Nutzer wissen nicht, welche Eingaben erwartet werden.",
+        user_impact_en: "Users do not know what input is expected.",
+        technical_impact: "Fehlende <label>-Elemente.",
+        technical_impact_en: "Missing <label> elements.",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "forms/label-missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::FormsInteraction,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 3.3.2"),
+        external_level: Some("A"),
+        axe_id: Some("label"),
+        title: "Fehlende Formularbeschriftungen",
+        title_en: "Missing form labels",
+        description: "Formularfelder ohne sichtbare Labels.",
+        user_impact: "Nutzer wissen nicht, welche Eingaben erwartet werden.",
+        user_impact_en: "Users do not know what input is expected.",
+        technical_impact: "Fehlende <label>-Elemente.",
+        technical_impact_en: "Missing <label> elements.",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "forms/placeholder-as-label",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::FormsInteraction,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 3.3.2"),
+        external_level: Some("A"),
+        axe_id: Some("label"),
+        title: "Fehlende Formularbeschriftungen",
+        title_en: "Missing form labels",
+        description: "Formularfelder ohne sichtbare Labels.",
+        user_impact: "Nutzer wissen nicht, welche Eingaben erwartet werden.",
+        user_impact_en: "Users do not know what input is expected.",
+        technical_impact: "Fehlende <label>-Elemente.",
+        technical_impact_en: "Missing <label> elements.",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "forms/required-unmarked",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::FormsInteraction,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 3.3.2"),
+        external_level: Some("A"),
+        axe_id: Some("label"),
+        title: "Fehlende Formularbeschriftungen",
+        title_en: "Missing form labels",
+        description: "Formularfelder ohne sichtbare Labels.",
+        user_impact: "Nutzer wissen nicht, welche Eingaben erwartet werden.",
+        user_impact_en: "Users do not know what input is expected.",
+        technical_impact: "Fehlende <label>-Elemente.",
+        technical_impact_en: "Missing <label> elements.",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "forms/redundant-entry",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::FormsInteraction,
         issue_class: IssueClass::Weak,
@@ -1596,7 +1183,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.accessible_auth.paste_blocked",
+        id: "auth/paste-blocked",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::FormsInteraction,
         issue_class: IssueClass::Invalid,
@@ -1609,8 +1196,8 @@ pub static RULES: &[Rule] = &[
         description: "Ein Passwort- oder Einmalcode-Feld unterbindet das Einfügen, sodass Zugangsdaten abgetippt oder auswendig eingegeben werden müssen.",
         user_impact: "Nutzer können weder einen Passwort-Manager noch die Zwischenablage verwenden. Wer sich Passwörter nicht merken oder fehlerfrei abschreiben kann, etwa wegen kognitiver oder motorischer Einschränkungen, scheitert an der Anmeldung.",
         user_impact_en: "Users can use neither a password manager nor the clipboard. Anyone who cannot memorise passwords or transcribe them accurately, for example because of cognitive or motor impairments, fails to sign in.",
-        technical_impact: "paste-Handler mit preventDefault() oder return false am Eingabefeld.",
-        technical_impact_en: "A paste handler calling preventDefault() or returning false on the input field.",
+        technical_impact: "Ein synthetisches paste-Ereignis wird abgebrochen, und der Probetext steht danach nicht im Feld (paste-Handler mit preventDefault() oder return false); gemessen auch in gleich-ursprünglichen Rahmen und offenen Shadow Roots.",
+        technical_impact_en: "A synthetic paste event is cancelled and the probe text is not in the field afterwards (a paste handler calling preventDefault() or returning false); measured in same-origin frames and open shadow roots too.",
         score_impact: ScoreImpact {
             base_penalty: 3.0,
             max_penalty: 8.0,
@@ -1619,7 +1206,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.accessible_auth.captcha_review",
+        id: "auth/captcha",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::FormsInteraction,
         issue_class: IssueClass::Risk,
@@ -1642,7 +1229,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.form_no_submit.missing",
+        id: "forms/no-submit",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::FormsInteraction,
         issue_class: IssueClass::Missing,
@@ -1665,30 +1252,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.error_id.missing_description",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::FormsInteraction,
-        issue_class: IssueClass::Missing,
-        severity: Severity::Medium,
-        external_ref: Some("WCAG 3.3.1"),
-        external_level: Some("A"),
-        axe_id: Some("aria-invalid-without-describedby"),
-        title: "Unzureichende Fehlermeldung bei Eingabefehlern",
-        title_en: "Insufficient error message on input errors",
-        description: "Fehlerhafte Formulareingaben werden nicht präzise identifiziert oder beschrieben.",
-        user_impact: "Nutzer können Fehler im Formular nicht korrigieren, weil sie nicht wissen, was falsch ist.",
-        user_impact_en: "Users cannot correct form errors because they do not know what is wrong.",
-        technical_impact: "Fehlendes aria-invalid-Attribut oder fehlerhaft verknüpfte aria-describedby-IDs.",
-        technical_impact_en: "Missing aria-invalid attribute or incorrectly linked aria-describedby IDs.",
-        score_impact: ScoreImpact {
-            base_penalty: 2.0,
-            max_penalty: 5.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "a11y.help.missing",
+        id: "manual/help",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::FormsInteraction,
         issue_class: IssueClass::Missing,
@@ -1710,9 +1274,10 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-    // ── Sprache & Verständlichkeit ──────────────────────────────────────────
+
+    // ── Sprache & Verständlichkeit ────────────────────────────────────────
     Rule {
-        id: "a11y.language.missing",
+        id: "document/lang-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::LanguageClarity,
         issue_class: IssueClass::Missing,
@@ -1740,7 +1305,35 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.on_focus.risk",
+        id: "html-has-lang",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::LanguageClarity,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 3.1.1"),
+        external_level: Some("A"),
+        // Geteilte Kennung aus `a11y-rules` statt der frueheren axe-core-Kennung
+        // `html-has-lang`: Die Pruefung laeuft seit der Umstellung als
+        // `document/lang-missing` (siehe `wcag::shared`). Die alte Kennung
+        // erzeugt weiterhin `iframe_rules`, aber fuer das Dokument *im* iframe
+        // -- ein anderer Befund.
+        axe_id: Some("document/lang-missing"),
+        title: "Fehlende Sprachangabe",
+        title_en: "Missing language declaration",
+        description: "Kein lang-Attribut im HTML-Tag.",
+        user_impact: "Screenreader liest mit falscher Aussprache vor.",
+        user_impact_en: "Screen readers read aloud with incorrect pronunciation.",
+        technical_impact: "Fehlendes lang-Attribut.",
+        technical_impact_en: "Missing lang attribute.",
+        score_impact: ScoreImpact {
+            base_penalty: 10.0,
+            max_penalty: 12.5,
+            occurrence_scaling: Scaling::Fixed,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "context/autofocus",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Risk,
@@ -1763,7 +1356,30 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.on_input.risk",
+        id: "context/on-focus",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::NavigationInteraction,
+        issue_class: IssueClass::Risk,
+        severity: Severity::High,
+        external_ref: Some("WCAG 3.2.1"),
+        external_level: Some("A"),
+        axe_id: Some("focus-no-context-change"),
+        title: "Unerwartete Kontextänderung bei Fokus",
+        title_en: "Unexpected context change on focus",
+        description: "Fokuserhalt löst unerwartete Kontextänderung aus.",
+        user_impact: "Verwirrende Seitenänderungen für Tastaturnutzer.",
+        user_impact_en: "Confusing page changes for keyboard users.",
+        technical_impact: "onfocus-Handler lösen Navigation aus.",
+        technical_impact_en: "onfocus handlers trigger navigation.",
+        score_impact: ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Fixed,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "context/on-input",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Risk,
@@ -1786,7 +1402,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.unusual_words.missing_definition",
+        id: "manual/unusual-words",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::LanguageClarity,
         issue_class: IssueClass::Missing,
@@ -1808,10 +1424,8 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-    // `language/part-unmarked` und `language/part-undetermined` (#697);
-    // `language-of-parts` hatte keinen eigenen Eintrag.
     Rule {
-        id: "a11y.language_of_parts.unmarked",
+        id: "language/part-undetermined",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::LanguageClarity,
         issue_class: IssueClass::Missing,
@@ -1834,7 +1448,30 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.abbreviations.missing",
+        id: "language/part-unmarked",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::LanguageClarity,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 3.1.2"),
+        external_level: Some("AA"),
+        axe_id: Some("language/part-unmarked"),
+        title: "Anderssprachiger Textteil ohne lang prüfen",
+        title_en: "Check text in another language without lang",
+        description: "Ein Textabschnitt scheint in einer anderen Sprache als die Seite verfasst, ohne dass ein lang-Attribut das auszeichnet.",
+        user_impact: "Screenreader lesen den Abschnitt mit der Aussprache der Seitensprache vor; er wird schwer verständlich.",
+        user_impact_en: "Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.",
+        technical_impact: "Heuristische Spracherkennung je Textblock; Seiten, die weder Deutsch noch Englisch sind, bleiben ungeprüft.",
+        technical_impact_en: "Heuristic language detection per text block; pages that are neither German nor English stay untested.",
+        score_impact: ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 2.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "language/abbreviation-unexpanded",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::LanguageClarity,
         issue_class: IssueClass::Missing,
@@ -1856,9 +1493,10 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-    // ── Visuelle Darstellung / Kontrast ─────────────────────────────────────
+
+    // ── Visuelle Darstellung / Kontrast ───────────────────────────────────
     Rule {
-        id: "a11y.contrast.weak",
+        id: "contrast/text-insufficient",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::VisualPresentation,
         issue_class: IssueClass::Weak,
@@ -1881,7 +1519,30 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.contrast_enhanced.weak",
+        id: "contrast/text-undetermined",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::VisualPresentation,
+        issue_class: IssueClass::Weak,
+        severity: Severity::High,
+        external_ref: Some("WCAG 1.4.3"),
+        external_level: Some("AA"),
+        axe_id: Some("color-contrast"),
+        title: "Unzureichender Farbkontrast",
+        title_en: "Insufficient color contrast",
+        description: "Text hat nicht genügend Kontrast zum Hintergrund.",
+        user_impact: "Text bei Sehschwäche oder ungünstigen Lichtverhältnissen schwer lesbar.",
+        user_impact_en: "Text is hard to read for people with low vision or under poor lighting conditions.",
+        technical_impact: "Kontrastverhältnis unter 4.5:1 für normalen Text.",
+        technical_impact_en: "Contrast ratio below 4.5:1 for normal text.",
+        score_impact: ScoreImpact {
+            base_penalty: 5.0,
+            max_penalty: 12.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "contrast/text-enhanced",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::VisualPresentation,
         issue_class: IssueClass::Weak,
@@ -1904,7 +1565,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.resize_text.weak",
+        id: "zoom/viewport-locked",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::VisualPresentation,
         issue_class: IssueClass::Weak,
@@ -1927,7 +1588,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.viewport_meta.missing",
+        id: "zoom/viewport-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::VisualPresentation,
         issue_class: IssueClass::Missing,
@@ -1954,7 +1615,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.reflow.missing",
+        id: "css-overflow-hidden",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::VisualPresentation,
         issue_class: IssueClass::Missing,
@@ -1977,7 +1638,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.non_text_contrast.weak",
+        id: "contrast/control-insufficient",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::VisualPresentation,
         issue_class: IssueClass::Weak,
@@ -2000,7 +1661,30 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.text_spacing.clipped",
+        id: "contrast/control-undetermined",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::VisualPresentation,
+        issue_class: IssueClass::Weak,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 1.4.11"),
+        external_level: Some("AA"),
+        axe_id: Some("non-text-contrast"),
+        title: "Unzureichender Kontrast bei UI-Elementen",
+        title_en: "Insufficient contrast for UI elements",
+        description: "Bedienelemente haben nicht genügend Kontrast.",
+        user_impact: "Interaktive Elemente schwer erkennbar.",
+        user_impact_en: "Interactive elements are hard to recognize.",
+        technical_impact: "Kontrastverhältnis UI-Elemente unter 3:1.",
+        technical_impact_en: "Contrast ratio of UI elements below 3:1.",
+        score_impact: ScoreImpact {
+            base_penalty: 1.5,
+            max_penalty: 5.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "text-spacing/clipped",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::VisualPresentation,
         issue_class: IssueClass::Invalid,
@@ -2013,8 +1697,8 @@ pub static RULES: &[Rule] = &[
         description: "Ein Container mit overflow:hidden schneidet Text ab, sobald WCAG-Mindestabstände für Zeilenhöhe, Buchstaben- und Wortabstand angewendet werden.",
         user_impact: "Nutzer, die Zeilen-/Wortabstand für bessere Lesbarkeit anpassen, verlieren Inhalte.",
         user_impact_en: "Users who increase line/letter/word spacing for readability lose content.",
-        technical_impact: "Fixe Höhe/Breite mit overflow:hidden auf Textcontainern.",
-        technical_impact_en: "Fixed height/width with overflow:hidden on text containers.",
+        technical_impact: "Fixe Höhe/Breite mit overflow:hidden auf Textcontainern; gemessen vor und nach dem Überschreiben des Textabstands, nur neu abgeschnittener Text zählt.",
+        technical_impact_en: "Fixed height/width with overflow:hidden on text containers; measured before and after overriding the text spacing, only newly clipped text counts.",
         score_impact: ScoreImpact {
             base_penalty: 1.5,
             max_penalty: 5.0,
@@ -2023,7 +1707,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.color.link_indicator",
+        id: "color/link-indistinct",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::VisualPresentation,
         issue_class: IssueClass::Weak,
@@ -2046,7 +1730,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.motion.reduced_motion",
+        id: "motion/reduced-motion-ignored",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::VisualPresentation,
         issue_class: IssueClass::Missing,
@@ -2069,7 +1753,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.hover.content_visibility",
+        id: "patterns/tooltip-unreferenced",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::VisualPresentation,
         issue_class: IssueClass::Weak,
@@ -2091,10 +1775,8 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-    // `media/audio-autoplay` (#696, a11y-rules 0.19): selbststartender Ton
-    // unter 1.4.2 statt der Hintergrundgeraeusche aus 1.4.7 darunter.
     Rule {
-        id: "a11y.audio_control.missing",
+        id: "media/audio-autoplay",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::VisualPresentation,
         issue_class: IssueClass::Risk,
@@ -2117,30 +1799,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.background_audio.uncontrolled",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::VisualPresentation,
-        issue_class: IssueClass::Risk,
-        severity: Severity::Medium,
-        external_ref: Some("WCAG 1.4.7"),
-        external_level: Some("AAA"),
-        axe_id: Some("background-audio"),
-        title: "Nicht regulierbare Hintergrundgeräusche (AAA)",
-        title_en: "Uncontrollable background audio (AAA)",
-        description: "Hintergrundgeräusche können nicht abgeschaltet oder leiser gestellt werden.",
-        user_impact: "Nutzer mit Hörgeräten oder kognitiven Einschränkungen werden stark abgelenkt.",
-        user_impact_en: "Users with hearing aids or cognitive impairments are strongly distracted.",
-        technical_impact: "Automatisch abspielendes Audio ohne Steuerungselemente.",
-        technical_impact_en: "Auto-playing audio without controls.",
-        score_impact: ScoreImpact {
-            base_penalty: 0.5,
-            max_penalty: 1.5,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "a11y.visual_presentation.weak",
+        id: "text/justified",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::VisualPresentation,
         issue_class: IssueClass::Weak,
@@ -2162,9 +1821,56 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-    // ── Technische Robustheit ───────────────────────────────────────────────
     Rule {
-        id: "a11y.aria_hidden_focus.invalid",
+        id: "text/line-height-tight",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::VisualPresentation,
+        issue_class: IssueClass::Weak,
+        severity: Severity::Low,
+        external_ref: Some("WCAG 1.4.8"),
+        external_level: Some("AAA"),
+        axe_id: Some("visual-presentation"),
+        title: "Eingeschränkte visuelle Darstellung von Text (AAA)",
+        title_en: "Limited visual presentation of text (AAA)",
+        description: "Der Text hat unzureichenden Zeilenabstand oder ist im Blocksatz formatiert.",
+        user_impact: "Nutzer mit Sehbehinderungen oder Legasthenie haben Probleme beim Lesen.",
+        user_impact_en: "Users with visual impairments or dyslexia have difficulty reading.",
+        technical_impact: "Unzureichendes CSS-Styling für Zeilenabstand oder Blocksatz-Formatierung.",
+        technical_impact_en: "Insufficient CSS styling for line spacing or justified-text formatting.",
+        score_impact: ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "visual-presentation",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::VisualPresentation,
+        issue_class: IssueClass::Weak,
+        severity: Severity::Low,
+        external_ref: Some("WCAG 1.4.8"),
+        external_level: Some("AAA"),
+        axe_id: Some("visual-presentation"),
+        title: "Eingeschränkte visuelle Darstellung von Text (AAA)",
+        title_en: "Limited visual presentation of text (AAA)",
+        description: "Der Text hat unzureichenden Zeilenabstand oder ist im Blocksatz formatiert.",
+        user_impact: "Nutzer mit Sehbehinderungen oder Legasthenie haben Probleme beim Lesen.",
+        user_impact_en: "Users with visual impairments or dyslexia have difficulty reading.",
+        technical_impact: "Unzureichendes CSS-Styling für Zeilenabstand oder Blocksatz-Formatierung.",
+        technical_impact_en: "Insufficient CSS styling for line spacing or justified-text formatting.",
+        score_impact: ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+
+    // ── Technische Robustheit ─────────────────────────────────────────────
+    Rule {
+        id: "keyboard/hidden-focusable",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Invalid,
@@ -2187,7 +1893,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.status_messages.broken",
+        id: "status/live-overridden",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Invalid,
@@ -2210,30 +1916,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.identify_purpose.missing",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::TechnicalRobustness,
-        issue_class: IssueClass::Missing,
-        severity: Severity::Low,
-        external_ref: Some("WCAG 1.3.6"),
-        external_level: Some("AAA"),
-        axe_id: None,
-        title: "Landmark ohne unterscheidbaren Namen",
-        title_en: "Landmark without distinguishable name",
-        description: "Mehrere gleichartige Landmarks ohne aria-label zur Unterscheidung.",
-        user_impact: "Screenreader-Nutzer können identische Landmarks nicht voneinander unterscheiden.",
-        user_impact_en: "Screen reader users cannot tell identical landmarks apart.",
-        technical_impact: "Fehlende aria-label/aria-labelledby auf doppelten Landmarks.",
-        technical_impact_en: "Missing aria-label/aria-labelledby on duplicate landmarks.",
-        score_impact: ScoreImpact {
-            base_penalty: 1.0,
-            max_penalty: 4.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "a11y.aria_required_attr.missing",
+        id: "aria/required-attribute-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Missing,
@@ -2258,30 +1941,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.name_role.missing",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::TechnicalRobustness,
-        issue_class: IssueClass::Missing,
-        severity: Severity::High,
-        external_ref: Some("WCAG 4.1.2"),
-        external_level: Some("A"),
-        axe_id: None,
-        title: "Fehlende Name/Rolle bei Bedienelementen",
-        title_en: "Missing name/role on controls",
-        description: "Interaktive Elemente ohne zugänglichen Namen oder erkennbare Rolle.",
-        user_impact: "Screenreader kann Funktion nicht vermitteln.",
-        user_impact_en: "Screen readers cannot convey the function.",
-        technical_impact: "Fehlende ARIA-Labels und -Rollen.",
-        technical_impact_en: "Missing ARIA labels and roles.",
-        score_impact: ScoreImpact {
-            base_penalty: 5.0,
-            max_penalty: 12.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "a11y.aria_required_parent.invalid",
+        id: "aria/required-parent-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Missing,
@@ -2305,7 +1965,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.modern_attributes.invalid",
+        id: "inert/dialog-inert",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Invalid,
@@ -2328,7 +1988,76 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.aria_prohibited_attr.invalid",
+        id: "modern-attribute-misuse",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::TechnicalRobustness,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::High,
+        external_ref: Some("WCAG 4.1.2"),
+        external_level: Some("A"),
+        axe_id: Some("modern-attribute-misuse"),
+        title: "Ungültige moderne Interaktionsattribute",
+        title_en: "Invalid modern interaction attributes",
+        description: "popover-, inert- oder Dialog-Attribute erzeugen eine nicht programmatisch bestimmbare Interaktion.",
+        user_impact: "Screenreader- und Tastaturnutzer erreichen Dialoge, Popover oder gesperrte Bereiche nicht zuverlässig.",
+        user_impact_en: "Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.",
+        technical_impact: "Defekte popovertarget-Bezüge, unbenannte Oberflächen oder aktiver Fokus innerhalb inert markierter Bereiche.",
+        technical_impact_en: "Broken popovertarget references, unnamed surfaces, or active focus inside inert regions.",
+        score_impact: ScoreImpact {
+            base_penalty: 4.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "popover/target-invalid",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::TechnicalRobustness,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::High,
+        external_ref: Some("WCAG 4.1.2"),
+        external_level: Some("A"),
+        axe_id: Some("modern-attribute-misuse"),
+        title: "Ungültige moderne Interaktionsattribute",
+        title_en: "Invalid modern interaction attributes",
+        description: "popover-, inert- oder Dialog-Attribute erzeugen eine nicht programmatisch bestimmbare Interaktion.",
+        user_impact: "Screenreader- und Tastaturnutzer erreichen Dialoge, Popover oder gesperrte Bereiche nicht zuverlässig.",
+        user_impact_en: "Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.",
+        technical_impact: "Defekte popovertarget-Bezüge, unbenannte Oberflächen oder aktiver Fokus innerhalb inert markierter Bereiche.",
+        technical_impact_en: "Broken popovertarget references, unnamed surfaces, or active focus inside inert regions.",
+        score_impact: ScoreImpact {
+            base_penalty: 4.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "popover/target-missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::TechnicalRobustness,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::High,
+        external_ref: Some("WCAG 4.1.2"),
+        external_level: Some("A"),
+        axe_id: Some("modern-attribute-misuse"),
+        title: "Ungültige moderne Interaktionsattribute",
+        title_en: "Invalid modern interaction attributes",
+        description: "popover-, inert- oder Dialog-Attribute erzeugen eine nicht programmatisch bestimmbare Interaktion.",
+        user_impact: "Screenreader- und Tastaturnutzer erreichen Dialoge, Popover oder gesperrte Bereiche nicht zuverlässig.",
+        user_impact_en: "Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.",
+        technical_impact: "Defekte popovertarget-Bezüge, unbenannte Oberflächen oder aktiver Fokus innerhalb inert markierter Bereiche.",
+        technical_impact_en: "Broken popovertarget references, unnamed surfaces, or active focus inside inert regions.",
+        score_impact: ScoreImpact {
+            base_penalty: 4.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "aria/attribute-prohibited",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Invalid,
@@ -2351,7 +2080,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.aria_allowed_attr.invalid",
+        id: "aria/attribute-not-allowed",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Invalid,
@@ -2374,7 +2103,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.aria_valid_attr_value.invalid",
+        id: "aria/attribute-value-invalid",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Invalid,
@@ -2397,7 +2126,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.aria_relationships.invalid",
+        id: "aria/reference-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Invalid,
@@ -2420,7 +2149,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.aria_roles.invalid",
+        id: "aria/role-abstract",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Invalid,
@@ -2443,7 +2172,30 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.aria_attr_name.invalid",
+        id: "aria/role-invalid",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::TechnicalRobustness,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::High,
+        external_ref: Some("WCAG 4.1.2"),
+        external_level: Some("A"),
+        axe_id: Some("aria-roles"),
+        title: "Ungültige ARIA-Rolle",
+        title_en: "Invalid ARIA role",
+        description: "Ein role-Attribut enthält einen Wert, der keine gültige ARIA-Rolle ist.",
+        user_impact: "Assistive Technologien können die Funktion des Elements nicht bestimmen.",
+        user_impact_en: "Assistive technologies cannot determine the element's function.",
+        technical_impact: "Rollenwert ist in der ARIA-Spezifikation nicht definiert.",
+        technical_impact_en: "Role value is not defined in the ARIA specification.",
+        score_impact: ScoreImpact {
+            base_penalty: 4.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "aria/attribute-unknown",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Invalid,
@@ -2466,7 +2218,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.language_mismatch.invalid",
+        id: "document/lang-mismatch",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::LanguageClarity,
         issue_class: IssueClass::Invalid,
@@ -2489,168 +2241,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.command_name.missing",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::TechnicalRobustness,
-        issue_class: IssueClass::Missing,
-        severity: Severity::High,
-        external_ref: Some("WCAG 4.1.2"),
-        external_level: Some("A"),
-        axe_id: Some("aria-command-name"),
-        title: "Fehlender Name bei Befehlselement",
-        title_en: "Missing name on a command element",
-        description: "Ein interaktives Befehlselement (link, button, menuitem) hat keinen zugänglichen Namen.",
-        user_impact: "Screenreader-Nutzer erfahren nicht, welche Aktion das Element auslöst.",
-        user_impact_en: "Screen reader users cannot tell what action the element triggers.",
-        technical_impact: "Kein berechenbarer accessible name für die Rolle link/button/menuitem.",
-        technical_impact_en: "No computable accessible name for the link/button/menuitem role.",
-        score_impact: ScoreImpact {
-            base_penalty: 5.0,
-            max_penalty: 12.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "a11y.input_field_name.missing",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::FormsInteraction,
-        issue_class: IssueClass::Missing,
-        severity: Severity::High,
-        external_ref: Some("WCAG 4.1.2"),
-        external_level: Some("A"),
-        axe_id: Some("aria-input-field-name"),
-        title: "Fehlender Name bei Eingabefeld",
-        title_en: "Missing name on an input field",
-        description: "Ein Eingabeelement (textbox, combobox u. Ä.) hat keinen zugänglichen Namen.",
-        user_impact: "Screenreader-Nutzer wissen nicht, welche Eingabe erwartet wird.",
-        user_impact_en: "Screen reader users cannot tell what input is expected.",
-        technical_impact: "Kein berechenbarer accessible name für die Eingabe-Rolle.",
-        technical_impact_en: "No computable accessible name for the input role.",
-        score_impact: ScoreImpact {
-            base_penalty: 5.0,
-            max_penalty: 12.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "a11y.meter_name.missing",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::ContentAlternatives,
-        issue_class: IssueClass::Missing,
-        severity: Severity::High,
-        external_ref: Some("WCAG 1.1.1"),
-        external_level: Some("A"),
-        axe_id: Some("aria-meter-name"),
-        title: "Fehlender Name bei Messwertanzeige",
-        title_en: "Missing name on a meter element",
-        description: "Ein Element mit role=meter hat keinen zugänglichen Namen.",
-        user_impact: "Screenreader-Nutzer erfahren nicht, welchen Messwert die Anzeige darstellt.",
-        user_impact_en: "Screen reader users cannot tell what value the meter represents.",
-        technical_impact: "Kein berechenbarer accessible name für die meter-Rolle.",
-        technical_impact_en: "No computable accessible name for the meter role.",
-        score_impact: ScoreImpact {
-            base_penalty: 4.0,
-            max_penalty: 10.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "a11y.progressbar_name.missing",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::ContentAlternatives,
-        issue_class: IssueClass::Missing,
-        severity: Severity::High,
-        external_ref: Some("WCAG 1.1.1"),
-        external_level: Some("A"),
-        axe_id: Some("aria-progressbar-name"),
-        title: "Fehlender Name bei Fortschrittsanzeige",
-        title_en: "Missing name on a progressbar element",
-        description: "Ein Element mit role=progressbar hat keinen zugänglichen Namen.",
-        user_impact: "Screenreader-Nutzer erfahren nicht, welchen Vorgang die Fortschrittsanzeige begleitet.",
-        user_impact_en: "Screen reader users cannot tell what process the progress bar tracks.",
-        technical_impact: "Kein berechenbarer accessible name für die progressbar-Rolle.",
-        technical_impact_en: "No computable accessible name for the progressbar role.",
-        score_impact: ScoreImpact {
-            base_penalty: 4.0,
-            max_penalty: 10.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "a11y.toggle_field_name.missing",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::FormsInteraction,
-        issue_class: IssueClass::Missing,
-        severity: Severity::High,
-        external_ref: Some("WCAG 4.1.2"),
-        external_level: Some("A"),
-        axe_id: Some("aria-toggle-field-name"),
-        title: "Fehlender Name bei Umschaltelement",
-        title_en: "Missing name on a toggle field",
-        description: "Ein Umschaltelement (checkbox, radio, switch u. Ä.) hat keinen zugänglichen Namen.",
-        user_impact: "Screenreader-Nutzer wissen nicht, was sie ein- oder ausschalten.",
-        user_impact_en: "Screen reader users cannot tell what they are toggling on or off.",
-        technical_impact: "Kein berechenbarer accessible name für die Umschalt-Rolle.",
-        technical_impact_en: "No computable accessible name for the toggle role.",
-        score_impact: ScoreImpact {
-            base_penalty: 5.0,
-            max_penalty: 12.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "a11y.dialog_name.missing",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::TechnicalRobustness,
-        issue_class: IssueClass::Missing,
-        severity: Severity::High,
-        external_ref: Some("WCAG 4.1.2"),
-        external_level: Some("A"),
-        axe_id: Some("aria-dialog-name"),
-        title: "Fehlender Name bei Dialog",
-        title_en: "Missing name on a dialog",
-        description: "Ein Element mit role=dialog oder alertdialog hat keinen zugänglichen Namen.",
-        user_impact: "Screenreader-Nutzer erfahren beim Fokuswechsel in den Dialog nicht dessen Zweck.",
-        user_impact_en: "Screen reader users don't learn the dialog's purpose when focus moves into it.",
-        technical_impact: "Kein berechenbarer accessible name für die dialog-Rolle.",
-        technical_impact_en: "No computable accessible name for the dialog role.",
-        score_impact: ScoreImpact {
-            base_penalty: 5.0,
-            max_penalty: 12.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "a11y.treeitem_name.missing",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::TechnicalRobustness,
-        issue_class: IssueClass::Missing,
-        severity: Severity::High,
-        external_ref: Some("WCAG 4.1.2"),
-        external_level: Some("A"),
-        axe_id: Some("aria-treeitem-name"),
-        title: "Fehlender Name bei Baumelement",
-        title_en: "Missing name on a tree item",
-        description: "Ein Element mit role=treeitem hat keinen zugänglichen Namen.",
-        user_impact: "Screenreader-Nutzer erfahren nicht, welchen Eintrag das Baumelement repräsentiert.",
-        user_impact_en: "Screen reader users cannot tell what entry the tree item represents.",
-        technical_impact: "Kein berechenbarer accessible name für die treeitem-Rolle.",
-        technical_impact_en: "No computable accessible name for the treeitem role.",
-        score_impact: ScoreImpact {
-            base_penalty: 4.0,
-            max_penalty: 10.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "a11y.table_headers_ref.invalid",
+        id: "tables/headers-attr-invalid",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Invalid,
@@ -2673,7 +2264,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.table_header_data.missing",
+        id: "tables/data-undetermined",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Missing,
@@ -2696,7 +2287,30 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.tablist_tabpanel.missing",
+        id: "tables/header-without-data",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 1.3.1"),
+        external_level: Some("A"),
+        axe_id: Some("th-has-data-cells"),
+        title: "Tabellenüberschrift ohne zugehörige Datenzellen",
+        title_en: "Table header without associated data cells",
+        description: "Eine Tabellenüberschrift (th) hat keine zugehörigen Datenzellen in derselben Tabelle.",
+        user_impact: "Screenreader kündigen eine Überschrift an, die keine Daten strukturiert.",
+        user_impact_en: "Screen readers announce a header that structures no data.",
+        technical_impact: "Header-Zelle ohne zugeordnete Datenzellen in der Tabelle.",
+        technical_impact_en: "Header cell with no associated data cells in the table.",
+        score_impact: ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "aria/tabpanel-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Missing,
@@ -2719,7 +2333,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.tab_selected.missing",
+        id: "aria/tab-selected-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Missing,
@@ -2742,7 +2356,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.accordion_controls.missing",
+        id: "patterns/accordion-controls-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Missing,
@@ -2765,7 +2379,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.dialog_modal.missing",
+        id: "dialog/modal-unmarked",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Missing,
@@ -2788,7 +2402,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.combobox_options.missing",
+        id: "aria/combobox-popup-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::FormsInteraction,
         issue_class: IssueClass::Missing,
@@ -2811,7 +2425,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.frame_title.missing",
+        id: "frames/name-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::ContentAlternatives,
         issue_class: IssueClass::Missing,
@@ -2834,7 +2448,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.frame_tested.cross_origin",
+        id: "frames/cross-origin",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Informational,
@@ -2857,7 +2471,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.parsing.invalid",
+        id: "ids/duplicate",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Invalid,
@@ -2888,764 +2502,8 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_ALL,
     },
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PERFORMANCE
-    // ═══════════════════════════════════════════════════════════════════════════
     Rule {
-        id: "perf.lcp.slow",
-        dimension: Dimension::Performance,
-        subcategory: Subcategory::LoadBehavior,
-        issue_class: IssueClass::Weak,
-        severity: Severity::High,
-        external_ref: Some("CWV:LCP"),
-        external_level: None,
-        axe_id: None,
-        title: "Langsamer Largest Contentful Paint",
-        title_en: "Slow Largest Contentful Paint",
-        description: "Hauptinhalt wird zu spät sichtbar.",
-        user_impact: "Nutzer sieht lange leere oder unvollständige Seite.",
-        user_impact_en: "Users see a blank or incomplete page for a long time.",
-        technical_impact: "LCP über 2500ms — Netzwerk, Rendering oder Ressourcen zu langsam.",
-        technical_impact_en: "LCP above 2500ms — network, rendering or resources too slow.",
-        score_impact: ScoreImpact {
-            base_penalty: 25.0,
-            max_penalty: 25.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "perf.fcp.slow",
-        dimension: Dimension::Performance,
-        subcategory: Subcategory::LoadBehavior,
-        issue_class: IssueClass::Weak,
-        severity: Severity::Medium,
-        external_ref: Some("CWV:FCP"),
-        external_level: None,
-        axe_id: None,
-        title: "Langsamer First Contentful Paint",
-        title_en: "Slow First Contentful Paint",
-        description: "Erster sichtbarer Inhalt erscheint zu spät.",
-        user_impact: "Nutzer wartet zu lange auf erste Rückmeldung.",
-        user_impact_en: "Users wait too long for the first feedback.",
-        technical_impact: "FCP über 1800ms — Server oder Rendering-Blockade.",
-        technical_impact_en: "FCP above 1800ms — server or rendering blockage.",
-        score_impact: ScoreImpact {
-            base_penalty: 25.0,
-            max_penalty: 25.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "perf.cls.unstable",
-        dimension: Dimension::Performance,
-        subcategory: Subcategory::VisualStability,
-        issue_class: IssueClass::Weak,
-        severity: Severity::Medium,
-        external_ref: Some("CWV:CLS"),
-        external_level: None,
-        axe_id: None,
-        title: "Layout-Verschiebungen während des Ladens",
-        title_en: "Layout shifts during loading",
-        description: "Seitenelemente springen während des Ladens.",
-        user_impact: "Nutzer klickt versehentlich auf falsches Element.",
-        user_impact_en: "Users accidentally click the wrong element.",
-        technical_impact: "CLS über 0.1 — fehlende Dimensionen, nachladende Inhalte.",
-        technical_impact_en: "CLS above 0.1 — missing dimensions, late-loading content.",
-        score_impact: ScoreImpact {
-            base_penalty: 25.0,
-            max_penalty: 25.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "perf.tbt.high",
-        dimension: Dimension::Performance,
-        subcategory: Subcategory::Interactivity,
-        issue_class: IssueClass::Weak,
-        severity: Severity::High,
-        external_ref: Some("CWV:TBT"),
-        external_level: None,
-        axe_id: None,
-        title: "Hohe Blocking-Zeit",
-        title_en: "High blocking time",
-        description: "Hauptthread blockiert zu lange durch JavaScript.",
-        user_impact: "Seite reagiert verzögert auf Nutzereingaben.",
-        user_impact_en: "The page responds to user input with delay.",
-        technical_impact: "TBT/INP über 200ms — zu viel JavaScript-Arbeit im Hauptthread.",
-        technical_impact_en: "TBT/INP above 200ms — too much JavaScript work on the main thread.",
-        score_impact: ScoreImpact {
-            base_penalty: 25.0,
-            max_penalty: 25.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "perf.ttfb.slow",
-        dimension: Dimension::Performance,
-        subcategory: Subcategory::LoadBehavior,
-        issue_class: IssueClass::Risk,
-        severity: Severity::Medium,
-        external_ref: Some("CWV:TTFB"),
-        external_level: None,
-        axe_id: None,
-        title: "Langsame Server-Antwortzeit",
-        title_en: "Slow server response time",
-        description: "Server reagiert zu langsam auf die Anfrage.",
-        user_impact: "Gesamte Ladezeit wird verzögert.",
-        user_impact_en: "The overall load time is delayed.",
-        technical_impact: "TTFB über 800ms — Server-Performance oder Netzwerk-Latenz.",
-        technical_impact_en: "TTFB above 800ms — server performance or network latency.",
-        score_impact: ScoreImpact {
-            base_penalty: 5.0,
-            max_penalty: 10.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "perf.resources.heavy",
-        dimension: Dimension::Performance,
-        subcategory: Subcategory::ResourceUsage,
-        issue_class: IssueClass::Risk,
-        severity: Severity::Medium,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Hoher Ressourcenverbrauch",
-        title_en: "High resource consumption",
-        description: "Seite lädt zu viele oder zu große Ressourcen.",
-        user_impact: "Langsame Ladezeiten, hoher Datenverbrauch auf Mobilgeräten.",
-        user_impact_en: "Slow load times, high data usage on mobile devices.",
-        technical_impact: "Gesamtgröße > 3MB, zu viele Requests, unkomprimiert.",
-        technical_impact_en: "Total size > 3MB, too many requests, uncompressed.",
-        score_impact: ScoreImpact {
-            base_penalty: 5.0,
-            max_penalty: 10.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "perf.dom.large",
-        dimension: Dimension::Performance,
-        subcategory: Subcategory::TechnicalComplexity,
-        issue_class: IssueClass::Risk,
-        severity: Severity::Low,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Großes DOM",
-        title_en: "Large DOM",
-        description: "Übermäßig viele DOM-Elemente.",
-        user_impact: "Seite reagiert langsam auf Interaktionen.",
-        user_impact_en: "The page responds slowly to interactions.",
-        technical_impact: "DOM-Größe belastet Browser-Rendering und Speicher.",
-        technical_impact_en: "DOM size burdens browser rendering and memory.",
-        score_impact: ScoreImpact {
-            base_penalty: 3.0,
-            max_penalty: 5.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_TECHNICAL,
-    },
-    // ═══════════════════════════════════════════════════════════════════════════
-    // SEO
-    // ═══════════════════════════════════════════════════════════════════════════
-    Rule {
-        id: "seo.title.missing",
-        dimension: Dimension::Seo,
-        subcategory: Subcategory::SnippetMetadata,
-        issue_class: IssueClass::Missing,
-        severity: Severity::Critical,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Fehlender Seitentitel",
-        title_en: "Missing page title",
-        description: "Kein <title>-Tag vorhanden.",
-        user_impact: "Seite wird in Suchergebnissen ohne aussagekräftigen Titel angezeigt.",
-        user_impact_en: "The page appears in search results without a meaningful title.",
-        technical_impact: "Leeres oder fehlendes <title>-Element.",
-        technical_impact_en: "Empty or missing <title> element.",
-        score_impact: ScoreImpact {
-            base_penalty: 10.0,
-            max_penalty: 10.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "seo.title.weak",
-        dimension: Dimension::Seo,
-        subcategory: Subcategory::SnippetMetadata,
-        issue_class: IssueClass::Weak,
-        severity: Severity::Medium,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Ungünstige Titellänge",
-        title_en: "Suboptimal title length",
-        description: "Titel zu kurz (<30 Zeichen) oder zu lang (>60 Zeichen).",
-        user_impact: "Snippet wird in Suchergebnissen suboptimal dargestellt.",
-        user_impact_en: "The snippet is displayed suboptimally in search results.",
-        technical_impact: "Title-Tag außerhalb des empfohlenen Zeichenbereichs.",
-        technical_impact_en: "Title tag outside the recommended character range.",
-        score_impact: ScoreImpact {
-            base_penalty: 5.0,
-            max_penalty: 5.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "seo.description.missing",
-        dimension: Dimension::Seo,
-        subcategory: Subcategory::SnippetMetadata,
-        issue_class: IssueClass::Missing,
-        severity: Severity::High,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Fehlende Meta-Description",
-        title_en: "Missing meta description",
-        description: "Keine Meta-Description vorhanden.",
-        user_impact: "Suchmaschine generiert eigene Beschreibung, oft suboptimal.",
-        user_impact_en: "The search engine generates its own description, often suboptimal.",
-        technical_impact: "Fehlendes <meta name=\"description\">-Element.",
-        technical_impact_en: "Missing <meta name=\"description\"> element.",
-        score_impact: ScoreImpact {
-            base_penalty: 10.0,
-            max_penalty: 10.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "seo.description.weak",
-        dimension: Dimension::Seo,
-        subcategory: Subcategory::SnippetMetadata,
-        issue_class: IssueClass::Weak,
-        severity: Severity::Low,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Ungünstige Description-Länge",
-        title_en: "Suboptimal description length",
-        description: "Meta-Description zu kurz (<120) oder zu lang (>160 Zeichen).",
-        user_impact: "Snippet wird abgeschnitten oder ist zu knapp.",
-        user_impact_en: "The snippet is truncated or too brief.",
-        technical_impact: "Description außerhalb des empfohlenen Zeichenbereichs.",
-        technical_impact_en: "Description outside the recommended character range.",
-        score_impact: ScoreImpact {
-            base_penalty: 5.0,
-            max_penalty: 5.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "seo.viewport.missing",
-        dimension: Dimension::Seo,
-        subcategory: Subcategory::SnippetMetadata,
-        issue_class: IssueClass::Missing,
-        severity: Severity::High,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Fehlende Viewport-Meta-Tag",
-        title_en: "Missing viewport meta tag",
-        description: "Kein Viewport-Meta-Tag vorhanden.",
-        user_impact: "Seite wird auf Mobilgeräten nicht korrekt dargestellt.",
-        user_impact_en: "The page is not rendered correctly on mobile devices.",
-        technical_impact: "Fehlendes <meta name=\"viewport\">-Element.",
-        technical_impact_en: "Missing <meta name=\"viewport\"> element.",
-        score_impact: ScoreImpact {
-            base_penalty: 10.0,
-            max_penalty: 10.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "seo.h1.missing",
-        dimension: Dimension::Seo,
-        subcategory: Subcategory::ContentStructure,
-        issue_class: IssueClass::Missing,
-        severity: Severity::High,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Fehlende H1-Überschrift",
-        title_en: "Missing H1 heading",
-        description: "Seite hat keine H1-Überschrift.",
-        user_impact: "Suchmaschine kann Hauptthema der Seite schlechter erkennen.",
-        user_impact_en: "Search engines can less easily identify the main topic of the page.",
-        technical_impact: "Kein <h1>-Element vorhanden.",
-        technical_impact_en: "No <h1> element present.",
-        score_impact: ScoreImpact {
-            base_penalty: 15.0,
-            max_penalty: 15.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "seo.h1.multiple",
-        dimension: Dimension::Seo,
-        subcategory: Subcategory::ContentStructure,
-        issue_class: IssueClass::Weak,
-        severity: Severity::Low,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Mehrere H1-Überschriften",
-        title_en: "Multiple H1 headings",
-        description: "Seite hat mehr als eine H1-Überschrift.",
-        user_impact: "Thematische Fokussierung der Seite unklar.",
-        user_impact_en: "The thematic focus of the page is unclear.",
-        technical_impact: "Mehrere <h1>-Elemente im DOM.",
-        technical_impact_en: "Multiple <h1> elements in the DOM.",
-        score_impact: ScoreImpact {
-            base_penalty: 5.0,
-            max_penalty: 5.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "seo.headings.issue",
-        dimension: Dimension::Seo,
-        subcategory: Subcategory::ContentStructure,
-        issue_class: IssueClass::Weak,
-        severity: Severity::Low,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Heading-Probleme",
-        title_en: "Heading issues",
-        description: "Übersprungene Ebenen, leere Headings oder zu lange Headings.",
-        user_impact: "Strukturelle Signale für Suchmaschine geschwächt.",
-        user_impact_en: "Structural signals for search engines are weakened.",
-        technical_impact: "Heading-Hierarchie nicht korrekt.",
-        technical_impact_en: "Heading hierarchy is not correct.",
-        score_impact: ScoreImpact {
-            base_penalty: 3.0,
-            max_penalty: 9.0,
-            occurrence_scaling: Scaling::Linear,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "seo.canonical.missing",
-        dimension: Dimension::Seo,
-        subcategory: Subcategory::Indexability,
-        issue_class: IssueClass::Opportunity,
-        severity: Severity::Low,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Fehlende Canonical-URL",
-        title_en: "Missing canonical URL",
-        description: "Kein Canonical-Link vorhanden.",
-        user_impact: "Mögliche Duplicate-Content-Probleme.",
-        user_impact_en: "Possible duplicate content issues.",
-        technical_impact: "Fehlendes <link rel=\"canonical\">-Element.",
-        technical_impact_en: "Missing <link rel=\"canonical\"> element.",
-        score_impact: ScoreImpact {
-            base_penalty: 5.0,
-            max_penalty: 5.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "seo.lang.missing",
-        dimension: Dimension::Seo,
-        subcategory: Subcategory::SemanticSignals,
-        issue_class: IssueClass::Missing,
-        severity: Severity::Medium,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Fehlende Sprachangabe",
-        title_en: "Missing language declaration",
-        description: "Kein lang-Attribut im HTML-Tag.",
-        user_impact: "Suchmaschine kann Sprache nicht automatisch zuordnen.",
-        user_impact_en: "Search engines cannot automatically assign the language.",
-        technical_impact: "Fehlendes lang-Attribut im <html>-Element.",
-        technical_impact_en: "Missing lang attribute on the <html> element.",
-        score_impact: ScoreImpact {
-            base_penalty: 3.0,
-            max_penalty: 3.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "seo.og.missing",
-        dimension: Dimension::Seo,
-        subcategory: Subcategory::SemanticSignals,
-        issue_class: IssueClass::Opportunity,
-        severity: Severity::Low,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Fehlende Open Graph Tags",
-        title_en: "Missing Open Graph tags",
-        description: "Keine Open Graph Meta-Tags vorhanden.",
-        user_impact: "Social-Media-Vorschau der Seite ist unformatiert.",
-        user_impact_en: "The social media preview of the page is unformatted.",
-        technical_impact: "Fehlende og:-Meta-Tags.",
-        technical_impact_en: "Missing og: meta tags.",
-        score_impact: ScoreImpact {
-            base_penalty: 5.0,
-            max_penalty: 5.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "seo.twitter.missing",
-        dimension: Dimension::Seo,
-        subcategory: Subcategory::SemanticSignals,
-        issue_class: IssueClass::Opportunity,
-        severity: Severity::Low,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Fehlende Twitter Card Tags",
-        title_en: "Missing Twitter Card tags",
-        description: "Keine Twitter Card Meta-Tags vorhanden.",
-        user_impact: "Twitter-Vorschau der Seite ist unformatiert.",
-        user_impact_en: "The Twitter preview of the page is unformatted.",
-        technical_impact: "Fehlende twitter:-Meta-Tags.",
-        technical_impact_en: "Missing twitter: meta tags.",
-        score_impact: ScoreImpact {
-            base_penalty: 5.0,
-            max_penalty: 5.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_TECHNICAL,
-    },
-    Rule {
-        id: "seo.https.missing",
-        dimension: Dimension::Seo,
-        subcategory: Subcategory::Indexability,
-        issue_class: IssueClass::Missing,
-        severity: Severity::Critical,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Kein HTTPS",
-        title_en: "No HTTPS",
-        description: "Seite wird nicht über HTTPS ausgeliefert.",
-        user_impact: "Browser zeigt Sicherheitswarnung, Ranking-Nachteil.",
-        user_impact_en: "The browser shows a security warning; ranking disadvantage.",
-        technical_impact: "Fehlende TLS-Verschlüsselung.",
-        technical_impact_en: "Missing TLS encryption.",
-        score_impact: ScoreImpact {
-            base_penalty: 10.0,
-            max_penalty: 10.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_ALL,
-    },
-    // ═══════════════════════════════════════════════════════════════════════════
-    // SECURITY
-    // ═══════════════════════════════════════════════════════════════════════════
-    Rule {
-        id: "sec.https.missing",
-        dimension: Dimension::Security,
-        subcategory: Subcategory::Transport,
-        issue_class: IssueClass::Missing,
-        severity: Severity::Critical,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Kein HTTPS",
-        title_en: "No HTTPS",
-        description: "Seite wird nicht über HTTPS ausgeliefert.",
-        user_impact: "Daten werden unverschlüsselt übertragen.",
-        user_impact_en: "Data is transmitted unencrypted.",
-        technical_impact: "Fehlende TLS-Verschlüsselung.",
-        technical_impact_en: "Missing TLS encryption.",
-        score_impact: ScoreImpact {
-            base_penalty: 25.0,
-            max_penalty: 25.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "sec.hsts.missing",
-        dimension: Dimension::Security,
-        subcategory: Subcategory::Headers,
-        issue_class: IssueClass::Missing,
-        severity: Severity::High,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "HSTS Header fehlt",
-        title_en: "HSTS header missing",
-        description: "Strict-Transport-Security Header nicht gesetzt.",
-        user_impact: "Downgrade-Angriffe auf HTTP möglich.",
-        user_impact_en: "Downgrade attacks to HTTP are possible.",
-        technical_impact: "Fehlender HSTS-Header.",
-        technical_impact_en: "Missing HSTS header.",
-        score_impact: ScoreImpact {
-            base_penalty: 15.0,
-            max_penalty: 15.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "sec.csp.missing",
-        dimension: Dimension::Security,
-        subcategory: Subcategory::Headers,
-        issue_class: IssueClass::Missing,
-        severity: Severity::High,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Content Security Policy fehlt",
-        title_en: "Content Security Policy missing",
-        description: "Kein Content-Security-Policy Header gesetzt.",
-        user_impact: "Erhöhtes Risiko für XSS-Angriffe.",
-        user_impact_en: "Increased risk of XSS attacks.",
-        technical_impact: "Fehlender CSP-Header.",
-        technical_impact_en: "Missing CSP header.",
-        score_impact: ScoreImpact {
-            base_penalty: 15.0,
-            max_penalty: 15.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "sec.xcto.missing",
-        dimension: Dimension::Security,
-        subcategory: Subcategory::BrowserProtection,
-        issue_class: IssueClass::Missing,
-        severity: Severity::Medium,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "X-Content-Type-Options Header fehlt",
-        title_en: "X-Content-Type-Options header missing",
-        description: "Browser kann MIME-Typ-Sniffing durchführen.",
-        user_impact: "Potenzielle Sicherheitslücke durch falsche MIME-Typen.",
-        user_impact_en: "Potential security gap through incorrect MIME types.",
-        technical_impact: "Fehlender X-Content-Type-Options: nosniff Header.",
-        technical_impact_en: "Missing X-Content-Type-Options: nosniff header.",
-        score_impact: ScoreImpact {
-            base_penalty: 10.0,
-            max_penalty: 10.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "sec.xfo.missing",
-        dimension: Dimension::Security,
-        subcategory: Subcategory::BrowserProtection,
-        issue_class: IssueClass::Missing,
-        severity: Severity::Medium,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "X-Frame-Options Header fehlt",
-        title_en: "X-Frame-Options header missing",
-        description: "Seite kann in fremden iframes eingebettet werden.",
-        user_impact: "Clickjacking-Angriffe möglich.",
-        user_impact_en: "Clickjacking attacks are possible.",
-        technical_impact: "Fehlender X-Frame-Options Header.",
-        technical_impact_en: "Missing X-Frame-Options header.",
-        score_impact: ScoreImpact {
-            base_penalty: 10.0,
-            max_penalty: 10.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "sec.referrer.missing",
-        dimension: Dimension::Security,
-        subcategory: Subcategory::BrowserProtection,
-        issue_class: IssueClass::Missing,
-        severity: Severity::Low,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Referrer-Policy Header fehlt",
-        title_en: "Referrer-Policy header missing",
-        description: "Keine Kontrolle über Referrer-Informationen.",
-        user_impact: "Private URLs können an Dritte weitergegeben werden.",
-        user_impact_en: "Private URLs may be passed on to third parties.",
-        technical_impact: "Fehlender Referrer-Policy Header.",
-        technical_impact_en: "Missing Referrer-Policy header.",
-        score_impact: ScoreImpact {
-            base_penalty: 5.0,
-            max_penalty: 5.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_TECHNICAL,
-    },
-    // ═══════════════════════════════════════════════════════════════════════════
-    // MOBILE
-    // ═══════════════════════════════════════════════════════════════════════════
-    Rule {
-        id: "mob.viewport.missing",
-        dimension: Dimension::Mobile,
-        subcategory: Subcategory::Viewport,
-        issue_class: IssueClass::Missing,
-        severity: Severity::Critical,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Fehlende Viewport-Konfiguration",
-        title_en: "Missing viewport configuration",
-        description: "Kein Viewport-Meta-Tag vorhanden.",
-        user_impact: "Seite wird auf Mobilgeräten nicht korrekt dargestellt.",
-        user_impact_en: "The page is not rendered correctly on mobile devices.",
-        technical_impact: "Fehlendes <meta name=\"viewport\">-Element.",
-        technical_impact_en: "Missing <meta name=\"viewport\"> element.",
-        score_impact: ScoreImpact {
-            base_penalty: 20.0,
-            max_penalty: 20.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "mob.viewport.improper",
-        dimension: Dimension::Mobile,
-        subcategory: Subcategory::Viewport,
-        issue_class: IssueClass::Weak,
-        severity: Severity::Medium,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Unvollständige Viewport-Konfiguration",
-        title_en: "Incomplete viewport configuration",
-        description: "Viewport-Tag fehlt width=device-width oder initial-scale=1.",
-        user_impact: "Seite wird möglicherweise nicht optimal skaliert.",
-        user_impact_en: "The page may not scale optimally.",
-        technical_impact: "Viewport-Meta-Tag mit unvollständiger Konfiguration.",
-        technical_impact_en: "Viewport meta tag with incomplete configuration.",
-        score_impact: ScoreImpact {
-            base_penalty: 10.0,
-            max_penalty: 10.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "mob.zoom.disabled",
-        dimension: Dimension::Mobile,
-        subcategory: Subcategory::Viewport,
-        issue_class: IssueClass::Risk,
-        severity: Severity::Critical,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Zoom deaktiviert",
-        title_en: "Zoom disabled",
-        description: "user-scalable=no verhindert das Zoomen.",
-        user_impact: "Nutzer mit Sehschwäche können Inhalte nicht vergrößern.",
-        user_impact_en: "Users with low vision cannot enlarge content.",
-        technical_impact: "Viewport-Meta mit user-scalable=no.",
-        technical_impact_en: "Viewport meta with user-scalable=no.",
-        // Charged once, as WCAG 1.4.4 in Accessibility (#921).
-        score_impact: ScoreImpact {
-            base_penalty: 0.0,
-            max_penalty: 0.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
-        id: "mob.touch_targets.small",
-        dimension: Dimension::Mobile,
-        subcategory: Subcategory::TouchUsability,
-        issue_class: IssueClass::Weak,
-        severity: Severity::Medium,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Zu kleine Touch-Targets",
-        title_en: "Touch targets too small",
-        description: "Interaktive Elemente kleiner als 44x44 Pixel.",
-        user_impact: "Schwer bedienbar auf Touchscreens.",
-        user_impact_en: "Hard to operate on touchscreens.",
-        technical_impact: "Bounding Box unter 44x44px.",
-        technical_impact_en: "Bounding box below 44x44px.",
-        // Charged once, as WCAG 2.5.8 in Accessibility (#921).
-        score_impact: ScoreImpact {
-            base_penalty: 0.0,
-            max_penalty: 0.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "mob.fonts.small",
-        dimension: Dimension::Mobile,
-        subcategory: Subcategory::Readability,
-        issue_class: IssueClass::Weak,
-        severity: Severity::Medium,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Zu kleine Schriftgröße",
-        title_en: "Font size too small",
-        description: "Kleinste Schriftgröße unter 12px.",
-        user_impact: "Text auf Mobilgeräten schwer lesbar.",
-        user_impact_en: "Text is hard to read on mobile devices.",
-        technical_impact: "Font-size unter 12px detektiert.",
-        technical_impact_en: "Font size below 12px detected.",
-        score_impact: ScoreImpact {
-            base_penalty: 10.0,
-            max_penalty: 10.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "mob.horizontal_scroll",
-        dimension: Dimension::Mobile,
-        subcategory: Subcategory::ResponsiveLayout,
-        issue_class: IssueClass::Weak,
-        severity: Severity::High,
-        external_ref: None,
-        external_level: None,
-        axe_id: None,
-        title: "Horizontales Scrollen erforderlich",
-        title_en: "Horizontal scrolling required",
-        description: "Seite ist breiter als der Viewport.",
-        user_impact: "Nutzer muss horizontal scrollen, Inhalte abgeschnitten.",
-        user_impact_en: "Users must scroll horizontally; content is cut off.",
-        technical_impact: "scrollWidth > innerWidth.",
-        technical_impact_en: "scrollWidth > innerWidth.",
-        score_impact: ScoreImpact {
-            base_penalty: 20.0,
-            max_penalty: 20.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_ALL,
-    },
-    // ── Added to fix the WCAG-criterion grouping fallback (plan/1
-    // root-cause-title-occurrence-mismatch.md, "Mechanism 2") — see the
-    // matching comment block in LEGACY_WCAG_MAP above for the full
-    // explanation. Each Rule below gives a previously-unmapped axe_id its
-    // own distinct taxonomy identity instead of silently merging into
-    // whichever other check shares its raw WCAG criterion.
-    Rule {
-        id: "a11y.image_map_server_side.invalid",
+        id: "images/server-side-map",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::ContentAlternatives,
         issue_class: IssueClass::Invalid,
@@ -3668,7 +2526,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.svg_alt.missing",
+        id: "svg/name-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::ContentAlternatives,
         issue_class: IssueClass::Missing,
@@ -3691,7 +2549,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.area_alt.missing",
+        id: "images/area-alt-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::ContentAlternatives,
         issue_class: IssueClass::Missing,
@@ -3714,7 +2572,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.input_image_alt.missing",
+        id: "images/input-alt-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::ContentAlternatives,
         issue_class: IssueClass::Missing,
@@ -3737,7 +2595,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.object_alt.missing",
+        id: "objects/alt-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::ContentAlternatives,
         issue_class: IssueClass::Missing,
@@ -3760,7 +2618,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.html_content_model.invalid",
+        id: "html-content-model",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Invalid,
@@ -3783,7 +2641,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.form_field_group.missing",
+        id: "forms/group-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Missing,
@@ -3806,78 +2664,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.landmark_banner_nested.invalid",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::StructureSemantics,
-        issue_class: IssueClass::Invalid,
-        severity: Severity::Medium,
-        external_ref: Some("WCAG 1.3.1"),
-        external_level: Some("A"),
-        axe_id: Some("landmark-banner-is-top-level"),
-        title: "Banner-Landmark ist verschachtelt",
-        title_en: "Banner landmark is nested",
-        description: "Der Banner-Bereich (<header>/role=\"banner\") liegt innerhalb eines anderen Landmarks statt auf oberster Ebene.",
-        user_impact: "Screenreader-Nutzer, die per Landmark-Navigation zum Kopfbereich springen, landen in einem unerwarteten Kontext.",
-        user_impact_en: "Screen reader users who jump to the header via landmark navigation land in an unexpected context.",
-        technical_impact: "<header>/role=\"banner\" ist Nachfahre eines anderen Landmarks (z. B. <main>).",
-        technical_impact_en: "<header>/role=\"banner\" is a descendant of another landmark (e.g. <main>).",
-        score_impact: ScoreImpact {
-            base_penalty: 1.0,
-            max_penalty: 3.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "a11y.landmark_contentinfo_nested.invalid",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::StructureSemantics,
-        issue_class: IssueClass::Invalid,
-        severity: Severity::Medium,
-        external_ref: Some("WCAG 1.3.1"),
-        external_level: Some("A"),
-        axe_id: Some("landmark-contentinfo-is-top-level"),
-        title: "Contentinfo-Landmark ist verschachtelt",
-        title_en: "Contentinfo landmark is nested",
-        description: "Der Fußbereich (<footer>/role=\"contentinfo\") liegt innerhalb eines anderen Landmarks statt auf oberster Ebene.",
-        user_impact: "Screenreader-Nutzer, die per Landmark-Navigation zum Fußbereich springen, landen in einem unerwarteten Kontext.",
-        user_impact_en: "Screen reader users who jump to the footer via landmark navigation land in an unexpected context.",
-        technical_impact: "<footer>/role=\"contentinfo\" ist Nachfahre eines anderen Landmarks.",
-        technical_impact_en: "<footer>/role=\"contentinfo\" is a descendant of another landmark.",
-        score_impact: ScoreImpact {
-            base_penalty: 1.0,
-            max_penalty: 3.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "a11y.landmark_main_nested.invalid",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::StructureSemantics,
-        issue_class: IssueClass::Invalid,
-        severity: Severity::Medium,
-        external_ref: Some("WCAG 1.3.1"),
-        external_level: Some("A"),
-        axe_id: Some("landmark-main-is-top-level"),
-        title: "Main-Landmark ist verschachtelt",
-        title_en: "Main landmark is nested",
-        description: "Der Hauptinhaltsbereich (<main>/role=\"main\") liegt innerhalb eines anderen Landmarks statt auf oberster Ebene.",
-        user_impact: "Screenreader-Nutzer, die per Landmark-Navigation zum Hauptinhalt springen, landen in einem unerwarteten Kontext.",
-        user_impact_en: "Screen reader users who jump to the main content via landmark navigation land in an unexpected context.",
-        technical_impact: "<main>/role=\"main\" ist Nachfahre eines anderen Landmarks.",
-        technical_impact_en: "<main>/role=\"main\" is a descendant of another landmark.",
-        score_impact: ScoreImpact {
-            base_penalty: 1.0,
-            max_penalty: 3.0,
-            occurrence_scaling: Scaling::Fixed,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    // `landmarks/not-top-level` (#694) fasst die drei Eintraege darueber
-    // zusammen; die Rolle steht im Befundtext.
-    Rule {
-        id: "a11y.landmark_nested.invalid",
+        id: "landmarks/not-top-level",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Invalid,
@@ -3900,7 +2687,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.landmark_banner_duplicate.invalid",
+        id: "landmarks/banner-duplicate",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Invalid,
@@ -3923,7 +2710,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.landmark_contentinfo_duplicate.invalid",
+        id: "landmarks/contentinfo-duplicate",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Invalid,
@@ -3946,7 +2733,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.landmark_main_duplicate.invalid",
+        id: "landmarks/main-duplicate",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Invalid,
@@ -3969,7 +2756,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.landmark_banner.missing",
+        id: "landmarks/banner-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Missing,
@@ -3991,10 +2778,8 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-    // Abzug wie im Sammeleintrag `a11y.structure.missing`, unter dem beide
-    // bis Plan 56 liefen; Schwere wie der Befund selbst.
     Rule {
-        id: "a11y.landmark_navigation.missing",
+        id: "landmarks/navigation-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Missing,
@@ -4017,7 +2802,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.landmark_contentinfo.missing",
+        id: "landmarks/contentinfo-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Missing,
@@ -4040,7 +2825,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.list_structure.missing",
+        id: "lists/item-outside-list",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Missing,
@@ -4064,15 +2849,8 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-    // ── Geteilte Kennungen mit eigenem Eintrag (Plan 56) ──
-    // Siehe den Block im LEGACY_WCAG_MAP. Der Score-Abzug ist der des
-    // Sammeleintrags, unter dem die Kennung vorher lief
-    // (`a11y.structure.missing`, `a11y.language.missing`,
-    // `a11y.focus_order.weak`, dem inzwischen entfernten
-    // `a11y.definition_list.invalid`) — die
-    // Aufteilung aendert die Zuordnung, nicht das Gewicht.
     Rule {
-        id: "a11y.heading_level.skipped",
+        id: "headings/skip-level",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Invalid,
@@ -4095,7 +2873,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.heading_empty.invalid",
+        id: "headings/empty",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Invalid,
@@ -4118,7 +2896,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.main_heading.missing",
+        id: "headings/h1-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Missing,
@@ -4142,7 +2920,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.main_heading_multiple.weak",
+        id: "headings/h1-multiple",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Weak,
@@ -4165,7 +2943,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.list_children.invalid",
+        id: "lists/invalid-structure",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Invalid,
@@ -4188,7 +2966,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.list_empty.invalid",
+        id: "lists/empty",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Invalid,
@@ -4211,7 +2989,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.definition_description.missing",
+        id: "lists/term-without-definition",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Missing,
@@ -4234,7 +3012,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.table_headers.missing",
+        id: "tables/header-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Missing,
@@ -4257,7 +3035,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.table_name.missing",
+        id: "tables/name-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Missing,
@@ -4280,7 +3058,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.table_presentational_headers.invalid",
+        id: "tables/presentational-with-headers",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Invalid,
@@ -4303,7 +3081,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.page_language.invalid",
+        id: "document/lang-invalid",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::LanguageClarity,
         issue_class: IssueClass::Invalid,
@@ -4326,7 +3104,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.positive_tabindex.invalid",
+        id: "keyboard/positive-tabindex",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Invalid,
@@ -4349,7 +3127,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.label_title_only.invalid",
+        id: "forms/title-only-label",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Invalid,
@@ -4372,7 +3150,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.viewport_zoom.restricted",
+        id: "zoom/viewport-scale-limited",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::VisualPresentation,
         issue_class: IssueClass::Invalid,
@@ -4395,7 +3173,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.click_handler_keyboard.missing",
+        id: "keyboard/click-handler-not-focusable",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Missing,
@@ -4418,7 +3196,30 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.bypass_main_landmark.missing",
+        id: "keyboard/pointer-only",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::NavigationInteraction,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 2.1.1"),
+        external_level: Some("A"),
+        axe_id: Some("click-events-have-key-events"),
+        title: "Klick-Handler ohne Tastatur-Äquivalent",
+        title_en: "Click handler without keyboard equivalent",
+        description: "Ein nicht-interaktives Element (z. B. <div>) hat einen Klick-Handler, aber keinen entsprechenden Tastatur-Event-Handler.",
+        user_impact: "Tastaturnutzer können die Funktion nicht auslösen.",
+        user_impact_en: "Keyboard users cannot trigger the function.",
+        technical_impact: "onclick auf einem <div>/<span> ohne onkeydown/onkeyup, tabindex oder passende Rolle.",
+        technical_impact_en: "onclick on a <div>/<span> without onkeydown/onkeyup, tabindex, or a matching role.",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "landmarks/main-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Missing,
@@ -4441,7 +3242,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.skip_link.missing",
+        id: "keyboard/skip-link-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Missing,
@@ -4464,7 +3265,30 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.focus_indicator_suppressed.invalid",
+        id: "focus/indicator-missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::NavigationInteraction,
+        issue_class: IssueClass::Weak,
+        severity: Severity::High,
+        external_ref: Some("WCAG 2.4.7"),
+        external_level: Some("AA"),
+        axe_id: Some("focus-visible"),
+        title: "Kein sichtbarer Fokusindikator gemessen",
+        title_en: "No visible focus indicator measured",
+        description: "Beim Fokussieren ändert sich an einem Bedienelement weder Umriss, Schatten, Rahmen, Hintergrund noch Text.",
+        user_impact: "Tastaturnutzer sehen nicht, welches Element gerade fokussiert ist.",
+        user_impact_en: "Keyboard users cannot see which element currently has focus.",
+        technical_impact: "Fokuslauf: die berechneten Stile des Elements vor und nach dem Fokussieren sind gleich, soweit sie als Indikator taugen (outline, box-shadow, border, background, color, text-decoration).",
+        technical_impact_en: "Focus pass: the element's computed styles before and after focusing are equal, as far as they can serve as an indicator (outline, box-shadow, border, background, color, text-decoration).",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "focus/outline-removed",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Invalid,
@@ -4487,7 +3311,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.scrollable_region_focus.missing",
+        id: "keyboard/scrollable-region-not-focusable",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Missing,
@@ -4510,7 +3334,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.error_description.missing",
+        id: "forms/error-unidentified",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::FormsInteraction,
         issue_class: IssueClass::Missing,
@@ -4533,7 +3357,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.duplicate_id_aria.invalid",
+        id: "aria/owns-conflict",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Invalid,
@@ -4559,7 +3383,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.interactive_name.missing",
+        id: "names/required-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Missing,
@@ -4582,7 +3406,30 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.title_only_description.weak",
+        id: "names/symbol-only",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::TechnicalRobustness,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 4.1.2"),
+        external_level: Some("A"),
+        axe_id: Some("aria-label"),
+        title: "Interaktives Element ohne aussagekräftigen Namen",
+        title_en: "Interactive element without a meaningful name",
+        description: "Ein interaktives Element hat keinen zugänglichen Namen, oder der Name besteht nur aus einem Icon/Symbol ohne Beschreibung.",
+        user_impact: "Screenreader-Nutzer erfahren nicht, wozu das Element dient.",
+        user_impact_en: "Screen reader users are not told what the element does.",
+        technical_impact: "Fehlendes oder rein symbolisches aria-label/aria-labelledby/Textinhalt.",
+        technical_impact_en: "Missing or purely symbolic aria-label/aria-labelledby/text content.",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "names/title-only",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Weak,
@@ -4605,7 +3452,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.description_duplicates_name.redundant",
+        id: "description-duplicates-name",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Weak,
@@ -4628,7 +3475,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.aria_required_children.missing",
+        id: "aria/required-children-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Missing,
@@ -4651,7 +3498,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.dialog_missing_name.invalid",
+        id: "dialog/name-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Missing,
@@ -4674,7 +3521,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.control_name.missing",
+        id: "buttons/name-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Missing,
@@ -4697,7 +3544,30 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
-        id: "a11y.link_as_button.invalid",
+        id: "links/name-missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::TechnicalRobustness,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 4.1.2"),
+        external_level: Some("A"),
+        axe_id: Some("control-missing-label"),
+        title: "Formularelement, Link oder Button ohne zugänglichen Namen",
+        title_en: "Form control, link, or button without an accessible name",
+        description: "Ein Formularfeld, Link oder Button hat keinen zugänglichen Namen (weder sichtbares Label noch aria-label/aria-labelledby).",
+        user_impact: "Screenreader-Nutzer erfahren nicht, welche Eingabe erwartet wird oder wohin ein Link/Button führt.",
+        user_impact_en: "Screen reader users are not told what input is expected or where a link/button leads.",
+        technical_impact: "Formularelement/Link/Button ohne <label>, aria-label, aria-labelledby oder Textinhalt.",
+        technical_impact_en: "Form control/link/button without <label>, aria-label, aria-labelledby, or text content.",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
+        id: "links/used-as-button",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Invalid,
@@ -4720,7 +3590,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.redundant_role.invalid",
+        id: "aria/role-redundant",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Invalid,
@@ -4743,7 +3613,30 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.summary_name.missing",
+        id: "lists/role-redundant",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::TechnicalRobustness,
+        issue_class: IssueClass::Invalid,
+        severity: Severity::Low,
+        external_ref: Some("WCAG 4.1.2"),
+        external_level: Some("A"),
+        axe_id: Some("redundant-role"),
+        title: "Redundante ARIA-Rolle",
+        title_en: "Redundant ARIA role",
+        description: "Ein Element trägt ein role-Attribut, das exakt der bereits impliziten Rolle des HTML-Elements entspricht (z. B. <button role=\"button\">).",
+        user_impact: "Kein unmittelbarer Nutzerschaden, aber unnötiges Risiko für Inkonsistenzen bei zukünftigen Änderungen.",
+        user_impact_en: "No immediate user harm, but an unnecessary risk of inconsistency in future changes.",
+        technical_impact: "role-Attribut dupliziert die native implizite Rolle des Tags.",
+        technical_impact_en: "role attribute duplicates the tag's native implicit role.",
+        score_impact: ScoreImpact {
+            base_penalty: 0.3,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "summary/name-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Missing,
@@ -4766,7 +3659,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.landmark_region.missing",
+        id: "landmarks/content-outside",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Missing,
@@ -4789,7 +3682,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.focusable_no_role.invalid",
+        id: "keyboard/focusable-no-role",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Invalid,
@@ -4812,30 +3705,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.link_purpose_context.weak",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::NavigationInteraction,
-        issue_class: IssueClass::Weak,
-        severity: Severity::Low,
-        external_ref: Some("WCAG 2.4.4"),
-        external_level: Some("A"),
-        axe_id: Some("link-name-context"),
-        title: "Generischer Linktext mit möglichem Kontextbezug",
-        title_en: "Generic link text with possible contextual meaning",
-        description: "Generischer Linktext mit möglichem Kontextbezug.",
-        user_impact: "Generischer Linktext mit möglichem Kontextbezug.",
-        user_impact_en: "Generic link text with possible contextual meaning.",
-        technical_impact: "Generischer Linktext mit möglichem Kontextbezug.",
-        technical_impact_en: "Generic link text with possible contextual meaning.",
-        score_impact: ScoreImpact {
-            base_penalty: 0.5,
-            max_penalty: 2.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_STANDARD,
-    },
-    Rule {
-        id: "a11y.display_toggle.missing",
+        id: "display/toggle-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Missing,
@@ -4858,7 +3728,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.display_init.late",
+        id: "display/init-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Weak,
@@ -4881,7 +3751,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.display_text_media.visible",
+        id: "display/text-media-visible",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Invalid,
@@ -4904,7 +3774,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.display_text_layer.missing",
+        id: "display/text-not-visible",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::ContentAlternatives,
         issue_class: IssueClass::Missing,
@@ -4927,7 +3797,30 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.display_text_layer.hidden",
+        id: "viz/text-missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::ContentAlternatives,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 1.1.1"),
+        external_level: Some("A"),
+        axe_id: Some("display/text-not-visible"),
+        title: "Textschicht einer Visualisierung fehlt im Textmodus",
+        title_en: "Visualisation text layer missing in text mode",
+        description: "Im Darstellungsmodus text hat eine Visualisierung kein sichtbares, nicht-leeres [data-viz-text] (Best Practice, Darstellungs-Konvention).",
+        user_impact: "Im Textmodus geht die Aussage der Grafik verloren.",
+        user_impact_en: "In text mode the statement of the visualisation is lost.",
+        technical_impact: "[data-viz-text] fehlt, ist leer oder bei html[data-display=text] nicht sichtbar.",
+        technical_impact_en: "[data-viz-text] missing, empty or not visible with html[data-display=text].",
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
+    Rule {
+        id: "display/text-hidden",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::ContentAlternatives,
         issue_class: IssueClass::Invalid,
@@ -4949,9 +3842,8 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_STANDARD,
     },
-    // ── Display-mode convention, static rules from a11y-rules (#699) ───────
     Rule {
-        id: "a11y.display_caption.missing",
+        id: "viz/caption-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::ContentAlternatives,
         issue_class: IssueClass::Missing,
@@ -4974,7 +3866,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.display_static.missing",
+        id: "viz/static-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::NavigationInteraction,
         issue_class: IssueClass::Missing,
@@ -4997,7 +3889,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "a11y.display_table.review",
+        id: "viz/table-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::StructureSemantics,
         issue_class: IssueClass::Weak,
@@ -5027,7 +3919,7 @@ mod tests {
 
     #[test]
     fn test_rule_lookup_by_id() {
-        let rule = RuleLookup::by_id("a11y.alt_text.missing");
+        let rule = RuleLookup::by_id("images/alt-missing");
         assert!(rule.is_some());
         let rule = rule.unwrap();
         assert_eq!(rule.dimension, Dimension::Accessibility);
@@ -5035,51 +3927,10 @@ mod tests {
     }
 
     #[test]
-    fn test_legacy_wcag_lookup() {
-        let rule = RuleLookup::by_legacy_wcag_id("1.1.1");
-        assert!(rule.is_some());
-        assert_eq!(rule.unwrap().id, "a11y.alt_text.missing");
-    }
-
-    #[test]
     fn test_frame_title_taxonomy_uses_wcag_241() {
-        let rule = RuleLookup::by_legacy_wcag_id("frame-title")
-            .expect("frame-title axe id should resolve");
-        assert_eq!(rule.id, "a11y.frame_title.missing");
+        let rule = RuleLookup::by_id("frames/name-missing").expect("frames/name-missing");
         assert_eq!(rule.external_ref, Some("WCAG 2.4.1"));
         assert_eq!(rule.axe_id, Some("frame-title"));
-    }
-
-    #[test]
-    fn test_dom_parity_rules_resolve_to_specific_taxonomy() {
-        let form =
-            RuleLookup::by_legacy_wcag_id("form-no-submit").expect("form-no-submit should resolve");
-        assert_eq!(form.id, "a11y.form_no_submit.missing");
-        assert_eq!(form.external_ref, Some("WCAG 3.2.2"));
-
-        let presentation = RuleLookup::by_legacy_wcag_id("presentation-semantic-children")
-            .expect("presentation-semantic-children should resolve");
-        assert_eq!(
-            presentation.id,
-            "a11y.presentation_semantic_children.invalid"
-        );
-        assert_eq!(presentation.external_ref, Some("WCAG 1.3.1"));
-
-        let landmark_main = RuleLookup::by_legacy_wcag_id("landmark-main-present")
-            .expect("landmark-main-present should resolve");
-        assert_eq!(landmark_main.id, "a11y.landmark_main.missing");
-        assert_eq!(landmark_main.external_ref, Some("WCAG 1.3.1"));
-
-        let landmark_unique = RuleLookup::by_legacy_wcag_id("landmark-unique")
-            .expect("landmark-unique should resolve");
-        assert_eq!(landmark_unique.id, "a11y.landmark_unique.invalid");
-        assert_eq!(landmark_unique.external_ref, Some("WCAG 1.3.1"));
-
-        let modern = RuleLookup::by_legacy_wcag_id("modern-attribute-misuse")
-            .expect("modern-attribute-misuse should resolve");
-        assert_eq!(modern.id, "a11y.modern_attributes.invalid");
-        assert_eq!(modern.external_ref, Some("WCAG 4.1.2"));
-        assert_eq!(modern.axe_id, Some("modern-attribute-misuse"));
     }
 
     #[test]
@@ -5096,28 +3947,14 @@ mod tests {
         }
     }
 
+    /// Plan 56: Jede geteilte Kennung hat einen eigenen Eintrag mit dem
+    /// Kriterium, das `SHARED_RULES` führt — ohne ihn fiele sie in einen
+    /// Sammelbucket und verschmölze mit fremden Befunden.
     #[test]
-    fn test_all_legacy_wcag_ids_resolve() {
-        for (wcag_id, rule_id) in LEGACY_WCAG_MAP {
-            assert!(
-                RuleLookup::by_id(rule_id).is_some(),
-                "Legacy WCAG ID {} maps to rule {} which doesn't exist",
-                wcag_id,
-                rule_id
-            );
-        }
-    }
-
-    /// Plan 56: Jede geteilte Kennung landet in einem Taxonomie-Eintrag ihres
-    /// eigenen Kriteriums — und keine im 1.3.1-Sammelbucket, der sonst
-    /// Listen, Tabellen und Ueberschriften mit der fehlenden
-    /// Navigations-Landmark zu einem Befund verschmilzt.
-    #[test]
-    fn test_shared_rules_resolve_to_specific_taxonomy() {
+    fn test_shared_rules_have_their_own_taxonomy_entry() {
         for shared in crate::wcag::shared::SHARED_RULES {
-            let rule = RuleLookup::by_legacy_wcag_id(shared.id)
-                .or_else(|| RuleLookup::by_legacy_wcag_id(shared.criterion))
-                .unwrap_or_else(|| panic!("{} resolves to no taxonomy rule", shared.id));
+            let rule = RuleLookup::by_id(shared.id)
+                .unwrap_or_else(|| panic!("{} has no taxonomy rule", shared.id));
             // Best practice without a success criterion: the register claims
             // none, although `SHARED_RULES` carries 1.3.1 for the output (#779).
             let expected = if shared.id == "headings/h1-missing" {
@@ -5131,11 +3968,6 @@ mod tests {
                 "{} resolves to {} with a different criterion",
                 shared.id,
                 rule.id
-            );
-            assert_ne!(
-                rule.id, "a11y.structure.missing",
-                "{} falls into the generic 1.3.1 bucket",
-                shared.id
             );
         }
     }

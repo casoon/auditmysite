@@ -21,6 +21,7 @@ use super::report::{
     AuditReport, BatchError, BatchReport, CrawlDepthDiagnostics, CrawlDepthEntry,
     RobotsSitemapConflict, SitemapDiagnostics, SitemapHttpIssue,
 };
+use super::Module;
 use crate::browser::{BrowserOptions, BrowserPool, PoolConfig, PAGE_RETURN_BUDGET_SECS};
 use crate::cli::{Args, RequestMode};
 use crate::error::{AuditError, Result};
@@ -872,7 +873,7 @@ async fn audit_url_with_pool(
             // URL; the report is re-qualified once they have recorded (#788).
             if config.check_isolate_third_party_impact
                 || config.check_ssr_content
-                || config.check_privacy
+                || config.modules.contains(Module::Privacy)
             {
                 crate::audit::pipeline::run_extra_page_checks(
                     page,

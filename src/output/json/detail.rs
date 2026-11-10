@@ -45,15 +45,15 @@ pub(super) fn build_page(
         seo_score: normalized_module_score(normalized, "SEO"),
         security_score: normalized_module_score(normalized, "Security"),
         mobile_score: normalized_module_score(normalized, "Mobile"),
-        ux_score: normalized_module_score(normalized, "UX"),
-        journey_score: normalized_module_score(normalized, "Journey"),
         score_calculation_method: normalized.score_calculation_method.clone(),
         score_breakdown: normalized.score_breakdown.clone(),
         risk: normalized.risk.clone(),
         principle_coverage: normalized.principle_coverage.clone(),
+        experimental: audit_ctx.and_then(build_experimental),
         findings: normalized.findings.clone(),
         finding_inventory: normalized.finding_inventory.clone(),
         decision: normalized.decision.clone(),
+        baseline: normalized.baseline.clone(),
         audit_flags: normalized.audit_flags.clone(),
         audit_quality: normalized.execution.quality.clone(),
         module_runs: normalized.execution.module_runs.clone(),
@@ -72,6 +72,73 @@ pub(super) fn build_page(
         frames: normalized.execution.frames.clone(),
         detail,
     }
+}
+
+/// The experimental indicators of a single report (`--experimental`, #916),
+/// each with its signal contract (Commerce has no score and so no contract). `None` when none ran.
+fn build_experimental(ctx: &AuditContext<'_>) -> Option<serde_json::Value> {
+    let experimental = ctx.raw_experimental;
+    let mut block = serde_json::Map::new();
+    let mut put = |id: &str, value: Option<serde_json::Value>| {
+        if let Some(value) = value {
+            block.insert(id.to_string(), with_signal_contract(value, id));
+        }
+    };
+    put(
+        "ux",
+        experimental
+            .ux
+            .as_ref()
+            .map(|m| with_measurement_type(m.to_json(), "heuristic")),
+    );
+    put(
+        "journey",
+        experimental
+            .journey
+            .as_ref()
+            .map(|m| with_measurement_type(m.to_json(), "heuristic")),
+    );
+    put(
+        "ai_visibility",
+        experimental
+            .ai_visibility
+            .as_ref()
+            .map(|m| with_measurement_type(m.to_json(), "heuristic")),
+    );
+    put(
+        "content_visibility",
+        experimental.content_visibility.as_ref().and_then(|m| {
+            // No signal sections without SEO data: nothing to report.
+            if m.signal_count == 0 {
+                return None;
+            }
+            let cv_score = (m.signal_count.saturating_sub(m.problem_count) as u32 * 100)
+                / m.signal_count as u32;
+            let mut v = with_measurement_type(m.to_json(), "heuristic");
+            if let Some(obj) = v.as_object_mut() {
+                obj.insert("score".to_string(), serde_json::json!(cv_score));
+                obj.insert(
+                    "grade".to_string(),
+                    serde_json::json!(crate::audit::AccessibilityScorer::calculate_grade(
+                        cv_score as f32
+                    )),
+                );
+            }
+            Some(v)
+        }),
+    );
+    put(
+        "source_quality",
+        experimental
+            .source_quality
+            .as_ref()
+            .map(|m| with_measurement_type(m.to_json(), "heuristic")),
+    );
+    put(
+        "commerce",
+        experimental.commerce.as_ref().map(|m| m.to_json()),
+    );
+    (!block.is_empty()).then_some(serde_json::Value::Object(block))
 }
 
 /// Compact per-page detail for batch reports: actionable `fix_guidance` only,
@@ -275,57 +342,17 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
         mobile: ctx
             .raw_mobile
             .map(|m| with_normalized_score(m.to_json(), normalized, "Mobile")),
-        ux: ctx
-            .raw_ux
-            .map(|m| with_normalized_score(m.to_json(), normalized, "UX"))
-            .map(|v| with_signal_contract(v, "ux")),
-        journey: ctx
-            .raw_journey
-            .map(|m| with_normalized_score(m.to_json(), normalized, "Journey"))
-            .map(|v| with_signal_contract(v, "journey")),
         privacy: ctx.raw_privacy.map(|m| {
             with_measurement_type(
                 serde_json::to_value(m).unwrap_or(serde_json::Value::Null),
                 "first_visit_capture",
             )
         }),
-        source_quality: ctx
-            .raw_source_quality
-            .map(|m| with_measurement_type(m.to_json(), "heuristic"))
-            .map(|v| with_signal_contract(v, "source_quality")),
-        ai_visibility: ctx
-            .raw_ai_visibility
-            .map(|m| with_measurement_type(m.to_json(), "heuristic"))
-            .map(|v| with_signal_contract(v, "ai_visibility")),
-        content_visibility: ctx.raw_content_visibility.and_then(|m| {
-            // Only emit when SEO data was available — all signal sections are empty
-            // without --full, which is misleading.
-            if m.signal_count == 0 {
-                return None;
-            }
-            let cv_score = (m.signal_count.saturating_sub(m.problem_count) as u32 * 100)
-                / m.signal_count as u32;
-            let mut v = with_signal_contract(
-                with_measurement_type(m.to_json(), "heuristic"),
-                "content_visibility",
-            );
-            if let Some(obj) = v.as_object_mut() {
-                obj.insert("score".to_string(), serde_json::json!(cv_score));
-                obj.insert(
-                    "grade".to_string(),
-                    serde_json::json!(crate::audit::AccessibilityScorer::calculate_grade(
-                        cv_score as f32
-                    )),
-                );
-            }
-            Some(v)
-        }),
         tech_stack,
         patterns,
         best_practices: ctx
             .raw_best_practices
             .map(|m| with_normalized_score(m.to_json(), normalized, "Best Practices")),
-        commerce: ctx.raw_commerce.map(|m| m.to_json()),
     };
 
     let seo_technical_issues: Vec<crate::seo::technical::TechnicalIssue> = ctx

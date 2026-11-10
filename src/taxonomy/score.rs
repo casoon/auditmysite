@@ -64,6 +64,491 @@ impl ScoreImpact {
     }
 }
 
+/// Score cost per WCAG success criterion.
+///
+/// The accessibility score charges per *criterion*, not per rule: every
+/// violation of 4.1.2 counts toward one penalty, whichever of the dozens of
+/// rules found it, so a page does not lose points several times for one
+/// failed criterion. This table is that cost; it is the scoring model, not a
+/// second rule catalogue. A rule's own `Rule::score_impact` is what its
+/// finding shows. Every criterion an engine rule can report has a row
+/// (`tests/taxonomy_catalogue.rs`).
+static CRITERION_IMPACT: &[(&str, ScoreImpact)] = &[
+    (
+        "1.1.1",
+        ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "1.2.2",
+        ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "1.2.8",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "1.3.1",
+        ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "1.3.2",
+        ScoreImpact {
+            base_penalty: 1.0,
+            max_penalty: 3.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "1.3.4",
+        ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "1.3.5",
+        ScoreImpact {
+            base_penalty: 1.0,
+            max_penalty: 5.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "1.4.1",
+        ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    // review-only criterion: no violation reaches the scorer
+    (
+        "1.4.2",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "1.4.3",
+        ScoreImpact {
+            base_penalty: 5.0,
+            max_penalty: 12.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "1.4.4",
+        ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "1.4.6",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "1.4.8",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "1.4.10",
+        ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Fixed,
+        },
+    ),
+    (
+        "1.4.11",
+        ScoreImpact {
+            base_penalty: 1.5,
+            max_penalty: 5.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "1.4.12",
+        ScoreImpact {
+            base_penalty: 1.5,
+            max_penalty: 5.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "1.4.13",
+        ScoreImpact {
+            base_penalty: 2.0,
+            max_penalty: 6.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.1.1",
+        ScoreImpact {
+            base_penalty: 5.0,
+            max_penalty: 15.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.1.2",
+        ScoreImpact {
+            base_penalty: 10.0,
+            max_penalty: 15.0,
+            occurrence_scaling: Scaling::Fixed,
+        },
+    ),
+    (
+        "2.2.1",
+        ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.2.2",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 2.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.2.3",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.2.4",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.2.5",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.2.6",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.3.3",
+        ScoreImpact {
+            base_penalty: 1.0,
+            max_penalty: 4.0,
+            occurrence_scaling: Scaling::Fixed,
+        },
+    ),
+    (
+        "2.4.1",
+        ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Fixed,
+        },
+    ),
+    (
+        "2.4.2",
+        ScoreImpact {
+            base_penalty: 5.0,
+            max_penalty: 5.0,
+            occurrence_scaling: Scaling::Fixed,
+        },
+    ),
+    (
+        "2.4.3",
+        ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.4.4",
+        ScoreImpact {
+            base_penalty: 1.0,
+            max_penalty: 5.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.4.6",
+        ScoreImpact {
+            base_penalty: 20.0,
+            max_penalty: 20.0,
+            occurrence_scaling: Scaling::Fixed,
+        },
+    ),
+    (
+        "2.4.7",
+        ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Fixed,
+        },
+    ),
+    (
+        "2.4.8",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.4.9",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.4.10",
+        ScoreImpact {
+            base_penalty: 1.0,
+            max_penalty: 3.0,
+            occurrence_scaling: Scaling::Fixed,
+        },
+    ),
+    (
+        "2.4.11",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 2.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.4.12",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 2.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.5.1",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.5.2",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.5.3",
+        ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.5.4",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.5.5",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "2.5.8",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "3.1.1",
+        ScoreImpact {
+            base_penalty: 10.0,
+            max_penalty: 12.5,
+            occurrence_scaling: Scaling::Fixed,
+        },
+    ),
+    // review-only criterion: no violation reaches the scorer
+    (
+        "3.1.2",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 2.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "3.1.3",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "3.1.4",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "3.2.1",
+        ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Fixed,
+        },
+    ),
+    (
+        "3.2.2",
+        ScoreImpact {
+            base_penalty: 2.0,
+            max_penalty: 5.0,
+            occurrence_scaling: Scaling::Fixed,
+        },
+    ),
+    // review-only criterion: no violation reaches the scorer
+    (
+        "3.2.5",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "3.3.1",
+        ScoreImpact {
+            base_penalty: 2.0,
+            max_penalty: 5.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "3.3.2",
+        ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "3.3.5",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 1.5,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "3.3.7",
+        ScoreImpact {
+            base_penalty: 0.5,
+            max_penalty: 2.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "3.3.8",
+        ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "4.1.2",
+        ScoreImpact {
+            base_penalty: 5.0,
+            max_penalty: 12.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+    (
+        "4.1.3",
+        ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+    ),
+];
+
+/// Score cost of the violations of one success criterion, `None` for a
+/// criterion no engine rule reports.
+pub fn criterion_impact(criterion: &str) -> Option<ScoreImpact> {
+    CRITERION_IMPACT
+        .iter()
+        .find(|(c, _)| *c == criterion)
+        .map(|(_, impact)| *impact)
+}
+
+/// The criteria that have a cost row.
+pub fn criteria_with_impact() -> impl Iterator<Item = &'static str> {
+    CRITERION_IMPACT.iter().map(|(c, _)| *c)
+}
+
 /// Gewichtung der Module für den Gesamtscore, in Prozent.
 ///
 /// Einzige Quelle: `audit::module_scores::build_module_scores` liest hier nach,

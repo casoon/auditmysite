@@ -31,8 +31,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use a11y_dom::{
-    Arena, ArenaNode, Backdrop, Color, ComputedStyle, Document, Layout,
-    NameSource as SharedNameSource, Node, NodeKind, Rect, Rendering, Semantics,
+    Arena, ArenaNode, Backdrop, BoxTransform, Color, ComputedStyle, Document, FocusCover, Layout,
+    NameSource as SharedNameSource, Node, NodeKind, PasteProbe, Rect, Rendering, Semantics,
+    SpacingClip,
 };
 use chromiumoxide::cdp::browser_protocol::dom::{
     DescribeNodeParams, GetDocumentParams, Node as CdpNode, ShadowRootType,
@@ -48,6 +49,7 @@ use chromiumoxide::Page;
 use tracing::{debug, warn};
 
 use super::extractor::ChromeNameSources;
+use super::probes::{run_probes, ProbeNote, ProbeSelection, Probes};
 use crate::error::{AuditError, Result};
 use a11y_perception::{AXTree, NameSource};
 
@@ -174,6 +176,12 @@ impl CdpDocument {
         })
     }
 
+    /// Vermerke zu Messungen, die nicht oder nicht ganz liefen (gescheitert,
+    /// Deckel). Leer ohne Layout-Stile.
+    pub fn probe_notes(&self) -> &[ProbeNote] {
+        self.layout.as_deref().map_or(&[], |l| l.probes.notes())
+    }
+
     /// Chromes Rolle, wie der AX-Baum sie meldet — ohne die Übersetzung, die
     /// [`Semantics::role`] vornimmt. Für den Vergleich mit Chrome
     /// (`accname_diff`), nicht für Regeln.
@@ -233,6 +241,10 @@ pub struct LayoutStyles {
     /// Abgetastete Leuchtdichten hinter dem Text, je Backend-ID, aus
     /// [`sample_backdrops`]. Fehlt ein Eintrag, ist nichts abgetastet.
     backdrops: HashMap<i64, Vec<f64>>,
+    /// Messungen an der laufenden Seite (`probes.rs`): Rahmen, Drehung der
+    /// Wurzel, Einfügen, Fokus, Textabstand. Leer, wo der Lauf sie nicht
+    /// angefordert hat -- dann sind die Regeln darauf `CapabilityMissing`.
+    probes: Probes,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1033,6 +1045,7 @@ impl LayoutStyles {
             obscured: None,
             animating: None,
             backdrops: HashMap::new(),
+            probes: Probes::default(),
         }
     }
 }
@@ -1042,74 +1055,14 @@ impl LayoutStyles {
 /// etwa einem Cookie-Banner (#716 Fall 7). `elementFromPoint` an der Mitte,
 /// durch offene Shadow Roots hinab wie in der lokalen Kontrastregel; ein
 /// Element mit `pointer-events: none` trifft es nicht.
-const OBSCURED_JS: &str = r#"
-(() => {
-  const vw = window.innerWidth, vh = window.innerHeight;
-  const parentOf = (n) => n.assignedSlot || n.parentElement ||
-    ((n.getRootNode && n.getRootNode().host) || null);
-  const within = (outer, n) => {
-    for (; n; n = parentOf(n)) if (n === outer) return true;
-    return false;
-  };
-  const topmostAt = (x, y) => {
-    let top = document.elementFromPoint(x, y);
-    while (top && top.shadowRoot) {
-      const inner = top.shadowRoot.elementFromPoint(x, y);
-      if (!inner || inner === top) break;
-      top = inner;
-    }
-    return top;
-  };
-  const coverOf = (n) => {
-    for (; n && n.nodeType === 1; n = parentOf(n)) {
-      const p = getComputedStyle(n).position;
-      if (p === 'fixed' || p === 'sticky') return n;
-    }
-    return null;
-  };
-  const ownText = (el) => Array.prototype.some.call(el.childNodes,
-    (c) => c.nodeType === 3 && c.nodeValue.trim() !== '');
-  const out = [];
-  const roots = [document.documentElement];
-  while (roots.length > 0) {
-    const walker = document.createTreeWalker(roots.pop(), NodeFilter.SHOW_ELEMENT);
-    for (let el = walker.currentNode; el; el = walker.nextNode()) {
-      if (el.nodeType !== 1) continue;
-      if (el.shadowRoot) roots.push(el.shadowRoot);
-      if (!ownText(el)) continue;
-      const r = el.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) continue;
-      const x = r.left + r.width / 2, y = r.top + r.height / 2;
-      if (x < 0 || y < 0 || x >= vw || y >= vh) continue;
-      const hit = topmostAt(x, y);
-      if (!hit || within(el, hit) || within(hit, el)) continue;
-      const cover = coverOf(hit);
-      if (cover && !within(cover, el)) out.push(el);
-    }
-  }
-  return out;
-})()
-"#;
+const OBSCURED_JS: &str = include_str!("js/obscured.js");
 
 /// Elemente, auf denen eine *endliche* Animation oder ein Übergang noch läuft
 /// (`document.getAnimations()`, `playState` `running`, endliches `endTime`) —
 /// ihre Größe ist noch nicht die endgültige (#706). Endlose Animationen
 /// zählen nicht, sie kommen nie zur Ruhe. Höchstens 200, die Zahl der
 /// `describeNode`-Aufrufe bleibt begrenzt.
-const ANIMATING_JS: &str = r#"
-(() => {
-  const out = [];
-  const anims = typeof document.getAnimations === 'function' ? document.getAnimations() : [];
-  for (const a of anims) {
-    if (out.length >= 200) break;
-    if (a.playState !== 'running' || !a.effect || !a.effect.target) continue;
-    if (!isFinite(a.effect.getComputedTiming().endTime)) continue;
-    const t = a.effect.target;
-    if (t.nodeType === 1 && !out.includes(t)) out.push(t);
-  }
-  return out;
-})()
-"#;
+const ANIMATING_JS: &str = include_str!("js/animating.js");
 
 /// Backend-IDs der Elemente, die `expression` als Array liefert: ein
 /// Skriptaufruf, ein Aufruf für die Liste, dann je Element ein
@@ -1174,7 +1127,7 @@ async fn fetch_element_ids(
 }
 
 /// Holt [`LayoutStyles`] für die ganze Seite in einem CDP-Aufruf.
-async fn fetch_layout_styles(page: &Page) -> Result<LayoutStyles> {
+async fn fetch_layout_styles(page: &Page, selection: ProbeSelection) -> Result<LayoutStyles> {
     // Vor dem Snapshot, damit alle denselben Stand sehen. Scheitert ein
     // Durchgang, bleibt sein Feld ungemessen statt „nein".
     let pass = |result: Result<HashSet<i64>>| match result {
@@ -1204,6 +1157,10 @@ async fn fetch_layout_styles(page: &Page) -> Result<LayoutStyles> {
     styles.backdrops = backdrops_or_none(
         tokio::time::timeout(SAMPLE_TIMEOUT, sample_backdrops(page, &styles)).await,
     );
+    // Zuletzt: Die berührenden Messungen stellen Fokus, Scrollposition und
+    // Wert wieder her, ehe etwas anderes die Seite liest; der Snapshot und die
+    // Abtastung oben sahen die Seite unberührt.
+    styles.probes = run_probes(page, selection).await;
     Ok(styles)
 }
 
@@ -1258,51 +1215,7 @@ const SAMPLES_PER_ELEMENT: usize = 2500;
 /// Leuchtdichten im Kasten, Alpha gegen Weiß verrechnet.
 /// Glyphenpixel liegen mit in der Stichprobe; die Regel urteilt deshalb über
 /// Median und 40. Perzentil.
-const SAMPLE_JS: &str = r#"
-(async () => {
-  const tasks = __TASKS__;
-  const img = new Image();
-  // Laedt das Foto nie (weder `load` noch `error`), bricht das Skript
-  // selbst ab, statt die Auswertung haengen zu lassen.
-  await Promise.race([
-    new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = () => reject(new Error('screenshot not loadable'));
-      img.src = 'data:image/png;base64,__DATA__';
-    }),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('screenshot load timed out')), __LOAD_MS__)),
-  ]);
-  const canvas = document.createElement('canvas');
-  canvas.width = img.width;
-  canvas.height = img.height;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(img, 0, 0);
-  // Die Aufgaben stehen relativ zum Zuschnitt; das Foto hat dessen Breite in
-  // CSS-Pixeln, bis auf Rundung.
-  const scale = img.width / __CLIP_W__;
-  const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
-  const out = {};
-  for (const t of tasks) {
-    const x = Math.round(t.x * scale), y = Math.round(t.y * scale);
-    const w = Math.round(t.w * scale), h = Math.round(t.h * scale);
-    if (w <= 0 || h <= 0 || x < 0 || y < 0 || x + w > img.width || y + h > img.height) continue;
-    const px = ctx.getImageData(x, y, w, h).data;
-    const step = Math.max(1, Math.ceil(Math.sqrt(w * h / __PER__)));
-    const lum = [];
-    for (let j = 0; j < h; j += step) {
-      for (let i = 0; i < w; i += step) {
-        const k = (j * w + i) * 4;
-        const a = px[k + 3] / 255;
-        const c = (v) => lin(v * a + 255 * (1 - a));
-        lum.push(Math.round((0.2126 * c(px[k]) + 0.7152 * c(px[k + 1]) + 0.0722 * c(px[k + 2])) * 1e4) / 1e4);
-      }
-    }
-    out[t.id] = lum;
-  }
-  return out;
-})()
-"#;
+const SAMPLE_JS: &str = include_str!("js/backdrop_sample.js");
 
 /// Die Kandidaten für [`SAMPLE_JS`]: Elemente mit eigenem Text im
 /// Hauptdokument, dargestellt, mit Textfarbe, aber ohne bestimmbaren
@@ -1357,6 +1270,17 @@ fn clip_around(candidates: &[(i64, Rect)]) -> Rect {
     }
 }
 
+/// [`SAMPLE_JS`] mit eingesetzten Platzhaltern: Aufgaben, Abtastungen je
+/// Element, Ladefrist, Breite des Ausschnitts und das Bild (base64).
+fn backdrop_sample_script(tasks: Vec<serde_json::Value>, clip_width: f32, data: &str) -> String {
+    SAMPLE_JS
+        .replace("__TASKS__", &serde_json::Value::Array(tasks).to_string())
+        .replace("__PER__", &SAMPLES_PER_ELEMENT.to_string())
+        .replace("__LOAD_MS__", &SAMPLE_LOAD_TIMEOUT_MS.to_string())
+        .replace("__CLIP_W__", &clip_width.to_string())
+        .replace("__DATA__", data)
+}
+
 /// Siehe [`SAMPLE_JS`]. Ohne Kandidaten kein Bildschirmfoto.
 async fn sample_backdrops(page: &Page, styles: &LayoutStyles) -> Result<HashMap<i64, Vec<f64>>> {
     let failed = |what: &str, e: String| AuditError::AXTreeExtractionFailed {
@@ -1407,12 +1331,7 @@ async fn sample_backdrops(page: &Page, styles: &LayoutStyles) -> Result<HashMap<
             })
         })
         .collect();
-    let js = SAMPLE_JS
-        .replace("__TASKS__", &serde_json::Value::Array(tasks).to_string())
-        .replace("__PER__", &SAMPLES_PER_ELEMENT.to_string())
-        .replace("__LOAD_MS__", &SAMPLE_LOAD_TIMEOUT_MS.to_string())
-        .replace("__CLIP_W__", &clip.width.to_string())
-        .replace("__DATA__", shot.result.data.as_ref());
+    let js = backdrop_sample_script(tasks, clip.width, shot.result.data.as_ref());
     let sampled: HashMap<String, Vec<f64>> = page
         .evaluate(js.as_str())
         .await
@@ -1501,8 +1420,8 @@ impl Rendering for RenderedCdpDocument<'_> {
     /// Element mit Layout-Objekt. `obscured` nur an Elementen mit eigenem
     /// Text und Kasten im Hauptdokument: Daran misst `OBSCURED_JS`.
     /// `animating` im Hauptdokument, wenn das Element oder ein Vorfahre in
-    /// `ANIMATING_JS` steht.
-    /// `focus_visible` bleibt ungemessen.
+    /// `ANIMATING_JS` steht. `focus_visible` aus dem Fokusdurchgang
+    /// (`probes.rs`), `None` ohne ihn.
     fn layout<'n>(&'n self, node: Self::N<'n>) -> Option<Layout> {
         let backend = self.doc.backend_node_id(node)?;
         let entry = self.styles.by_backend.get(&backend)?;
@@ -1524,7 +1443,60 @@ impl Rendering for RenderedCdpDocument<'_> {
                     .filter_map(|a| self.doc.backend_node_id(a))
                     .any(|id| animating.contains(&id))
             });
+        layout.focus_visible = self
+            .styles
+            .probes
+            .focus
+            .as_ref()
+            .and_then(|focus| focus.get(&backend))
+            .and_then(|m| m.indicator);
         Some(layout)
+    }
+
+    /// Aus dem Rahmendurchgang: ob das Dokument des Rahmens lesbar ist.
+    fn frame_reachable<'n>(&'n self, node: Self::N<'n>) -> Option<bool> {
+        let backend = self.doc.backend_node_id(node)?;
+        self.styles.probes.frames.as_ref()?.get(&backend).copied()
+    }
+
+    /// Aus dem Drehungsdurchgang, an `html` und `body`.
+    fn box_transform<'n>(&'n self, node: Self::N<'n>) -> Option<BoxTransform> {
+        let backend = self.doc.backend_node_id(node)?;
+        self.styles
+            .probes
+            .transforms
+            .as_ref()?
+            .get(&backend)
+            .cloned()
+    }
+
+    /// Aus dem Einfügedurchgang, an Passwort- und Codefeldern.
+    fn paste_probe<'n>(&'n self, node: Self::N<'n>) -> Option<PasteProbe> {
+        let backend = self.doc.backend_node_id(node)?;
+        self.styles.probes.paste.as_ref()?.get(&backend).copied()
+    }
+
+    /// Aus dem Fokusdurchgang. Das blockierende Element kommt als Kennung im
+    /// Arena-Baum dieses Dokuments; liegt es in einem anderen, bleibt sie leer.
+    fn focus_cover<'n>(&'n self, node: Self::N<'n>) -> Option<FocusCover> {
+        let backend = self.doc.backend_node_id(node)?;
+        let mut cover = self.styles.probes.focus_cover(backend)?;
+        cover.blocker = self
+            .styles
+            .probes
+            .focus
+            .as_ref()
+            .and_then(|focus| focus.get(&backend))
+            .and_then(|m| m.blocker)
+            .and_then(|b| self.doc.backend_ids.iter().position(|id| *id == Some(b)))
+            .map(|i| a11y_dom::NodeId(i as u32));
+        Some(cover)
+    }
+
+    /// Aus dem Textabstandsdurchgang, Vorher/Nachher je Element.
+    fn text_spacing_clip<'n>(&'n self, node: Self::N<'n>) -> Option<SpacingClip> {
+        let backend = self.doc.backend_node_id(node)?;
+        self.styles.probes.spacing.as_ref()?.get(&backend).copied()
     }
 }
 
@@ -1880,7 +1852,7 @@ pub async fn fetch_dom_document(page: &Page, ax_tree: &AXTree) -> Result<CdpDocu
 /// geteilten Regeln (`wcag::shared::run_shared_rules`).
 pub async fn fetch_dom_document_with_layout(page: &Page, ax_tree: &AXTree) -> Result<CdpDocument> {
     let root = get_document(page).await?;
-    let layout = fetch_layout_styles(page).await?;
+    let layout = fetch_layout_styles(page, ProbeSelection::NONE).await?;
     build(&root, ax_tree, Some(Arc::new(layout)))
 }
 
@@ -1898,6 +1870,12 @@ pub struct DomCapture {
 }
 
 impl DomCapture {
+    /// Die Messungen an der laufenden Seite (`probes.rs`); `None`, wenn der
+    /// `DOMSnapshot` scheiterte und es deshalb keine Layout-Stile gibt.
+    pub fn probes(&self) -> Option<&Probes> {
+        self.layout.as_deref().map(|l| &l.probes)
+    }
+
     /// Das Hauptdokument, verbunden mit dessen AXTree.
     pub fn document(&self, ax_tree: &AXTree) -> Result<CdpDocument> {
         self.document_at(&self.root, ax_tree)
@@ -1910,10 +1888,21 @@ impl DomCapture {
     }
 }
 
-/// Holt [`DomCapture`]. Scheitert nur der Snapshot, fehlen die Stile.
+/// Holt [`DomCapture`] ohne Messungen an der Seite. Scheitert nur der
+/// Snapshot, fehlen die Stile.
 pub async fn fetch_dom_capture(page: &Page) -> Result<DomCapture> {
+    fetch_dom_capture_with_probes(page, ProbeSelection::NONE).await
+}
+
+/// Wie [`fetch_dom_capture`], dazu die gewählten Messungen an der laufenden
+/// Seite (`ProbeSelection`). Die berührenden Messungen verändern die Seite
+/// für einen Moment und stellen sie wieder her.
+pub async fn fetch_dom_capture_with_probes(
+    page: &Page,
+    selection: ProbeSelection,
+) -> Result<DomCapture> {
     let root = get_document(page).await?;
-    let layout = match fetch_layout_styles(page).await {
+    let layout = match fetch_layout_styles(page, selection).await {
         Ok(layout) => Some(Arc::new(layout)),
         Err(e) => {
             warn!("DOMSnapshot fuer die geteilten Regeln fehlgeschlagen: {e}");
@@ -1926,35 +1915,7 @@ pub async fn fetch_dom_capture(page: &Page) -> Result<DomCapture> {
 /// Der Text jedes lesbaren Stylesheets der Seite, in Dokumentreihenfolge
 /// (`document.styleSheets`). Ein fremdes Sheet ohne lesbare `cssRules` fehlt
 /// -- wie in den früheren JavaScript-Regeln, die dieselbe Liste lasen.
-const STYLESHEETS_JS: &str = r#"
-(function() {
-  // Rules inside `@media` blocks that match the current viewport, appended as
-  // plain rules: the shared stylesheet rules know no viewport, so they would
-  // miss a declaration that only applies at this width (#783). The blocks
-  // themselves stay, for rules that read the condition (reduced motion).
-  function matched(rules, out, inMatch) {
-    for (var j = 0; j < rules.length; j++) {
-      var r = rules[j];
-      if (typeof CSSMediaRule !== 'undefined' && r instanceof CSSMediaRule) {
-        var cond = r.conditionText || (r.media && r.media.mediaText) || '';
-        if (window.matchMedia(cond).matches) matched(r.cssRules, out, true);
-      } else if (inMatch) {
-        out.push(r.cssText);
-      }
-    }
-  }
-  var out = [];
-  for (var i = 0; i < document.styleSheets.length; i++) {
-    var rules;
-    try { rules = document.styleSheets[i].cssRules; } catch (e) { continue; }
-    if (!rules) continue;
-    var extra = [];
-    matched(rules, extra, false);
-    out.push(Array.from(rules).map(function (r) { return r.cssText; }).concat(extra).join('\n'));
-  }
-  return out;
-})()
-"#;
+const STYLESHEETS_JS: &str = include_str!("js/stylesheets.js");
 
 /// Holt und parst die Stylesheets der Seite für die geteilten Regeln über
 /// Stylesheets (`a11y_rules::run_stylesheets`).
@@ -2489,6 +2450,36 @@ mod tests {
     fn abtastskript_hat_eine_ladezeitgrenze() {
         assert!(SAMPLE_JS.contains("Promise.race") && SAMPLE_JS.contains("__LOAD_MS__"));
         assert!(SAMPLE_LOAD_TIMEOUT_MS < SAMPLE_TIMEOUT.as_millis() as u64);
+    }
+
+    /// Jeder Platzhalter von `js/backdrop_sample.js` wird ersetzt.
+    #[test]
+    fn abtastskript_setzt_alle_platzhalter_ein() {
+        let tasks = vec![serde_json::json!({ "id": "7", "x": 1, "y": 2, "w": 3, "h": 4 })];
+        let js = backdrop_sample_script(tasks, 640.0, "QUJD");
+        assert!(
+            js.contains(r#"const tasks = [{"h":4,"id":"7","w":3,"x":1,"y":2}];"#),
+            "{js}"
+        );
+        assert!(js.contains("data:image/png;base64,QUJD"));
+        assert!(
+            js.contains(&format!("timed out')), {SAMPLE_LOAD_TIMEOUT_MS})")),
+            "{js}"
+        );
+        assert!(js.contains("img.width / 640;"), "{js}");
+        assert!(
+            js.contains(&format!("w * h / {SAMPLES_PER_ELEMENT})")),
+            "{js}"
+        );
+        for placeholder in [
+            "__TASKS__",
+            "__PER__",
+            "__LOAD_MS__",
+            "__CLIP_W__",
+            "__DATA__",
+        ] {
+            assert!(!js.contains(placeholder), "{placeholder} bleibt stehen");
+        }
     }
 
     #[test]

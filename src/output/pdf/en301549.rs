@@ -40,12 +40,12 @@ pub(super) fn render_en301549_annex(
     let (title, intro) = if en {
         (
             "EN 301 549 clause mapping",
-            "Maps this audit's automated WCAG 2.1 A/AA findings onto EN 301 549, chapter 9 (Web) clause numbers, with a per-clause status: violations found, no violations found in the automated scope, or manual review required.".to_string(),
+            "Maps this audit's automated WCAG 2.2 A/AA findings onto EN 301 549 V4.1.1 (2026-09), chapter 9 (Web) clause numbers, with a per-clause status: violations found, no violations found in the automated scope, or manual review required.".to_string(),
         )
     } else {
         (
             "EN-301-549-Klauselzuordnung",
-            "Ordnet die automatisch erkannten WCAG-2.1-A/AA-Befunde dieses Audits den Klauselnummern von EN 301 549, Kapitel 9 (Web) zu, mit einem Status je Klausel: Verstöße gefunden, keine Verstöße im automatisch geprüften Umfang, oder manuelle Prüfung erforderlich.".to_string(),
+            "Ordnet die automatisch erkannten WCAG-2.2-A/AA-Befunde dieses Audits den Klauselnummern von EN 301 549 V4.1.1 (2026-09), Kapitel 9 (Web) zu, mit einem Status je Klausel: Verstöße gefunden, keine Verstöße im automatisch geprüften Umfang, oder manuelle Prüfung erforderlich.".to_string(),
         )
     };
     builder = builder.add_component(SectionHeaderSplit::new(title, &intro).with_level(2));
@@ -111,7 +111,7 @@ pub(super) fn render_en301549_annex(
 
     let failed_criteria: std::collections::BTreeSet<&str> = rule_outcomes
         .iter()
-        .filter(|outcome| crate::wcag::rule_run_errored(outcome))
+        .filter(|outcome| crate::wcag::rule_run_unmeasured(outcome))
         .flat_map(|outcome| outcome.wcag.iter().map(String::as_str))
         .collect();
     let incomplete: Vec<_> = rollups
@@ -225,11 +225,11 @@ pub(super) fn render_en301549_annex(
     if out_of_standard > 0 {
         let note = if en {
             format!(
-                "{out_of_standard} additional WCAG finding(s) outside WCAG 2.1 A/AA (e.g. AAA or WCAG 2.2-only criteria) are not covered by EN 301 549 V3.2.1 and are not represented in the clause table above."
+                "{out_of_standard} additional WCAG finding(s) outside WCAG 2.2 A/AA (Level AAA criteria) have no normative clause in EN 301 549 V4.1.1 and are not represented in the clause table above."
             )
         } else {
             format!(
-                "{out_of_standard} weitere(r) WCAG-Befund(e) außerhalb von WCAG 2.1 A/AA (z. B. AAA- oder nur-WCAG-2.2-Kriterien) sind von EN 301 549 V3.2.1 nicht abgedeckt und werden in der Klausel-Tabelle oben nicht ausgewiesen."
+                "{out_of_standard} weitere(r) WCAG-Befund(e) außerhalb von WCAG 2.2 A/AA (Kriterien der Stufe AAA) haben in EN 301 549 V4.1.1 keine normative Klausel und werden in der Klausel-Tabelle oben nicht ausgewiesen."
             )
         };
         builder =

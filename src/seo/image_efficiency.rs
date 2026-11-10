@@ -74,18 +74,7 @@ pub async fn analyze_image_efficiency(
 ) -> Option<ImageEfficiencyAnalysis> {
     info!("Analyzing image efficiency...");
 
-    let js = r#"
-    (() => {
-        const imgs = Array.from(document.querySelectorAll('img'));
-        return JSON.stringify(imgs.map(img => ({
-            src: (img.currentSrc || img.src || '').substring(0, 120),
-            naturalWidth: img.naturalWidth || 0,
-            naturalHeight: img.naturalHeight || 0,
-            displayWidth: img.width || img.clientWidth || 0,
-            displayHeight: img.height || img.clientHeight || 0,
-        })));
-    })()
-    "#;
+    let js = include_str!("js/image_efficiency.js");
 
     let raw: Vec<RawImg> = log
         .record(

@@ -91,6 +91,12 @@ pub struct SeoAnalysis {
     /// Whether the page is meant to be indexed and is (#780).
     #[serde(default)]
     pub indexability: IndexabilityCheck,
+    /// Page type estimated from the accessibility tree at collection; the
+    /// page-to-schema fit is judged against it. It is the SEO module's own
+    /// input (the experimental Journey indicator is not needed for it, #916)
+    /// and not part of the JSON.
+    #[serde(skip)]
+    pub page_intent: Option<crate::journey::PageIntent>,
 }
 
 /// Upper bound of the SEO score of a page that is meant to be indexed but
@@ -199,6 +205,7 @@ pub async fn analyze_seo(
         serp: None,
         image_efficiency,
         indexability: IndexabilityCheck::default(),
+        page_intent: None,
     };
 
     // Build content profile from collected data (baked English; PDF re-derives)

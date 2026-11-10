@@ -9,7 +9,7 @@
 use async_trait::async_trait;
 
 use crate::audit::module::AuditModule;
-use crate::audit::PipelineConfig;
+use crate::audit::{Module, PipelineConfig};
 
 pub struct PrivacyModule;
 
@@ -24,6 +24,6 @@ impl AuditModule for PrivacyModule {
     }
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
-        cfg.check_privacy
+        cfg.modules.contains(Module::Privacy)
     }
 }

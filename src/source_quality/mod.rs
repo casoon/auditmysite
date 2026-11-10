@@ -1475,6 +1475,7 @@ mod tests {
             screenshot_status: Default::default(),
             best_practices: None,
             commerce: None,
+            experimental: Default::default(),
             consent_banner_detected: false,
             consent_banner_cmp: None,
             consent_banner_dismissed: false,
@@ -1592,6 +1593,7 @@ mod tests {
         report.accessibility.score = 50.0;
         report.discoverability.seo = Some(SeoAnalysis {
             indexability: Default::default(),
+            page_intent: None,
             meta: MetaTags::default(),
             headings: HeadingStructure::default(),
             technical: TechnicalSeo::default(),

@@ -16,11 +16,11 @@
 - `band` is the canonical English qualitative label for `score`; it is present on every entry.
 - `grade` (a letter) is present **only** for modules with `weight_pct > 0`. A module that does not feed `overall_score` carries `band` alone: grading an indicator on the same A–F scale as a weighted module gave it an authority it does not have.
 - `derived_from` lists the modules an entry re-reads instead of measuring anything new; it is absent when the module measures its own subject. `UX` and `Journey` are charged an explicit accessibility penalty, `AI Visibility` re-reads SEO signals, and `Source Quality` re-reads SEO, Security and UX. Agreement between such a module and its sources is not independent confirmation.
-- The same rule applies to the heuristic module payloads: `source_quality` and `ai_visibility` carry `band`, not `grade`,.
+- The same rule applies to the heuristic module payloads in the `experimental` block: `source_quality` and `ai_visibility` carry `band`, not `grade`.
 - `measurement_type = "measured"` means the score is based on direct audit data such as WCAG checks, CDP metrics, HTTP headers, or mobile viewport measurements.
 - `measurement_type = "heuristic"` means the score is an indicator inferred from structural signals. These values are report guidance, not direct measurements.
 - `source_quality.score` combines the `consistency` and `authority` dimensions only. `source_quality.substance` holds structural indicators (word count, headings, structured data, metadata); its `score` is deprecated, is not part of `source_quality.score`, and is removed in 2.0.
-- Heuristic top-level module payloads such as `source_quality`, `ai_visibility`, and `content_visibility` include `measurement_type = "heuristic"` when present.
+- The heuristic payloads in `pages[].experimental` (`ux`, `journey`, `source_quality`, `ai_visibility`, `content_visibility`) include `measurement_type = "heuristic"`; `commerce` is a checklist without a score and carries neither.
 
 ## Score and Count Semantics
 
@@ -51,6 +51,17 @@
 
 `severity_counts`, `occurrence_counts`, `violation_count` and `violated_rule_count` stay WCAG-only.
 
+### Rule documentation links
+
+`findings[].help_url` is the finding's page on the project site, `https://casoon.github.io/auditmysite/rules/<page_id>/` (`taxonomy::rule_doc_url`): the page id verbatim, `/` as path separator, a trailing slash. A page id contains only lowercase letters, digits, `-`, `_`, `.` and `/`, and is always an id the finding carries (`audit::rule_docs`):
+
+- WCAG findings: the `rule_id` (`images/alt-missing`).
+- Security header findings: the `rule_id` (`security.headers.<issue_type>`). The headers that share an issue type (`missing_header`) are one finding and one page, which lists each header's check.
+- Vulnerable-library findings: the `rule_id` (`best_practices.vulnerable_libraries.<name>`).
+- Structured-data findings about missing required properties: `seo.schema.schema_rule_missing_<feature>_<property>` carries the feature key, and the page is the feature's, `seo.schema.schema_rule_missing_<feature>`.
+
+Every other finding (SEO, mobile, UX, the other structured-data issues, ...) has no page and no `help_url`. `findings[].understanding_url` is a WCAG criterion's W3C Understanding page; it is absent when the rule names none, and always absent outside WCAG. Before #929 `help_url` held the Understanding page. SARIF `helpUri` and the AI report's `tasks[].help_url` follow `help_url`; the AI report adds `tasks[].understanding_url`. The PDF still prints the Understanding page as the reference. `tests/rule_docs.rs` keeps the generated pages in `site/src/data/rules/` equal to the rule catalogue, the contracts and the corpus, and every `help_url` pointing at one of them. `EVALUATION_VERSION` 8 and cache `fmt` 33 turn stored snapshots and cache entries into misses; `schema_version` stays `2.0` (a field is added, none removed).
+
 ### Finding assurance
 
 `confidence`, `false_positive_risk` and `verification` follow from `assurance`, never from a rule id or category name:
@@ -61,11 +72,32 @@
 
 ### Signal contracts
 
-Every module payload with `measurement_type = "heuristic"` (`ux`, `journey`, `source_quality`, `ai_visibility`, `content_visibility`) carries `signal_contract: { format: "auditmysite.signal-contract/1", contract }`. `contract` states `target_statement`, `method`, `applicability`, `evidence`, `uncertainty`, `permitted_interpretation`, the claims it does not establish (`not_established`) and `validation.status` — `unvalidated` until a pre-registered calibration run passes (`docs/calibration.md`). A score of an unvalidated contract is not evidence of visibility, AI citation, user quality or source truth.
+Every scored payload in `pages[].experimental` (`ux`, `journey`, `source_quality`, `ai_visibility`, `content_visibility`) carries `signal_contract: { format: "auditmysite.signal-contract/1", contract }`. `contract` states `target_statement`, `method`, `applicability`, `evidence`, `uncertainty`, `permitted_interpretation`, the claims it does not establish (`not_established`) and `validation.status` — `unvalidated` until a pre-registered calibration run passes (`docs/calibration.md`). A score of an unvalidated contract is not evidence of visibility, AI citation, user quality or source truth.
+
+### Experimental indicators
+
+UX, Journey, AI Visibility, Content Visibility, Source Quality and Commerce are experimental (#916): `unvalidated` signal contracts, no calibration set, no weight in any score. They run only with `--experimental <name>[,<name>]` and are in no `--full` run.
+
+- A single report carries them in `pages[].experimental`, one key per indicator that ran (`ux`, `journey`, `ai_visibility`, `content_visibility`, `source_quality`, `commerce`), each scored one with its `signal_contract` (`commerce` is a score-less checklist and has none). The block is absent when none ran. A batch report carries only `summary.experimental.commerce`, the site-wide roll-up of the commerce trust pages.
+- They are in no `module_scores[]` entry, no `findings[]`, `finding_inventory`, `risk`, `decision` or PDF chapter, and `detail.modules` has no key for them. `ux_score`, `journey_score` (page and summary) and `summary.commerce` of 2.0.x are gone.
+- An indicator another one is derived from runs with it and appears in the block: `content_visibility` brings `source_quality` and `ai_visibility`, `source_quality` brings `ux`.
+- The add-to-cart and quantity-stepper journeys belong to `commerce`: without it `measurement_profile.state_changing_journeys` does not list them. `--check-ssr-content` needs `content_visibility`.
+- Versions: `EVALUATION_VERSION` 7, `SNAPSHOT_SCHEMA_VERSION` 2 and the cache signature (`fmt` 32, now with the indicator selection) turn stored snapshots into cache misses. `decision/3` is unchanged: none of these signals ever fed the verdict.
 
 ### Indexability
 
 `noindex` is judged against the page goal. `--expect-indexable true` (or `[audit] expect_indexable = true`, implied for sitemap runs) makes it a gate: the SEO score is capped at 39 and the decision gets the reason `technical_blockers`. `false` excludes it as intended. Without either, the finding is listed with `applicability: unknown` and has no score effect.
+
+### Finding id stability
+
+`pages[].findings[].id` (`F-` and eight hex digits) identifies one rule on one page. It is the hash (FNV-1a 64, upper 32 bits, `a11y_report::FindingId`) of the rule id alone, so it is the same on every page and in every run, and the findings baseline (below) relies on exactly that. What it does not depend on, and must never start to depend on: elements, selectors, occurrence counts, their order, messages, severity, score, page content, tool version, language, viewport or the modules that ran.
+
+What changes an id:
+
+- **The rule id.** A renamed rule is a new finding to every existing baseline (its old id reads as `fixed`, the new one as `new`). Renames are therefore changelog entries (the 2.0 rule catalogue, #918, was such a change).
+- **The id derivation.** A change of `FindingId`'s key moves every id. `FINDING_ID_SCHEME` (`audit::baseline`) must be raised in the same change; a baseline written under another scheme is refused, and so is a baseline whose ids this tool would not derive from the recorded rules.
+
+What follows: a baseline entry means "this rule is reported on this URL", not "these elements". A new element violating an already known rule is not a new finding; the baseline stays quiet about it. Use the pattern ids (`findings[].patterns[].id`, `RC-` and eight hex digits, rule and normalized selector) for element-level comparison; the baseline does not use them. `tests/baseline_gating.rs` pins the ids of known rules (`finding_ids_of_known_rules_are_pinned`) and checks that reordering and element changes leave an id and the baseline digest alone.
 
 ## Decision Contract
 
@@ -94,6 +126,28 @@ Every path that publishes a decision reads the stored one and validates before w
 
 Batch: a page counts as passed when its own decision passes; the batch `decision` applies the same profile to the summary (legal flags, blocking issues, technical blockers and the average accessibility score). All pages of a batch share one profile.
 
+## Findings Baseline
+
+`--write-baseline <file>` records the finding ids of the run, `--baseline <file>` gates a later run against them: findings whose id is in the file are `known`, do not affect the verdict or the exit code, and are counted instead of listed. A baseline is a gating filter, not a suppression: scores, `findings[]`, `severity_counts` and every summary total stay as measured.
+
+**File** (`auditmysite.baseline/1`): `contract`, `id_scheme` (`FINDING_ID_SCHEME`, 1), `tool_version`, `created_at` and `pages[]` with `url` and `findings[]` (`id`, `rule`). The `rule` makes a committed file reviewable in a diff, and the reader checks every `id` against it. A batch writes one entry per audited URL, a single run one. Every finding of the run is recorded, known or not, so `--baseline old.json --write-baseline new.json` accepts the current state.
+
+**Usage errors** (exit 3, before any audit): a file that is not JSON or not a baseline, another `contract`, an `id_scheme` this tool does not use, an `id` that is not the id of its `rule`, a URL listed twice, an unreadable file; and `--write-baseline` with `--display all`. A baseline that cannot be used is never read as an empty one.
+
+**Scoping.** A finding is known per page: the key is `url` (the audited URL as in `pages[].url`) plus the finding id. The same rule on another URL is new unless that URL lists it. A URL the baseline does not list has no known findings (`pages[].baseline.page_listed: false`).
+
+**What is gated.** Under a baseline the decision reads the verdict inputs without the known findings: legal flags, blocking issues (`pages[].baseline.gate`), technical blockers and the open WCAG findings of the "any finding" warning. The `fail_below_score` and `warn_below_score` thresholds are not baselined (the score is unchanged), nor is the audit quality; the legal flag raised by the screen-reader BFSG verdict has no finding id and is never known. A batch decision reads `summary.baseline.gate` the same way. Exit codes are those of the decision (`0`, `1`, `2`); `--write-baseline` does not change the exit code of its own run (use `--report-mode` to only record).
+
+**Reporting.**
+- `pages[].findings[].known: true` marks a known finding (the field is absent otherwise).
+- `pages[].baseline` (single and batch): `digest`, `page_listed`, `known`, `new`, `fixed` (baseline entries of this page without a finding in this run) with `fixed_ids`, and `gate`. `fixed` also counts entries of modules that did not run this time, and entries of renamed rules.
+- Batch only, top level `baseline` (`summary.baseline` internally): `digest`, `known`, `new`, `fixed`, `unmatched_pages` (pages the baseline lists that this run did not audit) and `gate` (`legal_flags`, `blocking_issues`, `technical_blockers`, `open_violations`).
+- `decision.profile.baseline_digest` is the SHA-256 over the recorded `url` and finding id pairs (not over `created_at` or `tool_version`, so rewriting an identical baseline keeps it). A gated decision never has the profile name `default`; a result with and without baseline cannot be mistaken for each other.
+- The terminal table and the PDF show one line (`Baseline: n known, m new, k fixed findings`), no per-finding rows.
+- A page whose stored `baseline` status, known flags or profile digest disagree fails validation as `baseline`, and so does a batch whose `baseline` block is not the sum of its pages.
+
+Not covered: SARIF `baselineState` and any history of baselines. Cache replays (`--reuse-cache`, `replay`) are gated again under the current `--baseline`; the baseline is not part of the audit signature because it changes no measurement.
+
 
 ## Execution Scope and Audit Quality
 
@@ -110,7 +164,7 @@ The report distinguishes what was requested from what was successfully measured:
 
 Confirmed violations remain separate from `accessibility_assessments`, which carries warnings, manual-review items, and positive signals. Measurement failures are not converted into violations or artificial score penalties.
 
-Binary evidence is not embedded in the JSON. The top-level `artifacts` array points to separately written sidecars when available. Whenever screen-reader data exists, `<output>-screen-reader-audit.json` is written next to the report as an intended sidecar (the structured screen-reader audit that the PDF summarizes); `--no-screen-reader-report` suppresses it.
+Binary evidence is not embedded in the JSON. The top-level `artifacts` array points to separately written sidecars when available. Whenever screen-reader data exists, `<output>-screen-reader-audit.json` is written next to the report as an intended sidecar (the structured screen-reader audit that the PDF summarizes) when `--screen-reader-report` asks for it; by default no sidecar is written.
 
 ## Performance Measurement Context
 
@@ -150,6 +204,7 @@ Not measured: user interaction (INP stays an estimate and is only set when inter
 
 A report that contradicts itself is rejected with machine-readable codes (`ReportContractError.violations[].code`, `audit::CONTRACT_CODES`). The codes, by area:
 
+- Baseline: `baseline`.
 - Scores and decision: `score_range`, `grade`, `overall_score`, `average_score`, `score_method`, `module_grade`, `module_weight`, `module_identity`, `weighted_measurement`, `viewport_score`, `semantic_score_cap`, `gate_score_cap`, `passed`, `decision`, `decision_contract`, `decision_profile`, `cause_charged_twice`.
 - Findings and counts: `finding_domain`, `finding_identity`, `finding_inventory`, `finding_occurrences`, `occurrence_counts`, `severity_counts`, `rule_findings_preserved`.
 - Execution scope: `requested_execution`, `requested_rule_outcome`, `rule_outcome_duplicate`, `rule_outcome_above_level`, `rule_outcome_filtered`, `requested_subcheck_outcome`, `frame_rule_outcome_missing`, `frame_rule_outcome_duplicate`, `frame_rule_outcome_unexpected`, `frame_rule_outcome_above_level`, `measurement_profile_read_only`, `measurement_profile_journeys`, `browser_provenance`.
@@ -340,8 +395,9 @@ score = min(100,
   images without alt text are one flag). A finding is a legal flag when it is a
   WCAG Level A **or** Level AA finding of High or Critical severity, is
   `automatically_confirmed` (a finding that needs manual review raises none),
-  and its criterion is covered by EN 301 549 V3.2.1 (the WCAG 2.1 A/AA table;
-  WCAG-2.2-only criteria and AAA do not flag). Convention rules (`display/*`)
+  and its criterion has a normative clause in EN 301 549 V4.1.1 (2026-09,
+  clauses 9.1-9.4: the WCAG 2.2 A/AA table; AAA criteria do not flag, the
+  retired 4.1.1 Parsing is void in that edition). Convention rules (`display/*`)
   never flag. AA is included because BFSG and EN 301 549 require AA: a High
   contrast failure (1.4.3) is as actionable as a Level A failure. A page also
   carries at least one flag when the screen-reader audit confirms a
@@ -417,6 +473,24 @@ Distinct violated WCAG rule groups, not affected elements.
 Finding rows and occurrences across WCAG, SEO, and every other reported
 category.
 
+## Annotations
+
+`annotations` (top level, single and batch) exists only when the run was given `--annotations <file.json>` (#961; format defined in barrierlab, `docs/a11y/reference/annotations.md`). Contract:
+
+- It is a separate block, never a field inside a finding, and nothing else in the report depends on it: outcome, severity, scores, `legal_flags`, risk level, `decision` and the exit code are the same with and without it. Tests compare a run with and without the file and require everything except this block to be equal.
+- `matched[]` entries carry the `url` and, for scope `finding`, the `finding_id` (`pages[].findings[].id`) and optional `pattern_id` they attached to; `unmatched[]` entries carry a `reason`. Every annotation of the file is in one of the two lists.
+- `counts` are over distinct annotations: `total = matched + unmatched` when no annotation is both (an annotation without `url` that matches two pages is one matched annotation with two entries); `by_author_kind` counts them by `author.kind`.
+- `annotation` objects reproduce the file's known fields; unknown fields are not carried.
+
+## EN 301 549 Annex
+
+`pages[].detail.en301549_annex` maps the page's WCAG findings onto the chapter 9 ("Web") clauses of **EN 301 549 V4.1.1 (2026-09)**, which requires WCAG 2.2 Level A/AA. The edition is stated in `standard_version`; `mapping_version` (currently 2) changes whenever the clause table or its status semantics change. The batch roll-up `summary.en301549_rollup` uses the same table.
+
+- `clauses[]` has 55 entries, the 55 WCAG 2.2 A/AA success criteria (31 A, 24 AA), each as `en_clause` = `9.` + the WCAG number. Clause numbers of the 49 criteria that WCAG 2.1 and 2.2 share are identical to EN 301 549 V3.2.1; V4.1.1 adds 9.2.4.11, 9.2.5.7, 9.2.5.8, 9.3.2.6, 9.3.3.7 and 9.3.3.8 and voids 9.4.1.1 (Parsing, removed in WCAG 2.2).
+- The WCAG 2.2 Level AAA criteria (2.4.12, 2.4.13, 3.3.9, like all AAA) have no normative clause in V4.1.1; the standard lists them only informatively in clause 9.5. Findings on them are not in `clauses[]` and are counted in `out_of_standard_findings`.
+- `mapping_version` 1 (reports before this change) targeted EN 301 549 V3.2.1 (2021-03) with 50 clauses (WCAG 2.1, including 4.1.1).
+- The annex is technical evidence, not an accessibility statement (`disclaimer`). V4.1.1 grants a presumption of conformity only once it is cited in the Official Journal of the European Union; until then the cited edition remains the authoritative one for that purpose.
+
 ## JavaScript Library Advisories
 
 `best_practices.vulnerable_libraries.vulnerable[]` lists detected libraries whose version lies in an advisory range. The ranges come from the versioned data file `src/best_practices/advisories.json` (process: [advisory-data.md](advisory-data.md)); the check covers only the libraries in `CHECKED_LIBRARIES`.
@@ -424,7 +498,7 @@ category.
 - `advisories[].review_status` is `reviewed` (the range was checked against `source_url` on the date in `advisories[].reviewed`) or `unreviewed` (carried over, not yet checked). An unreviewed match is a lead, not an established statement; the PDF says so next to the finding. Reports written before the field read as `unreviewed`.
 - `exploitability` is `unconfirmed` (the version is in range; reachability on the page was not examined) or `not_applicable` (only end-of-maintenance notices matched, so no specific vulnerability exists to exploit). There is no `confirmed` state: a version never proves the code path is reachable, and the check runs no reachability probe.
 - `detected[].version_parsed: false` marks a version that could not be read; it is neither flagged nor cleared.
-- The check runs for `--performance` and for `--security` on its own.
+- The check runs with the `performance` module and with the `security` module on its own (`--modules performance`, `--modules security`).
 
 ## Schemas
 

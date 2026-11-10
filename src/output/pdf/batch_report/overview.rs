@@ -218,6 +218,19 @@ pub(super) fn render_batch_cover(
                 .with_line_height("1.4em")
                 .with_max_width("100%"),
         );
+    if let Some(baseline) = &pres.portfolio_summary.baseline {
+        builder = builder.add_component(
+            Label::new(crate::audit::baseline::summary_text(
+                baseline.known,
+                baseline.new,
+                baseline.fixed,
+                Some(baseline.unmatched_pages),
+                crate::output::localized::is_english(i18n),
+            ))
+            .with_size("8.5pt")
+            .with_color(crate::output::pdf::design::tokens::MUTED),
+        );
+    }
 
     // The scope note used to close page 2, which it overflowed onto an
     // otherwise empty page 3 (plan 108). It now opens the contents page; an
@@ -386,12 +399,12 @@ pub(super) fn render_batch_en301549_rollup(
     let (title, intro) = if en {
         (
             "EN 301 549 clause mapping",
-            "Domain-wide roll-up of this batch's automated WCAG 2.1 A/AA findings onto EN 301 549, chapter 9 (Web) clause numbers — the worst status observed across all audited pages, plus how many pages have a confirmed violation.".to_string(),
+            "Domain-wide roll-up of this batch's automated WCAG 2.2 A/AA findings onto EN 301 549 V4.1.1 (2026-09), chapter 9 (Web) clause numbers — the worst status observed across all audited pages, plus how many pages have a confirmed violation.".to_string(),
         )
     } else {
         (
             "EN-301-549-Klauselzuordnung",
-            "Domainweite Zusammenfassung der automatisch erkannten WCAG-2.1-A/AA-Befunde dieses Batches je EN-301-549-Klausel (Kapitel 9, Web) — der schlechteste über alle geprüften Seiten beobachtete Status, plus die Anzahl betroffener Seiten.".to_string(),
+            "Domainweite Zusammenfassung der automatisch erkannten WCAG-2.2-A/AA-Befunde dieses Batches je Klausel von EN 301 549 V4.1.1 (2026-09), Kapitel 9 (Web) — der schlechteste über alle geprüften Seiten beobachtete Status, plus die Anzahl betroffener Seiten.".to_string(),
         )
     };
     builder = builder.add_component(SectionHeaderSplit::new(title, &intro).with_level(2));

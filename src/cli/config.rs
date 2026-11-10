@@ -6,7 +6,7 @@ use serde::Deserialize;
 use std::path::PathBuf;
 use tracing::info;
 
-use super::args::{Args, InteractiveMode, OutputFormat, WcagLevel};
+use super::args::{Args, InteractiveMode, ModuleChoice, OutputFormat, WcagLevel};
 
 const CONFIG_FILENAME: &str = "auditmysite.toml";
 
@@ -253,17 +253,15 @@ impl Config {
 
         // Module settings
         if !args.full {
-            if let Some(true) = self.modules.performance {
-                args.performance = true;
-            }
-            if let Some(true) = self.modules.seo {
-                args.seo = true;
-            }
-            if let Some(true) = self.modules.security {
-                args.security = true;
-            }
-            if let Some(true) = self.modules.mobile {
-                args.mobile = true;
+            for (enabled, module) in [
+                (self.modules.performance, ModuleChoice::Performance),
+                (self.modules.seo, ModuleChoice::Seo),
+                (self.modules.security, ModuleChoice::Security),
+                (self.modules.mobile, ModuleChoice::Mobile),
+            ] {
+                if enabled == Some(true) && !args.modules.contains(&module) {
+                    args.modules.push(module);
+                }
             }
         }
     }

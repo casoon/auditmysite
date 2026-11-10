@@ -1,0 +1,43 @@
+{
+  "id": "motion/infinite-animation",
+  "url": "https://casoon.github.io/auditmysite/rules/motion/infinite-animation/",
+  "domain": "wcag",
+  "title": "Missing pause/stop/hide control",
+  "outcome": "hint-only",
+  "area": "Accessibility, Navigation & Operation",
+  "criterion": "2.2.2",
+  "level": "A",
+  "axe_id": "pause-stop-hide",
+  "severity": "medium",
+  "user_impact": "Users with attention or cognitive impairments, and screen reader users, are distracted or disrupted by continuously running motion they cannot turn off.",
+  "technical_impact": "`<marquee>` element without pause control, or an element with animation-iteration-count: infinite exceeding 5 seconds per cycle with no detectable pause control or prefers-reduced-motion support.",
+  "checks": [
+    {
+      "contract_id": "motion/infinite-animation",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 2.2.2 Pause, Stop, Hide (moving content that lasts more than five seconds)",
+      "applicability": "Rendered elements with a running animation whose iteration count is infinite, and marquee elements.",
+      "expectation": "A review at the outermost endlessly animated element (one per group of\nsiblings) when the page offers no control to pause or stop motion. A finite\nanimation (iteration count 3) is not endless; an endless animation on an\nelement that is not rendered moves nothing. A control labelled to pause or\nstop (button \"Pause animation\") is taken as the mechanism; whether it works\nis for a human. An animation started by a script after load counts like a\nstatic one. Review, not a violation: an animation may end within five\nseconds of the page's own logic, which the snapshot cannot see.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "visual_motion_infinite",
+        "file": "tests/fixtures/detection_corpus/visual_motion_infinite.html",
+        "verdict": "needs_review",
+        "selector": "div#spinner",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Endless loading spinners without a pause control</title>\n<style>\n  body { color: #111111; background: #ffffff; }\n  .spinner { width: 40px; height: 40px; border: 4px solid #333333; border-top-color: transparent;\n             border-radius: 50%; animation: spin 1.2s linear infinite; }\n  /* Three runs, then it stops: not endless. */\n  .wiggle { width: 40px; height: 40px; background: #333333; animation: spin 1s linear 3; }\n  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Order tracking</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Your order is being prepared</h1>\n  <div><div id=\"spinner\" class=\"spinner\" role=\"img\" aria-label=\"Loading\"></div></div>\n  <div><div id=\"finite\" class=\"wiggle\" role=\"img\" aria-label=\"New\"></div></div>\n  <!-- Endless, but not rendered. -->\n  <div style=\"display: none\"><div id=\"hidden-spinner\" class=\"spinner\"></div></div>\n  <!-- Dynamic: the class is added by a script after load. -->\n  <div><div id=\"late-spinner\" role=\"img\" aria-label=\"Refreshing\"></div></div>\n  <p>We will send you an e-mail as soon as the parcel leaves our warehouse.</p>\n</main>\n<footer><p>Footer text</p></footer>\n<script>\n  window.addEventListener('load', function () {\n    document.getElementById('late-spinner').className = 'spinner';\n  });\n</script>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "visual_motion_infinite",
+        "file": "tests/fixtures/detection_corpus/visual_motion_infinite.html",
+        "verdict": "pass",
+        "selector": "div#finite",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Endless loading spinners without a pause control</title>\n<style>\n  body { color: #111111; background: #ffffff; }\n  .spinner { width: 40px; height: 40px; border: 4px solid #333333; border-top-color: transparent;\n             border-radius: 50%; animation: spin 1.2s linear infinite; }\n  /* Three runs, then it stops: not endless. */\n  .wiggle { width: 40px; height: 40px; background: #333333; animation: spin 1s linear 3; }\n  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Order tracking</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Your order is being prepared</h1>\n  <div><div id=\"spinner\" class=\"spinner\" role=\"img\" aria-label=\"Loading\"></div></div>\n  <div><div id=\"finite\" class=\"wiggle\" role=\"img\" aria-label=\"New\"></div></div>\n  <!-- Endless, but not rendered. -->\n  <div style=\"display: none\"><div id=\"hidden-spinner\" class=\"spinner\"></div></div>\n  <!-- Dynamic: the class is added by a script after load. -->\n  <div><div id=\"late-spinner\" role=\"img\" aria-label=\"Refreshing\"></div></div>\n  <p>We will send you an e-mail as soon as the parcel leaves our warehouse.</p>\n</main>\n<footer><p>Footer text</p></footer>\n<script>\n  window.addEventListener('load', function () {\n    document.getElementById('late-spinner').className = 'spinner';\n  });\n</script>\n</body>\n</html>"
+      }
+    }
+  ]
+}

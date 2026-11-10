@@ -1,0 +1,42 @@
+{
+  "id": "aria/required-children-missing",
+  "url": "https://casoon.github.io/auditmysite/rules/aria/required-children-missing/",
+  "domain": "wcag",
+  "title": "Required child elements of an ARIA role are missing",
+  "outcome": "automatic",
+  "area": "Accessibility, Technical Robustness",
+  "criterion": "4.1.2",
+  "level": "A",
+  "axe_id": "aria-required-children",
+  "severity": "medium",
+  "user_impact": "Assistive technologies cannot resolve the relationship between the widget's parts.",
+  "technical_impact": "e.g. role=\"tablist\" without corresponding role=\"tabpanel\" elements.",
+  "checks": [
+    {
+      "contract_id": "aria/required-children-missing",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 1.3.1 and SC 4.1.2; WAI-ARIA 1.2 section 5.2.6 (Required Owned Elements); ACT bc4a75",
+      "applicability": "Elements in the accessibility tree with an explicit role that has required owned elements (tablist, list, listbox, menu, table, grid, tree, ...); native tables and lists without role get their structure from HTML.",
+      "expectation": "Fails when such a container owns elements with roles, but none of the required ones (a\ntablist owning buttons instead of tabs, a menu owning buttons). Owning a required element directly,\nthrough generic wrappers or via aria-owns passes; so does a container without any owned element, one\nmarked aria-busy=true (loading) and one with aria-expanded=false. Native tables and lists are not\njudged here. Hidden subtrees are out of scope.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "ax_tree"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "iframe_widget_rules",
+        "file": "tests/fixtures/detection_corpus/iframe_widget_rules.html",
+        "verdict": "violation",
+        "selector": "iframe#widget [frame] ul#tabs",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Iframe widget rules corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Widgets inside a same-origin iframe (#715)</h1>\n        <!-- Like gov.cy and magyarorszag.hu: a consent/dialog widget rendered\n             in an iframe. The dialog has no name, the tablist is built from a\n             list, so its tabs sit in list items instead of the tablist. The\n             frame document has no main landmark, no h1 and no skip link on\n             purpose: those are page-level rules and must not be reported for\n             a frame. -->\n        <iframe id=\"widget\" title=\"Consent widget\" style=\"width:600px;height:400px;border:0\"\n            srcdoc=\"<!DOCTYPE html><html lang=&quot;en&quot;><head><title>Widget</title></head><body>\n<div role=&quot;dialog&quot; id=&quot;consent-dialog&quot;><p>We use cookies.</p><button type=&quot;button&quot;>Accept</button></div>\n<ul role=&quot;tablist&quot; id=&quot;tabs&quot;><li><a role=&quot;tab&quot; href=&quot;#one&quot; id=&quot;tab-one&quot;>One</a></li><li><a role=&quot;tab&quot; href=&quot;#two&quot; id=&quot;tab-two&quot;>Two</a></li></ul>\n</body></html>\"></iframe>\n        <!-- Hidden from assistive technology: not audited. -->\n        <iframe id=\"hidden-widget\" title=\"Hidden widget\" aria-hidden=\"true\" style=\"width:300px;height:100px;border:0\"\n            srcdoc=\"<!DOCTYPE html><html lang=&quot;en&quot;><head><title>Hidden</title></head><body><div role=&quot;dialog&quot; id=&quot;hidden-dialog&quot;></div></body></html>\"></iframe>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "value_widgets_native",
+        "file": "tests/fixtures/detection_corpus/value_widgets_native.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Native value widgets corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Native range, number and date inputs</h1>\n        <!-- Native controls expose their value without aria-valuenow, and the\n             day/month/year fields of a date input are the browser's (#656). -->\n        <label for=\"volume\">Volume</label>\n        <input id=\"volume\" type=\"range\" min=\"0\" max=\"10\">\n        <label for=\"zoom\">Zoom</label>\n        <input id=\"zoom\" type=\"range\" role=\"slider\" value=\"3\" min=\"0\" max=\"10\">\n        <label for=\"qty\">Quantity</label>\n        <input id=\"qty\" type=\"number\">\n        <label for=\"amount\">Amount</label>\n        <input id=\"amount\" type=\"number\" value=\"4\">\n        <input type=\"date\" aria-label=\"Order date value\">\n        <label for=\"time\">Pickup time</label>\n        <input id=\"time\" type=\"time\">\n        <label for=\"month\">Billing month</label>\n        <input id=\"month\" type=\"month\">\n        <label for=\"week\">Calendar week</label>\n        <input id=\"week\" type=\"week\">\n        <label for=\"appointment\">Appointment</label>\n        <input id=\"appointment\" type=\"datetime-local\">\n        <label for=\"disk\">Disk usage</label>\n        <meter id=\"disk\" value=\"0.6\">60%</meter>\n        <hr>\n        <div role=\"slider\" tabindex=\"0\" aria-label=\"Custom with value\"\n             aria-valuenow=\"5\" aria-valuemin=\"0\" aria-valuemax=\"10\"></div>\n        <div role=\"slider\" aria-label=\"Hidden custom slider\" style=\"display:none\"></div>\n    </main>\n</body>\n</html>"
+      }
+    }
+  ]
+}

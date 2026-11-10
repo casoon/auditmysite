@@ -6,7 +6,7 @@
 
 mod common;
 
-use auditmysite::audit::run_single_audit;
+use auditmysite::audit::{run_single_audit, Module, ModuleSet};
 use auditmysite::{BrowserManager, BrowserOptions, PipelineConfig, WcagLevel};
 use common::routing_server::{serve_routes, Route, Transport};
 
@@ -19,39 +19,10 @@ const SHOP_FORM: &str =
 <button type=submit>Send order</button></form></main></body></html>";
 
 fn config() -> PipelineConfig {
-    PipelineConfig {
-        wcag_level: WcagLevel::AA,
-        timeout_secs: 30,
-        stability_budget_ms: 1500,
-        verbose: false,
-        full_audit: false,
-        check_performance: false,
-        check_seo: true,
-        check_security: false,
-        check_mobile: false,
-        check_html_conform: false,
-        check_privacy: false,
-        check_isolate_third_party_impact: false,
-        check_ssr_content: false,
-        check_stack: false,
-        rule_filter: auditmysite::wcag::RuleFilterConfig::default(),
-        persist_artifacts: true,
-        capture_screenshots: false,
-        capture_element_evidence: false,
-        dismiss_consent: false,
-        exclude_selectors: Vec::new(),
-        interactive: auditmysite::cli::InteractiveMode::Off,
-        allow_state_changes: false,
-        perf_runs: 1,
-        journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
-        session: Default::default(),
-        storage_state: None,
-        state_id: None,
-        lang: "en".to_string(),
-        display_mode: None,
-        indexability: Default::default(),
-        decision_profile: Default::default(),
-    }
+    PipelineConfig::default()
+        .with_wcag_level(WcagLevel::AA)
+        .with_modules(ModuleSet::none().with(Module::Seo))
+        .with_interactive(auditmysite::cli::InteractiveMode::Off)
 }
 
 async fn browser() -> BrowserManager {

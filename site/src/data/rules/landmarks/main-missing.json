@@ -1,0 +1,41 @@
+{
+  "id": "landmarks/main-missing",
+  "url": "https://casoon.github.io/auditmysite/rules/landmarks/main-missing/",
+  "domain": "wcag",
+  "title": "No main-content region as a bypass target",
+  "outcome": "hint-only",
+  "area": "Accessibility, Navigation & Operation",
+  "criterion": "2.4.1",
+  "level": "A",
+  "axe_id": "landmark-one-main",
+  "severity": "medium",
+  "user_impact": "Keyboard users have no reliable target to bypass repeated navigation blocks.",
+  "technical_impact": "No element with role=\"main\" (implicit via <main> or explicit) present.",
+  "checks": [
+    {
+      "contract_id": "landmarks/main-missing",
+      "outcome": "hint-only",
+      "source": "Best practice: WAI-ARIA 1.2 main role; ARIA11; axe landmark-one-main (bypass itself is headings/none, SC 2.4.1)",
+      "applicability": "Every top-level document. A body without any content has nothing to structure and is not applicable.",
+      "expectation": "Flags a document without a rendered main landmark (main element or\nrole=\"main\", also inside an open shadow root), at the html element. While a\nmodal dialog is open the absence concerns the moment of measurement: review\ninstead. A hidden second main does not stand in for nor block the visible one.\nBest practice without a criterion; a missing bypass mechanism is\nheadings/none.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "missing_main_landmark",
+        "file": "tests/fixtures/detection_corpus/missing_main_landmark.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Missing main landmark corpus case</title>\n</head>\n<body>\n    <div>\n        <h1>Page without a main landmark</h1>\n        <p>No main element or role=\"main\" anywhere on this page.</p>\n    </div>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "landmark_main_in_shadow_root",
+        "file": "tests/fixtures/detection_corpus/landmark_main_in_shadow_root.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Main landmark inside a shadow root corpus case</title>\n</head>\n<body>\n    <!-- The page's landmarks live in an open shadow root, as in web-component\n         app shells. Chrome's accessibility tree exposes the main landmark; a\n         document.querySelectorAll('main') check does not see it and used to\n         report a missing main. -->\n    <app-shell></app-shell>\n    <script>\n        const root = document.querySelector('app-shell').attachShadow({ mode: 'open' });\n        root.innerHTML =\n            '<header><nav aria-label=\"Site\"><a href=\"/\">Home</a></nav></header>' +\n            '<main><h1>Content in a shadow root</h1><p>Text.</p></main>' +\n            '<footer>Footer</footer>';\n    </script>\n</body>\n</html>"
+      }
+    }
+  ]
+}

@@ -70,9 +70,234 @@
     },
     "decision": {
       "$ref": "#/$defs/decision"
+    },
+    "annotations": {
+      "$ref": "#/$defs/annotations_block"
     }
   },
   "$defs": {
+    "annotations_block": {
+      "description": "External assessments read from --annotations (annotation file schema 1, defined in barrierlab docs/a11y/reference/annotations.md). Shown apart from the findings; never read by the verdict, scores, risk level or exit code. Absent without the option.",
+      "type": "object",
+      "required": [
+        "schema",
+        "counts",
+        "matched",
+        "unmatched"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": 1
+        },
+        "counts": {
+          "type": "object",
+          "required": [
+            "total",
+            "matched",
+            "unmatched",
+            "by_author_kind"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "matched": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unmatched": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "by_author_kind": {
+              "type": "object",
+              "required": [
+                "agent",
+                "human"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "agent": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "human": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        },
+        "matched": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/annotation_matched"
+          }
+        },
+        "unmatched": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/annotation_unmatched"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "annotation_matched": {
+      "type": "object",
+      "required": [
+        "url",
+        "scope",
+        "annotation"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "The audited page the annotation attached to."
+        },
+        "scope": {
+          "enum": [
+            "finding",
+            "reading_flow"
+          ]
+        },
+        "finding_id": {
+          "type": "string",
+          "description": "pages[].findings[].id the annotation attached to (scope finding)."
+        },
+        "pattern_id": {
+          "type": "string",
+          "description": "pages[].findings[].patterns[].id, when narrowed to one element pattern."
+        },
+        "pattern_selector": {
+          "type": "string"
+        },
+        "annotation": {
+          "$ref": "#/$defs/annotation"
+        }
+      }
+    },
+    "annotation_unmatched": {
+      "type": "object",
+      "required": [
+        "reason",
+        "annotation"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "enum": [
+            "finding_not_found",
+            "pattern_not_found",
+            "url_not_audited",
+            "url_required",
+            "no_reading_flow"
+          ]
+        },
+        "annotation": {
+          "$ref": "#/$defs/annotation"
+        }
+      }
+    },
+    "annotation": {
+      "description": "One assessment as read from the annotation file.",
+      "type": "object",
+      "required": [
+        "scope",
+        "author",
+        "assessment",
+        "reasoning"
+      ],
+      "properties": {
+        "scope": {
+          "enum": [
+            "finding",
+            "reading_flow"
+          ]
+        },
+        "finding_id": {
+          "type": "string",
+          "pattern": "^F-[0-9a-f]{8}$"
+        },
+        "pattern_id": {
+          "type": "string",
+          "pattern": "^RC-[0-9a-f]{8}$"
+        },
+        "url": {
+          "type": "string"
+        },
+        "author": {
+          "type": "object",
+          "required": [
+            "kind",
+            "name"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "agent",
+                "human"
+              ]
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "assessment": {
+          "enum": [
+            "likely_issue",
+            "likely_fine",
+            "undetermined"
+          ]
+        },
+        "reasoning": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "screenshot",
+                  "text",
+                  "link"
+                ]
+              },
+              "path": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "created": {
+          "type": "string"
+        }
+      }
+    },
     "artifact": {
       "type": "object",
       "required": [
@@ -599,16 +824,6 @@
           "minimum": 0,
           "maximum": 100
         },
-        "ux_score": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
-        },
-        "journey_score": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
-        },
         "performance_throttled_avg_score": {
           "type": "integer",
           "minimum": 0,
@@ -645,7 +860,8 @@
             "$ref": "#/$defs/decisionAction"
           }
         },
-        "commerce": {
+        "experimental": {
+          "description": "Batch roll-ups of the experimental indicators (`--experimental`, #916). `commerce` is the union of mandatory/trust-page links across the audited shop pages.",
           "type": [
             "object",
             "null"
@@ -884,6 +1100,23 @@
         "principle_coverage": {
           "$ref": "#/$defs/principleCoverage"
         },
+        "experimental": {
+          "description": "Experimental indicators that ran (`--experimental`, #916), keyed by `ux`, `journey`, `ai_visibility`, `content_visibility`, `source_quality`, `commerce`. Each scored indicator (all but `commerce`) carries `measurement_type: heuristic` and a `signal_contract` whose `contract.validation.status` is `unvalidated`. They feed no score, finding, risk level or verdict. Single reports only; absent without `--experimental`.",
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "ux",
+              "journey",
+              "ai_visibility",
+              "content_visibility",
+              "source_quality",
+              "commerce"
+            ]
+          },
+          "additionalProperties": {
+            "type": "object"
+          }
+        },
         "findings": {
           "type": "array",
           "items": {
@@ -953,6 +1186,9 @@
         },
         "decision": {
           "$ref": "#/$defs/decision"
+        },
+        "baseline": {
+          "$ref": "#/$defs/pageBaseline"
         }
       }
     },
@@ -1110,39 +1346,8 @@
             "null"
           ]
         },
-        "ux": {
-          "type": [
-            "object",
-            "null"
-          ]
-        },
-        "journey": {
-          "type": [
-            "object",
-            "null"
-          ]
-        },
         "privacy": {
           "description": "Pre-consent privacy findings of one first visit (phase A, no interaction; technical observations, no legal verdict or score). `checks` has one entry per check with `found`, `not_found`, `not_applicable` or `not_measured`; `findings[].confidence` is `evidence`, `indication` or `manual-check`. A failed or partial capture reads `not_measured` in `measurement` and `checks`, never as a clean result.",
-          "type": [
-            "object",
-            "null"
-          ]
-        },
-        "source_quality": {
-          "description": "Shown as 'Technical preparation for machine processing'. `score` combines `consistency` and `authority`; `substance` holds structural indicators and its `score` is deprecated (not part of `score`, removed in 2.0).",
-          "type": [
-            "object",
-            "null"
-          ]
-        },
-        "ai_visibility": {
-          "type": [
-            "object",
-            "null"
-          ]
-        },
-        "content_visibility": {
           "type": [
             "object",
             "null"
@@ -1217,12 +1422,6 @@
               }
             }
           }
-        },
-        "commerce": {
-          "type": [
-            "object",
-            "null"
-          ]
         },
         "dual_viewport": {
           "type": [
@@ -1528,7 +1727,11 @@
         },
         "help_url": {
           "type": "string",
-          "description": "Official reference URL for the criterion (e.g. WCAG Understanding page). Present only for WCAG findings that carry one."
+          "description": "Documentation page of the rule on the project site (https://casoon.github.io/auditmysite/rules/<page_id>/). Present for every WCAG finding whose rule is in the catalogue and for the security header, vulnerable library and structured-data (missing required properties) findings; absent for every other finding."
+        },
+        "understanding_url": {
+          "type": "string",
+          "description": "Official reference for the criterion (the W3C WCAG Understanding page). Present only for WCAG findings whose rule names one."
         },
         "occurrence_count": {
           "type": "integer",
@@ -1546,6 +1749,10 @@
         "id": {
           "type": "string",
           "description": "F- and eight hex digits from the rule; the same on every page and run."
+        },
+        "known": {
+          "type": "boolean",
+          "description": "Present (true) when the finding's id is in the findings baseline (--baseline): it does not affect the decision."
         },
         "patterns": {
           "type": "array",
@@ -2143,6 +2350,87 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 100
+        },
+        "baseline_digest": {
+          "type": "string",
+          "description": "Digest of the findings baseline the run was gated against (--baseline); absent without one."
+        }
+      }
+    },
+    "pageBaseline": {
+      "description": "How this page relates to the findings baseline (--baseline). Scores and findings are unchanged; `gate` holds the verdict inputs left after the known findings. Absent without --baseline.",
+      "type": "object",
+      "required": [
+        "digest",
+        "page_listed",
+        "known",
+        "new",
+        "fixed",
+        "gate"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "type": "string",
+          "description": "SHA-256 over the baseline's recorded urls and finding ids; also decision.profile.baseline_digest."
+        },
+        "page_listed": {
+          "type": "boolean",
+          "description": "Whether the baseline lists this URL; a page it does not list has no known findings."
+        },
+        "known": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Findings of this run whose id is in the baseline (findings[].known)."
+        },
+        "new": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fixed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Baseline entries of this page without a finding in this run: fixed, or from a module that did not run."
+        },
+        "fixed_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "gate": {
+          "type": "object",
+          "required": [
+            "legal_flags",
+            "blocking_issues",
+            "keyboard_blocking_issues",
+            "technical_blockers",
+            "open_findings"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "legal_flags": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "blocking_issues": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "keyboard_blocking_issues": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "technical_blockers": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "open_findings": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "WCAG findings that are not known."
+            }
+          }
         }
       }
     },

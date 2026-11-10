@@ -3,7 +3,6 @@ import { readFile } from 'node:fs/promises';
 import {
   Badge,
   Badges,
-  BuildOutput,
   CodeBlock,
   Facts,
   Faq,
@@ -13,13 +12,12 @@ import {
   Keymap,
   Quickstart,
   ReleaseHighlights,
-  Terminal,
 } from '@casoon/pages-theme/components';
 import Base from '@casoon/pages-theme/layouts/Base.astro';
 import { url } from '@casoon/pages-theme/url';
 import config from 'virtual:casoon-pages/config';
 import { parseChangelog } from '@casoon/pages-theme/lib/changelog';
-import { castDemo, fixture } from '../showcase';
+import { castDemo } from '../showcase';
 
 // Skip "Unreleased": it has no version to show as "New in v…" yet.
 const latestRelease = config.changelog
@@ -31,7 +29,7 @@ const latestRelease = config.changelog
 const quickstart = `# check which browser auditmysite will use
 auditmysite browser detect
 
-# full single-page audit: terminal summary, PDF and JSON in the current directory
+# full single-page audit: a table in the terminal, nothing written
 auditmysite https://example.com
 
 # machine-readable, for CI
@@ -88,7 +86,7 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
       },
       {
         title: 'JSON contract, PDF for people',
-        body: 'The JSON report is canonical English and schema-backed for automation. The PDF is tagged PDF/UA-1 and rendered in German or English (--lang de|en).',
+        body: 'The JSON report is canonical English and schema-backed for automation. The PDF is tagged PDF/UA-1 and rendered in English or German (--lang en|de).',
       },
       {
         title: 'Single pages and whole sites',
@@ -129,14 +127,6 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
     </ul>
   </section>
 
-  <BuildOutput
-    caption="Real output of auditmysite, recorded against casoon.de with assets/casts/record.sh and rendered when this site is built. The showcase has technician mode, the JSON coverage block and report-lint as well."
-    file="assets/casts/plan.txt"
-    heading="What an audit will do"
-  >
-    <Terminal ansi={fixture('plan.txt')} />
-  </BuildOutput>
-
   <Keymap
     heading="Common flags"
     groups={[
@@ -161,8 +151,8 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
         items: [
           { label: 'Report format', keys: ['-f', 'json|pdf|table'] },
           { label: 'Output file', keys: ['-o', '<file>'] },
-          { label: 'PDF language', keys: ['--lang', 'de|en'] },
-          { label: 'One JSON per page plus findings.jsonl', keys: ['--technician'] },
+          { label: 'Report language (default en)', keys: ['--lang', 'en|de'] },
+          { label: 'One JSON per page plus findings.jsonl', keys: ['--per-page-reports', '-f', 'json'] },
         ],
       },
     ]}
@@ -218,8 +208,8 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
       </dd>
       <dt>Heuristic modules are tendencies</dt>
       <dd>
-        Indicator scores such as UX or readability heuristics are estimates, not measurements, and
-        no statement of conformity.
+        Experimental indicators such as UX or AI visibility are off by default; they are estimates, not
+        measurements, and no statement of conformity.
       </dd>
       <dt>AAA is not fully implemented</dt>
       <dd><code>-l AAA</code> exists, but coverage of level AAA is still incomplete.</dd>
@@ -249,7 +239,7 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
       },
       {
         q: 'Does 100% automated pass mean the page is fully WCAG 2.2 AA compliant?',
-        a: "No. Of the 55 WCAG 2.2 A/AA success criteria, only 30 are counted as automated, and a criterion counts there only if a rule can actually report a violation. The other 25 are listed as requiring manual review, never silently marked as passed.",
+        a: "No. Of the 55 WCAG 2.2 A/AA success criteria, only 29 are counted as automated, and a criterion counts there only if a rule can actually report a violation. The other 26 are listed as requiring manual review, never silently marked as passed.",
       },
       {
         q: 'Where do the WCAG rule ids and checks come from?',
@@ -257,7 +247,7 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
       },
       {
         q: 'Can it audit more than one page at a time?',
-        a: 'Yes. Point it at a sitemap, a URL file, or a seed URL with --crawl, and it writes one aggregated batch report with averages, ranking, and recurring issues across pages. --technician switches that same batch run to one JSON file per page plus a flat findings.jsonl instead.',
+        a: 'Yes. Point it at a sitemap, a URL file, or a seed URL with --crawl, and it writes one aggregated batch report with averages, ranking, and recurring issues across pages. --per-page-reports -f json switches that same batch run to one JSON file per page plus a flat findings.jsonl instead.',
       },
     ]}
   />

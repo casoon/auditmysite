@@ -7,7 +7,7 @@ Resource-efficient WCAG 2.2 AA Accessibility Checker written in Rust. Audits web
 - **Language:** Rust (async with tokio)
 - **Browser:** Chrome/Chromium via `chromiumoxide` (CDP)
 - **CLI:** `clap` with derive macros
-- **PDF:** `renderreport` (Typst-based, optional `pdf` feature) — source repo at `../renderreport`, consumed as a pinned crates.io version
+- **PDF:** `renderreport` (Typst-based, `pdf` feature, on by default) — source repo at `../renderreport`, consumed as a pinned crates.io version
 - **Config:** Optional `auditmysite.toml` files
 
 ## Boundary to barrierlab (MANDATORY — agreed 2026-09-26)
@@ -37,15 +37,20 @@ Before every change, clarify which side the code belongs to:
   in the barrierlab repository.
 
 ## Key CLI Modes
-- Single: `auditmysite <URL>`
+- Single: `auditmysite <URL>` (default: table on stdout, English, no file written, no prompt; `-o report.json` / `-f pdf -o report.pdf` write a report)
 - Sitemap: `auditmysite --sitemap <SITEMAP_URL>` (batch from XML sitemap)
+- Findings baseline: `--write-baseline <FILE>` records the finding ids of a run, `--baseline <FILE>` makes findings with a recorded id `known` (no effect on verdict/exit code, per URL in a batch; scores and findings unchanged; digest in `decision.profile.baseline_digest`; malformed or other-scheme file exits 3; #930). Finding ids derive from the rule id alone: `FINDING_ID_SCHEME` in `src/audit/baseline.rs` must be raised with any change of that derivation, a rule rename is a changelog entry (docs/OUTPUT_CONTRACT.md "Finding id stability")
 - URL file: `auditmysite --url-file <FILE>` (batch from text file)
-- Full audit: `--full` (enables performance, seo, security, mobile)
-- Browser: `auditmysite browser {detect|install|remove|path}`, `auditmysite doctor`
-- Report lint: `auditmysite report-lint <JSON_FILE> [--fail-on low|medium|high|critical]` (#507, deterministic checks, no network/Chrome; default fail-on: high; exit code 3 if breached)
-- accname differential: `auditmysite accname-diff <URL>... [--url-file FILE] [--output FILE] [--max-samples N]` (more than one URL → corpus aggregate; `text_transform` as its own class via computed style; own `accname::name_rendered` with `display`/`visibility` from DOMSnapshot against Chrome's native AX tree; measures, does not judge — exit code always 0; see `docs/accname-differential.md`)
+- Full audit: `--full` (every module — the default; see Modules below)
+- Browser: `auditmysite browser {detect|install|ensure|remove|path}`, `auditmysite doctor`
+- Maintainer tooling lives in the separate binary `auditmysite-dev` (feature `dev-tools`, not installed by `cargo install`, #912): `cargo run --features dev-tools --bin auditmysite-dev -- <command>`. It accepts everything `auditmysite` does plus `plan`, `replay`, `report-lint`, `accname-diff`, `--debug-typ` and `--export-snapshot`; none of these exist in `auditmysite` itself.
+- Report lint (dev binary): `auditmysite-dev report-lint <JSON_FILE> [--fail-on low|medium|high|critical]` (#507, deterministic checks, no network/Chrome; default fail-on: high; exit code 3 if breached)
+- accname differential (dev binary): `auditmysite-dev accname-diff <URL>... [--url-file FILE] [--output FILE] [--max-samples N]` (more than one URL → corpus aggregate; `text_transform` as its own class via computed style; own `accname::name_rendered` with `display`/`visibility` from DOMSnapshot against Chrome's native AX tree; measures, does not judge — exit code always 0; see `docs/accname-differential.md`)
 - Privacy: `--privacy-check` (opt-in, not part of `--full`): first-visit findings in `detail.modules.privacy` (#871; technical findings with confidence class, no verdict; see `docs/privacy-findings.md`)
-- Output formats: `--format {json|table|pdf}`
+- Experimental indicators: `--experimental <name>[,<name>]` (`ux`, `journey`, `ai-visibility`, `content-visibility`, `source-quality`, `commerce`; #916): unvalidated heuristics, off by default and in no `--full` run; JSON `pages[].experimental`, terminal table, never the PDF. The audit assembly moves their results into `AuditReport.experimental`
+- Modules: `--modules a11y,performance,seo,security,mobile,html-conform,stack` (default: all; `--full` is the explicit spelling of the default; the old per-module flags such as `--performance`, `--seo`, `--stack` are gone)
+- Report language: `--lang {en|de}` (default `en`; applies to PDF and table text, JSON stays English)
+- Output formats: `--format {json|table|pdf|ai|summary|sarif}`; without `-f` the format follows the extension of `-o`, without `-o` and `-f` a table is printed and nothing is written (`-f json` etc. print to stdout; `-f pdf` alone writes `./<domain>-<date>-<report-level>.pdf`)
 
 ## Report Intent
 - **Single URL audit** is intentionally detailed and page-specific.
@@ -64,7 +69,7 @@ Before every change, clarify which side the code belongs to:
 - **All manually generated test reports MUST be saved to `reports/`**
 - Use `--output reports/<filename>` when running audits
 - The `reports/` directory is gitignored (except `reports/README.md`)
-- Naming convention: `<domain>-audit.<format>` (e.g., `casoon-audit.html`)
+- Naming convention: `<domain>-audit.<format>` (e.g., `casoon-audit.pdf`)
 - Batch reports: `<domain>-batch-audit.<format>`
 
 ## Build & Test
@@ -74,17 +79,24 @@ cargo check                    # Fast compile check
 cargo check --all-features     # MANDATORY before every push — what CI checks
 cargo test                     # Run all tests
 cargo test --lib               # Unit tests only
+scripts/check-js.sh            # Lint + unit tests of the embedded JS (src/<module>/js/*.js); needs Node, skips locally without it
+UPDATE_RULE_DOCS=1 cargo test --test rule_docs   # Regenerate site/src/data/rules/ (per-rule pages, help_url target, #929); a plain run fails on drift
+cargo test --test taxonomy_catalogue   # Every emitted rule id has a taxonomy entry in src/taxonomy/rules.rs and vice versa (#918)
+cargo test --test cli_surface_tests    # `auditmysite --help` lists no maintainer tooling (#912); add --features dev-tools for the dev-binary cases
 ```
 
-**Run `cargo check --all-features` before every push.** Quick CI checks without optional
-features; the full QA checks all features and Clippy before releases or manually.
+**Run `cargo check --all-features` before every push.** Quick CI runs Clippy and the tests without
+optional features, plus `cargo doc --all-features` with `-D warnings` and `scripts/check-js.sh`;
+the full QA checks all features and Clippy before releases or manually.
 The hooks are versioned under `.githooks/` (`git config core.hooksPath .githooks`);
 `pre-push` blocks, among other things, an active barrierlab `[patch]`.
 
 Common pitfall: new fields in `NormalizedReport` break struct initializers in
 `src/audit/normalized.rs` and `src/audit/summary.rs`. Always check both.
-Likewise, every new field in `PipelineConfig` (public, without `Default`) breaks Studio and the
-doc example in `src/lib.rs` — update both.
+`PipelineConfig` is `#[non_exhaustive]` and built from `PipelineConfig::default()` (the default
+CLI run) plus `with_*` setters or field assignment (#933), so a new field no longer breaks Studio
+or the doc example in `src/lib.rs`: give it its value in `Default` and let `from_args_and_config`
+set it from the arguments; the test `default_is_the_default_cli_run` fails if the two disagree.
 
 ## Workflows (`.github/workflows/`)
 - The repo is public: Quick CI runs on PRs and pushes to `main`; full QA runs via `workflow_call`
@@ -93,6 +105,9 @@ doc example in `src/lib.rs` — update both.
 - Never install tools unpinned (no `cargo install … --git` without `--rev`, no tool without a
   version); pin actions by commit SHA with the tag as a comment. `cross` in `release.yml` is pinned to a commit.
 - Every new job gets `timeout-minutes`.
+- Decisions (#894, #783): the detector mutation check stays a blocking gate of the tag run, there
+  is no weekly run on `main`; the E2E job is not split and is revisited if it passes ~38 min (it
+  runs 22–33 min against its 45 min limit). Details in `docs/guides/development.md`.
 
 ## Release & `cargo publish` (MANDATORY — #588)
 A version published on crates.io can **never** be replaced, only yanked. And docs.rs builds each
@@ -110,26 +125,43 @@ version exactly once: what arrives broken there stays broken permanently. Theref
    `reference_sites.json` in the same PR, with the reason in `notes`. Otherwise only the run before
    the tag reports the long-fixed case as a deviation (1.8.0: bundesregierung.de and berlin.de,
    fixes of 04/05 Oct).
-1. **Set and push the tag `vX.Y.Z`.** This starts `release.yml`: version check, full CI,
+0b. **Human release smoke (#924).** Read one real report before the tag: one German and one
+   English real site (`--full -f pdf`, both PDFs read in DE and EN: wording in the wrong language,
+   scores against cards), one 5-URL batch (all five audited, none unexpectedly partial) and the
+   terminal table for wording and thresholds. Procedure, commands and the release-PR checkboxes:
+   "Human release smoke" in `docs/guides/development.md`.
+1. **Dispatch the full QA on the release candidate and wait for green before pushing the tag:**
+   `gh workflow run ci.yml --ref <candidate>` (since PR #956 a branch dispatch also runs the
+   docs.rs sandbox build and the four detector-mutation shards, #894). The mutation shards take
+   about 75–90 min and set the wall time; a failure found here costs a branch push, on the tag a
+   re-tag.
+2. **Set and push the tag `vX.Y.Z`.** This starts `release.yml`: version check, full CI,
    binaries, GitHub release.
-2. **Wait for the job `docs.rs Build (sandbox parity)`.** It runs **only on tags** and builds the
+3. **Wait for the job `docs.rs Build (sandbox parity)`.** It runs on tags and on
+   `workflow_dispatch` (step 1 is the first run) and builds the
    docs in the real docs.rs sandbox image — its nightly, its memory and time limits, and on what
    `cargo package` would publish. Nothing else in CI answers this: the docs step in
    `check-all-features` builds on the runner, with stable and without a memory cap.
-3. **Only then `cargo publish`.**
+4. **Only then `cargo publish`.**
 
 The job is `continue-on-error` as long as the action is in beta — so it does not block, it
 **informs**. If it is red, do not publish; clarify the cause first.
 
-For scale: 1.5.1 needed 4.75 GB of 6.4 GB available RAM there. Since `all-features = true`,
-docs.rs also documents `ai-transparency`, which raises the dependency graph from 454 to 565
-crates. The margin to the ceiling is real, but not large.
+For scale: 1.5.1 needed 4.75 GB of 6.4 GB available RAM there. At that time docs.rs built with
+`all-features = true`, which pulled in `ai-transparency` and raised the dependency graph from 454
+to 565 crates. Since #915 the feature (c2pa, hickory-resolver) and the `[package.metadata.docs.rs]`
+block are gone: docs.rs builds the default features, and `Cargo.lock` lists 615 packages instead
+of 762. The sandbox memory use of the smaller graph has not been re-measured; the 1.5.1 margin
+to the ceiling was real, but not large.
 
-Locally before the tag, if `cargo-docs-rs` is installed: `cargo docs-rs` builds with the same
-`[package.metadata.docs.rs]` configuration, but without sandbox and without limits.
+Locally before the tag, if `cargo-docs-rs` is installed: `cargo docs-rs` builds the way docs.rs
+does (default features, no `[package.metadata.docs.rs]` override), but without sandbox and
+without limits.
 
 ## Testing Against Live Sites
 ```bash
+# Language: reports are English unless `--lang de` is given (default `en`).
+
 # 1. Single page audit (all modules) — deep analysis of one specific page
 ./target/release/auditmysite https://example.com --full --format pdf --output reports/example-audit.pdf
 
@@ -143,13 +175,14 @@ Locally before the tag, if `cargo-docs-rs` is installed: `cargo docs-rs` builds 
 # 3. Full sitemap batch audit — all pages, domain-wide
 ./target/release/auditmysite --sitemap https://example.com/sitemap.xml --full --format pdf --output reports/example-batch-audit.pdf
 
-# Quick CLI check
-./target/release/auditmysite https://example.com --format table
+# Quick CLI check (the default run: table on stdout, nothing written)
+./target/release/auditmysite https://example.com
 ```
 
 ## Report Format Rules
-- **Always use PDF format** (`--format pdf`) when generating test reports
-- Never use HTML export for reports
+- **Always use PDF format** (`--format pdf`, or `-o <name>.pdf`) when generating test reports
+- There is no HTML export any more (formats: json, table, pdf, ai, summary, sarif)
+- To review report wording as text, use `--debug-typ` — it exists only in the `auditmysite-dev` binary
 - PDF reports use the `renderreport` Typst engine with full module detail sections
 
 ## Localization architecture (#406 — MANDATORY for new report-visible texts)
@@ -175,7 +208,9 @@ Whenever a new module is added, renamed, or removed, update `docs/ARCHITECTURE.m
 ## Code Conventions
 - Use `thiserror` for error types, `anyhow` for propagation
 - WCAG rules go in `src/wcag/rules/` as individual files, register in `mod.rs`
-- **Every active rule ID needs a contract** in `tests/fixtures/rule_contracts/` (format: README there) with positive, negative, N/A and error cases in the corpus, a variant matrix and targeted mutations; otherwise `cargo test --test rule_contract_gate` is red (#783). Write expectations from the standard, never from the run; `scripts/mutation-check.py --rule <id>` checks test strength.
+- **Every active rule ID needs a contract** in `tests/fixtures/rule_contracts/` (format: README there) with positive, negative, N/A and error cases in the corpus, a variant matrix and targeted mutations; otherwise `cargo test --test rule_contract_gate` is red (#783). Write expectations from the standard, never from the run; `scripts/mutation-check.py --rule <id>` checks test strength. A mutation `target` is any file of this repo that carries the detection, including the embedded script (`src/<module>/js/*.js`) or data file (`advisories.json`), not only a `.rs` file.
+- **One rule catalogue (#918):** the engine id a rule puts on its `Violation` is the key of its taxonomy entry in `src/taxonomy/rules.rs`; there is no second id and no fallback score. `cargo test --test taxonomy_catalogue` fails for a rule id without an entry and for an entry no rule reports.
+- **Scripts that run in the audited page** live in `src/<module>/js/<name>.js` and are loaded with `include_str!` (values from Rust as `__NAME__` placeholders, never `format!`); `scripts/check-js.sh` lints and tests them. Rules and shape: "Embedded JavaScript" in `docs/guides/development.md`.
 - Output formatters go in `src/output/`, support both single and batch reports
 - Keep async operations in audit pipeline and browser modules
 - Use `tracing` for structured logging (INFO, WARN, ERROR)

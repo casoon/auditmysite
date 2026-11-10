@@ -1428,6 +1428,7 @@ mod tests {
             screenshot_status: Default::default(),
             best_practices: None,
             commerce: None,
+            experimental: Default::default(),
             consent_banner_detected: false,
             consent_banner_cmp: None,
             consent_banner_dismissed: false,
@@ -1532,6 +1533,7 @@ mod tests {
                 meta_issues: vec![],
                 image_efficiency: None,
                 indexability: crate::seo::IndexabilityCheck::default(),
+                page_intent: None,
             }
         };
 
@@ -1691,6 +1693,7 @@ mod tests {
         let mut report = minimal_report();
         report.discoverability.seo = Some(SeoAnalysis {
             indexability: Default::default(),
+            page_intent: None,
             meta: MetaTags::default(),
             headings: HeadingStructure::default(),
             technical: TechnicalSeo::default(),

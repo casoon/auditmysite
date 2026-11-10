@@ -12,6 +12,7 @@ mod common;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use auditmysite::audit::ModuleSet;
 use auditmysite::{audit_page, BrowserManager, BrowserOptions, PipelineConfig, WcagLevel};
 
 /// Serve a local HTML file over HTTP on a random port.
@@ -42,39 +43,13 @@ async fn ci_browser() -> BrowserManager {
 }
 
 fn default_config() -> PipelineConfig {
-    PipelineConfig {
-        wcag_level: WcagLevel::AA,
-        timeout_secs: 30,
-        stability_budget_ms: 1500,
-        verbose: false,
-        full_audit: false,
-        check_performance: false,
-        check_seo: false,
-        check_security: false,
-        check_mobile: false,
-        check_html_conform: false,
-        check_privacy: false,
-        perf_runs: 1,
-        check_isolate_third_party_impact: false,
-        check_ssr_content: false,
-        check_stack: false,
-        rule_filter: auditmysite::wcag::RuleFilterConfig::default(),
-        persist_artifacts: false,
-        capture_screenshots: false,
-        capture_element_evidence: false,
-        dismiss_consent: false,
-        exclude_selectors: Vec::new(),
-        interactive: auditmysite::cli::InteractiveMode::Off,
-        allow_state_changes: false,
-        journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
-        session: Default::default(),
-        storage_state: None,
-        state_id: None,
-        lang: "de".to_string(),
-        display_mode: None,
-        indexability: Default::default(),
-        decision_profile: Default::default(),
-    }
+    let mut config = PipelineConfig::default()
+        .with_wcag_level(WcagLevel::AA)
+        .with_modules(ModuleSet::none())
+        .with_interactive(auditmysite::cli::InteractiveMode::Off);
+    config.persist_artifacts = false;
+    config.lang = "de".to_string();
+    config
 }
 
 async fn recognizes_easy_language(fixture: &str) -> bool {

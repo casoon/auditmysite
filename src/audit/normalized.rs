@@ -62,6 +62,11 @@ pub struct NormalizedReport {
     /// The decision under the stored profile (#781): the one PASS/WARN/FAIL
     /// every output projects.
     pub decision: crate::audit::verdict::VerdictResult,
+    /// Known, new and fixed findings against the findings baseline and the
+    /// verdict inputs left after the known ones (#930). Absent without
+    /// `--baseline`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline: Option<crate::audit::baseline::BaselineStatus>,
     /// Severity-Zähler — zählt **Findings** (eine Zeile pro Regel + Severity).
     pub severity_counts: SeverityCounts,
     /// Severity-Zähler — zählt **Element-Occurrences** (alle betroffenen Elemente).
@@ -174,6 +179,9 @@ pub struct AuditContext<'a> {
     pub raw_throttled_performance: &'a [crate::audit::report::ThrottledPerfResult],
     pub raw_best_practices: Option<&'a crate::best_practices::BestPracticesAnalysis>,
     pub raw_commerce: Option<&'a crate::commerce::CommerceAnalysis>,
+    /// The experimental indicators that ran (`--experimental`, #916); the
+    /// `raw_ux` ... `raw_commerce` fields above stay empty for a finished audit.
+    pub raw_experimental: &'a crate::audit::ExperimentalIndicators,
 }
 
 /// Einheitliche Severity-Zähler
@@ -316,6 +324,10 @@ pub struct NormalizedFinding {
     /// run, also when an element is added (2.0 finding model, plan 100).
     #[serde(default)]
     pub id: String,
+    /// The finding's id is in the findings baseline (`--baseline`, #930): it
+    /// does not affect the decision. Present only when `true`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub known: bool,
     /// The element patterns of this finding, most occurrences first, at most
     /// [`MAX_PATTERNS`]. A pattern id equals the root-cause id of that rule
     /// and pattern, so the same template on several pages shares it.
@@ -327,7 +339,7 @@ pub struct NormalizedFinding {
     /// Category: "wcag" for WCAG accessibility findings, "seo" for SEO findings.
     #[serde(default = "default_finding_category")]
     pub category: String,
-    /// Taxonomie-Regel-ID (z.B. "a11y.alt_text.missing")
+    /// Regel-ID der Engine, zugleich Schlüssel der Taxonomie (z.B. "images/alt-missing")
     pub rule_id: String,
     /// WCAG-Kriterium (z.B. "1.1.1")
     pub wcag_criterion: String,
@@ -373,9 +385,14 @@ pub struct NormalizedFinding {
     pub title: String,
     /// Beschreibung
     pub description: String,
-    /// Offizielle Referenz zum Kriterium (z.B. WCAG-Understanding-Seite)
+    /// Documentation page of the rule on the project site
+    /// (`taxonomy::rule_doc_url`); absent for findings without a rule page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub help_url: Option<String>,
+    /// Official reference for the criterion (the WCAG Understanding page),
+    /// absent when the rule names none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub understanding_url: Option<String>,
     /// Anzahl Vorkommen
     pub occurrence_count: usize,
     /// Prioritätswert für Maßnahmenplanung (impact × reach / effort)
@@ -438,8 +455,8 @@ impl NormalizedFinding {
     /// require AA, so a High contrast failure (1.4.3) flags as a Level-A one
     /// does. A convention rule (`display/*`) never does (#704) — it is only
     /// anchored to a criterion, it does not test it; nor does a criterion
-    /// outside EN 301 549 V3.2.1 (WCAG-2.2-only criteria): both derive
-    /// `bfsg_relevance` "low".
+    /// without a normative clause in EN 301 549 V4.1.1 (AAA criteria,
+    /// retired 4.1.1 Parsing): both derive `bfsg_relevance` "low".
     pub fn is_legal_flag(&self) -> bool {
         // A finding that still needs a manual check is no legal flag, however
         // severe its rule (plan 74).
@@ -826,26 +843,19 @@ fn wcag_anchor(v: &crate::wcag::Violation) -> OccurrenceAnchor {
 }
 
 fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedFinding> {
-    // Group violations by the rule they resolve to: two checks that share a
-    // taxonomy entry are one finding with one id (#780), not two rows with
-    // the same id. Unregistered checks group by their own key.
-    let mut groups: HashMap<&str, (&str, Vec<&crate::wcag::Violation>)> = HashMap::new();
+    // One finding per rule: a violation's group is the id of the engine rule
+    // that reported it, which is also the id of its taxonomy entry.
+    let mut groups: HashMap<&str, Vec<&crate::wcag::Violation>> = HashMap::new();
     for v in violations {
-        let key = wcag_group_key(v);
-        let identity = RuleLookup::by_legacy_wcag_id(key).map_or(key, |rule| rule.id);
-        groups
-            .entry(identity)
-            .or_insert((key, Vec::new()))
-            .1
-            .push(v);
+        groups.entry(wcag_group_key(v)).or_default().push(v);
     }
 
     // Build normalized findings
     let findings: Vec<NormalizedFinding> = groups
-        .into_values()
+        .into_iter()
         .map(|(rule_id, violations)| {
             let first = violations[0];
-            let taxonomy_rule = RuleLookup::by_legacy_wcag_id(rule_id);
+            let taxonomy_rule = RuleLookup::by_id(rule_id);
 
             use crate::taxonomy::{Dimension, IssueClass, Subcategory};
             let (
@@ -1018,6 +1028,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
             );
 
             NormalizedFinding {
+                known: false,
                 id,
                 patterns,
                 pattern_count,
@@ -1040,7 +1051,8 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 aggregation_key: tax_id,
                 title: display_title,
                 description: first.message.clone(),
-                help_url: first.help_url.clone(),
+                help_url: taxonomy_rule.map(|r| crate::taxonomy::rule_doc_url(r.id)),
+                understanding_url: first.help_url.clone(),
                 occurrence_count,
                 priority_score,
                 confidence,
@@ -1152,26 +1164,23 @@ fn rederive_count_dependent_fields(f: &mut NormalizedFinding) {
     );
 }
 
+/// The taxonomy rule id a violation is grouped under: the id behind
+/// `findings[].rule_id` and, hashed, `findings[].id`.
+pub(crate) fn violation_rule_id(violation: &crate::wcag::Violation) -> String {
+    let key = wcag_group_key(violation);
+    RuleLookup::by_id(key)
+        .map(|rule| rule.id.to_string())
+        .unwrap_or_else(|| format!("unknown.{key}"))
+}
+
 pub(crate) fn wcag_group_key(violation: &crate::wcag::Violation) -> &str {
-    // Prefer the violation's own axe/rule id as the group key whenever the
-    // taxonomy has a dedicated entry for it. Several distinct checks share
-    // one raw WCAG success criterion (e.g. many 4.1.2 checks: missing name,
-    // invalid role, required-parent, required-attr, …); grouping by the raw
-    // criterion alone collapsed them into a single merged finding that took
-    // one arbitrary check's title/severity/fix guidance — including
-    // escalating the whole group to the max severity of its worst member
-    // (#QA-009). Falls back to the raw criterion id so checks that share a
-    // taxonomy entry by design (e.g. several "missing accessible name"
-    // checks under 4.1.2) still group together as intended. This also
-    // subsumes what used to be a hardcoded 5-entry escape hatch for a few
-    // rules that needed it — any axe id with a dedicated LEGACY_WCAG_MAP
-    // entry gets the same treatment now.
-    if let Some(axe_id) = violation.rule_id.as_deref() {
-        if RuleLookup::by_legacy_wcag_id(axe_id).is_some() {
-            return axe_id;
-        }
-    }
-    violation.rule.as_str()
+    // The engine rule's id keys the taxonomy. A violation without one (a
+    // hand-built test fixture) keys by its raw WCAG criterion and has no
+    // taxonomy entry.
+    violation
+        .rule_id
+        .as_deref()
+        .unwrap_or(violation.rule.as_str())
 }
 
 /// Per-`taxonomy::Subcategory` Accessibility score (plan/5-module-
@@ -1202,7 +1211,7 @@ fn compute_accessibility_subcategory_scores(
     ];
 
     let subcategory_for = |v: &crate::wcag::Violation| -> Subcategory {
-        RuleLookup::by_legacy_wcag_id(wcag_group_key(v))
+        RuleLookup::by_id(wcag_group_key(v))
             .map(|r| r.subcategory)
             .unwrap_or_default()
     };
@@ -1276,7 +1285,7 @@ fn filter_aria_hidden_interactive(
     aria_hidden_selectors.extend(
         findings
             .iter()
-            .filter(|f| f.rule_id == "a11y.aria_hidden_focus.invalid")
+            .filter(|f| f.rule_id == "keyboard/hidden-focusable")
             .flat_map(|f| f.occurrences.iter().filter_map(|o| o.selector.clone())),
     );
 
@@ -1639,13 +1648,11 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     let has_broken_skip_link = interactive_findings
         .iter()
         .any(|f| f.category == "SkipLink");
-    let has_bypass_blocks_violation = findings
-        .iter()
-        .any(|f| f.rule_id == "a11y.bypass_blocks.missing");
+    let has_bypass_blocks_violation = findings.iter().any(|f| f.rule_id == "headings/none");
     if has_broken_skip_link && !has_bypass_blocks_violation {
         audit_flags.push(AuditFlag {
             kind: "bypass_blocks_untested".to_string(),
-            related_rule: Some("a11y.bypass_blocks.missing".to_string()),
+            related_rule: Some("headings/none".to_string()),
             source: "a11y_journey.skip_link".to_string(),
             message: "A skip link is present (WCAG 2.4.1 static check passed) but the \
                 journey found it does not move keyboard focus to the target. The page \
@@ -1663,6 +1670,36 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         score,
         overall_score,
     );
+
+    // The findings baseline (#930) marks the known findings; the verdict
+    // reads the inputs that remain without them.
+    let baseline = report.run_context.baseline.as_ref().map(|page| {
+        crate::audit::baseline::classify(
+            page,
+            report
+                .run_context
+                .decision_profile
+                .baseline_digest
+                .as_deref()
+                .unwrap_or_default(),
+            &mut findings,
+            |open| {
+                let open_risk = compute_risk_assessment(
+                    open,
+                    &occurrence_counts,
+                    &interactive_findings,
+                    screen_reader.as_ref(),
+                    score,
+                    overall_score,
+                );
+                (
+                    open_risk.legal_flags,
+                    open_risk.blocking_issues,
+                    open_risk.keyboard_blocking_issues,
+                )
+            },
+        )
+    });
 
     let accessibility_subcategory_scores = compute_accessibility_subcategory_scores(violations);
     let security_category_scores = report
@@ -1691,6 +1728,7 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         findings,
         finding_inventory,
         decision: crate::audit::verdict::VerdictResult::undecided(),
+        baseline,
         severity_counts,
         occurrence_counts,
         accessibility_assessments: normalize_assessments(&report.accessibility.wcag_results),
@@ -1739,6 +1777,7 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         raw_throttled_performance: &report.throttled_performance,
         raw_best_practices: report.best_practices.as_ref(),
         raw_commerce: report.commerce.as_ref(),
+        raw_experimental: &report.experimental,
     };
     ctx.normalized.interpretation = Some(Interpretation::from_context(&ctx));
     // Last: the decision reads the finished report, under the profile the
@@ -1751,7 +1790,7 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
 }
 
 /// The WCAG criterion a violation belongs to. A few page rules (e.g.
-/// `aria-prohibited-attr`) carry their own slug in `Violation::rule` instead of
+/// `aria/attribute-prohibited`) carry their own slug in `Violation::rule` instead of
 /// a criterion; the taxonomy maps those, so `wcag_criterion` never holds a
 /// rule slug (plan 61).
 pub(crate) fn wcag_criterion_of(rule: &str) -> String {
@@ -1798,16 +1837,15 @@ mod tests {
         );
     }
 
-    /// Two checks that resolve to one taxonomy rule (`links/name-missing`,
-    /// `buttons/name-missing`) are one finding with one id. They were two
-    /// rows sharing the id `a11y.control_name.missing` until the finding
-    /// contract rejected duplicate ids on a live page (#780).
+    /// Occurrences of one rule form one finding with one id; two rules are
+    /// two findings, even when they report the same criterion (#780, #918).
     #[test]
     fn checks_of_one_rule_form_one_finding() {
         let mut results = WcagResults::new();
         for (axe, selector) in [
-            ("links/name-missing", "a.icon"),
             ("buttons/name-missing", "button.x"),
+            ("buttons/name-missing", "button.y"),
+            ("links/name-missing", "a.icon"),
         ] {
             results.add_violation(
                 Violation::new(
@@ -1827,12 +1865,63 @@ mod tests {
         let rows: Vec<_> = n
             .findings
             .iter()
-            .filter(|f| f.rule_id == "a11y.control_name.missing")
+            .filter(|f| f.rule_id == "buttons/name-missing")
             .collect();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].occurrence_count, 2);
         assert_eq!(rows[0].pattern_count, 2);
+        assert_eq!(
+            n.findings
+                .iter()
+                .filter(|f| f.rule_id == "links/name-missing")
+                .count(),
+            1
+        );
         n.validate().unwrap();
+    }
+
+    /// #929: `help_url` is the rule's page on the project site whatever the
+    /// rule itself names; the rule's own reference (the W3C Understanding
+    /// page, or nothing) moves to `understanding_url`.
+    #[test]
+    fn help_url_is_the_rule_page_and_the_reference_is_kept_apart() {
+        let mut results = WcagResults::new();
+        for (axe, understanding) in [
+            (
+                "images/alt-missing",
+                Some("https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html"),
+            ),
+            ("buttons/name-missing", None),
+        ] {
+            let mut v = Violation::new(
+                "4.1.2",
+                "Name, Role, Value",
+                crate::cli::WcagLevel::A,
+                Severity::High,
+                "x",
+                "n1",
+            )
+            .with_rule_id(axe)
+            .with_selector("x");
+            v.help_url = understanding.map(str::to_string);
+            results.add_violation(v);
+        }
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+        let n = normalize(&report).normalized;
+        let find = |id: &str| n.findings.iter().find(|f| f.rule_id == id).unwrap();
+        assert_eq!(
+            find("images/alt-missing").help_url.as_deref(),
+            Some("https://casoon.github.io/auditmysite/rules/images/alt-missing/")
+        );
+        assert_eq!(
+            find("images/alt-missing").understanding_url.as_deref(),
+            Some("https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html")
+        );
+        assert_eq!(
+            find("buttons/name-missing").help_url.as_deref(),
+            Some("https://casoon.github.io/auditmysite/rules/buttons/name-missing/")
+        );
+        assert_eq!(find("buttons/name-missing").understanding_url, None);
     }
 
     /// #784 counter-case: the same rule id with different evidence. A
@@ -1850,7 +1939,8 @@ mod tests {
                 Severity::High,
                 "no alt",
                 "42",
-            );
+            )
+            .with_rule_id("images/alt-missing");
             if let Some(s) = selector {
                 v = v.with_selector(s);
             }
@@ -1879,14 +1969,17 @@ mod tests {
     #[test]
     fn document_wide_wcag_finding_is_confirmed_at_high_confidence() {
         let mut results = WcagResults::new();
-        results.add_violation(Violation::new(
-            "3.1.1",
-            "Language of Page",
-            WcagLevel::A,
-            Severity::High,
-            "no lang",
-            "page",
-        ));
+        results.add_violation(
+            Violation::new(
+                "3.1.1",
+                "Language of Page",
+                WcagLevel::A,
+                Severity::High,
+                "no lang",
+                "page",
+            )
+            .with_rule_id("document/lang-missing"),
+        );
         let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
         let f = normalize(&report)
             .normalized
@@ -1904,7 +1997,11 @@ mod tests {
     /// `wcag_criterion: "aria-prohibited-attr"`).
     #[test]
     fn slug_page_rules_normalize_to_their_criterion() {
-        for slug in ["aria-prohibited-attr", "aria-hidden-focus", "frame-tested"] {
+        for slug in [
+            "aria/attribute-prohibited",
+            "keyboard/hidden-focusable",
+            "frames/cross-origin",
+        ] {
             assert_eq!(wcag_criterion_of(slug), "4.1.2", "{slug}");
         }
     }
@@ -1940,9 +2037,15 @@ mod tests {
             flag("1.1.1", WcagLevel::A, Severity::High, Some("img.x")),
             (true, 1)
         );
+        // A WCAG-2.2 AA criterion (2.5.8) has clause 9.2.5.8 in EN 301 549
+        // V4.1.1, so it flags like any other AA criterion (#923).
+        assert_eq!(
+            flag("2.5.8", WcagLevel::AA, Severity::High, Some("a.x")),
+            (true, 1)
+        );
         // Negative: AA Medium, A Low, AA High that still needs a manual check
-        // (no located element), AAA High, and a WCAG-2.2-only AA criterion
-        // (2.5.8) that EN 301 549 V3.2.1 does not cover.
+        // (no located element), AAA High, and the retired 4.1.1 Parsing,
+        // which is void (9.4.1.1) in EN 301 549 V4.1.1.
         assert_eq!(
             flag("1.4.3", WcagLevel::AA, Severity::Medium, Some("p.x")),
             (false, 0)
@@ -1960,7 +2063,7 @@ mod tests {
             (false, 0)
         );
         assert_eq!(
-            flag("2.5.8", WcagLevel::AA, Severity::High, Some("a.x")),
+            flag("4.1.1", WcagLevel::A, Severity::High, Some("div.x")),
             (false, 0)
         );
     }
@@ -1986,20 +2089,23 @@ mod tests {
         let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
         let norm = normalize(&report).normalized;
         let finding = &norm.findings[0];
-        assert_eq!(finding.rule_id, "a11y.display_text_layer.hidden");
+        assert_eq!(finding.rule_id, "display/text-hidden");
         assert_eq!(finding.bfsg_relevance, "low");
         assert!(!finding.is_legal_flag());
         assert_eq!(norm.risk.legal_flags, 0);
 
         let mut results = WcagResults::new();
-        results.add_violation(Violation::new(
-            "1.1.1",
-            "Non-text Content",
-            WcagLevel::A,
-            Severity::High,
-            "Missing alt",
-            "n1",
-        ));
+        results.add_violation(
+            Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                WcagLevel::A,
+                Severity::High,
+                "Missing alt",
+                "n1",
+            )
+            .with_rule_id("images/alt-missing"),
+        );
         let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
         let norm = normalize(&report).normalized;
         assert_eq!(norm.findings[0].bfsg_relevance, "high");
@@ -2021,12 +2127,12 @@ mod tests {
                 "motion",
                 "stylesheet",
             )
-            .with_rule_id("prefers-reduced-motion"),
+            .with_rule_id("motion/reduced-motion-ignored"),
         );
         let report = AuditReport::new("https://example.com".into(), WcagLevel::AAA, results, 1);
         let norm = normalize(&report).normalized;
         let finding = &norm.findings[0];
-        assert_eq!(finding.rule_id, "a11y.motion.reduced_motion");
+        assert_eq!(finding.rule_id, "motion/reduced-motion-ignored");
         assert_eq!(finding.wcag_level, "AAA");
         assert_eq!(finding.bfsg_relevance, "low");
         assert!(!finding.is_legal_flag());
@@ -2040,11 +2146,8 @@ mod tests {
     #[test]
     fn best_practice_name_rules_have_own_taxonomy_and_no_legal_flag() {
         for (axe_id, taxonomy_id) in [
-            ("title-only-description", "a11y.title_only_description.weak"),
-            (
-                "description-duplicates-name",
-                "a11y.description_duplicates_name.redundant",
-            ),
+            ("names/title-only", "names/title-only"),
+            ("description-duplicates-name", "description-duplicates-name"),
         ] {
             let mut results = WcagResults::new();
             results.add_violation(
@@ -2077,7 +2180,7 @@ mod tests {
         let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
         let norm = normalize(&report).normalized;
         let finding = &norm.findings[0];
-        assert_eq!(finding.rule_id, "a11y.viewport_zoom.restricted");
+        assert_eq!(finding.rule_id, "zoom/viewport-scale-limited");
         assert_eq!(finding.bfsg_relevance, "low");
         assert!(!finding.is_legal_flag());
     }
@@ -2140,30 +2243,39 @@ mod tests {
     #[test]
     fn test_normalize_groups_by_rule() {
         let mut results = WcagResults::new();
-        results.add_violation(Violation::new(
-            "1.1.1",
-            "Non-text Content",
-            WcagLevel::A,
-            Severity::High,
-            "Missing alt 1",
-            "n1",
-        ));
-        results.add_violation(Violation::new(
-            "1.1.1",
-            "Non-text Content",
-            WcagLevel::A,
-            Severity::High,
-            "Missing alt 2",
-            "n2",
-        ));
-        results.add_violation(Violation::new(
-            "2.4.4",
-            "Link Purpose",
-            WcagLevel::A,
-            Severity::Medium,
-            "Unclear link",
-            "n3",
-        ));
+        results.add_violation(
+            Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                WcagLevel::A,
+                Severity::High,
+                "Missing alt 1",
+                "n1",
+            )
+            .with_rule_id("images/alt-missing"),
+        );
+        results.add_violation(
+            Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                WcagLevel::A,
+                Severity::High,
+                "Missing alt 2",
+                "n2",
+            )
+            .with_rule_id("images/alt-missing"),
+        );
+        results.add_violation(
+            Violation::new(
+                "2.4.4",
+                "Link Purpose",
+                WcagLevel::A,
+                Severity::Medium,
+                "Unclear link",
+                "n3",
+            )
+            .with_rule_id("links/generic-name"),
+        );
 
         let report = AuditReport::new(
             "https://example.com".to_string(),
@@ -2190,14 +2302,17 @@ mod tests {
     #[test]
     fn test_normalize_taxonomy_fields() {
         let mut results = WcagResults::new();
-        results.add_violation(Violation::new(
-            "1.1.1",
-            "Non-text Content",
-            WcagLevel::A,
-            Severity::High,
-            "Missing alt",
-            "n1",
-        ));
+        results.add_violation(
+            Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                WcagLevel::A,
+                Severity::High,
+                "Missing alt",
+                "n1",
+            )
+            .with_rule_id("images/alt-missing"),
+        );
 
         let report = AuditReport::new(
             "https://example.com".to_string(),
@@ -2208,7 +2323,7 @@ mod tests {
         let norm = normalize(&report);
 
         let finding = &norm.normalized.findings[0];
-        assert_eq!(finding.rule_id, "a11y.alt_text.missing");
+        assert_eq!(finding.rule_id, "images/alt-missing");
         assert_eq!(finding.dimension, "Accessibility");
         assert_eq!(finding.subcategory, "Content & Alternatives");
         assert_eq!(finding.issue_class, "Missing");
@@ -2248,7 +2363,7 @@ mod tests {
                 "Iframe is missing an accessible name",
                 "iframe:nth-of-type(1)",
             )
-            .with_rule_id("frame-title"),
+            .with_rule_id("frames/name-missing"),
         );
         results.add_violation(
             Violation::new(
@@ -2259,7 +2374,7 @@ mod tests {
                 "No bypass mechanism found",
                 "document",
             )
-            .with_rule_id("bypass"),
+            .with_rule_id("headings/none"),
         );
 
         let report = AuditReport::new(
@@ -2274,16 +2389,16 @@ mod tests {
             .normalized
             .findings
             .iter()
-            .find(|f| f.rule_id == "a11y.frame_title.missing")
+            .find(|f| f.rule_id == "frames/name-missing")
             .expect("frame-title finding should keep its own taxonomy rule");
         assert_eq!(frame.wcag_criterion, "2.4.1");
-        assert_eq!(frame.axe_id.as_deref(), Some("frame-title"));
+        assert_eq!(frame.axe_id.as_deref(), Some("frames/name-missing"));
 
         assert!(norm
             .normalized
             .findings
             .iter()
-            .any(|f| f.rule_id == "a11y.bypass_blocks.missing"));
+            .any(|f| f.rule_id == "headings/none"));
     }
 
     #[test]
@@ -2298,18 +2413,7 @@ mod tests {
                 "Form has input controls but no explicit submit button",
                 "form",
             )
-            .with_rule_id("form-no-submit"),
-        );
-        results.add_violation(
-            Violation::new(
-                "1.3.1",
-                "Info and Relationships",
-                WcagLevel::A,
-                Severity::Medium,
-                "Presentational container contains semantic child",
-                "div[role=\"presentation\"]",
-            )
-            .with_rule_id("presentation-semantic-children"),
+            .with_rule_id("forms/no-submit"),
         );
         results.add_violation(
             Violation::new(
@@ -2320,7 +2424,7 @@ mod tests {
                 "Page has no main landmark",
                 "document",
             )
-            .with_rule_id("landmark-main-present"),
+            .with_rule_id("landmarks/main-missing"),
         );
         results.add_violation(
             Violation::new(
@@ -2331,7 +2435,7 @@ mod tests {
                 "Multiple navigation landmarks share the same accessible name",
                 "nav",
             )
-            .with_rule_id("landmark-unique"),
+            .with_rule_id("landmarks/not-unique"),
         );
 
         let report = AuditReport::new(
@@ -2346,64 +2450,47 @@ mod tests {
             .normalized
             .findings
             .iter()
-            .find(|f| f.rule_id == "a11y.form_no_submit.missing")
+            .find(|f| f.rule_id == "forms/no-submit")
             .expect("form-no-submit finding should keep its own taxonomy rule");
         assert_eq!(form.wcag_criterion, "3.2.2");
-        assert_eq!(form.axe_id.as_deref(), Some("form-no-submit"));
-
-        let presentation = norm
-            .normalized
-            .findings
-            .iter()
-            .find(|f| f.rule_id == "a11y.presentation_semantic_children.invalid")
-            .expect("presentation-semantic-children should keep its own taxonomy rule");
-        assert_eq!(presentation.wcag_criterion, "1.3.1");
-        assert_eq!(
-            presentation.axe_id.as_deref(),
-            Some("presentation-semantic-children")
-        );
+        assert_eq!(form.axe_id.as_deref(), Some("forms/no-submit"));
 
         assert!(norm
             .normalized
             .findings
             .iter()
-            .any(|f| f.rule_id == "a11y.landmark_main.missing"
-                && f.axe_id.as_deref() == Some("landmark-main-present")));
+            .any(|f| f.rule_id == "landmarks/main-missing"
+                && f.axe_id.as_deref() == Some("landmarks/main-missing")));
         assert!(norm
             .normalized
             .findings
             .iter()
-            .any(|f| f.rule_id == "a11y.landmark_unique.invalid"
-                && f.axe_id.as_deref() == Some("landmark-unique")));
+            .any(|f| f.rule_id == "landmarks/not-unique"
+                && f.axe_id.as_deref() == Some("landmarks/not-unique")));
     }
 
     #[test]
     fn test_normalize_severity_counts() {
         let mut results = WcagResults::new();
-        results.add_violation(Violation::new(
-            "1.1.1",
-            "Alt",
-            WcagLevel::A,
-            Severity::High,
-            "Err",
-            "n1",
-        ));
-        results.add_violation(Violation::new(
-            "1.1.1",
-            "Alt",
-            WcagLevel::A,
-            Severity::High,
-            "Err",
-            "n2",
-        ));
-        results.add_violation(Violation::new(
-            "2.4.4",
-            "Link",
-            WcagLevel::A,
-            Severity::Medium,
-            "Warn",
-            "n3",
-        ));
+        results.add_violation(
+            Violation::new("1.1.1", "Alt", WcagLevel::A, Severity::High, "Err", "n1")
+                .with_rule_id("images/alt-missing"),
+        );
+        results.add_violation(
+            Violation::new("1.1.1", "Alt", WcagLevel::A, Severity::High, "Err", "n2")
+                .with_rule_id("images/alt-missing"),
+        );
+        results.add_violation(
+            Violation::new(
+                "2.4.4",
+                "Link",
+                WcagLevel::A,
+                Severity::Medium,
+                "Warn",
+                "n3",
+            )
+            .with_rule_id("links/generic-name"),
+        );
 
         let report = AuditReport::new(
             "https://example.com".to_string(),
@@ -2488,14 +2575,17 @@ mod tests {
     #[test]
     fn test_normalize_lang_conflict_flag_keeps_finding() {
         let mut results = WcagResults::new();
-        results.add_violation(Violation::new(
-            "3.1.1",
-            "Language",
-            WcagLevel::A,
-            Severity::High,
-            "Missing lang",
-            "n1",
-        ));
+        results.add_violation(
+            Violation::new(
+                "3.1.1",
+                "Language",
+                WcagLevel::A,
+                Severity::High,
+                "Missing lang",
+                "n1",
+            )
+            .with_rule_id("document/lang-missing"),
+        );
 
         let mut report = AuditReport::new(
             "https://example.com".to_string(),
@@ -2535,14 +2625,17 @@ mod tests {
     fn test_score_consistency() {
         let mut results = WcagResults::new();
         // A non-legal, non-blocking violation (Level AA, Low severity).
-        results.add_violation(Violation::new(
-            "1.4.3",
-            "Contrast",
-            WcagLevel::AA,
-            Severity::Low,
-            "Low contrast",
-            "n1",
-        ));
+        results.add_violation(
+            Violation::new(
+                "1.4.3",
+                "Contrast",
+                WcagLevel::AA,
+                Severity::Low,
+                "Low contrast",
+                "n1",
+            )
+            .with_rule_id("contrast/text-insufficient"),
+        );
 
         let report = AuditReport::new(
             "https://example.com".to_string(),

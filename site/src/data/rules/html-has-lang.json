@@ -1,0 +1,44 @@
+{
+  "id": "html-has-lang",
+  "url": "https://casoon.github.io/auditmysite/rules/html-has-lang/",
+  "domain": "wcag",
+  "title": "Missing language declaration",
+  "outcome": "automatic",
+  "area": "Accessibility, Language & Clarity",
+  "criterion": "3.1.1",
+  "level": "A",
+  "axe_id": "document/lang-missing",
+  "severity": "high",
+  "user_impact": "Screen readers read aloud with incorrect pronunciation.",
+  "technical_impact": "Missing lang attribute.",
+  "checks": [
+    {
+      "contract_id": "html-has-lang",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 3.1.1 Language of Page; H57; HTML §3.2.6.2 (lang is inherited within a document only)",
+      "applicability": "Rendered same-origin iframe documents (also in open shadow roots): the frame is not display:none/visibility:hidden, not aria-hidden, not role=none/presentation, larger than 1x1 px.",
+      "expectation": "Fails for every applicable frame document whose root html element has no\nnon-empty lang: lang does not inherit across the document boundary, so the\nembedded content's language is not programmatically determinable although it\nis part of the page. A frame document with lang passes. Collapsed or hidden\nframes present nothing and do not apply. Cross-origin frames cannot be read\n(frame-tested). One finding per frame.",
+      "method": "page",
+      "capabilities": [
+        "dom",
+        "frames",
+        "computed_style",
+        "geometry"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "structure_ids_frames",
+        "file": "tests/fixtures/detection_corpus/structure_ids_frames.html",
+        "verdict": "violation",
+        "selector": "iframe#reviews-frame [frame] html",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Store finder – Acme Hardware</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n        iframe { border: 1px solid #555; }\n        .collapsed { display: none; }\n    </style>\n</head>\n<body>\n    <!-- Embedded widgets and help texts (#783). -->\n    <a href=\"#main\" class=\"skip-link\">Skip to content</a>\n    <header>\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Main\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/stores/\">Stores</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <h1>Store finder</h1>\n\n        <h2>Map</h2>\n        <!-- Frames without an accessible name: no title at all, and an empty title. -->\n        <iframe id=\"map-frame\" width=\"300\" height=\"150\"\n            srcdoc=\"<!DOCTYPE html><html lang='en'><head><title>Map</title></head><body><p>Map of Berlin</p></body></html>\"></iframe>\n        <iframe id=\"weather-frame\" title=\"\" width=\"300\" height=\"150\"\n            srcdoc=\"<!DOCTYPE html><html lang='en'><head><title>Weather</title></head><body><p>Sunny, 21 degrees</p></body></html>\"></iframe>\n        <!-- Named by title and by aria-label: fine. The first embedded document\n             has a default title, which titles the frame document, not this page;\n             the second embedded document has no lang. -->\n        <iframe id=\"hours-frame\" title=\"Opening hours\" width=\"300\" height=\"150\"\n            srcdoc=\"<!DOCTYPE html><html lang='en'><head><title>Untitled</title></head><body><p>Open 8 to 18</p></body></html>\"></iframe>\n        <iframe id=\"reviews-frame\" aria-label=\"Customer reviews\" width=\"300\" height=\"150\"\n            srcdoc=\"<!DOCTYPE html><html><head><title>Reviews</title></head><body><p>Four out of five stars</p></body></html>\"></iframe>\n        <!-- Presentational, collapsed and aria-hidden frames are not exposed. -->\n        <iframe id=\"tracking-frame\" role=\"presentation\" width=\"300\" height=\"150\"\n            srcdoc=\"<!DOCTYPE html><html lang='en'><head><title>t</title></head><body></body></html>\"></iframe>\n        <iframe id=\"collapsed-frame\" class=\"collapsed\" width=\"300\" height=\"150\"\n            srcdoc=\"<!DOCTYPE html><html><head><title>c</title></head><body><p>Hidden</p></body></html>\"></iframe>\n        <iframe id=\"hidden-frame\" aria-hidden=\"true\" tabindex=\"-1\" width=\"300\" height=\"150\"\n            srcdoc=\"<!DOCTYPE html><html lang='en'><head><title>h</title></head><body></body></html>\"></iframe>\n\n        <h2>Find a store</h2>\n        <form action=\"/stores\" method=\"get\">\n            <!-- The hint id occurs twice and is referenced: ambiguous. -->\n            <label for=\"postcode\">Postcode</label>\n            <input id=\"postcode\" name=\"postcode\" type=\"text\" autocomplete=\"postal-code\" aria-describedby=\"postcode-hint\">\n            <p id=\"postcode-hint\">Five digits, for example 10115.</p>\n            <p id=\"postcode-hint\">We only use it to sort the list.</p>\n            <!-- Duplicated but referenced by nothing: no relationship breaks. -->\n            <p id=\"promo-text\">Free parking at every store.</p>\n            <p id=\"promo-text\">Gift cards available.</p>\n            <button type=\"submit\">Search</button>\n        </form>\n\n        <h2>Store card</h2>\n        <!-- The component reuses the id inside its own shadow root; IDREFs\n             resolve within their own tree, so neither reference is ambiguous. -->\n        <store-card></store-card>\n        <p id=\"card-note\">Prices may vary by store.</p>\n        <script>\n            const card = document.querySelector('store-card').attachShadow({ mode: 'open' });\n            // The card also has an empty heading and an untitled frame inside its\n            // shadow root.\n            card.innerHTML = '<h3 id=\"card-heading\"></h3><p id=\"card-note\">Mitte branch</p><p aria-describedby=\"card-note\">Open Sundays</p>' +\n                '<iframe id=\"card-frame\" width=\"300\" height=\"150\" srcdoc=\"<!DOCTYPE html><html><head><title>Card</title></head><body><p>Route</p></body></html>\"></iframe>';\n        </script>\n        <p aria-describedby=\"card-note\">All stores</p>\n    </main>\n    <footer>\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "structure_bypass_missing",
+        "file": "tests/fixtures/detection_corpus/structure_bypass_missing.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en_US\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- An old intranet page (#783): no <title> at all, a locale-style lang\n         value (\"en_US\" uses an underscore, which BCP 47 does not allow, so\n         the primary subtag is not \"en\"), and a repeated navigation block with\n         no way to bypass it: no heading, no main landmark, no skip link. -->\n    <nav>\n        <a href=\"/\">Intranet home</a>\n        <a href=\"/staff/\">Staff directory</a>\n        <a href=\"/forms/\">Request forms</a>\n        <a href=\"/help/\">IT help desk</a>\n    </nav>\n    <!-- The only heading is hidden, so it bypasses nothing. -->\n    <h1 hidden>Intranet</h1>\n    <div class=\"content\">\n        <p>Holiday requests for next year are due by the end of the month.</p>\n        <p>Use the staff portal to submit them.</p>\n        <!-- An embedded calendar with its own title: it titles the frame\n             document, not this page. -->\n        <iframe title=\"Staff calendar\" width=\"300\" height=\"150\"\n            srcdoc=\"<!DOCTYPE html><html lang='en'><head><title>Staff calendar</title></head><body><p>No events today</p></body></html>\"></iframe>\n    </div>\n</body>\n</html>"
+      }
+    }
+  ]
+}

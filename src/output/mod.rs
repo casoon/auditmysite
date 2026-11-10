@@ -20,13 +20,17 @@ pub mod summary;
 pub mod technician;
 pub mod terminal;
 
-pub use ai::format_ai_json;
+pub use ai::{format_ai_json, format_ai_json_with_annotations};
 pub use json::{
     format_json_batch, format_json_cached, format_json_normalized, format_json_replay,
     UnifiedReport,
 };
 #[cfg(feature = "pdf")]
-pub use pdf::{generate_batch_pdf, generate_batch_typ, generate_pdf, generate_typ};
+pub use pdf::{
+    generate_batch_pdf, generate_batch_pdf_with_annotations, generate_batch_typ,
+    generate_batch_typ_with_annotations, generate_pdf, generate_pdf_with_annotations, generate_typ,
+    generate_typ_with_annotations,
+};
 pub use renderer::{JsonRenderer, ReportRenderer, SummaryRenderer};
 pub use sarif::format_sarif;
 pub use snapshot_export::export_snapshot_yaml;

@@ -60,7 +60,7 @@ One entry per ACT rule (all rules of the pinned commit, including deprecated one
 | `starter` | bool | Present and `true` for the first submission set. Only `full` and `active` rules. |
 | `note` | string | English remark on differences or the relation. |
 
-Internal ids use the detector namespace (`contrast/text-insufficient`). The report-facing `a11y.*` ids (`a11y.contrast.weak`) are derived from them by the table in `src/taxonomy/rules.rs`; the EARL writer should go through that table when it needs them.
+One id per rule: the detector id (`contrast/text-insufficient`) is also the `rule_id` of the report finding and the key of the rule's entry in `src/taxonomy/rules.rs`; there is no second namespace to map to (#918).
 
 `tests/act_mapping.rs` fails when an `internal_rules` or `related_rules` id is not produced by any detector, when coverage and rule lists contradict each other, or when a starter rule is not fully covered and active.
 
@@ -112,7 +112,7 @@ Internal ids use the detector namespace (`contrast/text-insufficient`). The repo
 | `6a7281` | ARIA state or property has valid value | `aria/attribute-value-invalid` | Internal rule covers enumerated, integer and number types; ID reference types are a separate rule. |
 | `80f0bf` | Audio or video element avoids automatically playing audio | `media/audio-autoplay` | Internal rule covers audio only and ends in review; ACT also covers video and is a composite of two sub-rules. |
 | `cf77f2` | Bypass Blocks of Repeated Content | `headings/none` | Composite rule. Internal rule accepts headings, a main landmark or a skip link as bypass mechanism and reports review without a repeated block; no collapsible-block check. |
-| `b33eff` | Orientation of the page is not restricted using CSS transforms | `css-orientation-lock` | Internal rule checks rotation of html/body in the audited viewport; ACT checks any element with a conditional orientation media query. |
+| `b33eff` | Orientation of the page is not restricted using CSS transforms | `orientation/root-rotated` | Internal rule checks rotation of html/body in the audited viewport; ACT checks any element with a conditional orientation media query. |
 | `c4a8a4` | HTML page title is descriptive | `document-title` | Internal rule only flags known placeholder titles (F25); descriptiveness is a human judgement. Heuristic: not reported as ACT result. |
 | `3ea0c8` | Id attribute value is unique (deprecated) | `ids/duplicate` | Internal rule only reviews duplicate ids that are referenced; ACT applies to every id. The ACT rule is deprecated (SC 4.1.1 removed in WCAG 2.2). |
 | `cae760` | Iframe element has non-empty accessible name | `frames/name-missing` | ACT excludes iframes with negative tabindex; internal rule judges every iframe in the accessibility tree. |
@@ -134,10 +134,10 @@ Internal ids use the detector namespace (`contrast/text-insufficient`). The repo
 | ACT | Name | Related internal rules | Note |
 | --- | --- | --- | --- |
 | `efbfc7` | Text content that changes automatically can be paused, stopped or hidden | `motion/infinite-animation` | Both relate to SC 2.2.2, but the internal rule judges CSS animations while ACT judges auto-updating text content. Relation not established. |
-| `24afc2` | Important letter spacing in style attributes is wide enough | `text-spacing` | ACT checks !important letter spacing in style attributes; internal text-spacing applies the SC 1.4.12 overrides and compares clipping. Relation not established. |
-| `78fd32` | Important line height in style attributes is wide enough | `text/line-height-tight`, `text-spacing` | ACT checks !important line height in style attributes; internal rules test different conditions. Relation not established. |
-| `9e45ec` | Important word spacing in style attributes is wide enough | `text-spacing` | ACT checks !important word spacing in style attributes; internal text-spacing applies the SC 1.4.12 overrides and compares clipping. Relation not established. |
-| `59br37` | Zoomed text node is not clipped with CSS overflow | `css-overflow-hidden`, `text-spacing` | ACT checks clipped text at 640x512 with zoomed text; the internal reflow check works at 320 px and text-spacing simulates SC 1.4.12 overrides. Relation not established. |
+| `24afc2` | Important letter spacing in style attributes is wide enough | `text-spacing/clipped` | ACT checks !important letter spacing in style attributes; internal `text-spacing/clipped` applies the SC 1.4.12 overrides and compares clipping. Relation not established. |
+| `78fd32` | Important line height in style attributes is wide enough | `text/line-height-tight`, `text-spacing/clipped` | ACT checks !important line height in style attributes; internal rules test different conditions. Relation not established. |
+| `9e45ec` | Important word spacing in style attributes is wide enough | `text-spacing/clipped` | ACT checks !important word spacing in style attributes; internal `text-spacing/clipped` applies the SC 1.4.12 overrides and compares clipping. Relation not established. |
+| `59br37` | Zoomed text node is not clipped with CSS overflow | `css-overflow-hidden`, `text-spacing/clipped` | ACT checks clipped text at 640x512 with zoomed text; the internal reflow check works at 320 px and text-spacing simulates SC 1.4.12 overrides. Relation not established. |
 
 ## Missing rules: candidates for implementation
 
@@ -271,7 +271,7 @@ Deviations by cause:
   - `2779a5` failed 6: a `title` inside an attached shadow root is accepted as the page title; the ACT rule requires a descendant of the document element in the light tree.
   - `b5c3f8` inapplicable 2: `<math lang>` served as `application/xml` is audited as an HTML page and reported as missing `lang` (the browser wraps the XML document; relation to the ACT example not further analysed).
   - `b5c3f8`, `bf051a`, `2779a5` inapplicable 1: for an `svg` document the rules record `NotRun(Errored)` instead of `NotApplicable`.
-- **auditmysite, fixed.** `2779a5` passed 2 and failed 3 (pages that embed an iframe) made the whole audit fail with `rule_findings_preserved at rule_outcomes[html-has-lang]`. Cause: a page and its iframe document both lack `lang`; `document/lang-missing` and `html-has-lang` share criterion 3.1.1 and are merged into one finding, but only `3.1.1` (not the two rule ids) resolved to that finding's taxonomy rule, so the contract could not find the run's occurrences again. Both ids now resolve in `LEGACY_WCAG_MAP`; both cases now agree with the expectation.
+- **auditmysite, fixed.** `2779a5` passed 2 and failed 3 (pages that embed an iframe) made the whole audit fail with `rule_findings_preserved at rule_outcomes[html-has-lang]`. Cause: a page and its iframe document both lack `lang`; `document/lang-missing` and `html-has-lang` share criterion 3.1.1 and were merged into one finding, but only `3.1.1` (not the two rule ids) resolved to that finding's taxonomy rule, so the contract could not find the run's occurrences again. Since #918 each rule id is the key of its own finding, so the run and its finding match by id; both cases now agree with the expectation.
 - **Harness, fixed (not a state leak in auditmysite).** The false positives seen when all test cases shared the default browser context came from the harness server: it answered Chrome's empty speculative (preconnect) sockets with a `404`, Chrome reused such a socket for the audit's second (mobile) navigation of the same URL and read `not found` as the page. Isolated contexts hid it by chance. The server now ignores connections that send no request; the default context gives the same results again.
 
 Applicability is only partly visible: `inapplicable` examples count as `ok` when the rule ran without findings. #838 must therefore not emit `inapplicable` from `passedOrInapplicable`.

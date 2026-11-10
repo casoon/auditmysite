@@ -188,30 +188,39 @@ fn test_assessments_failures_en_status_and_artifact_manifest_are_serialized() {
     use crate::wcag::Violation;
 
     let mut results = WcagResults::new();
-    results.add_warning(Violation::new(
-        "1.3.1",
-        "Structure warning",
-        WcagLevel::A,
-        Severity::Medium,
-        "Verify the visual grouping.",
-        "n1",
-    ));
-    results.add_not_testable(Violation::new(
-        "1.1.1",
-        "Manual alternative review",
-        WcagLevel::A,
-        Severity::Medium,
-        "Verify the text alternative in context.",
-        "n2",
-    ));
-    results.add_positive(Violation::new(
-        "2.4.1",
-        "Skip link present",
-        WcagLevel::A,
-        Severity::Low,
-        "A skip link was detected.",
-        "n3",
-    ));
+    results.add_warning(
+        Violation::new(
+            "1.3.1",
+            "Structure warning",
+            WcagLevel::A,
+            Severity::Medium,
+            "Verify the visual grouping.",
+            "n1",
+        )
+        .with_rule_id("headings/skip-level"),
+    );
+    results.add_not_testable(
+        Violation::new(
+            "1.1.1",
+            "Manual alternative review",
+            WcagLevel::A,
+            Severity::Medium,
+            "Verify the text alternative in context.",
+            "n2",
+        )
+        .with_rule_id("images/alt-missing"),
+    );
+    results.add_positive(
+        Violation::new(
+            "2.4.1",
+            "Skip link present",
+            WcagLevel::A,
+            Severity::Low,
+            "A skip link was detected.",
+            "n3",
+        )
+        .with_rule_id("headings/none"),
+    );
     results.rule_outcomes.push(
         crate::wcag::RuleRun::not_run("image_alt", crate::wcag::NotRun::Errored)
             .with_wcag(["1.1.1"])
@@ -268,20 +277,57 @@ fn test_assessments_failures_en_status_and_artifact_manifest_are_serialized() {
     assert!(!output.contains("stacktrace"));
 }
 
+/// "Lief nicht" ist nicht "bestanden": a criterion whose only rule recorded a
+/// missing host measurement has no findings, yet the annex must not report
+/// "no violations" for it.
+#[test]
+fn en301549_clause_is_not_evaluated_when_its_rule_lacked_a_capability() {
+    let mut results = WcagResults::new();
+    results.rule_outcomes.push(
+        crate::wcag::RuleRun::not_run(
+            "text-spacing/clipped",
+            crate::wcag::NotRun::CapabilityMissing,
+        )
+        .with_wcag(["1.4.12"])
+        .with_reason("host_measurement_missing"),
+    );
+    let report = AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        results,
+        500,
+    );
+    let normalized = normalize(&report);
+    let unified = UnifiedReport::single(&normalized, &report);
+    let clause = first_page(&unified)
+        .detail
+        .as_ref()
+        .unwrap()
+        .en301549_annex
+        .clauses
+        .iter()
+        .find(|clause| clause.wcag == "1.4.12")
+        .unwrap();
+    assert_eq!(clause.status, En301549ClauseStatusKind::NotEvaluated);
+}
+
 #[test]
 fn test_single_taxonomy_fields() {
     use crate::taxonomy::Severity;
     use crate::wcag::Violation;
 
     let mut results = WcagResults::new();
-    results.add_violation(Violation::new(
-        "1.1.1",
-        "Non-text Content",
-        WcagLevel::A,
-        Severity::High,
-        "Missing alt",
-        "n1",
-    ));
+    results.add_violation(
+        Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "Missing alt",
+            "n1",
+        )
+        .with_rule_id("images/alt-missing"),
+    );
 
     let report = AuditReport::new(
         "https://example.com".to_string(),
@@ -306,14 +352,17 @@ fn test_single_score_matches_normalized() {
     use crate::wcag::Violation;
 
     let mut results = WcagResults::new();
-    results.add_violation(Violation::new(
-        "1.1.1",
-        "Alt",
-        WcagLevel::A,
-        Severity::High,
-        "Missing",
-        "n1",
-    ));
+    results.add_violation(
+        Violation::new(
+            "1.1.1",
+            "Alt",
+            WcagLevel::A,
+            Severity::High,
+            "Missing",
+            "n1",
+        )
+        .with_rule_id("images/alt-missing"),
+    );
 
     let report = AuditReport::new(
         "https://example.com".to_string(),
@@ -340,23 +389,29 @@ fn test_single_violations_match_severity_counts() {
 
     let mut results = WcagResults::new();
     for node in ["n1", "n2", "n3"] {
-        results.add_violation(Violation::new(
-            "1.1.1",
-            "Alt",
-            WcagLevel::A,
-            Severity::High,
-            "Missing alt",
-            node,
-        ));
+        results.add_violation(
+            Violation::new(
+                "1.1.1",
+                "Alt",
+                WcagLevel::A,
+                Severity::High,
+                "Missing alt",
+                node,
+            )
+            .with_rule_id("images/alt-missing"),
+        );
     }
-    results.add_violation(Violation::new(
-        "1.4.3",
-        "Contrast",
-        WcagLevel::AA,
-        Severity::High,
-        "Low contrast",
-        "n4",
-    ));
+    results.add_violation(
+        Violation::new(
+            "1.4.3",
+            "Contrast",
+            WcagLevel::AA,
+            Severity::High,
+            "Low contrast",
+            "n4",
+        )
+        .with_rule_id("contrast/text-insufficient"),
+    );
 
     let report = AuditReport::new(
         "https://example.com".to_string(),
@@ -839,14 +894,17 @@ fn test_dual_viewport_summary_serialized_in_single_detail_modules() {
 fn test_viewport_data_keeps_the_published_module_weight_derivation() {
     use crate::audit::{ViewportScoreSet, ViewportScores};
     let mut results = WcagResults::new();
-    results.add_violation(crate::wcag::Violation::new(
-        "1.3.1",
-        "Structure",
-        WcagLevel::A,
-        crate::wcag::Severity::Medium,
-        "Missing structure",
-        "content",
-    ));
+    results.add_violation(
+        crate::wcag::Violation::new(
+            "1.3.1",
+            "Structure",
+            WcagLevel::A,
+            crate::wcag::Severity::Medium,
+            "Missing structure",
+            "content",
+        )
+        .with_rule_id("headings/skip-level"),
+    );
     let mut report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
     report.viewport_scores = Some(ViewportScores {
         desktop: ViewportScoreSet {
@@ -902,14 +960,17 @@ fn test_en301549_annex_present_on_single_detail() {
     use crate::wcag::Violation;
 
     let mut results = WcagResults::new();
-    results.add_violation(Violation::new(
-        "1.1.1",
-        "Non-text Content",
-        WcagLevel::A,
-        Severity::High,
-        "Missing alt",
-        "n1",
-    ));
+    results.add_violation(
+        Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "Missing alt",
+            "n1",
+        )
+        .with_rule_id("images/alt-missing"),
+    );
     let report = AuditReport::new(
         "https://example.com".to_string(),
         WcagLevel::AA,
@@ -922,7 +983,7 @@ fn test_en301549_annex_present_on_single_detail() {
     let detail = page.detail.as_ref().expect("single report has detail");
     let annex = &detail.en301549_annex;
 
-    assert_eq!(annex.clauses.len(), 50);
+    assert_eq!(annex.clauses.len(), 55);
     assert_eq!(
         annex.standard_version,
         crate::wcag::en301549::EN301549_VERSION
@@ -965,14 +1026,14 @@ fn test_en301549_batch_rollup_present_and_page_detail_carries_full_annex() {
     let batch = crate::audit::BatchReport::from_reports(reports, vec![], 0);
     let unified = UnifiedReport::batch(&batch);
 
-    assert_eq!(unified.summary.en301549_rollup.len(), 50);
+    assert_eq!(unified.summary.en301549_rollup.len(), 55);
     for rollup in &unified.summary.en301549_rollup {
         assert_eq!(rollup.affected_pages, 0, "no violations were seeded");
     }
 
     for page in &unified.pages {
         let detail = page.detail.as_ref().expect("batch page detail present");
-        assert_eq!(detail.en301549_annex.clauses.len(), 50);
+        assert_eq!(detail.en301549_annex.clauses.len(), 55);
     }
 }
 
@@ -1003,14 +1064,17 @@ fn test_bik_guide_present_on_single_detail() {
     use crate::wcag::Violation;
 
     let mut results = WcagResults::new();
-    results.add_violation(Violation::new(
-        "1.1.1",
-        "Non-text Content",
-        WcagLevel::A,
-        Severity::High,
-        "Missing alt",
-        "n1",
-    ));
+    results.add_violation(
+        Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "Missing alt",
+            "n1",
+        )
+        .with_rule_id("images/alt-missing"),
+    );
     let report = AuditReport::new(
         "https://example.com".to_string(),
         WcagLevel::AA,
@@ -1156,8 +1220,6 @@ fn test_collection_errors_serialized_when_present() {
             seo_score: None,
             security_score: None,
             mobile_score: None,
-            ux_score: None,
-            journey_score: None,
             performance_throttled_avg_score: None,
             lh_mobile_score: None,
             wcag_coverage: build_wcag_coverage_for_level("AA"),
@@ -1177,7 +1239,7 @@ fn test_collection_errors_serialized_when_present() {
             minification_inconsistencies: vec![],
             redirect_chain_issues: vec![],
             crawl_depth_diagnostics: None,
-            commerce: None,
+            experimental: None,
         },
         sample: None,
         pages: vec![],
@@ -1193,6 +1255,8 @@ fn test_collection_errors_serialized_when_present() {
             reason: "NaN value in field".to_string(),
         }],
         decision: crate::audit::verdict::VerdictResult::undecided(),
+        annotations: None,
+        baseline: None,
     };
     let json_str = unified.to_json(false).unwrap();
     let json_value: serde_json::Value = serde_json::from_str(&json_str).unwrap();
@@ -1438,14 +1502,17 @@ fn management_legal_card_counts_the_findings_marked_bfsg_relevant() {
     use crate::wcag::Violation;
 
     let mut results = WcagResults::new();
-    results.add_violation(Violation::new(
-        "1.4.3",
-        "Contrast (Minimum)",
-        WcagLevel::AA,
-        Severity::Medium,
-        "low contrast",
-        "p.x",
-    ));
+    results.add_violation(
+        Violation::new(
+            "1.4.3",
+            "Contrast (Minimum)",
+            WcagLevel::AA,
+            Severity::Medium,
+            "low contrast",
+            "p.x",
+        )
+        .with_rule_id("contrast/text-insufficient"),
+    );
     let report = AuditReport::new("https://example.com".to_string(), WcagLevel::AA, results, 1);
     let normalized = normalize(&report).normalized;
     let relevant = normalized

@@ -15,4 +15,5 @@ pub mod fixture_server;
 pub mod nonwcag_rule_inventory;
 pub mod routing_server;
 pub mod rule_contracts;
+pub mod rule_docs;
 pub mod rule_inventory;

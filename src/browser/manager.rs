@@ -871,10 +871,7 @@ const INTERSTITIAL_MAX_HOPS: u32 = 3;
 /// Extra time, beyond the refresh delay, for the next document to become interactive.
 const INTERSTITIAL_LOAD_BUDGET: Duration = Duration::from_secs(10);
 
-const META_REFRESH_CONTENT_JS: &str = r#"(() => {
-  const m = document.querySelector('meta[http-equiv="refresh" i]');
-  return m ? (m.getAttribute('content') || '') : null;
-})()"#;
+const META_REFRESH_CONTENT_JS: &str = include_str!("js/meta_refresh_content.js");
 
 /// What [`BrowserManager::navigate`] did about a short `<meta http-equiv="refresh">`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

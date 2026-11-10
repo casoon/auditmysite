@@ -115,18 +115,17 @@ fn foundation_coverage_requires_execution_and_no_unresolved_result() {
             .passed,
         1
     );
-    report
-        .accessibility
-        .wcag_results
-        .warnings
-        .push(Violation::new(
+    report.accessibility.wcag_results.warnings.push(
+        Violation::new(
             "1.1.1",
             "Review",
             WcagLevel::A,
             Severity::Low,
             "review required",
             "image",
-        ));
+        )
+        .with_rule_id("images/alt-missing"),
+    );
     assert_eq!(
         normalize(&report)
             .normalized
@@ -384,6 +383,7 @@ fn make_violations() -> WcagResults {
                 "Button missing accessible name",
                 format!("node-{}", i),
             )
+            .with_rule_id("buttons/name-missing")
             .with_selector(format!("button.icon-{}", i))
             .with_fix("Add aria-label attribute"),
         );
@@ -400,6 +400,7 @@ fn make_violations() -> WcagResults {
                 "Content uses visual formatting instead of semantic HTML",
                 format!("node-sem-{}", i),
             )
+            .with_rule_id("headings/skip-level")
             .with_selector(format!("div.table-{}", i))
             .with_fix("Use semantic HTML elements"),
         );
@@ -943,14 +944,17 @@ fn test_grade_matches_score() {
         // Add violations to lower score (if needed)
         if expected_score_approx < 90 {
             for i in 0..20 {
-                results.add_violation(Violation::new(
-                    "4.1.2",
-                    "Name, Role, Value",
-                    WcagLevel::A,
-                    Severity::Critical,
-                    "Missing label",
-                    format!("n-{}", i),
-                ));
+                results.add_violation(
+                    Violation::new(
+                        "4.1.2",
+                        "Name, Role, Value",
+                        WcagLevel::A,
+                        Severity::Critical,
+                        "Missing label",
+                        format!("n-{}", i),
+                    )
+                    .with_rule_id("buttons/name-missing"),
+                );
             }
         }
 
@@ -1054,14 +1058,17 @@ fn test_json_contains_all_sections() {
 #[test]
 fn test_audit_flags_surface_in_json_output() {
     let mut results = WcagResults::new();
-    results.add_violation(Violation::new(
-        "3.1.1",
-        "Language",
-        WcagLevel::A,
-        Severity::High,
-        "Missing lang",
-        "html",
-    ));
+    results.add_violation(
+        Violation::new(
+            "3.1.1",
+            "Language",
+            WcagLevel::A,
+            Severity::High,
+            "Missing lang",
+            "html",
+        )
+        .with_rule_id("document/lang-missing"),
+    );
 
     let mut report = AuditReport::new(
         "https://example.com".to_string(),
@@ -1223,14 +1230,17 @@ fn test_risk_independent_from_score() {
 
     // But 3 critical Level A violations
     for i in 0..3 {
-        results.add_violation(Violation::new(
-            "4.1.2",
-            "Name, Role, Value",
-            WcagLevel::A,
-            Severity::Critical,
-            "Missing name",
-            format!("n-{}", i),
-        ));
+        results.add_violation(
+            Violation::new(
+                "4.1.2",
+                "Name, Role, Value",
+                WcagLevel::A,
+                Severity::Critical,
+                "Missing name",
+                format!("n-{}", i),
+            )
+            .with_rule_id("buttons/name-missing"),
+        );
     }
 
     let report = AuditReport::new(
@@ -1270,12 +1280,22 @@ fn test_risk_independent_from_score() {
 
 #[test]
 fn test_journey_in_json_output() {
-    let report = make_full_report();
+    // The audit assembly moves UX and Journey into `experimental` (#916).
+    let mut report = make_full_report();
+    report.experimental.journey = report.journey.take();
     let unified = UnifiedReport::single(&normalize(&report), &report);
+    let experimental = unified.pages[0]
+        .experimental
+        .as_ref()
+        .expect("experimental block");
+    assert!(
+        experimental.get("journey").is_some(),
+        "Journey data should be present in the experimental block"
+    );
     let detail = unified.pages[0].detail.as_ref().expect("detail");
     assert!(
-        detail.modules.journey.is_some(),
-        "Journey detail data should be present in JSON"
+        detail.modules.performance.is_some(),
+        "the module blob stays for the measured modules"
     );
 }
 
@@ -1291,8 +1311,6 @@ fn test_json_module_detail_scores_match_normalized_scores() {
         ("SEO", m.seo.as_ref(), &["score"][..]),
         ("Security", m.security.as_ref(), &["score"][..]),
         ("Mobile", m.mobile.as_ref(), &["score"][..]),
-        ("UX", m.ux.as_ref(), &["score"][..]),
-        ("Journey", m.journey.as_ref(), &["score"][..]),
     ] {
         let expected = normalized
             .normalized
@@ -1496,19 +1514,32 @@ fn test_schema_contains_extra_module_top_level_keys() {
     let module_props = schema["$defs"]["moduleBlob"]["properties"]
         .as_object()
         .expect("schema must define $defs.moduleBlob.properties");
-    for key in &[
-        "ai_visibility",
-        "source_quality",
-        "content_visibility",
-        "tech_stack",
-        "patterns",
-        "html_conform",
-    ] {
+    for key in &["tech_stack", "patterns", "html_conform"] {
         assert!(
             module_props.contains_key(*key),
             "schema $defs.moduleBlob missing module '{key}'"
         );
     }
+    // The experimental indicators (#916) are no module of the blob: they
+    // sit in the page's `experimental` block.
+    for key in &[
+        "ux",
+        "journey",
+        "ai_visibility",
+        "source_quality",
+        "content_visibility",
+        "commerce",
+    ] {
+        assert!(
+            !module_props.contains_key(*key),
+            "schema $defs.moduleBlob still lists experimental '{key}'"
+        );
+    }
+    let experimental_names = schema["$defs"]["pageEntry"]["properties"]["experimental"]
+        ["propertyNames"]["enum"]
+        .as_array()
+        .expect("schema must define the page's experimental block");
+    assert_eq!(experimental_names.len(), 6);
 
     let detail_props = schema["$defs"]["pageDetail"]["properties"]
         .as_object()
@@ -1529,41 +1560,42 @@ fn test_schema_contains_extra_module_top_level_keys() {
 fn test_json_report_includes_extra_module_keys() {
     use auditmysite::{analyze_ai_visibility, analyze_content_visibility, analyze_source_quality};
 
+    // The heuristic indicators are experimental (#916): they sit in the
+    // page's `experimental` block, not in `detail.modules`.
     let base = make_full_report();
     let mut report = make_full_report();
-    report.discoverability.source_quality = Some(analyze_source_quality(&base));
-    report.discoverability.ai_visibility = Some(analyze_ai_visibility(&base));
-    report.discoverability.content_visibility = Some(analyze_content_visibility(&base));
+    report.experimental.source_quality = Some(analyze_source_quality(&base));
+    report.experimental.ai_visibility = Some(analyze_ai_visibility(&base));
+    report.experimental.content_visibility = Some(analyze_content_visibility(&base));
 
     let normalized = normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);
     let json_str = unified.to_json(true).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+    let experimental = &parsed["pages"][0]["experimental"];
     let modules = &parsed["pages"][0]["detail"]["modules"];
 
-    assert!(
-        !modules["ai_visibility"].is_null(),
-        "ai_visibility missing from JSON"
-    );
-    assert!(
-        !modules["source_quality"].is_null(),
-        "source_quality missing from JSON"
-    );
-    assert!(
-        !modules["content_visibility"].is_null(),
-        "content_visibility missing from JSON"
-    );
-    assert_eq!(modules["source_quality"]["measurement_type"], "heuristic");
-    assert_eq!(modules["ai_visibility"]["measurement_type"], "heuristic");
+    for key in ["ai_visibility", "source_quality", "content_visibility"] {
+        assert!(!experimental[key].is_null(), "{key} missing from JSON");
+        assert!(modules.get(key).is_none(), "{key} still in detail.modules");
+    }
     assert_eq!(
-        modules["content_visibility"]["measurement_type"],
+        experimental["source_quality"]["measurement_type"],
+        "heuristic"
+    );
+    assert_eq!(
+        experimental["ai_visibility"]["measurement_type"],
+        "heuristic"
+    );
+    assert_eq!(
+        experimental["content_visibility"]["measurement_type"],
         "heuristic"
     );
 
     // #784: every heuristic module carries its signal contract and says it
     // is not externally validated.
     let mut heuristic = 0;
-    for (key, module) in modules.as_object().unwrap() {
+    for (key, module) in experimental.as_object().unwrap() {
         if module["measurement_type"] != "heuristic" {
             continue;
         }
@@ -1732,10 +1764,14 @@ fn make_parity_report(reverse: bool) -> AuditReport {
                 "Content uses visual formatting instead of semantic HTML",
                 format!("node-sem-{i}"),
             )
+            .with_rule_id("headings/skip-level")
             .with_selector(format!("div.sem-{i}")),
         );
     }
-    for (axe_id, count) in [("aria-valid-attr-value", 2), ("aria-allowed-attr", 1)] {
+    for (axe_id, count) in [
+        ("aria/attribute-value-invalid", 2),
+        ("aria/attribute-not-allowed", 1),
+    ] {
         for i in 0..count {
             violations.push(
                 Violation::new(
@@ -1790,9 +1826,9 @@ fn pdf_top_measures_follow_json_top_actions() {
     assert_eq!(
         json_top,
         [
-            "a11y.aria_valid_attr_value.invalid",
-            "a11y.aria_allowed_attr.invalid",
-            "a11y.structure.missing",
+            "aria/attribute-value-invalid",
+            "aria/attribute-not-allowed",
+            "headings/skip-level",
         ]
     );
 }
@@ -1887,16 +1923,16 @@ fn batch_top_actions_match_pdf_and_aggregate_across_pages() {
     assert_eq!(
         json_rows,
         [
-            ("a11y.aria_valid_attr_value.invalid".to_string(), 4, 2),
-            ("a11y.aria_allowed_attr.invalid".to_string(), 2, 2),
-            ("a11y.structure.missing".to_string(), 40, 2),
+            ("aria/attribute-value-invalid".to_string(), 4, 2),
+            ("aria/attribute-not-allowed".to_string(), 2, 2),
+            ("headings/skip-level".to_string(), 40, 2),
         ]
     );
     assert_eq!(pdf_rows, json_rows);
     // The impact sentence quotes the batch-wide count, not one page's.
     let structure = actions
         .iter()
-        .find(|a| a["rule_id"] == "a11y.structure.missing")
+        .find(|a| a["rule_id"] == "headings/skip-level")
         .unwrap();
     assert!(
         structure["expected_impact"]
@@ -2130,6 +2166,7 @@ fn domain_contract_accepts_page_and_frame_language_findings_in_either_order() {
             "Missing lang",
             selector,
         )
+        .with_rule_id("document/lang-missing")
         .with_selector(selector)
         .with_rule_id(rule_id)
     };

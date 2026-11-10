@@ -4,7 +4,7 @@
 
 use tracing::warn;
 
-use super::{PipelineConfig, SnapshotData};
+use super::{Module, PipelineConfig, SnapshotData};
 use crate::audit::catalog::AuditCatalog;
 use crate::audit::report::AuditReport;
 use crate::browser::ThrottleProfile;
@@ -320,6 +320,7 @@ pub(super) fn aggregate_report(
     report.run_context = crate::audit::RunContext {
         indexability: config.indexability,
         decision_profile: config.decision_profile.clone(),
+        baseline: None,
     };
     report.accessibility.execution.navigation = navigation;
     report.accessibility.execution.environment.source = "live".to_string();
@@ -376,6 +377,11 @@ pub(super) fn aggregate_report(
     report.accessibility.execution.module_runs =
         consolidate_module_runs(&report.accessibility.execution.module_runs);
 
+    // From here on the experimental results are no part of the audit result
+    // (#916): the PDF, the findings and the scores never read them.
+    report.experimental =
+        crate::audit::experimental::ExperimentalIndicators::take_from(&mut report);
+
     report
 }
 
@@ -422,6 +428,20 @@ pub(super) fn reconcile_image_alt_count(report: &mut AuditReport) {
     }
 }
 
+/// The state-changing journeys this run permits. The add-to-cart and
+/// quantity-stepper journeys belong to the experimental commerce indicator
+/// (#916): without it they cannot run, so they are not listed either.
+fn permitted_state_changing_journeys(config: &PipelineConfig) -> Vec<String> {
+    crate::a11y_journey::state_changing_journeys(config.interactive, config.allow_state_changes)
+        .into_iter()
+        .filter(|id| {
+            config.runs_indicator(crate::audit::ExperimentalIndicator::Commerce)
+                || !matches!(*id, "add_to_cart" | "quantity_stepper")
+        })
+        .map(|id| id.to_string())
+        .collect()
+}
+
 pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::AuditScope {
     let catalog = AuditCatalog::standard();
     let mut requested_modules = vec!["accessibility".to_string()];
@@ -439,7 +459,7 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
     let extra_checks = crate::audit::support_matrix::ExtraCheckRequest {
         isolate_third_party_impact: config.check_isolate_third_party_impact,
         check_ssr_content: config.check_ssr_content,
-        privacy_check: config.check_privacy,
+        privacy_check: config.modules.contains(Module::Privacy),
         ..Default::default()
     };
     let requested_subchecks = extra_checks.requested_subchecks();
@@ -450,7 +470,7 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
         requested_rules: crate::wcag::expectation::expected_rules(
             config.wcag_level,
             &config.rule_filter,
-            config.check_html_conform,
+            config.modules.contains(Module::HtmlConform),
         )
         .into_iter()
         .map(|rule| crate::audit::RequestedRule {
@@ -470,22 +490,12 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
             (!record.is_empty()).then_some(record)
         },
         wcag_level: config.wcag_level.to_string(),
-        full_audit: config.full_audit,
+        full_audit: config.is_full_audit(),
         measurement_profile: crate::audit::MeasurementProfile {
             version: crate::audit::MEASUREMENT_PROFILE_VERSION,
             session_policy: config.session.as_str().to_string(),
-            read_only: crate::a11y_journey::state_changing_journeys(
-                config.interactive,
-                config.allow_state_changes,
-            )
-            .is_empty(),
-            state_changing_journeys: crate::a11y_journey::state_changing_journeys(
-                config.interactive,
-                config.allow_state_changes,
-            )
-            .iter()
-            .map(|j| j.to_string())
-            .collect(),
+            read_only: permitted_state_changing_journeys(config).is_empty(),
+            state_changing_journeys: permitted_state_changing_journeys(config),
             state_id: config.state_id.clone(),
             extra_checks: extra_checks.requested_flags(),
             // Known only once the browser has launched; the pipeline
@@ -501,7 +511,7 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
         },
         interactive_mode: format!("{:?}", config.interactive).to_lowercase(),
         journey_budget_ms: config.journey_budget_ms,
-        throttling_profiles: if config.check_performance {
+        throttling_profiles: if config.modules.contains(Module::Performance) {
             ThrottleProfile::AUTO_PROFILES
                 .iter()
                 .map(|profile| profile.label().to_string())
@@ -745,6 +755,38 @@ pub(super) fn update_audit_quality(report: &mut AuditReport) {
         partial_or_failed_modules,
         reasons,
     };
+}
+
+#[cfg(test)]
+mod experimental_journey_tests {
+    use super::*;
+    use crate::audit::ExperimentalIndicator;
+
+    fn config(experimental: Vec<ExperimentalIndicator>) -> PipelineConfig {
+        use clap::Parser;
+        let mut config = PipelineConfig::from_args_and_config(
+            &crate::cli::Args::parse_from(["auditmysite", "https://example.com"]),
+            None,
+        );
+        config.interactive = crate::cli::InteractiveMode::Full;
+        config.allow_state_changes = true;
+        config.experimental = experimental;
+        config
+    }
+
+    /// #916: add-to-cart and quantity-stepper belong to the commerce
+    /// indicator; the form journey does not.
+    #[test]
+    fn commerce_journeys_are_permitted_only_with_the_commerce_indicator() {
+        let without = permitted_state_changing_journeys(&config(Vec::new()));
+        assert_eq!(without, vec!["form_error_submit".to_string()]);
+
+        let with =
+            permitted_state_changing_journeys(&config(vec![ExperimentalIndicator::Commerce]));
+        assert!(with.contains(&"add_to_cart".to_string()));
+        assert!(with.contains(&"quantity_stepper".to_string()));
+        assert!(with.contains(&"form_error_submit".to_string()));
+    }
 }
 
 #[cfg(test)]

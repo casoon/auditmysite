@@ -644,14 +644,17 @@ fn indicator_modules_create_no_findings_of_their_own() {
 fn a_wcag_violation_reaches_findings_and_json() {
     let mut results = WcagResults::new();
     for node in ["n1", "n2"] {
-        results.add_violation(crate::wcag::Violation::new(
-            "3.1.1",
-            "Language of Page",
-            WcagLevel::A,
-            Severity::High,
-            "The page has no lang attribute.",
-            node,
-        ));
+        results.add_violation(
+            crate::wcag::Violation::new(
+                "3.1.1",
+                "Language of Page",
+                WcagLevel::A,
+                Severity::High,
+                "The page has no lang attribute.",
+                node,
+            )
+            .with_rule_id("document/lang-missing"),
+        );
     }
     let report = AuditReport::new("https://example.com".to_string(), WcagLevel::AA, results, 1);
     let ctx = normalize(&report);

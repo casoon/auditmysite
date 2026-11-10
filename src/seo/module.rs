@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use tracing::warn;
 
 use crate::audit::module::{AuditModule, ModuleContext, ModuleData};
-use crate::audit::{AuditReport, PipelineConfig};
+use crate::audit::{AuditReport, Module, PipelineConfig};
 use crate::error::Result;
 
 use super::analyze_seo;
@@ -27,16 +27,15 @@ impl AuditModule for SeoModule {
     }
 
     fn is_enabled(&self, cfg: &PipelineConfig) -> bool {
-        cfg.check_seo
-    }
-
-    fn depends_on(&self) -> &'static [&'static str] {
-        &["journey"]
+        cfg.modules.contains(Module::Seo)
     }
 
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {
         match analyze_seo(ctx.page, ctx.url, ctx.collection).await {
-            Ok(seo) => Ok(ModuleData::Seo(Box::new(seo))),
+            Ok(mut seo) => {
+                seo.page_intent = Some(crate::journey::detect_page_intent(ctx.ax_tree));
+                Ok(ModuleData::Seo(Box::new(seo)))
+            }
             Err(e) => {
                 warn!("SEO analysis failed: {}", e);
                 Ok(ModuleData::None)
@@ -67,10 +66,10 @@ impl AuditModule for SeoModule {
             seo.serp = Some(crate::seo::serp::build_serp_analysis(seo, &url, "en"));
         }
 
-        let Some(page_intent) = report.journey.as_ref().map(|journey| journey.page_intent) else {
+        let Some(seo) = report.discoverability.seo.as_mut() else {
             return Ok(());
         };
-        let Some(seo) = report.discoverability.seo.as_mut() else {
+        let Some(page_intent) = seo.page_intent else {
             return Ok(());
         };
 

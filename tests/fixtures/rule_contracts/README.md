@@ -39,6 +39,10 @@ passes; an empty one is document/title-empty, not this id. Titles in iframes
 or SVG do not count for the top document."""
 page_level = true                   # findings carry no element location
 ambient = false                     # manual page-wide note on every page
+review_only = false                 # automated, but by design only review hints /
+                                    # untested entries, never a violation ("hint only"
+                                    # on the rule page); no corpus case may declare
+                                    # a violation for it
 always_applicable = false           # no input it does not apply to (no N/A case)
 positive = ["empty_title"]          # cases declaring violation / needs_review
 negative = ["..."]                  # cases declaring pass / absent

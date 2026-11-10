@@ -12,6 +12,7 @@ mod common;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use auditmysite::audit::{Module, ModuleSet};
 use auditmysite::{audit_page, BrowserManager, BrowserOptions, PipelineConfig, WcagLevel};
 
 /// Serve a local HTML file over HTTP on a random port.
@@ -385,10 +386,7 @@ async fn foundation_viewport_merge_keeps_rules_and_frames_apart() {
 
     // The normalized report keeps both rules as their own findings.
     let normalized = auditmysite::audit::normalize(&report);
-    for rule in [
-        "a11y.aria_roles.invalid",
-        "a11y.aria_valid_attr_value.invalid",
-    ] {
+    for rule in ["aria/role-invalid", "aria/attribute-value-invalid"] {
         assert!(
             normalized
                 .normalized
@@ -445,39 +443,12 @@ async fn chrome_axtree_exposes_svg_graphics_roles_and_the_rule_checks_names() {
 }
 
 fn default_config() -> PipelineConfig {
-    PipelineConfig {
-        wcag_level: WcagLevel::AA,
-        timeout_secs: 30,
-        stability_budget_ms: 1500,
-        verbose: false,
-        full_audit: false,
-        check_performance: false,
-        check_seo: false,
-        check_security: false,
-        check_mobile: false,
-        check_html_conform: false,
-        check_privacy: false,
-        perf_runs: 1,
-        check_isolate_third_party_impact: false,
-        check_ssr_content: false,
-        check_stack: false,
-        rule_filter: auditmysite::wcag::RuleFilterConfig::default(),
-        persist_artifacts: true,
-        capture_screenshots: false,
-        capture_element_evidence: false,
-        dismiss_consent: false,
-        exclude_selectors: Vec::new(),
-        interactive: auditmysite::cli::InteractiveMode::Off,
-        allow_state_changes: false,
-        journey_budget_ms: auditmysite::a11y_journey::DEFAULT_BUDGET_MS,
-        session: Default::default(),
-        storage_state: None,
-        state_id: None,
-        lang: "de".to_string(),
-        display_mode: None,
-        indexability: Default::default(),
-        decision_profile: Default::default(),
-    }
+    let mut config = PipelineConfig::default()
+        .with_wcag_level(WcagLevel::AA)
+        .with_modules(ModuleSet::none())
+        .with_interactive(auditmysite::cli::InteractiveMode::Off);
+    config.lang = "de".to_string();
+    config
 }
 
 #[tokio::test]
@@ -501,10 +472,8 @@ async fn test_wcag_parity_gaps_on_stable_fixture() {
         "document-title must leave a missing title to the shared rule; got {direct_title_findings:?}"
     );
 
-    let config = PipelineConfig {
-        persist_artifacts: false,
-        ..default_config()
-    };
+    let mut config = default_config();
+    config.persist_artifacts = false;
 
     let (report, _snapshot) = audit_page(&page, &url, &config, &manager)
         .await
@@ -665,13 +634,13 @@ async fn test_many_violations_page_scores_low() {
 async fn test_full_audit_with_all_modules() {
     let (url, shutdown) = serve_fixture("perfect.html");
 
-    let config = PipelineConfig {
-        check_performance: true,
-        check_seo: true,
-        check_security: true,
-        check_mobile: true,
-        ..default_config()
-    };
+    let config = default_config().with_modules(
+        ModuleSet::none()
+            .with(Module::Performance)
+            .with(Module::Seo)
+            .with(Module::Security)
+            .with(Module::Mobile),
+    );
 
     let manager = ci_browser().await;
     let page = manager.new_page().await.expect("New page failed");
@@ -769,10 +738,7 @@ async fn test_output_formats() {
 async fn test_mobile_issues_detected() {
     let (url, shutdown) = serve_fixture("mobile_issues.html");
 
-    let config = PipelineConfig {
-        check_mobile: true,
-        ..default_config()
-    };
+    let config = default_config().with_modules(ModuleSet::none().with(Module::Mobile));
 
     let manager = ci_browser().await;
     let page = manager.new_page().await.expect("New page failed");
@@ -830,14 +796,17 @@ async fn test_early_text_is_measured_above_the_fold_not_in_tree_order() {
             .navigate(&page, &url)
             .await
             .expect("Navigation failed");
-        // `check_seo` is the JourneyModule's gate.
+        // `Module::Seo` is the JourneyModule's gate; the module itself is an
+        // experimental indicator (#916).
         let mut config = default_config();
-        config.check_seo = true;
+        config.modules = config.modules.with(Module::Seo);
+        config.experimental = vec![auditmysite::audit::ExperimentalIndicator::Journey];
         let (report, _snapshot) = audit_page(&page, &url, &config, &manager)
             .await
             .expect("Audit failed");
         shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
         report
+            .experimental
             .journey
             .expect("journey analysis present")
             .friction_points
@@ -1137,12 +1106,18 @@ async fn test_opacity_overlay_contrast_pixel_sampling() {
 async fn test_catalog_driven_audit_complete_structure() {
     let (url, shutdown) = serve_fixture("perfect.html");
 
-    let config = PipelineConfig {
-        check_performance: true,
-        check_seo: true,
-        check_mobile: true,
-        ..default_config()
-    };
+    // The derived indicators are experimental (#916): content_visibility
+    // brings source_quality and ai_visibility.
+    let config = default_config()
+        .with_modules(
+            ModuleSet::none()
+                .with(Module::Performance)
+                .with(Module::Seo)
+                .with(Module::Mobile),
+        )
+        .with_experimental(vec![
+            auditmysite::audit::ExperimentalIndicator::ContentVisibility,
+        ]);
 
     let manager = ci_browser().await;
     let page = manager.new_page().await.expect("New page failed");
@@ -1158,16 +1133,22 @@ async fn test_catalog_driven_audit_complete_structure() {
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 
     assert!(
-        report.discoverability.source_quality.is_some(),
+        report.experimental.source_quality.is_some(),
         "source_quality must be populated"
     );
     assert!(
-        report.discoverability.ai_visibility.is_some(),
+        report.experimental.ai_visibility.is_some(),
         "ai_visibility must be populated"
     );
     assert!(
-        report.discoverability.content_visibility.is_some(),
+        report.experimental.content_visibility.is_some(),
         "content_visibility must be populated"
+    );
+    assert!(
+        report.discoverability.source_quality.is_none()
+            && report.discoverability.ai_visibility.is_none()
+            && report.discoverability.content_visibility.is_none(),
+        "the ordinary report fields do not carry experimental results"
     );
     assert!(report.accessibility.score >= 0.0 && report.accessibility.score <= 100.0);
 }
@@ -1178,13 +1159,13 @@ async fn test_catalog_driven_audit_complete_structure() {
 async fn test_partial_module_failure_does_not_abort_audit() {
     let (url, shutdown) = serve_fixture("many_violations.html");
 
-    let config = PipelineConfig {
-        check_performance: true,
-        check_seo: true,
-        check_security: true,
-        check_mobile: true,
-        ..default_config()
-    };
+    let config = default_config().with_modules(
+        ModuleSet::none()
+            .with(Module::Performance)
+            .with(Module::Seo)
+            .with(Module::Security)
+            .with(Module::Mobile),
+    );
 
     let manager = ci_browser().await;
     let page = manager.new_page().await.expect("New page failed");
@@ -2299,7 +2280,10 @@ async fn batch_runs_requested_ssr_gap_check_body() {
         "auditmysite",
         "--url-file",
         "unused.txt",
-        "--seo",
+        "--modules",
+        "seo",
+        "--experimental",
+        "content-visibility",
         "--check-ssr-content",
     ]);
     let mut config = BatchConfig::from(&args);
@@ -2361,7 +2345,8 @@ async fn batch_records_requested_isolation_outcome_body() {
         "auditmysite",
         "--url-file",
         "unused.txt",
-        "--performance",
+        "--modules",
+        "performance",
         "--isolate-third-party-impact",
     ]);
     let mut config = BatchConfig::from(&args);
@@ -2477,7 +2462,13 @@ fn technician_mode_url_file_run_writes_index_and_findings() {
         .current_dir(dir.path())
         .arg("--url-file")
         .arg(&url_file)
-        .arg("--technician")
+        .args([
+            "--per-page-reports",
+            "-f",
+            "json",
+            "--modules",
+            "seo,html-conform",
+        ])
         .arg("--exclude-path")
         .arg("/skip/**")
         .arg("-o")
@@ -2870,10 +2861,8 @@ async fn display_text_sets_stored_choice_and_reduced_motion() {
 
     // Control: without --display nothing is stored or emulated. A fresh
     // browser, because localStorage is per origin and outlives the page.
-    let default_config = PipelineConfig {
-        display_mode: None,
-        ..config.clone()
-    };
+    let mut default_config = config.clone();
+    default_config.display_mode = None;
     let manager = ci_browser().await;
     let page = manager.new_page().await.expect("New page failed");
     let (report, _) = audit_page(&page, &url, &default_config, &manager)
@@ -3116,7 +3105,8 @@ async fn batch_runs_requested_privacy_check_body() {
         "auditmysite",
         "--url-file",
         "unused.txt",
-        "--seo",
+        "--modules",
+        "seo",
         "--privacy-check",
     ]);
     let mut config = BatchConfig::from(&args);

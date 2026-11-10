@@ -54,27 +54,7 @@ const CSS_CLASS_MARKERS: &[&str] = &[
 /// as `a11y_journey::link_inventory::SUPPORTED_LOCALES`).
 const SUPPORTED_LOCALES: &[&str] = &["de", "en"];
 
-const EASY_LANGUAGE_JS: &str = r#"
-(() => {
-  const langTags = new Set();
-  const docLang = document.documentElement.getAttribute('lang');
-  if (docLang) langTags.add(docLang);
-  for (const el of document.querySelectorAll('[lang], [hreflang]')) {
-    const lang = el.getAttribute('lang');
-    const hreflang = el.getAttribute('hreflang');
-    if (lang) langTags.add(lang);
-    if (hreflang) langTags.add(hreflang);
-  }
-  const classNames = [];
-  for (const el of document.querySelectorAll('[class]')) {
-    const raw = typeof el.className === 'string'
-      ? el.className
-      : (el.className && el.className.baseVal) || '';
-    if (raw) classNames.push(raw);
-  }
-  return { lang_tags: Array.from(langTags), class_names: classNames };
-})()
-"#;
+const EASY_LANGUAGE_JS: &str = include_str!("js/easy_language.js");
 
 #[derive(Debug, Default, Deserialize)]
 struct RawSignals {

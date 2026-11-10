@@ -95,6 +95,8 @@ pub struct WcagCriterionMapping {
     pub en_301549_clause: &'static str,
 }
 
+/// Kept under its historical name for API stability: the list is now the 55
+/// WCAG 2.2 A/AA criteria of EN 301 549 V4.1.1 (`EN301549_WEB_CLAUSES`).
 pub fn wcag_21_aa_criteria() -> &'static [WcagCriterionMapping] {
     static CACHE: std::sync::OnceLock<Vec<WcagCriterionMapping>> = std::sync::OnceLock::new();
     CACHE.get_or_init(|| {
@@ -126,8 +128,8 @@ mod tests {
     }
 
     #[test]
-    fn covers_wcag_21_a_and_aa_criteria() {
-        assert_eq!(wcag_21_aa_criteria().len(), 50);
+    fn covers_wcag_22_a_and_aa_criteria() {
+        assert_eq!(wcag_21_aa_criteria().len(), 55);
         assert!(wcag_21_aa_criteria()
             .iter()
             .all(|criterion| map_to_bfsg(criterion.wcag).is_some_and(|m| m.fix_required)));

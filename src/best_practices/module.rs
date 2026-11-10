@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use tracing::warn;
 
 use crate::audit::module::{AuditModule, ModuleContext, ModuleData};
-use crate::audit::PipelineConfig;
+use crate::audit::{Module, PipelineConfig};
 use crate::error::Result;
 
 use super::analyze_best_practices;
@@ -18,7 +18,7 @@ pub struct BestPracticesModule;
 /// not depend on performance. Shared by the module gate and the console
 /// collector setup so the two cannot drift apart.
 pub(crate) fn collects_best_practices(cfg: &PipelineConfig) -> bool {
-    cfg.check_performance || cfg.check_security
+    cfg.modules.contains(Module::Performance) || cfg.modules.contains(Module::Security)
 }
 
 #[async_trait]

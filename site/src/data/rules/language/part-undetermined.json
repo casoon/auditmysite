@@ -1,0 +1,41 @@
+{
+  "id": "language/part-undetermined",
+  "url": "https://casoon.github.io/auditmysite/rules/language/part-undetermined/",
+  "domain": "wcag",
+  "title": "Check text in another language without lang",
+  "outcome": "hint-only",
+  "area": "Accessibility, Language & Clarity",
+  "criterion": "3.1.2",
+  "level": "AA",
+  "axe_id": "language/part-unmarked",
+  "severity": "medium",
+  "user_impact": "Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.",
+  "technical_impact": "Heuristic language detection per text block; pages that are neither German nor English stay untested.",
+  "checks": [
+    {
+      "contract_id": "language/part-undetermined",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 3.1.2 Language of Parts (not tested)",
+      "applicability": "Pages with a non-empty lang whose primary subtag is neither de nor en.",
+      "expectation": "Marks 3.1.2 as not tested, once at the html element, when the page language is\nneither German nor English (including a malformed value such as \"en_US\" whose\nprimary subtag is not \"en\"): passages in other languages cannot be recognised\nthere, and silence must not read as a pass. On German or English pages nothing\nis reported; without a page language the rule does not apply.",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "skip_link_language",
+        "file": "tests/fixtures/detection_corpus/skip_link_language.html",
+        "verdict": "needs_review",
+        "selector": "html",
+        "html": "<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Lien d'évitement en français</title>\n    <style>\n        .skip-link { position: absolute; left: -9999px; }\n        .skip-link:focus { left: 0; }\n    </style>\n</head>\n<body>\n    <!-- #642: a skip link is recognised by its same-page target placed before\n         the first regular link, not by its (here French) text. -->\n    <a href=\"#main\" class=\"skip-link\" id=\"skip\">Aller au contenu</a>\n    <header>\n        <a href=\"/\">Accueil</a>\n    </header>\n    <nav aria-label=\"Navigation principale\">\n        <ul>\n            <li><a href=\"/apprendre/\">Apprendre</a></li>\n            <li><a href=\"/outils/\">Outils</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <h1>L'accessibilité numérique</h1>\n        <p>Le contenu principal de la page.</p>\n    </main>\n    <!-- Same text and target, but after the regular links and outside every\n         landmark: ordinary content, still reported. -->\n    <div>\n        <a href=\"#main\" id=\"stray-link\">Aller au contenu</a>\n    </div>\n    <footer>\n        <p>Pied de page</p>\n    </footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "structure_outline_clean",
+        "file": "tests/fixtures/detection_corpus/structure_outline_clean.html",
+        "verdict": "absent",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\" xml:lang=\"en-GB\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Opening hours and contact – Acme Hardware Berlin</title>\n    <style>\n        body { font: 16px/1.5 sans-serif; margin: 0 16px; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; }\n        input, button { min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <!-- Conforming look-alike for the structure rules (#783): every\n         structure the rules look at is present and correct. -->\n    <a href=\"#main\" class=\"skip-link\">Skip to content</a>\n    <header>\n        <p>Acme Hardware</p>\n    </header>\n    <nav aria-label=\"Main\">\n        <ul>\n            <li><a href=\"/\">Home</a></li>\n            <li><a href=\"/shop/\">Shop</a></li>\n            <li><a href=\"/contact/\">Contact</a></li>\n        </ul>\n    </nav>\n    <main id=\"main\">\n        <h1>Opening hours and contact</h1>\n        <p>Our store in Berlin is open six days a week. We are happy to help you\n           find the right tool for your project, and you can always call us before\n           you visit to check that an item is in stock.</p>\n        <h2>Opening hours</h2>\n        <dl>\n            <div><dt>Monday to Friday</dt><dd>8:00 to 18:00</dd></div>\n            <div><dt>Saturday</dt><dd>9:00 to 14:00</dd></div>\n        </dl>\n        <h2>Directions</h2>\n        <!-- English text with German proper names: names are exempt from\n             3.1.2, and only two German function words occur. -->\n        <p id=\"directions\">The store is a short walk from the Haus der Kunst gallery and the\n           old bridge that locals call die Brücke. Take the tram to the main square, then\n           follow the river for about five minutes until you see our green sign.</p>\n        <article>\n            <h3>Store news</h3>\n            <p>We now stock garden tools from local makers.</p>\n        </article>\n        <section aria-labelledby=\"contact-heading\">\n            <h2 id=\"contact-heading\">Contact</h2>\n            <p>Call us or send a message. Prices include <abbr title=\"value-added tax\">VAT</abbr>.</p>\n            <form action=\"/contact\" method=\"post\">\n                <label for=\"contact-email\">E-mail</label>\n                <input id=\"contact-email\" name=\"email\" type=\"email\" autocomplete=\"email\" aria-describedby=\"contact-hint\">\n                <p id=\"contact-hint\">We reply within one working day.</p>\n                <button type=\"submit\">Send</button>\n            </form>\n        </section>\n    </main>\n    <footer>\n        <p>Acme Hardware, Berlin</p>\n    </footer>\n    <!-- Hidden leftover outside every landmark: not rendered, not content. -->\n    <div hidden>Summer sale banner</div>\n</body>\n</html>"
+      }
+    }
+  ]
+}

@@ -49,50 +49,49 @@ fn make_security_from_headers(
 
 // ─── Serialization invariants ─────────────────────────────────────────────────
 
+/// #916: the experimental indicators sit in one `experimental` block with
+/// their signal contract, and in no score, summary or module block.
 #[test]
-fn ux_score_propagated_to_summary() {
+fn experimental_indicators_are_one_block_and_in_no_score() {
     use crate::accessibility::AXTree;
+    use crate::journey::analyze_journey;
     use crate::ux::analyze_ux;
 
     let mut report = make_report(WcagResults::new());
-    report.ux = Some(analyze_ux(&AXTree::new()));
+    report.experimental.ux = Some(analyze_ux(&AXTree::new()));
+    report.experimental.journey = Some(analyze_journey(&AXTree::new()));
     let normalized = normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);
+    let json: serde_json::Value = serde_json::from_str(&unified.to_json(true).unwrap()).unwrap();
 
-    assert!(
-        unified.summary.ux_score.is_some(),
-        "summary.ux_score must be Some when UX module is active"
-    );
-    let ux_entry = normalized
+    let page = &json["pages"][0];
+    for id in ["ux", "journey"] {
+        let indicator = &page["experimental"][id];
+        assert!(indicator["score"].is_u64(), "{id}: {indicator}");
+        assert_eq!(
+            indicator["signal_contract"]["contract"]["validation"]["status"], "unvalidated",
+            "{id}"
+        );
+        assert!(page["detail"]["modules"].get(id).is_none(), "{id}");
+    }
+    assert!(page.get("ux_score").is_none() && page.get("journey_score").is_none());
+    assert!(json["summary"].get("ux_score").is_none());
+    assert!(json["summary"].get("journey_score").is_none());
+    assert!(normalized
         .normalized
         .module_scores
         .iter()
-        .find(|m| m.name == "UX")
-        .unwrap();
-    assert_eq!(unified.summary.ux_score, Some(ux_entry.score));
+        .all(|m| m.name != "UX" && m.name != "Journey"));
 }
 
+/// Without `--experimental` the page has no `experimental` block at all.
 #[test]
-fn journey_score_propagated_to_summary() {
-    use crate::accessibility::AXTree;
-    use crate::journey::analyze_journey;
-
-    let mut report = make_report(WcagResults::new());
-    report.journey = Some(analyze_journey(&AXTree::new()));
+fn no_experimental_block_without_experimental_indicators() {
+    let report = make_report(WcagResults::new());
     let normalized = normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);
-
-    assert!(
-        unified.summary.journey_score.is_some(),
-        "summary.journey_score must be Some when Journey module is active"
-    );
-    let journey_entry = normalized
-        .normalized
-        .module_scores
-        .iter()
-        .find(|m| m.name == "Journey")
-        .unwrap();
-    assert_eq!(unified.summary.journey_score, Some(journey_entry.score));
+    let json: serde_json::Value = serde_json::from_str(&unified.to_json(true).unwrap()).unwrap();
+    assert!(json["pages"][0].get("experimental").is_none());
 }
 
 /// Plan 29, D2: a letter grade claims the module's value counts. Only the
@@ -304,14 +303,17 @@ fn landmark_violations_do_not_move_ai_chunking() {
         report
     };
     let mut broken = WcagResults::new();
-    broken.add_violation(Violation::new(
-        "1.3.1",
-        "Landmark",
-        WcagLevel::A,
-        Severity::Medium,
-        "Content outside landmark regions",
-        "n1",
-    ));
+    broken.add_violation(
+        Violation::new(
+            "1.3.1",
+            "Landmark",
+            WcagLevel::A,
+            Severity::Medium,
+            "Content outside landmark regions",
+            "n1",
+        )
+        .with_rule_id("headings/skip-level"),
+    );
     assert_eq!(
         analyze_ai_visibility(&with_main(WcagResults::new()))
             .chunks
@@ -425,7 +427,8 @@ fn critical_violation_caps_accessibility_score() {
         Severity::Critical,
         "Button has no accessible name",
         "btn1",
-    )];
+    )
+    .with_rule_id("buttons/name-missing")];
     let score = AccessibilityScorer::calculate_score(&violations);
     assert!(
         score <= 49.0,
@@ -437,14 +440,17 @@ fn critical_violation_caps_accessibility_score() {
 #[test]
 fn severity_counts_low_nonzero_with_low_finding() {
     let mut results = WcagResults::new();
-    results.add_violation(Violation::new(
-        "2.4.8",
-        "Location",
-        WcagLevel::AAA,
-        Severity::Low,
-        "No location breadcrumb",
-        "n1",
-    ));
+    results.add_violation(
+        Violation::new(
+            "2.4.8",
+            "Location",
+            WcagLevel::AAA,
+            Severity::Low,
+            "No location breadcrumb",
+            "n1",
+        )
+        .with_rule_id("navigation/location-missing"),
+    );
 
     let report = make_report(results);
     let normalized = normalize(&report);
@@ -463,14 +469,17 @@ fn severity_counts_low_not_upgraded_by_taxonomy_floor() {
     // taxonomy floor max(Low, High) = High silently upgraded these to High,
     // making severity_counts.low always 0 in practice.
     let mut results = WcagResults::new();
-    results.add_violation(Violation::new(
-        "1.3.1",
-        "Info and Relationships",
-        WcagLevel::A,
-        Severity::Low,
-        "List element has no list items",
-        "n1",
-    ));
+    results.add_violation(
+        Violation::new(
+            "1.3.1",
+            "Info and Relationships",
+            WcagLevel::A,
+            Severity::Low,
+            "List element has no list items",
+            "n1",
+        )
+        .with_rule_id("headings/skip-level"),
+    );
 
     let report = make_report(results);
     let normalized = normalize(&report);
@@ -588,22 +597,28 @@ fn security_score_below_100_without_corp() {
 #[test]
 fn summary_severity_counts_matches_accessibility_module() {
     let mut results = WcagResults::new();
-    results.add_violation(Violation::new(
-        "1.1.1",
-        "Non-text Content",
-        WcagLevel::A,
-        Severity::High,
-        "Missing alt",
-        "n1",
-    ));
-    results.add_violation(Violation::new(
-        "1.4.3",
-        "Contrast",
-        WcagLevel::AA,
-        Severity::Medium,
-        "Low contrast",
-        "n2",
-    ));
+    results.add_violation(
+        Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "Missing alt",
+            "n1",
+        )
+        .with_rule_id("images/alt-missing"),
+    );
+    results.add_violation(
+        Violation::new(
+            "1.4.3",
+            "Contrast",
+            WcagLevel::AA,
+            Severity::Medium,
+            "Low contrast",
+            "n2",
+        )
+        .with_rule_id("contrast/text-insufficient"),
+    );
 
     let report = make_report(results);
     let normalized = normalize(&report);
@@ -632,14 +647,17 @@ fn summary_severity_counts_matches_accessibility_module() {
 fn fix_guidance_is_always_present() {
     // Single report with findings: fix_guidance must be a non-null array
     let mut results = WcagResults::new();
-    results.add_violation(Violation::new(
-        "1.1.1",
-        "Non-text Content",
-        WcagLevel::A,
-        Severity::High,
-        "Missing alt",
-        "n1",
-    ));
+    results.add_violation(
+        Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "Missing alt",
+            "n1",
+        )
+        .with_rule_id("images/alt-missing"),
+    );
     let report = make_report(results);
     let normalized = normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);

@@ -310,6 +310,17 @@ fn render_overall_rating(
         });
     }
 
+    if let Some(baseline) = &vm.summary.baseline {
+        body.push(' ');
+        body.push_str(&crate::audit::baseline::summary_text(
+            baseline.known,
+            baseline.new,
+            baseline.fixed,
+            None,
+            en,
+        ));
+    }
+
     // A run that did not complete may still state a rating, but not as a
     // settled one — and it has to say so here, not on page ~60 (plan 44).
     if vm.summary.run_is_partial {
@@ -662,10 +673,11 @@ pub(super) fn cross_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(T
     collapsed
 }
 
-/// Whether a finding group belongs to the accessibility module (`a11y.*`,
-/// `a11y_journey.*`), as opposed to html_conform, security, seo, …
+/// Whether a finding group belongs to the accessibility module (a WCAG
+/// engine rule id such as `images/alt-missing`, or `a11y_journey.*`), as
+/// opposed to html_conform, security, seo, … which carry a `<module>.` prefix.
 fn is_accessibility_rule(rule_id: &str) -> bool {
-    rule_id.starts_with("a11y.") || rule_id.starts_with("a11y_journey.")
+    !rule_id.contains('.') || rule_id.starts_with("a11y_journey.")
 }
 
 /// The measures the key-measures list names, in order, with the number of
@@ -1088,6 +1100,15 @@ pub(super) fn render_tech_details(
             super::detail_modules::bfsg_relevant_wcag_findings(&vm.findings.all_findings),
             i18n,
         );
+        builder = super::annotations::render_reading_flow_annotations(
+            builder,
+            vm.annotations.as_ref(),
+            i18n,
+        );
+    }
+
+    if let Some(resolved) = vm.annotations.as_ref() {
+        builder = super::annotations::render_assessments_section(builder, resolved, false, i18n);
     }
 
     builder
@@ -1635,6 +1656,12 @@ fn render_findings_section(
                     evidence_seq,
                     acronyms_expanded,
                 );
+                builder = super::annotations::render_finding_annotations(
+                    builder,
+                    vm.annotations.as_ref(),
+                    &group.finding_id,
+                    i18n,
+                );
             }
         }
 
@@ -1671,6 +1698,12 @@ fn render_findings_section(
                     report_ts,
                     evidence_seq,
                     acronyms_expanded,
+                );
+                builder = super::annotations::render_finding_annotations(
+                    builder,
+                    vm.annotations.as_ref(),
+                    &group.finding_id,
+                    i18n,
                 );
             }
         }
@@ -1709,6 +1742,12 @@ fn render_findings_section(
                     evidence_seq,
                     acronyms_expanded,
                 );
+                builder = super::annotations::render_finding_annotations(
+                    builder,
+                    vm.annotations.as_ref(),
+                    &group.finding_id,
+                    i18n,
+                );
             }
         }
 
@@ -1745,6 +1784,12 @@ fn render_findings_section(
                     report_ts,
                     evidence_seq,
                     acronyms_expanded,
+                );
+                builder = super::annotations::render_finding_annotations(
+                    builder,
+                    vm.annotations.as_ref(),
+                    &group.finding_id,
+                    i18n,
                 );
             }
         }
@@ -2281,8 +2326,8 @@ mod top_measure_tests {
     #[test]
     fn only_accessibility_rules_are_labelled_accessibility() {
         for id in [
-            "a11y.contrast.weak",
-            "a11y.html_content_model.invalid",
+            "contrast/text-insufficient",
+            "html-content-model",
             "a11y_journey.link_text_duplicate",
         ] {
             assert!(is_accessibility_rule(id), "{id}");

@@ -25,7 +25,7 @@ A few fields worth knowing:
 | `decision` | `verdict` (`pass`, `warn` or `fail`), its `reasons`, and the `profile` it was computed with; the exit code follows it |
 | `pages[].findings[].contract` | Domain, source, outcome, applicability, cause and which score is responsible, for findings of every module |
 | `summary.accessibility_score` | The headline score; in a dual-viewport audit 70% mobile, 30% desktop |
-| `summary.wcag_coverage` | 55 WCAG 2.2 A/AA criteria: 30 automated, 21 for manual review |
+| `summary.wcag_coverage` | 55 WCAG 2.2 A/AA criteria: 29 automated, 21 for manual review |
 | `audit_quality`, `pages[].detail.module_runs` | Complete, partial, failed or skipped checks, so a measurement failure never reads as a clean result |
 | `pages[].detail.rule_outcomes` | One entry per rule and viewport; a rule that could not run is never reported as passing |
 | `pages[].detail.en301549_annex` | Findings mapped to EN 301 549 chapter 9 clauses |
@@ -49,7 +49,7 @@ page, not the report language.
 auditmysite https://example.com --lang en -o report.pdf
 ```
 
-- Languages: German (default) and English, `--lang de|en`. With `--lang en` the report is
+- Languages: English (default) and German, `--lang en|de`. With `--lang en` the report is
   English throughout, including module tables (security headers, SSL, touch targets, fonts), the
   HTML-validation callout. The report carries no certificate: the grade and score band are
   labels for the automated scope, not a statement of conformance.
@@ -65,8 +65,8 @@ auditmysite https://example.com --lang en -o report.pdf
 
 ## Screen-reader sidecar
 
-Whenever screen-reader data is available, a `…-screen-reader-audit.json` is written next to the
-main report. It models what a screen reader would typically announce, node by node, from name,
+With `--screen-reader-report`, a `…-screen-reader-audit.json` is written next to the main report
+whenever screen-reader data is available. It models what a screen reader would typically announce, node by node, from name,
 role and state. It is rule-based, not a recording of NVDA, JAWS or VoiceOver.
 
 ## Other formats
@@ -79,11 +79,14 @@ role and state. It is rule-based, not a recording of NVDA, JAWS or VoiceOver.
 ## report-lint
 
 ```sh
-auditmysite report-lint report.json --fail-on high
+cargo run --features dev-tools --bin auditmysite-dev -- report-lint report.json --fail-on high
 ```
+
+`report-lint` is a maintainer command of the `auditmysite-dev` binary, which `cargo install
+auditmysite` does not install (see [Development](../development/)).
 
 Deterministic consistency checks on a finished JSON report (single or batch): scores, grades and
 count sums that must agree. No network, no Chrome. The default `--fail-on` is `high`; a finding
 at or above it exits with code `3`. With `--typst-source <file.typ>` (the PDF's Typst source,
-written by the hidden `--debug-typ` flag) it also checks that the accessibility score shown in the PDF
+written by `auditmysite-dev --debug-typ`) it also checks that the accessibility score shown in the PDF
 traces back to the report.

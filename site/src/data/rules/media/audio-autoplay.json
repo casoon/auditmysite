@@ -1,0 +1,41 @@
+{
+  "id": "media/audio-autoplay",
+  "url": "https://casoon.github.io/auditmysite/rules/media/audio-autoplay/",
+  "domain": "wcag",
+  "title": "Check autoplaying audio for a control",
+  "outcome": "hint-only",
+  "area": "Accessibility, Visual Presentation",
+  "criterion": "1.4.2",
+  "level": "A",
+  "axe_id": "media/audio-autoplay",
+  "severity": "medium",
+  "user_impact": "Audio that starts on its own drowns out screen reader speech.",
+  "technical_impact": "<audio autoplay> without muted; whether it plays longer than three seconds and can be paused is not in the markup.",
+  "checks": [
+    {
+      "contract_id": "media/audio-autoplay",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 1.4.2 Audio Control; HTML §4.8.11 autoplay/muted",
+      "applicability": "Every <audio> not hidden by the hidden attribute (an <audio> without controls is display:none by UA style and still plays).",
+      "expectation": "<audio autoplay> without muted starts sound on load. Whether it lasts more\nthan three seconds or can be paused is not in the markup: REVIEW at the audio.\nmuted autoplay and audio without autoplay pass.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "media_and_visual",
+        "file": "tests/fixtures/detection_corpus/media_and_visual.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Background audio, contrast, spacing, reflow, and obscured focus corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Background audio, non-text contrast, text spacing, reflow, obscured focus</h1>\n\n        <audio autoplay src=\"/bg.mp3\"></audio>\n\n        <label>\n            Subscribe\n            <input type=\"checkbox\" style=\"appearance: none; -webkit-appearance: none; width: 20px; height: 20px; background: #ffffff; border: 1px solid #f6f6f6;\">\n        </label>\n\n        <div style=\"width: 200px; height: 80px; overflow: hidden; font-size: 16px; line-height: 1.2;\">\n            This line of text just barely fits inside the box at normal spacing but not at wider spacing\n        </div>\n\n        <div style=\"width: 900px; white-space: nowrap;\">\n            This is a very long line of unbroken text forced into a fixed nine-hundred-pixel wide container that will not wrap and therefore forces horizontal scrolling once the viewport narrows to three hundred twenty pixels.\n        </div>\n\n        <a href=\"/contact\" style=\"position: fixed; bottom: 10px; left: 10px; min-width: 44px; min-height: 44px;\">Contact us</a>\n        <div style=\"position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background: #333;\"></div>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "content_images_ok",
+        "file": "tests/fixtures/detection_corpus/content_images_ok.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Exhibition: maps of the old town</title>\n    <style>\n        .icon { display: inline-block; width: 16px; height: 16px; background: #446; }\n        .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n    </style>\n    <style>\n        nav a, .skip-link, form input, a[href=\"/print\"] { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Exhibition: maps of the old town</h1>\n        <img id=\"poster\" src=\"/poster.jpg\" alt=\"Poster: maps of the old town, 3 May to 30 June\" width=\"200\" height=\"120\">\n        <img id=\"divider\" src=\"/divider.png\" alt=\"\" width=\"200\" height=\"4\">\n        <img id=\"labelled\" src=\"/map-1850.png\" aria-label=\"Town map of 1850\" width=\"200\" height=\"120\">\n        <p id=\"caption-1900\">Town map of 1900</p>\n        <img id=\"labelledby\" src=\"/map-1900.png\" aria-labelledby=\"caption-1900\" width=\"200\" height=\"120\">\n        <img id=\"titled\" src=\"/seal.png\" title=\"Town seal\" width=\"40\" height=\"40\">\n        <img id=\"three-chars\" src=\"/sign.png\" alt=\"Inn\" width=\"40\" height=\"40\">\n        <img id=\"presentational\" src=\"/flourish.png\" role=\"presentation\" width=\"40\" height=\"10\">\n        <img id=\"hidden-from-at\" src=\"/flourish.png\" aria-hidden=\"true\" width=\"40\" height=\"10\">\n        <img id=\"not-rendered\" src=\"/print-only.png\" style=\"display: none\">\n        <img id=\"hidden-attr\" src=\"/later.png\" hidden>\n        <img id=\"town-map\" src=\"/town.png\" usemap=\"#town-areas\" alt=\"Old town districts\" width=\"200\" height=\"120\">\n        <map name=\"town-areas\">\n            <area id=\"area-market\" href=\"/districts/market\" shape=\"rect\" coords=\"0,0,100,60\" alt=\"Market district\">\n            <area id=\"area-harbour\" href=\"/districts/harbour\" shape=\"rect\" coords=\"100,0,200,60\" aria-label=\"Harbour district\">\n            <area id=\"area-decor\" shape=\"rect\" coords=\"0,60,200,120\">\n        </map>\n        <form action=\"/search\">\n            <label for=\"q\">Search the collection</label>\n            <input id=\"q\" name=\"q\" type=\"search\">\n            <input id=\"search-go\" type=\"image\" src=\"/go.png\" alt=\"Search\">\n            <span id=\"reset-label\" hidden>Clear search</span>\n            <input id=\"search-clear\" type=\"image\" src=\"/clear.png\" aria-labelledby=\"reset-label\">\n        </form>\n        <object id=\"catalogue-pdf\" data=\"/catalogue.pdf\" type=\"application/pdf\" width=\"300\" height=\"200\">\n            <a href=\"/catalogue.pdf\">Download the exhibition catalogue (PDF)</a>\n        </object>\n        <object id=\"floor-plan\" data=\"/floor.svg\" type=\"image/svg+xml\" title=\"Floor plan of the exhibition\" width=\"300\" height=\"200\"></object>\n        <audio id=\"muted-loop\" autoplay muted loop src=\"/ambience.mp3\"></audio>\n        <audio id=\"tour-audio\" controls src=\"/tour.mp3\"></audio>\n        <span id=\"warning-icon\" role=\"img\" aria-label=\"Warning\" class=\"icon\"></span>\n        <span id=\"decor-icon\" role=\"img\" class=\"icon\" aria-hidden=\"true\"></span>\n        <a href=\"/print\"><span id=\"print-icon\" role=\"img\" class=\"icon\"></span>Print this page</a>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "id": "aria/role-invalid",
+  "url": "https://casoon.github.io/auditmysite/rules/aria/role-invalid/",
+  "domain": "wcag",
+  "title": "Invalid ARIA role",
+  "outcome": "automatic",
+  "area": "Accessibility, Technical Robustness",
+  "criterion": "4.1.2",
+  "level": "A",
+  "axe_id": "aria-roles",
+  "severity": "high",
+  "user_impact": "Assistive technologies cannot determine the element's function.",
+  "technical_impact": "Role value is not defined in the ARIA specification.",
+  "checks": [
+    {
+      "contract_id": "aria/role-invalid",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 4.1.2 Name, Role, Value; WAI-ARIA 1.2 section 5.4 (definition of roles) and 7.1 (role attribute, fallback tokens); ACT 674b10",
+      "applicability": "Non-empty role attributes on elements in the accessibility tree.",
+      "expectation": "Fails when no token of the role attribute is a valid, non-abstract WAI-ARIA (or DPUB/\ngraphics module) role (role=\"tabel\"): the element keeps its native or generic semantics. A fallback\nlist whose unknown first token is followed by a valid one (role=\"upload button\") passes, because user\nagents take the first valid token (ACT 674b10). Abstract roles are aria/role-abstract. Hidden subtrees\nare out of scope.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "ax_tree"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "aria_attribute_validation",
+        "file": "tests/fixtures/detection_corpus/aria_attribute_validation.html",
+        "verdict": "violation",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>ARIA attribute validation corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Various ARIA attribute misuses</h1>\n\n        <!-- aria-attr-name-invalid: not a real ARIA attribute -->\n        <div aria-nonexistentattr=\"true\">Unknown ARIA attribute</div>\n\n        <!-- aria-prohibited-attr: aria-label is prohibited on role=\"presentation\" -->\n        <span role=\"presentation\" aria-label=\"Redundant label\">Decorative span</span>\n\n        <!-- aria-allowed-attr: aria-checked is not allowed on role=\"img\" -->\n        <div role=\"img\" aria-checked=\"true\" aria-label=\"Icon\">Icon</div>\n\n        <!-- aria-roles: not a real ARIA role -->\n        <div role=\"not-a-real-role\">Invalid role value</div>\n\n        <!-- aria-valid-attr: aria-controls present but empty -->\n        <button aria-controls=\"\" aria-label=\"Toggle\">Toggle</button>\n\n        <!-- aria-valid-attr-value: aria-labelledby references a non-existent id -->\n        <p aria-labelledby=\"does-not-exist\">Broken reference</p>\n\n        <!-- aria-required-parent: role=\"tab\" outside a tablist -->\n        <div role=\"tab\" tabindex=\"0\">Orphan tab</div>\n\n        <!-- aria-hidden-focus: a focusable element inside aria-hidden -->\n        <div aria-hidden=\"true\">\n            <button tabindex=\"0\">Hidden but still focusable</button>\n        </div>\n\n        <!-- aria-invalid-without-describedby -->\n        <label for=\"email-field\">Email</label>\n        <input id=\"email-field\" type=\"email\" aria-invalid=\"true\">\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "aria_roles_valid",
+        "file": "tests/fixtures/detection_corpus/aria_roles_valid.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Order overview - Example shop</title>\n</head>\n<body>\n    <header>\n        <p>Example shop</p>\n    </header>\n    <main>\n        <h1>Order overview</h1>\n\n        <!-- Valid concrete roles -->\n        <div id=\"orders\" role=\"table\" aria-label=\"Orders\">\n            <div role=\"rowgroup\">\n                <div role=\"row\" id=\"order-head\">\n                    <span role=\"columnheader\">Order</span>\n                    <span role=\"columnheader\">Status</span>\n                </div>\n                <div role=\"row\" id=\"order-row\">\n                    <span role=\"cell\">Order 1001</span>\n                    <span role=\"cell\">shipped</span>\n                </div>\n            </div>\n        </div>\n        <div id=\"filters\" role=\"group\" aria-label=\"Filter orders\">\n            <button type=\"button\" id=\"filter-open\">Open orders</button>\n        </div>\n\n        <!-- A role that changes the element's semantics is not redundant -->\n        <a href=\"/orders/export\" id=\"export\" role=\"button\">Export</a>\n\n        <!-- Tabs inside their tablist, through a generic wrapper; the tablist\n             owns a tab through aria-owns as well -->\n        <div id=\"views\" role=\"tablist\" aria-label=\"Views\" aria-owns=\"view-map\">\n            <div class=\"tab-wrap\">\n                <div id=\"view-list\" role=\"tab\" tabindex=\"0\" aria-selected=\"true\" aria-controls=\"view-panel\">List</div>\n            </div>\n            <div id=\"view-grid\" role=\"tab\" tabindex=\"-1\" aria-selected=\"false\" aria-controls=\"view-panel\">Grid</div>\n        </div>\n        <div id=\"view-map\" role=\"tab\" tabindex=\"-1\" aria-selected=\"false\" aria-controls=\"view-panel\">Map</div>\n        <div id=\"view-panel\" role=\"tabpanel\" aria-labelledby=\"view-list\">Three orders.</div>\n\n        <!-- A busy feed may hold a placeholder instead of articles while loading -->\n        <div id=\"loading\" role=\"feed\" aria-busy=\"true\" aria-label=\"Recent orders\">\n            <p class=\"spinner\">Loading</p>\n        </div>\n\n        <!-- Required states present; native controls carry them natively -->\n        <div id=\"gift\" role=\"checkbox\" tabindex=\"0\" aria-checked=\"false\">Gift wrap</div>\n        <div id=\"express\" role=\"switch\" tabindex=\"0\" aria-checked=\"true\">Express delivery</div>\n        <input type=\"checkbox\" id=\"insure\" role=\"switch\">\n        <label for=\"insure\">Insure parcel</label>\n        <div id=\"carrier\" role=\"combobox\" tabindex=\"0\" aria-expanded=\"false\" aria-controls=\"carriers\" aria-label=\"Carrier\">Standard</div>\n        <ul id=\"carriers\" role=\"listbox\" aria-label=\"Carriers\" hidden>\n            <li role=\"option\" id=\"carrier-std\" aria-selected=\"true\">Standard</li>\n        </ul>\n        <hr id=\"divider\">\n        <div id=\"static-sep\" role=\"separator\"></div>\n    </main>\n    <footer>\n        <p>Example shop</p>\n    </footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

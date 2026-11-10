@@ -183,7 +183,7 @@ check_dependencies() {
         if [ ! -f "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]; then
             warn "Chrome/Chromium not found. auditmysite requires Chrome for accessibility checks."
             echo "  Install Chrome: https://www.google.com/chrome/"
-            echo "  Or use: auditmysite --detect-chrome to check available browsers"
+            echo "  Or use: auditmysite browser detect to check available browsers"
             echo ""
         fi
     fi

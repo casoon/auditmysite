@@ -1,0 +1,53 @@
+{
+  "id": "security.headers.hsts_preload_ineligible",
+  "url": "https://casoon.github.io/auditmysite/rules/security.headers.hsts_preload_ineligible/",
+  "domain": "security",
+  "title": "Hsts preload ineligible",
+  "outcome": "automatic",
+  "area": "Security, response headers",
+  "checks": [
+    {
+      "contract_id": "Strict-Transport-Security:hsts_preload_ineligible",
+      "label": "Strict-Transport-Security",
+      "outcome": "automatic",
+      "source": "hstspreload.org submission requirements (max-age >= 31536000, includeSubDomains, preload); RFC 6797 §6.1 (directive names case-insensitive, quoted-string values), §8.1",
+      "applicability": "Applies to HTTPS responses whose STS header carries the preload directive.",
+      "expectation": "Fails when an HTTPS response's STS header claims preload but max-age is below 31536000 seconds or includeSubDomains is missing. Exactly 31536000 with includeSubDomains passes; 31535999 fails. Directive names are case-insensitive and max-age may be quoted (`Max-Age=\"31536000\"` is one year). Without preload, without an STS header, or over plain HTTP (header ignored) the check does not apply.",
+      "method": "analyze_security",
+      "capabilities": [
+        "network"
+      ],
+      "page_level": true,
+      "failing": {
+        "case": "hsts_preload_ineligible",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/hsts_preload_ineligible.expected.json",
+        "verdict": "violation",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "Strict-Transport-Security": "max-age=3600; preload",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      },
+      "passing": {
+        "case": "hsts_preload_eligible",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/hsts_preload_eligible.expected.json",
+        "verdict": "pass",
+        "response_headers": {
+          "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          "Cross-Origin-Opener-Policy": "same-origin",
+          "Cross-Origin-Resource-Policy": "same-origin",
+          "Permissions-Policy": "geolocation=(), camera=()",
+          "Referrer-Policy": "strict-origin-when-cross-origin",
+          "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+          "X-Content-Type-Options": "nosniff",
+          "X-Frame-Options": "DENY"
+        }
+      }
+    }
+  ]
+}

@@ -119,7 +119,7 @@ pub(crate) fn all() -> &'static [(&'static str, RuleExplanation)] {
 }
 
 /// Look up the explanation for a rule by its WCAG ID (e.g., "1.1.1")
-/// or taxonomy rule ID (e.g., "a11y.alt_text.missing")
+/// or engine rule ID (e.g., "images/alt-missing")
 pub fn get_explanation(rule_id: &str) -> Option<&'static RuleExplanation> {
     // Direct lookup by WCAG ID
     if let Some(expl) = EXPLANATIONS
@@ -134,21 +134,14 @@ pub fn get_explanation(rule_id: &str) -> Option<&'static RuleExplanation> {
     if let Some((_, key)) = SHARED_ALIASES.iter().find(|(id, _)| *id == rule_id) {
         return get_explanation(key);
     }
-    // Fallback: if a taxonomy rule_id was passed, resolve to WCAG ID via legacy map
-    if rule_id.contains('.') {
-        use crate::taxonomy::rules::RULES;
-        if let Some(rule) = RULES.iter().find(|r| r.id == rule_id) {
-            if let Some(ext_ref) = rule.external_ref {
-                // external_ref is "WCAG 1.1.1" — extract the number
-                let wcag_id = ext_ref.strip_prefix("WCAG ").unwrap_or(ext_ref);
-                return EXPLANATIONS
-                    .iter()
-                    .find(|(id, _)| *id == wcag_id)
-                    .map(|(_, e)| e);
-            }
-        }
-    }
-    None
+    // Fallback: a registered rule resolves to the text of its WCAG criterion.
+    let rule = crate::taxonomy::RuleLookup::by_id(rule_id)?;
+    // external_ref is "WCAG 1.1.1" — extract the number
+    let wcag_id = rule.external_ref?.strip_prefix("WCAG ")?;
+    EXPLANATIONS
+        .iter()
+        .find(|(id, _)| *id == wcag_id)
+        .map(|(_, e)| e)
 }
 
 /// Resolve a finding's explanation in the only order that is safe: the
@@ -258,6 +251,10 @@ static SHARED_ALIASES: &[(&str, &str)] = &[
     // die abgeloesten Regeln; `keyboard/pointer-only` nimmt den der
     // Klick-Handler ohne Tastatur.
     ("keyboard/pointer-only", "click-events-have-key-events"),
+    // The popover and inert checks share the dialog/popover control text.
+    ("popover/target-missing", "modern-attribute-misuse"),
+    ("popover/target-invalid", "modern-attribute-misuse"),
+    ("inert/dialog-inert", "modern-attribute-misuse"),
 ];
 
 /// All WCAG rule explanations indexed by rule ID
@@ -719,67 +716,6 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             effort_estimate: Effort::Medium,
             example_bad: None,
             example_good: None,
-            example_decorative: None,
-        },
-    ),
-    // Rule-specific override for presentation-semantic-children violations.
-    // The WCAG 1.3.1 fallback is too generic (tables/lists/forms) for this case —
-    // the actual issue is an ARIA role conflict in navigation markup.
-    (
-        "a11y.presentation_semantic_children.invalid",
-        RuleExplanation {
-            customer_title: "ARIA-Rollen-Konflikt in Navigation",
-            customer_title_en: "ARIA role conflict in navigation",
-            customer_description:
-                "Ein Element ist mit role=\"none\" als semantisch leer markiert, \
-                 enthält aber Kindelemente mit eigenen ARIA-Rollen. Das verwirrt \
-                 Screenreader: Der Container hat keine Semantik, aber die enthaltenen \
-                 Elemente referenzieren Rollentypen, die einen bestimmten Container \
-                 voraussetzen.",
-            customer_description_en:
-                "An element is marked as semantically empty with role=\"none\", but \
-                 contains child elements with their own ARIA roles. This confuses screen \
-                 readers: the container has no semantics, but the contained elements \
-                 reference role types that require a specific parent container.",
-            user_impact:
-                "Screenreader können Navigationsmenüs nicht korrekt interpretieren. \
-                 Tastaturnutzer erhalten möglicherweise falsche oder fehlende \
-                 Navigationshinweise.",
-            user_impact_en:
-                "Screen readers cannot correctly interpret navigation menus. Keyboard \
-                 users may receive incorrect or missing navigation cues.",
-            typical_cause:
-                "Verwendung von ARIA-Mustern aus Desktop-Anwendungen (z. B. \
-                 role=\"menuitem\") für Website-Navigation. role=\"none\" auf \
-                 List-Elementen, die ARIA-Kinder mit Rollenanforderungen enthalten.",
-            typical_cause_en:
-                "Using ARIA patterns from desktop applications (e.g. role=\"menuitem\") \
-                 for website navigation. role=\"none\" on list items that contain ARIA \
-                 children with role requirements.",
-            recommendation:
-                "Website-Navigation ohne ARIA-Menubar-Muster aufbauen: \
-                 <nav><ul><li><a> reicht für Screenreader aus. role=\"menuitem\" und \
-                 role=\"menubar\" sind für Desktop-App-Menüs reserviert, nicht für \
-                 Seitennavigation. role=\"none\" nur auf Elementen verwenden, die \
-                 wirklich keine Kinder mit Eigenrollen haben.",
-            recommendation_en:
-                "Build website navigation without the ARIA Menubar pattern: \
-                 <nav><ul><li><a> is sufficient for screen readers. role=\"menuitem\" \
-                 and role=\"menubar\" are reserved for desktop application menus, not \
-                 website navigation. Only use role=\"none\" on elements that truly have \
-                 no children with their own roles.",
-            technical_note:
-                "ARIA APG: Navigation-Menubar ist für App-ähnliche Menüs mit \
-                 Pfeilnavigation. Website-Navigation verwendet <nav> + natürliche \
-                 Listenstruktur. role=\"none\" hebt nicht die Rollen von Nachfahren auf.",
-            technical_note_en:
-                "ARIA APG: Navigation Menubar is for app-like menus with arrow key \
-                 navigation. Website navigation uses <nav> + natural list structure. \
-                 role=\"none\" does not remove the roles of descendant elements.",
-            responsible_role: Role::Development,
-            effort_estimate: Effort::Quick,
-            example_bad: Some("<li role=\"none\"><a href=\"/home\" role=\"menuitem\">Home</a></li>"),
-            example_good: Some("<li><a href=\"/home\">Home</a></li>"),
             example_decorative: None,
         },
     ),
@@ -2094,7 +2030,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "a11y.aria_hidden_focus.invalid",
+        "keyboard/hidden-focusable",
         RuleExplanation {
             customer_title: "Tastaturfokus auf unsichtbaren Elementen",
             customer_title_en: "Keyboard focus on hidden elements",
@@ -2136,7 +2072,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "a11y.aria_prohibited_attr.invalid",
+        "aria/attribute-prohibited",
         RuleExplanation {
             customer_title: "Ungültige oder verbotene ARIA-Attribute",
             customer_title_en: "Prohibited ARIA attributes",
@@ -2178,7 +2114,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "a11y.modern_attributes.invalid",
+        "modern-attribute-misuse",
         RuleExplanation {
             customer_title: "Fehlerhafte Dialog- oder Popover-Steuerung",
             customer_title_en: "Broken dialog or popover control",
@@ -2471,7 +2407,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
     // ── Added to fix the WCAG-criterion grouping fallback (plan/1
     // root-cause-title-occurrence-mismatch.md, "Mechanism 2"): each axe_id
     // below previously had no dedicated RuleExplanation and, once given its
-    // own taxonomy Rule + LEGACY_WCAG_MAP entry, would otherwise fall back
+    // own taxonomy Rule, would otherwise fall back
     // to get_explanation()'s internal WCAG-criterion lookup and surface
     // text written for a different, unrelated check under the same
     // criterion (same failure mode as #571).
@@ -3164,7 +3100,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
     // Geschluesselt nach der Taxonomie-Kennung, die `resolve_explanation`
     // nach der (hier nie hinterlegten) geteilten Kennung versucht.
     (
-        "a11y.heading_level.skipped",
+        "headings/skip-level",
         RuleExplanation {
             customer_title: "Übersprungene Überschriftenebene",
             customer_title_en: "Skipped heading level",
@@ -3186,7 +3122,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "a11y.heading_empty.invalid",
+        "headings/empty",
         RuleExplanation {
             customer_title: "Leere Überschrift",
             customer_title_en: "Empty heading",
@@ -3208,7 +3144,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "a11y.main_heading.missing",
+        "headings/h1-missing",
         RuleExplanation {
             customer_title: "Fehlende Hauptüberschrift (h1)",
             customer_title_en: "Missing main heading (h1)",
@@ -3230,7 +3166,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "a11y.main_heading_multiple.weak",
+        "headings/h1-multiple",
         RuleExplanation {
             customer_title: "Mehrere Hauptüberschriften (h1)",
             customer_title_en: "Multiple main headings (h1)",
@@ -3252,7 +3188,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "a11y.list_children.invalid",
+        "lists/invalid-structure",
         RuleExplanation {
             customer_title: "Liste mit unzulässigen Kindelementen",
             customer_title_en: "List with invalid child elements",
@@ -3274,7 +3210,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "a11y.list_empty.invalid",
+        "lists/empty",
         RuleExplanation {
             customer_title: "Leere Liste",
             customer_title_en: "Empty list",
@@ -3296,7 +3232,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "a11y.list_structure.missing",
+        "lists/item-outside-list",
         RuleExplanation {
             customer_title: "Listeneintrag außerhalb einer Liste",
             customer_title_en: "List item outside a list",
@@ -3318,7 +3254,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "a11y.definition_description.missing",
+        "lists/term-without-definition",
         RuleExplanation {
             customer_title: "Begriff ohne Definition",
             customer_title_en: "Term without definition",
@@ -3340,7 +3276,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "a11y.table_headers.missing",
+        "tables/header-missing",
         RuleExplanation {
             customer_title: "Datentabelle ohne Kopfzellen",
             customer_title_en: "Data table without header cells",
@@ -3362,7 +3298,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "a11y.table_name.missing",
+        "tables/name-missing",
         RuleExplanation {
             customer_title: "Datentabelle ohne Namen",
             customer_title_en: "Data table without a name",
@@ -3384,7 +3320,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "a11y.table_presentational_headers.invalid",
+        "tables/presentational-with-headers",
         RuleExplanation {
             customer_title: "Layouttabelle mit Kopfzellen",
             customer_title_en: "Layout table with header cells",
@@ -3406,7 +3342,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "a11y.page_language.invalid",
+        "document/lang-invalid",
         RuleExplanation {
             customer_title: "Ungültige Sprachangabe der Seite",
             customer_title_en: "Invalid page language",
@@ -3428,7 +3364,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "a11y.positive_tabindex.invalid",
+        "keyboard/positive-tabindex",
         RuleExplanation {
             customer_title: "Positiver tabindex verändert die Fokusreihenfolge",
             customer_title_en: "Positive tabindex changes the focus order",
@@ -3450,7 +3386,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "a11y.viewport_zoom.restricted",
+        "zoom/viewport-scale-limited",
         RuleExplanation {
             customer_title: "Zoom durch Viewport-Meta-Tag begrenzt",
             customer_title_en: "Zoom limited by the viewport meta tag",
@@ -3515,6 +3451,117 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             effort_estimate: Effort::Quick,
             example_bad: Some("<div class=\"footer\">...</div>"),
             example_good: Some("<footer>...</footer>"),
+            example_decorative: None,
+        },
+    ),
+    // ── Messungen an der laufenden Seite (#1002–#1007) ──
+    (
+        "frames/cross-origin",
+        RuleExplanation {
+            customer_title: "Eingebetteter Rahmen konnte nicht geprüft werden",
+            customer_title_en: "Embedded frame could not be tested",
+            customer_description: "Das Dokument in einem iframe war für das Prüfwerkzeug nicht lesbar und blieb deshalb ungeprüft. Der Rahmen hat einen fremden Ursprung, oder seine Navigation war nicht abgeschlossen.",
+            customer_description_en: "The document inside an iframe could not be read by the testing tool, so it was not tested. The frame has a foreign origin, or its navigation had not finished.",
+            user_impact: "Eingebettete Inhalte wie Karten, Buchungs- oder Einwilligungsdialoge können für Screenreader- und Tastaturnutzer unzugänglich sein, ohne dass der Bericht es zeigt.",
+            user_impact_en: "Embedded content such as maps, booking widgets or consent dialogs may be inaccessible to screen reader and keyboard users without the report showing it.",
+            typical_cause: "Inhalte von Drittanbietern in einem iframe mit fremdem Ursprung; die Seite kann deren Dokument nicht lesen.",
+            typical_cause_en: "Third-party content in an iframe with a foreign origin; the page cannot read its document.",
+            recommendation: "Den Rahmeninhalt von Hand prüfen oder seine Adresse für sich prüfen; beim Anbieter nach einer barrierefreien Einbettung fragen.",
+            recommendation_en: "Check the frame content by hand or test its address on its own; ask the provider for an accessible embed.",
+            technical_note: "Eine Abdeckungsnotiz, keine Konformitätsprüfung und an kein Erfolgskriterium gebunden. Gemessen wird, ob contentDocument des Rahmens lesbar ist; Rahmen, die präsentational, versteckt oder höchstens 1 px groß sind, bleiben außen vor. Ohne die Messung steht die Regel als nicht gelaufen im Bericht.",
+            technical_note_en: "A coverage note, not a conformance check and tied to no success criterion. It measures whether the frame's contentDocument is readable; presentational, hidden or 1 px frames are skipped. Without the measurement the rule is reported as not run.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Medium,
+            example_bad: Some("<iframe src=\"https://other.example/booking\"></iframe>"),
+            example_good: Some("<iframe src=\"https://other.example/booking\" title=\"Room booking\"></iframe> <!-- test the content separately -->"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "orientation/root-rotated",
+        RuleExplanation {
+            customer_title: "Seite erzwingt eine Bildschirmausrichtung durch Drehung der Wurzel",
+            customer_title_en: "Page forces a screen orientation by rotating its root",
+            customer_description: "Das Wurzelelement (html oder body) ist um eine Vierteldrehung gedreht. Damit lässt sich die Seite nur in einer Ausrichtung nutzen, außer die Ausrichtung ist wesentlich.",
+            customer_description_en: "The root element (html or body) is rotated by a quarter turn. The page is then usable in one orientation only, unless a specific orientation is essential.",
+            user_impact: "Menschen, deren Gerät fest montiert ist, etwa am Rollstuhl, können die Ausrichtung nicht wechseln und sehen die Seite gedreht oder abgeschnitten.",
+            user_impact_en: "People whose device is mounted in a fixed position, for example on a wheelchair, cannot change the orientation and see the page rotated or cut off.",
+            typical_cause: "Ein transform: rotate(90deg) oder rotate: 90deg auf html oder body, das im Hochformat das Querformat nachbilden soll.",
+            typical_cause_en: "A transform: rotate(90deg) or rotate: 90deg on html or body that is meant to imitate landscape in portrait.",
+            recommendation: "Die Drehung entfernen und das Layout in beiden Ausrichtungen nutzbar machen. Nur wenn eine Ausrichtung wesentlich ist (Klavier, Bankscheck), darf sie festgelegt werden.",
+            recommendation_en: "Remove the rotation and make the layout usable in both orientations. Only fix an orientation when it is essential (a piano, a bank cheque).",
+            technical_note: "Gemessen wird die berechnete transform-Matrix und die Eigenschaft rotate von html und body im geprüften Viewport; eine Sperre nur in der anderen Ausrichtung zeigt der Lauf im jeweils anderen Viewport. Ob eine Ausrichtung wesentlich ist, entscheidet ein Mensch.",
+            technical_note_en: "The computed transform matrix and the rotate property of html and body are measured in the audited viewport; a lock that applies in the other orientation only shows in the run of that viewport. Whether an orientation is essential is a human judgement.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Medium,
+            example_bad: Some("@media (orientation: portrait) { body { transform: rotate(90deg); } }"),
+            example_good: Some("/* no rotation; the layout adapts to both orientations */"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "auth/paste-blocked",
+        RuleExplanation {
+            customer_title: "Einfügen in Passwort- oder Code-Feld blockiert",
+            customer_title_en: "Paste blocked in password or code field",
+            customer_description: "Ein Passwort- oder Einmalcode-Feld bricht das paste-Ereignis ab und fügt den Text nicht selbst ein. Passwortmanager und die Zwischenablage funktionieren dort nicht.",
+            customer_description_en: "A password or one-time-code field cancels the paste event and does not insert the text itself. Password managers and the clipboard do not work there.",
+            user_impact: "Wer sich Passwörter nicht merken oder fehlerfrei abschreiben kann, etwa wegen kognitiver oder motorischer Einschränkungen, scheitert an der Anmeldung.",
+            user_impact_en: "Anyone who cannot memorise passwords or transcribe them accurately, for example because of cognitive or motor impairments, fails to sign in.",
+            typical_cause: "Ein paste-Handler mit preventDefault() oder onpaste=\"return false\", meist als vermeintliche Sicherheitsmaßnahme.",
+            typical_cause_en: "A paste handler with preventDefault() or onpaste=\"return false\", usually meant as a security measure.",
+            recommendation: "Den Handler entfernen. Wird der Text bereinigt, den bereinigten Text selbst in das Feld einfügen, statt das Einfügen zu verbieten.",
+            recommendation_en: "Remove the handler. If the text is sanitised, insert the sanitised text into the field instead of forbidding the paste.",
+            technical_note: "Gemessen wird ein synthetisches, abbrechbares paste-Ereignis an Passwort- und Codefeldern, auch in gleich-ursprünglichen Rahmen und offenen Shadow Roots; der Feldwert wird danach wiederhergestellt. Das Ereignis ist nicht vertrauenswürdig (isTrusted ist false): Ein Handler, der nur auf echte Ereignisse oder Tastendrücke reagiert, bleibt unsichtbar. autocomplete=\"off\" ist kein Befund.",
+            technical_note_en: "A synthetic, cancelable paste event is dispatched on password and code fields, including same-origin frames and open shadow roots; the field value is restored afterwards. The event is not trusted (isTrusted is false): a handler that reacts only to real events or key presses stays unseen. autocomplete=\"off\" is not a finding.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<input type=\"password\" onpaste=\"return false\">"),
+            example_good: Some("<input type=\"password\" autocomplete=\"current-password\">"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "focus/obscured",
+        RuleExplanation {
+            customer_title: "Fokussiertes Element vollständig verdeckt",
+            customer_title_en: "Focused element entirely obscured",
+            customer_description: "Nach dem Fokussieren und Scrollen liegt jeder Abtastpunkt eines Bedienelements unter einem fixierten oder klebenden Element, etwa einer Kopfleiste oder einem Cookie-Banner.",
+            customer_description_en: "After focusing and scrolling, every sample point of a control lies under a fixed or sticky element such as a header bar or a cookie banner.",
+            user_impact: "Tastaturnutzer springen mit Tab auf ein Element, das sie nicht sehen, und wissen nicht, wo der Fokus ist.",
+            user_impact_en: "Keyboard users tab to an element they cannot see and do not know where focus is.",
+            typical_cause: "Eine fixierte oder klebende Leiste, die tiefer reicht als scroll-padding-top, oder ein Banner, das Bedienelemente der Seite überdeckt.",
+            typical_cause_en: "A fixed or sticky bar that reaches lower than scroll-padding-top, or a banner that covers controls of the page.",
+            recommendation: "scroll-padding-top mindestens so groß wie die fixierte Leiste setzen und Banner so einbauen, dass sie keine Bedienelemente überdecken.",
+            recommendation_en: "Set scroll-padding-top at least as large as the fixed bar and place banners so they do not cover controls.",
+            technical_note: "Gemessen wird nach dem Fokussieren mit scrollIntoView({ block: 'nearest' }), 3 mal 3 Punkte je Bedienelement per elementsFromPoint. Ein echtes Tab scrollt womöglich anders; der Wert ist deshalb ein Hinweis zum Prüfen, kein Beleg. Auch der Hinweis auf eine Leiste, die tiefer reicht als scroll-padding-top, gehört zu dieser Kennung.",
+            technical_note_en: "Measured after focusing with scrollIntoView({ block: 'nearest' }), 3 by 3 points per control via elementsFromPoint. A real Tab may scroll differently, so the value is a hint to check, not proof. The hint about a bar that reaches lower than scroll-padding-top belongs to this id as well.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Medium,
+            example_bad: Some("header { position: sticky; top: 0; height: 80px; }"),
+            example_good: Some("html { scroll-padding-top: 80px; } header { position: sticky; top: 0; height: 80px; }"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "focus/obscured-enhanced",
+        RuleExplanation {
+            customer_title: "Fokussiertes Element teilweise verdeckt",
+            customer_title_en: "Focused element partially obscured",
+            customer_description: "Nach dem Fokussieren und Scrollen liegt mindestens ein Abtastpunkt eines Bedienelements unter einem fixierten oder klebenden Element (Stufe AAA).",
+            customer_description_en: "After focusing and scrolling, at least one sample point of a control lies under a fixed or sticky element (level AAA).",
+            user_impact: "Tastaturnutzer sehen ein fokussiertes Bedienelement nur zum Teil und erkennen Beschriftung oder Zustand womöglich nicht.",
+            user_impact_en: "Keyboard users see a focused control only in part and may not recognise its label or state.",
+            typical_cause: "Ein klebender Fuß, Chat-Button oder Cookie-Banner, der den Rand der Seite überdeckt.",
+            typical_cause_en: "A sticky footer, chat button or cookie banner that covers an edge of the page.",
+            recommendation: "Platz unter und über fixierten Elementen freihalten (scroll-padding, Seitenabstand) oder die Elemente verkleinern.",
+            recommendation_en: "Keep room above and below fixed elements (scroll-padding, page margin) or make the elements smaller.",
+            technical_note: "Dieselbe Messung wie bei focus/obscured, andere Schwelle: jeder überdeckte Abtastpunkt wird gemeldet. Die Abtastung nähert „irgendein Teil“ nur an, das Ergebnis bleibt ein Hinweis zum Prüfen.",
+            technical_note_en: "The same measurement as for focus/obscured, a different threshold: every covered sample point is reported. Sampling only approximates \"any part\", so the result stays a hint to check.",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Medium,
+            example_bad: None,
+            example_good: None,
             example_decorative: None,
         },
     ),
@@ -4307,81 +4354,45 @@ mod tests {
     fn axe_id_override_wins_over_shared_wcag_criterion() {
         let generic = get_explanation("1.3.1").expect("WCAG 1.3.1 explanation");
 
-        for (axe_id, rule_id) in [
-            ("landmark-unique", "a11y.landmark_unique.invalid"),
-            ("region", "a11y.landmark_region.missing"),
-            (
-                "landmark-banner-is-top-level",
-                "a11y.landmark_banner.missing",
-            ),
-            (
-                "landmark-navigation-present",
-                "a11y.landmark_navigation.missing",
-            ),
-            (
-                "landmark-contentinfo-present",
-                "a11y.landmark_contentinfo.missing",
-            ),
+        for rule_id in [
+            "landmarks/not-unique",
+            "landmarks/content-outside",
+            "landmarks/banner-missing",
+            "landmarks/navigation-missing",
+            "landmarks/contentinfo-missing",
+            // Plan 56: an empty list must not read as "Missing semantic
+            // structure", an invalid lang code not as a missing one.
+            "lists/empty",
+            "tables/header-missing",
+            "headings/skip-level",
         ] {
-            // Precondition: the bug this guards against is only meaningful
-            // while the rule_id really does fall through to the generic entry.
-            assert_eq!(
-                get_explanation(rule_id).map(|e| e.customer_title),
-                Some(generic.customer_title),
-                "{rule_id}: expected rule_id-only lookup to fall through to 1.3.1",
-            );
-
-            let resolved = resolve_explanation(Some(axe_id), rule_id, "1.3.1")
-                .unwrap_or_else(|| panic!("no explanation resolved for {axe_id}"));
+            let resolved = resolve_explanation(Some(rule_id), rule_id, "1.3.1")
+                .unwrap_or_else(|| panic!("no explanation resolved for {rule_id}"));
             assert_ne!(
                 resolved.customer_title, generic.customer_title,
-                "{axe_id}: resolved to the generic 1.3.1 explanation instead of its own",
+                "{rule_id}: resolved to the generic 1.3.1 explanation instead of its own",
             );
         }
-    }
-
-    /// Plan 56: A shared id with its own taxonomy entry gets its own text,
-    /// not the one written for its criterion (an empty list must not read as
-    /// "Missing semantic structure", an invalid lang code not as a missing one).
-    ///
-    /// Ausgenommen ist eine Kennung, deren Taxonomie-Eintrag der ihres
-    /// Kriteriums selbst ist (`images/alt-missing` → `a11y.alt_text.missing`,
-    /// `document/title-*` → `a11y.page_title.missing`): Dort ist der Text des
-    /// Kriteriums ihr eigener (#690).
-    #[test]
-    fn shared_ids_with_own_taxonomy_entry_get_own_explanation() {
-        use crate::taxonomy::rules::RuleLookup;
-        for shared in crate::wcag::shared::SHARED_RULES {
-            let Some(rule) = RuleLookup::by_legacy_wcag_id(shared.id) else {
-                continue;
-            };
-            if RuleLookup::by_legacy_wcag_id(shared.criterion).map(|r| r.id) == Some(rule.id) {
-                continue;
-            }
-            let resolved = resolve_explanation(Some(shared.id), rule.id, shared.criterion)
-                .unwrap_or_else(|| panic!("no explanation for {}", shared.id));
-            let generic = get_explanation(shared.criterion).map(|e| e.customer_title);
-            assert_ne!(
-                Some(resolved.customer_title),
-                generic,
-                "{} ({}) falls back to the {} explanation",
-                shared.id,
-                rule.id,
-                shared.criterion
-            );
-        }
+        let lang = get_explanation("3.1.1").expect("WCAG 3.1.1 explanation");
+        let invalid = resolve_explanation(
+            Some("document/lang-invalid"),
+            "document/lang-invalid",
+            "3.1.1",
+        )
+        .expect("document/lang-invalid");
+        assert_ne!(invalid.customer_title, lang.customer_title);
     }
 
     /// The fallback chain still has to work for findings without an axe id,
     /// and for axe ids that have no override of their own.
     #[test]
     fn resolve_explanation_falls_back_past_missing_axe_id() {
-        let by_rule = resolve_explanation(None, "a11y.aria_hidden_focus.invalid", "4.1.2");
+        let by_rule = resolve_explanation(None, "keyboard/hidden-focusable", "4.1.2");
         assert!(by_rule.is_some(), "rule_id fallback lost");
 
         let unknown_axe = resolve_explanation(
             Some("no-such-axe-rule"),
-            "a11y.aria_hidden_focus.invalid",
+            "keyboard/hidden-focusable",
             "4.1.2",
         );
         assert_eq!(
@@ -4390,7 +4401,7 @@ mod tests {
             "an unknown axe id must not shadow the rule_id match",
         );
 
-        let by_criterion = resolve_explanation(None, "a11y.no.such.rule", "1.1.1");
+        let by_criterion = resolve_explanation(None, "no/such-rule", "1.1.1");
         assert!(by_criterion.is_some(), "wcag_criterion fallback lost");
     }
 
@@ -4400,10 +4411,10 @@ mod tests {
     #[test]
     fn taxonomy_keyed_rules_have_localized_recommendation() {
         for rule_id in [
-            "a11y.aria_hidden_focus.invalid",
-            "a11y.aria_prohibited_attr.invalid",
-            "a11y.modern_attributes.invalid",
-            "a11y.parsing.invalid",
+            "keyboard/hidden-focusable",
+            "aria/attribute-prohibited",
+            "modern-attribute-misuse",
+            "ids/duplicate",
             // Regression (2026-08-31/09-01): keyboard.rs's NotTestable
             // finding had no explanations.rs entry at all, so the PDF fell
             // back to the raw English Violation.fix_suggestion unlocalized

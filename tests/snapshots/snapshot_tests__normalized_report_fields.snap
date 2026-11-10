@@ -1,13 +1,12 @@
 ---
 source: tests/snapshot_tests.rs
-assertion_line: 202
 expression: sort_json_keys(value)
 ---
 {
   "finding_count": 18,
   "finding_rule_ids": [
-    "a11y.name_role.missing",
-    "a11y.structure.missing",
+    "buttons/name-missing",
+    "headings/skip-level",
     "journey.few_subheadings",
     "journey.little_early_text",
     "journey.main_missing",

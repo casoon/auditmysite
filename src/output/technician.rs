@@ -132,7 +132,7 @@ pub fn finding_rows(
 
     for v in &report.accessibility.wcag_results.violations {
         let key = wcag_group_key(v);
-        let rule_id = RuleLookup::by_legacy_wcag_id(key)
+        let rule_id = RuleLookup::by_id(key)
             .map(|rule| rule.id.to_string())
             .unwrap_or_else(|| format!("unknown.{key}"));
         rows.push(FindingRow {

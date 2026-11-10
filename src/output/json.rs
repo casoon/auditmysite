@@ -135,6 +135,17 @@ pub struct UnifiedReport {
     /// version and the profile it was computed with. The page's (single) or
     /// the batch summary's stored decision; never recomputed here.
     pub decision: VerdictResult,
+    /// External assessments read from `--annotations`, shown apart from the
+    /// findings (#961). Absent without the option; never read by the verdict,
+    /// the scores or the exit code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<crate::annotations::AnnotationsBlock>,
+    /// Batch only — the findings baseline the run was gated against (#930):
+    /// known, new and fixed findings and the verdict inputs left after the
+    /// known ones. The page-level view is `pages[].baseline`. Absent without
+    /// `--baseline`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub baseline: Option<crate::audit::baseline::BatchBaselineSummary>,
 }
 
 #[derive(Debug, Serialize)]
@@ -255,10 +266,6 @@ pub struct UnifiedSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mobile_score: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ux_score: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub journey_score: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub performance_throttled_avg_score: Option<u32>,
     /// LhMobile throttled score (Lighthouse mobile preset). Present only on
     /// single-page reports when the throttled pass ran (#289).
@@ -329,10 +336,11 @@ pub struct UnifiedSummary {
     /// `CrawlDepthDiagnostics::partial_batch` when the run is a sample.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub crawl_depth_diagnostics: Option<crate::audit::CrawlDepthDiagnostics>,
-    /// Site-wide commerce roll-up (batch only): union of mandatory/trust-page
-    /// links across the audited shop pages.
+    /// Batch roll-ups of the experimental indicators (`--experimental`, #916):
+    /// `commerce` is the union of mandatory/trust-page links across the
+    /// audited shop pages.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub commerce: Option<crate::commerce::CommerceSiteSummary>,
+    pub experimental: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -383,9 +391,9 @@ pub struct En301549Annex {
     /// of EN 301 549 chapter 9 (Web).
     pub scope: &'static str,
     pub clauses: Vec<En301549ClauseEntry>,
-    /// Count of WCAG findings whose criterion is outside the 50-clause WCAG
-    /// 2.1 A/AA table (AAA criteria, WCAG-2.2-only criteria) — excluded from
-    /// `clauses` but not silently dropped.
+    /// Count of WCAG findings whose criterion is outside the 55-clause WCAG
+    /// 2.2 A/AA table (AAA criteria, which EN 301 549 V4.1.1 lists only
+    /// informatively) — excluded from `clauses` but not silently dropped.
     pub out_of_standard_findings: usize,
     pub out_of_scope_chapters: Vec<OutOfScopeChapterEntry>,
     /// Cautious, non-legal-conclusion disclaimer. Needs lawyer review before
@@ -572,21 +580,27 @@ pub struct PageEntry {
     pub security_score: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mobile_score: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ux_score: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub journey_score: Option<u32>,
     /// How `overall_score` was computed: `"module_weighted"` or `"viewport_weighted"`.
     pub score_calculation_method: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub score_breakdown: Option<crate::audit::normalized::ScoreBreakdown>,
     pub risk: crate::audit::normalized::RiskAssessment,
     pub principle_coverage: crate::audit::PrincipleCoverage,
+    /// Experimental indicators that ran (`--experimental`, #916): UX, Journey,
+    /// AI Visibility, Content Visibility, Source Quality and Commerce, each
+    /// with its signal contract (`validation.status: unvalidated`). Single
+    /// reports only; they feed no score, finding or decision.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub experimental: Option<serde_json::Value>,
     pub findings: Vec<crate::audit::normalized::NormalizedFinding>,
     /// How each collected non-WCAG problem is represented (#780).
     pub finding_inventory: Vec<crate::audit::finding_contract::InventoryEntry>,
     /// The page's stored decision (#781).
     pub decision: VerdictResult,
+    /// Known, new and fixed findings of this page against the findings
+    /// baseline (#930). Absent without `--baseline`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub baseline: Option<crate::audit::BaselineStatus>,
     pub audit_flags: Vec<crate::audit::normalized::AuditFlag>,
     pub audit_quality: crate::audit::AuditQuality,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -721,25 +735,13 @@ pub struct ModuleBlob {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mobile: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ux: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub journey: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub privacy: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub source_quality: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ai_visibility: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content_visibility: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tech_stack: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub patterns: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub best_practices: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub commerce: Option<serde_json::Value>,
 }
 
 /// AI-oriented fix guidance for a single finding group.
@@ -1074,8 +1076,6 @@ impl UnifiedReport {
             seo_score: avg_module_score(&pages, "SEO"),
             security_score: avg_module_score(&pages, "Security"),
             mobile_score: avg_module_score(&pages, "Mobile"),
-            ux_score: avg_module_score(&pages, "UX"),
-            journey_score: avg_module_score(&pages, "Journey"),
             performance_throttled_avg_score: None,
             lh_mobile_score: None,
             wcag_coverage: normalized_reports
@@ -1113,12 +1113,13 @@ impl UnifiedReport {
                 .portfolio_summary
                 .crawl_depth_diagnostics
                 .clone(),
-            commerce: crate::commerce::aggregate_site_commerce(
+            experimental: crate::commerce::aggregate_site_commerce(
                 batch_report
                     .reports
                     .iter()
-                    .filter_map(|r| r.commerce.as_ref()),
-            ),
+                    .filter_map(|r| r.experimental.commerce.as_ref()),
+            )
+            .map(|commerce| serde_json::json!({ "commerce": commerce })),
         };
 
         let mut collection_errors: Vec<ReportError> = Vec::new();
@@ -1198,7 +1199,15 @@ impl UnifiedReport {
             errors,
             collection_errors,
             decision: batch_report.summary.decision.clone(),
+            annotations: None,
+            baseline: batch_report.summary.baseline.clone(),
         }
+    }
+
+    /// Attach the matched and unmatched annotations of this run (#961).
+    pub fn with_annotations(mut self, resolved: &crate::annotations::Resolved) -> Self {
+        self.annotations = Some(resolved.to_block());
+        self
     }
 
     /// Serialize to a JSON string.
@@ -1265,8 +1274,6 @@ impl UnifiedReport {
             seo_score: normalized_module_score(&ctx.normalized, "SEO"),
             security_score: normalized_module_score(&ctx.normalized, "Security"),
             mobile_score: normalized_module_score(&ctx.normalized, "Mobile"),
-            ux_score: normalized_module_score(&ctx.normalized, "UX"),
-            journey_score: normalized_module_score(&ctx.normalized, "Journey"),
             // Only an average over complete profiles: one without all core
             // metrics leaves no comparable average (#769).
             performance_throttled_avg_score: {
@@ -1306,7 +1313,7 @@ impl UnifiedReport {
             minification_inconsistencies: Vec::new(),
             redirect_chain_issues: Vec::new(),
             crawl_depth_diagnostics: None,
-            commerce: None,
+            experimental: None,
         };
 
         UnifiedReport {
@@ -1336,6 +1343,8 @@ impl UnifiedReport {
             errors: Vec::new(),
             collection_errors: Vec::new(),
             decision: ctx.normalized.decision.clone(),
+            annotations: None,
+            baseline: None,
         }
     }
 
@@ -1369,8 +1378,6 @@ impl UnifiedReport {
             seo_score: normalized_module_score(normalized, "SEO"),
             security_score: normalized_module_score(normalized, "Security"),
             mobile_score: normalized_module_score(normalized, "Mobile"),
-            ux_score: normalized_module_score(normalized, "UX"),
-            journey_score: normalized_module_score(normalized, "Journey"),
             performance_throttled_avg_score: None,
             lh_mobile_score: None,
             wcag_coverage: build_wcag_coverage_summary(normalized),
@@ -1395,7 +1402,7 @@ impl UnifiedReport {
             minification_inconsistencies: Vec::new(),
             redirect_chain_issues: Vec::new(),
             crawl_depth_diagnostics: None,
-            commerce: None,
+            experimental: None,
         };
 
         UnifiedReport {
@@ -1425,6 +1432,8 @@ impl UnifiedReport {
             errors: Vec::new(),
             collection_errors: Vec::new(),
             decision: normalized.decision.clone(),
+            annotations: None,
+            baseline: None,
         }
     }
 }
