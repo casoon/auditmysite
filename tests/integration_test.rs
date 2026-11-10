@@ -447,7 +447,6 @@ fn default_config() -> PipelineConfig {
         .with_wcag_level(WcagLevel::AA)
         .with_modules(ModuleSet::none())
         .with_interactive(auditmysite::cli::InteractiveMode::Off);
-    config.full_audit = false;
     config.lang = "de".to_string();
     config
 }

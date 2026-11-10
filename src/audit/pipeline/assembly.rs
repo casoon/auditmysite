@@ -490,7 +490,7 @@ pub(super) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
             (!record.is_empty()).then_some(record)
         },
         wcag_level: config.wcag_level.to_string(),
-        full_audit: config.full_audit,
+        full_audit: config.is_full_audit(),
         measurement_profile: crate::audit::MeasurementProfile {
             version: crate::audit::MEASUREMENT_PROFILE_VERSION,
             session_policy: config.session.as_str().to_string(),

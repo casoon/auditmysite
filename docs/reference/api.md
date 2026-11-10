@@ -36,6 +36,8 @@ config.persist_artifacts = false;
   `ModuleSet::full()` is the six `--full` modules without `Privacy`, `ModuleSet::none()` the
   accessibility checks alone; `with`, `without`, `contains`, `iter` and collecting from an
   iterator of `Module` do the rest.
+- Whether a run is a full audit is not set but derived: `config.is_full_audit()` is true when all
+  six `--full` modules run, and the report's `full_audit` carries that value.
 - The setters cover what a run audits: `with_wcag_level`, `with_modules`, `with_experimental`
   and `with_interactive`. Every other option is a public field and is assigned.
 - The struct and `Module` are `#[non_exhaustive]`: a new option or module is not a breaking

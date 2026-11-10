@@ -835,9 +835,11 @@ impl Args {
         self.modules.is_empty() || self.modules.contains(&module)
     }
 
-    /// Whether no module selection narrows the default analysis set.
+    /// Whether every module of a full audit runs: no `--modules`, or one that
+    /// lists all six.
     pub fn full_audit_enabled(&self) -> bool {
-        self.modules.is_empty()
+        self.module_set()
+            .contains_all(crate::audit::ModuleSet::full())
     }
 
     /// The modules of the run for the pipeline: every module by default, only

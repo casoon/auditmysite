@@ -85,6 +85,11 @@ impl ModuleSet {
         self.0 & module.bit() != 0
     }
 
+    /// Whether every module of `other` is in the set.
+    pub const fn contains_all(self, other: ModuleSet) -> bool {
+        self.0 & other.0 == other.0
+    }
+
     /// The set with `module` added.
     #[must_use]
     pub const fn with(self, module: Module) -> Self {
@@ -160,6 +165,17 @@ mod tests {
             assert!(!all_but.contains(module));
             assert_eq!(all_but.iter().count(), Module::ALL.len() - 1);
         }
+    }
+
+    #[test]
+    fn contains_all_is_the_superset_test() {
+        let full = ModuleSet::full();
+        assert!(full.contains_all(full));
+        assert!(full.with(Module::Privacy).contains_all(full));
+        assert!(!full.contains_all(full.with(Module::Privacy)));
+        assert!(!full.without(Module::Seo).contains_all(full));
+        assert!(ModuleSet::none().contains_all(ModuleSet::none()));
+        assert!(full.contains_all(ModuleSet::none()));
     }
 
     #[test]

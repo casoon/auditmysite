@@ -14,16 +14,14 @@ const PAGE: &str = "<!doctype html><html lang=en><head><title>Perf</title></head
 <body><main><h1>Perf</h1><p>Some text to paint.</p></main></body></html>";
 
 fn config() -> PipelineConfig {
-    let mut config = PipelineConfig::default()
+    PipelineConfig::default()
         .with_wcag_level(WcagLevel::AA)
         .with_modules(
             ModuleSet::none()
                 .with(Module::Performance)
                 .with(Module::Seo),
         )
-        .with_interactive(auditmysite::cli::InteractiveMode::Off);
-    config.full_audit = false;
-    config
+        .with_interactive(auditmysite::cli::InteractiveMode::Off)
 }
 
 async fn browser() -> BrowserManager {

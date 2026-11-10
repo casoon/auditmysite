@@ -31,7 +31,6 @@
 //!     let mut config = PipelineConfig::default()
 //!         .with_wcag_level(WcagLevel::AA)
 //!         .with_modules(ModuleSet::none());
-//!     config.full_audit = false;
 //!     config.timeout_secs = 30;
 //!
 //!     // Run audit

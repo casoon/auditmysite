@@ -352,8 +352,6 @@ pub struct PipelineConfig {
     pub stability_budget_ms: u64,
     /// Whether to be verbose
     pub verbose: bool,
-    /// Whether the user selected the full-audit preset.
-    pub full_audit: bool,
     /// Modules that run next to the accessibility checks (#933).
     /// [`ModuleSet::full`] is `--full`; [`Module::Privacy`] is the opt-in
     /// `--privacy-check` and not part of it. The privacy check runs once per
@@ -451,7 +449,6 @@ impl Default for PipelineConfig {
             timeout_secs: 30,
             stability_budget_ms: 1500,
             verbose: false,
-            full_audit: true,
             modules: ModuleSet::full(),
             perf_runs: 1,
             check_isolate_third_party_impact: false,
@@ -515,6 +512,12 @@ impl PipelineConfig {
 }
 
 impl PipelineConfig {
+    /// Whether the run is a full audit: every module of [`ModuleSet::full`]
+    /// runs. Stored as `full_audit` in the report.
+    pub fn is_full_audit(&self) -> bool {
+        self.modules.contains_all(ModuleSet::full())
+    }
+
     /// Whether an experimental indicator runs: it was asked for, or an asked
     /// for indicator is derived from it.
     pub fn runs_indicator(&self, indicator: crate::audit::ExperimentalIndicator) -> bool {
@@ -677,7 +680,6 @@ impl PipelineConfig {
         // The default run is defined once, in `Default`: what neither an
         // argument nor the config file sets comes from there.
         let defaults = Self::default();
-        let full_audit = args.full_audit_enabled();
         let journey_budget_ms = toml_cfg
             .and_then(|c| c.interactive.journey_budget_ms)
             .unwrap_or(defaults.journey_budget_ms);
@@ -704,7 +706,6 @@ impl PipelineConfig {
             timeout_secs: args.effective_timeout(),
             stability_budget_ms: args.stability_budget_ms,
             verbose: args.verbose,
-            full_audit,
             modules: args.module_set(),
             perf_runs: args.perf_runs,
             // Requires performance checking itself active — an isolation
@@ -2607,6 +2608,39 @@ mod tests {
     }
 
     #[test]
+    fn full_audit_follows_the_modules_that_run() {
+        let config_for = |extra: &[&str]| {
+            let mut argv = vec!["auditmysite", "https://example.com"];
+            argv.extend_from_slice(extra);
+            PipelineConfig::from_args_and_config(&Args::parse_from(argv), None)
+        };
+        assert!(config_for(&[]).is_full_audit());
+        assert!(config_for(&["--full"]).is_full_audit());
+        assert!(
+            config_for(&["--privacy-check"]).is_full_audit(),
+            "the opt-in privacy check does not make a run less than full"
+        );
+        assert!(
+            config_for(&[
+                "--modules",
+                "performance,seo,security,mobile,html-conform,stack"
+            ])
+            .is_full_audit(),
+            "all six modules listed by name are a full audit"
+        );
+        assert!(!config_for(&["--modules", "a11y"]).is_full_audit());
+        assert!(
+            !config_for(&["--modules", "performance,seo,security,mobile,html-conform"])
+                .is_full_audit(),
+            "one module short is not a full audit"
+        );
+        assert!(PipelineConfig::default().is_full_audit());
+        assert!(!PipelineConfig::default()
+            .with_modules(ModuleSet::full().without(Module::Stack))
+            .is_full_audit());
+    }
+
+    #[test]
     fn seo_and_html_conform_selection_runs_only_fixable_finding_modules() {
         let args = Args::parse_from([
             "auditmysite",
@@ -2616,7 +2650,7 @@ mod tests {
             "seo,html-conform",
         ]);
         let config = PipelineConfig::from_args_and_config(&args, None);
-        assert!(!config.full_audit);
+        assert!(!config.is_full_audit());
         assert!(
             !config.modules.contains(Module::Performance),
             "no throttled performance passes"
@@ -3094,7 +3128,6 @@ mod tests {
                     .with(Module::Mobile),
             )
             .with_interactive(crate::cli::InteractiveMode::Off);
-        config.full_audit = false;
         config.lang = "de".to_string();
         config
     }

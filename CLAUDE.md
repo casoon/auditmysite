@@ -93,8 +93,10 @@ The hooks are versioned under `.githooks/` (`git config core.hooksPath .githooks
 
 Common pitfall: new fields in `NormalizedReport` break struct initializers in
 `src/audit/normalized.rs` and `src/audit/summary.rs`. Always check both.
-Likewise, every new field in `PipelineConfig` (public, without `Default`) breaks Studio and the
-doc example in `src/lib.rs` — update both.
+`PipelineConfig` is `#[non_exhaustive]` and built from `PipelineConfig::default()` (the default
+CLI run) plus `with_*` setters or field assignment (#933), so a new field no longer breaks Studio
+or the doc example in `src/lib.rs`: give it its value in `Default` and let `from_args_and_config`
+set it from the arguments; the test `default_is_the_default_cli_run` fails if the two disagree.
 
 ## Workflows (`.github/workflows/`)
 - The repo is public: Quick CI runs on PRs and pushes to `main`; full QA runs via `workflow_call`
