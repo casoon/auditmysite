@@ -763,11 +763,12 @@ mod experimental_journey_tests {
     use crate::audit::ExperimentalIndicator;
 
     fn config(experimental: Vec<ExperimentalIndicator>) -> PipelineConfig {
-        let mut config = PipelineConfig::default();
-        config.interactive = crate::model::InteractiveMode::Full;
-        config.allow_state_changes = true;
-        config.experimental = experimental;
-        config
+        PipelineConfig {
+            interactive: crate::model::InteractiveMode::Full,
+            allow_state_changes: true,
+            experimental,
+            ..Default::default()
+        }
     }
 
     /// #916: add-to-cart and quantity-stepper belong to the commerce
@@ -1026,10 +1027,11 @@ mod tests {
     #[test]
     fn measurement_profile_must_agree_with_the_interactive_depth() {
         let config_scope = |interactive: crate::model::InteractiveMode, allow: bool| {
-            let mut config = crate::audit::PipelineConfig::default();
-            config.interactive = interactive;
-            config.allow_state_changes = allow;
-            audit_scope_from_config(&config)
+            audit_scope_from_config(&crate::audit::PipelineConfig {
+                interactive,
+                allow_state_changes: allow,
+                ..Default::default()
+            })
         };
         // `full` alone only observes; the clicks are an explicit opt-in.
         let observing = config_scope(crate::model::InteractiveMode::Full, false);
@@ -1063,14 +1065,16 @@ mod tests {
 
     #[test]
     fn declared_state_enters_the_profile_by_identity_not_by_value() {
-        let mut config = crate::audit::PipelineConfig::default();
-        config.state_id = Some("logged-in".into());
-        config.storage_state = Some(
-            crate::browser::StorageState::from_bytes(
-                br#"{"cookies":[{"name":"sid","value":"TOPSECRET"}],"origins":[]}"#,
-            )
-            .unwrap(),
-        );
+        let config = crate::audit::PipelineConfig {
+            state_id: Some("logged-in".into()),
+            storage_state: Some(
+                crate::browser::StorageState::from_bytes(
+                    br#"{"cookies":[{"name":"sid","value":"TOPSECRET"}],"origins":[]}"#,
+                )
+                .unwrap(),
+            ),
+            ..Default::default()
+        };
         let scope = audit_scope_from_config(&config);
         let json = serde_json::to_string(&scope).unwrap();
         assert!(json.contains("logged-in") && json.contains("\"cookies\":1"));
