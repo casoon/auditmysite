@@ -6,8 +6,12 @@ use crate::i18n::I18n;
 use crate::output::explanations::resolve_explanation;
 use crate::output::report_model::{classify_criticality_tier, Effort, FindingGroup, Role};
 
-use super::super::actions::{build_narrative_arc, derive_business_impact, localized_finding_text};
+use super::actions::{build_narrative_arc, derive_business_impact, localized_finding_text};
 
+/// The one `FindingGroup` builder of the single and the batch report (#937).
+/// A batch group is built from the cross-page aggregate finding
+/// (`aggregate_batch_findings`: summed `occurrence_count`, highest `severity`);
+/// the caller fills `affected_urls`, the only value a finding does not carry.
 pub(super) fn finding_group_from_normalized(
     i18n: &I18n,
     f: &crate::audit::normalized::NormalizedFinding,

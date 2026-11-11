@@ -4,22 +4,17 @@ use crate::output::localized::is_english;
 use std::collections::HashMap;
 
 use crate::audit::normalized::normalize;
-use crate::audit::normalized::NormalizedFinding;
 use crate::audit::{BatchReport, BrokenLinkSeverity, NormalizedReport};
 use crate::i18n::I18n;
-use crate::output::explanations::resolve_explanation;
 use crate::output::report_model::*;
 use crate::seo::profile::PageType;
 use crate::util::truncate_url;
 use crate::wcag::Severity;
 
-use super::actions::{
-    build_narrative_arc, derive_action_plan, derive_business_impact, localized_finding_text,
-};
+use super::actions::derive_action_plan;
+use super::finding_group::finding_group_from_normalized;
 use super::helpers::{build_batch_appendix, build_batch_verdict};
-use crate::audit::prioritization::{
-    derive_execution_priority, score_to_priority, severity_to_priority,
-};
+use crate::audit::prioritization::score_to_priority;
 use crate::seo::interpretation::page_profile_optimization_note_text;
 use crate::seo::{
     average_page_semantic_score, derive_domain_topics, derive_topic_overlap_pairs,
@@ -112,15 +107,9 @@ pub fn build_batch_presentation_with_normalized(
         crate::audit::normalized::aggregate_batch_findings(normalized_reports)
             .into_iter()
             .map(|batch| {
-                finding_group_from_normalized(
-                    i18n,
-                    &NormalizedFindingAccumulator {
-                        severity: batch.finding.severity,
-                        count: batch.finding.occurrence_count,
-                        finding: batch.finding,
-                        urls: batch.urls,
-                    },
-                )
+                let mut group = finding_group_from_normalized(i18n, &batch.finding);
+                group.affected_urls = batch.urls;
+                group
             })
             .collect();
 
@@ -1652,247 +1641,16 @@ fn build_redirect_chain_issues(reports: &[crate::audit::AuditReport]) -> Vec<Red
 
 // ─── Internal batch helpers ──────────────────────────────────────────────────
 
-#[derive(Clone)]
-struct NormalizedFindingAccumulator {
-    finding: NormalizedFinding,
-    severity: Severity,
-    count: usize,
-    urls: Vec<String>,
-}
-
 fn normalized_finding_groups(i18n: &I18n, normalized: &NormalizedReport) -> Vec<FindingGroup> {
     normalized
         .findings
         .iter()
         .map(|finding| {
-            finding_group_from_normalized(
-                i18n,
-                &NormalizedFindingAccumulator {
-                    finding: finding.clone(),
-                    severity: finding.severity,
-                    count: finding.occurrence_count,
-                    urls: vec![normalized.url.clone()],
-                },
-            )
+            let mut group = finding_group_from_normalized(i18n, finding);
+            group.affected_urls = vec![normalized.url.clone()];
+            group
         })
         .collect()
-}
-
-fn finding_group_from_normalized(i18n: &I18n, acc: &NormalizedFindingAccumulator) -> FindingGroup {
-    let locale = i18n.locale();
-    let en = locale == "en";
-    let finding = &acc.finding;
-    // Shared axe_id -> rule_id -> wcag_criterion order; without the axe_id
-    // step the batch report hits the same collapse as the single JSON path
-    // did (plan 32).
-    let explanation = resolve_explanation(
-        finding.axe_id.as_deref(),
-        &finding.rule_id,
-        &finding.wcag_criterion,
-    );
-    let dimension_label = finding.dimension.as_str();
-    let (
-        title,
-        customer_desc,
-        user_impact_text,
-        business_impact,
-        typical_cause,
-        recommendation,
-        technical_note,
-        role,
-        effort,
-        execution_priority,
-    ) = if let Some(expl) = explanation {
-        (
-            // The rule's taxonomy title, as in the JSON, not the explanation's
-            // criterion fallback (plans 59, 64).
-            localized_finding_text(locale, finding).0,
-            expl.customer_description(en),
-            expl.user_impact(en),
-            derive_business_impact(
-                i18n,
-                &expl.user_impact(en),
-                dimension_label,
-                acc.severity,
-                Some(finding.subcategory_kind.label(false)),
-                acc.count,
-                finding.bfsg_relevance.as_str(),
-            ),
-            expl.typical_cause(en),
-            expl.recommendation(en),
-            expl.technical_note(en),
-            expl.responsible_role,
-            expl.effort_estimate,
-            derive_execution_priority(acc.severity, expl.effort_estimate, dimension_label),
-        )
-    } else {
-        // JSON-stored title/user_impact/technical_impact are canonical English
-        // (#406); re-derive the runtime-locale text from the taxonomy.
-        let (title_loc, user_impact_loc, technical_loc) = localized_finding_text(locale, finding);
-        (
-            title_loc,
-            finding.description.clone(),
-            user_impact_loc.clone(),
-            derive_business_impact(
-                i18n,
-                &user_impact_loc,
-                dimension_label,
-                acc.severity,
-                Some(finding.subcategory_kind.label(false)),
-                acc.count,
-                finding.bfsg_relevance.as_str(),
-            ),
-            String::new(),
-            finding
-                .occurrences
-                .iter()
-                .find_map(|o| o.fix_suggestion.clone())
-                .unwrap_or_default(),
-            technical_loc,
-            Role::Development,
-            Effort::Medium,
-            derive_execution_priority(acc.severity, Effort::Medium, dimension_label),
-        )
-    };
-    let examples = explanation.map(|e| e.examples()).unwrap_or_default();
-    let location_hints = finding
-        .occurrences
-        .iter()
-        .filter_map(|occ| {
-            occ.selector
-                .clone()
-                .or_else(|| Some(format!("AX-Node {}", occ.node_id)))
-        })
-        .take(5)
-        .collect();
-    let representative_occurrences = finding
-        .occurrences
-        .iter()
-        .take(3)
-        .map(representative_occurrence_from_normalized)
-        .collect();
-
-    let narrative = build_narrative_arc(
-        i18n,
-        acc.count,
-        acc.severity,
-        dimension_label,
-        &customer_desc,
-        &user_impact_text,
-        &business_impact,
-        &typical_cause,
-        &recommendation,
-        effort,
-        role,
-    );
-
-    FindingGroup {
-        title,
-        rule_id: finding.rule_id.clone(),
-        finding_id: finding.id.clone(),
-        wcag_criterion: finding.wcag_criterion.clone(),
-        wcag_level: finding.wcag_level.clone(),
-        help_url: finding.understanding_url.clone(),
-        dimension: Some(finding.dimension.clone()),
-        subcategory: Some(finding.subcategory.clone()),
-        issue_class: Some(finding.issue_class.clone()),
-        severity: acc.severity,
-        priority: severity_to_priority(acc.severity),
-        customer_description: customer_desc,
-        user_impact: user_impact_text,
-        business_impact,
-        typical_cause,
-        recommendation,
-        technical_note,
-        confidence: finding.confidence.clone(),
-        false_positive_risk: finding.false_positive_risk.clone(),
-        verification: finding.verification.clone(),
-        complexity: finding.complexity.clone(),
-        complexity_reason: finding.complexity_reason.clone(),
-        complexity_kind: finding.complexity_kind,
-        expected_impact: finding.expected_impact.clone(),
-        expected_impact_kind: finding.expected_impact_kind.clone(),
-        bfsg_relevance: finding.bfsg_relevance.clone(),
-        remediation_priority: finding.remediation_priority.clone(),
-        occurrence_count: acc.count,
-        affected_urls: acc.urls.clone(),
-        affected_elements: acc.count,
-        additional_occurrences: acc.count,
-        pattern_clusters: Vec::new(),
-        location_hints,
-        representative_occurrences,
-        responsible_role: role,
-        effort,
-        execution_priority,
-        examples,
-        // plan/4-root-cause-confidence-wording.md: this threshold is a raw
-        // occurrence count across pages, not `RootCause.confidence`
-        // ("confirmed" vs "likely" HTML-snippet-shape evidence, see
-        // `render_template_cluster_card` above) — a high count alone does
-        // not confirm the occurrences share one component/template any
-        // more than it does in the single-report case, so this must stay
-        // equally hedged rather than asserting a "Root Cause".
-        structural_cause: if acc.count >= 10 {
-            if locale == "en" {
-                Some(format!(
-                    "{} occurrences follow the same pattern — this strongly suggests a \
-                     shared component or template, though that is only confirmed with \
-                     evidence from further pages. A fix at that one shared point would \
-                     likely address these occurrences together.",
-                    acc.count
-                ))
-            } else {
-                Some(format!(
-                    "{} Vorkommen folgen demselben Muster — das deutet stark auf eine \
-                     gemeinsam genutzte Komponente oder ein Template hin, bestätigt ist \
-                     das erst mit Belegen von weiteren Seiten. Eine Behebung an dieser \
-                     einen Stelle würde diese Vorkommen voraussichtlich gemeinsam \
-                     adressieren.",
-                    acc.count
-                ))
-            }
-        } else if acc.count >= 5 {
-            if locale == "en" {
-                Some(format!(
-                    "This issue appears on {} elements — possibly a shared component or template.",
-                    acc.count
-                ))
-            } else {
-                Some(format!(
-                    "Dieses Problem tritt bei {} Elementen auf — möglicherweise eine gemeinsam genutzte Komponente oder ein Template.",
-                    acc.count
-                ))
-            }
-        } else {
-            None
-        },
-        is_component_issue: acc.count >= 10,
-        criticality_tier: crate::output::report_model::classify_criticality_tier(
-            &finding.category,
-            &finding.wcag_level,
-        ),
-        narrative,
-    }
-}
-
-fn representative_occurrence_from_normalized(
-    occurrence: &crate::audit::normalized::OccurrenceDetail,
-) -> RepresentativeOccurrence {
-    RepresentativeOccurrence {
-        selector: occurrence
-            .selector
-            .clone()
-            .unwrap_or_else(|| format!("AX-Node {}", occurrence.node_id)),
-        node_id: occurrence.node_id.clone(),
-        message: occurrence.message.clone(),
-        html_snippet: occurrence.html_snippet.clone(),
-        suggested_code: occurrence.suggested_code.clone(),
-        evidence: occurrence.evidence.clone(),
-        // Batch reports never capture element-evidence screenshots
-        // (`capture_element_evidence` is single-URL-only) — always None here.
-        evidence_screenshot: occurrence.evidence_screenshot.clone(),
-        evidence_viewport: occurrence.evidence_viewport,
-    }
 }
 
 #[cfg(test)]
