@@ -22,64 +22,27 @@ pub enum SeoMaturityLevel {
 }
 
 impl SeoMaturityLevel {
-    pub fn label(&self, en: bool) -> &'static str {
-        match self {
-            Self::Basic => {
-                if en {
-                    "Basic"
-                } else {
-                    "Basis"
-                }
-            }
-            Self::Standard => "Standard",
-            Self::Advanced => {
-                if en {
-                    "Advanced"
-                } else {
-                    "Fortgeschritten"
-                }
-            }
-            Self::Professional => {
-                if en {
-                    "Professional"
-                } else {
-                    "Professionell"
-                }
-            }
-        }
+    /// The `seo-profile-maturity-*` message of `locales/{en,de}/seo-issues.ftl`.
+    pub fn label(&self, en: bool) -> String {
+        let key = match self {
+            Self::Basic => "seo-profile-maturity-basic",
+            Self::Standard => "seo-profile-maturity-standard",
+            Self::Advanced => "seo-profile-maturity-advanced",
+            Self::Professional => "seo-profile-maturity-professional",
+        };
+        crate::i18n::text(key, en)
     }
 
-    pub fn description(&self, en: bool) -> &'static str {
-        match self {
-            Self::Basic => {
-                if en {
-                    "Fundamental SEO measures are largely absent."
-                } else {
-                    "Grundlegende SEO-Maßnahmen fehlen weitgehend."
-                }
-            }
-            Self::Standard => {
-                if en {
-                    "Basic SEO is in place; advanced techniques are missing."
-                } else {
-                    "Basis-SEO ist vorhanden, fortgeschrittene Techniken fehlen."
-                }
-            }
-            Self::Advanced => {
-                if en {
-                    "Good SEO coverage with structured data and social tags."
-                } else {
-                    "Gute SEO-Abdeckung mit strukturierten Daten und Social Tags."
-                }
-            }
-            Self::Professional => {
-                if en {
-                    "Very broad technical SEO coverage; no statement on strategic content quality."
-                } else {
-                    "Sehr breite technische SEO-Abdeckung; keine Aussage zur strategischen Content-Qualität."
-                }
-            }
-        }
+    /// The `seo-profile-maturity-description-*` message of
+    /// `locales/{en,de}/seo-issues.ftl`.
+    pub fn description(&self, en: bool) -> String {
+        let key = match self {
+            Self::Basic => "seo-profile-maturity-description-basic",
+            Self::Standard => "seo-profile-maturity-description-standard",
+            Self::Advanced => "seo-profile-maturity-description-advanced",
+            Self::Professional => "seo-profile-maturity-description-professional",
+        };
+        crate::i18n::text(key, en)
     }
 
     fn from_count(techniques: u32) -> Self {
@@ -117,43 +80,21 @@ pub enum PageType {
 }
 
 impl PageType {
-    pub fn label(&self, en: bool) -> &'static str {
-        match self {
-            Self::Editorial => {
-                if en {
-                    "Editorial / Article"
-                } else {
-                    "Editorial / Artikel"
-                }
-            }
-            Self::StructuredContent => {
-                if en {
-                    "Structured knowledge content"
-                } else {
-                    "Strukturierter Wissensinhalt"
-                }
-            }
-            Self::MarketingLanding => "Marketing / Landing Page",
-            Self::MediaHeavy => {
-                if en {
-                    "Media-oriented page"
-                } else {
-                    "Medienorientierte Seite"
-                }
-            }
-            Self::Utility => {
-                if en {
-                    "Transactional / Utility"
-                } else {
-                    "Transaktional / Utility"
-                }
-            }
+    /// The `seo-profile-page-type-*` message of `locales/{en,de}/seo-issues.ftl`.
+    pub fn label(&self, en: bool) -> String {
+        let key = match self {
+            Self::Editorial => "seo-profile-page-type-editorial",
+            Self::StructuredContent => "seo-profile-page-type-structured-content",
+            Self::MarketingLanding => "seo-profile-page-type-marketing-landing",
+            Self::MediaHeavy => "seo-profile-page-type-media-heavy",
+            Self::Utility => "seo-profile-page-type-utility",
             // Same wording as the journey layer's hub intent, so one page is
             // not "Hub / Portal" in one section and "Navigations-/Hub-Seite"
             // in the next (#902-7).
-            Self::NavigationHub => crate::page_flow::PageIntent::Hub.label(en),
-            Self::ThinContent => "Thin / Minimal Content",
-        }
+            Self::NavigationHub => return crate::page_flow::PageIntent::Hub.label(en),
+            Self::ThinContent => "seo-profile-page-type-thin-content",
+        };
+        crate::i18n::text(key, en)
     }
 }
 
@@ -2386,12 +2327,12 @@ mod tests {
             SeoMaturityLevel::Professional,
         ] {
             assert!(
-                !has_german_chars(level.label(true)),
+                !has_german_chars(&level.label(true)),
                 "German chars in maturity label: {}",
                 level.label(true)
             );
             assert!(
-                !has_german_chars(level.description(true)),
+                !has_german_chars(&level.description(true)),
                 "German chars in maturity description: {}",
                 level.description(true)
             );
@@ -2406,7 +2347,7 @@ mod tests {
             PageType::ThinContent,
         ] {
             assert!(
-                !has_german_chars(pt.label(true)),
+                !has_german_chars(&pt.label(true)),
                 "German chars in page type label: {}",
                 pt.label(true)
             );

@@ -15,24 +15,14 @@ pub enum SerpSignalStatus {
 }
 
 impl SerpSignalStatus {
-    pub fn label(&self, en: bool) -> &'static str {
-        match self {
-            SerpSignalStatus::Ok => "OK",
-            SerpSignalStatus::Warning => {
-                if en {
-                    "Warning"
-                } else {
-                    "Warnung"
-                }
-            }
-            SerpSignalStatus::Fail => {
-                if en {
-                    "Error"
-                } else {
-                    "Fehler"
-                }
-            }
-        }
+    /// The `seo-serp-status-*` message of `locales/{en,de}/seo-issues.ftl`.
+    pub fn label(&self, en: bool) -> String {
+        let key = match self {
+            SerpSignalStatus::Ok => "seo-serp-status-ok",
+            SerpSignalStatus::Warning => "seo-serp-status-warning",
+            SerpSignalStatus::Fail => "seo-serp-status-fail",
+        };
+        crate::i18n::text(key, en)
     }
 }
 

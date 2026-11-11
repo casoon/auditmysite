@@ -990,7 +990,7 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
             // classification stays byte-for-byte identical.
             let issue_class_de = issue_class_kind.label(false);
             let (complexity, complexity_kind) =
-                derive_complexity(occurrence_count, &tax_id, issue_class_de);
+                derive_complexity(occurrence_count, &tax_id, &issue_class_de);
             let complexity_reason = complexity_text(complexity_kind, true);
             let expected_impact_kind = derive_expected_impact(
                 severity,
@@ -1146,10 +1146,10 @@ fn rederive_count_dependent_fields(f: &mut NormalizedFinding) {
     let issue_class_de = if f.category == "wcag" {
         f.issue_class_kind.label(false)
     } else {
-        "issue"
+        "issue".to_string()
     };
     f.priority_score = calculate_priority_score(f.severity, count, &f.rule_id);
-    let (complexity, complexity_kind) = derive_complexity(count, &f.rule_id, issue_class_de);
+    let (complexity, complexity_kind) = derive_complexity(count, &f.rule_id, &issue_class_de);
     f.complexity_reason = complexity_text(complexity_kind, true);
     f.complexity = complexity;
     f.complexity_kind = complexity_kind;

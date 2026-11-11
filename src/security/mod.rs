@@ -1586,22 +1586,16 @@ pub enum SecurityCategory {
 }
 
 impl SecurityCategory {
-    pub fn label(&self, en: bool) -> &'static str {
-        if en {
-            match self {
-                Self::ResponseHeaders => "Response headers",
-                Self::TransportSecurity => "Transport security",
-                Self::AccessPolicies => "Access policies",
-                Self::ThirdPartyExposure => "Third-party exposure",
-            }
-        } else {
-            match self {
-                Self::ResponseHeaders => "Response-Header",
-                Self::TransportSecurity => "Transportsicherheit",
-                Self::AccessPolicies => "Zugriffs-Richtlinien",
-                Self::ThirdPartyExposure => "Drittanbieter-Exposition",
-            }
-        }
+    /// Report label of the category: the `security-category-*` message of
+    /// `locales/{en,de}/security-issues.ftl`.
+    pub fn label(&self, en: bool) -> String {
+        let key = match self {
+            Self::ResponseHeaders => "security-category-response-headers",
+            Self::TransportSecurity => "security-category-transport-security",
+            Self::AccessPolicies => "security-category-access-policies",
+            Self::ThirdPartyExposure => "security-category-third-party-exposure",
+        };
+        crate::i18n::text(key, en)
     }
 
     /// All categories, in a fixed display order.

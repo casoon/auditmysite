@@ -1,7 +1,8 @@
 //! Guards of `locales/{de,en}/seo-issues.ftl` (#936): the same keys in both
 //! languages, every key defined once, used and resolving without errors, and
 //! no German in the English file. The file also holds the structured-data and
-//! robots.txt table labels.
+//! robots.txt table labels, the content-profile labels and the SERP status
+//! labels.
 
 use super::issue_texts_export::{meta_values, schema_issues, technical_scenarios, META_KINDS};
 use super::label_texts_export::{robots_audits, BOT_CLASSES, OTHER_POLICIES};
@@ -9,16 +10,19 @@ use super::meta::meta_issue_text;
 use super::robots::{infer_robots_policy, localize_policy_label};
 use super::schema::{schema_issue_label, schema_issue_text};
 use super::technical::collect_technical_issues;
+use crate::i18n::label_texts_export::{page_types, serp_statuses, SEO_MATURITY_LEVELS};
 use fluent_bundle::{FluentArgs, FluentBundle, FluentResource, FluentValue};
 use std::collections::BTreeSet;
 
 const EN: &str = include_str!("../../locales/en/seo-issues.ftl");
 const DE: &str = include_str!("../../locales/de/seo-issues.ftl");
-const SOURCES: [&str; 4] = [
+const SOURCES: [&str; 6] = [
     include_str!("technical.rs"),
     include_str!("meta.rs"),
     include_str!("schema.rs"),
     include_str!("robots.rs"),
+    include_str!("profile.rs"),
+    include_str!("serp.rs"),
 ];
 
 /// The message ids of a file (column-0 `id =` lines), each only once.
@@ -38,7 +42,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 71);
+    assert_eq!(en.len(), 88);
 }
 
 #[test]
@@ -48,7 +52,7 @@ fn every_message_is_used_by_the_code() {
             SOURCES
                 .iter()
                 .any(|source| source.contains(&format!("\"{id}\""))),
-            "{id} is not used in technical.rs, meta.rs, schema.rs or robots.rs"
+            "{id} is not used in technical.rs, meta.rs, schema.rs, robots.rs, profile.rs or serp.rs"
         );
     }
 }
@@ -143,6 +147,19 @@ fn no_input_leaves_a_key_or_a_placeholder_in_a_message() {
         }
         for stored in OTHER_POLICIES {
             assert_eq!(localize_policy_label(stored, en), stored);
+        }
+        for level in SEO_MATURITY_LEVELS {
+            for text in [level.label(en), level.description(en)] {
+                assert!(!leaks(&text), "{level:?} (en={en}): {text}");
+            }
+        }
+        for page_type in page_types() {
+            let label = page_type.label(en);
+            assert!(!leaks(&label), "{page_type:?} (en={en}): {label}");
+        }
+        for status in serp_statuses() {
+            let label = status.label(en);
+            assert!(!leaks(&label), "{status:?} (en={en}): {label}");
         }
     }
 }

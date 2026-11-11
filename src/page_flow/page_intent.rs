@@ -43,40 +43,18 @@ impl PageIntent {
         }
     }
 
-    pub fn label(&self, en: bool) -> &'static str {
-        match self {
-            PageIntent::Shop => "Shop / E-Commerce",
-            PageIntent::LeadGen => {
-                if en {
-                    "Lead generation"
-                } else {
-                    "Lead-Generierung"
-                }
-            }
-            PageIntent::Editorial => {
-                if en {
-                    "Editorial / Blog"
-                } else {
-                    "Redaktionell / Blog"
-                }
-            }
-            PageIntent::Marketing => "Marketing / Landing Page",
-            PageIntent::Corporate => {
-                if en {
-                    "Corporate page"
-                } else {
-                    "Unternehmensseite"
-                }
-            }
-            PageIntent::Hub => "Hub / Portal",
-            PageIntent::Unknown => {
-                if en {
-                    "Not detected"
-                } else {
-                    "Nicht erkannt"
-                }
-            }
-        }
+    /// The `labels-page-intent-*` message of `locales/{en,de}/labels.ftl`.
+    pub fn label(&self, en: bool) -> String {
+        let key = match self {
+            PageIntent::Shop => "labels-page-intent-shop",
+            PageIntent::LeadGen => "labels-page-intent-lead-gen",
+            PageIntent::Editorial => "labels-page-intent-editorial",
+            PageIntent::Marketing => "labels-page-intent-marketing",
+            PageIntent::Corporate => "labels-page-intent-corporate",
+            PageIntent::Hub => "labels-page-intent-hub",
+            PageIntent::Unknown => "labels-page-intent-unknown",
+        };
+        crate::i18n::text(key, en)
     }
 }
 
@@ -723,7 +701,7 @@ mod tests {
             PageIntent::Unknown,
         ] {
             assert!(
-                !has_german(intent.label(true)),
+                !has_german(&intent.label(true)),
                 "German chars in label: {}",
                 intent.label(true)
             );

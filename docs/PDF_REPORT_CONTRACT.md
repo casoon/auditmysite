@@ -129,7 +129,7 @@ In the rendered PDF:
 
 ### Localization Boundaries
 
-AuditMySite currently has eight localization surfaces. Keep new text in the
+AuditMySite currently has nine localization surfaces. Keep new text in the
 surface that owns its lifecycle:
 
 - `locales/{de,en}/report.ftl`: runtime report labels, headings, table columns,
@@ -160,15 +160,28 @@ surface that owns its lifecycle:
   `page-health.ftl`; also the table labels of the structured-data issues
   (`seo::schema::schema_issue_label`, `seo-schema-label-*`) and of the
   robots.txt audit (`seo::robots::BotClass::label`, `infer_robots_policy`,
-  `localize_policy_label`, `seo-robots-*`).
+  `localize_policy_label`, `seo-robots-*`), the content-profile labels
+  (`seo::profile::SeoMaturityLevel::label`/`description`, `PageType::label`,
+  `seo-profile-*`) and the SERP status labels
+  (`seo::serp::SerpSignalStatus::label`, `seo-serp-status-*`).
 - `locales/{de,en}/security-issues.ftl`: the texts of the security findings
   (`security::security_issue_text`, `security-*`), built the same way; the
-  function keeps the default values (`unset`, `object-src`).
+  function keeps the default values (`unset`, `object-src`). Also the category
+  labels (`security::SecurityCategory::label`, `security-category-*`).
 - `locales/{de,en}/mobile-issues.ftl`: the texts of the mobile findings
   (`mobile::mobile_issue_text`, `mobile-*`) with the parts of the touch-target
   sentence and the touch-target context labels (`mobile::mobile_context_label`,
   `mobile-context-*`), built the same way; the number format stays in
   `i18n::number`.
+- `locales/{de,en}/labels.ftl`: the labels of cross-cutting enums, one
+  `labels-*` message per variant: page intent (`page_flow::PageIntent::label`),
+  priority, effort and execution priority (`audit::prioritization`), role
+  (`output::report_model::Role::label`), issue class
+  (`taxonomy::IssueClass::label`) and subcategory
+  (`taxonomy::Subcategory::label`). The enum methods keep the variant-to-message
+  mapping. The PDF tables of priority, role and effort use their own
+  `report.ftl` messages (`priority-*`, `role-*`, `effort-*`), which word some of
+  them differently; the `labels-` prefix keeps the two apart.
 - `src/output/explanations.rs`: the explanation table itself: which entries
   exist, owner role, effort, and the code examples (canonical English), plus
   `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are

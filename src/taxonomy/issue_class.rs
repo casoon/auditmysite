@@ -41,27 +41,18 @@ impl IssueClass {
         !matches!(self, IssueClass::Opportunity | IssueClass::Informational)
     }
 
-    /// Nutzerfreundlicher Label (`en = true` englisch, sonst deutsch).
-    pub fn label(&self, en: bool) -> &'static str {
-        if en {
-            match self {
-                IssueClass::Missing => "Missing",
-                IssueClass::Invalid => "Invalid",
-                IssueClass::Weak => "Weak",
-                IssueClass::Risk => "Risk",
-                IssueClass::Opportunity => "Opportunity",
-                IssueClass::Informational => "Informational",
-            }
-        } else {
-            match self {
-                IssueClass::Missing => "Fehlend",
-                IssueClass::Invalid => "Ungültig",
-                IssueClass::Weak => "Schwach",
-                IssueClass::Risk => "Risiko",
-                IssueClass::Opportunity => "Optimierungspotenzial",
-                IssueClass::Informational => "Hinweis",
-            }
-        }
+    /// Nutzerfreundlicher Label (`en = true` englisch, sonst deutsch): die
+    /// `labels-issue-class-*`-Message aus `locales/{en,de}/labels.ftl`.
+    pub fn label(&self, en: bool) -> String {
+        let key = match self {
+            IssueClass::Missing => "labels-issue-class-missing",
+            IssueClass::Invalid => "labels-issue-class-invalid",
+            IssueClass::Weak => "labels-issue-class-weak",
+            IssueClass::Risk => "labels-issue-class-risk",
+            IssueClass::Opportunity => "labels-issue-class-opportunity",
+            IssueClass::Informational => "labels-issue-class-informational",
+        };
+        crate::i18n::text(key, en)
     }
 }
 

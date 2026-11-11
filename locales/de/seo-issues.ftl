@@ -5,7 +5,8 @@
 # messages as numbers, so the plural agreement lives here. Which issues exist
 # and their severity stay in Rust. Also the table labels of the structured-data
 # issues (`seo::schema::schema_issue_label`) and of the robots.txt audit (bot
-# classes and policy labels of `seo::robots`).
+# classes and policy labels of `seo::robots`), the labels of the SEO content
+# profile (`seo::profile`) and the SERP status labels (`seo::serp`).
 
 seo-technical-no-https = Seite wird nicht über HTTPS ausgeliefert
 seo-technical-no-canonical = Fehlende Canonical-URL
@@ -107,3 +108,26 @@ seo-robots-policy-ai-training-blocked-conservative = KI-Training blockiert (kons
 seo-robots-policy-ai-training-blocked-search-allowed = KI-Training blockiert, KI-Suche erlaubt
 seo-robots-policy-ai-access-open = KI-Zugang offen
 seo-robots-policy-no-explicit-ai-rule = Keine explizite KI-Regel
+
+# Labels of the SEO content profile (`seo::profile`): the maturity level with
+# its description and the page type. `PageType::NavigationHub` takes the hub
+# label of the page intent (labels.ftl).
+seo-profile-maturity-basic = Basis
+seo-profile-maturity-standard = Standard
+seo-profile-maturity-advanced = Fortgeschritten
+seo-profile-maturity-professional = Professionell
+seo-profile-maturity-description-basic = Grundlegende SEO-Maßnahmen fehlen weitgehend.
+seo-profile-maturity-description-standard = Basis-SEO ist vorhanden, fortgeschrittene Techniken fehlen.
+seo-profile-maturity-description-advanced = Gute SEO-Abdeckung mit strukturierten Daten und Social Tags.
+seo-profile-maturity-description-professional = Sehr breite technische SEO-Abdeckung; keine Aussage zur strategischen Content-Qualität.
+seo-profile-page-type-editorial = Editorial / Artikel
+seo-profile-page-type-structured-content = Strukturierter Wissensinhalt
+seo-profile-page-type-marketing-landing = Marketing / Landing Page
+seo-profile-page-type-media-heavy = Medienorientierte Seite
+seo-profile-page-type-utility = Transaktional / Utility
+seo-profile-page-type-thin-content = Thin / Minimal Content
+
+# Status labels of the SERP signals (`seo::serp::SerpSignalStatus::label`).
+seo-serp-status-ok = OK
+seo-serp-status-warning = Warnung
+seo-serp-status-fail = Fehler
