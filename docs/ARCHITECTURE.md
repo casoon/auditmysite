@@ -341,7 +341,7 @@ policy and the table: *curated* modules (`audit`, `browser`, `cli`, `error`, `mo
 `studio`) are `pub` and only the items api.md lists are covered by the semver promise, *queued*
 modules are `pub` only because the two binaries, the integration tests (which are external crates
 and see only the public surface) or Studio import from them, and *crate* modules (`assessment`,
-`commerce`) are `pub(crate)`. A new module is `pub(crate)`; adding a `pub mod` needs a row in
+`commerce`, `html_conform`, `tech_stack`) are `pub(crate)`. A new module is `pub(crate)`; adding a `pub mod` needs a row in
 `tests/fixtures/architecture/library_surface.txt` and in api.md, which
 `cargo test --test library_surface` enforces. The same test pins the paths Studio imports. The
 queued modules are narrowed in slices, each a `pub(crate)` change plus the tests that moved next to

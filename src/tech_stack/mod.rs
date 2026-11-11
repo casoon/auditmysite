@@ -4,8 +4,8 @@
 //! generator, script URL patterns). Read-only and score-neutral: the module
 //! sends no request of its own to the audited host.
 
-pub mod module;
-pub use module::TechStackModule;
+pub(crate) mod module;
+pub(crate) use module::TechStackModule;
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
@@ -152,7 +152,7 @@ fn technologies_from(val: &serde_json::Value) -> Vec<DetectedTech> {
 // ── Public entry point ────────────────────────────────────────────────────────
 
 /// Detect the technology stack of the loaded page from in-page signals.
-pub async fn analyze_tech_stack(
+pub(crate) async fn analyze_tech_stack(
     page: &Page,
     base_url: &str,
     log: &CollectionLog,

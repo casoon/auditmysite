@@ -99,6 +99,8 @@ Consumers: S = Studio, B = the two binaries, T(n) = n integration-test targets, 
 | `studio` | curated | stays `pub` | S, T(1), D | the contract with Studio |
 | `assessment` | crate | narrowed in this slice | none | its types are re-exported at the root where report fields name them |
 | `commerce` | crate | narrowed in this slice | none | experimental indicator; the report carries its results |
+| `html_conform` | crate | narrowed in slice 2; `HtmlConformAnalysis`, `HtmlConformFinding` and `SchemaDetail` at the root | none | the tests build the report field from the root type and JSON |
+| `tech_stack` | crate | narrowed in slice 2; `TechStackAnalysis`, `DetectedTech`, `TechCategory` and `TechConfidence` at the root | none | the test builds the report field from the root type and JSON |
 | `a11y_journey` | queued | `pub(crate)`; tests move next to the code | T(1) | slice 2 |
 | `accessibility` | queued | `pub(crate)`, `AXTree` stays at the root | B (dev), T(6) | slice 2 |
 | `ai_visibility` | queued | `pub(crate)` | T(2) | slice 2 |
@@ -106,11 +108,10 @@ Consumers: S = Studio, B = the two binaries, T(n) = n integration-test targets, 
 | `best_practices` | queued | `pub(crate)` | T(31) | slice 3 |
 | `content_visibility` | queued | `pub(crate)` | T(1) | slice 2 |
 | `display` | queued | `pub(crate)` | B, T(1) | slice 5 |
-| `html_conform` | queued | `pub(crate)` | T(2) | slice 2 |
 | `i18n` | queued | `pub(crate)` | T(1) | slice 2 |
 | `interaction` | queued | `pub(crate)` | T(2) | slice 2 |
 | `lint` | queued | `pub(crate)`; `cli::report_lint` stays the entry for `report-lint` | T(1) | slice 2 |
-| `mobile` | queued | `pub(crate)` | T(2) | slice 2 |
+| `mobile` | queued | `pub(crate)` once `mobile::ux_heuristics`, which nothing in the crate calls, is wired up (#1035) | T(2) | slice 2 |
 | `page_flow` | queued | `pub(crate)` | T(5) | slice 2 |
 | `patterns` | queued | `pub(crate)` | T(3) | slice 2 |
 | `performance` | queued | `pub(crate)` | T(3) | slice 3 |
@@ -121,7 +122,6 @@ Consumers: S = Studio, B = the two binaries, T(n) = n integration-test targets, 
 | `seo` | queued | `pub(crate)` | T(36) | slice 4, after #936 |
 | `source_quality` | queued | `pub(crate)` | T(2) | slice 2 |
 | `taxonomy` | queued | `pub(crate)` | T(32) | slice 4 |
-| `tech_stack` | queued | `pub(crate)` | T(1) | slice 2 |
 | `util` | queued | `pub(crate)` | B | slice 5 |
 | `ux` | queued | `pub(crate)` | T(3) | slice 2 |
 | `wcag` | queued | `pub(crate)`; `Severity`, `Violation`, `WcagResults` stay at the root | T(45) | slice 4 |
@@ -133,8 +133,16 @@ modules, methods included):
 2. The small analysis modules that one to six integration tests import (`a11y_journey`,
    `accessibility`, `ai_visibility`, `content_visibility`, `html_conform`, `i18n`, `interaction`,
    `lint`, `mobile`, `page_flow`, `patterns`, `registry`, `screen_reader`, `source_quality`,
-   `tech_stack`, `ux`): about 400 public items. Each test either moves to a unit test next to the
-   code or the module becomes `#[doc(hidden)] pub` with a comment naming the test as the reason.
+   `tech_stack`, `ux`): about 400 public items. Done: `html_conform` and `tech_stack`, whose tests
+   only built a report field. The others stay queued because a test needs internals that no
+   curated path or root re-export reaches: the Chrome integration tests drive `a11y_journey`,
+   `interaction` and `patterns`; `module_fixtures` runs the `AuditModule` impls of
+   `ai_visibility`, `content_visibility`, `page_flow`, `source_quality` and `ux`; the tests read
+   `accessibility` AX-tree internals (and the dev binary's `accname-diff` uses it), `I18n`,
+   `lint::lint`, `registry::REGISTRY` and `screen_reader::build_sr_audit_report`. `mobile` waits
+   until `mobile::ux_heuristics`, which has no caller in the crate, is wired up (#1035). Each remaining
+   test either moves to a unit test next to the code or the module becomes `#[doc(hidden)] pub`
+   with a comment naming the test as the reason.
 3. `performance`, `privacy`, `security`, `best_practices`: about 190 public items; the detection
    corpus tests import them.
 4. `wcag`, `taxonomy`, `seo`: about 400 public items, imported by 30 to 45 test targets (rule

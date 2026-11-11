@@ -440,8 +440,8 @@ fn make_security() -> SecurityAnalysis {
     }
 }
 
-fn make_html_conform() -> auditmysite::html_conform::HtmlConformAnalysis {
-    auditmysite::html_conform::HtmlConformAnalysis {
+fn make_html_conform() -> auditmysite::HtmlConformAnalysis {
+    auditmysite::HtmlConformAnalysis {
         score: 90,
         checked: true,
         error_count: 0,
@@ -1599,14 +1599,14 @@ fn test_json_report_includes_extra_module_keys() {
 #[test]
 fn test_json_report_includes_report_artifact_fields() {
     let mut report = make_full_report();
-    report.discoverability.tech_stack = Some(auditmysite::tech_stack::TechStackAnalysis {
-        detected: vec![auditmysite::tech_stack::DetectedTech {
-            name: "Astro".to_string(),
-            category: auditmysite::tech_stack::TechCategory::Framework,
-            version: None,
-            confidence: auditmysite::tech_stack::Confidence::High,
-            signals: vec!["test signal".to_string()],
-        }],
+    report.discoverability.tech_stack = Some(auditmysite::TechStackAnalysis {
+        detected: vec![from_json(serde_json::json!({
+            "name": "Astro",
+            "category": "framework",
+            "version": null,
+            "confidence": "high",
+            "signals": ["test signal"],
+        }))],
     });
     report.experience.budget_violations = vec![from_json(serde_json::json!({
         "metric": "LCP",

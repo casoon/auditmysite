@@ -462,21 +462,20 @@ fn test_technician_index_and_findings_match_schemas() {
     use std::collections::HashMap;
 
     let mut report = create_test_report();
-    report.html_conform = Some(auditmysite::html_conform::HtmlConformAnalysis {
+    report.html_conform = Some(auditmysite::HtmlConformAnalysis {
         score: 90,
         checked: true,
         error_count: 1,
         warning_count: 0,
         info_count: 0,
         distinct_defect_count: 1,
-        findings: vec![auditmysite::html_conform::HtmlConformFinding {
-            rule_id: "schema.html5".to_string(),
-            severity: "error".to_string(),
-            message: "Element div not allowed as child of element span".to_string(),
-            location: Some("3:7".to_string()),
-            byte_offset: None,
-            detail: None,
-        }],
+        findings: vec![serde_json::from_value(serde_json::json!({
+            "rule_id": "schema.html5",
+            "severity": "error",
+            "message": "Element div not allowed as child of element span",
+            "location": "3:7",
+        }))
+        .expect("html-conform finding from JSON")],
         raw_html: None,
     });
     let mut blocked = BatchError::new("https://example.com/blocked", "blocked");
