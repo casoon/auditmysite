@@ -992,7 +992,10 @@ batch-sitemap-kind-redirect = Redirect
 batch-sitemap-kind-noindex = noindex
 batch-sitemap-kind-fetch-error = Fetch error
 batch-sitemap-kind-orphan = No inbound link observed
-batch-sitemap-orphan-note = { $count } audited pages without an observed inbound link. Only the links of the audited pages and the homepage were observed — pages outside the sample, search and script-built menus are missing. These are candidates, not confirmed orphans.
+batch-sitemap-orphan-note = { $count ->
+        [one] 1 audited page
+       *[other] { $count } audited pages
+    } without an observed inbound link. Only the links of the audited pages and the homepage were observed — pages outside the sample, search and script-built menus are missing. These are candidates, not confirmed orphans.
 batch-sitemap-kind-linked-missing = Internally linked, missing from sitemap
 batch-seo-robots-conflicts-title = Sitemap vs. robots.txt → indexing intent blocked by a Disallow rule
 batch-col-robots-rule = Blocking Disallow rule
@@ -1004,7 +1007,10 @@ batch-crawl-depth-caveat = This run doesn't cover the full sitemap (a sample, or
 batch-col-crawl-depth = Clicks
 batch-crawl-depth-kind-deepest = Furthest away
 batch-crawl-depth-kind-unreachable = No path observed (within the captured pages)
-batch-crawl-depth-unobserved-count = { $count } audited pages without an observed path from the homepage (up to 20 of them in the JSON under crawl_depths.unreachable_pages).
+batch-crawl-depth-unobserved-count = { $count ->
+        [one] 1 audited page
+       *[other] { $count } audited pages
+    } without an observed path from the homepage (up to 20 of them in the JSON under crawl_depths.unreachable_pages).
 batch-crawl-depth-fetched-homepage = The homepage was only fetched to read its links — it is not audited and counts in no score.
 batch-crawl-depth-unavailable = Click depths not determined: the homepage could not be fetched. No other page is used as a substitute start page.
 batch-module-portfolio-title = Module portfolio

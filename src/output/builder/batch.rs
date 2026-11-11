@@ -4,7 +4,7 @@ use crate::output::localized::is_english;
 use std::collections::HashMap;
 
 use crate::audit::normalized::normalize;
-use crate::audit::{BatchReport, BrokenLinkSeverity, NormalizedReport};
+use crate::audit::{inbound_link_counts, BatchReport, BrokenLinkSeverity, NormalizedReport};
 use crate::i18n::I18n;
 use crate::output::report_model::*;
 use crate::seo::profile::PageType;
@@ -943,21 +943,14 @@ fn build_template_cluster_view(
 // ─── URL matrix ─────────────────────────────────────────────────────────────
 
 fn build_url_matrix(batch: &BatchReport) -> Vec<UrlMatrixRow> {
-    // Build inbound link map: path → count of pages that link here
-    let mut inbound: HashMap<String, usize> = HashMap::new();
-    for report in &batch.reports {
-        if let Some(seo) = &report.discoverability.seo {
-            for target in &seo.technical.internal_link_targets {
-                *inbound.entry(target.clone()).or_insert(0) += 1;
-            }
-        }
-    }
+    let inbound = inbound_link_counts(&batch.reports);
 
     batch
         .reports
         .iter()
+        .zip(inbound)
         .enumerate()
-        .map(|(i, r)| {
+        .map(|(i, (r, inbound_count))| {
             let title = r
                 .discoverability
                 .seo
@@ -975,8 +968,6 @@ fn build_url_matrix(batch: &BatchReport) -> Vec<UrlMatrixRow> {
                 .as_ref()
                 .map(|seo| seo.technical.internal_links + seo.technical.external_links)
                 .unwrap_or(0);
-            let path = url_path(&r.url);
-            let inbound_count = inbound.get(&path).copied().unwrap_or(0);
 
             UrlMatrixRow {
                 rank: i + 1,
@@ -988,12 +979,6 @@ fn build_url_matrix(batch: &BatchReport) -> Vec<UrlMatrixRow> {
             }
         })
         .collect()
-}
-
-fn url_path(url: &str) -> String {
-    url::Url::parse(url)
-        .map(|u| u.path().to_string())
-        .unwrap_or_else(|_| url.to_string())
 }
 
 /// Char-boundary-safe truncation with an ellipsis for display values.
@@ -1749,6 +1734,46 @@ mod duplicate_content_tests {
         let expected = vec!["https://x.test/a", "https://x.test/b", "https://x.test/c"];
         assert_eq!(ranking(&[0, 1, 2]), expected);
         assert_eq!(ranking(&[2, 0, 1]), expected);
+    }
+
+    /// #1039: the URL matrix counts distinct other linking pages, and a page
+    /// with 0 there is exactly a page in the orphan list.
+    #[test]
+    fn url_matrix_inbound_links_agree_with_orphan_pages() {
+        let with_links = |url: &str, targets: &[&str]| {
+            let mut report = report_with(url, url, "H");
+            if let Some(seo) = report.discoverability.seo.as_mut() {
+                seo.technical.internal_link_targets =
+                    targets.iter().map(|t| t.to_string()).collect();
+            }
+            report
+        };
+        let batch = crate::audit::BatchReport::from_reports(
+            vec![
+                with_links("https://x.test/a", &["/b", "/b", "https://x.test/b/", "/a"]),
+                with_links("https://x.test/b", &["/b"]),
+                with_links("https://x.test/c", &["a", "b"]),
+            ],
+            vec![],
+            100,
+        );
+        let inbound: Vec<(String, usize)> = build_url_matrix(&batch)
+            .into_iter()
+            .map(|row| (row.url, row.inbound_links))
+            .collect();
+        assert_eq!(
+            inbound,
+            vec![
+                ("https://x.test/a".to_string(), 1),
+                ("https://x.test/b".to_string(), 2),
+                ("https://x.test/c".to_string(), 0),
+            ]
+        );
+        let orphans = crate::audit::batch_consistency::analyze(&batch)
+            .expect("batch of 3")
+            .orphan_pages
+            .orphan_urls;
+        assert_eq!(orphans, vec!["https://x.test/c"]);
     }
 
     #[test]

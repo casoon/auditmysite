@@ -257,6 +257,8 @@ Batch reports expose a canonical `site_analysis` block for domain-wide results:
 - batch-only WCAG assessments for consistent navigation, consistent identification, consistent help, and multiple ways (`consistency.wcag_cross_page`), with the help-mechanism comparison behind 3.2.6 in `consistency.help`,
 - interactive coverage and grouped accessibility assessments.
 
+Inbound links are counted the same way in both places that report them: `url_matrix[].inbound_links` is the number of distinct other audited pages that link to the URL, and `site_analysis.consistency.orphan_pages.urls` lists the audited pages where that number is 0 (the 2.4.5 assessment counts them in `affected_pages`). Link targets are resolved against the linking page's URL; links to the page itself and repeated links from the same page do not count.
+
 Structured-data detail separates parse state, eligibility blockers, recommendations, manual checks, page-type fit, and visible-content parity. Ambiguous visible facts are not converted into mismatches; evidence samples are short and never contain full page text or DOM dumps.
 
 Batch `pages[]` entries remain compact and carry profile/prioritization data rather than complete duplicate single-page report trees.

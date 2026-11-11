@@ -992,7 +992,10 @@ batch-sitemap-kind-redirect = Redirect
 batch-sitemap-kind-noindex = noindex
 batch-sitemap-kind-fetch-error = Abruffehler
 batch-sitemap-kind-orphan = Kein eingehender Link beobachtet
-batch-sitemap-orphan-note = { $count } geprüfte Seiten ohne beobachteten eingehenden Link. Beobachtet wurden nur die Links der geprüften Seiten und der Startseite — Seiten außerhalb der Stichprobe, Suche und Menüs aus Skripten fehlen. Das sind Kandidaten, keine bestätigt verwaisten Seiten.
+batch-sitemap-orphan-note = { $count ->
+        [one] 1 geprüfte Seite
+       *[other] { $count } geprüfte Seiten
+    } ohne beobachteten eingehenden Link. Beobachtet wurden nur die Links der geprüften Seiten und der Startseite — Seiten außerhalb der Stichprobe, Suche und Menüs aus Skripten fehlen. Das sind Kandidaten, keine bestätigt verwaisten Seiten.
 batch-sitemap-kind-linked-missing = Intern verlinkt, fehlt in Sitemap
 batch-seo-robots-conflicts-title = Sitemap vs. robots.txt → Indexierungsabsicht durch Disallow-Regel blockiert
 batch-col-robots-rule = Blockierende Disallow-Regel
@@ -1004,7 +1007,10 @@ batch-crawl-depth-caveat = Dieser Lauf deckt nicht die vollständige Sitemap ab 
 batch-col-crawl-depth = Klicks
 batch-crawl-depth-kind-deepest = Am weitesten entfernt
 batch-crawl-depth-kind-unreachable = Kein Pfad beobachtet (in den erfassten Seiten)
-batch-crawl-depth-unobserved-count = { $count } geprüfte Seiten ohne beobachteten Pfad von der Startseite (bis zu 20 davon im JSON unter crawl_depths.unreachable_pages).
+batch-crawl-depth-unobserved-count = { $count ->
+        [one] 1 geprüfte Seite
+       *[other] { $count } geprüfte Seiten
+    } ohne beobachteten Pfad von der Startseite (bis zu 20 davon im JSON unter crawl_depths.unreachable_pages).
 batch-crawl-depth-fetched-homepage = Die Startseite wurde dafür nur abgerufen, um ihre Links zu lesen — sie ist nicht auditiert und zählt in keinem Wert.
 batch-crawl-depth-unavailable = Klicktiefen nicht ermittelt: Die Startseite ließ sich nicht abrufen. Eine andere Seite wird bewusst nicht als Ersatz-Startseite verwendet.
 batch-module-portfolio-title = Modul-Portfolio

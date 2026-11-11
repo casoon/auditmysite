@@ -575,6 +575,42 @@ fn collect_internal_link_targets(reports: &[AuditReport]) -> HashSet<String> {
     targets
 }
 
+/// For each audited page, in report order: how many distinct other audited
+/// pages link to it. Link targets are resolved against the linking page's own
+/// URL and normalized like every other URL comparison in this module; a page's
+/// links to itself and repeated links from the same page count nothing extra.
+/// The one source for the batch orphan-page list (and its 2.4.5 count) and the
+/// URL matrix's inbound links (#1039).
+pub(crate) fn inbound_link_counts(reports: &[AuditReport]) -> Vec<usize> {
+    let mut sources_by_target: HashMap<String, HashSet<String>> = HashMap::new();
+    for report in reports {
+        let (Some(source), Ok(base)) = (normalize_url(&report.url), Url::parse(&report.url)) else {
+            continue;
+        };
+        let Some(seo) = &report.discoverability.seo else {
+            continue;
+        };
+        for target in &seo.technical.internal_link_targets {
+            if let Some(normalized) = resolve_link_target(&base, target) {
+                if normalized != source {
+                    sources_by_target
+                        .entry(normalized)
+                        .or_default()
+                        .insert(source.clone());
+                }
+            }
+        }
+    }
+    reports
+        .iter()
+        .map(|report| {
+            normalize_url(&report.url)
+                .and_then(|url| sources_by_target.get(&url))
+                .map_or(0, HashSet::len)
+        })
+        .collect()
+}
+
 /// Resolve one raw internal-link-target string (as extracted from a page —
 /// may be relative) against that page's own URL, then normalize it the same
 /// way as every other URL comparison in this module. Shared by the sitemap
@@ -1474,6 +1510,30 @@ mod tests {
         seo.technical.internal_link_targets = targets.iter().map(|t| t.to_string()).collect();
         report.discoverability.seo = Some(seo);
         report
+    }
+
+    /// #1039: inbound links are distinct other audited pages. Relative and
+    /// absolute targets resolve to the same page; a page's links to itself
+    /// and repeated links from one page count nothing extra.
+    #[test]
+    fn inbound_link_counts_are_distinct_other_pages() {
+        let reports = vec![
+            // relative, relative with trailing slash, absolute, self, duplicate
+            report_with_links(
+                "https://example.com/a/",
+                &["/b", "/b/", "https://example.com/b", "/a/", "c", "c#top"],
+            ),
+            // links only to itself, in two spellings
+            report_with_links("https://example.com/b", &["/b", "https://example.com/b/"]),
+            // absolute link to a, relative to b
+            report_with_links(
+                "https://example.com/a/c",
+                &["https://example.com/a/", "../b"],
+            ),
+            report_with_links("https://example.com/d", &[]),
+        ];
+        // a: linked from c. b: from a and c. a/c: from a ("c" relative to /a/). d: none.
+        assert_eq!(inbound_link_counts(&reports), vec![1, 2, 1, 0]);
     }
 
     #[test]

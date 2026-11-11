@@ -790,21 +790,12 @@ fn analyze_canonical(reports: &[AuditReport]) -> CanonicalConsistency {
 fn analyze_orphan_pages(reports: &[AuditReport]) -> OrphanPageAnalysis {
     let total_pages = reports.len();
 
-    // Collect all internal link targets from every page, normalised.
-    let mut all_targets: HashSet<String> = HashSet::new();
-    for r in reports {
-        if let Some(seo) = r.discoverability.seo.as_ref() {
-            for target in &seo.technical.internal_link_targets {
-                all_targets.insert(normalise_url(target));
-            }
-        }
-    }
-
-    // A page is an orphan if its own URL is not referenced by any other page.
+    // A page is an orphan if no other audited page links to it.
     let orphan_urls: Vec<String> = reports
         .iter()
-        .filter(|r| !all_targets.contains(&normalise_url(&r.url)))
-        .map(|r| r.url.clone())
+        .zip(super::inbound_link_counts(reports))
+        .filter(|(_, inbound)| *inbound == 0)
+        .map(|(r, _)| r.url.clone())
         .collect();
 
     let mut findings = Vec::new();
@@ -933,10 +924,6 @@ fn collect_schema_entities(
         }
         _ => {}
     }
-}
-
-fn normalise_url(url: &str) -> String {
-    url.trim_end_matches('/').to_lowercase()
 }
 
 fn canonical_host(url: &str) -> Option<String> {
@@ -1247,6 +1234,26 @@ mod tests {
             .unwrap();
         assert_eq!(multiple_ways.status, "manual_review");
         assert_eq!(multiple_ways.affected_pages, 2);
+    }
+
+    /// #1039: relative links count as inbound links, a link to the page
+    /// itself does not.
+    #[test]
+    fn orphan_pages_resolve_relative_links_and_ignore_self_links() {
+        let reports = vec![
+            make_report_with_links("https://a.com/a/", vec!["/b/", "/a/"]),
+            make_report_with_links("https://a.com/b", vec!["/b", "/b/"]),
+            make_report_with_links("https://a.com/c", vec!["https://a.com/a"]),
+        ];
+        let batch = BatchReport::from_reports(reports, vec![], 100);
+        let a = analyze(&batch).expect("batch ≥ 2");
+        assert_eq!(a.orphan_pages.orphan_urls, vec!["https://a.com/c"]);
+        let multiple_ways = a
+            .wcag_cross_page
+            .iter()
+            .find(|c| c.criterion.starts_with("2.4.5"))
+            .unwrap();
+        assert_eq!(multiple_ways.affected_pages, 1);
     }
 
     #[test]
