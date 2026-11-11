@@ -32,7 +32,7 @@ const TEXTS: [&str; 6] = [
     "https://example.com/a-very-long-path/that-keeps-going/and-going/and-going/and-going/and-going/and-going/and-going/and-going/and-going/file.min.js?v=1234567890",
 ];
 
-fn scenarios() -> Vec<(String, PageHealthAnalysis)> {
+pub(super) fn scenarios() -> Vec<(String, PageHealthAnalysis)> {
     let mut v = Vec::new();
 
     for doctype in [false, true] {

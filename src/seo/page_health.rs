@@ -13,6 +13,8 @@ mod issues;
 pub(crate) mod probes;
 #[cfg(test)]
 mod text_export;
+#[cfg(test)]
+mod text_guard;
 
 use dom::run_dom_inspection;
 pub use issues::collect_issues;

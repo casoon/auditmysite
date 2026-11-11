@@ -17,17 +17,20 @@ impl I18n {
         // Disable Unicode bidi isolates so format_pattern doesn't wrap
         // interpolated values in U+2068 / U+2069 isolate marks.
         bundle.set_use_isolating(false);
-        // Report texts and the rule texts (the catalogue of `taxonomy::rules`
-        // and the explanations of `output::explanations`) are two resources
-        // of the one bundle.
+        // Report texts, the rule texts (the catalogue of `taxonomy::rules`
+        // and the explanations of `output::explanations`) and the page-health
+        // issue texts (`seo::page_health`) are three resources of the one
+        // bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
                 include_str!("../../locales/en/rules.ftl"),
+                include_str!("../../locales/en/page-health.ftl"),
             ],
             _ => [
                 include_str!("../../locales/de/report.ftl"),
                 include_str!("../../locales/de/rules.ftl"),
+                include_str!("../../locales/de/page-health.ftl"),
             ],
         };
         for ftl in sources {
@@ -147,6 +150,14 @@ pub fn count_text(key: &str, n: usize, en: bool) -> String {
 /// functions as [`count_text`].
 pub fn text(key: &str, en: bool) -> String {
     SHARED.with(|bundles| bundles[usize::from(en)].t(key))
+}
+
+/// A message of the shared bundles with named arguments ([`I18n::t_args`]),
+/// for the same pure text functions as [`count_text`]. Numbers go in as
+/// `FluentValue::from(i64)` so a plural selector can use them; text as
+/// `FluentValue::from(String)`.
+pub fn text_args(key: &str, args: &[(&str, FluentValue<'_>)], en: bool) -> String {
+    SHARED.with(|bundles| bundles[usize::from(en)].t_args(key, args))
 }
 
 /// An attribute of a message of the shared bundles ([`I18n::attr`]), for the
