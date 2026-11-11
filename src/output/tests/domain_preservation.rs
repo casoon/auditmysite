@@ -518,7 +518,11 @@ fn every_domain_reaches_findings_inventory_and_projections() {
         !visible.is_empty(),
         "fixture must contain High findings to exercise the PDF path"
     );
-    for f in normalized.findings.iter().filter(|f| f.category != "wcag") {
+    for f in normalized
+        .findings
+        .iter()
+        .filter(|f| f.category() != "wcag")
+    {
         assert_eq!(
             f.report_visibility.standard,
             (f.severity >= Severity::High && f.contract.is_primary())

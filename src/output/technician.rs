@@ -347,7 +347,7 @@ mod tests {
         let finding = normalized
             .findings
             .iter()
-            .find(|f| f.category == "wcag")
+            .find(|f| f.category() == "wcag")
             .expect("wcag finding");
         assert!(
             finding.occurrences.len() < rows.len(),

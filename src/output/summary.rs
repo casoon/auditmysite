@@ -100,7 +100,7 @@ pub fn format_summary(normalized: &NormalizedReport) -> anyhow::Result<String> {
         rule_types: normalized
             .findings
             .iter()
-            .filter(|f| f.category == "wcag")
+            .filter(|f| f.category() == "wcag")
             .count(),
         top_findings,
     };

@@ -141,7 +141,7 @@ pub(super) fn finding_group_from_normalized(
         None
     };
     let is_component_issue = f.occurrence_count >= 10;
-    let criticality_tier = classify_criticality_tier(&f.category, &f.wcag_level);
+    let criticality_tier = classify_criticality_tier(f.category(), &f.wcag_level);
 
     FindingGroup {
         title,
@@ -191,7 +191,6 @@ mod fallback_tests {
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,
-            category: "wcag".into(),
             rule_id: "timing/meta-refresh".into(),
             wcag_criterion: "2.2.1".into(),
             axe_id: None,

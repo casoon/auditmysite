@@ -364,7 +364,7 @@ pub(crate) fn classify(
                     f.contract.scoring.effect == crate::audit::finding_contract::ScoringEffect::Gate
                 })
                 .count(),
-            open_findings: open.iter().filter(|f| f.category == "wcag").count(),
+            open_findings: open.iter().filter(|f| f.category() == "wcag").count(),
         },
     }
 }
@@ -413,7 +413,7 @@ pub(crate) fn summarize_batch(reports: &[NormalizedReport]) -> Option<BatchBasel
             open_violations: statuses
                 .iter()
                 .flat_map(|(r, _)| r.findings.iter())
-                .filter(|f| !f.known && f.category == "wcag")
+                .filter(|f| !f.known && f.category() == "wcag")
                 .map(|f| f.occurrence_count)
                 .sum(),
         },

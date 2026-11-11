@@ -1575,7 +1575,7 @@ pub fn count_violated_rules(reports: &[crate::audit::normalized::NormalizedRepor
         .flat_map(|r| {
             r.findings
                 .iter()
-                .filter(|f| f.category == "wcag")
+                .filter(|f| f.category() == "wcag")
                 .map(|f| f.rule_id.as_str())
         })
         .collect::<std::collections::HashSet<_>>()
