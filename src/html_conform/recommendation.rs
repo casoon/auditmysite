@@ -37,6 +37,7 @@ const FAMILIES: &[&str] = &[
     "meter-progress",
     "sectioning",
     "media-text",
+    "text-normalization",
 ];
 
 /// The checker's rule id as the report carries it (`html_conform.` prefix of
@@ -47,7 +48,7 @@ pub(crate) fn bare_id(rule_id: &str) -> &str {
 }
 
 /// The family of a checker rule id, `None` for an id no family covers.
-pub fn family(rule_id: &str) -> Option<&'static str> {
+pub(crate) fn family(rule_id: &str) -> Option<&'static str> {
     let id = bare_id(rule_id);
     let name = id.strip_prefix("elements.");
     let starts = |prefix: &str| id.starts_with(prefix);
@@ -90,6 +91,7 @@ pub fn family(rule_id: &str) -> Option<&'static str> {
     {
         "responsive-images"
     } else if name.is_some_and(|n| n.ends_with("-in-a") || n.ends_with("-in-button"))
+        || id == "elements.svg-a-in-svg-a"
         || id == "elements.interactive-role-in-a"
         || id == "elements.tabindex-in-a"
         || starts("a-href-forbidden-inside-widget-role.")
@@ -162,6 +164,8 @@ pub fn family(rule_id: &str) -> Option<&'static str> {
         "sectioning"
     } else if el("track-") || el("rtc-") || el("ruby-") || el("bdo-") || el("custom-element-") {
         "media-text"
+    } else if id == "text.normalization" {
+        "text-normalization"
     } else {
         return None;
     };
@@ -171,7 +175,7 @@ pub fn family(rule_id: &str) -> Option<&'static str> {
 
 /// Localized `(title, fix hint)` for a checker rule id. An id without a family
 /// gets the generic pair, so a finding never lacks a recommendation.
-pub fn recommendation(rule_id: &str, i18n: &I18n) -> (String, String) {
+pub(crate) fn recommendation(rule_id: &str, i18n: &I18n) -> (String, String) {
     let family = family(rule_id).unwrap_or("generic");
     (
         i18n.t(&format!("html-conform-{family}-title")),
@@ -214,6 +218,7 @@ mod tests {
             "scripts.import-map",
             "scripts.speculation-rules",
             "csp.meta-enforcement",
+            "text.normalization",
         ]
         .iter()
         .map(|id| id.to_string())

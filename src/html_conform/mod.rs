@@ -11,10 +11,10 @@
 //! ([`message::SchemaDetail`], the #406 kind-enum pattern), from which the PDF
 //! writes the run-language text; see [`message`].
 
-pub mod message;
-pub mod module;
-pub mod recommendation;
-pub use module::HtmlConformModule;
+pub(crate) mod message;
+pub(crate) mod module;
+pub(crate) mod recommendation;
+pub(crate) use module::HtmlConformModule;
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
@@ -72,7 +72,7 @@ pub struct HtmlConformFinding {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub byte_offset: Option<usize>,
     /// Structured arguments of a schema finding (#902), the source of the
-    /// run-language text in [`message::message_text`]. Not serialized: the
+    /// run-language text of the PDF and the table. Not serialized: the
     /// JSON keeps the checker's canonical English `message`; a report read
     /// back from JSON falls back to parsing that message.
     #[serde(skip)]
@@ -111,7 +111,7 @@ async fn check_blocking(
     .expect("html_conform::check task panicked")
 }
 
-pub async fn analyze_html_conform(
+pub(crate) async fn analyze_html_conform(
     page: &Page,
     log: &crate::audit::collection::CollectionLog,
 ) -> Result<HtmlConformAnalysis> {

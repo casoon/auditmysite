@@ -9,7 +9,7 @@ use crate::error::Result;
 
 use super::analyze_tech_stack;
 
-pub struct TechStackModule;
+pub(crate) struct TechStackModule;
 
 #[async_trait]
 impl AuditModule for TechStackModule {
