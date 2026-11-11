@@ -61,7 +61,13 @@ pub(super) fn render_batch_cover(
 
     // Audit-Rahmen box
     {
-        let modules_str = pres.portfolio_summary.active_modules.join(", ");
+        let modules_str = pres
+            .portfolio_summary
+            .active_modules
+            .iter()
+            .map(|name| super::portfolio::localized_module_name(name, is_english(i18n)))
+            .collect::<Vec<_>>()
+            .join(", ");
         let mut cover_meta = KeyValueList::new().with_title(i18n.t("batch-cover-frame-title"));
         cover_meta = cover_meta
             .add(i18n.t("batch-cover-frame-domain"), domain)

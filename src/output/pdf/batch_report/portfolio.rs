@@ -71,14 +71,14 @@ pub(super) fn render_batch_module_portfolio(
         let spread = match measured {
             Some((min, max, pages)) if min == max => i18n.t_args(
                 "batch-module-spread-constant",
-                &[("value", min.to_string()), ("pages", pages.to_string())],
+                &[("value", i64::from(min)), ("pages", pages as i64)],
             ),
             Some((min, max, pages)) => i18n.t_args(
                 "batch-module-spread-range",
                 &[
-                    ("min", min.to_string()),
-                    ("max", max.to_string()),
-                    ("pages", pages.to_string()),
+                    ("min", i64::from(min)),
+                    ("max", i64::from(max)),
+                    ("pages", pages as i64),
                 ],
             ),
             None => "—".to_string(),
@@ -291,14 +291,15 @@ pub(super) fn render_batch_impact_summary(
 }
 
 /// Extra scored dimensions shown in the URL ranking table, as
-/// `(module_scores name, short column header)`. `BenchmarkRow::with_column`
-/// (renderreport >= 0.5.0) is fully generic — adding a dimension here is the
-/// only change needed; no renderreport-side release is required.
+/// `(module_scores name, Fluent key of the short column header)`.
+/// `BenchmarkRow::with_column` (renderreport >= 0.5.0) is fully generic —
+/// adding a dimension here is the only change needed; no renderreport-side
+/// release is required.
 const RANKING_EXTRA_COLUMNS: &[(&str, &str)] = &[
-    ("SEO", "SEO"),
-    ("Performance", "Perf"),
-    ("Security", "Sec"),
-    ("HTML Conformance", "Konf."),
+    ("SEO", "batch-ranking-col-seo"),
+    ("Performance", "batch-ranking-col-performance"),
+    ("Security", "batch-ranking-col-security"),
+    ("HTML Conformance", "batch-ranking-col-html-conformance"),
 ];
 
 pub(super) fn render_batch_url_ranking(
@@ -306,6 +307,10 @@ pub(super) fn render_batch_url_ranking(
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let extra_headers: Vec<(&str, String)> = RANKING_EXTRA_COLUMNS
+        .iter()
+        .map(|(module_name, key)| (*module_name, i18n.t(key)))
+        .collect();
     let rows: Vec<BenchmarkRow> = pres
         .url_ranking
         .iter()
@@ -319,13 +324,13 @@ pub(super) fn render_batch_url_ranking(
                 u.critical_violations as u32,
             );
             if let Some(detail) = pres.url_details.iter().find(|detail| detail.url == u.url) {
-                for (module_name, header) in RANKING_EXTRA_COLUMNS {
+                for (module_name, header) in &extra_headers {
                     if let Some((_, score)) = detail
                         .module_scores
                         .iter()
                         .find(|(module, _)| module == module_name)
                     {
-                        row = row.with_column(*header, *score);
+                        row = row.with_column(header.as_str(), *score);
                     }
                 }
             }
@@ -341,9 +346,18 @@ pub(super) fn render_batch_url_ranking(
             )
             .with_level(1),
         )
-        .add_component(BenchmarkTable::new(rows));
+        .add_component(ranking_table(rows));
 
     builder
+}
+
+/// The ranking table without renderreport's built-in German title
+/// ("Website-Ranking"): the section header above already names it in the run
+/// language (#1039).
+fn ranking_table(rows: Vec<BenchmarkRow>) -> BenchmarkTable {
+    let mut table = BenchmarkTable::new(rows);
+    table.title = None;
+    table
 }
 
 pub(super) fn render_batch_tech_url_matrix(
@@ -352,6 +366,7 @@ pub(super) fn render_batch_tech_url_matrix(
     config: &ReportConfig,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let en = is_english(i18n);
     builder = builder.add_component(
         SectionHeaderSplit::new(
             i18n.t("batch-section-tech-url-matrix"),
@@ -396,7 +411,7 @@ pub(super) fn render_batch_tech_url_matrix(
                 .unwrap_or_else(|| "—".to_string()),
             row.inbound_links.to_string(),
             row.outbound_links.to_string(),
-            super::super::format_word_count(row.word_count),
+            crate::i18n::number::integer(i64::from(row.word_count), en),
             score_str,
         ]);
     }
@@ -415,10 +430,12 @@ pub(super) fn render_batch_tech_url_matrix(
             focus_table = focus_table.add_row(vec![
                 short_url(&detail.url, 38),
                 detail.page_type.clone().unwrap_or_else(|| "—".to_string()),
+                // A short word list: shortening it cut words in the middle
+                // ("knowledge-ori…uctured", #1039).
                 if detail.page_attributes.is_empty() {
                     "—".to_string()
                 } else {
-                    short_url(&detail.page_attributes.join(", "), 40)
+                    detail.page_attributes.join(", ")
                 },
                 if detail.top_issues.is_empty() {
                     "—".to_string()

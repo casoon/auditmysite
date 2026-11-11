@@ -5,6 +5,26 @@
 //! the JSON. A German report shows the title from here instead. The key is the
 //! finding's `rule_id` (`<source>.<check>`).
 
+/// [`german_finding_title`] with the values its static table cannot hold: a
+/// missing CSP directive is named, so findings for different directives do
+/// not share one title (#1039).
+pub(crate) fn german_finding_title_text(rule_id: &str) -> Option<String> {
+    if let Some(directive) = rule_id
+        .strip_prefix("security.headers.missing_")
+        .filter(|directive| crate::security::CSP_REQUIRED_DIRECTIVES.contains(directive))
+    {
+        return Some(crate::i18n::text_args(
+            "security-csp-missing-directive",
+            &[(
+                "directive",
+                fluent_bundle::FluentValue::from(directive.to_string()),
+            )],
+            false,
+        ));
+    }
+    german_finding_title(rule_id).map(str::to_string)
+}
+
 /// German title of the finding with `rule_id`, or `None` for checks whose title
 /// is page content or open-ended (technology names, validator rule ids, library
 /// names): those keep the stored title.
@@ -255,4 +275,27 @@ pub fn german_finding_title(rule_id: &str) -> Option<&'static str> {
         "a11y_journey.media_controls_not_reachable" => "Mediensteuerung nicht erreichbar",
         _ => return None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Each required CSP directive gets its own title naming it; two
+    /// directives never share "CSP: Direktive fehlt" (#1039).
+    #[test]
+    fn missing_csp_directive_titles_name_the_directive() {
+        let titles: Vec<String> = crate::security::CSP_REQUIRED_DIRECTIVES
+            .iter()
+            .map(|directive| {
+                let title =
+                    german_finding_title_text(&format!("security.headers.missing_{directive}"))
+                        .expect("German title");
+                assert!(title.contains(directive), "{title}");
+                title
+            })
+            .collect();
+        let distinct: std::collections::BTreeSet<_> = titles.iter().collect();
+        assert_eq!(distinct.len(), titles.len());
+    }
 }

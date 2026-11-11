@@ -247,12 +247,19 @@ pub fn build_batch_presentation_with_normalized(
                             .label(is_english(i18n))
                             .to_string()
                     }),
+                // The stored profile is canonical English (JSON); its
+                // attributes are re-derived in the report language, as the
+                // single report does (#406, #1039).
                 page_attributes: r
                     .discoverability
                     .seo
                     .as_ref()
-                    .and_then(|seo| seo.content_profile.as_ref())
-                    .map(|profile| profile.page_classification.attributes.clone())
+                    .filter(|seo| seo.content_profile.is_some())
+                    .map(|seo| {
+                        crate::seo::build_content_profile(seo, i18n.locale())
+                            .page_classification
+                            .attributes
+                    })
                     .unwrap_or_default(),
                 page_semantic_score: r
                     .discoverability
@@ -606,7 +613,14 @@ pub fn build_batch_presentation_with_normalized(
                 ),
                 (
                     label_third_party.to_string(),
-                    format!("{:.1} KB", total_third_party_bytes as f64 / 1024.0),
+                    format!(
+                        "{} KB",
+                        crate::i18n::number::decimal(
+                            total_third_party_bytes as f64 / 1024.0,
+                            1,
+                            en
+                        )
+                    ),
                 ),
             ]
         }

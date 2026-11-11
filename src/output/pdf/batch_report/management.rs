@@ -276,6 +276,7 @@ pub(super) fn render_batch_internal_comparison(
             continue;
         }
         scored.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(b.0)));
+        let label = super::portfolio::localized_module_name(&module, en).to_string();
         let (worst_url, worst_score) = scored[0];
         let (best_url, best_score) = scored[scored.len() - 1];
         // No variation: a best and a weakest URL would be an arbitrary pick
@@ -289,11 +290,11 @@ pub(super) fn render_batch_internal_comparison(
                     scored.len()
                 )
             };
-            rows.push(vec![module, same, "—".to_string()]);
+            rows.push(vec![label, same, "—".to_string()]);
             continue;
         }
         rows.push(vec![
-            module,
+            label,
             format!("{} ({}/100)", short_url(best_url, 34), best_score),
             format!("{} ({}/100)", short_url(worst_url, 34), worst_score),
         ]);
@@ -370,7 +371,7 @@ pub(super) fn render_batch_decision_actions(
         TableColumn::new(if en {
             "Action / root cause"
         } else {
-            "Maßnahme / Root Cause"
+            "Maßnahme / Ursache"
         })
         .with_width("44%"),
         TableColumn::new(if en { "Risk" } else { "Risiko" }).with_width("12%"),
