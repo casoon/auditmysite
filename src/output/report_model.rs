@@ -50,13 +50,13 @@ pub enum Role {
 }
 
 impl Role {
-    /// The `labels-role-*` message of `locales/{en,de}/labels.ftl`.
+    /// The `role-*` message of `locales/{en,de}/report.ftl`.
     pub fn label(&self, en: bool) -> String {
         let key = match self {
-            Role::Development => "labels-role-development",
-            Role::Editorial => "labels-role-editorial",
-            Role::DesignUx => "labels-role-design-ux",
-            Role::ProjectManagement => "labels-role-project-management",
+            Role::Development => "role-development",
+            Role::Editorial => "role-editorial",
+            Role::DesignUx => "role-designux",
+            Role::ProjectManagement => "role-projectmanagement",
         };
         crate::i18n::text(key, en)
     }

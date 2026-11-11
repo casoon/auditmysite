@@ -155,7 +155,7 @@ src/
 │   ├── summary.rs       # Cross-page aggregation logic
 │   ├── template_dedup.rs # Template-level root-cause deduplication (batch)
 │   ├── occurrence_analysis.rs # Occurrence counting across categories
-│   ├── prioritization.rs # Fix-guidance prioritization (priority, effort and execution-priority labels: `labels-*` in `locales/<lang>/labels.ftl`, #936)
+│   ├── prioritization.rs # Fix-guidance prioritization (priority and effort labels: `priority-*`, `effort-*`, `effort-short-*` in `locales/<lang>/report.ftl`; execution-priority labels: `labels-execution-priority-*` in `locales/<lang>/labels.ftl`, #936)
 │   ├── verdict.rs       # Decision contract: versioned profile, the only verdict policy (single + batch); stored in NormalizedReport/BatchSummary
 │   ├── management_risk.rs # Risk dimensions shared by the JSON and PDF outputs
 │   ├── batch_consistency.rs # Cross-page consistency checks (incl. WCAG 3.2.6 help comparison)
@@ -193,7 +193,7 @@ src/
 │   │   ├── root_causes.rs     # Root-cause analysis (A, B, C…) + timeframe roadmap
 │   │   ├── sanitize.rs  # Drops glyphs no report font can display (PDF/UA)
 │   │   └── detail_modules/ # Per-module chapter renderers
-│   ├── report_model.rs  # ViewModel structs for PDF (role labels: `labels-role-*` in `locales/<lang>/labels.ftl`, #936)
+│   ├── report_model.rs  # ViewModel structs for PDF (role labels: `role-*` in `locales/<lang>/report.ftl`, #936)
 │   ├── explanations.rs  # Explanation table (EXPLANATIONS: owner role, effort, code examples per entry key), the explicit table `RULE_ENTRIES` (which entry each taxonomy rule id uses) and the lookup; the prose comes from `locales/<lang>/rules.ftl` via `RuleExplanation::customer_title`/`customer_description`/`user_impact`/`typical_cause`/`recommendation`/`technical_note(en)`, key = `explanation_text_key(key)`: the rule's message for an entry keyed by a rule id, `explanation-<key>` for an entry keyed by a WCAG criterion or an axe id (#935)
 │   ├── search_experience.rs # Search/AI-visibility presentation helpers
 │   ├── localized.rs     # Locale-aware text helpers

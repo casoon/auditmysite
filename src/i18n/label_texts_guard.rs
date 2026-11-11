@@ -11,10 +11,9 @@ use std::collections::BTreeSet;
 
 const EN: &str = include_str!("../../locales/en/labels.ftl");
 const DE: &str = include_str!("../../locales/de/labels.ftl");
-const SOURCES: [&str; 6] = [
+const SOURCES: [&str; 5] = [
     include_str!("../page_flow/page_intent.rs"),
     include_str!("../audit/prioritization.rs"),
-    include_str!("../output/report_model.rs"),
     include_str!("../taxonomy/issue_class.rs"),
     include_str!("../taxonomy/dimensions.rs"),
     include_str!("../assessment/mod.rs"),
@@ -37,7 +36,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 74);
+    assert_eq!(en.len(), 63);
 }
 
 #[test]
@@ -47,8 +46,8 @@ fn every_message_is_used_by_the_code() {
             SOURCES
                 .iter()
                 .any(|source| source.contains(&format!("\"{id}\""))),
-            "{id} is not used in page_intent.rs, prioritization.rs, report_model.rs, \
-             issue_class.rs, dimensions.rs or assessment/mod.rs"
+            "{id} is not used in page_intent.rs, prioritization.rs, issue_class.rs, \
+             dimensions.rs or assessment/mod.rs"
         );
     }
 }
@@ -81,9 +80,14 @@ fn english_messages_have_no_german_characters() {
     assert!(!EN.contains(['ä', 'ö', 'ü', 'Ä', 'Ö', 'Ü', 'ß']));
 }
 
-/// A text that is a key or still holds a placeholder.
+/// A text that is a key (of labels.ftl, or of the priority, effort and role
+/// messages of report.ftl) or still holds a placeholder.
 fn leaks(text: &str) -> bool {
-    text.starts_with("labels-") || text.contains("{$") || text.contains("{ $")
+    ["labels-", "priority-", "effort-", "role-"]
+        .iter()
+        .any(|prefix| text.starts_with(prefix))
+        || text.contains("{$")
+        || text.contains("{ $")
 }
 
 #[test]
@@ -93,6 +97,7 @@ fn no_variant_leaves_a_key_or_a_placeholder_in_a_label() {
         labels.extend(PAGE_INTENTS.map(|v| (format!("{v:?}"), v.label(en))));
         labels.extend(PRIORITIES.map(|v| (format!("{v:?}"), v.label(en))));
         labels.extend(EFFORTS.map(|v| (format!("{v:?}"), v.label(en))));
+        labels.extend(EFFORTS.map(|v| (format!("{v:?} short"), v.short_label(en))));
         labels.extend(EXECUTION_PRIORITIES.map(|v| (format!("{v:?}"), v.label(en))));
         labels.extend(ROLES.map(|v| (format!("{v:?}"), v.label(en))));
         labels.extend(ISSUE_CLASSES.map(|v| (format!("{v:?}"), v.label(en))));
