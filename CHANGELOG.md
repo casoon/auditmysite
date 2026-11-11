@@ -74,7 +74,6 @@ and verification for each change is in the
 - **PDF:** "Problemprofil: punktuell" no longer says "without structural problems" while "Wichtigste Risiken" lists a finding with wide reach or a structural fix; the badge text reads the same project-risk count (Refs #952-4).
 - **Docs:** five broken links on the project site point to existing pages again (the manual WCAG checks, the CLI and output contract) or to the repository file where no site page exists (accname differential, privacy findings).
 
-
 ## [2.0.2] - 2026-11-05
 
 ### Changed
