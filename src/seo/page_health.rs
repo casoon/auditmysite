@@ -11,6 +11,8 @@ use tracing::warn;
 pub(crate) mod dom;
 mod issues;
 pub(crate) mod probes;
+#[cfg(test)]
+mod text_export;
 
 use dom::run_dom_inspection;
 pub use issues::collect_issues;
