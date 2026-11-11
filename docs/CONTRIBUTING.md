@@ -427,6 +427,14 @@ run time. For message-bearing structs this means a `kind` enum plus one pure
 `*_text(kind, ..., en)` function that is the only source of wording. Detection that
 depends on the page language follows the page, not the output language.
 
+The wording itself lives in Fluent files under `locales/{de,en}/`, never as paired
+string literals in Rust: the text function holds the decision logic, picks a message
+key and passes the values as named arguments (a count as a number, so the plural
+agreement is a Fluent select in the locale file). The page-health issues
+(`seo::page_health::collect_issues`) are the `page-health-*` messages of
+`page-health.ftl`; the rule texts are in `rules.ftl`; other report text is in
+`report.ftl`.
+
 ## Changelog
 
 `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/). A

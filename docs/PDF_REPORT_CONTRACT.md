@@ -129,7 +129,7 @@ In the rendered PDF:
 
 ### Localization Boundaries
 
-AuditMySite currently has four localization surfaces. Keep new text in the
+AuditMySite currently has five localization surfaces. Keep new text in the
 surface that owns its lifecycle:
 
 - `locales/{de,en}/report.ftl`: runtime report labels, headings, table columns,
@@ -148,6 +148,11 @@ surface that owns its lifecycle:
   of `RuleExplanation` (`customer_title`, `customer_description`,
   `user_impact`, `typical_cause`, `recommendation`, `technical_note`), which
   pick the right message.
+- `locales/{de,en}/page-health.ftl`: the texts of the page-health issues
+  (`seo::page_health::collect_issues`): one message `page-health-<issue-type>` per
+  issue type with the counts as named arguments, plural agreement as a Fluent
+  select, plus the argument parts (samples, "none", cache reasons). The function
+  keeps the thresholds, severities and the arguments.
 - `src/output/explanations.rs`: the explanation table itself: which entries
   exist, owner role, effort, and the code examples (canonical English), plus
   `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are

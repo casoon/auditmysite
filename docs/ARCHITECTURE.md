@@ -249,7 +249,7 @@ src/
 │   ├── technical.rs     # robots/canonical/hreflang
 │   ├── page_health.rs   # Page-health types, analyze_page_health, URL analysis
 │   ├── page_health/     # dom.rs (DOM inspection; HTML validation lives in html_conform), probes.rs
-│   │                    # (HTTP probes), issues.rs (collect_issues)
+│   │                    # (HTTP probes), issues.rs (collect_issues: thresholds, severities and arguments; the texts are the `page-health-*` messages of `locales/<lang>/page-health.ftl`, #936), text_export.rs (ignored test: exports every issue text in both languages) and text_guard.rs (guards of page-health.ftl)
 │   ├── image_efficiency.rs # Image format and resolution analysis
 │   └── ...
 │
@@ -320,11 +320,11 @@ src/
 ├── studio/              # Studio contract types (GUI data contract)
 │   └── mod.rs
 │
-└── i18n/                # Project Fluent (.ftl) loader, library default language: German (the CLI default is English); one bundle per language from `locales/<lang>/report.ftl` (report texts) and `rules.ftl` (rule texts, one message per rule id with attributes, including the explanation texts of a rule with an entry under its own id, and explanation texts for the entries keyed by a WCAG criterion or an axe id, one message per entry with attributes, #935); `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts, `I18n::attr` = message attributes
+└── i18n/                # Project Fluent (.ftl) loader, library default language: German (the CLI default is English); one bundle per language from `locales/<lang>/report.ftl` (report texts) and `rules.ftl` (rule texts, one message per rule id with attributes, including the explanation texts of a rule with an entry under its own id, and explanation texts for the entries keyed by a WCAG criterion or an axe id, one message per entry with attributes, #935); `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts, `I18n::attr` = message attributes, `text_args` = a message with named arguments for the pure `*_text(…, en)` functions
     └── mod.rs
 
 locales/                 # Fluent sources, compiled in with include_str!
-├── de/                  # report.ftl, rules.ftl
+├── de/                  # report.ftl, rules.ftl, page-health.ftl
 └── en/                  # same key sets as de/ (guard tests in i18n, taxonomy::rules and output::explanations)
 ```
 
