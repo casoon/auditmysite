@@ -3,6 +3,7 @@
 //! Extracts and validates title, description, keywords, and other meta tags.
 
 use chromiumoxide::Page;
+use fluent_bundle::FluentValue;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 use web_checks::meta::LengthClass;
@@ -111,54 +112,37 @@ impl MetaValidation {
 
 /// The only source of meta-tag finding wording (#406, #898). The analysis calls
 /// it with `en = true` for the stored message, the PDF with the run language.
+/// The wording is the `seo-meta-*` message of `locales/{en,de}/seo-issues.ftl`.
 pub fn meta_issue_text(kind: MetaIssueKind, values: &MetaIssueValues, en: bool) -> String {
     use MetaIssueKind::*;
-    let len = values.length.unwrap_or(0);
-    let value = values.value.as_deref().unwrap_or("");
-    match (kind, en) {
-        (MissingTitle, true) => "Missing page title".to_string(),
-        (MissingTitle, false) => "Seitentitel fehlt".to_string(),
-        (TitleTooShort, true) => {
-            format!("Title is too short ({len} chars, recommended: 30-60)")
-        }
-        (TitleTooShort, false) => {
-            format!("Titel ist zu kurz ({len} Zeichen, Empfehlung: 30-60)")
-        }
-        (TitleTooLong, true) => format!("Title is too long ({len} chars, recommended: 30-60)"),
-        (TitleTooLong, false) => {
-            format!("Titel ist zu lang ({len} Zeichen, Empfehlung: 30-60)")
-        }
-        (MissingDescription, true) => "Missing meta description".to_string(),
-        (MissingDescription, false) => "Meta-Beschreibung fehlt".to_string(),
-        (DescriptionTooShort, true) => {
-            format!("Description is too short ({len} chars, recommended: 120-160)")
-        }
-        (DescriptionTooShort, false) => {
-            format!("Beschreibung ist zu kurz ({len} Zeichen, Empfehlung: 120-160)")
-        }
-        (DescriptionTooLong, true) => {
-            format!("Description is too long ({len} chars, recommended: 120-160)")
-        }
-        (DescriptionTooLong, false) => {
-            format!("Beschreibung ist zu lang ({len} Zeichen, Empfehlung: 120-160)")
-        }
-        (MissingViewport, true) => "Missing viewport meta tag".to_string(),
-        (MissingViewport, false) => "Viewport-Meta-Tag fehlt".to_string(),
-        (MissingLang, true) => "Missing lang attribute on <html> element".to_string(),
-        (MissingLang, false) => "lang-Attribut am <html>-Element fehlt".to_string(),
-        (MissingCanonical, true) => "Missing canonical URL".to_string(),
-        (MissingCanonical, false) => "Canonical-URL fehlt".to_string(),
-        (InvalidTwitterCard, true) => format!(
-            "Invalid twitter:card value \"{value}\" (allowed: {})",
-            values.allowed.as_deref().unwrap_or("")
+    let key = match kind {
+        MissingTitle => "seo-meta-missing-title",
+        TitleTooShort => "seo-meta-title-too-short",
+        TitleTooLong => "seo-meta-title-too-long",
+        MissingDescription => "seo-meta-missing-description",
+        DescriptionTooShort => "seo-meta-description-too-short",
+        DescriptionTooLong => "seo-meta-description-too-long",
+        MissingViewport => "seo-meta-missing-viewport",
+        MissingLang => "seo-meta-missing-lang",
+        MissingCanonical => "seo-meta-missing-canonical",
+        InvalidTwitterCard => "seo-meta-invalid-twitter-card",
+        RelativeOgImage => "seo-meta-relative-og-image",
+    };
+    let args = [
+        (
+            "length",
+            FluentValue::from(values.length.unwrap_or(0) as i64),
         ),
-        (InvalidTwitterCard, false) => format!(
-            "Ungültiger twitter:card-Wert \"{value}\" (erlaubt: {})",
-            values.allowed.as_deref().unwrap_or("")
+        (
+            "value",
+            FluentValue::from(values.value.clone().unwrap_or_default()),
         ),
-        (RelativeOgImage, true) => format!("og:image is not an absolute URL: \"{value}\""),
-        (RelativeOgImage, false) => format!("og:image ist keine absolute URL: \"{value}\""),
-    }
+        (
+            "allowed",
+            FluentValue::from(values.allowed.clone().unwrap_or_default()),
+        ),
+    ];
+    crate::i18n::text_args(key, &args, en)
 }
 
 impl MetaTags {

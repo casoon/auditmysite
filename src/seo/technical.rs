@@ -4,6 +4,7 @@
 
 use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
 use chromiumoxide::Page;
+use fluent_bundle::FluentValue;
 use futures::stream::{self, StreamExt};
 use reqwest::{redirect::Policy, Client, StatusCode};
 use serde::{Deserialize, Serialize};
@@ -494,157 +495,152 @@ pub async fn analyze_technical_seo(
     Ok(technical)
 }
 
+/// A number as a Fluent argument (plural selectors need a number).
+fn num(n: usize) -> FluentValue<'static> {
+    FluentValue::from(n as i64)
+}
+
+/// Text as a Fluent argument.
+fn txt(s: &str) -> FluentValue<'static> {
+    FluentValue::from(s.to_string())
+}
+
+/// Add the technical issue `issue_type`: its message is `key` of
+/// `locales/{en,de}/seo-issues.ftl` with `args`.
+fn push_issue(
+    issues: &mut Vec<TechnicalIssue>,
+    issue_type: &str,
+    severity: Severity,
+    key: &str,
+    args: &[(&str, FluentValue)],
+    en: bool,
+) {
+    issues.push(TechnicalIssue {
+        issue_type: issue_type.to_string(),
+        message: crate::i18n::text_args(key, args, en),
+        severity,
+    });
+}
+
 /// Build the technical-SEO issue list in the requested language.
 ///
 /// Pure function of the analysis struct — called with English at analysis time
 /// (canonical, for JSON) and re-called with the report locale by the PDF
-/// presentation builder (#406).
+/// presentation builder (#406). It decides which issues exist, their severity
+/// and the arguments of their `seo-technical-*` messages.
 pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<TechnicalIssue> {
     let mut issues = Vec::new();
 
     if !t.https {
-        issues.push(TechnicalIssue {
-            issue_type: "no_https".to_string(),
-            message: if en {
-                "Page is not served over HTTPS".to_string()
-            } else {
-                "Seite wird nicht über HTTPS ausgeliefert".to_string()
-            },
-            severity: Severity::High,
-        });
+        push_issue(
+            &mut issues,
+            "no_https",
+            Severity::High,
+            "seo-technical-no-https",
+            &[],
+            en,
+        );
     }
 
     if t.canonical_url.is_none() {
-        issues.push(TechnicalIssue {
-            issue_type: "no_canonical".to_string(),
-            message: if en {
-                "Missing canonical URL".to_string()
-            } else {
-                "Fehlende Canonical-URL".to_string()
-            },
-            severity: Severity::Medium,
-        });
+        push_issue(
+            &mut issues,
+            "no_canonical",
+            Severity::Medium,
+            "seo-technical-no-canonical",
+            &[],
+            en,
+        );
     }
 
     if t.lang.is_none() {
-        issues.push(TechnicalIssue {
-            issue_type: "no_lang".to_string(),
-            message: if en {
-                "Missing lang attribute on html element".to_string()
-            } else {
-                "Fehlendes lang-Attribut am html-Element".to_string()
-            },
-            severity: Severity::Medium,
-        });
+        push_issue(
+            &mut issues,
+            "no_lang",
+            Severity::Medium,
+            "seo-technical-no-lang",
+            &[],
+            en,
+        );
     }
 
     if t.word_count < 300 {
-        issues.push(TechnicalIssue {
-            issue_type: "thin_content".to_string(),
-            message: if en {
-                format!(
-                    "Page has thin content ({} words, recommended: 300+)",
-                    t.word_count
-                )
-            } else {
-                format!(
-                    "Seite hat dünnen Inhalt ({} Wörter, empfohlen: 300+)",
-                    t.word_count
-                )
-            },
-            severity: Severity::Medium,
-        });
+        push_issue(
+            &mut issues,
+            "thin_content",
+            Severity::Medium,
+            "seo-technical-thin-content",
+            &[("words", num(t.word_count as usize))],
+            en,
+        );
     }
 
     if t.internal_links == 0 {
-        issues.push(TechnicalIssue {
-            issue_type: "no_internal_links".to_string(),
-            message: if en {
-                "Page has no internal links".to_string()
-            } else {
-                "Seite hat keine internen Links".to_string()
-            },
-            severity: Severity::Medium,
-        });
+        push_issue(
+            &mut issues,
+            "no_internal_links",
+            Severity::Medium,
+            "seo-technical-no-internal-links",
+            &[],
+            en,
+        );
     }
 
     if !t.google_fonts_sources.is_empty() {
-        issues.push(TechnicalIssue {
-            issue_type: "remote_google_fonts".to_string(),
-            message: if en {
-                "Externally hosted Google Fonts detected".to_string()
-            } else {
-                "Extern gehostete Google Fonts erkannt".to_string()
-            },
-            severity: Severity::Low,
-        });
+        push_issue(
+            &mut issues,
+            "remote_google_fonts",
+            Severity::Low,
+            "seo-technical-remote-google-fonts",
+            &[],
+            en,
+        );
     }
 
     if let Some(ref robots) = t.robots_meta {
         if robots.to_lowercase().contains("noindex") {
-            issues.push(TechnicalIssue {
-                issue_type: "noindex".to_string(),
-                message: if en {
-                    "Page has a noindex directive — it is not indexed by search engines".to_string()
-                } else {
-                    "Seite hat noindex-Direktive — wird von Suchmaschinen nicht indexiert"
-                        .to_string()
-                },
-                severity: Severity::High,
-            });
+            push_issue(
+                &mut issues,
+                "noindex",
+                Severity::High,
+                "seo-technical-noindex",
+                &[],
+                en,
+            );
         }
     }
 
     if !t.hreflang.is_empty() && !t.hreflang_has_x_default {
-        issues.push(TechnicalIssue {
-            issue_type: "hreflang_no_x_default".to_string(),
-            message: if en {
-                "hreflang annotations without an x-default entry".to_string()
-            } else {
-                "hreflang-Annotierungen ohne x-default-Eintrag".to_string()
-            },
-            severity: Severity::Low,
-        });
+        push_issue(
+            &mut issues,
+            "hreflang_no_x_default",
+            Severity::Low,
+            "seo-technical-hreflang-no-x-default",
+            &[],
+            en,
+        );
     }
 
     if t.hreflang_missing_self_reference {
-        issues.push(TechnicalIssue {
-            issue_type: "hreflang_no_self_reference".to_string(),
-            message: if en {
-                "hreflang set contains no self-reference for the current page".to_string()
-            } else {
-                "hreflang-Set enthält keine Self-Reference für die aktuelle Seite".to_string()
-            },
-            severity: Severity::Low,
-        });
+        push_issue(
+            &mut issues,
+            "hreflang_no_self_reference",
+            Severity::Low,
+            "seo-technical-hreflang-no-self-reference",
+            &[],
+            en,
+        );
     }
 
     if t.internal_links_with_query_params > 0 {
-        issues.push(TechnicalIssue {
-            issue_type: "internal_links_with_query_params".to_string(),
-            message: if en {
-                format!(
-                    "{} internal {} with query parameters — can dilute crawl budget",
-                    t.internal_links_with_query_params,
-                    if t.internal_links_with_query_params == 1 {
-                        "link"
-                    } else {
-                        "links"
-                    }
-                )
-            } else {
-                format!(
-                    "{} interne {} mit Query-Parametern — können Crawl-Budget verwässern",
-                    t.internal_links_with_query_params,
-                    if t.internal_links_with_query_params == 1 {
-                        "Link"
-                    } else {
-                        "Links"
-                    }
-                )
-            },
-            severity: Severity::Low,
-        });
+        push_issue(
+            &mut issues,
+            "internal_links_with_query_params",
+            Severity::Low,
+            "seo-technical-internal-links-with-query-params",
+            &[("count", num(t.internal_links_with_query_params as usize))],
+            en,
+        );
     }
 
     collect_pagination_issues(
@@ -657,43 +653,21 @@ pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<TechnicalIssu
     );
 
     if !t.broken_links.is_empty() {
-        issues.push(TechnicalIssue {
-            issue_type: "broken_internal_links".to_string(),
-            message: if en {
-                format!(
-                    "{} broken internal {} detected: {}",
-                    t.broken_links.len(),
-                    if t.broken_links.len() == 1 {
-                        "link"
-                    } else {
-                        "links"
-                    },
-                    t.broken_links
-                        .iter()
-                        .take(3)
-                        .cloned()
-                        .collect::<Vec<_>>()
-                        .join("; ")
-                )
-            } else {
-                format!(
-                    "{} defekte interne {} erkannt: {}",
-                    t.broken_links.len(),
-                    if t.broken_links.len() == 1 {
-                        "Link"
-                    } else {
-                        "Links"
-                    },
-                    t.broken_links
-                        .iter()
-                        .take(3)
-                        .cloned()
-                        .collect::<Vec<_>>()
-                        .join("; ")
-                )
-            },
-            severity: Severity::High,
-        });
+        let list = t
+            .broken_links
+            .iter()
+            .take(3)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("; ");
+        push_issue(
+            &mut issues,
+            "broken_internal_links",
+            Severity::High,
+            "seo-technical-broken-internal-links",
+            &[("count", num(t.broken_links.len())), ("list", txt(&list))],
+            en,
+        );
     }
 
     if !t.mixed_content.is_empty() {
@@ -709,67 +683,44 @@ pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<TechnicalIssu
             .map(|resource| resource.url.clone())
             .collect::<Vec<_>>()
             .join("; ");
-        issues.push(TechnicalIssue {
-            issue_type: "mixed_content".to_string(),
-            message: if en {
-                format!(
-                    "{} HTTP {} referenced from HTTPS page ({} blockable): {}",
-                    t.mixed_content.len(),
-                    if t.mixed_content.len() == 1 {
-                        "subresource"
-                    } else {
-                        "subresources"
-                    },
-                    blockable_count,
-                    samples
-                )
-            } else {
-                format!(
-                    "{} {} auf HTTPS-Seite referenziert ({} blockierbar): {}",
-                    t.mixed_content.len(),
-                    if t.mixed_content.len() == 1 {
-                        "HTTP-Subressource"
-                    } else {
-                        "HTTP-Subressourcen"
-                    },
-                    blockable_count,
-                    samples
-                )
-            },
-            severity: if blockable_count > 0 {
+        push_issue(
+            &mut issues,
+            "mixed_content",
+            if blockable_count > 0 {
                 Severity::High
             } else {
                 Severity::Medium
             },
-        });
+            "seo-technical-mixed-content",
+            &[
+                ("count", num(t.mixed_content.len())),
+                ("blockable", num(blockable_count)),
+                ("samples", txt(&samples)),
+            ],
+            en,
+        );
     }
 
     if t.og_image_missing_alt {
-        issues.push(TechnicalIssue {
-            issue_type: "og_image_missing_alt".to_string(),
-            message: if en {
-                "og:image is set without an og:image:alt description for the preview image"
-                    .to_string()
-            } else {
-                "og:image ist gesetzt, aber ohne og:image:alt-Beschreibung für das Vorschaubild"
-                    .to_string()
-            },
-            severity: Severity::Low,
-        });
+        push_issue(
+            &mut issues,
+            "og_image_missing_alt",
+            Severity::Low,
+            "seo-technical-og-image-missing-alt",
+            &[],
+            en,
+        );
     }
 
     if t.twitter_image_missing_alt {
-        issues.push(TechnicalIssue {
-            issue_type: "twitter_image_missing_alt".to_string(),
-            message: if en {
-                "twitter:image is set without a twitter:image:alt description for the preview image"
-                    .to_string()
-            } else {
-                "twitter:image ist gesetzt, aber ohne twitter:image:alt-Beschreibung für das Vorschaubild"
-                    .to_string()
-            },
-            severity: Severity::Low,
-        });
+        push_issue(
+            &mut issues,
+            "twitter_image_missing_alt",
+            Severity::Low,
+            "seo-technical-twitter-image-missing-alt",
+            &[],
+            en,
+        );
     }
 
     collect_pwa_issues(&t.pwa, en, &mut issues);
@@ -778,46 +729,33 @@ pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<TechnicalIssu
 
     if let Some(ref check) = t.www_redirect {
         if !check.redirects_to_primary && check.alternative_status == 200 {
-            let canonical_note = match (check.canonical_matches_primary, en) {
-                (Some(true), true) => " Canonical tag is set correctly, but a 301 is still recommended — canonicals are hints, not directives.",
-                (Some(true), false) => " Canonical-Tag ist korrekt gesetzt, ein 301 wird dennoch empfohlen — Canonicals sind Hinweise, keine Direktiven.",
-                (Some(false), true) => " Additionally, canonical does not point to the primary domain.",
-                (Some(false), false) => " Zusätzlich zeigt das Canonical nicht auf die primäre Domain.",
-                (None, true) => " No canonical tag found.",
-                (None, false) => " Kein Canonical-Tag gefunden.",
+            let canonical_note = match check.canonical_matches_primary {
+                Some(true) => "seo-technical-www-note-canonical-ok",
+                Some(false) => "seo-technical-www-note-canonical-other",
+                None => "seo-technical-www-note-canonical-none",
             };
-            issues.push(TechnicalIssue {
-                issue_type: "www_no_redirect".to_string(),
-                message: if en {
-                    format!(
-                        "Both {} and {} serve content (HTTP 200). Add a 301 redirect from the alternative to the primary to prevent duplicate content.{}",
-                        check.primary, check.alternative, canonical_note
-                    )
-                } else {
-                    format!(
-                        "Sowohl {} als auch {} liefern Inhalt (HTTP 200). Richte eine 301-Weiterleitung von der Alternative auf die primäre Variante ein, um Duplicate Content zu vermeiden.{}",
-                        check.primary, check.alternative, canonical_note
-                    )
-                },
-                severity: Severity::Medium,
-            });
+            push_issue(
+                &mut issues,
+                "www_no_redirect",
+                Severity::Medium,
+                "seo-technical-www-no-redirect",
+                &[
+                    ("primary", txt(&check.primary)),
+                    ("alternative", txt(&check.alternative)),
+                    ("note", txt(&crate::i18n::text(canonical_note, en))),
+                ],
+                en,
+            );
         }
         if let Some(false) = check.canonical_matches_primary {
-            issues.push(TechnicalIssue {
-                issue_type: "canonical_domain_mismatch".to_string(),
-                message: if en {
-                    format!(
-                        "Canonical URL points to a different domain variant than the audited URL ({} vs canonical).",
-                        check.primary
-                    )
-                } else {
-                    format!(
-                        "Canonical-URL zeigt auf eine andere Domain-Variante als die geprüfte URL ({} vs. Canonical).",
-                        check.primary
-                    )
-                },
-                severity: Severity::Medium,
-            });
+            push_issue(
+                &mut issues,
+                "canonical_domain_mismatch",
+                Severity::Medium,
+                "seo-technical-canonical-domain-mismatch",
+                &[("primary", txt(&check.primary))],
+                en,
+            );
         }
     }
 
@@ -1209,28 +1147,26 @@ async fn read_service_worker_registration_count(
 
 fn collect_pwa_issues(pwa: &PwaAnalysis, en: bool, issues: &mut Vec<TechnicalIssue>) {
     if pwa.manifest_url.is_none() {
-        issues.push(TechnicalIssue {
-            issue_type: "pwa_missing_manifest".to_string(),
-            message: if en {
-                "Missing web app manifest".to_string()
-            } else {
-                "Fehlendes Web-App-Manifest".to_string()
-            },
-            severity: Severity::Low,
-        });
+        push_issue(
+            issues,
+            "pwa_missing_manifest",
+            Severity::Low,
+            "seo-technical-pwa-missing-manifest",
+            &[],
+            en,
+        );
         return;
     }
 
     if pwa.manifest_valid == Some(false) {
-        issues.push(TechnicalIssue {
-            issue_type: "pwa_invalid_manifest".to_string(),
-            message: if en {
-                "Web app manifest is missing required PWA fields".to_string()
-            } else {
-                "Web-App-Manifest fehlen erforderliche PWA-Felder".to_string()
-            },
-            severity: Severity::Medium,
-        });
+        push_issue(
+            issues,
+            "pwa_invalid_manifest",
+            Severity::Medium,
+            "seo-technical-pwa-invalid-manifest",
+            &[],
+            en,
+        );
     }
 
     // Deliberately no "missing service worker" issue: a web app manifest is
@@ -1245,40 +1181,24 @@ fn collect_amp_issues(amp: &AmpAnalysis, en: bool, issues: &mut Vec<TechnicalIss
     }
 
     for issue in &amp.issues {
-        let (message_en, message_de, severity) = match issue.as_str() {
+        let (key, severity) = match issue.as_str() {
             "missing_html_amp_attribute" => (
-                "AMP markup detected, but the html element has no amp attribute",
-                "AMP-Markup erkannt, aber das html-Element hat kein amp-Attribut",
+                "seo-technical-amp-missing-html-amp-attribute",
                 Severity::Medium,
             ),
-            "missing_canonical" => (
-                "AMP page is missing a canonical link",
-                "AMP-Seite hat keinen Canonical-Link",
-                Severity::Medium,
-            ),
-            "missing_amp_runtime" => (
-                "AMP page is missing the AMP runtime script",
-                "AMP-Seite bindet das AMP-Runtime-Script nicht ein",
-                Severity::Medium,
-            ),
-            "missing_amp_boilerplate" => (
-                "AMP page is missing amp-boilerplate CSS",
-                "AMP-Seite enthält kein amp-boilerplate-CSS",
-                Severity::Low,
-            ),
+            "missing_canonical" => ("seo-technical-amp-missing-canonical", Severity::Medium),
+            "missing_amp_runtime" => ("seo-technical-amp-missing-amp-runtime", Severity::Medium),
+            "missing_amp_boilerplate" => {
+                ("seo-technical-amp-missing-amp-boilerplate", Severity::Low)
+            }
             "custom_script_not_allowed" => (
-                "AMP page contains a custom script outside the AMP runtime",
-                "AMP-Seite enthält ein eigenes Script außerhalb der AMP-Runtime",
+                "seo-technical-amp-custom-script-not-allowed",
                 Severity::Medium,
             ),
             _ => continue,
         };
 
-        issues.push(TechnicalIssue {
-            issue_type: format!("amp_{issue}"),
-            message: if en { message_en } else { message_de }.to_string(),
-            severity,
-        });
+        push_issue(issues, &format!("amp_{issue}"), severity, key, &[], en);
     }
 }
 
@@ -1288,87 +1208,42 @@ fn collect_form_security_issues(
     issues: &mut Vec<TechnicalIssue>,
 ) {
     if form_security.insecure_transport_forms > 0 {
-        issues.push(TechnicalIssue {
-            issue_type: "form_insecure_transport".to_string(),
-            message: if en {
-                format!(
-                    "{} sensitive {} submit to HTTP or are hosted on HTTP",
-                    form_security.insecure_transport_forms,
-                    if form_security.insecure_transport_forms == 1 {
-                        "form"
-                    } else {
-                        "forms"
-                    }
-                )
-            } else {
-                format!(
-                    "{} {} senden an HTTP oder werden über HTTP ausgeliefert",
-                    form_security.insecure_transport_forms,
-                    if form_security.insecure_transport_forms == 1 {
-                        "sensibles Formular"
-                    } else {
-                        "sensible Formulare"
-                    }
-                )
-            },
-            severity: Severity::High,
-        });
+        push_issue(
+            issues,
+            "form_insecure_transport",
+            Severity::High,
+            "seo-technical-form-insecure-transport",
+            &[(
+                "count",
+                num(form_security.insecure_transport_forms as usize),
+            )],
+            en,
+        );
     }
 
     if form_security.get_sensitive_forms > 0 {
-        issues.push(TechnicalIssue {
-            issue_type: "form_sensitive_get".to_string(),
-            message: if en {
-                format!(
-                    "{} sensitive {} use GET and can leak values into URLs and logs",
-                    form_security.get_sensitive_forms,
-                    if form_security.get_sensitive_forms == 1 {
-                        "form"
-                    } else {
-                        "forms"
-                    }
-                )
-            } else {
-                format!(
-                    "{} {} verwenden GET und können Werte in URLs und Logs preisgeben",
-                    form_security.get_sensitive_forms,
-                    if form_security.get_sensitive_forms == 1 {
-                        "sensibles Formular"
-                    } else {
-                        "sensible Formulare"
-                    }
-                )
-            },
-            severity: Severity::High,
-        });
+        push_issue(
+            issues,
+            "form_sensitive_get",
+            Severity::High,
+            "seo-technical-form-sensitive-get",
+            &[("count", num(form_security.get_sensitive_forms as usize))],
+            en,
+        );
     }
 
     if form_security.password_autocomplete_issues > 0 {
-        issues.push(TechnicalIssue {
-            issue_type: "form_password_autocomplete".to_string(),
-            message: if en {
-                format!(
-                    "{} password {} have autocomplete disabled or misconfigured",
-                    form_security.password_autocomplete_issues,
-                    if form_security.password_autocomplete_issues == 1 {
-                        "field"
-                    } else {
-                        "fields"
-                    }
-                )
-            } else {
-                format!(
-                    "{} {} haben autocomplete deaktiviert oder fehlkonfiguriert",
-                    form_security.password_autocomplete_issues,
-                    if form_security.password_autocomplete_issues == 1 {
-                        "Passwortfeld"
-                    } else {
-                        "Passwortfelder"
-                    }
-                )
-            },
-            severity: Severity::Medium,
-        });
+        push_issue(
+            issues,
+            "form_password_autocomplete",
+            Severity::Medium,
+            "seo-technical-form-password-autocomplete",
+            &[(
+                "count",
+                num(form_security.password_autocomplete_issues as usize),
+            )],
+            en,
+        );
     }
 }
 
@@ -1565,31 +1440,27 @@ fn collect_pagination_issues(
         if prev.is_some_and(|href| same_url(href, url))
             || next.is_some_and(|href| same_url(href, url))
         {
-            issues.push(TechnicalIssue {
-                issue_type: "pagination_self_referential_rel_link".to_string(),
-                message: if en {
-                    "Pagination rel link points to the current page instead of an adjacent page"
-                        .to_string()
-                } else {
-                    "Pagination-rel-Link zeigt auf die aktuelle Seite statt auf eine Nachbarseite"
-                        .to_string()
-                },
-                severity: Severity::Low,
-            });
+            push_issue(
+                issues,
+                "pagination_self_referential_rel_link",
+                Severity::Low,
+                "seo-technical-pagination-self-referential-rel-link",
+                &[],
+                en,
+            );
         }
     }
 
     if let (Some(prev), Some(next)) = (prev, next) {
         if same_url(prev, next) {
-            issues.push(TechnicalIssue {
-                issue_type: "pagination_duplicate_prev_next".to_string(),
-                message: if en {
-                    "Pagination rel=\"prev\" and rel=\"next\" point to the same URL".to_string()
-                } else {
-                    "Pagination rel=\"prev\" und rel=\"next\" zeigen auf dieselbe URL".to_string()
-                },
-                severity: Severity::Low,
-            });
+            push_issue(
+                issues,
+                "pagination_duplicate_prev_next",
+                Severity::Low,
+                "seo-technical-pagination-duplicate-prev-next",
+                &[],
+                en,
+            );
         }
     }
 }

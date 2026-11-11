@@ -3,6 +3,7 @@
 //! Detects JSON-LD, Microdata, and RDFa structured data.
 
 use chromiumoxide::Page;
+use fluent_bundle::FluentValue;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
@@ -60,79 +61,43 @@ pub enum SchemaIssueSeverity {
     Recommended,
 }
 
-/// Localize a schema issue from its stable machine-readable key.
+/// Localize a schema issue from its stable machine-readable key. The wording
+/// is the `seo-schema-*` message of `locales/{en,de}/seo-issues.ftl`.
 pub fn schema_issue_text(issue: &SchemaIssue, en: bool) -> String {
     let schema_type = if issue.schema_type.is_empty() {
         "JSON-LD"
     } else {
         issue.schema_type.as_str()
     };
+    let property_message = |key: &str, property: &str| {
+        crate::i18n::text_args(
+            key,
+            &[
+                ("type", FluentValue::from(schema_type.to_string())),
+                ("property", FluentValue::from(property.to_string())),
+            ],
+            en,
+        )
+    };
 
-    match issue.issue_type.as_str() {
-        "jsonld_parse_error" => {
-            if en {
-                "The JSON-LD block contains invalid JSON and cannot be evaluated.".to_string()
-            } else {
-                "Der JSON-LD-Block enthält ungültiges JSON und kann nicht ausgewertet werden."
-                    .to_string()
-            }
-        }
-        "jsonld_invalid_root" => {
-            if en {
-                "The JSON-LD root must be an object or an array of objects.".to_string()
-            } else {
-                "Die JSON-LD-Wurzel muss ein Objekt oder eine Liste von Objekten sein.".to_string()
-            }
-        }
-        "jsonld_missing_context" => {
-            if en {
-                "No schema.org @context was found; schema terms cannot be interpreted reliably."
-                    .to_string()
-            } else {
-                "Kein schema.org-@context gefunden; die Schema-Begriffe sind nicht zuverlässig interpretierbar."
-                    .to_string()
-            }
-        }
-        "jsonld_missing_type" => {
-            if en {
-                "A JSON-LD node has no @type and cannot be assigned to a schema type.".to_string()
-            } else {
-                "Ein JSON-LD-Knoten hat keinen @type und kann keinem Schema-Typ zugeordnet werden."
-                    .to_string()
-            }
-        }
-        "jsonld_graph_not_array" => {
-            if en {
-                "The @graph value must be an array of JSON-LD nodes.".to_string()
-            } else {
-                "Der Wert von @graph muss eine Liste von JSON-LD-Knoten sein.".to_string()
-            }
-        }
-        "jsonld_empty_document" => {
-            if en {
-                "The JSON-LD block contains no nodes.".to_string()
-            } else {
-                "Der JSON-LD-Block enthält keine Knoten.".to_string()
-            }
-        }
+    let fixed = match issue.issue_type.as_str() {
+        "jsonld_parse_error" => "seo-schema-jsonld-parse-error",
+        "jsonld_invalid_root" => "seo-schema-jsonld-invalid-root",
+        "jsonld_missing_context" => "seo-schema-jsonld-missing-context",
+        "jsonld_missing_type" => "seo-schema-jsonld-missing-type",
+        "jsonld_graph_not_array" => "seo-schema-jsonld-graph-not-array",
+        "jsonld_empty_document" => "seo-schema-jsonld-empty-document",
         issue_type => {
-            if let Some(prop) = issue_type.strip_prefix("schema_recommended_missing_") {
-                if en {
-                    format!("{schema_type}: recommended property \"{prop}\" is missing")
-                } else {
-                    format!("{schema_type}: Empfohlenes Feld \"{prop}\" fehlt")
-                }
+            return if let Some(prop) = issue_type.strip_prefix("schema_recommended_missing_") {
+                property_message("seo-schema-recommended-missing", prop)
             } else if let Some(prop) = issue_type.strip_prefix("schema_missing_") {
-                if en {
-                    format!("{schema_type}: required property \"{prop}\" is missing")
-                } else {
-                    format!("{schema_type}: Pflichtfeld \"{prop}\" fehlt")
-                }
+                property_message("seo-schema-required-missing", prop)
             } else {
                 issue.message.clone()
-            }
+            };
         }
-    }
+    };
+    crate::i18n::text(fixed, en)
 }
 
 /// Short localized label for report tables.
