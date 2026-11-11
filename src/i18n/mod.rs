@@ -1,6 +1,8 @@
 pub mod number;
 
 #[cfg(test)]
+pub(crate) mod detail_texts_export;
+#[cfg(test)]
 pub(crate) mod label_texts_export;
 #[cfg(test)]
 mod label_texts_guard;
