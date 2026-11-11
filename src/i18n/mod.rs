@@ -32,8 +32,8 @@ impl I18n {
         // `seo::schema_fit`, `seo::schema_parity`), the
         // security finding texts and category labels (`security`), the
         // mobile finding texts (`mobile`) and the labels of cross-cutting
-        // enums (`labels.ftl`: page intent, action priority, effort and role,
-        // issue class, subcategory, evidence source and field) are seven
+        // enums (`labels.ftl`: page intent, execution priority, issue class,
+        // subcategory, evidence source and field) are seven
         // resources of the one bundle.
         let sources = match locale {
             "en" => [

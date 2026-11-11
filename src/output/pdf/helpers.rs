@@ -172,39 +172,21 @@ pub(super) fn severity_label_i18n(severity: crate::wcag::Severity, i18n: &I18n) 
 }
 
 pub(super) fn priority_label_i18n(priority: Priority, i18n: &I18n) -> String {
-    match priority {
-        Priority::Critical => i18n.t("priority-critical"),
-        Priority::High => i18n.t("priority-high"),
-        Priority::Medium => i18n.t("priority-medium"),
-        Priority::Low => i18n.t("priority-low"),
-    }
+    priority.label(is_english(i18n))
 }
 
 pub(super) fn role_label_i18n(role: Role, i18n: &I18n) -> String {
-    match role {
-        Role::Development => i18n.t("role-development"),
-        Role::Editorial => i18n.t("role-editorial"),
-        Role::DesignUx => i18n.t("role-designux"),
-        Role::ProjectManagement => i18n.t("role-projectmanagement"),
-    }
+    role.label(is_english(i18n))
 }
 
 pub(super) fn effort_label_i18n(effort: Effort, i18n: &I18n) -> String {
-    match effort {
-        Effort::Quick => i18n.t("effort-quick"),
-        Effort::Medium => i18n.t("effort-medium"),
-        Effort::Structural => i18n.t("effort-structural"),
-    }
+    effort.label(is_english(i18n))
 }
 
 /// Kurzform für Fließtext nach einem eigenen Label („Aufwand je Stelle: gering“),
 /// damit das Wort Aufwand nicht doppelt steht.
 pub(super) fn effort_short_label_i18n(effort: Effort, i18n: &I18n) -> String {
-    match effort {
-        Effort::Quick => i18n.t("effort-short-quick"),
-        Effort::Medium => i18n.t("effort-short-medium"),
-        Effort::Structural => i18n.t("effort-short-structural"),
-    }
+    effort.short_label(is_english(i18n))
 }
 
 pub(super) fn score_quality_label(score: u32) -> &'static str {

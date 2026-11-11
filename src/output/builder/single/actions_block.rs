@@ -131,7 +131,7 @@ pub(super) fn build_actions_block(
                     role: i.role.label(en).to_string(),
                     priority: i.priority.label(en).to_string(),
                     execution_priority: i.execution_priority.label(en).to_string(),
-                    effort: i.effort.label(en).to_string(),
+                    effort: i.effort.short_label(en),
                     benefit: i.benefit.clone(),
                     user_effect,
                     risk_effect,

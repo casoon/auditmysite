@@ -3,6 +3,7 @@
 //! and `::description`, `seo::profile::PageType::label`,
 //! `seo::serp::SerpSignalStatus::label`, `page_flow::PageIntent::label`,
 //! `audit::prioritization::{Priority, Effort, ExecutionPriority}::label`,
+//! `Effort::short_label`,
 //! `output::report_model::Role::label`, `taxonomy::IssueClass::label` (and its
 //! `Display`) and `taxonomy::Subcategory::label`, for every variant in both
 //! languages, as records in `reports/label-texts.json` (gitignored; the path
@@ -167,6 +168,9 @@ fn export_label_texts() {
     }));
     labels.extend(records("Priority::label", PRIORITIES, |p, en| p.label(en)));
     labels.extend(records("Effort::label", EFFORTS, |e, en| e.label(en)));
+    labels.extend(records("Effort::short_label", EFFORTS, |e, en| {
+        e.short_label(en)
+    }));
     labels.extend(records(
         "ExecutionPriority::label",
         EXECUTION_PRIORITIES,

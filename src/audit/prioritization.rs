@@ -25,13 +25,13 @@ pub enum Priority {
 }
 
 impl Priority {
-    /// The `labels-priority-*` message of `locales/{en,de}/labels.ftl`.
+    /// The `priority-*` message of `locales/{en,de}/report.ftl`.
     pub fn label(&self, en: bool) -> String {
         let key = match self {
-            Priority::Critical => "labels-priority-critical",
-            Priority::High => "labels-priority-high",
-            Priority::Medium => "labels-priority-medium",
-            Priority::Low => "labels-priority-low",
+            Priority::Critical => "priority-critical",
+            Priority::High => "priority-high",
+            Priority::Medium => "priority-medium",
+            Priority::Low => "priority-low",
         };
         crate::i18n::text(key, en)
     }
@@ -57,12 +57,24 @@ impl Effort {
         self.max(floor)
     }
 
-    /// The `labels-effort-*` message of `locales/{en,de}/labels.ftl`.
+    /// The `effort-*` message of `locales/{en,de}/report.ftl`.
     pub fn label(&self, en: bool) -> String {
         let key = match self {
-            Effort::Quick => "labels-effort-quick",
-            Effort::Medium => "labels-effort-medium",
-            Effort::Structural => "labels-effort-structural",
+            Effort::Quick => "effort-quick",
+            Effort::Medium => "effort-medium",
+            Effort::Structural => "effort-structural",
+        };
+        crate::i18n::text(key, en)
+    }
+
+    /// The `effort-short-*` message of `locales/{en,de}/report.ftl`: the
+    /// short form after a label of its own ("effort: low"), so the word
+    /// effort does not stand twice.
+    pub fn short_label(&self, en: bool) -> String {
+        let key = match self {
+            Effort::Quick => "effort-short-quick",
+            Effort::Medium => "effort-short-medium",
+            Effort::Structural => "effort-short-structural",
         };
         crate::i18n::text(key, en)
     }
