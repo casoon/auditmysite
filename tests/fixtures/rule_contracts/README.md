@@ -74,6 +74,11 @@ killed_by = "corpus:empty_title"    # corpus:<cases> | test:<bin>[::filter] | li
 named test stays green. Mutations of shared-crate rules are verified by
 barrierlab's own mutation catalog.
 
+Code that is no rule (score computation, penalty curves, caps) has its mutations in
+`tests/fixtures/mutation_contracts/*.toml`: `[[mutation]]` entries with an `id` and the same
+fields as above, run by the same script, but only with `--code` or `--rule <id>` (the CI shards run without flags, and their wall time is near the job limit). A mutation that cannot change any
+observable result (an equivalent mutant) is left out with a comment saying why.
+
 ## Corpus verdicts
 
 `violation`, `needs_review`, `pass` (applicable content conforms; the rule

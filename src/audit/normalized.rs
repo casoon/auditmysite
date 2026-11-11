@@ -251,6 +251,21 @@ pub(crate) fn normalize_assessments(results: &WcagResults) -> Vec<AccessibilityA
         .collect()
 }
 
+/// Weighted average of the modules that contribute to the overall score, rounded to the
+/// nearest point.
+fn weighted_overall_score(module_scores: &[ModuleScoreEntry]) -> u32 {
+    let (weighted_sum, total_weight) = module_scores
+        .iter()
+        .filter(|module| module.contributes_to_overall)
+        .fold((0u64, 0u64), |(sum, total), module| {
+            (
+                sum + module.score as u64 * module.weight_pct as u64,
+                total + module.weight_pct as u64,
+            )
+        });
+    (weighted_sum as f64 / total_weight as f64).round() as u32
+}
+
 fn default_finding_category() -> String {
     "wcag".to_string()
 }
@@ -1494,16 +1509,7 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     // Viewport blending belongs inside Accessibility. Each independent module
     // then contributes exactly once at the published product weight. Nesting
     // separately normalized viewport averages changed those effective weights.
-    let (weighted_sum, total_weight) = module_scores
-        .iter()
-        .filter(|module| module.contributes_to_overall)
-        .fold((0u64, 0u64), |(sum, total), module| {
-            (
-                sum + module.score as u64 * module.weight_pct as u64,
-                total + module.weight_pct as u64,
-            )
-        });
-    let overall_score = (weighted_sum as f64 / total_weight as f64).round() as u32;
+    let overall_score = weighted_overall_score(&module_scores);
     let score_calculation_method = "module_weighted".to_string();
     let score_breakdown = None;
 
@@ -1803,6 +1809,41 @@ pub(crate) fn wcag_criterion_of(rule: &str) -> String {
 mod tests {
     use super::*;
     use crate::wcag::{Violation, WcagResults};
+
+    #[test]
+    fn overall_score_is_the_weighted_average_rounded_to_the_nearest_point() {
+        let entry =
+            |name, score, contributes| ModuleScoreEntry::new(name, score, "measured", contributes);
+        // Accessibility 40 and Performance 20: (100*40 + 91*20) / 60 = 97.0
+        assert_eq!(
+            weighted_overall_score(&[
+                entry("Accessibility", 100, true),
+                entry("Performance", 91, true)
+            ]),
+            97
+        );
+        // (100*40 + 90*20) / 60 = 96.67, rounds up
+        assert_eq!(
+            weighted_overall_score(&[
+                entry("Accessibility", 100, true),
+                entry("Performance", 90, true)
+            ]),
+            97
+        );
+        // (100*40 + 93*20) / 60 = 97.67 would truncate to 97 and round to 98
+        assert_eq!(
+            weighted_overall_score(&[
+                entry("Accessibility", 100, true),
+                entry("Performance", 93, true)
+            ]),
+            98
+        );
+        // An indicator without weight does not move the average.
+        assert_eq!(
+            weighted_overall_score(&[entry("Accessibility", 80, true), entry("UX", 0, false)]),
+            80
+        );
+    }
 
     /// Occurrences of one rule form one finding with one id; two rules are
     /// two findings, even when they report the same criterion (#780, #918).

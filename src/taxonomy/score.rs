@@ -752,6 +752,17 @@ mod tests {
     }
 
     #[test]
+    fn fixed_penalty_never_exceeds_the_rule_maximum() {
+        let impact = ScoreImpact {
+            base_penalty: 5.0,
+            max_penalty: 2.0,
+            occurrence_scaling: Scaling::Fixed,
+        };
+        assert_eq!(impact.calculate_penalty(1), 2.0);
+        assert_eq!(impact.calculate_penalty(0), 0.0);
+    }
+
+    #[test]
     fn module_weight_is_zero_for_modules_outside_the_overall_score() {
         assert_eq!(module_weight("Accessibility"), 40);
         assert_eq!(module_weight("HTML Conformance"), 5);
