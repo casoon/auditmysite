@@ -123,7 +123,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
             ReportLevel::Technical => f.report_visibility.technical,
         })
         .filter(|f| f.category == "wcag" || !wcag_titles.contains(&f.title.trim().to_lowercase()))
-        .map(|f| finding_group_from_normalized(&i18n, f))
+        .map(|f| finding_group_from_normalized(&i18n, f.clone(), Vec::new()))
         .collect();
 
     let score = normalized.normalized.score;
@@ -180,7 +180,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         .iter()
         .filter(|f| f.is_component_issue)
         .fold((0u32, 0u32), |(ci, co), f| {
-            (ci + 1, co + f.occurrence_count as u32)
+            (ci + 1, co + f.finding.occurrence_count as u32)
         });
     let severity = SeverityBlock {
         critical: normalized.normalized.occurrence_counts.critical as u32,
@@ -231,9 +231,9 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         .chain(
             sorted_groups
                 .iter()
-                .filter(|f| f.rule_id.starts_with("html_conform.")),
+                .filter(|f| f.finding.rule_id.starts_with("html_conform.")),
         )
-        .map(|f| f.rule_id.clone())
+        .map(|f| f.finding.rule_id.clone())
         .collect();
     let actions = build_actions_block(
         &i18n,
@@ -789,7 +789,7 @@ mod tests {
             .findings
             .top_findings
             .iter()
-            .any(|f| f.is_component_issue && f.occurrence_count >= 10));
+            .any(|f| f.is_component_issue && f.finding.occurrence_count >= 10));
     }
 
     #[test]
@@ -844,7 +844,7 @@ mod tests {
             .findings
             .all_findings
             .iter()
-            .any(|f| f.dimension.as_deref() == Some("SEO")));
+            .any(|f| f.finding.dimension == "SEO"));
     }
 
     #[test]
@@ -865,7 +865,7 @@ mod tests {
             .findings
             .top_findings
             .iter()
-            .any(|f| f.is_component_issue && f.occurrence_count == 25));
+            .any(|f| f.is_component_issue && f.finding.occurrence_count == 25));
     }
 
     #[test]

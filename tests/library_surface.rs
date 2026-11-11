@@ -225,7 +225,6 @@ const EXHAUSTIVE: &[&str] = &[
     "DomainPolicy",
     "FrameObservation",
     "InterpretArea",
-    "BatchFinding",
     "RuleMetadata",
 ];
 

@@ -123,7 +123,7 @@ fn build_single_key_points_text(
         // Prefer the canonical dominant-issue share so this line and the
         // leverage text never disagree on the same percentage (#360).
         let share = dominant_share.unwrap_or_else(|| {
-            (top.occurrence_count * 100)
+            (top.finding.occurrence_count * 100)
                 .checked_div(total_ch)
                 .unwrap_or(0)
         });

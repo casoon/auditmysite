@@ -73,15 +73,16 @@ pub(super) fn derive_action_plan(i18n: &I18n, finding_groups: &[FindingGroup]) -
         // HTML conformance recommendations are written per rule family; the
         // keyword-based humanizer would replace them with a generic action.
         // Rules of one family share the action text and so collapse below.
-        let (mut action, mut hint) =
-            if group.rule_id.starts_with("html_conform.") && !group.recommendation.is_empty() {
-                crate::html_conform::recommendation::recommendation(&group.rule_id, i18n)
-            } else {
-                (
-                    humanize_action_text(i18n, &group.recommendation),
-                    String::new(),
-                )
-            };
+        let (mut action, mut hint) = if group.finding.rule_id.starts_with("html_conform.")
+            && !group.recommendation.is_empty()
+        {
+            crate::html_conform::recommendation::recommendation(&group.finding.rule_id, i18n)
+        } else {
+            (
+                humanize_action_text(i18n, &group.recommendation),
+                String::new(),
+            )
+        };
         // A card title is a title: a whole recommendation sentence moves to
         // the card body and the finding's own title takes its place (#952).
         if hint.is_empty()
@@ -106,8 +107,8 @@ pub(super) fn derive_action_plan(i18n: &I18n, finding_groups: &[FindingGroup]) -
             execution_priority: group.execution_priority,
             effort: group.effort,
             is_systemic: group.is_component_issue,
-            occurrence_count: group.occurrence_count,
-            rule_id: group.rule_id.clone(),
+            occurrence_count: group.finding.occurrence_count,
+            rule_id: group.finding.rule_id.clone(),
         };
         match group.effort {
             Effort::Quick => quick_wins.push(item),

@@ -504,7 +504,7 @@ pub(super) fn render_batch_decision_actions(
         let cluster = pres
             .template_clusters
             .iter()
-            .find(|c| c.rule_id == group.rule_id);
+            .find(|c| c.rule_id == group.finding.rule_id);
         let root: String = if let Some(cluster) = cluster {
             // Name the place: the element of the rule's most widespread
             // pattern. The full CSS path stays in the template list; a long
@@ -521,13 +521,16 @@ pub(super) fn render_batch_decision_actions(
             } else {
                 format!("auf {} Seiten, Ursache offen", group.affected_urls.len())
             }
-        } else if group.occurrence_count > 1 {
+        } else if group.finding.occurrence_count > 1 {
             // Repetition within one page says nothing about other pages
             // ("auf 1 Seiten, Ursache offen", plan 99).
             if en {
-                format!("{} occurrences on one page", group.occurrence_count)
+                format!("{} occurrences on one page", group.finding.occurrence_count)
             } else {
-                format!("{} Vorkommen auf einer Seite", group.occurrence_count)
+                format!(
+                    "{} Vorkommen auf einer Seite",
+                    group.finding.occurrence_count
+                )
             }
         } else if en {
             "page-specific".to_string()
@@ -536,28 +539,34 @@ pub(super) fn render_batch_decision_actions(
         };
         table = table.add_row(vec![
             format!("{} — {}", group.title, root),
-            severity_label_i18n(group.severity, i18n),
-            if group.wcag_level.is_empty() {
+            severity_label_i18n(group.finding.severity, i18n),
+            if group.finding.wcag_level.is_empty() {
                 "–".to_string()
             } else {
-                group.wcag_level.clone()
+                group.finding.wcag_level.clone()
             },
             // The column shows the scope derived from the data, the same value
             // as `top_actions[].complexity` in the JSON — not the per-rule
             // effort estimate, which read "low" where the JSON said "high".
-            change_scope_label(&group.complexity, en),
+            change_scope_label(&group.finding.complexity, en),
             {
                 let urls = group.affected_urls.len();
                 let url_unit = if urls == 1 { "URL" } else { "URLs" };
                 if en {
-                    let occ = if group.occurrence_count == 1 {
+                    let occ = if group.finding.occurrence_count == 1 {
                         "occurrence"
                     } else {
                         "occurrences"
                     };
-                    format!("{} {occ} / {urls} {url_unit}", group.occurrence_count)
+                    format!(
+                        "{} {occ} / {urls} {url_unit}",
+                        group.finding.occurrence_count
+                    )
                 } else {
-                    format!("{} Vorkommen / {urls} {url_unit}", group.occurrence_count)
+                    format!(
+                        "{} Vorkommen / {urls} {url_unit}",
+                        group.finding.occurrence_count
+                    )
                 }
             },
         ]);
@@ -624,14 +633,14 @@ pub(super) fn build_batch_key_points(
             points.push(format!(
                 "Main issue: {} ({} occurrences on {} URLs)",
                 top.title,
-                top.occurrence_count,
+                top.finding.occurrence_count,
                 top.affected_urls.len()
             ));
         } else {
             points.push(format!(
                 "Hauptproblem: {} ({} Vorkommen auf {} URLs)",
                 top.title,
-                top.occurrence_count,
+                top.finding.occurrence_count,
                 top.affected_urls.len()
             ));
         }

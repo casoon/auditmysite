@@ -68,13 +68,16 @@ pub(super) fn build_severity_tiers(
     .filter_map(|(sev, label)| {
         let tier_findings: Vec<FindingGroup> = findings
             .iter()
-            .filter(|f| f.severity == *sev)
+            .filter(|f| f.finding.severity == *sev)
             .cloned()
             .collect();
         if tier_findings.is_empty() {
             return None;
         }
-        let total_occurrences = tier_findings.iter().map(|f| f.occurrence_count).sum();
+        let total_occurrences = tier_findings
+            .iter()
+            .map(|f| f.finding.occurrence_count)
+            .sum();
         Some(FindingSeverityTier {
             severity: *sev,
             label: (*label).to_string(),
@@ -104,7 +107,7 @@ pub(super) fn build_criticality_groups(
             }
             let by_severity = build_severity_tiers(locale, &tier_findings);
             let total_findings = tier_findings.len();
-            let total_occurrences = tier_findings.iter().map(|f| f.occurrence_count).sum();
+            let total_occurrences = tier_findings.iter().map(|f| f.finding.occurrence_count).sum();
             let (label, eyebrow, intro) = match tier {
                 CriticalityTier::Mandatory => {
                     if en {
@@ -159,8 +162,10 @@ pub(super) fn build_thematic_clusters(
     let en = locale == "en";
     let mut by_dimension: BTreeMap<String, Vec<&FindingGroup>> = BTreeMap::new();
     for f in findings {
-        let dim = f.dimension.as_deref().unwrap_or("Accessibility");
-        by_dimension.entry(dim.to_string()).or_default().push(f);
+        by_dimension
+            .entry(f.finding.dimension.clone())
+            .or_default()
+            .push(f);
     }
 
     let mut clusters: Vec<FindingCluster> = by_dimension
@@ -169,10 +174,10 @@ pub(super) fn build_thematic_clusters(
         .map(|(dimension, groups)| {
             let worst_severity = groups
                 .iter()
-                .map(|g| g.severity)
+                .map(|g| g.finding.severity)
                 .max()
                 .unwrap_or(crate::wcag::Severity::Low);
-            let occurrence_total: usize = groups.iter().map(|g| g.occurrence_count).sum();
+            let occurrence_total: usize = groups.iter().map(|g| g.finding.occurrence_count).sum();
             let label = dimension_cluster_label(en, &dimension, groups.len());
             let severity_label = match worst_severity {
                 crate::wcag::Severity::Critical => {

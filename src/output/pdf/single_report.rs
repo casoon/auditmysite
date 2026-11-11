@@ -694,7 +694,7 @@ pub(super) fn top_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(TopMeasure
         // findings enter through `cross_module_measures` under their own
         // module name. Labelling them "Barrierefreiheit — Unsafe inline
         // script: " (empty text) was a mislabel.
-        .filter(|group| is_accessibility_rule(&group.rule_id))
+        .filter(|group| is_accessibility_rule(&group.finding.rule_id))
         .take(5)
         .map(|group| {
             (
@@ -979,9 +979,9 @@ pub(super) fn render_management_page(
         .findings
         .all_findings
         .iter()
-        .filter(|f| f.severity == crate::taxonomy::Severity::Critical)
+        .filter(|f| f.finding.severity == crate::taxonomy::Severity::Critical)
         .filter_map(|f| {
-            let area = crate::taxonomy::score_area_for_rule(&f.rule_id)?;
+            let area = crate::taxonomy::score_area_for_rule(&f.finding.rule_id)?;
             Some((f.title.clone(), area.localized_label(en).to_string()))
         })
         .collect();
@@ -1568,26 +1568,26 @@ fn render_findings_section(
             .with_title(matrix_title);
 
             for group in matrix_findings.iter().take(FINDINGS_MATRIX_MAX_ROWS) {
-                let finding = if group.wcag_criterion.is_empty() {
+                let finding = if group.finding.wcag_criterion.is_empty() {
                     group.title.clone()
-                } else if group.wcag_level.is_empty() {
-                    format!("{} · WCAG {}", group.title, group.wcag_criterion)
+                } else if group.finding.wcag_level.is_empty() {
+                    format!("{} · WCAG {}", group.title, group.finding.wcag_criterion)
                 } else {
                     format!(
                         "{} · WCAG {} ({})",
-                        group.title, group.wcag_criterion, group.wcag_level
+                        group.title, group.finding.wcag_criterion, group.finding.wcag_level
                     )
                 };
                 let scope = if group.is_component_issue {
                     if en {
-                        format!("Systemic · {}", group.occurrence_count)
+                        format!("Systemic · {}", group.finding.occurrence_count)
                     } else {
-                        format!("Systemisch · {}", group.occurrence_count)
+                        format!("Systemisch · {}", group.finding.occurrence_count)
                     }
                 } else if en {
-                    format!("Local · {}", group.occurrence_count)
+                    format!("Local · {}", group.finding.occurrence_count)
                 } else {
-                    format!("Lokal · {}", group.occurrence_count)
+                    format!("Lokal · {}", group.finding.occurrence_count)
                 };
                 table = table.add_row(vec![
                     priority_label_i18n(group.priority, i18n),
@@ -1659,7 +1659,7 @@ fn render_findings_section(
                 builder = super::annotations::render_finding_annotations(
                     builder,
                     vm.annotations.as_ref(),
-                    &group.finding_id,
+                    &group.finding.id,
                     i18n,
                 );
             }
@@ -1702,7 +1702,7 @@ fn render_findings_section(
                 builder = super::annotations::render_finding_annotations(
                     builder,
                     vm.annotations.as_ref(),
-                    &group.finding_id,
+                    &group.finding.id,
                     i18n,
                 );
             }
@@ -1745,7 +1745,7 @@ fn render_findings_section(
                 builder = super::annotations::render_finding_annotations(
                     builder,
                     vm.annotations.as_ref(),
-                    &group.finding_id,
+                    &group.finding.id,
                     i18n,
                 );
             }
@@ -1788,7 +1788,7 @@ fn render_findings_section(
                 builder = super::annotations::render_finding_annotations(
                     builder,
                     vm.annotations.as_ref(),
-                    &group.finding_id,
+                    &group.finding.id,
                     i18n,
                 );
             }

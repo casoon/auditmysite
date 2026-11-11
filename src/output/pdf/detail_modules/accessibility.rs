@@ -176,9 +176,9 @@ pub(in crate::output::pdf) fn bfsg_relevant_wcag_findings(
         .iter()
         .filter(|g| {
             crate::audit::normalized::is_bfsg_relevant_open(
-                &g.bfsg_relevance,
-                g.occurrence_count,
-                &g.verification,
+                &g.finding.bfsg_relevance,
+                g.finding.occurrence_count,
+                &g.finding.verification,
             )
         })
         .count()

@@ -218,7 +218,7 @@ fn snapshot_view_model_fields() {
         .findings
         .all_findings
         .iter()
-        .map(|f| f.rule_id.as_str())
+        .map(|f| f.finding.rule_id.as_str())
         .collect();
     finding_ids.sort_unstable();
 

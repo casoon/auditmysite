@@ -65,14 +65,14 @@ pub(super) fn build_cli_snapshot_table(vm: &ReportViewModel, i18n: &I18n) -> Aud
             row_finding.clone(),
             // The readable title, not the internal rule id ("html_conform.
             // schema.html5"): the id stays in the JSON (#952-7).
-            if finding.wcag_criterion.is_empty() {
+            if finding.finding.wcag_criterion.is_empty() {
                 finding.title.clone()
             } else {
-                format!("{} ({})", finding.title, finding.wcag_criterion)
+                format!("{} ({})", finding.title, finding.finding.wcag_criterion)
             },
             format!(
                 "{} {} — {}",
-                finding.occurrence_count,
+                finding.finding.occurrence_count,
                 occurrences_word,
                 first_sentence(&finding.user_impact)
             ),

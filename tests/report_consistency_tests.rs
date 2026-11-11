@@ -1437,10 +1437,11 @@ fn test_view_model_preserves_cli_facts_and_finding_density() {
         .top_findings
         .first()
         .expect("top finding should exist");
-    assert!(top.occurrence_count >= top.representative_occurrences.len());
+    assert!(top.finding.occurrence_count >= top.representative_occurrences.len());
     assert_eq!(
         top.additional_occurrences,
-        top.occurrence_count
+        top.finding
+            .occurrence_count
             .saturating_sub(top.representative_occurrences.len())
     );
 }
@@ -1798,7 +1799,7 @@ fn pdf_top_measures_follow_json_top_actions() {
         .findings
         .top_findings
         .iter()
-        .map(|g| g.rule_id.as_str())
+        .map(|g| g.finding.rule_id.as_str())
         .collect();
     assert_eq!(pdf_top, json_top[..pdf_top.len()]);
     // Urgency first: the high findings lead, the 20 medium occurrences follow.
@@ -1828,7 +1829,7 @@ fn pdf_finding_groups_are_the_json_findings() {
         .findings
         .all_findings
         .iter()
-        .map(|g| (g.rule_id.as_str(), g.occurrence_count))
+        .map(|g| (g.finding.rule_id.as_str(), g.finding.occurrence_count))
         .collect();
     // Same rules, same counts, same order — no criterion-level merge of the
     // two 4.1.2 rules into one "missing name/role" group.
@@ -1838,7 +1839,7 @@ fn pdf_finding_groups_are_the_json_findings() {
         .findings
         .all_findings
         .windows(2)
-        .all(|w| w[0].severity >= w[1].severity));
+        .all(|w| w[0].finding.severity >= w[1].finding.severity));
 }
 
 #[test]
@@ -1891,8 +1892,8 @@ fn batch_top_actions_match_pdf_and_aggregate_across_pages() {
         .take(8)
         .map(|g| {
             (
-                g.rule_id.clone(),
-                g.occurrence_count as u64,
+                g.finding.rule_id.clone(),
+                g.finding.occurrence_count as u64,
                 g.affected_urls.len() as u64,
             )
         })

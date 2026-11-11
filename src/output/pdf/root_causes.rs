@@ -29,9 +29,11 @@ fn mandatory_root_causes(vm: &ReportViewModel) -> Vec<&FindingGroup> {
         .findings
         .all_findings
         .iter()
-        .filter(|f| f.occurrence_count > 0 && f.criticality_tier == CriticalityTier::Mandatory)
+        .filter(|f| {
+            f.finding.occurrence_count > 0 && f.criticality_tier == CriticalityTier::Mandatory
+        })
         .collect();
-    findings.sort_by_key(|f| std::cmp::Reverse(f.occurrence_count));
+    findings.sort_by_key(|f| std::cmp::Reverse(f.finding.occurrence_count));
     findings
 }
 
@@ -42,7 +44,7 @@ fn mandatory_root_causes(vm: &ReportViewModel) -> Vec<&FindingGroup> {
 fn root_cause_lookup(
     findings: &[&FindingGroup],
 ) -> std::collections::HashMap<String, (char, usize, i64)> {
-    let total_occurrences: usize = findings.iter().map(|f| f.occurrence_count).sum();
+    let total_occurrences: usize = findings.iter().map(|f| f.finding.occurrence_count).sum();
     findings
         .iter()
         .enumerate()
@@ -50,11 +52,15 @@ fn root_cause_lookup(
         .map(|(idx, f)| {
             let letter = (b'A' + idx as u8) as char;
             let share_pct = if total_occurrences > 0 {
-                (f.occurrence_count as f64 * 100.0 / total_occurrences as f64).round() as i64
+                (f.finding.occurrence_count as f64 * 100.0 / total_occurrences as f64).round()
+                    as i64
             } else {
                 0
             };
-            (f.rule_id.clone(), (letter, f.occurrence_count, share_pct))
+            (
+                f.finding.rule_id.clone(),
+                (letter, f.finding.occurrence_count, share_pct),
+            )
         })
         .collect()
 }
@@ -133,7 +139,7 @@ pub(super) fn render_root_cause_analysis(
 
     // One table with the full titles. A list, a bar chart and this table
     // used to repeat the same numbers three times (plan 75).
-    let total_occurrences: usize = findings.iter().map(|f| f.occurrence_count).sum();
+    let total_occurrences: usize = findings.iter().map(|f| f.finding.occurrence_count).sum();
     // Rounded (not truncating) share so a small-but-real cause reads as "1 %"
     // rather than a self-contradictory "0 %" next to its own listed row.
     let share_pct = |occurrences: usize| -> i64 {
@@ -155,11 +161,11 @@ pub(super) fn render_root_cause_analysis(
     });
     let mut shown_occurrences = 0usize;
     for finding in findings.iter().take(ROOT_CAUSE_SHOWN) {
-        shown_occurrences += finding.occurrence_count;
+        shown_occurrences += finding.finding.occurrence_count;
         table = table.add_row(vec![
             finding.title.clone(),
-            finding.occurrence_count.to_string(),
-            format!("{} %", share_pct(finding.occurrence_count)),
+            finding.finding.occurrence_count.to_string(),
+            format!("{} %", share_pct(finding.finding.occurrence_count)),
         ]);
     }
     // Findings beyond the top ROOT_CAUSE_SHOWN still count in the
