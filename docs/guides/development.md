@@ -72,7 +72,7 @@ cargo build --features dev-tools          # → target/debug/auditmysite-dev
 | Command / flag | Purpose |
 | --- | --- |
 | `report-lint <report.json> [--fail-on …] [--typst-source <file.typ>]` | Deterministic consistency checks on a JSON report, see [Reports](../reports/#report-lint) |
-| `accname-diff <url>…` | Own accessible-name computation against Chrome's, see [accname differential](../../accname-differential/) |
+| `accname-diff <url>…` | Own accessible-name computation against Chrome's, see [accname differential](https://github.com/casoon/auditmysite/blob/main/docs/accname-differential.md) |
 | `plan [url]` | Mode, scope, modules and output paths of an audit, without running it |
 | `replay <snapshot\|dir\|url>` | Evaluate a stored snapshot again, without browser or network |
 | `--debug-typ` | With `--format pdf`, also write the Typst source as a `.typ` sidecar |

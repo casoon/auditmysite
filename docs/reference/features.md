@@ -64,7 +64,7 @@ Measured:
 - Security: HTTPS, header checks, and CDN/WAF protection detection. Headers are grouped by risk tier: CSP, HSTS, and clickjacking protection are baseline requirements, while context-dependent headers such as COOP/CORP get a verification question and safe-configuration guidance instead of an unconditional "add this header"
 - Mobile: viewport, touch-target, readability checks, UX heuristics (cookie-banner, modal/overlay, CTA detection)
 - HTML5 conformance: spec-conformance checking via the `html-conform` crate, part of `--full`; scored per distinct defect cause rather than per raw occurrence, so one templated markup mistake rendered many times doesn't get charged once per render
-- Privacy indicators (opt-in `--privacy-check`, not part of `--full`): one extra clean-context page load per audited page, classified into technical first-visit findings; score-neutral, no legal verdict, see [privacy findings](../privacy-findings.md)
+- Privacy indicators (opt-in `--privacy-check`, not part of `--full`): one extra clean-context page load per audited page, classified into technical first-visit findings; score-neutral, no legal verdict, see [privacy findings](https://github.com/casoon/auditmysite/blob/main/docs/privacy-findings.md)
 
 Detection only:
 - Easy language: recognizes an easy-language ("Leichte Sprache") or plain-language version of the page via class names, a `lang` variant, or a link-text marker, and reports it as a positive signal
