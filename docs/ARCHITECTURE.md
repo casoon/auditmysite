@@ -402,6 +402,7 @@ Central data layer between raw `AuditReport` and output formats:
 - Carries explicit audit quality, module/rule execution status, accessibility assessments, and Journey coverage
 - Computes grade from corrected score
 - Single source of truth for JSON, PDF, and CLI output — ensures consistent scores
+- `NormalizedFinding` is built in `audit/` only (`normalized.rs`, `finding_contract.rs`). `output/` reads it and derives its view models (`report_model::FindingGroup`) from it; `output_never_constructs_a_normalized_finding` in `tests/architecture_test.rs` fails on any struct literal under `src/output/` outside `#[cfg(test)]` items (#937)
 
 The overall score is reconstructed from contributing `module_scores` and their
 published weights, for single- and dual-viewport runs. Unchecked HTML conformance
