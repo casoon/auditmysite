@@ -196,7 +196,8 @@ impl EvidenceSource {
 /// selectors (`FAQPage`, `html[lang]`) are shown as they are; any other
 /// snake_case identifier has no readable name and returns `None`, so it is
 /// never printed as a value (#902).
-pub fn evidence_field_label(path: &str, en: bool) -> Option<String> {
+#[cfg(any(feature = "pdf", test))]
+pub(crate) fn evidence_field_label(path: &str, en: bool) -> Option<String> {
     let known = match (path, en) {
         ("heading.h1", _) => "H1",
         ("meta.title", true) => "Title",
