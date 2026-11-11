@@ -5,6 +5,7 @@
 //! redirect detection, www/non-www consolidation, and basic HTML validation.
 
 use chromiumoxide::Page;
+use fluent_bundle::FluentValue;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
@@ -348,7 +349,7 @@ impl HtmlValidationIssue {
     pub fn new(kind: HtmlValidationKind, count: u32, severity: &str, samples: Vec<String>) -> Self {
         Self {
             kind,
-            check: html_validation_check_text(kind, true).to_string(),
+            check: html_validation_check_text(kind, true),
             count,
             severity: severity.to_string(),
             detail: html_validation_detail_text(kind, count, &samples, true),
@@ -357,81 +358,92 @@ impl HtmlValidationIssue {
     }
 }
 
-/// Label of an HTML validation check — the only source of this text.
-pub fn html_validation_check_text(kind: HtmlValidationKind, en: bool) -> &'static str {
-    match (kind, en) {
-        (HtmlValidationKind::DuplicateIds, true) => "Duplicate IDs",
-        (HtmlValidationKind::DuplicateIds, false) => "Doppelte IDs",
-        (HtmlValidationKind::ImagesWithoutAlt, true) => "Images without alt attribute",
-        (HtmlValidationKind::ImagesWithoutAlt, false) => "Bilder ohne alt-Attribut",
-        (HtmlValidationKind::TablesWithoutHeaders, true) => "Tables without header row",
-        (HtmlValidationKind::TablesWithoutHeaders, false) => "Tabellen ohne Kopfzeile",
-        (HtmlValidationKind::EmptyHeadings, true) => "Empty headings",
-        (HtmlValidationKind::EmptyHeadings, false) => "Leere Überschriften",
-        (HtmlValidationKind::NestedInteractive, true) => "Nested interactive elements",
-        (HtmlValidationKind::NestedInteractive, false) => "Verschachtelte interaktive Elemente",
-        (HtmlValidationKind::ParseErrors, true) => "HTML5 parsing errors",
-        (HtmlValidationKind::ParseErrors, false) => "HTML5-Parsing-Fehler",
-    }
+/// Label of an HTML validation check — the only source of this text: the
+/// `page-health-html-validation-check-*` message of
+/// `locales/{en,de}/page-health.ftl`.
+pub fn html_validation_check_text(kind: HtmlValidationKind, en: bool) -> String {
+    let key = match kind {
+        HtmlValidationKind::DuplicateIds => "page-health-html-validation-check-duplicate-ids",
+        HtmlValidationKind::ImagesWithoutAlt => {
+            "page-health-html-validation-check-images-without-alt"
+        }
+        HtmlValidationKind::TablesWithoutHeaders => {
+            "page-health-html-validation-check-tables-without-headers"
+        }
+        HtmlValidationKind::EmptyHeadings => "page-health-html-validation-check-empty-headings",
+        HtmlValidationKind::NestedInteractive => {
+            "page-health-html-validation-check-nested-interactive"
+        }
+        HtmlValidationKind::ParseErrors => "page-health-html-validation-check-parse-errors",
+    };
+    crate::i18n::text(key, en)
 }
 
-/// Detail text of an HTML validation finding — the only source of this text.
+/// Detail text of an HTML validation finding — the only source of this text:
+/// the `page-health-html-validation-detail-*` message of
+/// `locales/{en,de}/page-health.ftl`. Parse errors without left-out samples
+/// are the joined samples alone.
 pub fn html_validation_detail_text(
     kind: HtmlValidationKind,
     count: u32,
     samples: &[String],
     en: bool,
 ) -> String {
-    match kind {
-        HtmlValidationKind::DuplicateIds => match (samples.is_empty(), en) {
-            (true, true) => format!("{count} found"),
-            (true, false) => format!("{count} gefunden"),
-            (false, true) => format!("{count} (e.g. {})", samples.join(", ")),
-            (false, false) => format!("{count} (z.B. {})", samples.join(", ")),
-        },
-        HtmlValidationKind::ImagesWithoutAlt if en => format!("{count} <img> without alt"),
-        HtmlValidationKind::ImagesWithoutAlt => format!("{count} <img> ohne alt"),
-        HtmlValidationKind::TablesWithoutHeaders if en => {
-            format!("{count} <table> without <th> or <caption>")
-        }
-        HtmlValidationKind::TablesWithoutHeaders => {
-            format!("{count} <table> ohne <th> oder <caption>")
-        }
-        HtmlValidationKind::EmptyHeadings if en => format!("{count} empty h1–h6 elements"),
-        HtmlValidationKind::EmptyHeadings => format!("{count} leere h1–h6 Elemente"),
-        HtmlValidationKind::NestedInteractive => format!("{count} button/a in button/a"),
+    let count_arg = || ("count", FluentValue::from(i64::from(count)));
+    let (key, args) = match kind {
+        HtmlValidationKind::DuplicateIds if samples.is_empty() => (
+            "page-health-html-validation-detail-duplicate-ids",
+            vec![count_arg()],
+        ),
+        HtmlValidationKind::DuplicateIds => (
+            "page-health-html-validation-detail-duplicate-ids-examples",
+            vec![count_arg(), ("list", FluentValue::from(samples.join(", ")))],
+        ),
+        HtmlValidationKind::ImagesWithoutAlt => (
+            "page-health-html-validation-detail-images-without-alt",
+            vec![count_arg()],
+        ),
+        HtmlValidationKind::TablesWithoutHeaders => (
+            "page-health-html-validation-detail-tables-without-headers",
+            vec![count_arg()],
+        ),
+        HtmlValidationKind::EmptyHeadings => (
+            "page-health-html-validation-detail-empty-headings",
+            vec![count_arg()],
+        ),
+        HtmlValidationKind::NestedInteractive => (
+            "page-health-html-validation-detail-nested-interactive",
+            vec![count_arg()],
+        ),
         HtmlValidationKind::ParseErrors => {
             let joined = samples.join(" | ");
-            let more = (count as usize).saturating_sub(samples.len());
-            match (more, en) {
-                (0, _) => joined,
-                (n, true) => format!("{joined} | +{n} more"),
-                (n, false) => format!("{joined} | +{n} weitere"),
+            match (count as usize).saturating_sub(samples.len()) {
+                0 => return joined,
+                more => (
+                    "page-health-html-validation-detail-parse-errors-more",
+                    vec![
+                        ("list", FluentValue::from(joined)),
+                        ("more", FluentValue::from(more as i64)),
+                    ],
+                ),
             }
         }
-    }
+    };
+    crate::i18n::text_args(key, &args, en)
 }
 
 /// Detail of the SEO view's HTML validation: it is part of the HTML
-/// conformance check (#724) — the only source of this text.
-pub fn html_validator_delegated_text(en: bool) -> &'static str {
-    if en {
-        "HTML5 validation is part of the HTML conformance check (html-conform), \
-         enabled by default or with --modules html-conform"
-    } else {
-        "Die HTML5-Validierung ist Teil der HTML-Konformitätsprüfung (html-conform), \
-         standardmäßig aktiv oder mit --modules html-conform"
-    }
+/// conformance check (#724) — the only source of this text (the
+/// `page-health-html-validator-delegated` message).
+pub fn html_validator_delegated_text(en: bool) -> String {
+    crate::i18n::text("page-health-html-validator-delegated", en)
 }
 
 /// Detail of an executed local HTML validation, as reports written before
-/// #724 carry it — the only source of this text.
-pub fn html_validator_executed_text(en: bool) -> &'static str {
-    if en {
-        "HTML5 validation run locally via html5ever"
-    } else {
-        "HTML5-Validierung lokal via html5ever"
-    }
+/// #724 carry it — the only source of this text (the
+/// `page-health-html-validator-executed` message).
+pub fn html_validator_executed_text(en: bool) -> String {
+    crate::i18n::text("page-health-html-validator-executed", en)
 }
 
 /// Serialized shape of [`HtmlValidationIssue`]. Cache entries written before
@@ -503,7 +515,7 @@ where
     let detail = Option::<String>::deserialize(deserializer)?;
     Ok(detail.map(|d| {
         if d == html_validator_executed_text(false) {
-            html_validator_executed_text(true).to_string()
+            html_validator_executed_text(true)
         } else {
             d
         }
@@ -529,7 +541,7 @@ pub async fn analyze_page_health(
 ) -> Option<PageHealthAnalysis> {
     let mut analysis = PageHealthAnalysis {
         html_validator_status: "delegated".to_string(),
-        html_validator_detail: Some(html_validator_delegated_text(true).to_string()),
+        html_validator_detail: Some(html_validator_delegated_text(true)),
         ..Default::default()
     };
 
@@ -1029,9 +1041,9 @@ mod tests {
     #[test]
     fn english_html_validation_text_has_no_german_chars() {
         let samples = vec!["a".to_string(), "b".to_string()];
-        let mut texts = vec![html_validator_executed_text(true).to_string()];
+        let mut texts = vec![html_validator_executed_text(true)];
         for kind in ALL_HTML_VALIDATION_KINDS {
-            texts.push(html_validation_check_text(kind, true).to_string());
+            texts.push(html_validation_check_text(kind, true));
             texts.push(html_validation_detail_text(kind, 5, &samples, true));
             texts.push(html_validation_detail_text(kind, 5, &[], true));
         }
@@ -1095,7 +1107,7 @@ mod tests {
         let analysis: PageHealthAnalysis = serde_json::from_value(value).unwrap();
         assert_eq!(
             analysis.html_validator_detail.as_deref(),
-            Some(html_validator_executed_text(true))
+            Some(html_validator_executed_text(true).as_str())
         );
     }
 }

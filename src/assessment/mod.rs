@@ -168,63 +168,52 @@ pub enum EvidenceSource {
 }
 
 impl EvidenceSource {
-    /// Report label of the source (`en = true`: English).
-    pub fn label(&self, en: bool) -> &'static str {
-        match (self, en) {
-            (Self::Meta, true) => "Meta tag",
-            (Self::Meta, false) => "Meta-Tag",
-            (Self::JsonLd, _) => "JSON-LD",
-            (Self::VisibleText, true) => "Visible text",
-            (Self::VisibleText, false) => "Sichtbarer Text",
-            (Self::Link, _) => "Link",
-            (Self::HttpHeader, true) => "HTTP header",
-            (Self::HttpHeader, false) => "HTTP-Header",
-            (Self::AxTree, true) => "Accessibility tree",
-            (Self::AxTree, false) => "Accessibility-Tree",
-            (Self::DomAttribute, true) => "DOM attribute",
-            (Self::DomAttribute, false) => "DOM-Attribut",
-            (Self::CssProperty, true) => "CSS property",
-            (Self::CssProperty, false) => "CSS-Eigenschaft",
-            (Self::Computed, true) => "Derived value",
-            (Self::Computed, false) => "Abgeleiteter Wert",
-        }
+    /// Report label of the source (`en = true`: English): the
+    /// `labels-evidence-source-*` message of `locales/{en,de}/labels.ftl`.
+    pub fn label(&self, en: bool) -> String {
+        let key = match self {
+            Self::Meta => "labels-evidence-source-meta",
+            Self::JsonLd => "labels-evidence-source-json-ld",
+            Self::VisibleText => "labels-evidence-source-visible-text",
+            Self::Link => "labels-evidence-source-link",
+            Self::HttpHeader => "labels-evidence-source-http-header",
+            Self::AxTree => "labels-evidence-source-ax-tree",
+            Self::DomAttribute => "labels-evidence-source-dom-attribute",
+            Self::CssProperty => "labels-evidence-source-css-property",
+            Self::Computed => "labels-evidence-source-computed",
+        };
+        crate::i18n::text(key, en)
     }
 }
 
 /// Readable name of an evidence field path. Internal identifiers
-/// (`structured_data.rich_snippets`) map to a name; schema types and CSS-like
+/// (`structured_data.rich_snippets`) map to a name (the
+/// `labels-evidence-field-*` message of `locales/{en,de}/labels.ftl`); schema
+/// types and CSS-like
 /// selectors (`FAQPage`, `html[lang]`) are shown as they are; any other
 /// snake_case identifier has no readable name and returns `None`, so it is
 /// never printed as a value (#902).
 #[cfg(any(feature = "pdf", test))]
 pub(crate) fn evidence_field_label(path: &str, en: bool) -> Option<String> {
-    let known = match (path, en) {
-        ("heading.h1", _) => "H1",
-        ("meta.title", true) => "Title",
-        ("meta.title", false) => "Titel",
-        ("meta.description", true) => "Meta description",
-        ("meta.description", false) => "Meta-Beschreibung",
-        ("ssr_content_gap", true) => "Server-rendering gap",
-        ("ssr_content_gap", false) => "Server-Rendering-Lücke",
-        ("canonical", _) => "Canonical",
-        ("patterns.recognized", true) => "Recognized patterns",
-        ("patterns.recognized", false) => "Erkannte Muster",
-        ("structured_data.type", true) => "Structured data type",
-        ("structured_data.type", false) => "Typ der strukturierten Daten",
-        ("structured_data.rich_snippets", true) => "Rich snippet potential",
-        ("structured_data.rich_snippets", false) => "Rich-Snippet-Potenzial",
-        ("structured_data", true) => "Structured data",
-        ("structured_data", false) => "Strukturierte Daten",
-        ("headings.h2_plus", true) => "Headings from H2",
-        ("headings.h2_plus", false) => "Überschriften ab H2",
-        ("internal_links", true) => "Internal links",
-        ("internal_links", false) => "Interne Links",
-        ("word_count", true) => "Word count",
-        ("word_count", false) => "Wortanzahl",
-        _ => "",
+    let key = match path {
+        "heading.h1" => Some("labels-evidence-field-heading-h1"),
+        "meta.title" => Some("labels-evidence-field-meta-title"),
+        "meta.description" => Some("labels-evidence-field-meta-description"),
+        "ssr_content_gap" => Some("labels-evidence-field-ssr-content-gap"),
+        "canonical" => Some("labels-evidence-field-canonical"),
+        "patterns.recognized" => Some("labels-evidence-field-patterns-recognized"),
+        "structured_data.type" => Some("labels-evidence-field-structured-data-type"),
+        "structured_data.rich_snippets" => {
+            Some("labels-evidence-field-structured-data-rich-snippets")
+        }
+        "structured_data" => Some("labels-evidence-field-structured-data"),
+        "headings.h2_plus" => Some("labels-evidence-field-headings-h2-plus"),
+        "internal_links" => Some("labels-evidence-field-internal-links"),
+        "word_count" => Some("labels-evidence-field-word-count"),
+        _ => None,
     };
-    if !known.is_empty() {
-        return Some(known.to_string());
+    if let Some(key) = key {
+        return Some(crate::i18n::text(key, en));
     }
     let identifier = path
         .chars()

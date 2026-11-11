@@ -1,6 +1,8 @@
 pub mod number;
 
 #[cfg(test)]
+pub(crate) mod detail_texts_export;
+#[cfg(test)]
 pub(crate) mod label_texts_export;
 #[cfg(test)]
 mod label_texts_guard;
@@ -24,13 +26,15 @@ impl I18n {
         bundle.set_use_isolating(false);
         // Report texts, the rule texts (the catalogue of `taxonomy::rules`
         // and the explanations of `output::explanations`) the page-health
-        // issue texts (`seo::page_health`), the SEO issue texts and labels
-        // (`seo::technical`, `seo::meta`, `seo::schema`, `seo::robots`,
-        // `seo::profile`, `seo::serp`), the
+        // issue texts and HTML validation texts (`seo::page_health`), the SEO
+        // issue texts and labels (`seo::technical`, `seo::meta`,
+        // `seo::schema`, `seo::robots`, `seo::profile`, `seo::serp`,
+        // `seo::schema_fit`, `seo::schema_parity`), the
         // security finding texts and category labels (`security`), the
         // mobile finding texts (`mobile`) and the labels of cross-cutting
         // enums (`labels.ftl`: page intent, action priority, effort and role,
-        // issue class, subcategory) are seven resources of the one bundle.
+        // issue class, subcategory, evidence source and field) are seven
+        // resources of the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),

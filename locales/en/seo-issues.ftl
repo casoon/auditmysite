@@ -6,7 +6,9 @@
 # and their severity stay in Rust. Also the table labels of the structured-data
 # issues (`seo::schema::schema_issue_label`) and of the robots.txt audit (bot
 # classes and policy labels of `seo::robots`), the labels of the SEO content
-# profile (`seo::profile`) and the SERP status labels (`seo::serp`).
+# profile (`seo::profile`), the SERP status labels (`seo::serp`) and the
+# structured-data fit and content-parity texts (`seo::schema_fit`,
+# `seo::schema_parity`).
 
 seo-technical-no-https = Page is not served over HTTPS
 seo-technical-no-canonical = Missing canonical URL
@@ -131,3 +133,38 @@ seo-profile-page-type-thin-content = Thin / Minimal Content
 seo-serp-status-ok = OK
 seo-serp-status-warning = Warning
 seo-serp-status-fail = Error
+
+# Labels of the structured-data fit (`seo::schema_fit`): the page kind
+# (`SchemaPageKind::label`) and the fit status (`SchemaFitAssessment::fit_text`).
+seo-schema-fit-page-kind-merchant-product-detail = Purchasable product detail
+seo-schema-fit-page-kind-product-collection = Product collection
+seo-schema-fit-page-kind-service-detail = Service detail
+seo-schema-fit-page-kind-software-detail = Software / SaaS
+seo-schema-fit-page-kind-job-detail = Job detail
+seo-schema-fit-page-kind-job-listing = Job listing
+seo-schema-fit-page-kind-event-detail = Event detail
+seo-schema-fit-page-kind-event-listing = Event listing
+seo-schema-fit-page-kind-faq-page = FAQ
+seo-schema-fit-page-kind-person-profile = Person profile
+seo-schema-fit-page-kind-location-detail = Location detail
+seo-schema-fit-page-kind-editorial-product-review = Editorial product review
+seo-schema-fit-page-kind-editorial-content = Editorial content
+seo-schema-fit-page-kind-marketing-landing-page = Marketing / Landing Page
+seo-schema-fit-page-kind-corporate-page = Corporate page
+seo-schema-fit-page-kind-hub-page = Hub / Portal
+seo-schema-fit-page-kind-lead-generation-page = Lead-generation page
+seo-schema-fit-page-kind-indeterminate = Not determined
+seo-schema-fit-status-matched = Primary schema matches the detected page type
+seo-schema-fit-status-plausible = Schema is plausible; page type is not specific enough for a strict requirement
+seo-schema-fit-status-mismatch = Primary schema does not match the strongly indicated page type
+seo-schema-fit-status-indeterminate = Page-to-schema fit requires manual review
+
+# Content parity of structured data (`seo::schema_parity`): the status label
+# (`ContentParityAssessment::status_text`) and the evidence
+# (`ContentParityAssessment::evidence_text`); a missing value is "-" (Rust).
+seo-schema-parity-status-match = Matches visible content
+seo-schema-parity-status-mismatch = Mismatch
+seo-schema-parity-status-not-evaluated = Not evaluated
+seo-schema-parity-evidence-match = Schema and visible content agree: { $value }
+seo-schema-parity-evidence-mismatch = Schema: { $schema }; visible: { $visible }
+seo-schema-parity-evidence-not-evaluated = No single unambiguous visible value was found
