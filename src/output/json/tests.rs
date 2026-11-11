@@ -1537,3 +1537,25 @@ fn management_legal_card_counts_the_findings_marked_bfsg_relevant() {
     );
     assert_ne!(legal.level, "low");
 }
+
+/// The batch average an outlier is measured against is rounded like every
+/// other batch average: pages at 95 and 96 average 96, not a truncated 95
+/// (#1039).
+#[test]
+fn outlier_batch_average_is_rounded() {
+    let page = |score: u32| {
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        let mut n = normalize(&report).normalized;
+        n.score = score;
+        n
+    };
+    assert_eq!(
+        helpers::average_accessibility_score(&[page(95), page(96)]),
+        96
+    );
+}
