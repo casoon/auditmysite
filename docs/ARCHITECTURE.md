@@ -220,7 +220,6 @@ src/
 │   ├── announcer.rs     # Localized screen-reader announcement strings
 │   ├── navigator.rs     # Virtual SR navigation lists
 │   ├── analyzer.rs      # SR-specific issue detection
-│   ├── bfsg.rs          # Thin wrapper over wcag::en301549 for legacy call sites
 │   └── linearizer.rs    # AXTree DFS reading-order linearization
 │
 ├── best_practices/      # Console errors and vulnerable JS library detection

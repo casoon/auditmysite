@@ -1,8 +1,9 @@
 //! EN 301 549 (chapter 9, "Web") clause mapping.
 //!
 //! Promotes the WCAG↔EN table that used to live only inside
-//! `screen_reader::bfsg` into a canonical module: all 55 WCAG 2.2 A/AA
-//! success criteria mapped 1:1 onto their EN 301 549 V4.1.1 chapter-9 clause
+//! `screen_reader::bfsg` (a thin wrapper over this module, removed in #938)
+//! into a canonical module: all 55 WCAG 2.2 A/AA success criteria mapped 1:1
+//! onto their EN 301 549 V4.1.1 chapter-9 clause
 //! number (`9.x.y.z` mirrors WCAG `x.y.z`), with English/German titles, plus a
 //! pure per-clause status roll-up over `NormalizedFinding`s.
 //!

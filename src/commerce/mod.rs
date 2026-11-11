@@ -15,9 +15,8 @@
 //!   `autocomplete` token is `current-password`/`new-password`/
 //!   `one-time-code`/`username`), detected from the screen-reader form
 //!   control inventory. Presence-only, never an automated pass/fail — see
-//!   `screen_reader::bfsg`'s module doc comment for why only this one
-//!   sub-item of §19 is incorporated (Nr. 1/Nr. 2 stay explicitly out of
-//!   scope).
+//!   `BFSG_PARAGRAPH_ECOMMERCE` for why only this one sub-item of §19 is
+//!   incorporated (Nr. 1/Nr. 2 stay explicitly out of scope).
 //!
 //! Localization (#406): stored struct is canonical English; findings carry a
 //! `kind` enum and `commerce_finding_text(kind, en)` is the single text source.
@@ -260,6 +259,49 @@ pub fn aggregate_site_commerce<'a>(
 
 const EXPECTED_PRODUCT_SIGNALS: u32 = 5;
 
+/// Citation for the BFSGV §19 Nr. 3 e-commerce identification/authentication
+/// signal (`CommerceAnalysis::identification_function_detected`).
+///
+/// BFSGV §19 ("Zusätzliche Anforderungen an Dienstleistungen im
+/// elektronischen Geschäftsverkehr") -- confirmed verbatim against the
+/// primary source (<https://www.gesetze-im-internet.de/bfsgv/__19.html>),
+/// 2026-09-04 -- has three numbered requirements. Only Nr. 3 is incorporated,
+/// and only as a presence-only, manual-review scope signal, never an
+/// automated pass/fail:
+/// - **Nr. 1** ("Informationen zur Barrierefreiheit der ... Produkte ...,
+///   soweit diese ... vom verantwortlichen Wirtschaftsakteur zur Verfügung
+///   gestellt werden") is conditional on information the operator may or may
+///   not possess about a *specific product's* accessibility properties --
+///   there is no DOM signal that can tell "operator has such info but
+///   withheld it" apart from "product genuinely has nothing to disclose".
+///   Deliberately not incorporated: a presence-only check here would
+///   systematically false-flag every product without accessibility features
+///   to disclose, which is not a defect.
+/// - **Nr. 2** ("Identifizierungs-, Authentifizierungs-, Sicherheits- und
+///   Zahlungsfunktionen, wenn diese ... im Rahmen einer Dienstleistung
+///   bereitgestellt werden") largely overlaps with Nr. 3 in DOM terms but
+///   adds the qualifier "as part of a service, not a product" and explicitly
+///   includes payment functions -- this tool's stateless single-page model
+///   essentially never reaches a live payment UI cold (same reasoning as the
+///   `CommercePageKind::Cart`/`::Checkout` removal), and distinguishing
+///   "service" from "product" delivery of an identification/security
+///   function from a single rendered page is not reliably possible.
+///   Deliberately not incorporated.
+/// - **Nr. 3** ("Identifizierungsmethoden, Authentifizierungsmethoden,
+///   elektronische Signaturen und Zahlungsdienste ... wahrnehmbar, bedienbar,
+///   verständlich und robust") is the one sub-item with a concrete,
+///   deterministic DOM signal reachable from a single rendered page: a form
+///   control whose `autocomplete` token identifies it as
+///   `current-password`/`new-password`/`one-time-code`/`username`
+///   (`screen_reader::navigator::FormControlNavItem::is_identification_control`).
+///   Payment-method detection (`cc-number` etc.) was deliberately left out
+///   of scope for the same cold-reachability reason as Nr. 2. The signal is
+///   necessarily incomplete (a login field without a declared `autocomplete`
+///   purpose stays invisible), so it is only ever a positive-evidence
+///   presence flag, never a negative "no such field exists" conclusion --
+///   same honesty convention as `commerce::CommerceFinding`.
+const BFSG_PARAGRAPH_ECOMMERCE: &str = "§ 19 Nr. 3 BFSGV";
+
 /// Analyze commerce signals. `anchor_texts` are the page's link anchor texts
 /// (from the screen-reader link inventory); `is_ecommerce_stack` is true when a
 /// shop system (Shopify/WooCommerce/…) was detected; `has_identification_control`
@@ -288,8 +330,8 @@ pub fn analyze_commerce(
     }
     push_trust_findings(&trust_pages, &mut findings);
 
-    let identification_function_bfsg_reference = has_identification_control
-        .then(|| crate::screen_reader::bfsg::BFSG_PARAGRAPH_ECOMMERCE.to_string());
+    let identification_function_bfsg_reference =
+        has_identification_control.then(|| BFSG_PARAGRAPH_ECOMMERCE.to_string());
 
     Some(CommerceAnalysis {
         page_kind,

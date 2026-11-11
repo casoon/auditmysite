@@ -2,14 +2,12 @@
 
 pub mod analyzer;
 pub mod announcer;
-pub mod bfsg;
 pub mod navigator;
 pub mod types;
 
 pub use a11y_perception::{linearize, linearize_with_ignored};
 pub use analyzer::{analyze_reading_sequence, name_quality_score};
 pub use announcer::{announce, announce_localized};
-pub use bfsg::{map_to_bfsg, wcag_21_aa_criteria, BfsgMapping};
 pub use navigator::{navigation_views, NavigationViews};
 pub use types::{
     AnnouncedReadingItem, BfsgCompliance, BfsgVerdict, BfsgViolation, IgnoredReadingNode,
@@ -20,6 +18,7 @@ pub use types::{
 use crate::accessibility::AXTree;
 use crate::i18n::I18n;
 use crate::wcag::coverage::{ClaimLimits, ManualReview};
+use crate::wcag::en301549::EN301549_WEB_CLAUSES;
 
 /// Builds the screen-reader audit report. All issue messages and announcements
 /// are baked in canonical English so the stored struct, JSON envelope and
@@ -240,6 +239,21 @@ fn percentage(passed: usize, total: usize) -> u32 {
 /// violations).
 const EVALUATED_WCAG_CRITERIA: &[&str] = &["1.3.1", "2.4.1", "2.4.4", "2.4.6", "3.3.2", "4.1.2"];
 
+/// BFSGV citation for the website-accessibility requirement
+/// (`BfsgViolation.bfsg_reference`). The EN 301 549 clause comes from
+/// `wcag::en301549::EN301549_WEB_CLAUSES`; this citation is deliberately not
+/// part of that table or of the EN 301 549 annex.
+///
+/// Citation corrected 2026-09-01 (from a report-quality review): the prior
+/// value, `"§12 Abs. 1"`, cited the parent Act (BFSG) but the actual
+/// website-accessibility requirement ("Webseiten ... wahrnehmbar, bedienbar,
+/// verständlich und robust") lives in the implementing Ordinance, BFSGV §12
+/// Nr. 3 -- confirmed against the primary source
+/// (<https://www.gesetze-im-internet.de/bfsgv/__12.html>). Still flagged
+/// unverified: confirmed via automated web-fetch summarization, not a legal
+/// review: get a legal review before relying on this exact citation.
+const BFSG_PARAGRAPH_WEB: &str = "§ 12 Nr. 3 BFSGV";
+
 /// The verdict states only what was found on `EVALUATED_WCAG_CRITERIA`: an
 /// empty tree is not evaluated, a suspected consent wall without findings is
 /// incomplete, and no finding is its own state — never conformance (#782).
@@ -254,12 +268,12 @@ fn bfsg_compliance(
             .filter(|issue| issue.review == review)
             .filter_map(|issue| {
                 let wcag = issue.wcag_criterion.as_deref()?;
-                let mapping = map_to_bfsg(wcag)?;
-                mapping.fix_required.then(|| BfsgViolation {
+                let clause = EN301549_WEB_CLAUSES.iter().find(|c| c.wcag == wcag)?;
+                Some(BfsgViolation {
                     wcag_criterion: wcag.to_string(),
-                    en_301_549_clause: Some(mapping.en_301549_clause.to_string()),
-                    bfsg_reference: Some(mapping.bfsg_paragraph.to_string()),
-                    fix_required: mapping.fix_required,
+                    en_301_549_clause: Some(clause.en_clause.to_string()),
+                    bfsg_reference: Some(BFSG_PARAGRAPH_WEB.to_string()),
+                    fix_required: true,
                     affected_node_ids: issue.affected_node_ids.clone(),
                 })
             })
@@ -372,6 +386,29 @@ mod tests {
         let compliance = complete_run(&[review("2.4.4"), issue("4.1.2")]);
         assert_eq!(compliance.verdict, BfsgVerdict::ViolationsFound);
         assert_eq!(compliance.violations.len(), 1);
+    }
+
+    /// Moved from the removed `bfsg` wrapper (#938): a violation carries the
+    /// EN 301 549 clause of its criterion and the BFSGV citation; a criterion
+    /// outside the A/AA table (AAA, best practice) maps to nothing.
+    #[test]
+    fn violations_carry_the_en_301_549_clause_and_the_bfsgv_citation() {
+        let compliance = complete_run(&[issue("1.1.1"), issue("4.1.2")]);
+        assert_eq!(
+            compliance
+                .violations
+                .iter()
+                .map(|v| v.en_301_549_clause.as_deref())
+                .collect::<Vec<_>>(),
+            [Some("9.1.1.1"), Some("9.4.1.2")]
+        );
+        assert!(compliance
+            .violations
+            .iter()
+            .all(|v| v.bfsg_reference.as_deref() == Some("§ 12 Nr. 3 BFSGV") && v.fix_required));
+
+        let compliance = complete_run(&[issue("2.4.9"), issue("best-practice")]);
+        assert!(compliance.violations.is_empty());
     }
 
     #[test]
