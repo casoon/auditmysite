@@ -306,7 +306,9 @@ pub(super) fn finding_patterns<'a>(
 ///
 /// The JSON shape is the private `NormalizedFindingWire`: it adds `category`, which is
 /// derived from `contract.domain` ([`NormalizedFinding::category`]), at its
-/// place in the object, and rejects a `category` that names another domain.
+/// place in the object, and rejects a `category` that names another domain,
+/// a `rule_id` the contract's source and check do not name, and an
+/// `aggregation_key` other than the `rule_id`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(into = "NormalizedFindingWire", try_from = "NormalizedFindingWire")]
 #[non_exhaustive]
@@ -357,7 +359,7 @@ pub struct NormalizedFinding {
     pub score_impact: ScoreImpactData,
     /// Report-Sichtbarkeit (not serialized)
     pub report_visibility: ReportVisibilityData,
-    /// Aggregationsschlüssel (= rule_id)
+    /// Aggregation key; always equal to `rule_id`.
     pub aggregation_key: String,
 
     /// Titel der Regel
@@ -567,6 +569,20 @@ impl TryFrom<NormalizedFindingWire> for NormalizedFinding {
                  (expected category \"{expected}\")",
                 w.rule_id,
                 w.contract.domain.as_str()
+            ));
+        }
+        let expected = w.contract.rule_id();
+        if w.rule_id != expected {
+            return Err(format!(
+                "finding {}: rule_id does not name contract source \"{}\" and check \"{}\" \
+                 (expected rule_id \"{expected}\")",
+                w.rule_id, w.contract.source, w.contract.check
+            ));
+        }
+        if w.aggregation_key != w.rule_id {
+            return Err(format!(
+                "finding {}: aggregation_key \"{}\" differs from rule_id",
+                w.rule_id, w.aggregation_key
             ));
         }
         Ok(Self {
