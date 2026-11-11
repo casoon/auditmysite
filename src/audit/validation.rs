@@ -103,6 +103,7 @@ pub const CONTRACT_CODES: &[&str] = &[
 ];
 
 #[derive(Debug, Clone, Serialize)]
+#[non_exhaustive]
 pub struct ContractViolation {
     pub code: &'static str,
     pub path: String,
@@ -110,6 +111,7 @@ pub struct ContractViolation {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[non_exhaustive]
 pub struct ReportContractError {
     pub violations: Vec<ContractViolation>,
 }

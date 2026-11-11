@@ -55,6 +55,7 @@ pub fn effective_selectors(user: &[String]) -> Vec<String> {
 
 /// Per page: which exclusions were applied and what they removed.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ExclusionReport {
     /// Every applied selector, including those that matched nothing.
     pub selectors: Vec<ExclusionSelectorResult>,
@@ -82,6 +83,7 @@ pub struct ExclusionReport {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ExclusionSelectorResult {
     pub selector: String,
     /// `true` for the always-honoured `[data-audit-exclude]`.
@@ -95,6 +97,7 @@ pub struct ExclusionSelectorResult {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ExcludedRuleCount {
     /// Rule id as on the findings (`rule_id`, falling back to the criterion).
     pub rule_id: String,

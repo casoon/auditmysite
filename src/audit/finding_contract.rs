@@ -44,6 +44,7 @@ use crate::taxonomy::{Dimension, IssueClass, Severity, Subcategory};
     Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
 )]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum FindingDomain {
     #[default]
     Accessibility,
@@ -140,6 +141,7 @@ impl FindingDomain {
 /// judgement before it counts as one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum FindingOutcome {
     #[default]
     Fail,
@@ -152,6 +154,7 @@ pub enum FindingOutcome {
 /// becomes a finding; it is recorded in the inventory as excluded.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum Applicability {
     #[default]
     Applies,
@@ -164,6 +167,7 @@ pub enum Applicability {
 /// cause; findings that repeat it elsewhere are references.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum ScoringEffect {
     /// Charged in the owner's weighted module score.
     Deduction,
@@ -183,6 +187,7 @@ pub enum ScoringEffect {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct FindingScoring {
     /// Module score (`module_scores[].name`) or `risk` that is responsible.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -214,6 +219,7 @@ impl FindingScoring {
 /// Where the finding was observed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum LocationScope {
     /// Elements in the rendered DOM (occurrences carry selectors).
     #[default]
@@ -230,6 +236,7 @@ pub enum LocationScope {
 
 /// The finding contract shared by every domain.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct FindingContract {
     pub domain: FindingDomain,
     /// Collector that produced the finding, e.g. `seo.technical`.
@@ -309,6 +316,7 @@ fn shared_cause_for_wcag(rule_id: &str) -> Option<&'static str> {
 /// Indexability the page is meant to have — context for `noindex`, not a
 /// measurement. Unknown unless declared or implied by the run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct IndexabilityExpectation {
     /// `Some(true)`: the page should be indexed; `Some(false)`: excluding it
     /// is intended; `None`: nobody said.
@@ -319,6 +327,7 @@ pub struct IndexabilityExpectation {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum ExpectationSource {
     /// `--expect-indexable` or `[audit] expect_indexable`.
     Declared,
@@ -364,6 +373,7 @@ impl IndexabilityExpectation {
 
 /// How every collected problem of a page was represented.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct InventoryEntry {
     pub domain: FindingDomain,
     pub source: String,
@@ -375,6 +385,7 @@ pub struct InventoryEntry {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum Disposition {
     /// Represented by the finding with this id in `findings`.
     Finding { finding_id: String },
@@ -384,6 +395,7 @@ pub enum Disposition {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum ExclusionReason {
     /// The page goal makes the check inapplicable (intended noindex).
     NotApplicable,

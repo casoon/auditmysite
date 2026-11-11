@@ -18,6 +18,7 @@ use crate::patterns::help_mechanisms::HelpRegion;
 
 /// Aggregated consistency analysis across all pages in a batch.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct BatchConsistencyAnalysis {
     pub navigation: NavigationConsistency,
     /// WCAG 3.2.6: recurring help mechanisms compared across pages.
@@ -34,6 +35,7 @@ pub struct BatchConsistencyAnalysis {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct CrossPageCriterionAssessment {
     pub criterion: String,
     pub status: String,
@@ -42,6 +44,7 @@ pub struct CrossPageCriterionAssessment {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct StructuredDataConsistency {
     pub type_distribution: Vec<SchemaTypeCount>,
     pub recurring_blockers: Vec<RecurringSchemaFinding>,
@@ -51,12 +54,14 @@ pub struct StructuredDataConsistency {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SchemaTypeCount {
     pub schema_type: String,
     pub pages: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct RecurringSchemaFinding {
     pub key: String,
     pub affected_pages: usize,
@@ -64,6 +69,7 @@ pub struct RecurringSchemaFinding {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SchemaPageMatrixRow {
     pub url: String,
     pub page_kind: String,
@@ -73,6 +79,7 @@ pub struct SchemaPageMatrixRow {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct OrphanPageAnalysis {
     /// Pages not linked from any other audited page.
     pub orphan_urls: Vec<String>,
@@ -82,18 +89,21 @@ pub struct OrphanPageAnalysis {
 
 /// A conflict between two pages for the same schema `@id` entity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SchemaEntityConflict {
     pub entity_id: String,
     pub conflicts: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SchemaGraphAnalysis {
     pub conflicts: Vec<SchemaEntityConflict>,
     pub findings: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct NavigationConsistency {
     /// Pages where the MainNavigation pattern was recognized.
     pub pages_with_main_nav: usize,
@@ -114,6 +124,7 @@ pub struct NavigationConsistency {
 /// merely repeats the phone number in its header on top of the shared footer
 /// is not flagged.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct HelpConsistency {
     /// Pages with at least one help mechanism outside `main`.
     pub pages_with_help: usize,
@@ -125,6 +136,7 @@ pub struct HelpConsistency {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum HelpDeviation {
     /// The mechanism sits only in regions where most pages don't place it.
     Region {
@@ -152,6 +164,7 @@ impl HelpDeviation {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct HeadingConsistency {
     /// Pages with exactly one H1.
     pub pages_with_single_h1: usize,
@@ -164,6 +177,7 @@ pub struct HeadingConsistency {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct CanonicalConsistency {
     /// Number of pages canonicalizing to a www.* host.
     pub www_count: usize,

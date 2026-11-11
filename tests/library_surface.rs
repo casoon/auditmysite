@@ -167,6 +167,126 @@ fn the_check_rejects_new_widened_stale_and_grown_entries() {
     assert_eq!(grown.len(), 1, "{grown:?}");
 }
 
+/// The files that define the report model and the public enums of the curated surface: every
+/// `pub struct` and `pub enum` in them is `#[non_exhaustive]`, so a new field or variant is a
+/// minor change (docs/reference/api.md, stability policy point 2).
+const NON_EXHAUSTIVE_FILES: &[&str] = &[
+    "src/audit/baseline.rs",
+    "src/audit/batch.rs",
+    "src/audit/batch_consistency.rs",
+    "src/audit/budget.rs",
+    "src/audit/collection.rs",
+    "src/audit/exclusion.rs",
+    "src/audit/experimental.rs",
+    "src/audit/finding_contract.rs",
+    "src/audit/finding_derive.rs",
+    "src/audit/frames.rs",
+    "src/audit/interactive_finding.rs",
+    "src/audit/interpretation.rs",
+    "src/audit/normalized.rs",
+    "src/audit/report.rs",
+    "src/audit/scoring.rs",
+    "src/audit/template_dedup.rs",
+    "src/audit/validation.rs",
+    "src/audit/verdict.rs",
+    "src/error.rs",
+    "src/model/annex_kind.rs",
+    "src/model/color_policy.rs",
+    "src/model/interactive_mode.rs",
+    "src/model/report_level.rs",
+    "src/model/wcag_level.rs",
+    "src/wcag/types.rs",
+];
+
+/// Types in those files that stay exhaustive.
+const EXHAUSTIVE: &[&str] = &[
+    // Closed on purpose, so a `match` on them can be complete (api.md lists them).
+    "WcagLevel",
+    "ColorPolicy",
+    // No public fields: nothing to add that could break a literal.
+    "Baseline",
+    "AccessibilityScorer",
+    // Not named by a report field: configuration, the baseline file, collection and exclusion
+    // bookkeeping and batch output views of the pipeline. Uncovered, narrowed with `audit`.
+    "BaselinePage",
+    "BaselineFile",
+    "BatchConfig",
+    "BudgetConfig",
+    "CollectorSpec",
+    "Collected",
+    "CollectionRecord",
+    "CollectionLog",
+    "SelectorMatch",
+    "ExclusionScope",
+    "ExclusionTally",
+    "Pass",
+    "BatchExclusionSummary",
+    "BatchExclusionSelector",
+    "DomainPolicy",
+    "FrameObservation",
+    "InterpretArea",
+    "BatchFinding",
+    "RuleMetadata",
+];
+
+/// `pub struct` / `pub enum` names of `src` whose attribute block lacks `#[non_exhaustive]`.
+fn exhaustive_types(src: &str) -> Vec<String> {
+    let lines: Vec<&str> = src.lines().collect();
+    let mut found = Vec::new();
+    for (i, line) in lines.iter().enumerate() {
+        let rest = match line
+            .strip_prefix("pub struct ")
+            .or_else(|| line.strip_prefix("pub enum "))
+        {
+            Some(rest) => rest,
+            None => continue,
+        };
+        let name: String = rest
+            .chars()
+            .take_while(|c| c.is_alphanumeric() || *c == '_')
+            .collect();
+        // The doc comment and attributes above the item, up to the previous item or a blank line.
+        let marked = lines[..i]
+            .iter()
+            .rev()
+            .take_while(|l| {
+                let l = l.trim_end();
+                !l.trim().is_empty() && !l.ends_with('}') && !l.ends_with(';')
+            })
+            .any(|l| l.trim() == "#[non_exhaustive]");
+        if !marked {
+            found.push(name);
+        }
+    }
+    found
+}
+
+#[test]
+fn the_report_model_is_non_exhaustive() {
+    let mut problems = Vec::new();
+    for file in NON_EXHAUSTIVE_FILES {
+        for name in exhaustive_types(&read(file)) {
+            if !EXHAUSTIVE.contains(&name.as_str()) {
+                problems.push(format!("{file}: `{name}`"));
+            }
+        }
+    }
+    assert!(
+        problems.is_empty(),
+        "public types of the report model without #[non_exhaustive] (#940): add the attribute, \
+         or list the type in EXHAUSTIVE with its reason:\n  {}",
+        problems.join("\n  ")
+    );
+}
+
+#[test]
+fn the_non_exhaustive_check_reads_the_attribute_block() {
+    let src = "/// Doc.\n#[derive(Debug)]\n#[non_exhaustive]\npub struct A {\n    x: u8,\n}\n\n\
+               #[derive(Debug)]\npub enum B {\n    X,\n}\n\
+               #[non_exhaustive]\npub struct C;\npub struct D;\n";
+    assert_eq!(exhaustive_types(src), vec!["B", "D"]);
+}
+
 /// The paths `auditmysite_studio` imports from this crate (inventory of #940). A removed or
 /// narrowed path fails the build of this test, not Studio's. `normalize` is deprecated and stays
 /// until Studio moves to `normalize_checked`.

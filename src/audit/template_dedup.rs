@@ -41,6 +41,7 @@ const MIN_COVERAGE_PCT: f64 = 60.0;
 /// `id` is the pattern id of the findings (`a11y_report::RootCauseId`), so a
 /// root cause links straight to `findings[].patterns[]` on every page.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub struct RootCause {
     pub id: String,
     pub rule_id: String,

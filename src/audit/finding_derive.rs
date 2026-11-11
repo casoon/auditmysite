@@ -31,6 +31,7 @@ pub(super) fn calculate_priority_score(
 /// a rule id or category string alone never confirms a finding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum DetectionMethod {
     /// The check measures the property the criterion names (a missing
     /// attribute, a computed contrast ratio).
@@ -47,6 +48,7 @@ pub enum DetectionMethod {
 /// What the occurrences of one finding carry as evidence (#784).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum EvidenceQuality {
     /// Every occurrence names its element or carries recorded evidence.
     #[default]
@@ -172,6 +174,7 @@ pub(super) fn derive_assurance(method: DetectionMethod, evidence: EvidenceQualit
 /// The basis `derive_assurance` decided on, carried in the JSON so the
 /// confidence of every finding is traceable to it (#784).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct AssuranceBasis {
     pub method: DetectionMethod,
     pub evidence: EvidenceQuality,
@@ -183,6 +186,7 @@ pub struct AssuranceBasis {
 /// language via [`complexity_text`] — and lets a post-merge dedup pass update
 /// the count without re-running the branch decision (#406).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[non_exhaustive]
 pub enum ComplexityKind {
     HighOccurrence {
         occurrence_count: usize,
@@ -297,6 +301,7 @@ pub(super) fn derive_complexity(
 /// kept in the JSON for compatibility, but no report sentence states it as a
 /// score effect (plan 99; a simulated value is plan 107).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[non_exhaustive]
 pub enum ScoreEffect {
     High,
     Medium,
@@ -319,6 +324,7 @@ fn score_effect(severity: Severity, occurrence_count: usize) -> ScoreEffect {
 /// fully reproduces the sentence in any language via [`expected_impact_text`]
 /// — and lets a post-merge dedup pass update the count (#406).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum ExpectedImpactKind {
     Wcag {
         occurrence_count: usize,

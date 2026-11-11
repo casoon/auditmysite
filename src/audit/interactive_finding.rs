@@ -17,6 +17,7 @@ use crate::taxonomy::Severity;
 /// Populated only when `--interactive != off`; otherwise the report's
 /// `accessibility_journey` field stays `None`.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct AccessibilityJourney {
     /// Execution coverage for the interactive layer. This is separate from
     /// findings so "nothing found" remains distinguishable from "not run".
@@ -33,6 +34,7 @@ pub struct AccessibilityJourney {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct JourneyExecution {
     pub mode: String,
     pub budget_ms: u64,
@@ -53,6 +55,7 @@ pub struct JourneyExecution {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct JourneyRun {
     pub journey: String,
     pub status: crate::audit::ExecutionStatus,
@@ -64,6 +67,7 @@ pub struct JourneyRun {
 /// snapshots captured along the way. The trace is the *evidence* attached to
 /// every interactive finding.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct JourneyTrace {
     /// Journey identifier: "tab_walk", "skip_link", "modal_contact", ...
     pub journey: String,
@@ -74,6 +78,7 @@ pub struct JourneyTrace {
 /// A single step in a journey. Designed to read naturally as JSON so a
 /// developer can reproduce the journey by replaying the actions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct JourneyStep {
     /// "tab" | "shift_tab" | "enter" | "escape" | "arrow_down" | "click"
     /// | "synthetic_click" (fallback) | "type" | "wait"
@@ -97,6 +102,7 @@ pub struct JourneyStep {
 /// Finding produced by an interactive (journey) test. Distinct from WCAG
 /// `findings[]` — does not feed `severity_counts` or `legal_flags`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct InteractiveFinding {
     /// "TabOrder" | "FocusTrap" | "StateTransition" | "FocusRestoration"
     /// | "FormError" | "SpaNavigation" | "HiddenFocusable" | "SkipLink"
@@ -135,6 +141,7 @@ pub struct InteractiveFinding {
 /// only text source, English for the JSON consumers, localized in the PDF.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum FindingUncertainty {
     /// The page went quiet `waited_ms` after the action, before the settle
     /// budget ran out. A reaction arriving later was not observed — measured
@@ -202,6 +209,7 @@ impl InteractiveFinding {
 /// [`InteractiveFindingValues`] this fully reproduces the human-readable
 /// strings in any language (#406).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum InteractiveFindingKind {
     HiddenFocusableAriaHidden,
     HiddenFocusableInert,
@@ -254,6 +262,7 @@ pub enum InteractiveFindingKind {
 /// can reproduce the strings in any locale. Only the fields relevant to the
 /// finding's `kind` are populated.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct InteractiveFindingValues {
     /// CSS selector of the affected element (hidden-focusable / focus-indicator kinds).
     #[serde(default, skip_serializing_if = "Option::is_none")]

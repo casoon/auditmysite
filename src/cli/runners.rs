@@ -465,30 +465,26 @@ async fn run_batch(
         urls.len()
     };
 
-    let sample = auditmysite::audit::SampleMetadata {
-        source: url_source.to_string(),
-        total_discovered,
-        audited: total_urls,
-        sample_limit: (args.max_pages > 0).then_some(args.max_pages),
-        selection: if sampled_by_strata {
-            "stratified".to_string()
-        } else if path_filtered {
-            "path_filter".to_string()
-        } else if total_urls < total_discovered {
-            "first_n".to_string()
-        } else {
-            "all".to_string()
-        },
-        is_sample: total_urls < total_discovered,
-        strata: draws
-            .into_iter()
-            .map(|d| auditmysite::audit::SampleStratum {
-                key: d.key,
-                discovered: d.discovered,
-                selected: d.selected,
-            })
-            .collect(),
+    let selection = if sampled_by_strata {
+        "stratified"
+    } else if path_filtered {
+        "path_filter"
+    } else if total_urls < total_discovered {
+        "first_n"
+    } else {
+        "all"
     };
+    let mut sample = auditmysite::audit::SampleMetadata::new(
+        url_source,
+        total_discovered,
+        total_urls,
+        selection,
+    );
+    sample.sample_limit = (args.max_pages > 0).then_some(args.max_pages);
+    sample.strata = draws
+        .into_iter()
+        .map(|d| auditmysite::audit::SampleStratum::new(d.key, d.discovered, d.selected))
+        .collect();
 
     // The pages actually attempted, in input order — the technician index
     // lists every one of them, audited or not (plan 67).
@@ -731,11 +727,7 @@ fn worst_verdict(verdicts: &[Verdict]) -> Verdict {
 }
 
 fn verdict_message_text(vr: &auditmysite::VerdictResult) -> String {
-    let label = match vr.verdict {
-        auditmysite::Verdict::Pass => "PASS",
-        auditmysite::Verdict::Warn => "WARN",
-        auditmysite::Verdict::Fail => "FAIL",
-    };
+    let label = vr.verdict.label();
     if vr.reasons.is_empty() {
         label.to_string()
     } else {
@@ -747,10 +739,13 @@ fn print_verdict(vr: &auditmysite::VerdictResult, quiet: bool) {
     if quiet {
         return;
     }
-    let label = match vr.verdict {
-        auditmysite::Verdict::Pass => "PASS".green().bold(),
-        auditmysite::Verdict::Warn => "WARN".yellow().bold(),
-        auditmysite::Verdict::Fail => "FAIL".red().bold(),
+    // `Verdict` is `#[non_exhaustive]`: the label comes from the crate, the colour from the
+    // exit code (0, 1, 2), and any other code is shown as a failure.
+    let label = vr.verdict.label();
+    let label = match vr.verdict.exit_code() {
+        0 => label.green().bold(),
+        1 => label.yellow().bold(),
+        _ => label.red().bold(),
     };
     if vr.reasons.is_empty() {
         eprintln!("\n{}", label);

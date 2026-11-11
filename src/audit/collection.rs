@@ -25,6 +25,7 @@ pub const COLLECTION_CONTRACT_VERSION: u32 = 1;
 /// How a collector obtains its raw data.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum CollectionMethod {
     /// `Runtime.evaluate` of a collection script.
     JavaScript,
@@ -37,6 +38,7 @@ pub enum CollectionMethod {
 /// Outcome of one collection, as published in the report.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum CollectionState {
     /// The collector ran and returned a valid, non-empty result.
     Measured,

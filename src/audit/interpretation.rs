@@ -16,6 +16,7 @@ use crate::wcag::coverage::{ClaimLimits, ManualReview};
 
 /// A piece of text pre-computed in both German and English.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct LocalizedText {
     pub de: String,
     pub en: String,
@@ -40,6 +41,7 @@ impl LocalizedText {
 /// Critical).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum ScoreBand {
     Excellent,
     Good,
@@ -66,6 +68,7 @@ impl ScoreBand {
 /// Never a conformance state: "no automated violations" is its own kind (#782).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum AccessibilityClaimKind {
     /// The accessibility module did not run or failed.
     NotMeasured,
@@ -81,6 +84,7 @@ pub enum AccessibilityClaimKind {
 /// Machine-readable accessibility statement: result, scope and what is left
 /// to a manual review (#782).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct AccessibilityClaim {
     pub kind: AccessibilityClaimKind,
     /// Run coverage the kind is bounded by (`execution.quality.status`).
@@ -218,6 +222,7 @@ pub fn accessibility_claim_text(
 /// Computed once during normalization and stored on the `NormalizedReport` so
 /// that every output formatter can read values rather than recalculating them.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Interpretation {
     /// Scoped accessibility statement; the first technical-overview bullet
     /// is derived from it.

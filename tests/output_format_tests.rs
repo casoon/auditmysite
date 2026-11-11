@@ -210,26 +210,21 @@ fn test_json_with_collection_records_matches_schema() {
         score: 40,
         ..Default::default()
     });
-    report
-        .accessibility
-        .execution
-        .module_runs
-        .push(auditmysite::audit::ModuleRun {
-            module: "seo".into(),
-            status: auditmysite::audit::ExecutionStatus::Partial,
-            subchecks: vec![auditmysite::audit::collection::CollectionRecord {
-                collector: "seo.image_efficiency".into(),
-                module: "seo".into(),
-                state: auditmysite::audit::collection::CollectionState::Failed,
-                method: auditmysite::audit::collection::CollectionMethod::JavaScript,
-                method_version: 1,
-                scoring: true,
-                reason_code: Some("evaluation_failed".into()),
-                gaps: vec![],
-            }
-            .into()],
-            ..Default::default()
-        });
+    let mut run = auditmysite::audit::ModuleRun::default();
+    run.module = "seo".into();
+    run.status = auditmysite::audit::ExecutionStatus::Partial;
+    run.subchecks = vec![auditmysite::audit::collection::CollectionRecord {
+        collector: "seo.image_efficiency".into(),
+        module: "seo".into(),
+        state: auditmysite::audit::collection::CollectionState::Failed,
+        method: auditmysite::audit::collection::CollectionMethod::JavaScript,
+        method_version: 1,
+        scoring: true,
+        reason_code: Some("evaluation_failed".into()),
+        gaps: vec![],
+    }
+    .into()];
+    report.accessibility.execution.module_runs.push(run);
     report.accessibility.execution.quality.status = auditmysite::audit::AuditQualityStatus::Partial;
     report.accessibility.execution.quality.qualified_results = true;
     let normalized = normalize(&report);
@@ -484,19 +479,13 @@ fn test_technician_index_and_findings_match_schemas() {
         }],
         raw_html: None,
     });
+    let mut blocked = BatchError::new("https://example.com/blocked", "blocked");
+    blocked.blocked_reason = Some("the server answered HTTP 403".to_string());
     let batch = BatchReport::from_reports(
         vec![report.clone()],
         vec![
-            BatchError {
-                url: "https://example.com/blocked".to_string(),
-                error: "blocked".to_string(),
-                blocked_reason: Some("the server answered HTTP 403".to_string()),
-            },
-            BatchError {
-                url: "https://example.com/failed".to_string(),
-                error: "Page load timeout".to_string(),
-                blocked_reason: None,
-            },
+            blocked,
+            BatchError::new("https://example.com/failed", "Page load timeout"),
         ],
         100,
     );

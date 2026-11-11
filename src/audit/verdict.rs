@@ -29,6 +29,7 @@ pub const DECISION_CONTRACT: &str = "auditmysite.decision/3";
 /// The thresholds a verdict is computed with. Stored with every report, so a
 /// stored decision stays reproducible from its declared inputs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct DecisionProfile {
     /// `default` when every value is the contract default, else `custom`.
     pub name: String,
@@ -102,6 +103,7 @@ impl DecisionProfile {
 /// Three-level CI verdict derived from audit results.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[non_exhaustive]
 pub enum Verdict {
     Pass,
     Warn,
@@ -129,6 +131,7 @@ impl Verdict {
 /// Verdict plus the reasons that drove it, the contract version and the
 /// profile it was computed with.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct VerdictResult {
     pub contract: String,
     pub profile: DecisionProfile,
@@ -162,6 +165,7 @@ impl VerdictResult {
 
 /// Why a verdict is not `Pass`, with the numbers that decided it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum VerdictReasonKind {
     LegalFlags(usize),
     /// `keyboard` is the subset not operable by keyboard (2.1.1); the rest

@@ -127,16 +127,15 @@ fn report_with(record: CollectionRecord) -> Box<AuditReport> {
         quality.qualified_results = true;
         quality.partial_or_failed_modules = 1;
     }
-    report.accessibility.execution.module_runs.push(ModuleRun {
-        module: record.module.clone(),
-        status: if is_gap {
-            ExecutionStatus::Partial
-        } else {
-            ExecutionStatus::Completed
-        },
-        subchecks: vec![record.into()],
-        ..Default::default()
-    });
+    let mut run = ModuleRun::default();
+    run.module = record.module.clone();
+    run.status = if is_gap {
+        ExecutionStatus::Partial
+    } else {
+        ExecutionStatus::Completed
+    };
+    run.subchecks = vec![record.into()];
+    report.accessibility.execution.module_runs.push(run);
     // The run status above follows `fold_records`.
     report
 }

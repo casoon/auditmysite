@@ -42,6 +42,7 @@ pub fn finding_id_of(rule_id: &str) -> String {
 /// One recorded finding: its id and the rule it was derived from. The rule
 /// makes the file reviewable in a diff and lets the reader verify the id.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct BaselineFinding {
     pub id: String,
     pub rule: String,
@@ -74,6 +75,7 @@ pub struct Baseline {
 /// What the run knows of the baseline for one page; stored in the page's
 /// `run_context`, so a stored report reproduces its classification.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct PageBaseline {
     /// Whether the baseline lists this URL at all. A page it does not list
     /// has no known findings.
@@ -84,6 +86,7 @@ pub struct PageBaseline {
 /// The inputs of a page's verdict that are left after the known findings are
 /// removed. The score thresholds are not baselined: the score is unchanged.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct BaselineGate {
     pub legal_flags: usize,
     pub blocking_issues: usize,
@@ -95,6 +98,7 @@ pub struct BaselineGate {
 
 /// How one page relates to the baseline (`baseline` of the page, JSON).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct BaselineStatus {
     /// Digest of the baseline file (also in `decision.profile.baseline_digest`).
     pub digest: String,
@@ -114,6 +118,7 @@ pub struct BaselineStatus {
 
 /// The batch inputs of the verdict left after the known findings are removed.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct BatchBaselineGate {
     pub legal_flags: usize,
     pub blocking_issues: usize,
@@ -124,6 +129,7 @@ pub struct BatchBaselineGate {
 
 /// The baseline in a batch summary (`summary.baseline`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct BatchBaselineSummary {
     pub digest: String,
     pub known: usize,

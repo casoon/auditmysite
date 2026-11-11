@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use auditmysite::audit::finding_contract::FindingOutcome;
 use auditmysite::audit::{
-    normalize_checked, AuditQuality, AuditQualityStatus, AuditReport, ExecutionStatus, ModuleRun,
+    normalize_checked, AuditQualityStatus, AuditReport, ExecutionStatus, ModuleRun,
 };
 use auditmysite::cli::WcagLevel;
 use auditmysite::output::format_sarif;
@@ -71,20 +71,18 @@ fn fixture_report(url: &str, alt_message: &str) -> AuditReport {
     );
     results.fold_outcome(RuleRun::not_run("no-forms", NotRun::NotApplicable));
     let mut report = AuditReport::new(url.to_string(), WcagLevel::AA, results, 100);
-    report.accessibility.execution.module_runs.push(ModuleRun {
-        module: "performance".to_string(),
-        status: ExecutionStatus::Failed,
-        message: Some("metrics unavailable".to_string()),
-        ..Default::default()
-    });
+    let mut run = ModuleRun::default();
+    run.module = "performance".to_string();
+    run.status = ExecutionStatus::Failed;
+    run.message = Some("metrics unavailable".to_string());
+    report.accessibility.execution.module_runs.push(run);
     // An errored rule and a failed module: the report says so itself.
-    report.accessibility.execution.quality = AuditQuality {
-        status: AuditQualityStatus::Partial,
-        qualified_results: true,
-        failed_rule_checks: 1,
-        partial_or_failed_modules: 1,
-        reasons: vec!["rule_checks_failed".to_string()],
-    };
+    let quality = &mut report.accessibility.execution.quality;
+    quality.status = AuditQualityStatus::Partial;
+    quality.qualified_results = true;
+    quality.failed_rule_checks = 1;
+    quality.partial_or_failed_modules = 1;
+    quality.reasons = vec!["rule_checks_failed".to_string()];
     report
 }
 

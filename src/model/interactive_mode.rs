@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 /// Depth of the Accessibility-Journey-Layer.
 #[derive(ValueEnum, Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[non_exhaustive]
 pub enum InteractiveMode {
     /// No interactive phase.
     #[value(name = "off")]

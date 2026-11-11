@@ -4,6 +4,7 @@ use clap::ValueEnum;
 
 /// Report detail level for PDF reports
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
+#[non_exhaustive]
 pub enum ReportLevel {
     /// Executive summary — compact overview for management
     #[value(name = "executive")]

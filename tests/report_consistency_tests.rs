@@ -188,11 +188,10 @@ fn foundation_batch_errors_prevent_complete_and_pass() {
     for successful in [0, 1, 3] {
         let batch = BatchReport::from_reports(
             vec![clean.clone(); successful],
-            vec![BatchError {
-                url: "https://example.com/unreachable".into(),
-                error: "timeout".into(),
-                blocked_reason: None,
-            }],
+            vec![BatchError::new(
+                "https://example.com/unreachable",
+                "timeout",
+            )],
             1,
         );
         assert_ne!(
@@ -243,22 +242,13 @@ fn foundation_pass_policy_is_the_same_for_raw_and_normalized_results() {
 
 #[test]
 fn foundation_viewport_blending_cannot_hide_critical_barriers() {
-    use auditmysite::audit::{ViewportScoreSet, ViewportScores};
     let mut report = make_full_report();
     for (desktop, mobile) in [(49, 100), (100, 49)] {
-        report.viewport_scores = Some(ViewportScores {
-            desktop: ViewportScoreSet {
-                accessibility: desktop,
-                performance: None,
-                overall: desktop,
-            },
-            mobile: ViewportScoreSet {
-                accessibility: mobile,
-                performance: None,
-                overall: mobile,
-            },
-            weighted_overall: ((desktop as f64 * 0.3) + mobile as f64 * 0.7).round() as u32,
-        });
+        report.viewport_scores = Some(from_json(serde_json::json!({
+            "desktop": { "accessibility": desktop, "overall": desktop },
+            "mobile": { "accessibility": mobile, "overall": mobile },
+            "weighted_overall": ((desktop as f64 * 0.3) + mobile as f64 * 0.7).round() as u32,
+        })));
         let normalized = normalize(&report).normalized;
         assert!(
             normalized.score <= 49,
@@ -274,7 +264,6 @@ fn foundation_viewport_blending_cannot_hide_critical_barriers() {
 
 #[test]
 fn foundation_published_weights_reconstruct_scores_for_every_module_subset() {
-    use auditmysite::audit::{ViewportScoreSet, ViewportScores};
     // Independent oracle: the published product weights, including subsets
     // and boundary values. Viewport diagnostic values must not change them.
     for mask in 0..32 {
@@ -282,19 +271,11 @@ fn foundation_published_weights_reconstruct_scores_for_every_module_subset() {
             let mut report = make_full_report();
             report.accessibility.wcag_results = WcagResults::new();
             report.accessibility.score = a11y as f32;
-            report.viewport_scores = Some(ViewportScores {
-                desktop: ViewportScoreSet {
-                    accessibility: a11y,
-                    performance: Some(0),
-                    overall: 0,
-                },
-                mobile: ViewportScoreSet {
-                    accessibility: a11y,
-                    performance: Some(100),
-                    overall: 100,
-                },
-                weighted_overall: 70,
-            });
+            report.viewport_scores = Some(from_json(serde_json::json!({
+                "desktop": { "accessibility": a11y, "performance": 0, "overall": 0 },
+                "mobile": { "accessibility": a11y, "performance": 100, "overall": 100 },
+                "weighted_overall": 70,
+            })));
             if mask & 1 == 0 {
                 report.performance = None;
             }
@@ -368,6 +349,13 @@ fn foundation_lint_rejects_consistent_looking_but_false_reports() {
 
 // ─── Helpers ───────────────────────────────────────────────────────
 
+/// A report value from its JSON form: the report types are
+/// `#[non_exhaustive]`, so a test outside the crate cannot write the literal
+/// of one without a constructor (#940).
+fn from_json<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> T {
+    serde_json::from_value(value).expect("report value from JSON")
+}
+
 fn make_violations() -> WcagResults {
     let mut results = WcagResults::new();
     results.passes = 50;
@@ -410,9 +398,9 @@ fn make_violations() -> WcagResults {
 }
 
 fn make_performance() -> PerformanceResults {
-    PerformanceResults {
-        vitals: WebVitals::default(),
-        score: PerformanceScore {
+    PerformanceResults::new(
+        WebVitals::default(),
+        PerformanceScore {
             overall: 75,
             grade: PerformanceGrade::Silver,
             lcp_score: Some(20),
@@ -428,15 +416,7 @@ fn make_performance() -> PerformanceResults {
             is_capped: None,
             partial: false,
         },
-        render_blocking: None,
-        content_weight: None,
-        third_party: None,
-        critical_chain: None,
-        minification: None,
-        animations: None,
-        coverage: None,
-        measurement_warnings: Vec::new(),
-    }
+    )
 }
 
 fn make_seo() -> SeoAnalysis {
@@ -1627,23 +1607,22 @@ fn test_json_report_includes_report_artifact_fields() {
             signals: vec!["test signal".to_string()],
         }],
     });
-    report.experience.budget_violations = vec![auditmysite::audit::BudgetViolation {
-        metric: "LCP".to_string(),
-        budget_label: "<= 2500 ms".to_string(),
-        actual_label: "3200 ms".to_string(),
-        budget_value: 2500.0,
-        actual_value: 3200.0,
-        exceeded_by_pct: 28.0,
-        severity: auditmysite::audit::BudgetSeverity::Warning,
-    }];
-    report.throttled_performance = vec![auditmysite::audit::ThrottledPerfResult {
-        profile: auditmysite::browser::ThrottleProfile::Slow3G,
-        lcp_ms: Some(3200.0),
-        tbt_ms: Some(180.0),
-        cls: Some(0.03),
-        score: Some(72),
-        spread: None,
-    }];
+    report.experience.budget_violations = vec![from_json(serde_json::json!({
+        "metric": "LCP",
+        "budget_label": "<= 2500 ms",
+        "actual_label": "3200 ms",
+        "budget_value": 2500.0,
+        "actual_value": 3200.0,
+        "exceeded_by_pct": 28.0,
+        "severity": auditmysite::audit::BudgetSeverity::Warning,
+    }))];
+    report.throttled_performance = vec![from_json(serde_json::json!({
+        "profile": auditmysite::browser::ThrottleProfile::Slow3G,
+        "lcp_ms": 3200.0,
+        "tbt_ms": 180.0,
+        "cls": 0.03,
+        "score": 72,
+    }))];
     report.patterns = Some(auditmysite::patterns::PatternAnalysis {
         recognized: vec![auditmysite::patterns::RecognizedPattern {
             pattern: "MainNavigation".to_string(),
@@ -2041,17 +2020,15 @@ fn domain_contract_accepts_honest_partial_results_and_rejects_false_completeness
         .scope
         .requested_modules
         .push("optional_probe".into());
-    normalized.execution.module_runs.push(ModuleRun {
-        module: "optional_probe".into(),
-        status: ExecutionStatus::Partial,
-        subchecks: vec![SubcheckRun {
-            subcheck: "detail".into(),
-            status: ExecutionStatus::Failed,
-            reason_code: Some("probe_timeout".into()),
-            ..Default::default()
-        }],
-        ..Default::default()
-    });
+    let mut subcheck = SubcheckRun::default();
+    subcheck.subcheck = "detail".into();
+    subcheck.status = ExecutionStatus::Failed;
+    subcheck.reason_code = Some("probe_timeout".into());
+    let mut run = ModuleRun::default();
+    run.module = "optional_probe".into();
+    run.status = ExecutionStatus::Partial;
+    run.subchecks = vec![subcheck];
+    normalized.execution.module_runs.push(run);
     normalized.execution.quality.status = AuditQualityStatus::Partial;
     normalized.execution.quality.qualified_results = true;
     normalized.validate().unwrap();
@@ -2095,14 +2072,12 @@ fn domain_contract_distinguishes_capture_gaps_from_intentional_scope() {
         (None, true),
     ] {
         let mut report = valid.clone();
-        report.execution.frames = Some(FrameCoverage {
-            skipped: vec![FrameEntry {
-                selector: "iframe".into(),
-                reason,
-                ..Default::default()
-            }],
-            ..Default::default()
-        });
+        let mut frame = FrameEntry::default();
+        frame.selector = "iframe".into();
+        frame.reason = reason;
+        let mut frames = FrameCoverage::default();
+        frames.skipped = vec![frame];
+        report.execution.frames = Some(frames);
         assert_eq!(report.validate().is_err(), gap, "{reason:?}");
     }
     for (status, gap) in [

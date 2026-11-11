@@ -8,6 +8,7 @@ use thiserror::Error;
 
 /// Main error type for the auditmysite application
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum AuditError {
     /// The process received an operating-system shutdown signal.
     #[error("Audit interrupted by {signal}; in-progress work was discarded")]
