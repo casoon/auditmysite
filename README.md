@@ -264,8 +264,8 @@ Key layers:
 - `audit/`: pipeline, normalization, scoring, batch processing
 - `wcag/`: rule engine and violations
 - `output/`: CLI, JSON, PDF, AI, summary format
-- `seo/`, `security/`, `performance/`, `mobile/`, `ux/`, `journey/`: optional analysis modules
-- `tech_stack/`: detection module; `ux/`, `journey/`, `source_quality/`, `ai_visibility/`, `content_visibility/`, `commerce/`: experimental indicators (`--experimental`)
+- `seo/`, `security/`, `performance/`, `mobile/`, `ux/`, `page_flow/`: optional analysis modules
+- `tech_stack/`: detection module; `ux/`, `page_flow/` (indicator `journey`), `source_quality/`, `ai_visibility/`, `content_visibility/`, `commerce/`: experimental indicators (`--experimental`)
 
 Parts of the checks live in [barrierlab](https://github.com/casoon/barrierlab) and come in as published crates (`a11y-rules`, `a11y-dom`, `a11y-report`, `accname`, `a11y-perception`, `web-checks`, `html-conform`); fixes there are released first and then taken over here by raising the version. Details and the boundary: [Shared libraries from barrierlab](docs/concepts/barrierlab.md). Current implementation: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

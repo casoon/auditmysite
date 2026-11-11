@@ -38,8 +38,8 @@ impl AuditCatalog {
         use crate::commerce::CommerceModule;
         use crate::content_visibility::ContentVisibilityModule;
         use crate::html_conform::HtmlConformModule;
-        use crate::journey::JourneyModule;
         use crate::mobile::MobileModule;
+        use crate::page_flow::JourneyModule;
         use crate::performance::PerformanceModule;
         use crate::privacy::PrivacyModule;
         use crate::security::SecurityModule;

@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::journey::PageIntent;
+use crate::page_flow::PageIntent;
 use crate::seo::schema::StructuredData;
 use crate::seo::schema_parity::VisibleSchemaFacts;
 use crate::seo::schema_rules::ProductRuleContext;

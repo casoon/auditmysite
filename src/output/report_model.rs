@@ -1183,7 +1183,7 @@ pub struct JourneyPresentation {
 }
 
 pub struct JourneyDimensionPresentation {
-    pub kind: crate::journey::JourneyDimensionKind,
+    pub kind: crate::page_flow::JourneyDimensionKind,
     pub name: String,
     pub score: u32,
     pub weight_pct: u32,
@@ -1191,13 +1191,13 @@ pub struct JourneyDimensionPresentation {
 }
 
 pub struct FrictionPointPresentation {
-    pub kind: crate::journey::FrictionKind,
+    pub kind: crate::page_flow::FrictionKind,
     pub step: String,
     pub severity: String,
     pub problem: String,
     pub impact: String,
     pub recommendation: String,
-    pub values: crate::journey::FrictionValues,
+    pub values: crate::page_flow::FrictionValues,
 }
 
 // ─── Shared Helper Types ────────────────────────────────────────────────────

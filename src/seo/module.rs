@@ -33,7 +33,7 @@ impl AuditModule for SeoModule {
     async fn collect(&self, ctx: &ModuleContext<'_>) -> Result<ModuleData> {
         match analyze_seo(ctx.page, ctx.url, ctx.collection).await {
             Ok(mut seo) => {
-                seo.page_intent = Some(crate::journey::detect_page_intent(ctx.ax_tree));
+                seo.page_intent = Some(crate::page_flow::detect_page_intent(ctx.ax_tree));
                 Ok(ModuleData::Seo(Box::new(seo)))
             }
             Err(e) => {

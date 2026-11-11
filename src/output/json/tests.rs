@@ -618,7 +618,7 @@ fn test_modules_under_page_detail() {
         fetch: Default::default(),
     })
     .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
-    .with_journey(crate::journey::analyze_journey(&crate::AXTree::new()));
+    .with_journey(crate::page_flow::analyze_journey(&crate::AXTree::new()));
 
     let active_keys: Vec<&'static str> = active_modules(&report)
         .into_iter()
@@ -712,7 +712,7 @@ fn all_active_modules_report() -> AuditReport {
         issues: vec![],
     })
     .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
-    .with_journey(crate::journey::analyze_journey(&crate::AXTree::new()))
+    .with_journey(crate::page_flow::analyze_journey(&crate::AXTree::new()))
     .with_best_practices(crate::best_practices::BestPracticesAnalysis {
         console_errors: crate::best_practices::ConsoleErrorsAnalysis {
             errors: vec![],

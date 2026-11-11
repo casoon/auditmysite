@@ -945,10 +945,10 @@ fn collect(
             )
             .text({
                 let (kind, values) = (point.kind, point.values.clone());
-                move |en| crate::journey::journey_friction_text(kind, &values, en).0
+                move |en| crate::page_flow::journey_friction_text(kind, &values, en).0
             })
             .review();
-            if point.kind == crate::journey::FrictionKind::NoH1 {
+            if point.kind == crate::page_flow::FrictionKind::NoH1 {
                 c.cause = Some(H1_MISSING);
             }
             out.push(c);
@@ -1472,7 +1472,7 @@ mod tests {
         );
         let tree = crate::accessibility::AXTree::from_nodes(Vec::new());
         report.ux = Some(crate::ux::analyze_ux(&tree));
-        report.journey = Some(crate::journey::analyze_journey_with_page_context(
+        report.journey = Some(crate::page_flow::analyze_journey_with_page_context(
             &tree, false, None,
         ));
         let n = normalize(&report).normalized;
@@ -1915,9 +1915,9 @@ mod tests {
             values: Default::default(),
         }];
         report = report.with_ux(ux);
-        let mut journey = crate::journey::analyze_journey(&crate::AXTree::new());
-        journey.friction_points = vec![crate::journey::FrictionPoint {
-            kind: crate::journey::FrictionKind::NoH1,
+        let mut journey = crate::page_flow::analyze_journey(&crate::AXTree::new());
+        journey.friction_points = vec![crate::page_flow::FrictionPoint {
+            kind: crate::page_flow::FrictionKind::NoH1,
             step: "entry".to_string(),
             severity: "high".to_string(),
             problem: "No H1.".to_string(),

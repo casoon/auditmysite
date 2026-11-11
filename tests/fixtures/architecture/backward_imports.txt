@@ -24,9 +24,9 @@ src/commerce/module.rs 2
 src/content_visibility/mod.rs 5
 src/content_visibility/module.rs 2
 src/content_visibility/ssr_gap.rs 7
-src/journey/module.rs 12
 src/mobile/mod.rs 6
 src/mobile/module.rs 2
+src/page_flow/module.rs 12
 src/patterns/easy_language.rs 6
 src/patterns/help_mechanisms.rs 6
 src/performance/animations.rs 4

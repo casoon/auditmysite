@@ -197,7 +197,7 @@ pub(super) fn build_modules_block_from_normalized(
         let journey_score =
             normalized_module_score(&normalized.normalized, "Journey").unwrap_or(j.score);
         let journey_dimensions = {
-            use crate::journey::{journey_dimension_name, JourneyDimensionKind::*};
+            use crate::page_flow::{journey_dimension_name, JourneyDimensionKind::*};
             [
                 (EntryClarity, j.entry_clarity.score),
                 (Orientation, j.orientation.score),

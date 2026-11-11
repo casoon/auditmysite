@@ -12,11 +12,11 @@
 
 use auditmysite::audit::{normalize, AuditReport, BatchReport, PerformanceResults};
 use auditmysite::cli::WcagLevel;
-use auditmysite::journey::{analyze_journey, JourneyAnalysis};
 use auditmysite::mobile::MobileFriendliness;
 use auditmysite::output::builder::build_view_model;
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{format_ai_json, format_json_batch, UnifiedReport};
+use auditmysite::page_flow::{analyze_journey, JourneyAnalysis};
 use auditmysite::performance::{PerformanceGrade, PerformanceScore, WebVitals};
 use auditmysite::registry::LETTER_GRADE;
 use auditmysite::security::SecurityAnalysis;

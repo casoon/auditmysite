@@ -54,7 +54,7 @@ fn make_security_from_headers(
 #[test]
 fn experimental_indicators_are_one_block_and_in_no_score() {
     use crate::accessibility::AXTree;
-    use crate::journey::analyze_journey;
+    use crate::page_flow::analyze_journey;
     use crate::ux::analyze_ux;
 
     let mut report = make_report(WcagResults::new());
@@ -100,7 +100,7 @@ fn no_experimental_block_without_experimental_indicators() {
 #[test]
 fn only_weighted_modules_carry_a_letter_grade() {
     use crate::accessibility::AXTree;
-    use crate::journey::analyze_journey;
+    use crate::page_flow::analyze_journey;
     use crate::ux::analyze_ux;
 
     let mut report = make_report(WcagResults::new());
@@ -176,7 +176,7 @@ fn seo_signal_categories_publish_their_denominator() {
 #[test]
 fn derived_indicators_name_the_modules_they_re_read() {
     use crate::accessibility::AXTree;
-    use crate::journey::analyze_journey;
+    use crate::page_flow::analyze_journey;
     use crate::ux::analyze_ux;
 
     let mut report = make_report(WcagResults::new());

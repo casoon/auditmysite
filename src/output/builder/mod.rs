@@ -211,7 +211,7 @@ mod tests {
             95,
         )
         .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
-        .with_journey(crate::journey::analyze_journey(&crate::AXTree::new()));
+        .with_journey(crate::page_flow::analyze_journey(&crate::AXTree::new()));
 
         let batch = BatchReport::from_reports(vec![report.clone()], vec![], 1400);
         let pres = build_batch_presentation(&batch);

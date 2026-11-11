@@ -277,11 +277,12 @@ src/
 │   ├── analysis.rs
 │   └── scoring.rs
 │
-├── journey/             # User journey analysis, page intent detection
+├── page_flow/           # AXTree user-flow heuristic (page intent, friction points; indicator `journey`, #938). Not `a11y_journey`
 │   ├── mod.rs, module.rs
 │   ├── analysis.rs
 │   ├── page_intent.rs
-│   └── scoring.rs
+│   ├── scoring.rs
+│   └── js/early_text.js # Visible text in the first viewport (embedded script)
 │
 ├── ai_visibility/       # AI/LLM discoverability analysis
 │   ├── mod.rs, module.rs

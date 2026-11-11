@@ -24,7 +24,7 @@ use auditmysite::ai_visibility::AiVisibilityModule;
 use auditmysite::audit::module::AuditModule;
 use auditmysite::audit::AuditReport;
 use auditmysite::content_visibility::ContentVisibilityModule;
-use auditmysite::journey::{analyze_journey_with_dom_check, JourneyModule};
+use auditmysite::page_flow::{analyze_journey_with_dom_check, JourneyModule};
 use auditmysite::seo::SeoAnalysis;
 use auditmysite::source_quality::SourceQualityModule;
 use auditmysite::ux::{analyze_ux, UxModule};
