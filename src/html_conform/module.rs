@@ -13,7 +13,7 @@ use crate::error::Result;
 
 use super::analyze_html_conform;
 
-pub struct HtmlConformModule;
+pub(crate) struct HtmlConformModule;
 
 #[async_trait]
 impl AuditModule for HtmlConformModule {

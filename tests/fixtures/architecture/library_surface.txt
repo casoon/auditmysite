@@ -22,7 +22,7 @@ commerce crate
 content_visibility queued
 display queued
 error curated
-html_conform queued
+html_conform crate
 i18n queued
 interaction queued
 lint queued
@@ -40,7 +40,7 @@ seo queued
 source_quality queued
 studio curated
 taxonomy queued
-tech_stack queued
+tech_stack crate
 util queued
 ux queued
 wcag queued

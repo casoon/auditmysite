@@ -47,7 +47,7 @@ pub(crate) fn bare_id(rule_id: &str) -> &str {
 }
 
 /// The family of a checker rule id, `None` for an id no family covers.
-pub fn family(rule_id: &str) -> Option<&'static str> {
+pub(crate) fn family(rule_id: &str) -> Option<&'static str> {
     let id = bare_id(rule_id);
     let name = id.strip_prefix("elements.");
     let starts = |prefix: &str| id.starts_with(prefix);
@@ -171,7 +171,7 @@ pub fn family(rule_id: &str) -> Option<&'static str> {
 
 /// Localized `(title, fix hint)` for a checker rule id. An id without a family
 /// gets the generic pair, so a finding never lacks a recommendation.
-pub fn recommendation(rule_id: &str, i18n: &I18n) -> (String, String) {
+pub(crate) fn recommendation(rule_id: &str, i18n: &I18n) -> (String, String) {
     let family = family(rule_id).unwrap_or("generic");
     (
         i18n.t(&format!("html-conform-{family}-title")),

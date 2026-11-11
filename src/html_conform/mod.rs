@@ -11,10 +11,10 @@
 //! ([`message::SchemaDetail`], the #406 kind-enum pattern), from which the PDF
 //! writes the run-language text; see [`message`].
 
-pub mod message;
-pub mod module;
-pub mod recommendation;
-pub use module::HtmlConformModule;
+pub(crate) mod message;
+pub(crate) mod module;
+pub(crate) mod recommendation;
+pub(crate) use module::HtmlConformModule;
 
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
@@ -111,7 +111,7 @@ async fn check_blocking(
     .expect("html_conform::check task panicked")
 }
 
-pub async fn analyze_html_conform(
+pub(crate) async fn analyze_html_conform(
     page: &Page,
     log: &crate::audit::collection::CollectionLog,
 ) -> Result<HtmlConformAnalysis> {

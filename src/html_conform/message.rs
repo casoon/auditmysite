@@ -110,7 +110,7 @@ impl SchemaDetail {
 /// The message of a finding in the requested language. `en = true` returns the
 /// stored canonical English unchanged; otherwise `detail`, when present, is the
 /// text source, and the message is parsed only for findings without one.
-pub fn message_text(
+pub(crate) fn message_text(
     rule_id: &str,
     message: &str,
     detail: Option<&SchemaDetail>,
@@ -171,7 +171,7 @@ fn family_title(rule_id: &str) -> String {
 
 /// The message split into its text and the `line:column` it ends with
 /// (` at 190:12271`), when it carries one.
-pub fn strip_position(message: &str) -> (&str, Option<(u32, u32)>) {
+pub(crate) fn strip_position(message: &str) -> (&str, Option<(u32, u32)>) {
     if let Some((body, tail)) = message.rsplit_once(" at ") {
         if let Some((line, col)) = tail.trim().split_once(':') {
             if let (Ok(line), Ok(col)) = (line.parse(), col.parse()) {
@@ -184,7 +184,8 @@ pub fn strip_position(message: &str) -> (&str, Option<(u32, u32)>) {
 
 /// The element a message names (`unexpected element `{ns}span``), without the
 /// namespace. `None` for messages that name no element.
-pub fn element_name(message: &str) -> Option<String> {
+#[cfg(any(feature = "pdf", test))]
+pub(crate) fn element_name(message: &str) -> Option<String> {
     let body = strip_position(message).0;
     // The German rendering of the same message (`Unerwartetes Element <span> ...`).
     if let Some(rest) = body.strip_prefix("Unerwartetes Element <") {
@@ -194,7 +195,8 @@ pub fn element_name(message: &str) -> Option<String> {
 }
 
 /// `line:column` of a finding location as `(line, column)`.
-pub fn parse_location(location: &str) -> Option<(u32, u32)> {
+#[cfg(any(feature = "pdf", test))]
+pub(crate) fn parse_location(location: &str) -> Option<(u32, u32)> {
     let (line, col) = location.trim().split_once(':')?;
     Some((line.parse().ok()?, col.parse().ok()?))
 }
