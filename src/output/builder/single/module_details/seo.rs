@@ -130,7 +130,7 @@ pub(super) fn build_seo_details(
                         if count > 1 {
                             format!("{label} ({count}×)")
                         } else {
-                            label.to_string()
+                            label
                         },
                         crate::seo::schema::schema_issue_text(issue, en),
                     )
@@ -932,7 +932,7 @@ fn build_robots_presentation(r: &RobotsAudit, en: bool) -> RobotsPresentation {
             let fully_blocked = g.disallows.iter().any(|d| d == "/");
             (
                 g.user_agent.clone(),
-                g.bot_class.label(en).to_string(),
+                g.bot_class.label(en),
                 g.allows.len(),
                 g.disallows.len(),
                 fully_blocked,

@@ -1,20 +1,24 @@
 //! Guards of `locales/{de,en}/seo-issues.ftl` (#936): the same keys in both
 //! languages, every key defined once, used and resolving without errors, and
-//! no German in the English file.
+//! no German in the English file. The file also holds the structured-data and
+//! robots.txt table labels.
 
 use super::issue_texts_export::{meta_values, schema_issues, technical_scenarios, META_KINDS};
+use super::label_texts_export::{robots_audits, BOT_CLASSES, OTHER_POLICIES};
 use super::meta::meta_issue_text;
-use super::schema::schema_issue_text;
+use super::robots::{infer_robots_policy, localize_policy_label};
+use super::schema::{schema_issue_label, schema_issue_text};
 use super::technical::collect_technical_issues;
 use fluent_bundle::{FluentArgs, FluentBundle, FluentResource, FluentValue};
 use std::collections::BTreeSet;
 
 const EN: &str = include_str!("../../locales/en/seo-issues.ftl");
 const DE: &str = include_str!("../../locales/de/seo-issues.ftl");
-const SOURCES: [&str; 3] = [
+const SOURCES: [&str; 4] = [
     include_str!("technical.rs"),
     include_str!("meta.rs"),
     include_str!("schema.rs"),
+    include_str!("robots.rs"),
 ];
 
 /// The message ids of a file (column-0 `id =` lines), each only once.
@@ -34,7 +38,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 50);
+    assert_eq!(en.len(), 71);
 }
 
 #[test]
@@ -44,7 +48,7 @@ fn every_message_is_used_by_the_code() {
             SOURCES
                 .iter()
                 .any(|source| source.contains(&format!("\"{id}\""))),
-            "{id} is not used in technical.rs, meta.rs or schema.rs"
+            "{id} is not used in technical.rs, meta.rs, schema.rs or robots.rs"
         );
     }
 }
@@ -122,6 +126,23 @@ fn no_input_leaves_a_key_or_a_placeholder_in_a_message() {
         for issue in schema_issues() {
             let text = schema_issue_text(&issue, en);
             assert!(!leaks(&text), "{issue:?} (en={en}): {text}");
+            let label = schema_issue_label(&issue, en);
+            assert!(!leaks(&label), "{issue:?} (en={en}): {label}");
+        }
+        for class in BOT_CLASSES {
+            let label = class.label(en);
+            assert!(!leaks(&label), "{class:?} (en={en}): {label}");
+        }
+        for (label, audit) in robots_audits() {
+            let policy = infer_robots_policy(&audit, en);
+            assert!(!leaks(&policy), "{label} (en={en}): {policy}");
+            let stored = infer_robots_policy(&audit, true);
+            let localized = localize_policy_label(&stored, en);
+            assert!(!leaks(&localized), "{stored} (en={en}): {localized}");
+            assert_eq!(localized, policy, "{label} (en={en})");
+        }
+        for stored in OTHER_POLICIES {
+            assert_eq!(localize_policy_label(stored, en), stored);
         }
     }
 }

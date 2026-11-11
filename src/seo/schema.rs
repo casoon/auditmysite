@@ -100,47 +100,19 @@ pub fn schema_issue_text(issue: &SchemaIssue, en: bool) -> String {
     crate::i18n::text(fixed, en)
 }
 
-/// Short localized label for report tables.
-pub fn schema_issue_label(issue: &SchemaIssue, en: bool) -> &'static str {
-    match issue.issue_type.as_str() {
-        "jsonld_parse_error" => {
-            if en {
-                "JSON syntax"
-            } else {
-                "JSON-Syntax"
-            }
-        }
-        "jsonld_invalid_root" => {
-            if en {
-                "Root structure"
-            } else {
-                "Wurzelstruktur"
-            }
-        }
-        "jsonld_missing_context" => {
-            if en {
-                "Schema context"
-            } else {
-                "Schema-Kontext"
-            }
-        }
-        "jsonld_missing_type" => {
-            if en {
-                "Schema type"
-            } else {
-                "Schema-Typ"
-            }
-        }
-        "jsonld_graph_not_array" => "@graph",
-        "jsonld_empty_document" => {
-            if en {
-                "Empty block"
-            } else {
-                "Leerer Block"
-            }
-        }
-        _ => "Schema.org",
-    }
+/// Short localized label for report tables: the `seo-schema-label-*` message
+/// of `locales/{en,de}/seo-issues.ftl`.
+pub fn schema_issue_label(issue: &SchemaIssue, en: bool) -> String {
+    let key = match issue.issue_type.as_str() {
+        "jsonld_parse_error" => "seo-schema-label-jsonld-parse-error",
+        "jsonld_invalid_root" => "seo-schema-label-jsonld-invalid-root",
+        "jsonld_missing_context" => "seo-schema-label-jsonld-missing-context",
+        "jsonld_missing_type" => "seo-schema-label-jsonld-missing-type",
+        "jsonld_graph_not_array" => "seo-schema-label-jsonld-graph-not-array",
+        "jsonld_empty_document" => "seo-schema-label-jsonld-empty-document",
+        _ => "seo-schema-label-other",
+    };
+    crate::i18n::text(key, en)
 }
 
 /// JSON-LD schema data
