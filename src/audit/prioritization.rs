@@ -146,7 +146,8 @@ pub fn action_order(a: &NormalizedFinding, b: &NormalizedFinding) -> std::cmp::O
     b.severity
         .cmp(&a.severity)
         .then_with(|| {
-            is_mandatory(&b.category, &b.wcag_level).cmp(&is_mandatory(&a.category, &a.wcag_level))
+            is_mandatory(b.category(), &b.wcag_level)
+                .cmp(&is_mandatory(a.category(), &a.wcag_level))
         })
         .then_with(|| b.priority_score.total_cmp(&a.priority_score))
         .then_with(|| b.occurrence_count.cmp(&a.occurrence_count))

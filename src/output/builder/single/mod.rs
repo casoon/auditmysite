@@ -110,7 +110,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         .normalized
         .findings
         .iter()
-        .filter(|f| f.category == "wcag")
+        .filter(|f| f.category() == "wcag")
         .map(|f| f.title.trim().to_lowercase())
         .collect();
     let sorted_groups: Vec<FindingGroup> = normalized
@@ -122,7 +122,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
             ReportLevel::Standard => f.report_visibility.standard,
             ReportLevel::Technical => f.report_visibility.technical,
         })
-        .filter(|f| f.category == "wcag" || !wcag_titles.contains(&f.title.trim().to_lowercase()))
+        .filter(|f| f.category() == "wcag" || !wcag_titles.contains(&f.title.trim().to_lowercase()))
         .map(|f| finding_group_from_normalized(&i18n, f.clone(), Vec::new()))
         .collect();
 

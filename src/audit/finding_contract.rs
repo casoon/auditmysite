@@ -1268,7 +1268,6 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
         id,
         patterns,
         pattern_count,
-        category: category.to_string(),
         rule_id: rule_id.clone(),
         wcag_criterion: String::new(),
         axe_id: None,

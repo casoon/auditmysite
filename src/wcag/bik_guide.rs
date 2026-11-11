@@ -196,7 +196,7 @@ pub fn derive_bik_chapters(
             BikChapterId::Images => {
                 let mut map = std::collections::BTreeMap::new();
                 for f in findings.iter().filter(|f| {
-                    f.category == "wcag"
+                    f.category() == "wcag"
                         && IMAGES_WCAG_CRITERIA.contains(&f.wcag_criterion.as_str())
                 }) {
                     add(&mut map, &f.rule_id, f.occurrence_count);
@@ -278,7 +278,7 @@ pub fn derive_bik_chapters(
             BikChapterId::Videos => {
                 let mut map = std::collections::BTreeMap::new();
                 for f in findings.iter().filter(|f| {
-                    f.category == "wcag"
+                    f.category() == "wcag"
                         && VIDEOS_WCAG_CRITERIA.contains(&f.wcag_criterion.as_str())
                 }) {
                     add(&mut map, &f.rule_id, f.occurrence_count);
@@ -340,7 +340,6 @@ mod tests {
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,
-            category: "wcag".into(),
             rule_id: rule_id.into(),
             wcag_criterion: wcag_criterion.into(),
             axe_id: None,
