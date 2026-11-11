@@ -4,6 +4,18 @@
 //! `run()` is the **single** pipeline hook; phases 2–5 extend its body
 //! without changing the signature.
 //!
+//! # Boundary: detect, exercise, primitives (#938)
+//!
+//! This module is the **exercise** phase: it takes the `JourneyCandidate`s
+//! that [`crate::patterns`] detected in the AXTree, drives each one in the
+//! browser (one file per UI concept) and judges the state change. It does not
+//! detect patterns itself and does not talk to CDP input directly: clicks,
+//! keys, focus reads and settling come from [`crate::interaction`]. It imports
+//! both; neither imports it (`tests/architecture_test.rs`).
+//!
+//! Not to be confused with [`crate::page_flow`], the static AXTree heuristic
+//! behind the `journey` indicator (named `journey` until #938).
+//!
 //! Phase 2: tab-walk evaluation, skip-link, disclosure, modal, tabs, menu journeys.
 //! Phase 3: form-error announcement, SPA-navigation detection, link/heading/landmark inventory.
 

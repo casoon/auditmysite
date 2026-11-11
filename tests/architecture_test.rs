@@ -175,6 +175,29 @@ fn model_imports_nothing_else_from_the_crate() {
     );
 }
 
+/// The interaction phases depend downwards only (#938): `patterns` detects,
+/// `a11y_journey` exercises what `patterns` found with the primitives of
+/// `interaction`. So `patterns` and `interaction` import neither of the
+/// phases above them nor each other. No baseline, every line is a failure.
+#[test]
+fn patterns_interaction_a11y_journey_depend_downwards_only() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let forbidden: [(&str, &[&str]); 2] = [
+        ("patterns", &["crate::a11y_journey", "crate::interaction"]),
+        ("interaction", &["crate::a11y_journey", "crate::patterns"]),
+    ];
+    for (module, needles) in forbidden {
+        let mut files = Vec::new();
+        rust_files(&root.join("src").join(module), &mut files);
+        assert!(!files.is_empty(), "src/{module} has no Rust files");
+        let found = count_imports_in(&files, needles);
+        assert!(
+            found.is_empty(),
+            "{module} must not import {needles:?} (detect -> exercise -> primitives, #938): {found:?}"
+        );
+    }
+}
+
 #[test]
 fn the_ratchet_rejects_new_and_grown_imports_and_stale_entries() {
     let map = |items: &[(&str, usize)]| -> BTreeMap<String, usize> {

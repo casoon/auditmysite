@@ -199,7 +199,7 @@ src/
 │   ├── renderer.rs      # Top-level format dispatch
 │   └── snapshot_export.rs # AXTree + journey traces → YAML (`auditmysite-dev --export-snapshot`)
 │
-├── a11y_journey/        # Accessibility Journey Layer (--interactive)
+├── a11y_journey/        # Accessibility Journey Layer (--interactive): phase 2 of detect → exercise → primitives, drives the candidates of `patterns` with the primitives of `interaction`
 │   ├── mod.rs           # Orchestrator: run() single entry point, commerce gating
 │   ├── tab_walk.rs      # Tab-order recording + focus evaluation
 │   ├── skip_link.rs     # Skip-link activation journey
@@ -299,7 +299,7 @@ src/
 ├── tech_stack/          # CMS/framework detection from in-page signals
 │   └── mod.rs, module.rs
 │
-├── patterns/            # UI pattern detection (nav, accordion, modal, ..., help-mechanism inventory)
+├── patterns/            # UI pattern detection (nav, accordion, modal, ..., help-mechanism inventory): phase 1 (detect), imports neither `a11y_journey` nor `interaction`
 │   ├── mod.rs           # PatternKind/JourneyKind registry, analyze()
 │   ├── main_navigation.rs, accordion.rs, modal_dialog.rs
 │   ├── disclosure_menu.rs, tab_list.rs, skip_link.rs
@@ -307,7 +307,7 @@ src/
 │   ├── add_to_cart.rs   # Add-to-cart button/feedback detection
 │   └── quantity_stepper.rs # Quantity-stepper control detection
 │
-├── interaction/         # Browser interaction primitives (actions only, no evaluation)
+├── interaction/         # Browser interaction primitives (actions only, no evaluation): phase 3 (primitives), imports neither `patterns` nor `a11y_journey`
 │   ├── pointer.rs       # CDP mouse events + synthetic click fallback
 │   ├── keyboard.rs      # CDP key events
 │   ├── focus.rs         # FocusSnapshot, incl. backend-node-id resolution (pierces shadow roots)
@@ -527,6 +527,32 @@ Uses CDP `Accessibility.getFullAXTree`:
 - Converts CDP response to internal AXNode structure
 - Preserves parent/child relationships
 - Extracts properties (role, name, focusable, etc.)
+
+### Interaction phases: detect, exercise, primitives (#938)
+
+Three modules, one per phase, not one per UI concept:
+
+| Phase | Module | Needs a browser | Imports |
+| --- | --- | --- | --- |
+| Detect | `patterns` | `analyze()` no (AXTree only); the help-mechanism and easy-language inventories read the page once | neither of the others |
+| Exercise | `a11y_journey` | yes, drives the candidates and judges the state change | `patterns`, `interaction` |
+| Primitives | `interaction` | yes, CDP pointer/keyboard/focus/live-region/settling calls, no evaluation | neither of the others |
+
+A UI concept (modal, tabs, menu, accordion, skip link, form, add-to-cart,
+quantity stepper) appears once per phase: `patterns/modal_dialog.rs` detects
+the dialog, `a11y_journey/modal_journey.rs` operates it. The phases change for
+different reasons (what counts as a pattern; what counts as a failure; how
+Chrome is driven), and `a11y_journey` is the only one of the three that knows
+about findings and journey budgets. A split per concept would put all three
+reasons into every module. The direction is enforced by
+`tests/architecture_test.rs` (`patterns_interaction_a11y_journey_depend_downwards_only`).
+
+`page_flow` (until #938 `journey`) is unrelated to these three: a static
+AXTree heuristic (page intent, friction points) behind the experimental
+`journey` indicator. The indicator name, JSON key and rule ids kept the word;
+only the Rust module path changed. `screen_reader::bfsg`, a thin wrapper over
+`wcag::en301549`, is gone: `screen_reader` reads `EN301549_WEB_CLAUSES`
+directly.
 
 ### Journey Layer: snapshot, act, snapshot, diff
 
