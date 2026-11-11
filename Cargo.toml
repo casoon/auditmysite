@@ -80,7 +80,7 @@ html5ever = "0.40"
 markup5ever_rcdom = "0.40"
 
 # Deep HTML5 spec-conformance checking (RelaxNG + Schematron), scored module
-html-conform = "0.5.0"
+html-conform = "0.8.0"
 
 # i18n (Project Fluent)
 fluent-bundle = "0.16"
@@ -96,11 +96,11 @@ image = { version = "0.25", default-features = false, features = ["png"], option
 # Content hashing for duplicate-asset detection (#551, performance::coverage).
 sha2 = "0.11"
 a11y-perception = "0.2.1"
-a11y-report = "0.29.0"
+a11y-report = "0.30.0"
 web-checks = "0.7.0"
-accname = "0.29.0"
-a11y-dom = "0.29.0"
-a11y-rules = "0.29.0"
+accname = "0.30.0"
+a11y-dom = "0.30.0"
+a11y-rules = "0.30.0"
 csp-parse = "0.1.1"
 stylesheet-parse = "0.1.1"
 
