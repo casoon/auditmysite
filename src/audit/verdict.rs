@@ -103,6 +103,7 @@ impl DecisionProfile {
 /// Three-level CI verdict derived from audit results.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[non_exhaustive]
 pub enum Verdict {
     Pass,
     Warn,

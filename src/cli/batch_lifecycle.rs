@@ -88,10 +88,12 @@ impl BatchLifecyclePresenter {
     /// Closes the lifecycle with AuditMySite's own batch verdict, mapped to
     /// Runemark's semantic outcome.
     pub(crate) fn finish_verdict(&self, verdict: auditmysite::Verdict, message: &str) {
-        let mapped = match verdict {
-            auditmysite::Verdict::Pass => Verdict::Passed,
-            auditmysite::Verdict::Warn => Verdict::Warning,
-            auditmysite::Verdict::Fail => Verdict::Failed,
+        // `auditmysite::Verdict` is `#[non_exhaustive]`; its exit code (0, 1, 2) is the stable
+        // contract, and any other code is a failure.
+        let mapped = match verdict.exit_code() {
+            0 => Verdict::Passed,
+            1 => Verdict::Warning,
+            _ => Verdict::Failed,
         };
         self.finish(mapped, message);
     }

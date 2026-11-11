@@ -201,7 +201,6 @@ const NON_EXHAUSTIVE_FILES: &[&str] = &[
 /// Types in those files that stay exhaustive.
 const EXHAUSTIVE: &[&str] = &[
     // Closed on purpose, so a `match` on them can be complete (api.md lists them).
-    "Verdict",
     "WcagLevel",
     "ColorPolicy",
     // No public fields: nothing to add that could break a literal.

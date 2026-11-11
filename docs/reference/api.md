@@ -29,17 +29,18 @@ What is stable, in this order of strength:
      fields name, down to the leaves (sections, execution and quality, scores, risk, finding
      contract and derivation, interactive findings, interpretation, batch summary, diagnostics and
      consistency, baseline);
-   - the enums `AuditError`, `BatchAuditError`, `Module`, `ExperimentalIndicator`,
-     `InteractiveMode`, `ReportLevel` and `AnnexKind`, and the struct `PipelineConfig`.
+   - the enums `Verdict`, `AuditError`, `BatchAuditError`, `Module`, `ExperimentalIndicator`,
+     `InteractiveMode`, `ReportLevel` and `AnnexKind`, and the struct `PipelineConfig`. A new
+     verdict would also change the CLI exit codes (tier 1), so it is a major version all the same;
+     for code that matches on `Verdict`, `Verdict::exit_code` is the stable mapping.
 
    Outside the crate such a struct cannot be written as a literal, not even with `..base`: start
    from its constructor (`AuditReport::new`, `BatchReport::from_reports`, `Violation::new`,
    `WcagResults::new`, `PipelineConfig::default()`) or `Default` and assign the fields, and end a
-   struct pattern with `..`. A `match` on one of the enums needs a wildcard arm (`_ =>`). Four
+   struct pattern with `..`. A `match` on one of the enums needs a wildcard arm (`_ =>`). Three
    public enums stay exhaustive on purpose, so a `match` on them can be complete: `WcagLevel` (the
-   WCAG levels A, AA, AAA), `Verdict` (PASS, WARN, FAIL are the exit codes 0, 1, 2 of the CLI, so
-   a new verdict is a major change anyway), `ColorPolicy` (`auto`, `always`, `never`) and
-   `Severity` (it is `a11y_report::Severity` from barrierlab and changes there). The report types
+   WCAG levels A, AA, AAA), `ColorPolicy` (`auto`, `always`, `never`) and `Severity` (it is
+   `a11y_report::Severity` from barrierlab and changes there). The report types
    also follow the JSON contract: a field whose JSON counterpart is removed or changes meaning is
    a major change.
 3. **Nothing else.** Every other `pub` item, and every item marked `#[doc(hidden)]`, is public

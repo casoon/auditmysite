@@ -727,11 +727,7 @@ fn worst_verdict(verdicts: &[Verdict]) -> Verdict {
 }
 
 fn verdict_message_text(vr: &auditmysite::VerdictResult) -> String {
-    let label = match vr.verdict {
-        auditmysite::Verdict::Pass => "PASS",
-        auditmysite::Verdict::Warn => "WARN",
-        auditmysite::Verdict::Fail => "FAIL",
-    };
+    let label = vr.verdict.label();
     if vr.reasons.is_empty() {
         label.to_string()
     } else {
@@ -743,10 +739,13 @@ fn print_verdict(vr: &auditmysite::VerdictResult, quiet: bool) {
     if quiet {
         return;
     }
-    let label = match vr.verdict {
-        auditmysite::Verdict::Pass => "PASS".green().bold(),
-        auditmysite::Verdict::Warn => "WARN".yellow().bold(),
-        auditmysite::Verdict::Fail => "FAIL".red().bold(),
+    // `Verdict` is `#[non_exhaustive]`: the label comes from the crate, the colour from the
+    // exit code (0, 1, 2), and any other code is shown as a failure.
+    let label = vr.verdict.label();
+    let label = match vr.verdict.exit_code() {
+        0 => label.green().bold(),
+        1 => label.yellow().bold(),
+        _ => label.red().bold(),
     };
     if vr.reasons.is_empty() {
         eprintln!("\n{}", label);
