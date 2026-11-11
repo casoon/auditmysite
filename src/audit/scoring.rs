@@ -312,6 +312,7 @@ impl AccessibilityScorer {
 
 /// Pass/total ratio of checked WCAG criteria for one principle.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct CoverageRatio {
     pub passed: u32,
     pub total: u32,
@@ -324,6 +325,7 @@ pub struct CoverageRatio {
 /// Shows *where* a site fails: a deep failure in one area versus a broad
 /// failure across all four principles. Does not affect the numeric score.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct PrincipleCoverage {
     pub perceivable: CoverageRatio,
     pub operable: CoverageRatio,
@@ -333,6 +335,7 @@ pub struct PrincipleCoverage {
 
 /// Detailed statistics about violations
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub struct ViolationStatistics {
     pub total: usize,
     pub critical: usize,

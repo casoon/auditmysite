@@ -49,6 +49,7 @@ impl BudgetConfig {
 /// Severity of a budget violation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[non_exhaustive]
 pub enum BudgetSeverity {
     /// Actual value exceeds budget by more than 50%
     Error,
@@ -67,6 +68,7 @@ impl BudgetSeverity {
 
 /// A single budget violation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct BudgetViolation {
     /// Metric name (e.g. "LCP", "JS-Größe")
     pub metric: String,

@@ -27,6 +27,7 @@ use crate::ux::UxAnalysis;
 
 /// One experimental indicator `--experimental` can switch on.
 #[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[non_exhaustive]
 pub enum ExperimentalIndicator {
     /// Structural usability heuristics from the accessibility tree.
     #[value(name = "ux")]
@@ -110,6 +111,7 @@ impl ExperimentalIndicator {
 /// The results of the experimental indicators that ran, moved out of the
 /// ordinary report fields at the end of the audit assembly.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ExperimentalIndicators {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ux: Option<UxAnalysis>,

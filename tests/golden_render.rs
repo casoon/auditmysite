@@ -166,15 +166,7 @@ fn golden_render() {
         let reports: Vec<AuditReport> = sites.iter().map(|s| hydrated(s, locale)).collect();
         let total_duration_ms = reports.iter().map(|r| r.duration_ms).sum();
         BatchReport::from_reports(reports, Vec::new(), total_duration_ms).with_sample(
-            SampleMetadata {
-                source: "url_file".to_string(),
-                total_discovered: sites.len(),
-                audited: sites.len(),
-                sample_limit: None,
-                selection: "all".to_string(),
-                is_sample: false,
-                strata: Vec::new(),
-            },
+            SampleMetadata::new("url_file", sites.len(), sites.len(), "all"),
         )
     };
     let batch_out = out.join("batch");

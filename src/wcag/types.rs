@@ -55,6 +55,7 @@ pub fn evidence_is_dark_color_scheme(evidence: &[Evidence]) -> bool {
 
 /// A WCAG violation found during audit
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Violation {
     /// The WCAG rule that was violated (e.g., "1.1.1")
     pub rule: String,
@@ -420,6 +421,7 @@ pub struct RuleMetadata {
 
 /// Result of running all WCAG checks
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct WcagResults {
     /// Confirmed violations (kind = Violation).
     pub violations: Vec<Violation>,

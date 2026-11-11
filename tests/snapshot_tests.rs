@@ -88,9 +88,9 @@ fn make_violations() -> WcagResults {
 }
 
 fn make_performance() -> PerformanceResults {
-    PerformanceResults {
-        vitals: WebVitals::default(),
-        score: PerformanceScore {
+    PerformanceResults::new(
+        WebVitals::default(),
+        PerformanceScore {
             overall: 75,
             grade: PerformanceGrade::Silver,
             lcp_score: Some(20),
@@ -106,15 +106,7 @@ fn make_performance() -> PerformanceResults {
             is_capped: None,
             partial: false,
         },
-        render_blocking: None,
-        content_weight: None,
-        third_party: None,
-        critical_chain: None,
-        minification: None,
-        animations: None,
-        coverage: None,
-        measurement_warnings: Vec::new(),
-    }
+    )
 }
 
 fn make_full_report() -> AuditReport {

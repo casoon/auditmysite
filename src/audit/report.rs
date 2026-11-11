@@ -24,6 +24,7 @@ use crate::wcag::WcagResults;
 /// Execution state shared by modules, subchecks and the overall audit.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum ExecutionStatus {
     Completed,
     Partial,
@@ -37,6 +38,7 @@ pub enum ExecutionStatus {
 /// One recorded module or sub-analysis run. `reason_code` is stable and safe
 /// for public JSON; `message` is deliberately short and sanitized.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ModuleRun {
     pub module: String,
     pub status: ExecutionStatus,
@@ -54,6 +56,7 @@ pub struct ModuleRun {
 /// collection contract (#777) also carry their `state`, method and version;
 /// `scoring` marks collections the module score depends on.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SubcheckRun {
     pub subcheck: String,
     pub status: ExecutionStatus,
@@ -95,6 +98,7 @@ impl From<super::collection::CollectionRecord> for SubcheckRun {
 
 /// A rule the run is expected to account for, and where (#778).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct RequestedRule {
     pub rule_id: String,
     pub viewports: Vec<String>,
@@ -104,6 +108,7 @@ pub struct RequestedRule {
 /// recorded so an outcome for a rule the filter removed is a contradiction
 /// that can be detected (#778).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct RuleFilterRecord {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub disabled_rules: Vec<String>,
@@ -127,6 +132,7 @@ impl RuleFilterRecord {
 
 /// Requested audit scope, independent of whether the measurements succeeded.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct AuditScope {
     #[serde(default)]
     pub requested_modules: Vec<String>,
@@ -184,6 +190,7 @@ pub const MEASUREMENT_PROFILE_VERSION: u32 = 3;
 /// clicks controls that can submit a form or change a cart. The distinction
 /// is stored with the result so it is never an invisible side effect.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct MeasurementProfile {
     pub version: u32,
     /// Cookie/storage/cache sharing between the pages of the run:
@@ -216,6 +223,7 @@ pub struct MeasurementProfile {
 
 /// Identity of a declared browser state (`--storage-state`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct StorageStateRef {
     /// SHA-256 of the state file, hex.
     pub sha256: String,
@@ -239,6 +247,7 @@ impl Default for MeasurementProfile {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ViewportDefinition {
     pub name: String,
     pub width: u32,
@@ -249,6 +258,7 @@ pub struct ViewportDefinition {
 /// Public, reproducibility-oriented browser information. Executable paths and
 /// launch flags intentionally stay out of the report.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ExecutionEnvironment {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub browser_version: Option<String>,
@@ -258,6 +268,7 @@ pub struct ExecutionEnvironment {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct NavigationSnapshot {
     pub requested_url: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -282,6 +293,7 @@ pub struct NavigationSnapshot {
 
 /// One redirect response in the main document's chain (#775).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct RedirectHop {
     /// The URL that answered with a redirect.
     pub url: String,
@@ -316,6 +328,7 @@ impl NavigationSnapshot {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ViewportMetaRefresh {
     pub viewport: String,
     #[serde(flatten)]
@@ -324,6 +337,7 @@ pub struct ViewportMetaRefresh {
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum AuditedContentState {
     BeforeConsent,
     AfterConsent,
@@ -332,6 +346,7 @@ pub enum AuditedContentState {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ConsentAuditState {
     pub detected: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -347,6 +362,7 @@ pub struct ConsentAuditState {
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum AuditQualityStatus {
     #[default]
     Complete,
@@ -355,6 +371,7 @@ pub enum AuditQualityStatus {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct AuditQuality {
     pub status: AuditQualityStatus,
     pub qualified_results: bool,
@@ -368,6 +385,7 @@ pub struct AuditQuality {
 
 /// Complete execution/provenance block persisted with the raw audit report.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct AuditExecution {
     #[serde(default)]
     pub scope: AuditScope,
@@ -397,6 +415,7 @@ pub struct AuditExecution {
 
 /// Performance vitals measured under a single network throttle profile.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ThrottledPerfResult {
     pub profile: ThrottleProfile,
     /// LCP in milliseconds
@@ -416,6 +435,7 @@ pub struct ThrottledPerfResult {
 
 /// Min / median / max of one metric over the repeated runs of a profile.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct MetricSpread {
     pub min: f64,
     pub median: f64,
@@ -424,6 +444,7 @@ pub struct MetricSpread {
 
 /// What repeated performance runs of one throttle profile measured.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct RunSpread {
     /// Runs that produced a measurement.
     pub runs: u32,
@@ -442,6 +463,7 @@ pub struct RunSpread {
 /// Screenshot bytes captured during the audit (desktop + mobile viewports).
 /// Not serialized — only used for PDF output.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct PageScreenshots {
     pub desktop: Vec<u8>,
     pub mobile: Vec<u8>,
@@ -449,6 +471,7 @@ pub struct PageScreenshots {
 
 /// Cookie metadata snapshot around consent interaction. Cookie values are never stored.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ConsentPrivacySnapshot {
     pub before_interaction: Vec<ConsentCookieSignal>,
     pub after_interaction: Vec<ConsentCookieSignal>,
@@ -457,6 +480,7 @@ pub struct ConsentPrivacySnapshot {
 
 /// Cookie signal stored for consent/privacy comparison without cookie values.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[non_exhaustive]
 pub struct ConsentCookieSignal {
     pub name: String,
     pub domain: String,
@@ -474,6 +498,7 @@ pub struct ConsentCookieSignal {
 /// are missing (failure reason vs. not-requested).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(tag = "state", content = "reason")]
+#[non_exhaustive]
 pub enum ScreenshotStatus {
     /// Screenshots were captured successfully.
     Captured,
@@ -486,6 +511,7 @@ pub enum ScreenshotStatus {
 
 /// Viewport screenshot with layout metadata
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ViewportScreenshot {
     pub bytes: Vec<u8>,
     pub width: u32,
@@ -498,6 +524,7 @@ pub struct ViewportScreenshot {
 /// Raw audit data for a single viewport pass.
 /// Not serialized — kept in-memory for output builders.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ViewportAuditData {
     pub wcag_results: WcagResults,
     pub accessibility_score: f32,
@@ -513,6 +540,7 @@ pub struct ViewportAuditData {
 /// Dual-viewport raw results — desktop and mobile passes.
 /// Not serialized — kept in-memory only.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct DualViewportResults {
     pub desktop: ViewportAuditData,
     pub mobile: ViewportAuditData,
@@ -520,6 +548,7 @@ pub struct DualViewportResults {
 
 /// Per-viewport scores for JSON / CLI output.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ViewportScoreSet {
     pub accessibility: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -528,6 +557,7 @@ pub struct ViewportScoreSet {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ViewportScores {
     pub desktop: ViewportScoreSet,
     pub mobile: ViewportScoreSet,
@@ -550,6 +580,7 @@ impl ViewportScores {
 /// and performance-budget violations. First of the planned `AuditReport`
 /// section structs that replace the flat list of optional module fields.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ExperienceSection {
     /// Mobile friendliness analysis (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -568,6 +599,7 @@ pub struct ExperienceSection {
 /// violation statistics and the analyzed node count. Grouped into a
 /// section so the `AuditReport` top level stays stable as modules evolve.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct AccessibilitySection {
     /// WCAG check results
     pub wcag_results: WcagResults,
@@ -589,6 +621,7 @@ pub struct AccessibilitySection {
 /// the page is — search engines (SEO), AI/LLM assistants, organic content
 /// visibility, source quality and the detected tech stack.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct DiscoverabilitySection {
     /// SEO analysis (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -609,6 +642,7 @@ pub struct DiscoverabilitySection {
 
 /// Complete audit report for a single URL
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct AuditReport {
     /// The URL that was audited
     pub url: String,
@@ -705,6 +739,7 @@ pub struct AuditReport {
 
 /// Declared inputs of the judgement, stored with the raw report.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct RunContext {
     #[serde(default)]
     pub indexability: crate::audit::finding_contract::IndexabilityExpectation,
@@ -718,6 +753,7 @@ pub struct RunContext {
 
 /// Performance analysis results wrapper
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct PerformanceResults {
     /// Core Web Vitals
     pub vitals: WebVitals,
@@ -750,6 +786,25 @@ pub struct PerformanceResults {
     /// "css_coverage_partial", "js_coverage_unavailable".
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub measurement_warnings: Vec<String>,
+}
+
+impl PerformanceResults {
+    /// Vitals and score without the optional analyses, which start empty and
+    /// are assigned.
+    pub fn new(vitals: WebVitals, score: PerformanceScore) -> Self {
+        Self {
+            vitals,
+            score,
+            render_blocking: None,
+            content_weight: None,
+            third_party: None,
+            critical_chain: None,
+            minification: None,
+            animations: None,
+            coverage: None,
+            measurement_warnings: Vec::new(),
+        }
+    }
 }
 
 impl AuditReport {
@@ -921,6 +976,7 @@ impl AuditReport {
 
 /// Batch audit report for multiple URLs
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct BatchReport {
     /// Individual reports for each URL
     pub reports: Vec<AuditReport>,
@@ -956,6 +1012,7 @@ pub struct BatchReport {
 /// in the report. Surfacing the population size, the applied limit and the
 /// selection method makes the scope of a batch explicit (issue #261).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SampleMetadata {
     /// Origin of the candidate URLs: `"sitemap"`, `"crawl"` or `"url_file"`.
     pub source: String,
@@ -982,8 +1039,26 @@ pub struct SampleMetadata {
     pub strata: Vec<SampleStratum>,
 }
 
+impl SampleMetadata {
+    /// A selection of `audited` out of `total_discovered` candidate URLs from
+    /// `source`, chosen by `selection`; `is_sample` follows from the two
+    /// counts. `sample_limit` and `strata` start empty and are assigned.
+    pub fn new(source: &str, total_discovered: usize, audited: usize, selection: &str) -> Self {
+        Self {
+            source: source.to_string(),
+            total_discovered,
+            audited,
+            sample_limit: None,
+            selection: selection.to_string(),
+            is_sample: audited < total_discovered,
+            strata: Vec::new(),
+        }
+    }
+}
+
 /// One structural stratum of a stratified selection (`[lang/]section[.ext]`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SampleStratum {
     pub key: String,
     /// Candidate URLs in this stratum, before the budget was applied.
@@ -992,8 +1067,19 @@ pub struct SampleStratum {
     pub selected: usize,
 }
 
+impl SampleStratum {
+    pub fn new(key: String, discovered: usize, selected: usize) -> Self {
+        Self {
+            key,
+            discovered,
+            selected,
+        }
+    }
+}
+
 /// Sitemap URL validation result for sitemap-driven batch reports.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SitemapDiagnostics {
     /// HTTP outcome of every checked sitemap URL by class (`2xx`, `3xx`,
     /// `4xx`, `5xx`, `other`, `fetch_error`) — measured for each URL, not
@@ -1044,6 +1130,7 @@ pub struct SitemapDiagnostics {
 /// report surfaces this as an explicit caveat rather than silently
 /// presenting a partial graph as complete.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct CrawlDepthDiagnostics {
     /// The site's homepage BFS started from, after redirects (plan 81).
     pub start_url: String,
@@ -1073,6 +1160,7 @@ pub struct CrawlDepthDiagnostics {
 
 /// One page's BFS click-distance from the crawl-depth start page.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct CrawlDepthEntry {
     pub url: String,
     pub depth: usize,
@@ -1082,6 +1170,7 @@ pub struct CrawlDepthEntry {
 /// `User-agent: *` (#549) — a contradiction between declared indexing intent
 /// (sitemap membership) and actual crawler access.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct RobotsSitemapConflict {
     pub url: String,
     /// The specific `Disallow` path prefix that blocks this URL.
@@ -1090,6 +1179,7 @@ pub struct RobotsSitemapConflict {
 
 /// One sitemap URL whose HTTP/indexability state contradicts sitemap guidance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SitemapHttpIssue {
     /// Canonical issue kind: `"status"`, `"redirect"`, `"noindex"` or `"fetch_error"`.
     pub kind: String,
@@ -1104,6 +1194,7 @@ pub struct SitemapHttpIssue {
 /// Severity of a broken or problematic link finding
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[non_exhaustive]
 pub enum BrokenLinkSeverity {
     High,
     Medium,
@@ -1112,6 +1203,7 @@ pub enum BrokenLinkSeverity {
 
 /// A redirect chain with more than 1 hop detected during link checking.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct RedirectChain {
     /// Page that contains the link
     pub source_url: String,
@@ -1127,6 +1219,7 @@ pub struct RedirectChain {
 
 /// Optional crawl/link diagnostics attached to crawler-driven batch reports.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct CrawlDiagnostics {
     /// Seed URL that started discovery
     pub seed_url: String,
@@ -1149,6 +1242,7 @@ pub struct CrawlDiagnostics {
 
 /// A broken internal link found during crawl-based link checking.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct BrokenLink {
     /// Page that contains the broken link
     pub source_url: String,
@@ -1171,6 +1265,7 @@ pub struct BrokenLink {
 
 /// A failed URL audit
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct BatchError {
     /// The URL that failed
     pub url: String,
@@ -1184,10 +1279,23 @@ pub struct BatchError {
     pub blocked_reason: Option<String>,
 }
 
+impl BatchError {
+    /// A URL that failed with `error`; `blocked_reason` starts empty and is
+    /// assigned for a blocked page.
+    pub fn new(url: impl Into<String>, error: impl Into<String>) -> Self {
+        Self {
+            url: url.into(),
+            error: error.into(),
+            blocked_reason: None,
+        }
+    }
+}
+
 /// URL lifecycle of a batch, counted separately so a partial or failed run is
 /// never read as a complete one (#768). `discovered >= selected >= attempted`;
 /// `attempted = succeeded + blocked + failed`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct BatchCoverage {
     /// Candidate URLs found by the source (sitemap, crawl, file).
     pub discovered: usize,
@@ -1233,6 +1341,7 @@ impl BatchCoverage {
 
 /// Summary statistics for a batch audit
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct BatchSummary {
     /// URLs that produced a report (the denominator of `average_score`).
     /// Failed and blocked URLs are counted in `coverage`, not here.
@@ -1312,6 +1421,7 @@ pub struct BatchSummary {
 
 /// One browser provenance of a batch and the number of pages it measured.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct BrowserPages {
     pub browser: Option<crate::browser::BrowserProvenance>,
     pub pages: usize,
@@ -1345,6 +1455,7 @@ impl BrowserPages {
 
 /// Distribution of the page scores behind `average_score`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ScoreSpread {
     pub min: u32,
     pub median: f64,
@@ -1356,6 +1467,7 @@ pub struct ScoreSpread {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct WorstPage {
     pub url: String,
     pub score: u32,
@@ -1404,6 +1516,7 @@ impl ScoreSpread {
 /// the JSON stays language-independent. Pages without the signal count under
 /// `unclassified` / `language_unknown`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SelectionProfile {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub page_types: BTreeMap<String, usize>,

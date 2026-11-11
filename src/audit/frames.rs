@@ -196,6 +196,7 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
 
 /// Frame coverage of one page: which iframes were audited, which skipped.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct FrameCoverage {
     #[serde(default)]
     pub audited: Vec<FrameEntry>,
@@ -204,6 +205,7 @@ pub struct FrameCoverage {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct FrameEntry {
     /// The iframe element in the page; nested frames as
     /// `"{outer} [frame] {inner}"`.
@@ -227,6 +229,7 @@ pub struct FrameEntry {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum FrameSkipReason {
     /// Rendered out of process: not reachable through the page session. The
     /// audit browser runs without site isolation (#720), so this is left for

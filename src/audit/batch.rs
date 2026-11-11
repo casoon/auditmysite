@@ -47,6 +47,7 @@ pub struct BatchConfig {
 /// unreachable — see `audit_url_with_pool`) case where the retry loop runs out
 /// of attempts without ever capturing an `AuditError`.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum BatchAuditError {
     Audit(AuditError),
     Other(String),
@@ -63,6 +64,7 @@ impl std::fmt::Display for BatchAuditError {
 
 /// Result of a single URL audit within a batch
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct BatchResult {
     /// The URL that was audited
     pub url: String,

@@ -40,6 +40,7 @@ pub use crate::audit::interactive_finding::{
 
 /// Normalisiertes Audit-Modell — einzige Score-Quelle für alle Output-Formate
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct NormalizedReport {
     pub url: String,
     pub wcag_level: WcagLevel,
@@ -158,6 +159,7 @@ pub struct NormalizedReport {
 /// `NormalizedReport` is a complete, valid snapshot without raw data, whereas
 /// `AuditContext` always carries live module results alongside it.
 #[derive(Clone)]
+#[non_exhaustive]
 pub struct AuditContext<'a> {
     pub normalized: NormalizedReport,
     pub raw_dual_viewport: Option<&'a crate::audit::report::DualViewportResults>,
@@ -186,6 +188,7 @@ pub struct AuditContext<'a> {
 
 /// Einheitliche Severity-Zähler
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SeverityCounts {
     pub critical: usize,
     pub high: usize,
@@ -195,6 +198,7 @@ pub struct SeverityCounts {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct AccessibilityAssessment {
     pub kind: String,
     pub rule_id: String,
@@ -254,6 +258,7 @@ fn default_finding_category() -> String {
 /// One element pattern of a finding: the rule at elements whose selectors
 /// normalize to the same form (`a11y_report::normalize_selector`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct FindingPattern {
     /// `RC-` + 8 hex, `a11y_report::RootCauseId` over rule and pattern.
     pub id: String,
@@ -303,6 +308,7 @@ pub(super) fn finding_patterns<'a>(
 
 /// Ein normalisiertes Finding — gruppiert nach Regel, mit Taxonomie-Feldern
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct NormalizedFinding {
     /// Stable finding id (`F-` + 8 hex) from the rule alone: a finding is one
     /// rule on one page, so the id stays the same on every page and in every
@@ -472,6 +478,7 @@ pub fn is_bfsg_relevant_open(
 
 /// Strukturierte Darstellung des Score-Impacts für JSON/API-Verbraucher
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ScoreImpactData {
     pub base_penalty: f32,
     pub max_penalty: f32,
@@ -480,6 +487,7 @@ pub struct ScoreImpactData {
 
 /// Kopie der ReportVisibility für Serialize-Kontext
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ReportVisibilityData {
     pub executive: bool,
     pub standard: bool,
@@ -508,6 +516,7 @@ impl Default for ReportVisibilityData {
 
 /// Detail eines einzelnen Vorkommens
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct OccurrenceDetail {
     pub node_id: String,
     pub message: String,
@@ -545,6 +554,7 @@ pub struct OccurrenceDetail {
 
 /// Score-Eintrag pro Modul
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ModuleScoreEntry {
     pub name: String,
     pub score: u32,
@@ -627,6 +637,7 @@ impl ModuleScoreEntry {
 /// `taxonomy::Subcategory` label (#406); `subcategory_kind` is the PDF-only
 /// re-derivation key, not serialized.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SubcategoryScoreEntry {
     pub name: String,
     #[serde(skip)]
@@ -638,6 +649,7 @@ pub struct SubcategoryScoreEntry {
 /// but for `security::SecurityCategory` (Security has no per-check taxonomy
 /// registry like WCAG's `Subcategory`, see that type's doc comment).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SecurityCategoryScoreEntry {
     pub name: String,
     #[serde(skip)]
@@ -651,6 +663,7 @@ pub struct SecurityCategoryScoreEntry {
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Default,
 )]
 #[serde(rename_all = "lowercase")]
+#[non_exhaustive]
 pub enum RiskLevel {
     #[default]
     Low,
@@ -685,6 +698,7 @@ impl RiskLevel {
 
 /// Risk assessment — computed separately from score.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct RiskAssessment {
     /// Overall risk level
     pub level: RiskLevel,
@@ -773,6 +787,7 @@ impl RiskAssessment {
 /// Transparent breakdown of how `overall_score` was computed in viewport_weighted mode.
 /// Allows consumers to reproduce the exact score from its inputs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ScoreBreakdown {
     /// Human-readable note clarifying that `viewport_scores.weighted_overall`
     /// is pre-security while `overall_score` is the canonical final score.
@@ -802,6 +817,7 @@ pub struct ScoreBreakdown {
 
 /// Explicit audit caveat or conflicting signal surfaced to downstream outputs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct AuditFlag {
     pub kind: String,
     pub related_rule: Option<String>,

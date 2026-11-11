@@ -20,14 +20,28 @@ What is stable, in this order of strength:
    [OUTPUT_CONTRACT.md](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md)).
    A breaking change to either is a major version and a changelog entry.
 2. **The curated library surface** listed in this page. Removing, renaming or changing the
-   signature of a listed item is a major version; adding to it is a minor one. Types that are
-   expected to grow are `#[non_exhaustive]` (`PipelineConfig`, `Module`), so a new field or
-   variant there is a minor change that the compiler enforces. The report types follow the JSON
-   contract: a field whose JSON counterpart is removed or changes meaning is a major change. They
-   are not `#[non_exhaustive]` yet: until they are (#940), a new field breaks code that builds a
-   report type with a struct literal or destructures it completely, and a new variant breaks an
-   exhaustive `match` on a public enum. Such a release is marked under `**Library:**` in the
-   changelog.
+   signature of a listed item is a major version; adding to it is a minor one. A new field of a
+   struct or a new variant of an enum of the surface is a minor change, and the compiler enforces
+   it: these types are `#[non_exhaustive]`:
+   - the report types `AuditReport`, `BatchReport`, `NormalizedReport`, `NormalizedFinding`,
+     `VerdictResult`, `BaselineStatus`, `AuditContext`, `BatchResult`, `ReportContractError`,
+     `Violation` and `WcagResults`, and every struct and enum of the module `audit` that their
+     fields name, down to the leaves (sections, execution and quality, scores, risk, finding
+     contract and derivation, interactive findings, interpretation, batch summary, diagnostics and
+     consistency, baseline);
+   - the enums `AuditError`, `BatchAuditError`, `Module`, `ExperimentalIndicator`,
+     `InteractiveMode`, `ReportLevel` and `AnnexKind`, and the struct `PipelineConfig`.
+
+   Outside the crate such a struct cannot be written as a literal, not even with `..base`: start
+   from its constructor (`AuditReport::new`, `BatchReport::from_reports`, `Violation::new`,
+   `WcagResults::new`, `PipelineConfig::default()`) or `Default` and assign the fields, and end a
+   struct pattern with `..`. A `match` on one of the enums needs a wildcard arm (`_ =>`). Four
+   public enums stay exhaustive on purpose, so a `match` on them can be complete: `WcagLevel` (the
+   WCAG levels A, AA, AAA), `Verdict` (PASS, WARN, FAIL are the exit codes 0, 1, 2 of the CLI, so
+   a new verdict is a major change anyway), `ColorPolicy` (`auto`, `always`, `never`) and
+   `Severity` (it is `a11y_report::Severity` from barrierlab and changes there). The report types
+   also follow the JSON contract: a field whose JSON counterpart is removed or changes meaning is
+   a major change.
 3. **Nothing else.** Every other `pub` item, and every item marked `#[doc(hidden)]`, is public
    only because the binaries, the integration tests or Studio import from it. It may change or
    disappear in any release, including a patch release, and a changelog entry under `**Library:**`
