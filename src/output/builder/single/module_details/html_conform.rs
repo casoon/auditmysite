@@ -271,9 +271,7 @@ mod html_conform_recommendations_tests {
                 .iter()
                 .filter(|f| f.rule_id.starts_with("html_conform."))
                 .map(|f| {
-                    crate::output::builder::single::findings::finding_group_from_normalized(
-                        &i18n, f,
-                    )
+                    crate::output::builder::finding_group::finding_group_from_normalized(&i18n, f)
                 })
                 .collect();
             assert_eq!(groups.len(), 3);

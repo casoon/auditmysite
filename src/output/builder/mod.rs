@@ -6,6 +6,7 @@
 
 mod actions;
 mod batch;
+mod finding_group;
 mod helpers;
 mod modules;
 mod single;
@@ -897,5 +898,60 @@ mod tests {
             records.len(),
             out_path.display()
         );
+    }
+
+    /// #937: the batch report's finding groups come from the same builder as
+    /// the single report's, so a group of a rule without an explanation has
+    /// the localized taxonomy text, a complexity-weighted effort and occurrence
+    /// analysis (clusters, de-duplicated location hints) — and only the batch
+    /// adds the affected URLs.
+    #[test]
+    fn batch_finding_groups_use_the_single_report_derivation() {
+        use crate::wcag::Severity;
+
+        let page = |url: &str| {
+            let mut results = WcagResults::new();
+            for i in 0..14 {
+                results.add_violation(
+                    Violation::new(
+                        "2.2.1",
+                        "Timing Adjustable",
+                        crate::model::WcagLevel::A,
+                        Severity::High,
+                        format!("Refresh after {i} seconds"),
+                        format!("node-{i}"),
+                    )
+                    .with_rule_id("timing/meta-refresh")
+                    .with_selector("meta.refresh"),
+                );
+            }
+            AuditReport::new(url.to_string(), WcagLevel::AA, results, 1000)
+        };
+        let batch = BatchReport::from_reports(
+            vec![page("https://a.example/"), page("https://b.example/")],
+            vec![],
+            1000,
+        );
+        let i18n = crate::i18n::I18n::new("de").expect("locale loads");
+        let pres = build_batch_presentation_with_locale(&batch, &i18n);
+
+        let group = pres
+            .top_issues
+            .iter()
+            .find(|g| g.rule_id == "timing/meta-refresh")
+            .expect("the rule is aggregated");
+        assert_eq!(group.occurrence_count, 28);
+        assert_eq!(group.affected_urls.len(), 2);
+        assert_eq!(
+            group.customer_description,
+            "Fehlendes Refresh- oder Timeout-Handling im Script/Markup."
+        );
+        assert_eq!(
+            group.effort,
+            crate::output::report_model::Effort::Structural
+        );
+        assert_eq!(group.location_hints, vec!["meta.refresh".to_string()]);
+        assert_eq!(group.pattern_clusters.len(), 1);
+        assert_eq!(group.additional_occurrences, 28 - 1);
     }
 }

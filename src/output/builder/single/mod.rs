@@ -3,7 +3,6 @@
 mod actions_block;
 mod diagnosis;
 mod executive;
-mod findings;
 mod methodology;
 mod module_details;
 mod modules_block;
@@ -15,11 +14,11 @@ use self::diagnosis::{
     build_thematic_clusters,
 };
 use self::executive::{build_executive_narrative, build_positive_signals};
-use self::findings::finding_group_from_normalized;
 use self::methodology::{build_appendix_block_from_normalized, build_methodology};
 use self::module_details::build_module_details_from_normalized;
 use self::modules_block::build_modules_block_from_normalized;
 use self::positive::derive_positive_aspects_from_normalized;
+use super::finding_group::finding_group_from_normalized;
 use super::helpers::localized_module_name;
 use crate::output::localized::is_english;
 
