@@ -21,14 +21,18 @@ What is stable, in this order of strength:
    A breaking change to either is a major version and a changelog entry.
 2. **The curated library surface** listed in this page. Removing, renaming or changing the
    signature of a listed item is a major version; adding to it is a minor one. Types that are
-   expected to grow are `#[non_exhaustive]` (`PipelineConfig`, `Module`). The report types follow
-   the JSON contract: a field whose JSON counterpart is removed or changes meaning is a major
-   change. Report types are produced by the crate; building one with a struct literal is not
-   covered, a new field is a minor change.
+   expected to grow are `#[non_exhaustive]` (`PipelineConfig`, `Module`), so a new field or
+   variant there is a minor change that the compiler enforces. The report types follow the JSON
+   contract: a field whose JSON counterpart is removed or changes meaning is a major change. They
+   are not `#[non_exhaustive]` yet: until they are (#940), a new field breaks code that builds a
+   report type with a struct literal or destructures it completely, and a new variant breaks an
+   exhaustive `match` on a public enum. Such a release is marked under `**Library:**` in the
+   changelog.
 3. **Nothing else.** Every other `pub` item, and every item marked `#[doc(hidden)]`, is public
    only because the binaries, the integration tests or Studio import from it. It may change or
    disappear in any release, including a patch release, and a changelog entry under `**Library:**`
-   is the only notice.
+   is the only notice. This tier is a transition: #940 narrows it module by module to
+   `pub(crate)`.
 
 The surface is declared top-down: `src/lib.rs` makes a module `pub(crate)` unless it is in the
 tables below, and the list of modules is checked by `cargo test --test library_surface` (a new

@@ -170,9 +170,10 @@ pub struct TrustPages {
     pub kontakt: bool,
 }
 
-// Every kind names a missing element; the variant names are the serialized `missing_*` kinds, so
-// they are not shortened now that the module is not exported.
-#[allow(clippy::enum_variant_names)]
+#[expect(
+    clippy::enum_variant_names,
+    reason = "every kind names a missing element; the variant names are the serialized `missing_*` kinds of the JSON report"
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CommerceFindingKind {
