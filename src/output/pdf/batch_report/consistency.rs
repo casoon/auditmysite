@@ -252,7 +252,7 @@ pub(super) fn render_batch_consistency(
 
     builder = render_consistency_structured_parity(builder, structured, en);
 
-    builder = render_consistency_page_type_matrix(builder, structured, en);
+    builder = render_consistency_page_type_matrix(builder, structured, i18n);
 
     builder = render_consistency_identity_findings(builder, structured, en);
 
@@ -528,20 +528,21 @@ fn render_consistency_structured_parity(
     builder
 }
 
+/// The schema check classifies a page on its own (page intent and URL) to
+/// pick the schema.org types that fit; that kind is not the content page type
+/// of the other sections and is labelled as its own column, so one URL does
+/// not read as two page types (#1039).
 fn render_consistency_page_type_matrix(
     mut builder: renderreport::engine::ReportBuilder,
     structured: &crate::audit::batch_consistency::StructuredDataConsistency,
-    en: bool,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let en = is_english(i18n);
     if !structured.page_type_matrix.is_empty() {
-        builder = builder.add_component(Callout::info(if en {
-            "The page type is a heuristic from page structure and URL. Suggested types are schema.org types that would fit that page type; they are optional, not a requirement."
-        } else {
-            "Der Seitentyp ist eine Heuristik aus Seitenstruktur und URL. Vorgeschlagene Typen sind schema.org-Typen, die zu diesem Seitentyp passen würden; sie sind optional, keine Pflicht."
-        }));
+        builder = builder.add_component(Callout::info(i18n.t("batch-schema-matrix-note")));
         let mut table = AuditTable::new(vec![
             TableColumn::new("URL").with_width("31%"),
-            TableColumn::new(if en { "Page type" } else { "Seitentyp" }).with_width("19%"),
+            TableColumn::new(i18n.t("batch-schema-matrix-col-kind")).with_width("19%"),
             TableColumn::new("Status").with_width("16%"),
             TableColumn::new(if en {
                 "Suggested / detected"

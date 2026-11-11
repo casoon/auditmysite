@@ -36,7 +36,7 @@ use renderreport::prelude::*;
 
 // Re-export helpers used by sibling sub-modules via `super::`.
 use self::appendix::{cover_logo_asset, register_cover_logo_asset};
-use self::diagnosis::{format_word_count, output_scope_callout};
+use self::diagnosis::format_word_count;
 use self::helpers::create_engine;
 use self::root_causes::{render_root_cause_analysis, render_timeframe_roadmap};
 use self::single_report::{

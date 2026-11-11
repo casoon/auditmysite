@@ -401,6 +401,10 @@ fn render_seo_sitemap_http_issues(
         }
         builder = builder.add_component(table);
     }
+    // The JSON field is only written when there is an issue to list (#1039).
+    if issues.is_empty() {
+        return builder;
+    }
     builder.add_component(TextBlock::new(i18n.t("batch-sitemap-http-json-note")))
 }
 

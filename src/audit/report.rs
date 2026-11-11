@@ -1381,7 +1381,8 @@ pub struct BatchSummary {
     #[serde(default)]
     pub risk: crate::audit::normalized::RiskLevel,
     /// i18n key of the narrative score band sentence
-    /// ("verdict-batch-excellent", …). A band of the average score, not the
+    /// ("verdict-batch-excellent", …). A band of the average score, never
+    /// above `deficient` while legal flags are open (#356); not the
     /// decision: that is `decision`.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub score_band_key: String,
@@ -1753,8 +1754,7 @@ impl BatchReport {
         };
         // Empty when nothing was measured: no band for a batch without a score.
         let score_band_key = average_score.map_or(String::new(), |average| {
-            super::interpretation::verdict_tier_key("verdict-batch", average.round() as u32)
-                .to_string()
+            super::interpretation::batch_verdict_key(average.round() as u32, legal_flags)
         });
 
         let mut result = Self {

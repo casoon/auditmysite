@@ -387,17 +387,69 @@ impl Reasons {
     }
 }
 
+/// Why a batch verdict is not `Pass`, with the numbers that decided it —
+/// the data behind the canonical `reasons` tokens of the batch path, so the
+/// PDF can phrase them in the run language. The counts are batch counts:
+/// `LegalFlags` counts distinct WCAG Level A/AA rules with high or critical
+/// severity across the pages, not findings.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum BatchReasonKind {
+    NoUrlAudited { attempted: usize },
+    LegalFlags(usize),
+    BlockingIssues(usize),
+    TechnicalBlockers(usize),
+    AverageBelowFailThreshold { score: u32, threshold: u32 },
+    IncompleteScope { audited: usize, requested: usize },
+    AuditQualityNotComplete,
+    AverageBelowWarnThreshold { score: u32, threshold: u32 },
+    FailedUrls(usize),
+    ViolationsFound(usize),
+}
+
 /// Decide a batch under `profile` from its summary. The only implementation
 /// of the batch policy; `BatchReport::from_reports` stores its result in
 /// `BatchSummary.decision`.
 pub fn compute_batch_verdict(summary: &BatchSummary, profile: &DecisionProfile) -> VerdictResult {
+    let (verdict, reasons) = decide_batch(summary, profile);
+    // `reason_kinds` stay empty on the batch path: its reasons are batch
+    // counts with their own variants, read through `batch_reason_kinds`.
+    VerdictResult {
+        contract: DECISION_CONTRACT.to_string(),
+        profile: profile.clone(),
+        verdict,
+        reasons: reasons.into_iter().map(|(token, _)| token).collect(),
+        reason_kinds: Vec::new(),
+    }
+}
+
+/// The reasons of the stored batch decision as data, derived by the same
+/// policy under the stored profile (`validate` guarantees the stored decision
+/// is what this policy decides).
+pub fn batch_reason_kinds(summary: &BatchSummary) -> Vec<BatchReasonKind> {
+    decide_batch(summary, &summary.decision.profile)
+        .1
+        .into_iter()
+        .map(|(_, kind)| kind)
+        .collect()
+}
+
+fn decide_batch(
+    summary: &BatchSummary,
+    profile: &DecisionProfile,
+) -> (Verdict, Vec<(String, BatchReasonKind)>) {
     let average_score = summary.average_score.map(|a| a.round() as u32);
     let mut fail = Vec::new();
     // Nothing was measured: no score, no findings, so no PASS/WARN either (#768).
     if summary.coverage.attempted > 0 && summary.coverage.succeeded == 0 {
-        fail.push(format!(
-            "no_url_audited: 0 of {} requested URLs produced a report ({} failed, {} blocked)",
-            summary.coverage.attempted, summary.coverage.failed, summary.coverage.blocked
+        fail.push((
+            format!(
+                "no_url_audited: 0 of {} requested URLs produced a report ({} failed, {} blocked)",
+                summary.coverage.attempted, summary.coverage.failed, summary.coverage.blocked
+            ),
+            BatchReasonKind::NoUrlAudited {
+                attempted: summary.coverage.attempted,
+            },
         ));
     }
     // Under a baseline (#930) the finding-driven inputs are the ones left
@@ -418,87 +470,103 @@ pub fn compute_batch_verdict(summary: &BatchSummary, profile: &DecisionProfile) 
             ),
         };
     if profile.fail_on_legal_flags && legal_flags > 0 {
-        fail.push(format!("legal_flags: {legal_flags} (across all pages)"));
+        fail.push((
+            format!("legal_flags: {legal_flags} (across all pages)"),
+            BatchReasonKind::LegalFlags(legal_flags),
+        ));
     }
     if profile.fail_on_blocking_issues && blocking_issues > 0 {
-        fail.push(format!(
-            "blocking_issues: {blocking_issues} (across all pages)"
+        fail.push((
+            format!("blocking_issues: {blocking_issues} (across all pages)"),
+            BatchReasonKind::BlockingIssues(blocking_issues),
         ));
     }
     if profile.fail_on_technical_blockers && technical_blockers > 0 {
-        fail.push(format!(
-            "technical_blockers: {technical_blockers} (across all pages)"
+        fail.push((
+            format!("technical_blockers: {technical_blockers} (across all pages)"),
+            BatchReasonKind::TechnicalBlockers(technical_blockers),
         ));
     }
     if let Some(threshold) = profile.fail_below_score {
-        if average_score.is_some_and(|a| a < threshold) {
-            fail.push(format!(
-                "average score {} < fail_below_score {}",
-                average_score.unwrap_or(0),
-                threshold
+        if let Some(score) = average_score.filter(|a| *a < threshold) {
+            fail.push((
+                format!("average score {score} < fail_below_score {threshold}"),
+                BatchReasonKind::AverageBelowFailThreshold { score, threshold },
             ));
         }
     }
-    // `reason_kinds` stay empty on the batch path: the batch PDF does not
-    // render the reasons, and the batch-specific ones need their own
-    // variants. `reasons` is the source there.
-    let result = |verdict, reasons| VerdictResult {
-        contract: DECISION_CONTRACT.to_string(),
-        profile: profile.clone(),
-        verdict,
-        reasons,
-        reason_kinds: Vec::new(),
-    };
     if !fail.is_empty() {
-        return result(Verdict::Fail, fail);
+        return (Verdict::Fail, fail);
     }
 
     let mut warn = Vec::new();
     if !summary.coverage.is_complete() {
-        warn.push(format!(
-            "incomplete_scope: {} of {} requested URLs audited ({} failed, {} blocked, {} not attempted)",
-            summary.coverage.succeeded,
-            summary.coverage.selected.max(summary.coverage.attempted),
-            summary.coverage.failed,
-            summary.coverage.blocked,
-            summary.coverage.not_attempted()
+        let requested = summary.coverage.selected.max(summary.coverage.attempted);
+        warn.push((
+            format!(
+                "incomplete_scope: {} of {} requested URLs audited ({} failed, {} blocked, {} not attempted)",
+                summary.coverage.succeeded,
+                requested,
+                summary.coverage.failed,
+                summary.coverage.blocked,
+                summary.coverage.not_attempted()
+            ),
+            BatchReasonKind::IncompleteScope {
+                audited: summary.coverage.succeeded,
+                requested,
+            },
         ));
     }
     if summary.audit_quality.qualified_results {
-        warn.push(format!("audit_quality: {:?}", summary.audit_quality.status));
+        warn.push((
+            format!("audit_quality: {:?}", summary.audit_quality.status),
+            BatchReasonKind::AuditQualityNotComplete,
+        ));
     }
     if technical_blockers > 0 {
-        warn.push(format!(
-            "technical_blockers: {technical_blockers} (across all pages)"
+        warn.push((
+            format!("technical_blockers: {technical_blockers} (across all pages)"),
+            BatchReasonKind::TechnicalBlockers(technical_blockers),
         ));
     }
-    if average_score.is_some_and(|a| a < profile.warn_below_score) {
-        warn.push(format!(
-            "average score {} < warn_below_score {}",
-            average_score.unwrap_or(0),
-            profile.warn_below_score
+    if let Some(score) = average_score.filter(|a| *a < profile.warn_below_score) {
+        warn.push((
+            format!(
+                "average score {score} < warn_below_score {}",
+                profile.warn_below_score
+            ),
+            BatchReasonKind::AverageBelowWarnThreshold {
+                score,
+                threshold: profile.warn_below_score,
+            },
         ));
     } else if summary.failed > 0 {
-        warn.push(format!(
-            "{} {} failed quality threshold",
-            summary.failed,
-            if summary.failed == 1 { "URL" } else { "URLs" }
+        warn.push((
+            format!(
+                "{} {} failed quality threshold",
+                summary.failed,
+                if summary.failed == 1 { "URL" } else { "URLs" }
+            ),
+            BatchReasonKind::FailedUrls(summary.failed),
         ));
     } else if open_violations > 0 {
-        warn.push(format!(
-            "{} {} found",
-            open_violations,
-            if open_violations == 1 {
-                "violation"
-            } else {
-                "violations"
-            }
+        warn.push((
+            format!(
+                "{} {} found",
+                open_violations,
+                if open_violations == 1 {
+                    "violation"
+                } else {
+                    "violations"
+                }
+            ),
+            BatchReasonKind::ViolationsFound(open_violations),
         ));
     }
     if warn.is_empty() {
-        result(Verdict::Pass, Vec::new())
+        (Verdict::Pass, Vec::new())
     } else {
-        result(Verdict::Warn, warn)
+        (Verdict::Warn, warn)
     }
 }
 

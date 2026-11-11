@@ -26,7 +26,6 @@ enum DistributionInsightKind {
     HighThinContentShare,
     NoEditorialContent,
     MarketingDominated,
-    Balanced,
 }
 
 fn distribution_insight_text(kind: DistributionInsightKind, en: bool) -> String {
@@ -48,12 +47,6 @@ fn distribution_insight_text(kind: DistributionInsightKind, en: bool) -> String 
         }
         (DistributionInsightKind::MarketingDominated, true) => {
             "Marketing and landing pages dominate: more structured in-depth content would balance the domain."
-        }
-        (DistributionInsightKind::Balanced, false) => {
-            "Die Seitentypen sind insgesamt ausgewogen verteilt, ohne klar dominierende Schwachmuster."
-        }
-        (DistributionInsightKind::Balanced, true) => {
-            "Page types are distributed in a balanced way overall, without a clearly dominant weak pattern."
         }
     }
     .to_string()
@@ -209,7 +202,9 @@ pub fn build_batch_presentation_with_normalized(
             .then_with(|| a.url.cmp(&b.url))
     });
 
-    let url_details: Vec<CompactUrlSummary> = batch
+    // The rule ids of each page's top issues, parallel to `top_issues`, so
+    // grouping and tie-breaking never depend on the localized title (#1039).
+    let (url_details, top_issue_rule_ids): (Vec<CompactUrlSummary>, Vec<Vec<String>>) = batch
         .reports
         .iter()
         .zip(normalized_reports.iter())
@@ -218,6 +213,11 @@ pub fn build_batch_presentation_with_normalized(
             let sorted = normalized_finding_groups(i18n, nr);
             let top_issue_titles: Vec<String> =
                 sorted.iter().take(3).map(|g| g.title.clone()).collect();
+            let top_issue_rules: Vec<String> = sorted
+                .iter()
+                .take(3)
+                .map(|g| g.finding.rule_id.clone())
+                .collect();
 
             // Unmeasured modules carry no comparable value (plan 86).
             let module_scores = nr
@@ -229,7 +229,7 @@ pub fn build_batch_presentation_with_normalized(
 
             let topic_terms = extract_page_topics(r);
 
-            CompactUrlSummary {
+            let summary = CompactUrlSummary {
                 url: r.url.clone(),
                 score: nr.score as f32,
                 grade: nr.grade.clone(),
@@ -280,9 +280,10 @@ pub fn build_batch_presentation_with_normalized(
                 topic_terms,
                 top_issues: top_issue_titles,
                 module_scores,
-            }
+            };
+            (summary, top_issue_rules)
         })
-        .collect();
+        .unzip();
 
     let mut sorted_by_score: Vec<_> = batch
         .reports
@@ -400,7 +401,7 @@ pub fn build_batch_presentation_with_normalized(
         })
         .collect();
     page_type_distribution.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-    let page_type_groups = build_page_type_groups(&url_details);
+    let page_type_groups = build_page_type_groups(&url_details, &top_issue_rule_ids);
 
     let mut distribution_insights = Vec::new();
     if thin_pages > 0 && (thin_pages as f64 / batch.summary.total_urls as f64) >= 0.2 {
@@ -421,12 +422,8 @@ pub fn build_batch_presentation_with_normalized(
             en,
         ));
     }
-    if distribution_insights.is_empty() && !page_type_distribution.is_empty() {
-        distribution_insights.push(distribution_insight_text(
-            DistributionInsightKind::Balanced,
-            en,
-        ));
-    }
+    // A balanced distribution is no insight with an action: it used to be
+    // listed under "Action needed" with a warning (#1039).
 
     page_semantic_scores.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
     let strongest_content_pages = page_semantic_scores.iter().take(5).cloned().collect();
@@ -749,18 +746,34 @@ pub fn build_batch_presentation_with_normalized(
         use crate::audit::normalized::RiskLevel;
         let worst = crate::audit::compute_worst_risk(normalized_reports);
         let level_str = worst.label_localized(i18n);
-        let en = is_english(i18n);
-        let summary = match (worst, en) {
-            (RiskLevel::Low, true) => "The audited pages overall show a low accessibility risk.",
-            (RiskLevel::Low, false) => "Die geprüften Seiten weisen insgesamt ein geringes Barrierefreiheits-Risiko auf.",
-            (RiskLevel::Medium, true) => "Some pages show medium risk. Targeted improvements recommended.",
-            (RiskLevel::Medium, false) => "Einzelne Seiten weisen mittleres Risiko auf. Gezielte Verbesserungen empfohlen.",
-            (RiskLevel::High, true) => "Several pages show high risk. Timely remediation recommended, especially for WCAG Level A/AA violations.",
-            (RiskLevel::High, false) => "Mehrere Seiten haben hohes Risiko. Zeitnahe Behebung empfohlen, besonders bei WCAG-Level-A/AA-Verstößen.",
-            (RiskLevel::Critical, true) => "Critical risk across multiple pages. WCAG Level A/AA violations detected automatically — prioritised remediation recommended; whether legal obligations follow depends on the applicable framework (e.g. BFSG/EAA) and needs a manual review.",
-            (RiskLevel::Critical, false) => "Kritisches Risiko über mehrere Seiten. WCAG-Level-A/AA-Verstöße automatisiert erkannt — vorrangige Behebung empfohlen; ob daraus rechtliche Pflichten folgen, hängt vom anwendbaren Rahmen (z. B. BFSG/EAA) ab und braucht eine manuelle Prüfung.",
+        // The sentence names how many pages carry the level, instead of
+        // "some pages" when it is all of them (#1039).
+        let pages_at = |levels: &[RiskLevel]| {
+            normalized_reports
+                .iter()
+                .filter(|r| levels.contains(&r.risk.level))
+                .count()
         };
-        (level_str, summary.to_string())
+        let (key, count) = match worst {
+            RiskLevel::Low => ("batch-risk-summary-low", 0),
+            RiskLevel::Medium => (
+                "batch-risk-summary-medium",
+                pages_at(&[RiskLevel::Medium, RiskLevel::High]),
+            ),
+            RiskLevel::High => ("batch-risk-summary-high", pages_at(&[RiskLevel::High])),
+            RiskLevel::Critical => (
+                "batch-risk-summary-critical",
+                pages_at(&[RiskLevel::Critical]),
+            ),
+        };
+        let summary = i18n.t_args(
+            key,
+            &[
+                ("count", count as i64),
+                ("total", normalized_reports.len() as i64),
+            ],
+        );
+        (level_str, summary)
     };
 
     // Domain from first URL
@@ -1142,13 +1155,22 @@ fn build_missing_tag_prevalence(
 
 /// Pages grouped by detected page type (plan 93). The type is a heuristic
 /// classification, not a verified template; a group of one page gets no
-/// mean and no common finding.
-fn build_page_type_groups(url_details: &[CompactUrlSummary]) -> Vec<PageTypeGroup> {
-    let mut groups: std::collections::BTreeMap<&str, Vec<&CompactUrlSummary>> =
+/// mean and no common finding. `top_issue_rule_ids[i]` holds the rule ids of
+/// `url_details[i].top_issues`, in the same order: the common finding is
+/// counted per rule and a tie goes to the lower rule id, so it is the same
+/// finding in every report language (#1039).
+fn build_page_type_groups(
+    url_details: &[CompactUrlSummary],
+    top_issue_rule_ids: &[Vec<String>],
+) -> Vec<PageTypeGroup> {
+    let mut groups: std::collections::BTreeMap<&str, Vec<(&CompactUrlSummary, &[String])>> =
         std::collections::BTreeMap::new();
-    for detail in url_details {
+    for (detail, rule_ids) in url_details.iter().zip(top_issue_rule_ids) {
         if let Some(page_type) = detail.page_type.as_deref() {
-            groups.entry(page_type).or_default().push(detail);
+            groups
+                .entry(page_type)
+                .or_default()
+                .push((detail, rule_ids.as_slice()));
         }
     }
     let mut out: Vec<PageTypeGroup> = groups
@@ -1156,23 +1178,28 @@ fn build_page_type_groups(url_details: &[CompactUrlSummary]) -> Vec<PageTypeGrou
         .map(|(page_type, pages)| {
             let comparable = pages.len() >= 2;
             let avg_accessibility = comparable.then(|| {
-                (pages.iter().map(|p| p.score as f64).sum::<f64>() / pages.len() as f64).round()
-                    as u32
+                (pages.iter().map(|(p, _)| p.score as f64).sum::<f64>() / pages.len() as f64)
+                    .round() as u32
             });
-            let mut finding_pages: std::collections::BTreeMap<&str, usize> =
+            // rule id -> (pages, title in the run language)
+            let mut finding_pages: std::collections::BTreeMap<&str, (usize, &str)> =
                 std::collections::BTreeMap::new();
-            for page in &pages {
-                let titles: std::collections::BTreeSet<&str> =
-                    page.top_issues.iter().map(String::as_str).collect();
-                for title in titles {
-                    *finding_pages.entry(title).or_default() += 1;
+            for (page, rule_ids) in &pages {
+                let mut seen = std::collections::BTreeSet::new();
+                for (rule_id, title) in rule_ids.iter().zip(&page.top_issues) {
+                    if seen.insert(rule_id.as_str()) {
+                        finding_pages
+                            .entry(rule_id.as_str())
+                            .or_insert((0, title.as_str()))
+                            .0 += 1;
+                    }
                 }
             }
             let common_finding = finding_pages
                 .into_iter()
-                .filter(|(_, count)| comparable && *count >= 2)
-                .max_by(|a, b| a.1.cmp(&b.1).then_with(|| b.0.cmp(a.0)))
-                .map(|(title, count)| (title.to_string(), count));
+                .filter(|(_, (count, _))| comparable && *count >= 2)
+                .max_by(|a, b| a.1 .0.cmp(&b.1 .0).then_with(|| b.0.cmp(a.0)))
+                .map(|(_, (count, title))| (title.to_string(), count));
             PageTypeGroup {
                 page_type: page_type.to_string(),
                 pages: pages.len(),
@@ -2051,7 +2078,6 @@ mod duplicate_content_tests {
             DistributionInsightKind::HighThinContentShare,
             DistributionInsightKind::NoEditorialContent,
             DistributionInsightKind::MarketingDominated,
-            DistributionInsightKind::Balanced,
         ] {
             let text = distribution_insight_text(kind, true);
             assert!(
@@ -2311,7 +2337,8 @@ mod minification_inconsistency_tests {
             compact("d", Some("Hub"), 90.0, &["Kontrast"]),
             compact("e", None, 10.0, &["Kontrast"]),
         ];
-        let groups = build_page_type_groups(&details);
+        let rule_ids = rule_ids_of(&details);
+        let groups = build_page_type_groups(&details, &rule_ids);
         assert_eq!(groups.len(), 2);
         assert_eq!(groups[0].page_type, "Editorial");
         assert_eq!(groups[0].pages, 3);
@@ -2320,6 +2347,61 @@ mod minification_inconsistency_tests {
         assert_eq!(groups[1].page_type, "Hub");
         assert_eq!(groups[1].avg_accessibility, None);
         assert_eq!(groups[1].common_finding, None);
+    }
+
+    /// Rule ids standing in for the titles of `compact` pages.
+    fn rule_ids_of(details: &[CompactUrlSummary]) -> Vec<Vec<String>> {
+        details
+            .iter()
+            .map(|d| d.top_issues.iter().map(|t| format!("rule/{t}")).collect())
+            .collect()
+    }
+
+    /// #1039: two findings on the same number of pages tie; the tie goes to
+    /// the lower rule id, so the German and the English report name the same
+    /// finding although the titles sort the other way round.
+    #[test]
+    fn page_type_group_tie_is_broken_by_rule_id_not_title() {
+        let rule_ids = vec![
+            vec!["contrast/text".to_string(), "security/csp".to_string()],
+            vec!["contrast/text".to_string(), "security/csp".to_string()],
+        ];
+        let en = vec![
+            compact(
+                "a",
+                Some("Editorial"),
+                90.0,
+                &["Insufficient color contrast", "Unsafe inline script"],
+            ),
+            compact(
+                "b",
+                Some("Editorial"),
+                90.0,
+                &["Insufficient color contrast", "Unsafe inline script"],
+            ),
+        ];
+        let de = vec![
+            compact(
+                "a",
+                Some("Editorial"),
+                90.0,
+                &["Unzureichender Farbkontrast", "CSP erlaubt Inline-Skripte"],
+            ),
+            compact(
+                "b",
+                Some("Editorial"),
+                90.0,
+                &["Unzureichender Farbkontrast", "CSP erlaubt Inline-Skripte"],
+            ),
+        ];
+        assert_eq!(
+            build_page_type_groups(&en, &rule_ids)[0].common_finding,
+            Some(("Insufficient color contrast".to_string(), 2))
+        );
+        assert_eq!(
+            build_page_type_groups(&de, &rule_ids)[0].common_finding,
+            Some(("Unzureichender Farbkontrast".to_string(), 2))
+        );
     }
 
     #[test]

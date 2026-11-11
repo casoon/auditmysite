@@ -163,7 +163,10 @@ cover-card-critical-high-suffix = critical/high
 cover-card-average = Avg. technical score
 batch-cover-overall-score-note = Mean technical score per URL (0–100, higher is better).
 cover-card-urls = URLs
-cover-card-violations-suffix = finding occurrences (all modules)
+cover-card-wcag-occurrences = { $count ->
+        [one] { $count } WCAG occurrence
+       *[other] { $count } WCAG occurrences
+    }
 batch-cover-eyebrow = Automated batch audit report
 batch-cover-title = Accessibility audit report
 batch-cover-kicker = Cross-page audit of the selected URLs: accessibility as the main score, SEO, performance, security and further modules as context
@@ -1412,3 +1415,72 @@ annotations-reason-url-not-audited = page not audited in this run
 annotations-reason-url-required = reading flow needs a page URL in a multi-page run
 annotations-reason-no-reading-flow = page has no screen-reader audit
 annotations-warnings-title = Notes on the annotation file
+
+# Batch decision, risk and portfolio texts (#1039)
+batch-rating-title = Overall rating
+batch-rating-body = { $rating } — automated check { $verdict }: { $passed } of { $total ->
+        [one] { $total } audited URL
+       *[other] { $total } audited URLs
+    } passed on their own.
+batch-rating-verdict-pass = passed
+batch-rating-verdict-warn = passed with reservations
+batch-rating-verdict-fail = not passed
+batch-rating-reasons = Reasons: { $reasons }.
+batch-rating-note = The rating is a band label for the average accessibility score within the automated scope, not a statement of conformance.
+batch-reason-no-url-audited = none of the { $count } requested URLs produced a report
+batch-reason-legal-flags = { $count ->
+        [one] 1 WCAG Level A/AA rule of high or critical severity is violated on the audited pages (possible legal relevance, BFSG/EAA)
+       *[other] { $count } WCAG Level A/AA rules of high or critical severity are violated on the audited pages (possible legal relevance, BFSG/EAA)
+    }
+batch-reason-blocking-issues = { $count ->
+        [one] 1 control without an accessible name or not operable by keyboard
+       *[other] { $count } controls without an accessible name or not operable by keyboard
+    }
+batch-reason-technical-blockers = { $count ->
+        [one] 1 technical blocker
+       *[other] { $count } technical blockers
+    }
+batch-reason-average-below-fail = average accessibility score { $score } below the fail threshold of { $threshold }
+batch-reason-incomplete-scope = { $audited } of { $requested } requested URLs audited
+batch-reason-audit-quality = the run did not complete in full
+batch-reason-average-below-warn = average accessibility score { $score } below the warning threshold of { $threshold }
+batch-reason-failed-urls = { $count ->
+        [one] 1 URL did not pass its own check
+       *[other] { $count } URLs did not pass their own check
+    }
+batch-reason-violations-found = { $count ->
+        [one] 1 WCAG occurrence found
+       *[other] { $count } WCAG occurrences found
+    }
+batch-risk-summary-low = The audited pages overall show a low accessibility risk.
+batch-risk-summary-medium = { $count } of { $total } audited pages show at least medium risk. Targeted improvements recommended.
+batch-risk-summary-high = { $count } of { $total } audited pages show high risk. Timely remediation recommended, especially for WCAG Level A/AA violations.
+batch-risk-summary-critical = { $count } of { $total } audited pages show critical risk. WCAG Level A/AA violations detected automatically — prioritised remediation recommended; whether legal obligations follow depends on the applicable framework (e.g. BFSG/EAA) and needs a manual review.
+batch-matrix-col-accessibility = Accessibility
+batch-schema-matrix-col-kind = Page kind (schema check)
+batch-schema-matrix-note = The schema check classifies each page on its own, from page intent, URL and visible content, to pick the schema.org types that would fit it; this page kind can differ from the content page type in the other sections. Suggested types are optional, not a requirement.
+batch-scope-note-title = How to read this report
+batch-scope-note-appendix = This PDF is a condensed audit report. It highlights the most important findings, risks and improvement areas, but does not list every technical occurrence. Details per URL are in the technical appendix at the end of this report; the raw data is in the JSON report of the same run.
+batch-scope-note-json = This PDF is a condensed audit report. It highlights the most important findings, risks and improvement areas, but does not list every technical occurrence. The raw data is in the JSON report of the same run; the report level technical (--report-level technical) adds a per-URL appendix.
+batch-next-steps-manual = For a complete WCAG conformance check we additionally recommend a manual audit with assistive technologies (screen reader, keyboard navigation). This audit checks { $automated } of { $total } WCAG 2.2 Level A/AA success criteria automatically; the others need a manual review.
+batch-effect-open-high = { $count ->
+        [one] Good average, but 1 high-severity finding of this module is still open on the audited pages.
+       *[other] Good average, but { $count } high-severity findings of this module are still open on the audited pages.
+    }
+batch-effect-uneven = Good average, but uneven: the weakest audited page scores { $min }/100.
+batch-effect-accessibility-good = Accessibility is broadly stable; no high-severity finding is open on the audited pages.
+batch-effect-accessibility-weak = Accessibility barriers affect repeated user paths and should be prioritized by reach.
+batch-effect-performance-good = Loading behavior is reliable across the audited pages.
+batch-effect-performance-weak = Slower loading can delay important page groups and weaken completion rates.
+batch-effect-seo-good = Search visibility basics are consistent across the audited URL set.
+batch-effect-seo-weak = SEO inconsistencies can dilute discoverability across page templates.
+batch-effect-security-good = The automated checks found no high-severity security issue on the audited pages; this is no security guarantee.
+batch-effect-security-weak = Security findings should be resolved centrally because they often affect all templates.
+batch-effect-mobile-good = Mobile usage is stable across the audited pages.
+batch-effect-mobile-weak = Mobile issues can reduce usability on smaller screens across page groups.
+batch-effect-html-conformance-good = The HTML markup shows no high-severity conformance error on the audited pages, so browsers and assistive technology can parse it consistently.
+batch-effect-html-conformance-weak = HTML conformance issues often come from a shared template and can affect parsing and accessibility tooling across many pages at once.
+batch-effect-other-good = The module is stable across the audited pages.
+batch-effect-other-usable = The module has a usable foundation with targeted cleanup potential.
+batch-effect-other-recurring = The module shows recurring weaknesses across the audited URL set.
+batch-effect-other-structural = The module needs structural attention across multiple pages.

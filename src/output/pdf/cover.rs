@@ -55,6 +55,10 @@ pub(super) fn build_batch_cover_score_row(
     // third band table (`BATCH_GRADE`, 95/90/80/70/60) disagreeing with the
     // one the JSON reports above 95 (plan 29, D1).
     grade: &str,
+    // The batch decision: a failing batch says so under its grade, as the
+    // single cover does (#1039).
+    verdict: crate::audit::verdict::Verdict,
+    partial: bool,
     total_urls: u32,
     total_violations: u32,
     i18n: &I18n,
@@ -65,7 +69,7 @@ pub(super) fn build_batch_cover_score_row(
         .add_item(serde_json::json!({
             "type": "metric-card",
             "data": MetricCard::new(i18n.t("cover-card-grade"), grade)
-                .with_subtitle(crate::registry::SCORE_RANGE.label(avg_score as f32, en))
+                .with_subtitle(cover_band_phrase(avg_score, verdict, partial, en))
                 .with_accent_color(score_accent_color(avg_score))
                 .with_height("100%")
                 .to_data()
@@ -84,7 +88,7 @@ pub(super) fn build_batch_cover_score_row(
     Ok(grid.add_item(serde_json::json!({
         "type": "metric-card",
         "data": MetricCard::new(i18n.t("cover-card-urls"), total_urls.to_string())
-            .with_subtitle(format!("{} {}", total_violations, i18n.t("cover-card-violations-suffix")))
+            .with_subtitle(i18n.count("cover-card-wcag-occurrences", total_violations as usize))
             .with_accent_color(tokens::DANGER)
             .with_height("100%")
             .to_data()

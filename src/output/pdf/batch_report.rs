@@ -113,13 +113,14 @@ fn build_batch_report(
     builder = render_batch_status_section(
         builder,
         batch,
+        &normalized_reports,
         &pres,
         &en301549_rollup,
         &failed_en_criteria,
         config,
         &i18n,
     );
-    builder = render_batch_module_portfolio(builder, &pres, &i18n);
+    builder = render_batch_module_portfolio(builder, &pres, &normalized_reports, &i18n);
     builder = render_batch_audit_flags(builder, batch, &i18n);
     builder = render_batch_url_ranking(builder, &pres, &i18n);
 
@@ -185,6 +186,212 @@ mod tests {
         assert!(
             err.to_string().contains("no URL of the batch was measured"),
             "{err}"
+        );
+    }
+
+    /// A page with one high-severity Level AA contrast violation: one legal
+    /// flag, so the page and the batch fail.
+    fn contrast_page(url: &str) -> AuditReport {
+        let mut results = WcagResults::new();
+        results.add_violation(
+            crate::wcag::Violation::new(
+                "1.4.3",
+                "Contrast (Minimum)",
+                WcagLevel::AA,
+                crate::wcag::Severity::High,
+                "Insufficient contrast",
+                "node-1",
+            )
+            .with_rule_id("contrast/text-insufficient")
+            .with_selector("span.separator"),
+        );
+        AuditReport::new(url.to_string(), WcagLevel::AA, results, 100)
+    }
+
+    fn failing_batch() -> BatchReport {
+        BatchReport::from_reports(
+            ["a", "b", "c"]
+                .iter()
+                .map(|p| contrast_page(&format!("https://example.com/{p}")))
+                .collect(),
+            vec![],
+            100,
+        )
+    }
+
+    fn typ(batch: &BatchReport, locale: &str) -> String {
+        generate_batch_typ(
+            batch,
+            &ReportConfig {
+                locale: locale.to_string(),
+                ..ReportConfig::default()
+            },
+        )
+        .expect("batch Typst source")
+        .replace("\\\"", "\"")
+    }
+
+    /// #1039: the batch decision and its reason are in the report, and no
+    /// cover or status text reads as a pass next to it.
+    #[test]
+    fn failing_batch_states_its_verdict_and_reason() {
+        use crate::audit::verdict::{batch_reason_kinds, BatchReasonKind, Verdict};
+        let batch = failing_batch();
+        assert_eq!(batch.summary.decision.verdict, Verdict::Fail);
+        assert_eq!(batch.summary.passed, 0);
+        let legal_flags = batch.summary.legal_flags;
+        assert!(legal_flags > 0);
+        let kinds = batch_reason_kinds(&batch.summary);
+        assert_eq!(kinds, vec![BatchReasonKind::LegalFlags(legal_flags)]);
+        // The band sentence is gated like a single page's (#356).
+        assert_eq!(batch.summary.score_band_key, "verdict-batch-deficient");
+
+        for locale in ["en", "de"] {
+            let i18n = I18n::new(locale).unwrap();
+            let en = locale == "en";
+            let out = typ(&batch, locale);
+            assert!(
+                out.contains(&i18n.t("batch-rating-verdict-fail")),
+                "{locale}"
+            );
+            assert!(
+                out.contains(&overview::batch_reason_text(kinds[0], &i18n)),
+                "{locale}: reason missing"
+            );
+            let score = batch.summary.average_score.unwrap().round() as u32;
+            assert!(
+                out.contains(&super::super::cover::cover_band_phrase(
+                    score,
+                    Verdict::Fail,
+                    false,
+                    en
+                )),
+                "{locale}: cover does not name the failed check"
+            );
+            // The legal key point and the impact row follow the legal flags,
+            // not critical findings alone.
+            assert!(!out.contains("No Level A/AA violations"), "{locale}");
+            assert!(!out.contains("Keine Level-A/AA-Verstöße"), "{locale}");
+            assert!(!out.contains("No critical violations detected automatically"));
+        }
+    }
+
+    /// #1039: the management risk view shows the levels and rationales the
+    /// JSON publishes (`summary.management_risks`), from one derivation.
+    #[test]
+    fn management_risk_view_matches_the_json_derivation() {
+        use crate::audit::management_risk::RiskTier;
+        let batch = failing_batch();
+        let normalized: Vec<_> = batch
+            .reports
+            .iter()
+            .map(|r| crate::audit::normalized::normalize(r).normalized)
+            .collect();
+        let kinds = crate::audit::management_risk::build_management_risk_kinds(&normalized);
+        let i18n = I18n::new("en").unwrap();
+        let out = typ(&batch, "en");
+        for kind in kinds.iter().filter(|k| k.tier() != RiskTier::Unknown) {
+            let level = i18n.t(match kind.tier() {
+                RiskTier::High => "risk-level-high",
+                RiskTier::Medium => "risk-level-medium",
+                _ => "risk-level-low",
+            });
+            let value = format!("{level} — {}", kind.rationale(true));
+            assert!(
+                out.contains(&format!(
+                    "key: \"{}\", value: \"{value}\"",
+                    kind.dimension(true)
+                )),
+                "missing {value}"
+            );
+        }
+    }
+
+    /// #1039: a module row claims a clean state only when the data shows one.
+    #[test]
+    fn module_effect_follows_open_findings_and_spread() {
+        let i18n = I18n::new("en").unwrap();
+        // High average, a high finding open: no "clean" claim.
+        assert_eq!(
+            portfolio::module_effect_sentence("Security", 95, Some(95), 5, &i18n),
+            i18n.count("batch-effect-open-high", 5)
+        );
+        // High average, one page below 90.
+        assert_eq!(
+            portfolio::module_effect_sentence("HTML Conformance", 96, Some(88), 0, &i18n),
+            i18n.t_args("batch-effect-uneven", &[("min", 88i64)])
+        );
+        // Every page at 100, nothing open.
+        assert_eq!(
+            portfolio::module_effect_sentence("Best Practices", 100, Some(100), 0, &i18n),
+            i18n.t("batch-effect-other-good")
+        );
+        // The same 85 on every page is no variance.
+        assert_eq!(
+            portfolio::module_effect_sentence("Performance", 85, Some(85), 0, &i18n),
+            i18n.t("batch-effect-performance-weak")
+        );
+        let batch = failing_batch();
+        let normalized: Vec<_> = batch
+            .reports
+            .iter()
+            .map(|r| crate::audit::normalized::normalize(r).normalized)
+            .collect();
+        assert_eq!(
+            portfolio::module_high_findings(&normalized, "Accessibility"),
+            3
+        );
+        assert_eq!(portfolio::module_high_findings(&normalized, "Security"), 0);
+    }
+
+    /// #1039: the cover counts WCAG occurrences and says so; the scope note
+    /// names an appendix only when the report has one; the manual-review
+    /// share is the criteria count the JSON reports.
+    #[test]
+    fn batch_texts_name_what_their_numbers_are() {
+        let batch = failing_batch();
+        let i18n = I18n::new("en").unwrap();
+        let out = typ(&batch, "en");
+        assert!(out.contains(&i18n.count(
+            "cover-card-wcag-occurrences",
+            batch.summary.total_violations
+        )));
+        assert!(out.contains(&i18n.t("batch-scope-note-json")));
+        assert!(!out.contains(&i18n.t("batch-scope-note-appendix")));
+        let (automated, total) = crate::wcag::coverage::coverage_stats();
+        assert!(out.contains(&i18n.t_args(
+            "batch-next-steps-manual",
+            &[("automated", automated as i64), ("total", total as i64)],
+        )));
+        // The URL matrix column holds the accessibility score.
+        assert!(out.contains(&format!(
+            "header: \"{}\"",
+            i18n.t("batch-matrix-col-accessibility")
+        )));
+    }
+
+    /// #1039: "some pages" was printed when every page carried the level.
+    #[test]
+    fn risk_summary_counts_the_pages_at_the_level() {
+        let batch = failing_batch();
+        let i18n = I18n::new("en").unwrap();
+        let pres = build_batch_presentation_with_locale(&batch, &i18n);
+        let normalized: Vec<_> = batch
+            .reports
+            .iter()
+            .map(|r| crate::audit::normalized::normalize(r).normalized)
+            .collect();
+        let level = crate::audit::compute_worst_risk(&normalized);
+        let at_level = normalized.iter().filter(|r| r.risk.level >= level).count();
+        let key = match level {
+            crate::audit::normalized::RiskLevel::Low => return,
+            crate::audit::normalized::RiskLevel::Medium => "batch-risk-summary-medium",
+            crate::audit::normalized::RiskLevel::High => "batch-risk-summary-high",
+            _ => "batch-risk-summary-critical",
+        };
+        assert_eq!(
+            pres.portfolio_summary.risk_summary,
+            i18n.t_args(key, &[("count", at_level as i64), ("total", 3i64)])
         );
     }
 
