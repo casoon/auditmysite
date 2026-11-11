@@ -55,7 +55,7 @@
 //! - Accessibility checks: [`wcag`] (rule engine), [`screen_reader`],
 //!   [`html_conform`], [`patterns`]
 //! - Further analysis modules: [`performance`], [`seo`], [`security`],
-//!   [`mobile`], [`best_practices`], [`journey`], [`ux`],
+//!   [`mobile`], [`best_practices`], [`page_flow`], [`ux`],
 //!   [`content_visibility`], [`ai_visibility`], [`source_quality`],
 //!   [`tech_stack`], [`commerce`]
 //! - Orchestration and scoring: [`audit`] (pipeline, batch, normalization),
@@ -94,11 +94,11 @@ pub mod error;
 pub mod html_conform;
 pub mod i18n;
 pub mod interaction;
-pub mod journey;
 pub mod lint;
 pub mod mobile;
 pub mod model;
 pub mod output;
+pub mod page_flow;
 pub mod patterns;
 pub mod performance;
 pub mod privacy;
@@ -135,9 +135,9 @@ pub use browser::{
 pub use cli::{Args, BrowserAction, Command, OutputFormat, WcagLevel};
 pub use content_visibility::{analyze_content_visibility, ContentVisibilityAnalysis};
 pub use error::{AuditError, Result};
-pub use journey::{analyze_journey, analyze_journey_with_dom_check, JourneyAnalysis, PageIntent};
 pub use mobile::{analyze_mobile_friendliness, MobileFriendliness};
 pub use output::format_json_normalized;
+pub use page_flow::{analyze_journey, analyze_journey_with_dom_check, JourneyAnalysis, PageIntent};
 pub use performance::{
     calculate_performance_score, extract_web_vitals, PerformanceScore, WebVitals,
 };

@@ -977,7 +977,7 @@ mod tests {
             issues: vec![],
         })
         .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
-        .with_journey(crate::journey::analyze_journey(&crate::AXTree::new()))
+        .with_journey(crate::page_flow::analyze_journey(&crate::AXTree::new()))
         .with_best_practices(crate::best_practices::BestPracticesAnalysis {
             console_errors: crate::best_practices::ConsoleErrorsAnalysis {
                 errors: vec![],

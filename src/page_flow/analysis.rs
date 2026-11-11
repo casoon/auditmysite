@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use crate::accessibility::AXTree;
-use crate::journey::page_intent::{detect_page_intent, PageIntent};
-use crate::journey::scoring::{journey_dimension_score, weighted_average_with_intent};
+use crate::page_flow::page_intent::{detect_page_intent, PageIntent};
+use crate::page_flow::scoring::{journey_dimension_score, weighted_average_with_intent};
 use crate::ux::saturating_penalty;
 
 // ── Generic / CTA keyword lists (shared with UX but scoped here) ───

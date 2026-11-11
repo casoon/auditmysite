@@ -13,10 +13,10 @@
 
 use auditmysite::audit::{normalize, AuditReport, BatchReport, PerformanceResults};
 use auditmysite::cli::WcagLevel;
-use auditmysite::journey::analyze_journey;
 use auditmysite::mobile::MobileFriendliness;
 use auditmysite::output::builder::{build_batch_presentation, build_view_model};
 use auditmysite::output::report_model::ReportConfig;
+use auditmysite::page_flow::analyze_journey;
 use auditmysite::performance::{PerformanceGrade, PerformanceScore, WebVitals};
 use auditmysite::security::SecurityAnalysis;
 use auditmysite::seo::SeoAnalysis;

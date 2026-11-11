@@ -505,7 +505,7 @@ pub struct ViewportAuditData {
     pub seo: Option<SeoAnalysis>,
     pub mobile: Option<MobileFriendliness>,
     pub ux: Option<crate::ux::UxAnalysis>,
-    pub journey: Option<crate::journey::JourneyAnalysis>,
+    pub journey: Option<crate::page_flow::JourneyAnalysis>,
     pub screenshot: Option<ViewportScreenshot>,
     pub module_runs: Vec<ModuleRun>,
 }
@@ -639,7 +639,7 @@ pub struct AuditReport {
     pub ux: Option<UxAnalysis>,
     /// Journey analysis (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub journey: Option<crate::journey::JourneyAnalysis>,
+    pub journey: Option<crate::page_flow::JourneyAnalysis>,
     /// Discoverability signals grouped together: SEO, AI/LLM visibility, content
     /// visibility, source quality and tech-stack detection.
     #[serde(default)]
@@ -883,7 +883,7 @@ impl AuditReport {
     }
 
     /// Set journey analysis results
-    pub fn with_journey(mut self, journey: crate::journey::JourneyAnalysis) -> Self {
+    pub fn with_journey(mut self, journey: crate::page_flow::JourneyAnalysis) -> Self {
         self.journey = Some(journey);
         self
     }

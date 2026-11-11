@@ -272,9 +272,9 @@ fn report_with_every_domain() -> AuditReport {
     report = report.with_ux(ux);
 
     // ── Journey ───────────────────────────────────────────────────────────
-    let mut journey = crate::journey::analyze_journey(&crate::AXTree::new());
-    journey.friction_points = vec![crate::journey::FrictionPoint {
-        kind: crate::journey::FrictionKind::NoH1,
+    let mut journey = crate::page_flow::analyze_journey(&crate::AXTree::new());
+    journey.friction_points = vec![crate::page_flow::FrictionPoint {
+        kind: crate::page_flow::FrictionKind::NoH1,
         step: "entry".to_string(),
         severity: "high".to_string(),
         problem: "The page has no H1.".to_string(),

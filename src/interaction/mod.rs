@@ -5,6 +5,13 @@
 //!
 //! This module is *actions only*: no evaluation, no journey logic. Journey
 //! orchestration lives in `crate::a11y_journey`.
+//!
+//! # Boundary: detect, exercise, primitives (#938)
+//!
+//! The lowest of three phases: [`crate::patterns`] detects, [`crate::a11y_journey`]
+//! exercises, this module provides the primitives. It imports neither of the
+//! others (`tests/architecture_test.rs`); `a11y_journey` and the audit
+//! pipeline import it.
 
 pub mod focus;
 pub mod keyboard;

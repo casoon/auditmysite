@@ -787,7 +787,7 @@ async fn test_mobile_issues_detected() {
 #[ignore = "needs Chrome"]
 async fn test_early_text_is_measured_above_the_fold_not_in_tree_order() {
     async fn flagged(fixture: &'static str) -> bool {
-        use auditmysite::journey::FrictionKind;
+        use auditmysite::page_flow::FrictionKind;
 
         let (url, shutdown) = serve_fixture(fixture);
         let manager = ci_browser().await;

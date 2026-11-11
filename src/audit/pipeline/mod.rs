@@ -56,9 +56,9 @@ use crate::browser::{
 };
 use crate::error::Result;
 use crate::interaction::stability::{settle, wait_for_finite_animations, wait_for_page_stability};
-use crate::journey::JourneyAnalysis;
 use crate::mobile::MobileFriendliness;
 use crate::model::WcagLevel;
+use crate::page_flow::JourneyAnalysis;
 use crate::performance::{prepare_coverage_collection, prepare_vitals_collection};
 use crate::security::{analyze_security, BrowserCertificateDetails, SecurityAnalysis};
 use crate::seo::SeoAnalysis;

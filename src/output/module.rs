@@ -20,8 +20,8 @@ use crate::content_visibility::ContentVisibilityAnalysis;
 use crate::html_conform::HtmlConformAnalysis;
 #[cfg(feature = "pdf")]
 use crate::i18n::I18n;
-use crate::journey::JourneyAnalysis;
 use crate::mobile::MobileFriendliness;
+use crate::page_flow::JourneyAnalysis;
 use crate::patterns::PatternAnalysis;
 use crate::privacy::PrivacyAnalysis;
 use crate::security::SecurityAnalysis;

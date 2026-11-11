@@ -151,7 +151,7 @@ impl PageType {
             // Same wording as the journey layer's hub intent, so one page is
             // not "Hub / Portal" in one section and "Navigations-/Hub-Seite"
             // in the next (#902-7).
-            Self::NavigationHub => crate::journey::PageIntent::Hub.label(en),
+            Self::NavigationHub => crate::page_flow::PageIntent::Hub.label(en),
             Self::ThinContent => "Thin / Minimal Content",
         }
     }

@@ -491,7 +491,7 @@ mod tests {
         );
         let fit = crate::seo::schema_fit::assess_schema_fit(
             "https://example.com/produkt/example",
-            crate::journey::PageIntent::Shop,
+            crate::page_flow::PageIntent::Shop,
             &structured_data,
         );
         crate::seo::schema::refresh_rule_assessments(&mut structured_data, fit.product_context());

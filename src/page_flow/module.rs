@@ -1,4 +1,4 @@
-//! `AuditModule` implementation for Journey collection (#333).
+//! `AuditModule` implementation for page-flow (Journey indicator) collection (#333).
 //!
 //! Moved out of `extract_snapshot` (where A3 left it inline). The DOM
 //! fallback for the `<main>` landmark check is preserved exactly: if the

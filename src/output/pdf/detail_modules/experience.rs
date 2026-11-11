@@ -123,8 +123,8 @@ pub(in crate::output::pdf) fn render_journey(
         &journey.page_intent,
     );
     for dim in &journey.dimensions {
-        let name = crate::journey::journey_dimension_name(dim.kind, en);
-        let summary = crate::journey::journey_dimension_summary(dim.kind, dim.score, en);
+        let name = crate::page_flow::journey_dimension_name(dim.kind, en);
+        let summary = crate::page_flow::journey_dimension_summary(dim.kind, dim.score, en);
         kv = kv.add(
             format!("{} ({}%)", name, dim.weight_pct),
             format!("{} / 100 — {}", dim.score, summary),
@@ -141,10 +141,10 @@ pub(in crate::output::pdf) fn render_journey(
             _ => crate::taxonomy::Severity::Medium,
         });
         let (problem, impact, recommendation) =
-            crate::journey::journey_friction_text(fp.kind, &fp.values, en);
+            crate::page_flow::journey_friction_text(fp.kind, &fp.values, en);
         let desc = format!(
             "[{}] {} — {}",
-            crate::journey::journey_step_name(&fp.step, en),
+            crate::page_flow::journey_step_name(&fp.step, en),
             impact,
             recommendation
         );

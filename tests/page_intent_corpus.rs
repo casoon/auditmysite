@@ -22,7 +22,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use auditmysite::accessibility::AXTree;
-use auditmysite::journey::{analyze_journey, detect_page_intent, FrictionKind};
+use auditmysite::page_flow::{analyze_journey, detect_page_intent, FrictionKind};
 
 fn snapshot_dir() -> Option<PathBuf> {
     if let Ok(dir) = std::env::var("AUDITMYSITE_SNAPSHOT_DIR") {

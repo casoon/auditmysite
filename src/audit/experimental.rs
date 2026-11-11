@@ -21,7 +21,7 @@ use crate::ai_visibility::AiVisibilityAnalysis;
 use crate::audit::AuditReport;
 use crate::commerce::CommerceAnalysis;
 use crate::content_visibility::ContentVisibilityAnalysis;
-use crate::journey::JourneyAnalysis;
+use crate::page_flow::JourneyAnalysis;
 use crate::source_quality::SourceQualityAnalysis;
 use crate::ux::UxAnalysis;
 

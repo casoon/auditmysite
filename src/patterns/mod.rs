@@ -13,6 +13,26 @@
 //! Patterns are inferred from AXTree role/name/property structure, not from
 //! runtime interaction. Anything requiring a behavioral test (e.g. actual
 //! keyboard focus traversal) is out of scope and remains a manual-review item.
+//!
+//! # Boundary: detect, exercise, primitives (#938)
+//!
+//! Three modules, one per phase, not one per UI concept:
+//!
+//! 1. `patterns` (this module) **detects** — [`analyze`] is a pure function
+//!    over the AXTree and emits the candidates (`JourneyCandidate`) for the next
+//!    phase. `help_mechanisms` and `easy_language` additionally read the page
+//!    once with a script; they never operate it.
+//! 2. [`crate::a11y_journey`] **exercises** the candidates in the browser and
+//!    judges the result.
+//! 3. [`crate::interaction`] holds the CDP **primitives** (pointer, keyboard,
+//!    focus, live regions, settling) both a journey and the pipeline use.
+//!
+//! A UI concept (modal, tabs, menu, ...) therefore appears once per phase
+//! (`patterns/modal_dialog.rs`, `a11y_journey/modal_journey.rs`); the three
+//! phases need a browser to different degrees and change for different
+//! reasons, which a split per concept would mix. Dependencies run downwards
+//! only: `a11y_journey` imports `patterns` and `interaction`; `patterns`
+//! imports neither of them. `tests/architecture_test.rs` enforces it.
 
 mod accordion;
 mod add_to_cart;

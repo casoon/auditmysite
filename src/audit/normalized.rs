@@ -168,7 +168,7 @@ pub struct AuditContext<'a> {
     pub raw_html_conform: Option<&'a crate::html_conform::HtmlConformAnalysis>,
     pub raw_mobile: Option<&'a MobileFriendliness>,
     pub raw_ux: Option<&'a crate::ux::UxAnalysis>,
-    pub raw_journey: Option<&'a crate::journey::JourneyAnalysis>,
+    pub raw_journey: Option<&'a crate::page_flow::JourneyAnalysis>,
     pub raw_privacy: Option<&'a crate::privacy::PrivacyAnalysis>,
     pub raw_source_quality: Option<&'a crate::source_quality::SourceQualityAnalysis>,
     pub raw_ai_visibility: Option<&'a crate::ai_visibility::AiVisibilityAnalysis>,

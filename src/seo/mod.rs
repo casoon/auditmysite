@@ -96,7 +96,7 @@ pub struct SeoAnalysis {
     /// input (the experimental Journey indicator is not needed for it, #916)
     /// and not part of the JSON.
     #[serde(skip)]
-    pub page_intent: Option<crate::journey::PageIntent>,
+    pub page_intent: Option<crate::page_flow::PageIntent>,
 }
 
 /// Upper bound of the SEO score of a page that is meant to be indexed but
