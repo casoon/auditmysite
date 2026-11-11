@@ -1298,6 +1298,8 @@ html-conform-sectioning-title = Nest sectioning elements correctly
 html-conform-sectioning-fix = Use sectioning elements as the standard requires: only one visible main, not inside article, aside, footer, header or nav; no header or footer inside header or footer; no address inside address; dt without headings, header, footer or sectioning elements and without duplicate names; figure with figcaption instead of caption.
 html-conform-media-text-title = Use media and text elements correctly
 html-conform-media-text-fix = Specify media and special elements completely: track with a label and at most one default, ruby and rtc in the intended structure, bdo with dir and custom elements without an is attribute. Replace non-conforming variants with the intended markup.
+html-conform-text-normalization-title = Store text in Unicode Normalization Form C
+html-conform-text-normalization-fix = Save the named text in NFC, as the HTML Standard encourages authors to: a letter and a separate combining mark become the one precomposed character. Decomposed text usually comes from copied content or file names; normalize it in the editor, CMS or build step so that search and string matching find it.
 html-conform-generic-title = Fix the HTML conformance violation
 html-conform-generic-fix = Correct the element or attribute named in the message as the HTML Standard requires and check the rendered HTML again. If the finding appears on every page, fix the cause in the shared template.
 

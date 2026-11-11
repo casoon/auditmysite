@@ -1301,6 +1301,8 @@ html-conform-sectioning-title = Gliederungselemente korrekt verschachteln
 html-conform-sectioning-fix = Gliederungselemente nach Standard einsetzen: nur ein sichtbares main, nicht innerhalb von article, aside, footer, header oder nav; kein header oder footer in header oder footer; keine adresse in address; dt ohne Überschriften, header, footer oder Gliederungselemente und ohne doppelte Namen; figure mit figcaption statt caption.
 html-conform-media-text-title = Medien- und Textelemente korrekt einsetzen
 html-conform-media-text-fix = Medien- und Spezialelemente vollständig angeben: track mit label und höchstens einem default, ruby und rtc in der vorgesehenen Struktur, bdo mit dir und custom elements ohne is-Attribut. Nicht standardkonforme Varianten durch die vorgesehene Auszeichnung ersetzen.
+html-conform-text-normalization-title = Text in Unicode-Normalform C speichern
+html-conform-text-normalization-fix = Den genannten Text in NFC speichern, wie es der HTML-Standard Autoren empfiehlt: Buchstabe und getrenntes Kombinationszeichen werden zum einen vorkomponierten Zeichen. Zerlegter Text stammt meist aus kopierten Inhalten oder Dateinamen; ihn im Editor, CMS oder Build-Schritt normalisieren, damit Suche und Textabgleich ihn finden.
 html-conform-generic-title = HTML-Konformitätsverstoß beheben
 html-conform-generic-fix = Das in der Meldung genannte Element oder Attribut gemäß HTML-Standard korrigieren und den gerenderten HTML-Code erneut prüfen. Tritt der Befund in jeder Seite auf, die Ursache im gemeinsamen Template beheben.
 

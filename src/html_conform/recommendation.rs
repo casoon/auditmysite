@@ -37,6 +37,7 @@ const FAMILIES: &[&str] = &[
     "meter-progress",
     "sectioning",
     "media-text",
+    "text-normalization",
 ];
 
 /// The checker's rule id as the report carries it (`html_conform.` prefix of
@@ -90,6 +91,7 @@ pub fn family(rule_id: &str) -> Option<&'static str> {
     {
         "responsive-images"
     } else if name.is_some_and(|n| n.ends_with("-in-a") || n.ends_with("-in-button"))
+        || id == "elements.svg-a-in-svg-a"
         || id == "elements.interactive-role-in-a"
         || id == "elements.tabindex-in-a"
         || starts("a-href-forbidden-inside-widget-role.")
@@ -162,6 +164,8 @@ pub fn family(rule_id: &str) -> Option<&'static str> {
         "sectioning"
     } else if el("track-") || el("rtc-") || el("ruby-") || el("bdo-") || el("custom-element-") {
         "media-text"
+    } else if id == "text.normalization" {
+        "text-normalization"
     } else {
         return None;
     };
@@ -214,6 +218,7 @@ mod tests {
             "scripts.import-map",
             "scripts.speculation-rules",
             "csp.meta-enforcement",
+            "text.normalization",
         ]
         .iter()
         .map(|id| id.to_string())
