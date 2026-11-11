@@ -88,6 +88,13 @@ pub(super) fn finding_group_from_normalized(
             // family keeps them in the action plan (#899).
             if f.rule_id.starts_with("html_conform.") {
                 crate::html_conform::recommendation::recommendation(&f.rule_id, i18n).1
+            } else if let Some(fix) =
+                super::modules::security_finding_recommendation(&f.rule_id, i18n)
+            {
+                // A misconfigured security header gets the fix the security
+                // module lists for it; without one it had no fix and no place
+                // in the action plan (#1039).
+                fix
             } else {
                 f.occurrences
                     .first()
