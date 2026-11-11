@@ -2,7 +2,8 @@
 # the action priority, effort and execution priority
 # (`audit::prioritization`), the responsible role
 # (`output::report_model::Role`), the issue class (`taxonomy::IssueClass`) and
-# the subcategory (`taxonomy::Subcategory`). One message per variant; which
+# the subcategory (`taxonomy::Subcategory`), and the evidence labels of
+# content signals (`assessment`). One message per variant; which
 # variant applies stays in Rust. The prefix `labels-` keeps them apart from the
 # PDF table labels of the same enums in report.ftl, which word some of them
 # differently.
@@ -66,3 +67,29 @@ labels-subcategory-touch-usability = Touch & Usability
 labels-subcategory-readability = Readability
 labels-subcategory-responsive-layout = Responsive Layout
 labels-subcategory-content-sizing = Content Sizing
+
+# Labels of the evidence of a content signal (`assessment`): the source
+# (`EvidenceSource::label`) and the readable names of the field paths
+# `evidence_field_label` knows; which path maps to which message, and that
+# other paths are shown as they are or dropped, stays in Rust.
+labels-evidence-source-meta = Meta tag
+labels-evidence-source-json-ld = JSON-LD
+labels-evidence-source-visible-text = Visible text
+labels-evidence-source-link = Link
+labels-evidence-source-http-header = HTTP header
+labels-evidence-source-ax-tree = Accessibility tree
+labels-evidence-source-dom-attribute = DOM attribute
+labels-evidence-source-css-property = CSS property
+labels-evidence-source-computed = Derived value
+labels-evidence-field-heading-h1 = H1
+labels-evidence-field-meta-title = Title
+labels-evidence-field-meta-description = Meta description
+labels-evidence-field-ssr-content-gap = Server-rendering gap
+labels-evidence-field-canonical = Canonical
+labels-evidence-field-patterns-recognized = Recognized patterns
+labels-evidence-field-structured-data-type = Structured data type
+labels-evidence-field-structured-data-rich-snippets = Rich snippet potential
+labels-evidence-field-structured-data = Structured data
+labels-evidence-field-headings-h2-plus = Headings from H2
+labels-evidence-field-internal-links = Internal links
+labels-evidence-field-word-count = Word count

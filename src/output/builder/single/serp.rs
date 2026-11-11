@@ -90,7 +90,7 @@ pub(super) fn build_page_health_presentation(
         .iter()
         .map(|i| {
             (
-                html_validation_check_text(i.kind, en).to_string(),
+                html_validation_check_text(i.kind, en),
                 i.count,
                 i.severity.clone(),
                 html_validation_detail_text(i.kind, i.count, &i.samples, en),
@@ -101,8 +101,8 @@ pub(super) fn build_page_health_presentation(
     let html_validator = Some((
         ph.html_validator_status.clone(),
         match (ph.html_validator_status.as_str(), &ph.html_validator_detail) {
-            ("delegated", _) => html_validator_delegated_text(en).to_string(),
-            ("executed", _) => html_validator_executed_text(en).to_string(),
+            ("delegated", _) => html_validator_delegated_text(en),
+            ("executed", _) => html_validator_executed_text(en),
             (_, Some(detail)) => detail.clone(),
             (_, None) if en => "No additional information available".to_string(),
             (_, None) => "Keine Zusatzinformationen verfügbar".to_string(),

@@ -152,7 +152,11 @@ surface that owns its lifecycle:
   (`seo::page_health::collect_issues`): one message `page-health-<issue-type>` per
   issue type with the counts as named arguments, plural agreement as a Fluent
   select, plus the argument parts (samples, "none", cache reasons). The function
-  keeps the thresholds, severities and the arguments.
+  keeps the thresholds, severities and the arguments. Also the HTML validation
+  texts of the SEO view (`seo::page_health::html_validation_check_text`,
+  `html_validation_detail_text`, `html_validator_delegated_text`,
+  `html_validator_executed_text`, `page-health-html-validation-*`,
+  `page-health-html-validator-*`); the sample lists are joined in Rust.
 - `locales/{de,en}/seo-issues.ftl`: the texts of the technical-SEO issues
   (`seo::technical::collect_technical_issues`, `seo-technical-*`), the meta-tag
   findings (`seo::meta::meta_issue_text`, `seo-meta-*`) and the structured-data
@@ -163,7 +167,11 @@ surface that owns its lifecycle:
   `localize_policy_label`, `seo-robots-*`), the content-profile labels
   (`seo::profile::SeoMaturityLevel::label`/`description`, `PageType::label`,
   `seo-profile-*`) and the SERP status labels
-  (`seo::serp::SerpSignalStatus::label`, `seo-serp-status-*`).
+  (`seo::serp::SerpSignalStatus::label`, `seo-serp-status-*`), the
+  structured-data fit labels (`seo::schema_fit::SchemaPageKind::label`,
+  `SchemaFitAssessment::fit_text`, `seo-schema-fit-*`) and the content-parity
+  texts (`seo::schema_parity::ContentParityAssessment::status_text`/
+  `evidence_text`, `seo-schema-parity-*`).
 - `locales/{de,en}/security-issues.ftl`: the texts of the security findings
   (`security::security_issue_text`, `security-*`), built the same way; the
   function keeps the default values (`unset`, `object-src`). Also the category
@@ -178,7 +186,9 @@ surface that owns its lifecycle:
   priority, effort and execution priority (`audit::prioritization`), role
   (`output::report_model::Role::label`), issue class
   (`taxonomy::IssueClass::label`) and subcategory
-  (`taxonomy::Subcategory::label`). The enum methods keep the variant-to-message
+  (`taxonomy::Subcategory::label`), and the evidence labels of content signals
+  (`EvidenceSource::label`, `assessment::evidence_field_label`,
+  `labels-evidence-*`). The enum methods keep the variant-to-message
   mapping. The PDF tables of priority, role and effort use their own
   `report.ftl` messages (`priority-*`, `role-*`, `effort-*`), which word some of
   them differently; the `labels-` prefix keeps the two apart.

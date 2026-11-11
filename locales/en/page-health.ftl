@@ -1,6 +1,7 @@
 # Texts of the page-health issues (`seo::page_health::collect_issues`, #936):
 # one message per issue type. Counts reach the messages as numbers, so the
 # plural agreement lives here; the thresholds and severities stay in Rust.
+# Also the HTML validation texts of the SEO view (end of the file).
 
 page-health-missing-doctype = Missing HTML5 doctype declaration — browser renders in quirks mode
 page-health-document-write =
@@ -106,3 +107,27 @@ page-health-unknown-url = (unknown)
 page-health-cache-reason-missing = missing Cache-Control
 page-health-cache-reason-disabled = explicitly disables caching
 page-health-cache-reason-short = short or missing max-age/s-maxage
+
+# HTML validation findings of the SEO view (`html_validation_check_text`,
+# `html_validation_detail_text`): the check label per kind and its detail.
+# The sample lists are joined in Rust; `-more` is used only when samples were
+# left out. The German "(z.B. …)" and "weitere" parts are also the shape the
+# legacy cache parser in `page_health.rs` reads.
+page-health-html-validation-check-duplicate-ids = Duplicate IDs
+page-health-html-validation-check-images-without-alt = Images without alt attribute
+page-health-html-validation-check-tables-without-headers = Tables without header row
+page-health-html-validation-check-empty-headings = Empty headings
+page-health-html-validation-check-nested-interactive = Nested interactive elements
+page-health-html-validation-check-parse-errors = HTML5 parsing errors
+page-health-html-validation-detail-duplicate-ids = { $count } found
+page-health-html-validation-detail-duplicate-ids-examples = { $count } (e.g. { $list })
+page-health-html-validation-detail-images-without-alt = { $count } <img> without alt
+page-health-html-validation-detail-tables-without-headers = { $count } <table> without <th> or <caption>
+page-health-html-validation-detail-empty-headings = { $count } empty h1–h6 elements
+page-health-html-validation-detail-nested-interactive = { $count } button/a in button/a
+page-health-html-validation-detail-parse-errors-more = { $list } | +{ $more } more
+
+# Detail of the SEO view's HTML validation status
+# (`html_validator_delegated_text`, `html_validator_executed_text`).
+page-health-html-validator-delegated = HTML5 validation is part of the HTML conformance check (html-conform), enabled by default or with --modules html-conform
+page-health-html-validator-executed = HTML5 validation run locally via html5ever

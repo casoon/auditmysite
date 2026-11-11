@@ -1,8 +1,8 @@
 //! Guards of `locales/{de,en}/seo-issues.ftl` (#936): the same keys in both
 //! languages, every key defined once, used and resolving without errors, and
 //! no German in the English file. The file also holds the structured-data and
-//! robots.txt table labels, the content-profile labels and the SERP status
-//! labels.
+//! robots.txt table labels, the content-profile labels, the SERP status
+//! labels and the structured-data fit and content-parity texts.
 
 use super::issue_texts_export::{meta_values, schema_issues, technical_scenarios, META_KINDS};
 use super::label_texts_export::{robots_audits, BOT_CLASSES, OTHER_POLICIES};
@@ -10,19 +10,24 @@ use super::meta::meta_issue_text;
 use super::robots::{infer_robots_policy, localize_policy_label};
 use super::schema::{schema_issue_label, schema_issue_text};
 use super::technical::collect_technical_issues;
+use crate::i18n::detail_texts_export::{
+    content_parities, schema_fit, SCHEMA_FIT_STATUSES, SCHEMA_PAGE_KINDS,
+};
 use crate::i18n::label_texts_export::{page_types, serp_statuses, SEO_MATURITY_LEVELS};
 use fluent_bundle::{FluentArgs, FluentBundle, FluentResource, FluentValue};
 use std::collections::BTreeSet;
 
 const EN: &str = include_str!("../../locales/en/seo-issues.ftl");
 const DE: &str = include_str!("../../locales/de/seo-issues.ftl");
-const SOURCES: [&str; 6] = [
+const SOURCES: [&str; 8] = [
     include_str!("technical.rs"),
     include_str!("meta.rs"),
     include_str!("schema.rs"),
     include_str!("robots.rs"),
     include_str!("profile.rs"),
     include_str!("serp.rs"),
+    include_str!("schema_fit.rs"),
+    include_str!("schema_parity.rs"),
 ];
 
 /// The message ids of a file (column-0 `id =` lines), each only once.
@@ -42,7 +47,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 88);
+    assert_eq!(en.len(), 116);
 }
 
 #[test]
@@ -52,7 +57,8 @@ fn every_message_is_used_by_the_code() {
             SOURCES
                 .iter()
                 .any(|source| source.contains(&format!("\"{id}\""))),
-            "{id} is not used in technical.rs, meta.rs, schema.rs, robots.rs, profile.rs or serp.rs"
+            "{id} is not used in technical.rs, meta.rs, schema.rs, robots.rs, profile.rs, serp.rs, \
+             schema_fit.rs or schema_parity.rs"
         );
     }
 }
@@ -78,6 +84,8 @@ fn every_key_resolves_in_both_languages_without_errors() {
             "allowed",
             "type",
             "property",
+            "schema",
+            "visible",
         ] {
             args.set(name, FluentValue::from("x"));
         }
@@ -160,6 +168,19 @@ fn no_input_leaves_a_key_or_a_placeholder_in_a_message() {
         for status in serp_statuses() {
             let label = status.label(en);
             assert!(!leaks(&label), "{status:?} (en={en}): {label}");
+        }
+        for kind in SCHEMA_PAGE_KINDS {
+            let label = kind.label(en);
+            assert!(!leaks(&label), "{kind:?} (en={en}): {label}");
+        }
+        for status in SCHEMA_FIT_STATUSES {
+            let text = schema_fit(status).fit_text(en);
+            assert!(!leaks(&text), "{status:?} (en={en}): {text}");
+        }
+        for parity in content_parities() {
+            for text in [parity.status_text(en), parity.evidence_text(en)] {
+                assert!(!leaks(&text), "{parity:?} (en={en}): {text}");
+            }
         }
     }
 }

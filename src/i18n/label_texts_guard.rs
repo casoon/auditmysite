@@ -2,6 +2,7 @@
 //! languages, every key defined once, used and resolving without errors, and
 //! no German in the English file.
 
+use super::detail_texts_export::{evidence_sources, EVIDENCE_FIELD_PATHS};
 use super::label_texts_export::{
     EFFORTS, EXECUTION_PRIORITIES, ISSUE_CLASSES, PAGE_INTENTS, PRIORITIES, ROLES, SUBCATEGORIES,
 };
@@ -10,12 +11,13 @@ use std::collections::BTreeSet;
 
 const EN: &str = include_str!("../../locales/en/labels.ftl");
 const DE: &str = include_str!("../../locales/de/labels.ftl");
-const SOURCES: [&str; 5] = [
+const SOURCES: [&str; 6] = [
     include_str!("../page_flow/page_intent.rs"),
     include_str!("../audit/prioritization.rs"),
     include_str!("../output/report_model.rs"),
     include_str!("../taxonomy/issue_class.rs"),
     include_str!("../taxonomy/dimensions.rs"),
+    include_str!("../assessment/mod.rs"),
 ];
 
 /// The message ids of a file (column-0 `id =` lines), each only once.
@@ -35,7 +37,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 53);
+    assert_eq!(en.len(), 74);
 }
 
 #[test]
@@ -46,7 +48,7 @@ fn every_message_is_used_by_the_code() {
                 .iter()
                 .any(|source| source.contains(&format!("\"{id}\""))),
             "{id} is not used in page_intent.rs, prioritization.rs, report_model.rs, \
-             issue_class.rs or dimensions.rs"
+             issue_class.rs, dimensions.rs or assessment/mod.rs"
         );
     }
 }
@@ -96,6 +98,11 @@ fn no_variant_leaves_a_key_or_a_placeholder_in_a_label() {
         labels.extend(ISSUE_CLASSES.map(|v| (format!("{v:?}"), v.label(en))));
         labels.extend(ISSUE_CLASSES.map(|v| (format!("{v:?} display"), v.to_string())));
         labels.extend(SUBCATEGORIES.map(|v| (format!("{v:?}"), v.label(en))));
+        labels.extend(evidence_sources().map(|v| (format!("{v:?}"), v.label(en))));
+        labels.extend(EVIDENCE_FIELD_PATHS.into_iter().filter_map(|path| {
+            crate::assessment::evidence_field_label(path, en)
+                .map(|label| (path.to_string(), label.replace("{$var}", "")))
+        }));
         for (variant, label) in labels {
             assert!(!leaks(&label), "{variant} (en={en}): {label}");
         }

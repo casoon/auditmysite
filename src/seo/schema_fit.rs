@@ -35,111 +35,29 @@ pub enum SchemaPageKind {
 }
 
 impl SchemaPageKind {
-    pub fn label(self, en: bool) -> &'static str {
-        match self {
-            Self::MerchantProductDetail => {
-                if en {
-                    "Purchasable product detail"
-                } else {
-                    "Kaufbare Produktdetailseite"
-                }
-            }
-            Self::ProductCollection => {
-                if en {
-                    "Product collection"
-                } else {
-                    "Produktübersicht"
-                }
-            }
-            Self::ServiceDetail => {
-                if en {
-                    "Service detail"
-                } else {
-                    "Leistungsdetailseite"
-                }
-            }
-            Self::SoftwareDetail => "Software / SaaS",
-            Self::JobDetail => {
-                if en {
-                    "Job detail"
-                } else {
-                    "Stellendetailseite"
-                }
-            }
-            Self::JobListing => {
-                if en {
-                    "Job listing"
-                } else {
-                    "Stellenübersicht"
-                }
-            }
-            Self::EventDetail => {
-                if en {
-                    "Event detail"
-                } else {
-                    "Veranstaltungsdetailseite"
-                }
-            }
-            Self::EventListing => {
-                if en {
-                    "Event listing"
-                } else {
-                    "Veranstaltungsübersicht"
-                }
-            }
-            Self::FaqPage => "FAQ",
-            Self::PersonProfile => {
-                if en {
-                    "Person profile"
-                } else {
-                    "Personenprofil"
-                }
-            }
-            Self::LocationDetail => {
-                if en {
-                    "Location detail"
-                } else {
-                    "Standortdetailseite"
-                }
-            }
-            Self::EditorialProductReview => {
-                if en {
-                    "Editorial product review"
-                } else {
-                    "Redaktioneller Produkttest"
-                }
-            }
-            Self::EditorialContent => {
-                if en {
-                    "Editorial content"
-                } else {
-                    "Redaktioneller Inhalt"
-                }
-            }
-            Self::MarketingLandingPage => "Marketing / Landing Page",
-            Self::CorporatePage => {
-                if en {
-                    "Corporate page"
-                } else {
-                    "Unternehmensseite"
-                }
-            }
-            Self::HubPage => "Hub / Portal",
-            Self::LeadGenerationPage => {
-                if en {
-                    "Lead-generation page"
-                } else {
-                    "Lead-Generierungsseite"
-                }
-            }
-            Self::Indeterminate => {
-                if en {
-                    "Not determined"
-                } else {
-                    "Nicht bestimmt"
-                }
-            }
-        }
+    /// The `seo-schema-fit-page-kind-*` message of `locales/{en,de}/seo-issues.ftl`.
+    pub fn label(self, en: bool) -> String {
+        let key = match self {
+            Self::MerchantProductDetail => "seo-schema-fit-page-kind-merchant-product-detail",
+            Self::ProductCollection => "seo-schema-fit-page-kind-product-collection",
+            Self::ServiceDetail => "seo-schema-fit-page-kind-service-detail",
+            Self::SoftwareDetail => "seo-schema-fit-page-kind-software-detail",
+            Self::JobDetail => "seo-schema-fit-page-kind-job-detail",
+            Self::JobListing => "seo-schema-fit-page-kind-job-listing",
+            Self::EventDetail => "seo-schema-fit-page-kind-event-detail",
+            Self::EventListing => "seo-schema-fit-page-kind-event-listing",
+            Self::FaqPage => "seo-schema-fit-page-kind-faq-page",
+            Self::PersonProfile => "seo-schema-fit-page-kind-person-profile",
+            Self::LocationDetail => "seo-schema-fit-page-kind-location-detail",
+            Self::EditorialProductReview => "seo-schema-fit-page-kind-editorial-product-review",
+            Self::EditorialContent => "seo-schema-fit-page-kind-editorial-content",
+            Self::MarketingLandingPage => "seo-schema-fit-page-kind-marketing-landing-page",
+            Self::CorporatePage => "seo-schema-fit-page-kind-corporate-page",
+            Self::HubPage => "seo-schema-fit-page-kind-hub-page",
+            Self::LeadGenerationPage => "seo-schema-fit-page-kind-lead-generation-page",
+            Self::Indeterminate => "seo-schema-fit-page-kind-indeterminate",
+        };
+        crate::i18n::text(key, en)
     }
 }
 
@@ -191,37 +109,15 @@ impl SchemaFitAssessment {
         }
     }
 
-    pub fn fit_text(&self, en: bool) -> &'static str {
-        match self.fit_status {
-            SchemaFitStatus::Matched => {
-                if en {
-                    "Primary schema matches the detected page type"
-                } else {
-                    "Haupt-Schema passt zum erkannten Seitentyp"
-                }
-            }
-            SchemaFitStatus::Plausible => {
-                if en {
-                    "Schema is plausible; page type is not specific enough for a strict requirement"
-                } else {
-                    "Schema ist plausibel; der Seitentyp ist für eine strikte Anforderung nicht spezifisch genug"
-                }
-            }
-            SchemaFitStatus::Mismatch => {
-                if en {
-                    "Primary schema does not match the strongly indicated page type"
-                } else {
-                    "Haupt-Schema passt nicht zum deutlich erkannten Seitentyp"
-                }
-            }
-            SchemaFitStatus::Indeterminate => {
-                if en {
-                    "Page-to-schema fit requires manual review"
-                } else {
-                    "Seitentyp und Schema-Abdeckung müssen manuell geprüft werden"
-                }
-            }
-        }
+    /// The `seo-schema-fit-status-*` message of `locales/{en,de}/seo-issues.ftl`.
+    pub fn fit_text(&self, en: bool) -> String {
+        let key = match self.fit_status {
+            SchemaFitStatus::Matched => "seo-schema-fit-status-matched",
+            SchemaFitStatus::Plausible => "seo-schema-fit-status-plausible",
+            SchemaFitStatus::Mismatch => "seo-schema-fit-status-mismatch",
+            SchemaFitStatus::Indeterminate => "seo-schema-fit-status-indeterminate",
+        };
+        crate::i18n::text(key, en)
     }
 }
 

@@ -6,7 +6,9 @@
 # and their severity stay in Rust. Also the table labels of the structured-data
 # issues (`seo::schema::schema_issue_label`) and of the robots.txt audit (bot
 # classes and policy labels of `seo::robots`), the labels of the SEO content
-# profile (`seo::profile`) and the SERP status labels (`seo::serp`).
+# profile (`seo::profile`), the SERP status labels (`seo::serp`) and the
+# structured-data fit and content-parity texts (`seo::schema_fit`,
+# `seo::schema_parity`).
 
 seo-technical-no-https = Seite wird nicht über HTTPS ausgeliefert
 seo-technical-no-canonical = Fehlende Canonical-URL
@@ -131,3 +133,38 @@ seo-profile-page-type-thin-content = Thin / Minimal Content
 seo-serp-status-ok = OK
 seo-serp-status-warning = Warnung
 seo-serp-status-fail = Fehler
+
+# Labels of the structured-data fit (`seo::schema_fit`): the page kind
+# (`SchemaPageKind::label`) and the fit status (`SchemaFitAssessment::fit_text`).
+seo-schema-fit-page-kind-merchant-product-detail = Kaufbare Produktdetailseite
+seo-schema-fit-page-kind-product-collection = Produktübersicht
+seo-schema-fit-page-kind-service-detail = Leistungsdetailseite
+seo-schema-fit-page-kind-software-detail = Software / SaaS
+seo-schema-fit-page-kind-job-detail = Stellendetailseite
+seo-schema-fit-page-kind-job-listing = Stellenübersicht
+seo-schema-fit-page-kind-event-detail = Veranstaltungsdetailseite
+seo-schema-fit-page-kind-event-listing = Veranstaltungsübersicht
+seo-schema-fit-page-kind-faq-page = FAQ
+seo-schema-fit-page-kind-person-profile = Personenprofil
+seo-schema-fit-page-kind-location-detail = Standortdetailseite
+seo-schema-fit-page-kind-editorial-product-review = Redaktioneller Produkttest
+seo-schema-fit-page-kind-editorial-content = Redaktioneller Inhalt
+seo-schema-fit-page-kind-marketing-landing-page = Marketing / Landing Page
+seo-schema-fit-page-kind-corporate-page = Unternehmensseite
+seo-schema-fit-page-kind-hub-page = Hub / Portal
+seo-schema-fit-page-kind-lead-generation-page = Lead-Generierungsseite
+seo-schema-fit-page-kind-indeterminate = Nicht bestimmt
+seo-schema-fit-status-matched = Haupt-Schema passt zum erkannten Seitentyp
+seo-schema-fit-status-plausible = Schema ist plausibel; der Seitentyp ist für eine strikte Anforderung nicht spezifisch genug
+seo-schema-fit-status-mismatch = Haupt-Schema passt nicht zum deutlich erkannten Seitentyp
+seo-schema-fit-status-indeterminate = Seitentyp und Schema-Abdeckung müssen manuell geprüft werden
+
+# Content parity of structured data (`seo::schema_parity`): the status label
+# (`ContentParityAssessment::status_text`) and the evidence
+# (`ContentParityAssessment::evidence_text`); a missing value is "-" (Rust).
+seo-schema-parity-status-match = Stimmt mit sichtbarem Inhalt überein
+seo-schema-parity-status-mismatch = Abweichung
+seo-schema-parity-status-not-evaluated = Nicht geprüft
+seo-schema-parity-evidence-match = Schema und sichtbarer Inhalt stimmen überein: { $value }
+seo-schema-parity-evidence-mismatch = Schema: { $schema }; sichtbar: { $visible }
+seo-schema-parity-evidence-not-evaluated = Kein einzelner eindeutiger sichtbarer Wert erkannt

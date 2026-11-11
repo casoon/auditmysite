@@ -5,6 +5,7 @@
 //! mismatch.
 
 use chromiumoxide::Page;
+use fluent_bundle::FluentValue;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -55,42 +56,36 @@ pub struct ContentParityAssessment {
 }
 
 impl ContentParityAssessment {
-    pub fn status_text(&self, en: bool) -> &'static str {
-        match (self.status, en) {
-            (ContentParityStatus::Match, true) => "Matches visible content",
-            (ContentParityStatus::Match, false) => "Stimmt mit sichtbarem Inhalt überein",
-            (ContentParityStatus::Mismatch, true) => "Mismatch",
-            (ContentParityStatus::Mismatch, false) => "Abweichung",
-            (ContentParityStatus::NotEvaluated, true) => "Not evaluated",
-            (ContentParityStatus::NotEvaluated, false) => "Nicht geprüft",
-        }
+    /// The `seo-schema-parity-status-*` message of `locales/{en,de}/seo-issues.ftl`.
+    pub fn status_text(&self, en: bool) -> String {
+        let key = match self.status {
+            ContentParityStatus::Match => "seo-schema-parity-status-match",
+            ContentParityStatus::Mismatch => "seo-schema-parity-status-mismatch",
+            ContentParityStatus::NotEvaluated => "seo-schema-parity-status-not-evaluated",
+        };
+        crate::i18n::text(key, en)
     }
 
+    /// The `seo-schema-parity-evidence-*` message of
+    /// `locales/{en,de}/seo-issues.ftl`; a missing value is shown as `-`.
     pub fn evidence_text(&self, en: bool) -> String {
+        let value = |v: &Option<String>| FluentValue::from(v.as_deref().unwrap_or("-").to_string());
         match self.status {
-            ContentParityStatus::Match => {
-                let value = self.schema_value.as_deref().unwrap_or("-");
-                if en {
-                    format!("Schema and visible content agree: {value}")
-                } else {
-                    format!("Schema und sichtbarer Inhalt stimmen überein: {value}")
-                }
-            }
-            ContentParityStatus::Mismatch => {
-                let schema = self.schema_value.as_deref().unwrap_or("-");
-                let visible = self.visible_value.as_deref().unwrap_or("-");
-                if en {
-                    format!("Schema: {schema}; visible: {visible}")
-                } else {
-                    format!("Schema: {schema}; sichtbar: {visible}")
-                }
-            }
+            ContentParityStatus::Match => crate::i18n::text_args(
+                "seo-schema-parity-evidence-match",
+                &[("value", value(&self.schema_value))],
+                en,
+            ),
+            ContentParityStatus::Mismatch => crate::i18n::text_args(
+                "seo-schema-parity-evidence-mismatch",
+                &[
+                    ("schema", value(&self.schema_value)),
+                    ("visible", value(&self.visible_value)),
+                ],
+                en,
+            ),
             ContentParityStatus::NotEvaluated => {
-                if en {
-                    "No single unambiguous visible value was found".to_string()
-                } else {
-                    "Kein einzelner eindeutiger sichtbarer Wert erkannt".to_string()
-                }
+                crate::i18n::text("seo-schema-parity-evidence-not-evaluated", en)
             }
         }
     }

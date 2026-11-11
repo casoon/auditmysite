@@ -156,14 +156,14 @@ pub(super) fn build_seo_details(
                     fit.detected_primary_types.join(", ")
                 };
                 (
-                    Some(fit.fit_text(en).to_string()),
+                    Some(fit.fit_text(en)),
                     fit.fit_status == SchemaFitStatus::Matched,
                     fit.fit_status == SchemaFitStatus::Mismatch
                         || fit.coverage_status == SchemaCoverageStatus::Opportunity,
                     vec![
                         (
                             i18n.t("pdf-seo-schema-fit-page-type"),
-                            fit.page_kind.label(en).to_string(),
+                            fit.page_kind.label(en),
                         ),
                         (
                             i18n.t("pdf-seo-schema-fit-confidence"),
@@ -253,7 +253,7 @@ pub(super) fn build_seo_details(
                 .map(|assessment| {
                     (
                         format!("{} - {}", assessment.schema_type, assessment.property),
-                        assessment.status_text(en).to_string(),
+                        assessment.status_text(en),
                         assessment.evidence_text(en),
                     )
                 })

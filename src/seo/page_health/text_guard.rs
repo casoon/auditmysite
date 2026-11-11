@@ -1,15 +1,21 @@
 //! Guards of `locales/{de,en}/page-health.ftl` (#936): the same keys in both
 //! languages, every key defined once, used and resolving without errors, and
-//! no German in the English file.
+//! no German in the English file. The file also holds the HTML validation
+//! texts of the SEO view (`html_validation_*_text`, `html_validator_*_text` in
+//! `page_health.rs`).
 
-use super::collect_issues;
 use super::text_export::scenarios;
+use super::{
+    collect_issues, html_validation_check_text, html_validation_detail_text,
+    html_validator_delegated_text, html_validator_executed_text,
+};
+use crate::i18n::detail_texts_export::{sample_lists, COUNTS, HTML_VALIDATION_KINDS};
 use fluent_bundle::{FluentArgs, FluentBundle, FluentResource, FluentValue};
 use std::collections::BTreeSet;
 
 const EN: &str = include_str!("../../../locales/en/page-health.ftl");
 const DE: &str = include_str!("../../../locales/de/page-health.ftl");
-const SOURCE: &str = include_str!("issues.rs");
+const SOURCES: [&str; 2] = [include_str!("issues.rs"), include_str!("../page_health.rs")];
 
 /// The message ids of a file (column-0 `id =` lines), each only once.
 fn ids(ftl: &str) -> Vec<String> {
@@ -35,8 +41,10 @@ fn de_and_en_define_the_same_messages() {
 fn every_message_is_used_by_the_code() {
     for id in ids(EN) {
         assert!(
-            SOURCE.contains(&format!("\"{id}\"")),
-            "{id} is not used in issues.rs"
+            SOURCES
+                .iter()
+                .any(|source| source.contains(&format!("\"{id}\""))),
+            "{id} is not used in issues.rs or page_health.rs"
         );
     }
 }
@@ -57,6 +65,7 @@ fn every_key_resolves_in_both_languages_without_errors() {
             "delay",
             "length",
             "inefficient",
+            "more",
         ] {
             args.set(name, FluentValue::from(2_i64));
         }
@@ -103,6 +112,35 @@ fn no_scenario_leaves_a_key_or_a_placeholder_in_a_message() {
                     "{label} (en={en}): {}",
                     issue.message
                 );
+            }
+        }
+    }
+}
+
+#[test]
+fn no_html_validation_input_leaves_a_key_or_a_placeholder_in_a_text() {
+    let leaks = |text: &str| {
+        let text = text.replace("{$var}", "");
+        text.starts_with("page-health-") || text.contains("{$")
+    };
+    for en in [true, false] {
+        for text in [
+            html_validator_delegated_text(en),
+            html_validator_executed_text(en),
+        ] {
+            assert!(!leaks(&text), "(en={en}): {text}");
+        }
+        for kind in HTML_VALIDATION_KINDS {
+            let check = html_validation_check_text(kind, en);
+            assert!(!leaks(&check), "{kind:?} (en={en}): {check}");
+            for count in COUNTS {
+                for samples in sample_lists() {
+                    let detail = html_validation_detail_text(kind, count, &samples, en);
+                    assert!(
+                        !leaks(&detail),
+                        "{kind:?} {count} {samples:?} (en={en}): {detail}"
+                    );
+                }
             }
         }
     }
