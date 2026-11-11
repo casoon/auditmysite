@@ -469,7 +469,8 @@ struct Collected {
     scoring: FindingScoring,
     scope: LocationScope,
     /// The message as a function of the language (#898); `message` is its
-    /// `en = true` rendering.
+    /// `en = true` rendering, except for HTML conformance, which stores the
+    /// checker's own message (#1039).
     text: Option<crate::audit::finding_text::MessageText>,
     /// Elements this one collected problem stands for (1 unless the module
     /// reports an aggregate such as "79 touch targets too small", #952-3).

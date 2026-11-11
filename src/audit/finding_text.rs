@@ -110,6 +110,23 @@ pub fn localized_context<'a>(context: &AuditContext<'a>) -> AuditContext<'a> {
     context
 }
 
+/// A copy of `report` whose non-WCAG texts are the English report text of
+/// their bound [`MessageText`]. That is the stored message for every module
+/// except HTML conformance, whose JSON keeps the checker's message with its
+/// parser noise while the report shows the readable sentence (#1039).
+pub fn english_report(report: &NormalizedReport) -> NormalizedReport {
+    let mut report = report.clone();
+    localize_domain_texts(&mut report.findings, true);
+    report
+}
+
+/// [`english_report`] for the single-report context.
+pub fn english_context<'a>(context: &AuditContext<'a>) -> AuditContext<'a> {
+    let mut context = context.clone();
+    context.normalized = english_report(&context.normalized);
+    context
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -218,12 +235,16 @@ mod tests {
     }
 
     /// The stored message is the `en = true` rendering of the bound text, so
-    /// the JSON does not change (#898).
+    /// the JSON does not change (#898). HTML conformance stores the checker's
+    /// own message instead and only the report reads the sentence (#1039).
     #[test]
     fn bound_text_in_english_equals_the_stored_message() {
         let findings = domain_findings();
         assert!(findings.len() >= 5, "fixture yields too few findings");
-        for finding in &findings {
+        for finding in findings
+            .iter()
+            .filter(|f| !f.rule_id.starts_with("html_conform."))
+        {
             for occurrence in &finding.occurrences {
                 let text = occurrence.text.as_ref().unwrap_or_else(|| {
                     panic!("{}: no text bound", finding.rule_id);
@@ -231,6 +252,33 @@ mod tests {
                 assert_eq!(text.text(true), occurrence.message, "{}", finding.rule_id);
             }
         }
+    }
+
+    /// The English report copy shows the readable validator sentence while
+    /// the stored message, the JSON, keeps the checker's output (#1039).
+    #[test]
+    fn english_report_reads_html_conform_without_parser_noise() {
+        let normalized = crate::audit::normalized::normalize(&report()).normalized;
+        let stored = normalized.findings.clone();
+        let report = english_report(&normalized);
+        let schema = |findings: &[NormalizedFinding]| {
+            findings
+                .iter()
+                .find(|f| f.rule_id == "html_conform.schema.html5")
+                .unwrap()
+                .occurrences
+                .iter()
+                .map(|o| o.message.clone())
+                .collect::<Vec<_>>()
+        };
+        assert!(schema(&stored)[0].contains("{http://www.w3.org/1999/xhtml}span"));
+        assert_eq!(
+            schema(&report.findings),
+            [
+                "Element <span> is not allowed here.",
+                "Invalid value \"search\" for attribute \"type\"."
+            ]
+        );
     }
 
     #[test]
@@ -307,9 +355,12 @@ mod tests {
             .any(|o| o.message == "Unerwartetes Element <span> an dieser Stelle."));
     }
 
+    /// Outside HTML conformance (`english_report_reads_html_conform_without_parser_noise`)
+    /// the English report text is the stored one.
     #[test]
     fn localizing_to_english_changes_nothing() {
         let mut findings = domain_findings();
+        findings.retain(|f| !f.rule_id.starts_with("html_conform."));
         let before: Vec<String> = findings.iter().map(|f| f.description.clone()).collect();
         localize_domain_texts(&mut findings, true);
         let after: Vec<String> = findings.iter().map(|f| f.description.clone()).collect();

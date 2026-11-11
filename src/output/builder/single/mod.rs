@@ -94,7 +94,8 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         localized = crate::audit::finding_text::localized_context(normalized);
         &localized
     } else {
-        normalized
+        localized = crate::audit::finding_text::english_context(normalized);
+        &localized
     };
     let i18n = I18n::new(&config.locale)
         .or_else(|_| I18n::new("de"))

@@ -81,7 +81,11 @@ pub fn build_batch_presentation_with_normalized(
     );
     let localized: Vec<NormalizedReport>;
     let normalized_reports = if is_english(i18n) {
-        normalized_reports
+        localized = normalized_reports
+            .iter()
+            .map(crate::audit::finding_text::english_report)
+            .collect();
+        &localized
     } else {
         let texts: std::collections::HashMap<String, String> = batch
             .reports
