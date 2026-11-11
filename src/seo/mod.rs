@@ -326,6 +326,9 @@ fn calculate_seo_score(
 }
 
 #[cfg(test)]
+mod issue_texts_export;
+
+#[cfg(test)]
 mod score_tests {
     use super::*;
 
