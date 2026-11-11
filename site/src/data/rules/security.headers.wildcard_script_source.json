@@ -2,7 +2,7 @@
   "id": "security.headers.wildcard_script_source",
   "url": "https://casoon.github.io/auditmysite/rules/security.headers.wildcard_script_source/",
   "domain": "security",
-  "title": "Wildcard script source",
+  "title": "CSP allows wildcard script sources",
   "outcome": "automatic",
   "area": "Security, response headers",
   "checks": [

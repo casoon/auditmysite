@@ -2,7 +2,7 @@
   "id": "security.headers.unsafe_eval_script",
   "url": "https://casoon.github.io/auditmysite/rules/security.headers.unsafe_eval_script/",
   "domain": "security",
-  "title": "Unsafe eval script",
+  "title": "CSP allows eval()",
   "outcome": "automatic",
   "area": "Security, response headers",
   "checks": [

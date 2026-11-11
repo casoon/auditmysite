@@ -544,7 +544,7 @@ fn severity_from(s: &str) -> Severity {
 }
 
 /// Stable snake_case code of a serde-serialized kind enum.
-fn kind_code<T: Serialize>(kind: &T) -> String {
+pub(crate) fn kind_code<T: Serialize>(kind: &T) -> String {
     let raw = match serde_json::to_value(kind) {
         Ok(serde_json::Value::String(s)) => s,
         Ok(serde_json::Value::Object(map)) => map.keys().next().cloned().unwrap_or_default(),
@@ -1259,6 +1259,7 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
     let title = first
         .title
         .clone()
+        .or_else(|| crate::audit::finding_titles::finding_title(&rule_id, true))
         .unwrap_or_else(|| check_title(&first.check));
 
     let help_url = crate::audit::rule_docs::finding_help_url(&rule_id);

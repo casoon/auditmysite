@@ -1348,85 +1348,85 @@
     },
     {
       "id": "security.headers.cors_wildcard_credentials",
-      "title": "Cors wildcard credentials",
+      "title": "CORS: wildcard with credentials",
       "domain": "security",
       "outcome": "automatic"
     },
     {
       "id": "security.headers.hsts_preload_ineligible",
-      "title": "Hsts preload ineligible",
+      "title": "HSTS preload requirements not met",
       "domain": "security",
       "outcome": "automatic"
     },
     {
       "id": "security.headers.missing_base-uri",
-      "title": "Missing base-uri",
+      "title": "CSP: base-uri directive missing",
       "domain": "security",
       "outcome": "automatic"
     },
     {
       "id": "security.headers.missing_frame-ancestors",
-      "title": "Missing frame-ancestors",
+      "title": "CSP: frame-ancestors directive missing",
       "domain": "security",
       "outcome": "automatic"
     },
     {
       "id": "security.headers.missing_header",
-      "title": "Missing header",
+      "title": "Security header missing",
       "domain": "security",
       "outcome": "automatic"
     },
     {
       "id": "security.headers.missing_https",
-      "title": "Missing https",
+      "title": "HTTPS missing",
       "domain": "security",
       "outcome": "automatic"
     },
     {
       "id": "security.headers.missing_object-src",
-      "title": "Missing object-src",
+      "title": "CSP: object-src directive missing",
       "domain": "security",
       "outcome": "automatic"
     },
     {
       "id": "security.headers.permissions_policy_permissive",
-      "title": "Permissions policy permissive",
+      "title": "Permissions-Policy too permissive",
       "domain": "security",
       "outcome": "automatic"
     },
     {
       "id": "security.headers.public_source_map",
-      "title": "Public source map",
+      "title": "Public source maps",
       "domain": "security",
       "outcome": "automatic"
     },
     {
       "id": "security.headers.unsafe_eval_script",
-      "title": "Unsafe eval script",
+      "title": "CSP allows eval()",
       "domain": "security",
       "outcome": "automatic"
     },
     {
       "id": "security.headers.unsafe_inline_script",
-      "title": "Unsafe inline script",
+      "title": "CSP allows inline scripts",
       "domain": "security",
       "outcome": "automatic"
     },
     {
       "id": "security.headers.unsafe_inline_style",
-      "title": "Unsafe inline style",
+      "title": "CSP allows inline styles",
       "domain": "security",
       "outcome": "automatic"
     },
     {
       "id": "security.headers.wildcard_script_source",
-      "title": "Wildcard script source",
+      "title": "CSP allows wildcard script sources",
       "domain": "security",
       "outcome": "automatic"
     },
     {
       "id": "security.headers.wildcard_source",
-      "title": "Wildcard source",
+      "title": "CSP allows wildcard sources",
       "domain": "security",
       "outcome": "automatic"
     },

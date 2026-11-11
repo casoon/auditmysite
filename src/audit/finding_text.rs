@@ -252,9 +252,14 @@ mod tests {
         let mut findings = domain_findings();
         localize_domain_texts(&mut findings, false);
         for finding in &findings {
-            let title = crate::audit::finding_titles::german_finding_title(&finding.rule_id)
+            let title = crate::audit::finding_titles::finding_title(&finding.rule_id, false)
                 .unwrap_or_else(|| panic!("{}: no German title", finding.rule_id));
-            for text in std::iter::once(title.to_string())
+            // A validator rule id named in the title is an identifier, not prose.
+            let title = match finding.rule_id.strip_prefix("html_conform.assertion.") {
+                Some(rule) => title.replace(&format!(" ({rule})"), ""),
+                None => title,
+            };
+            for text in std::iter::once(title)
                 .chain(std::iter::once(finding.description.clone()))
                 .chain(finding.occurrences.iter().map(|o| o.message.clone()))
             {

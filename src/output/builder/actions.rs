@@ -36,8 +36,8 @@ pub(super) fn localized_finding_text(
         );
         return (title, finding.user_impact.clone(), technical_impact);
     }
-    // Findings outside the WCAG engine: German title per check (#898).
-    if let Some(title) = crate::audit::finding_titles::german_finding_title_text(&finding.rule_id) {
+    // Findings outside the WCAG engine: title per check (#898, #1039).
+    if let Some(title) = crate::audit::finding_titles::finding_title(&finding.rule_id, false) {
         return (
             title,
             finding.user_impact.clone(),

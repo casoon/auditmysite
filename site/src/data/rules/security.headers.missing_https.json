@@ -2,7 +2,7 @@
   "id": "security.headers.missing_https",
   "url": "https://casoon.github.io/auditmysite/rules/security.headers.missing_https/",
   "domain": "security",
-  "title": "Missing https",
+  "title": "HTTPS missing",
   "outcome": "automatic",
   "area": "Security, response headers",
   "checks": [

@@ -2,7 +2,7 @@
   "id": "security.headers.missing_frame-ancestors",
   "url": "https://casoon.github.io/auditmysite/rules/security.headers.missing_frame-ancestors/",
   "domain": "security",
-  "title": "Missing frame-ancestors",
+  "title": "CSP: frame-ancestors directive missing",
   "outcome": "automatic",
   "area": "Security, response headers",
   "checks": [

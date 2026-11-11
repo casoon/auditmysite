@@ -12,7 +12,7 @@
 use crate::i18n::I18n;
 
 /// Rule families, keyed like the locale entries.
-const FAMILIES: &[&str] = &[
+pub(crate) const FAMILIES: &[&str] = &[
     "parser",
     "schema",
     "ids",

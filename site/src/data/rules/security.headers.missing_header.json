@@ -2,7 +2,7 @@
   "id": "security.headers.missing_header",
   "url": "https://casoon.github.io/auditmysite/rules/security.headers.missing_header/",
   "domain": "security",
-  "title": "Missing header",
+  "title": "Security header missing",
   "outcome": "automatic",
   "area": "Security, response headers",
   "checks": [

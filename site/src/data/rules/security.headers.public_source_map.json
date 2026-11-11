@@ -2,7 +2,7 @@
   "id": "security.headers.public_source_map",
   "url": "https://casoon.github.io/auditmysite/rules/security.headers.public_source_map/",
   "domain": "security",
-  "title": "Public source map",
+  "title": "Public source maps",
   "outcome": "automatic",
   "area": "Security, response headers",
   "checks": [
