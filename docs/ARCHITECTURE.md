@@ -143,7 +143,7 @@ src/
 │   ├── normalized.rs    # NormalizedReport (enriched, score-corrected); re-exports the two modules below
 │   ├── interactive_finding.rs # Journey/trace types, InteractiveFinding + interactive_finding_text (#406 en/de)
 │   ├── finding_contract.rs # One finding contract for every domain: domain adapters, cause/scoring responsibility, finding inventory, indexability expectation
-│   ├── finding_text.rs  # MessageText: a finding message as a function of the language (module `*_text(kind, values, en)` bound to kind + raw values); localize_domain_texts re-derives non-WCAG finding texts in the run language for the PDF (#898, #406)
+│   ├── finding_text.rs  # MessageText: a finding message as a function of the language (module `*_text(kind, values, en)` bound to kind + raw values); `localized_report` / `localized_context` return the run-language copy of a report the PDF builders read (shared-rule texts, then `localize_domain_texts` for non-WCAG findings; #898, #406, #937)
 │   ├── finding_titles.rs # German titles of non-WCAG findings by rule_id (JSON keeps the English check title)
 │   ├── finding_derive.rs # Derived finding fields: priority score, assurance (confidence/verification from detection method + evidence quality), complexity/expected-impact kinds + texts, BFSG relevance
 │   ├── signal_contract.rs # Versioned contracts of the heuristic signals (target, method, applicability, evidence, uncertainty, permitted interpretation, validation status); see docs/calibration.md
@@ -402,6 +402,7 @@ Central data layer between raw `AuditReport` and output formats:
 - Carries explicit audit quality, module/rule execution status, accessibility assessments, and Journey coverage
 - Computes grade from corrected score
 - Single source of truth for JSON, PDF, and CLI output — ensures consistent scores
+- `NormalizedFinding` is built in `audit/` only (`normalized.rs`, `finding_contract.rs`). `output/` reads it and derives its view models (`report_model::FindingGroup`) from it; `output_never_constructs_a_normalized_finding` in `tests/architecture_test.rs` fails on any struct literal under `src/output/` outside `#[cfg(test)]` items, and `output_never_takes_a_normalized_finding_by_mutable_reference` on any `&mut` to one. The run-language copy of a report for the German PDF is made in `audit/finding_text.rs`; `output/` only reads it (#937)
 
 The overall score is reconstructed from contributing `module_scores` and their
 published weights, for single- and dual-viewport runs. Unchecked HTML conformance

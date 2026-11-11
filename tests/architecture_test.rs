@@ -250,3 +250,174 @@ fn analysis_modules_do_not_import_orchestration_or_persistence() {
         "analysis modules must not import audit orchestration: {found:?}"
     );
 }
+
+/// `source` without the items gated by `#[cfg(test)]`: a module, function or
+/// `use` that starts on such an attribute ends at its closing brace in the
+/// attribute's column (rustfmt layout) or, for a one-line item, at its `;`.
+fn without_cfg_test_items(source: &str) -> String {
+    let mut out = String::new();
+    let mut lines = source.lines();
+    while let Some(line) = lines.next() {
+        if line.trim() != "#[cfg(test)]" {
+            out.push_str(line);
+            out.push('\n');
+            continue;
+        }
+        let column = line.len() - line.trim_start().len();
+        let mut head = true;
+        for item in lines.by_ref() {
+            let trimmed = item.trim();
+            if trimmed.starts_with("#[") || trimmed.is_empty() {
+                continue;
+            }
+            let item_column = item.len() - item.trim_start().len();
+            if head && trimmed.ends_with(';') {
+                break;
+            }
+            head = false;
+            if item_column == column && trimmed.starts_with('}') {
+                break;
+            }
+        }
+    }
+    out
+}
+
+/// Lines (1-based) of `source` that build a `NormalizedFinding` with a struct
+/// literal, not a `-> NormalizedFinding {` signature or an `impl` block.
+fn normalized_finding_literals(source: &str) -> Vec<usize> {
+    const NAME: &str = "NormalizedFinding";
+    let mut found = Vec::new();
+    for (i, line) in source.lines().enumerate() {
+        if line.trim_start().starts_with("//") {
+            continue;
+        }
+        let mut offset = 0;
+        while let Some(at) = line[offset..].find(NAME) {
+            let start = offset + at;
+            let before = line[..start].trim_end();
+            let after = line[start + NAME.len()..].trim_start();
+            let type_position = ["->", "impl", "for", "struct"]
+                .iter()
+                .any(|w| before.ends_with(w));
+            if after.starts_with('{') && !type_position {
+                found.push(i + 1);
+            }
+            offset = start + NAME.len();
+        }
+    }
+    found
+}
+
+/// Lines (1-based) of `source` that take a `NormalizedFinding` by mutable
+/// reference: `&mut NormalizedFinding`, `&mut [NormalizedFinding]`,
+/// `&mut Vec<NormalizedFinding>`, with or without a module path.
+fn mutable_normalized_finding_refs(source: &str) -> Vec<usize> {
+    let mut found = Vec::new();
+    for (i, line) in source.lines().enumerate() {
+        if line.trim_start().starts_with("//") {
+            continue;
+        }
+        for (at, _) in line.match_indices("&mut ") {
+            let ty = line[at + "&mut ".len()..]
+                .split([',', ')', '=', '{', ';'])
+                .next()
+                .unwrap_or_default();
+            if ty.contains("NormalizedFinding") {
+                found.push(i + 1);
+            }
+        }
+    }
+    found
+}
+
+/// The non-test code of `src/output` as `(relative path, source)`.
+fn output_code() -> Vec<(String, String)> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut files = Vec::new();
+    rust_files(&root.join("src/output"), &mut files);
+    assert!(!files.is_empty(), "src/output has no Rust files");
+    files
+        .into_iter()
+        // A file included as `#[cfg(test)] mod tests;` is test code as a whole.
+        .filter(|f| f.file_name().is_none_or(|n| n != "tests.rs"))
+        .map(|f| {
+            let code = without_cfg_test_items(&fs::read_to_string(&f).unwrap());
+            (f.strip_prefix(root).unwrap().display().to_string(), code)
+        })
+        .collect()
+}
+
+/// The output layer reads `NormalizedFinding`, it never builds one (#937): the
+/// normalisation in `audit` owns the construction. No baseline, every literal
+/// outside `#[cfg(test)]` code is a failure.
+#[test]
+fn output_never_constructs_a_normalized_finding() {
+    let mut problems = Vec::new();
+    for (file, code) in output_code() {
+        for line in normalized_finding_literals(&code) {
+            problems.push(format!(
+                "{file}: `NormalizedFinding {{ .. }}` built in output (#937), line {line} after removing cfg(test) items"
+            ));
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+/// Nor does it change one: the run-language copy of a report comes from
+/// `audit::finding_text` (#937). No baseline, every `&mut` outside
+/// `#[cfg(test)]` code is a failure.
+#[test]
+fn output_never_takes_a_normalized_finding_by_mutable_reference() {
+    let mut problems = Vec::new();
+    for (file, code) in output_code() {
+        for line in mutable_normalized_finding_refs(&code) {
+            problems.push(format!(
+                "{file}: `&mut` NormalizedFinding in output (#937), line {line} after removing cfg(test) items"
+            ));
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+#[test]
+fn the_mutable_reference_check_sees_every_spelling_and_skips_shared_ones() {
+    let source = "\
+fn a(f: &mut NormalizedFinding) {}
+fn b(f: &mut [NormalizedFinding], t: &Map) {}
+fn c(f: &mut Vec<crate::audit::normalized::NormalizedFinding>) {}
+fn d(f: &mut [crate::audit::normalized::NormalizedFinding]) {}
+fn e(f: &NormalizedFinding, g: &[NormalizedFinding], h: &mut String) {}
+";
+    assert_eq!(mutable_normalized_finding_refs(source), vec![1, 2, 3, 4]);
+}
+
+#[test]
+fn the_normalized_finding_check_sees_literals_and_skips_test_code() {
+    let source = "\
+fn build() -> NormalizedFinding {
+    NormalizedFinding {
+        id: String::new(),
+    }
+}
+impl NormalizedFinding {
+    fn m(&self) {}
+}
+#[cfg(test)]
+mod tests {
+    fn make() -> NormalizedFinding {
+        NormalizedFinding { id: String::new() }
+    }
+}
+#[cfg(test)]
+use x::NormalizedFinding;
+fn later() {
+    let f = crate::audit::normalized::NormalizedFinding { id: 1 };
+}
+";
+    let code = without_cfg_test_items(source);
+    assert!(!code.contains("mod tests"));
+    assert!(code.contains("fn later"));
+    // The literals in `build` and `later`; not the signature, not the `impl`.
+    assert_eq!(normalized_finding_literals(&code).len(), 2);
+}
