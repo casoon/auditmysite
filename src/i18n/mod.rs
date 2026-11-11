@@ -1,5 +1,8 @@
 pub mod number;
 
+#[cfg(test)]
+mod label_texts_export;
+
 use std::sync::Arc;
 
 use fluent_bundle::{FluentArgs, FluentBundle, FluentResource, FluentValue};
