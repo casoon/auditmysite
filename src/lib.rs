@@ -130,7 +130,7 @@ pub use browser::{
 pub use cli::{Args, BrowserAction, Command, OutputFormat, WcagLevel};
 pub use content_visibility::{analyze_content_visibility, ContentVisibilityAnalysis};
 pub use error::{AuditError, Result};
-pub use html_conform::HtmlConformAnalysis;
+pub use html_conform::{message::SchemaDetail, HtmlConformAnalysis, HtmlConformFinding};
 pub use mobile::{analyze_mobile_friendliness, MobileFriendliness};
 pub use output::format_json_normalized;
 pub use page_flow::{analyze_journey, analyze_journey_with_dom_check, JourneyAnalysis, PageIntent};
@@ -144,6 +144,6 @@ pub use screen_reader::{
 pub use security::{analyze_security, SecurityAnalysis};
 pub use seo::{analyze_seo, SeoAnalysis};
 pub use source_quality::{analyze_source_quality, SourceQualityAnalysis};
-pub use tech_stack::TechStackAnalysis;
+pub use tech_stack::{Confidence as TechConfidence, DetectedTech, TechCategory, TechStackAnalysis};
 pub use ux::{analyze_ux, UxAnalysis};
 pub use wcag::{Severity, Violation, WcagResults};
