@@ -50,4 +50,4 @@ code of the report validation (`ReportContractError`, listed in the output contr
 ## Related
 
 - [Output contract](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#decision-contract), including the decision contract and the validation codes.
-- [CLI and output contract](../reference/cli-and-output.md) for `report-lint` and the output formats.
+- [CLI and output contract](../../reference/cli-and-output/) for `report-lint` and the output formats.

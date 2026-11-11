@@ -147,4 +147,4 @@ The reading-flow assessment appears below the screen-reader section, labelled "A
 
 ## Related documents
 
-- [`WCAG-MANUAL-CHECKS.md`](../reference/WCAG-MANUAL-CHECKS.md) — manual checks no tool can replace
+- [WCAG rules: not automatable](../../reference/wcag-manual-checks/) — manual checks no tool can replace
