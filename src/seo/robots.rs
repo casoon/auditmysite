@@ -68,66 +68,20 @@ pub enum BotClass {
 }
 
 impl BotClass {
-    /// Human-readable, report-visible label for this bot class.
-    pub fn label(&self, en: bool) -> &'static str {
-        match self {
-            BotClass::Wildcard => {
-                if en {
-                    "All crawlers (*)"
-                } else {
-                    "Alle Crawler (*)"
-                }
-            }
-            BotClass::SearchEngine => {
-                if en {
-                    "Search engine"
-                } else {
-                    "Suchmaschine"
-                }
-            }
-            BotClass::AiTraining => {
-                if en {
-                    "AI training"
-                } else {
-                    "KI-Training"
-                }
-            }
-            BotClass::AiCitation => {
-                if en {
-                    "AI search / citation"
-                } else {
-                    "KI-Suche / Zitation"
-                }
-            }
-            BotClass::AiMixed => {
-                if en {
-                    "AI training & search"
-                } else {
-                    "KI-Training & Suche"
-                }
-            }
-            BotClass::UnknownAi => {
-                if en {
-                    "Unknown scraper"
-                } else {
-                    "Unbekannter Scraper"
-                }
-            }
-            BotClass::General => {
-                if en {
-                    "General"
-                } else {
-                    "Allgemein"
-                }
-            }
-            BotClass::Unknown => {
-                if en {
-                    "Unclassified"
-                } else {
-                    "Nicht klassifiziert"
-                }
-            }
-        }
+    /// Human-readable, report-visible label for this bot class: the
+    /// `seo-robots-bot-class-*` message of `locales/{en,de}/seo-issues.ftl`.
+    pub fn label(&self, en: bool) -> String {
+        let key = match self {
+            BotClass::Wildcard => "seo-robots-bot-class-wildcard",
+            BotClass::SearchEngine => "seo-robots-bot-class-search-engine",
+            BotClass::AiTraining => "seo-robots-bot-class-ai-training",
+            BotClass::AiCitation => "seo-robots-bot-class-ai-citation",
+            BotClass::AiMixed => "seo-robots-bot-class-ai-mixed",
+            BotClass::UnknownAi => "seo-robots-bot-class-unknown-ai",
+            BotClass::General => "seo-robots-bot-class-general",
+            BotClass::Unknown => "seo-robots-bot-class-unknown",
+        };
+        crate::i18n::text(key, en)
     }
 }
 
@@ -414,28 +368,18 @@ pub fn infer_robots_policy(audit: &RobotsAudit, en: bool) -> String {
     } else {
         5
     };
-    let (english, german) = POLICY_LABELS[index];
-    if en { english } else { german }.to_string()
+    crate::i18n::text(POLICY_LABELS[index], en)
 }
 
-/// `(canonical English, German)` of every policy label, in the order
-/// [`infer_robots_policy`] tests them.
-const POLICY_LABELS: [(&str, &str); 6] = [
-    (
-        "Everything blocked (Disallow: *)",
-        "Alles gesperrt (Disallow: *)",
-    ),
-    ("AI fully blocked", "KI vollständig blockiert"),
-    (
-        "AI training blocked (conservative)",
-        "KI-Training blockiert (konservativ)",
-    ),
-    (
-        "AI training blocked, AI search allowed",
-        "KI-Training blockiert, KI-Suche erlaubt",
-    ),
-    ("AI access open", "KI-Zugang offen"),
-    ("No explicit AI rule", "Keine explizite KI-Regel"),
+/// The messages of the policy labels (`locales/{en,de}/seo-issues.ftl`), in
+/// the order [`infer_robots_policy`] tests them.
+const POLICY_LABELS: [&str; 6] = [
+    "seo-robots-policy-everything-blocked",
+    "seo-robots-policy-ai-fully-blocked",
+    "seo-robots-policy-ai-training-blocked-conservative",
+    "seo-robots-policy-ai-training-blocked-search-allowed",
+    "seo-robots-policy-ai-access-open",
+    "seo-robots-policy-no-explicit-ai-rule",
 ];
 
 /// The policy label stored in canonical English (AI visibility copies it from
@@ -444,9 +388,9 @@ const POLICY_LABELS: [(&str, &str); 6] = [
 pub fn localize_policy_label(canonical: &str, en: bool) -> String {
     match POLICY_LABELS
         .iter()
-        .find(|(english, _)| *english == canonical)
+        .find(|key| crate::i18n::text(key, true) == canonical)
     {
-        Some((_, german)) if !en => (*german).to_string(),
+        Some(key) if !en => crate::i18n::text(key, false),
         _ => canonical.to_string(),
     }
 }
@@ -564,9 +508,11 @@ mod policy_label_tests {
 
     #[test]
     fn every_canonical_label_has_a_german_form_without_english() {
-        for (english, german) in POLICY_LABELS {
-            assert_eq!(localize_policy_label(english, true), english);
-            assert_eq!(localize_policy_label(english, false), german);
+        for key in POLICY_LABELS {
+            let english = crate::i18n::text(key, true);
+            let german = crate::i18n::text(key, false);
+            assert_eq!(localize_policy_label(&english, true), english);
+            assert_eq!(localize_policy_label(&english, false), german);
             assert_ne!(english, german);
         }
         assert_eq!(

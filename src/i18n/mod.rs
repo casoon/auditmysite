@@ -19,21 +19,26 @@ impl I18n {
         bundle.set_use_isolating(false);
         // Report texts, the rule texts (the catalogue of `taxonomy::rules`
         // and the explanations of `output::explanations`) the page-health
-        // issue texts (`seo::page_health`) and the SEO issue texts
-        // (`seo::technical`, `seo::meta`, `seo::schema`) are four resources of
-        // the one bundle.
+        // issue texts (`seo::page_health`), the SEO issue texts and labels
+        // (`seo::technical`, `seo::meta`, `seo::schema`, `seo::robots`), the
+        // security finding texts (`security`) and the mobile finding texts
+        // (`mobile`) are six resources of the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
                 include_str!("../../locales/en/rules.ftl"),
                 include_str!("../../locales/en/page-health.ftl"),
                 include_str!("../../locales/en/seo-issues.ftl"),
+                include_str!("../../locales/en/security-issues.ftl"),
+                include_str!("../../locales/en/mobile-issues.ftl"),
             ],
             _ => [
                 include_str!("../../locales/de/report.ftl"),
                 include_str!("../../locales/de/rules.ftl"),
                 include_str!("../../locales/de/page-health.ftl"),
                 include_str!("../../locales/de/seo-issues.ftl"),
+                include_str!("../../locales/de/security-issues.ftl"),
+                include_str!("../../locales/de/mobile-issues.ftl"),
             ],
         };
         for ftl in sources {

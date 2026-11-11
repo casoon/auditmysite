@@ -3,10 +3,16 @@
 //! Analyzes HTTP security headers and SSL/TLS configuration.
 
 pub mod module;
+
+#[cfg(test)]
+mod issue_texts_export;
+#[cfg(test)]
+mod issue_texts_guard;
 pub(crate) mod sourcemap;
 pub use module::SecurityModule;
 pub use sourcemap::{audit_source_maps, SourceMapLeak, SourceMapLeakAudit};
 
+use fluent_bundle::FluentValue;
 use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -584,168 +590,75 @@ impl SecurityIssue {
 
 /// The only source of security-finding wording (#406). The analysis layer calls
 /// it with `en = true` to bake canonical English into the stored struct; the
-/// PDF calls it with the run language.
+/// PDF calls it with the run language. The wording is the `security-*` message
+/// of `locales/{en,de}/security-issues.ftl`.
 pub fn security_issue_text(
     kind: SecurityIssueKind,
     values: &SecurityIssueValues,
     en: bool,
 ) -> String {
     use SecurityIssueKind::*;
-    match kind {
-        MissingHttps => if en {
-            "Site is not served over HTTPS"
-        } else {
-            "Seite wird nicht über HTTPS ausgeliefert"
-        }
-        .to_string(),
-        MissingCsp => if en {
-            "Missing Content-Security-Policy header"
-        } else {
-            "Content-Security-Policy-Header fehlt"
-        }
-        .to_string(),
-        MissingXContentTypeOptions => if en {
-            "Missing X-Content-Type-Options header"
-        } else {
-            "X-Content-Type-Options-Header fehlt"
-        }
-        .to_string(),
-        MissingXFrameOptions => if en {
-            "Missing X-Frame-Options header (clickjacking protection)"
-        } else {
-            "X-Frame-Options-Header fehlt (Clickjacking-Schutz)"
-        }
-        .to_string(),
-        MissingHsts => if en {
-            "Missing HSTS header"
-        } else {
-            "HSTS-Header fehlt"
-        }
-        .to_string(),
-        MissingReferrerPolicy => if en {
-            "Missing Referrer-Policy header"
-        } else {
-            "Referrer-Policy-Header fehlt"
-        }
-        .to_string(),
-        MissingPermissionsPolicy => if en {
-            "Missing Permissions-Policy header"
-        } else {
-            "Permissions-Policy-Header fehlt"
-        }
-        .to_string(),
-        MissingCoop => if en {
-            "Cross-Origin-Opener-Policy is not set. This header only matters if the page uses \
-             SharedArrayBuffer, high-resolution timers, or needs to isolate itself from \
-             cross-origin popups — if none of that applies, no action is needed here. If it \
-             does apply, set it to same-origin and verify popup/window interactions still work \
-             as expected."
-        } else {
-            "Cross-Origin-Opener-Policy ist nicht gesetzt. Dieser Header ist nur relevant, wenn \
-             die Seite SharedArrayBuffer, hochauflösende Timer verwendet oder sich von \
-             Cross-Origin-Popups isolieren muss — trifft das nicht zu, ist hier keine Maßnahme \
-             nötig. Trifft es zu: auf same-origin setzen und prüfen, ob Popup-/Fenster-\
-             Interaktionen weiterhin wie erwartet funktionieren."
-        }
-        .to_string(),
-        MissingCorp => if en {
-            "Cross-Origin-Resource-Policy is not set. This header only matters if the page \
-             serves fonts, scripts, or media that other origins should be prevented from \
-             loading — if the site's resources are intentionally public, no action is needed \
-             here. If cross-origin loading should be restricted, set it to same-origin or \
-             same-site."
-        } else {
-            "Cross-Origin-Resource-Policy ist nicht gesetzt. Dieser Header ist nur relevant, \
-             wenn die Seite Schriften, Skripte oder Medien ausliefert, die andere Origins nicht \
-             laden können sollen — sind die Ressourcen bewusst öffentlich, ist hier keine \
-             Maßnahme nötig. Soll Cross-Origin-Laden eingeschränkt werden: auf same-origin oder \
-             same-site setzen."
-        }
-        .to_string(),
-        CorsWildcardCredentials => if en {
-            "CORS allows any origin while also allowing credentials"
-        } else {
-            "CORS erlaubt jede Origin und gleichzeitig Credentials"
-        }
-        .to_string(),
+    let key = match kind {
+        MissingHttps => "security-missing-https",
+        MissingCsp => "security-missing-csp",
+        MissingXContentTypeOptions => "security-missing-x-content-type-options",
+        MissingXFrameOptions => "security-missing-x-frame-options",
+        MissingHsts => "security-missing-hsts",
+        MissingReferrerPolicy => "security-missing-referrer-policy",
+        MissingPermissionsPolicy => "security-missing-permissions-policy",
+        MissingCoop => "security-missing-coop",
+        MissingCorp => "security-missing-corp",
+        CorsWildcardCredentials => "security-cors-wildcard-credentials",
         HstsPreloadIneligible => {
             let max_age = values.hsts_max_age.as_deref().unwrap_or("unset");
             let subdomains = values.hsts_include_subdomains.unwrap_or(false);
-            if en {
-                format!(
-                    "HSTS preload directive is set but requirements aren't met (max-age={max_age}, includeSubDomains={subdomains}) — the site won't qualify for the HSTS preload list"
-                )
-            } else {
-                format!(
-                    "HSTS-preload-Direktive ist gesetzt, die Voraussetzungen sind aber nicht erfüllt (max-age={max_age}, includeSubDomains={subdomains}) — die Seite wird nicht in die HSTS-Preload-Liste aufgenommen"
-                )
-            }
+            return crate::i18n::text_args(
+                "security-hsts-preload-ineligible",
+                &[
+                    ("max_age", FluentValue::from(max_age.to_string())),
+                    ("subdomains", FluentValue::from(subdomains.to_string())),
+                ],
+                en,
+            );
         }
-        PermissionsPolicyPermissive => if en {
-            "Permissions-Policy header is present but doesn't restrict any feature (empty or wildcard-only)"
-        } else {
-            "Permissions-Policy-Header ist vorhanden, schränkt aber kein Feature ein (leer oder nur Wildcards)"
-        }
-        .to_string(),
+        PermissionsPolicyPermissive => "security-permissions-policy-permissive",
         PublicSourceMap => {
             let count = values.source_map_count.unwrap_or(1);
             let example = values
                 .source_map_example
                 .as_deref()
-                .map(|url| format!(" (e.g. {url})"))
+                .map(|url| {
+                    crate::i18n::text_args(
+                        "security-public-source-map-example",
+                        &[("url", FluentValue::from(url.to_string()))],
+                        en,
+                    )
+                })
                 .unwrap_or_default();
-            if en {
-                format!(
-                    "{count} publicly reachable source map{} found{example} — exposes original source, comments, and internal file paths",
-                    if count == 1 { "" } else { "s" }
-                )
-            } else {
-                let example = example.replace(" (e.g. ", " (z. B. ");
-                format!(
-                    "{count} öffentlich erreichbare Source-Map{} gefunden{example} — legt Originalquellcode, Kommentare und interne Dateipfade offen",
-                    if count == 1 { "" } else { "s" }
-                )
-            }
+            return crate::i18n::text_args(
+                "security-public-source-map",
+                &[
+                    ("count", FluentValue::from(count as i64)),
+                    ("example", FluentValue::from(example)),
+                ],
+                en,
+            );
         }
-        CspUnsafeInlineScript => if en {
-            "CSP allows unsafe-inline scripts without nonce/hash protection"
-        } else {
-            "CSP erlaubt unsafe-inline-Skripte ohne Nonce-/Hash-Absicherung"
-        }
-        .to_string(),
-        CspUnsafeEvalScript => if en {
-            "CSP allows unsafe-eval in script sources"
-        } else {
-            "CSP erlaubt unsafe-eval in den Skript-Quellen"
-        }
-        .to_string(),
-        CspWildcardScriptSource => if en {
-            "CSP allows wildcard script sources"
-        } else {
-            "CSP erlaubt Wildcard-Skriptquellen"
-        }
-        .to_string(),
-        CspUnsafeInlineStyle => if en {
-            "CSP allows unsafe-inline styles without nonce/hash protection"
-        } else {
-            "CSP erlaubt unsafe-inline-Styles ohne Nonce-/Hash-Absicherung"
-        }
-        .to_string(),
-        CspWildcardSource => if en {
-            "CSP contains wildcard source expressions"
-        } else {
-            "CSP enthält Wildcard-Quellausdrücke"
-        }
-        .to_string(),
+        CspUnsafeInlineScript => "security-csp-unsafe-inline-script",
+        CspUnsafeEvalScript => "security-csp-unsafe-eval-script",
+        CspWildcardScriptSource => "security-csp-wildcard-script-source",
+        CspUnsafeInlineStyle => "security-csp-unsafe-inline-style",
+        CspWildcardSource => "security-csp-wildcard-source",
         CspMissingDirective => {
             let directive = values.csp_directive.as_deref().unwrap_or("object-src");
-            if en {
-                format!("CSP missing {directive} directive")
-            } else {
-                format!("CSP fehlt die {directive}-Direktive")
-            }
+            return crate::i18n::text_args(
+                "security-csp-missing-directive",
+                &[("directive", FluentValue::from(directive.to_string()))],
+                en,
+            );
         }
-    }
+    };
+    crate::i18n::text(key, en)
 }
 
 /// The stored `issue_type` string for a kind. Kept as an explicit mapping so

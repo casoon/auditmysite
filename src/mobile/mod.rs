@@ -3,11 +3,17 @@
 //! Analyzes viewport, touch targets, font sizes, and responsive layout.
 
 pub mod module;
+
+#[cfg(test)]
+mod issue_texts_export;
+#[cfg(test)]
+mod issue_texts_guard;
 pub mod ux_heuristics;
 pub use module::MobileModule;
 pub use ux_heuristics::{analyze_ux_heuristics, UxHeuristicFinding, UxHeuristics};
 
 use chromiumoxide::Page;
+use fluent_bundle::FluentValue;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
@@ -180,102 +186,82 @@ impl MobileIssue {
     }
 }
 
-/// Human label for a touch-target context key. Unknown keys pass through, so a
+/// Human label for a touch-target context key: the `mobile-context-*` message
+/// of `locales/{en,de}/mobile-issues.ftl`. Unknown keys pass through, so a
 /// future context added in the page script degrades to its raw name rather
 /// than disappearing.
 pub fn mobile_context_label(context: &str, en: bool) -> String {
-    match (context, en) {
-        ("navigation", true) => "navigation",
-        ("navigation", false) => "Navigation",
-        ("footer", true) => "footer",
-        ("footer", false) => "Fußbereich",
-        ("header", true) => "header",
-        ("header", false) => "Kopfbereich",
-        ("sidebar", true) => "sidebar",
-        ("sidebar", false) => "Seitenleiste",
-        ("social/utility", true) => "social/utility",
-        ("social/utility", false) => "Social/Utility",
-        ("form", true) => "form",
-        ("form", false) => "Formular",
-        ("button", true) => "button",
-        ("button", false) => "Schaltfläche",
-        ("other", true) => "other",
-        ("other", false) => "Sonstige",
+    let key = match context {
+        "navigation" => "mobile-context-navigation",
+        "footer" => "mobile-context-footer",
+        "header" => "mobile-context-header",
+        "sidebar" => "mobile-context-sidebar",
+        "social/utility" => "mobile-context-social-utility",
+        "form" => "mobile-context-form",
+        "button" => "mobile-context-button",
+        "other" => "mobile-context-other",
         _ => return context.to_string(),
-    }
-    .to_string()
+    };
+    crate::i18n::text(key, en)
 }
 
 /// The only source of mobile-finding wording (#406). The analysis layer calls
 /// it with `en = true` to bake canonical English into the stored struct; the
-/// PDF calls it with the run language.
+/// PDF calls it with the run language. The wording is the `mobile-*` message
+/// of `locales/{en,de}/mobile-issues.ftl`.
 pub fn mobile_issue_text(kind: MobileIssueKind, values: &MobileIssueValues, en: bool) -> String {
     use MobileIssueKind::*;
-    match kind {
-        MissingViewport => if en {
-            "Missing viewport meta tag"
-        } else {
-            "Viewport-Meta-Tag fehlt"
-        }
-        .to_string(),
-        ImproperViewport => if en {
-            "Viewport is not properly configured"
-        } else {
-            "Viewport ist nicht korrekt konfiguriert"
-        }
-        .to_string(),
-        NotScalable => if en {
-            "Page disables zooming (user-scalable=no)"
-        } else {
-            "Seite unterbindet Zoomen (user-scalable=no)"
-        }
-        .to_string(),
+    let key = match kind {
+        MissingViewport => "mobile-missing-viewport",
+        ImproperViewport => "mobile-improper-viewport",
+        NotScalable => "mobile-not-scalable",
         SmallTargets => {
             let count = values.small_target_count.unwrap_or(0);
-            let context_detail = if values.small_by_context.is_empty() {
-                String::new()
-            } else {
-                let parts: Vec<String> = values
+            let list = |key: &str, parts: Vec<String>| {
+                if parts.is_empty() {
+                    String::new()
+                } else {
+                    crate::i18n::text_args(
+                        key,
+                        &[("list", FluentValue::from(parts.join(", ")))],
+                        en,
+                    )
+                }
+            };
+            let contexts = list(
+                "mobile-small-targets-contexts",
+                values
                     .small_by_context
                     .iter()
                     .map(|(ctx, n)| format!("{n} {}", mobile_context_label(ctx, en)))
-                    .collect();
-                format!(" ({})", parts.join(", "))
-            };
-            let sample_detail = if values.small_target_samples.is_empty() {
-                String::new()
-            } else {
-                let lead_in = if en { " — e.g. " } else { " — z. B. " };
-                format!("{lead_in}{}", values.small_target_samples.join(", "))
-            };
-            if en {
-                format!(
-                    "{count} touch targets are too small (<44x44px){context_detail}{sample_detail}"
-                )
-            } else {
-                format!(
-                    "{count} Bedienelemente sind zu klein (<44x44px){context_detail}{sample_detail}"
-                )
-            }
+                    .collect(),
+            );
+            let samples = list(
+                "mobile-small-targets-samples",
+                values.small_target_samples.clone(),
+            );
+            return crate::i18n::text_args(
+                "mobile-small-targets",
+                &[
+                    ("count", FluentValue::from(i64::from(count))),
+                    ("contexts", FluentValue::from(contexts)),
+                    ("samples", FluentValue::from(samples)),
+                ],
+                en,
+            );
         }
         SmallFonts => {
             let smallest = values.smallest_font_px.unwrap_or(0.0);
-            if en {
-                format!("Smallest font size is {smallest:.1}px (recommended: ≥12px)")
-            } else {
-                format!(
-                    "Kleinste Schriftgröße ist {}px (empfohlen: ≥12px)",
-                    format!("{smallest:.1}").replace('.', ",")
-                )
-            }
+            let size = crate::i18n::number::decimal(f64::from(smallest), 1, en);
+            return crate::i18n::text_args(
+                "mobile-small-fonts",
+                &[("size", FluentValue::from(size))],
+                en,
+            );
         }
-        HorizontalScroll => if en {
-            "Page has horizontal scrolling"
-        } else {
-            "Seite scrollt horizontal"
-        }
-        .to_string(),
-    }
+        HorizontalScroll => "mobile-horizontal-scroll",
+    };
+    crate::i18n::text(key, en)
 }
 
 /// Build a finding with its canonical-English message derived from `kind` —

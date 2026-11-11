@@ -3,7 +3,9 @@
 # (`seo::meta::meta_issue_text`) and the structured-data issues
 # (`seo::schema::schema_issue_text`). One message per issue; counts reach the
 # messages as numbers, so the plural agreement lives here. Which issues exist
-# and their severity stay in Rust.
+# and their severity stay in Rust. Also the table labels of the structured-data
+# issues (`seo::schema::schema_issue_label`) and of the robots.txt audit (bot
+# classes and policy labels of `seo::robots`).
 
 seo-technical-no-https = Page is not served over HTTPS
 seo-technical-no-canonical = Missing canonical URL
@@ -81,3 +83,27 @@ seo-schema-jsonld-graph-not-array = The @graph value must be an array of JSON-LD
 seo-schema-jsonld-empty-document = The JSON-LD block contains no nodes.
 seo-schema-recommended-missing = { $type }: recommended property "{ $property }" is missing
 seo-schema-required-missing = { $type }: required property "{ $property }" is missing
+
+seo-schema-label-jsonld-parse-error = JSON syntax
+seo-schema-label-jsonld-invalid-root = Root structure
+seo-schema-label-jsonld-missing-context = Schema context
+seo-schema-label-jsonld-missing-type = Schema type
+seo-schema-label-jsonld-graph-not-array = @graph
+seo-schema-label-jsonld-empty-document = Empty block
+seo-schema-label-other = Schema.org
+
+seo-robots-bot-class-wildcard = All crawlers (*)
+seo-robots-bot-class-search-engine = Search engine
+seo-robots-bot-class-ai-training = AI training
+seo-robots-bot-class-ai-citation = AI search / citation
+seo-robots-bot-class-ai-mixed = AI training & search
+seo-robots-bot-class-unknown-ai = Unknown scraper
+seo-robots-bot-class-general = General
+seo-robots-bot-class-unknown = Unclassified
+
+seo-robots-policy-everything-blocked = Everything blocked (Disallow: *)
+seo-robots-policy-ai-fully-blocked = AI fully blocked
+seo-robots-policy-ai-training-blocked-conservative = AI training blocked (conservative)
+seo-robots-policy-ai-training-blocked-search-allowed = AI training blocked, AI search allowed
+seo-robots-policy-ai-access-open = AI access open
+seo-robots-policy-no-explicit-ai-rule = No explicit AI rule

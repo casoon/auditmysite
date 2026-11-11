@@ -432,7 +432,7 @@ string literals in Rust: the text function holds the decision logic, picks a mes
 key and passes the values as named arguments (a count as a number, so the plural
 agreement is a Fluent select in the locale file). The page-health issues
 (`seo::page_health::collect_issues`) are the `page-health-*` messages of
-`page-health.ftl`, the technical, meta-tag and structured-data issues of the SEO module are the `seo-*` messages of `seo-issues.ftl`; the rule texts are in `rules.ftl`; other report text is in
+`page-health.ftl`, the technical, meta-tag and structured-data issues and the structured-data and robots.txt labels of the SEO module are the `seo-*` messages of `seo-issues.ftl`, the security findings the `security-*` messages of `security-issues.ftl`, the mobile findings the `mobile-*` messages of `mobile-issues.ftl`; the rule texts are in `rules.ftl`; other report text is in
 `report.ftl`.
 
 ## Changelog

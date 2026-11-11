@@ -129,7 +129,7 @@ In the rendered PDF:
 
 ### Localization Boundaries
 
-AuditMySite currently has six localization surfaces. Keep new text in the
+AuditMySite currently has eight localization surfaces. Keep new text in the
 surface that owns its lifecycle:
 
 - `locales/{de,en}/report.ftl`: runtime report labels, headings, table columns,
@@ -157,7 +157,18 @@ surface that owns its lifecycle:
   (`seo::technical::collect_technical_issues`, `seo-technical-*`), the meta-tag
   findings (`seo::meta::meta_issue_text`, `seo-meta-*`) and the structured-data
   issues (`seo::schema::schema_issue_text`, `seo-schema-*`), built the same way as
-  `page-health.ftl`.
+  `page-health.ftl`; also the table labels of the structured-data issues
+  (`seo::schema::schema_issue_label`, `seo-schema-label-*`) and of the
+  robots.txt audit (`seo::robots::BotClass::label`, `infer_robots_policy`,
+  `localize_policy_label`, `seo-robots-*`).
+- `locales/{de,en}/security-issues.ftl`: the texts of the security findings
+  (`security::security_issue_text`, `security-*`), built the same way; the
+  function keeps the default values (`unset`, `object-src`).
+- `locales/{de,en}/mobile-issues.ftl`: the texts of the mobile findings
+  (`mobile::mobile_issue_text`, `mobile-*`) with the parts of the touch-target
+  sentence and the touch-target context labels (`mobile::mobile_context_label`,
+  `mobile-context-*`), built the same way; the number format stays in
+  `i18n::number`.
 - `src/output/explanations.rs`: the explanation table itself: which entries
   exist, owner role, effort, and the code examples (canonical English), plus
   `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are

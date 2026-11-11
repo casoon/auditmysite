@@ -242,12 +242,13 @@ src/
 │   ├── meta.rs          # Meta tags (the finding texts: `seo-meta-*` in `locales/<lang>/seo-issues.ftl`)
 │   ├── headings.rs      # Heading structure
 │   ├── profile.rs       # SEO content profile
-│   ├── schema.rs        # Structured data (JSON-LD/schema.org; the issue texts: `seo-schema-*` in `locales/<lang>/seo-issues.ftl`)
+│   ├── schema.rs        # Structured data (JSON-LD/schema.org; the issue texts and table labels: `seo-schema-*` in `locales/<lang>/seo-issues.ftl`; `label_texts_export.rs` beside it is the ignored text-export test of these labels and of the robots.txt labels)
 │   ├── schema_rules.rs  # Feature-specific required/recommended property rules
 │   ├── schema_fit.rs    # Page-intent and URL based primary-schema fit
 │   ├── schema_parity.rs # Conservative visible-content vs. JSON-LD comparison
 │   ├── social.rs        # Open Graph / Twitter Card
 │   ├── technical.rs     # robots/canonical/hreflang (the issue texts: `seo-technical-*` in `locales/<lang>/seo-issues.ftl`, #936; `issue_texts_export.rs` and `issue_texts_guard.rs` beside it are the ignored text-export test and the guards of that file)
+│   ├── robots.rs        # robots.txt audit (bot-class and policy labels: `seo-robots-*` in `locales/<lang>/seo-issues.ftl`, #936)
 │   ├── page_health.rs   # Page-health types, analyze_page_health, URL analysis
 │   ├── page_health/     # dom.rs (DOM inspection; HTML validation lives in html_conform), probes.rs
 │   │                    # (HTTP probes), issues.rs (collect_issues: thresholds, severities and arguments; the texts are the `page-health-*` messages of `locales/<lang>/page-health.ftl`, #936), text_export.rs (ignored test: exports every issue text in both languages) and text_guard.rs (guards of page-health.ftl)
@@ -255,10 +256,12 @@ src/
 │   └── ...
 │
 ├── security/            # Security header analysis
-│   └── mod.rs, module.rs
+│   ├── mod.rs, module.rs  # finding texts: `security-*` in `locales/<lang>/security-issues.ftl` (#936)
+│   └── issue_texts_export.rs, issue_texts_guard.rs  # ignored text-export test and guards of security-issues.ftl
 │
 ├── mobile/              # Mobile friendliness analysis
-│   ├── mod.rs, module.rs
+│   ├── mod.rs, module.rs  # finding texts and touch-target context labels: `mobile-*` in `locales/<lang>/mobile-issues.ftl` (#936)
+│   ├── issue_texts_export.rs, issue_texts_guard.rs  # ignored text-export test and guards of mobile-issues.ftl
 │   └── ux_heuristics.rs
 │
 ├── html_conform/        # HTML5 spec-conformance checking via the html-conform crate (scored, part of --full)
@@ -321,11 +324,11 @@ src/
 ├── studio/              # Studio contract types (GUI data contract)
 │   └── mod.rs
 │
-└── i18n/                # Project Fluent (.ftl) loader, library default language: German (the CLI default is English); one bundle per language from `locales/<lang>/report.ftl` (report texts), `page-health.ftl` (the page-health issue texts of `seo::page_health`, #936), `seo-issues.ftl` (the technical, meta-tag and structured-data issue texts of `seo::technical`, `seo::meta` and `seo::schema`, #936) and `rules.ftl` (rule texts, one message per rule id with attributes, including the explanation texts of a rule with an entry under its own id, and explanation texts for the entries keyed by a WCAG criterion or an axe id, one message per entry with attributes, #935); `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts, `I18n::attr` = message attributes, `text_args` = a message with named arguments for the pure `*_text(…, en)` functions
+└── i18n/                # Project Fluent (.ftl) loader, library default language: German (the CLI default is English); one bundle per language from `locales/<lang>/report.ftl` (report texts), `page-health.ftl` (the page-health issue texts of `seo::page_health`, #936), `seo-issues.ftl` (the technical, meta-tag and structured-data issue texts of `seo::technical`, `seo::meta` and `seo::schema`, and the structured-data and robots.txt table labels of `seo::schema` and `seo::robots`, #936), `security-issues.ftl` (the security finding texts of `security`, #936), `mobile-issues.ftl` (the mobile finding texts and touch-target context labels of `mobile`, #936) and `rules.ftl` (rule texts, one message per rule id with attributes, including the explanation texts of a rule with an entry under its own id, and explanation texts for the entries keyed by a WCAG criterion or an axe id, one message per entry with attributes, #935); `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts, `I18n::attr` = message attributes, `text_args` = a message with named arguments for the pure `*_text(…, en)` functions
     └── mod.rs
 
 locales/                 # Fluent sources, compiled in with include_str!
-├── de/                  # report.ftl, rules.ftl, page-health.ftl, seo-issues.ftl
+├── de/                  # report.ftl, rules.ftl, page-health.ftl, seo-issues.ftl, security-issues.ftl, mobile-issues.ftl
 └── en/                  # same key sets as de/ (guard tests in i18n, taxonomy::rules and output::explanations)
 ```
 

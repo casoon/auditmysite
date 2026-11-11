@@ -3,7 +3,9 @@
 # (`seo::meta::meta_issue_text`) and the structured-data issues
 # (`seo::schema::schema_issue_text`). One message per issue; counts reach the
 # messages as numbers, so the plural agreement lives here. Which issues exist
-# and their severity stay in Rust.
+# and their severity stay in Rust. Also the table labels of the structured-data
+# issues (`seo::schema::schema_issue_label`) and of the robots.txt audit (bot
+# classes and policy labels of `seo::robots`).
 
 seo-technical-no-https = Seite wird nicht über HTTPS ausgeliefert
 seo-technical-no-canonical = Fehlende Canonical-URL
@@ -81,3 +83,27 @@ seo-schema-jsonld-graph-not-array = Der Wert von @graph muss eine Liste von JSON
 seo-schema-jsonld-empty-document = Der JSON-LD-Block enthält keine Knoten.
 seo-schema-recommended-missing = { $type }: Empfohlenes Feld "{ $property }" fehlt
 seo-schema-required-missing = { $type }: Pflichtfeld "{ $property }" fehlt
+
+seo-schema-label-jsonld-parse-error = JSON-Syntax
+seo-schema-label-jsonld-invalid-root = Wurzelstruktur
+seo-schema-label-jsonld-missing-context = Schema-Kontext
+seo-schema-label-jsonld-missing-type = Schema-Typ
+seo-schema-label-jsonld-graph-not-array = @graph
+seo-schema-label-jsonld-empty-document = Leerer Block
+seo-schema-label-other = Schema.org
+
+seo-robots-bot-class-wildcard = Alle Crawler (*)
+seo-robots-bot-class-search-engine = Suchmaschine
+seo-robots-bot-class-ai-training = KI-Training
+seo-robots-bot-class-ai-citation = KI-Suche / Zitation
+seo-robots-bot-class-ai-mixed = KI-Training & Suche
+seo-robots-bot-class-unknown-ai = Unbekannter Scraper
+seo-robots-bot-class-general = Allgemein
+seo-robots-bot-class-unknown = Nicht klassifiziert
+
+seo-robots-policy-everything-blocked = Alles gesperrt (Disallow: *)
+seo-robots-policy-ai-fully-blocked = KI vollständig blockiert
+seo-robots-policy-ai-training-blocked-conservative = KI-Training blockiert (konservativ)
+seo-robots-policy-ai-training-blocked-search-allowed = KI-Training blockiert, KI-Suche erlaubt
+seo-robots-policy-ai-access-open = KI-Zugang offen
+seo-robots-policy-no-explicit-ai-rule = Keine explizite KI-Regel
