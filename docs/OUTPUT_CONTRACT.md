@@ -38,7 +38,7 @@
 
 ## Finding Contract
 
-`pages[].findings[]` holds every problem any module collected, one finding per rule (WCAG) or per collector check (`<source>.<check>`, e.g. `seo.technical.noindex`). `category` is `wcag` for accessibility rule findings and the domain name otherwise; it is derived from `contract.domain`, and a report whose `category` names another domain is rejected when it is read back. Each finding carries `contract`:
+`pages[].findings[]` holds every problem any module collected, one finding per rule (WCAG) or per collector check (`<source>.<check>`, e.g. `seo.technical.noindex`). `category` is `wcag` for accessibility rule findings and the domain name otherwise; it is derived from `contract.domain`, and a report whose `category` names another domain is rejected when it is read back. `rule_id` is `contract.check` for a WCAG finding (`contract.source` `wcag`) and `<contract.source>.<contract.check>` otherwise, `aggregation_key` equals `rule_id`; a report that breaks either is rejected when it is read back. Each finding carries `contract`:
 
 - `domain`, `source`, `check` — where the finding comes from.
 - `outcome` — `fail`, or `review` for heuristic and context-dependent checks.
