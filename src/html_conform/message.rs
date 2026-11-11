@@ -1,13 +1,15 @@
-//! Run-language text of `html-conform` findings (#902, #406).
+//! Run-language text of `html-conform` findings (#902, #406, #1039).
 //!
-//! The stored `message` stays the checker's canonical English (the JSON). A
-//! German report shows [`message_text`] instead. Schema findings carry their
-//! structured arguments ([`SchemaDetail`], local element and attribute names
-//! without the XHTML namespace), from which the text is written. Findings
-//! without them (other rule families, or a report read back from JSON) are
-//! mapped by rule id and message shape; every other one falls back to the
-//! localized title of the rule's family (`recommendation.rs`), so no English
-//! checker prose reaches a German report.
+//! The stored `message` stays the checker's own output (the JSON), parser
+//! noise included (`{http://www.w3.org/1999/xhtml}span at 190:12271`). A
+//! report in either language shows [`message_text`] instead. Schema findings
+//! carry their structured arguments ([`SchemaDetail`], local element and
+//! attribute names without the XHTML namespace), from which the text is
+//! written in both languages. Findings without them (other rule families, or a
+//! report read back from JSON) are mapped by rule id and message shape; in
+//! German every other one falls back to the localized title of the rule's
+//! family (`recommendation.rs`), so no English checker prose reaches a German
+//! report, while English keeps the checker's prose.
 //!
 //! The wording of the shared checker itself belongs to barrierlab
 //! (`html-conform`); this module only maps, it never rewrites its output.
@@ -66,8 +68,91 @@ impl SchemaDetail {
         })
     }
 
-    /// The German text. The checker leaves the element empty when the error
+    /// The text in the requested language: the only source of the wording of
+    /// a schema finding. The checker leaves the element empty when the error
     /// has no enclosing element; the sentence then omits it.
+    fn text(&self, en: bool) -> String {
+        if en {
+            self.english()
+        } else {
+            self.german()
+        }
+    }
+
+    fn english(&self) -> String {
+        let on = |element: &str| {
+            if element.is_empty() {
+                String::new()
+            } else {
+                format!(" on <{element}>")
+            }
+        };
+        match self {
+            Self::UnexpectedElement { element } => {
+                format!("Element <{element}> is not allowed here.")
+            }
+            Self::UnexpectedText { parent } if parent.is_empty() => {
+                "Text is not allowed here.".to_string()
+            }
+            Self::UnexpectedText { parent } => {
+                format!("Text is not allowed here in <{parent}>.")
+            }
+            Self::UnexpectedAttribute { attribute, element } => {
+                format!("Attribute \"{attribute}\" is not allowed{}.", on(element))
+            }
+            Self::InvalidAttributeValue {
+                attribute,
+                value,
+                element,
+            } => format!(
+                "Invalid value \"{value}\" for attribute \"{attribute}\"{}.",
+                on(element)
+            ),
+            Self::MissingContent { element } if element.is_empty() => {
+                "Required content is missing.".to_string()
+            }
+            Self::MissingContent { element } => {
+                format!("Element <{element}> is missing required content.")
+            }
+        }
+    }
+
+    /// The kind a stored schema message names, for a finding without its
+    /// detail (a report read back from JSON). The message names no enclosing
+    /// element, so that stays empty.
+    fn from_message(message: &str) -> Option<Self> {
+        let body = strip_position(message).0;
+        if body == "unexpected text" {
+            return Some(Self::UnexpectedText {
+                parent: String::new(),
+            });
+        }
+        if body == "missing required content" {
+            return Some(Self::MissingContent {
+                element: String::new(),
+            });
+        }
+        if let Some(name) = quoted_after(body, "unexpected element ") {
+            return Some(Self::UnexpectedElement {
+                element: local_name(&name),
+            });
+        }
+        if let Some(name) = quoted_after(body, "unexpected attribute ") {
+            return Some(Self::UnexpectedAttribute {
+                attribute: local_name(&name),
+                element: String::new(),
+            });
+        }
+        let (value, attribute) = body
+            .strip_prefix("invalid value ")?
+            .split_once(" for attribute ")?;
+        Some(Self::InvalidAttributeValue {
+            attribute: unquote(attribute).to_string(),
+            value: unquote(value).to_string(),
+            element: String::new(),
+        })
+    }
+
     fn german(&self) -> String {
         let on = |element: &str| {
             if element.is_empty() {
@@ -107,49 +192,27 @@ impl SchemaDetail {
     }
 }
 
-/// The message of a finding in the requested language. `en = true` returns the
-/// stored canonical English unchanged; otherwise `detail`, when present, is the
-/// text source, and the message is parsed only for findings without one.
+/// The message of a finding in the requested language, for the report; the
+/// JSON keeps the checker's message. `detail`, when present, is the text
+/// source; the message is parsed only for findings without one. In English a
+/// message that maps to no kind is the checker's own prose.
 pub(crate) fn message_text(
     rule_id: &str,
     message: &str,
     detail: Option<&SchemaDetail>,
     en: bool,
 ) -> String {
-    if en {
-        return message.to_string();
-    }
     if let Some(detail) = detail {
-        return detail.german();
+        return detail.text(en);
     }
     let bare = recommendation::bare_id(rule_id);
-    let body = strip_position(message).0;
-
     if bare == "schema.html5" {
-        if body == "unexpected text" {
-            return "Text ist an dieser Stelle nicht erlaubt.".to_string();
+        if let Some(detail) = SchemaDetail::from_message(message) {
+            return detail.text(en);
         }
-        if body == "missing required content" {
-            return "Erforderlicher Inhalt fehlt.".to_string();
-        }
-        if let Some(name) = quoted_after(body, "unexpected element ") {
-            return format!(
-                "Unerwartetes Element <{}> an dieser Stelle.",
-                local_name(&name)
-            );
-        }
-        if let Some(name) = quoted_after(body, "unexpected attribute ") {
-            return format!("Unerwartetes Attribut „{}“.", local_name(&name));
-        }
-        if let Some(rest) = body.strip_prefix("invalid value ") {
-            if let Some((value, attr)) = rest.split_once(" for attribute ") {
-                return format!(
-                    "Ungültiger Wert „{}“ für das Attribut „{}“.",
-                    unquote(value),
-                    unquote(attr)
-                );
-            }
-        }
+    }
+    if en {
+        return message.to_string();
     }
     if let Some(role) = bare.strip_prefix("roles.unnecessary-") {
         return format!("Die Rolle „{role}“ ist für dieses Element überflüssig.");
@@ -187,9 +250,16 @@ pub(crate) fn strip_position(message: &str) -> (&str, Option<(u32, u32)>) {
 #[cfg(any(feature = "pdf", test))]
 pub(crate) fn element_name(message: &str) -> Option<String> {
     let body = strip_position(message).0;
-    // The German rendering of the same message (`Unerwartetes Element <span> ...`).
+    // The report rendering of the same message (`Unerwartetes Element <span>
+    // an dieser Stelle.`, `Element <span> is not allowed here.`).
     if let Some(rest) = body.strip_prefix("Unerwartetes Element <") {
         return rest.split('>').next().map(str::to_string);
+    }
+    if let Some(name) = body
+        .strip_prefix("Element <")
+        .and_then(|rest| rest.strip_suffix("> is not allowed here."))
+    {
+        return Some(name.to_string());
     }
     quoted_after(body, "unexpected element ").map(|n| local_name(&n))
 }
@@ -226,10 +296,29 @@ mod tests {
 
     const NS: &str = "{http://www.w3.org/1999/xhtml}";
 
+    /// The English report shows no parser noise either (#1039); the JSON keeps
+    /// the checker's message, which this function never writes.
     #[test]
-    fn canonical_english_is_returned_unchanged() {
-        let m = format!("unexpected element `{NS}span` at 190:12271");
-        assert_eq!(message_text("html_conform.schema.html5", &m, None, true), m);
+    fn parser_noise_is_not_shown_in_english() {
+        let m = format!("unexpected element `{NS}style` at 261:27335");
+        let en = message_text("html_conform.schema.html5", &m, None, true);
+        assert_eq!(en, "Element <style> is not allowed here.");
+        assert!(!en.contains("xhtml") && !en.contains("27335"));
+    }
+
+    /// English assertion messages are the checker's readable prose.
+    #[test]
+    fn english_assertion_messages_keep_the_checkers_prose() {
+        let m = "The \"list\" role is unnecessary for this element.";
+        assert_eq!(
+            message_text(
+                "html_conform.assertion.roles.unnecessary-list",
+                m,
+                None,
+                true
+            ),
+            m
+        );
     }
 
     #[test]
@@ -290,6 +379,14 @@ mod tests {
         assert_eq!(parse_location("190:12271"), Some((190, 12271)));
         assert_eq!(parse_location("schema.html5"), None);
         assert_eq!(element_name("Section lacks heading."), None);
+        assert_eq!(
+            element_name("Element <style> is not allowed here.").as_deref(),
+            Some("style")
+        );
+        assert_eq!(
+            element_name("Element <dl> is missing required content."),
+            None
+        );
     }
 
     /// Every kind with the English message the checker writes for it.
@@ -347,13 +444,39 @@ mod tests {
     }
 
     #[test]
-    fn english_text_stays_the_checkers_message_for_every_kind() {
-        for (detail, message) in schema_cases() {
-            let en = message_text("html_conform.schema.html5", &message, Some(&detail), true);
-            assert_eq!(en, message);
+    fn english_text_is_written_from_the_detail() {
+        let expected = [
+            "Element <span> is not allowed here.",
+            "Text is not allowed here in <ul>.",
+            "Attribute \"bogus\" is not allowed on <div>.",
+            "Invalid value \"100%\" for attribute \"width\" on <img>.",
+            "Element <dl> is missing required content.",
+        ];
+        for ((detail, message), expected) in schema_cases().iter().zip(expected) {
+            let en = message_text("html_conform.schema.html5", message, Some(detail), true);
+            assert_eq!(en, expected);
             assert!(
                 !en.chars().any(|c| "äöüÄÖÜß„“".contains(c)),
                 "German leaked into EN: {en}"
+            );
+        }
+    }
+
+    /// A report read back from JSON has no detail: the English text is parsed
+    /// from the stored message, as the German one is.
+    #[test]
+    fn english_text_without_detail_is_parsed_from_the_message() {
+        let expected = [
+            "Element <span> is not allowed here.",
+            "Text is not allowed here.",
+            "Attribute \"bogus\" is not allowed.",
+            "Invalid value \"100%\" for attribute \"width\".",
+            "Required content is missing.",
+        ];
+        for ((_, message), expected) in schema_cases().iter().zip(expected) {
+            assert_eq!(
+                message_text("html_conform.schema.html5", message, None, true),
+                expected
             );
         }
     }

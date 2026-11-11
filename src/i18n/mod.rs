@@ -33,8 +33,9 @@ impl I18n {
         // security finding texts and category labels (`security`), the
         // mobile finding texts (`mobile`) and the labels of cross-cutting
         // enums (`labels.ftl`: page intent, execution priority, issue class,
-        // subcategory, evidence source and field) are seven
-        // resources of the one bundle.
+        // subcategory, evidence source and field) and the titles of the
+        // findings outside the WCAG taxonomy (`audit::finding_titles`) are
+        // eight resources of the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -44,6 +45,7 @@ impl I18n {
                 include_str!("../../locales/en/security-issues.ftl"),
                 include_str!("../../locales/en/mobile-issues.ftl"),
                 include_str!("../../locales/en/labels.ftl"),
+                include_str!("../../locales/en/finding-titles.ftl"),
             ],
             _ => [
                 include_str!("../../locales/de/report.ftl"),
@@ -53,6 +55,7 @@ impl I18n {
                 include_str!("../../locales/de/security-issues.ftl"),
                 include_str!("../../locales/de/mobile-issues.ftl"),
                 include_str!("../../locales/de/labels.ftl"),
+                include_str!("../../locales/de/finding-titles.ftl"),
             ],
         };
         for ftl in sources {
@@ -68,6 +71,12 @@ impl I18n {
             locale: locale.to_string(),
             bundle,
         })
+    }
+
+    /// [`I18n::t_args`], or `None` when the bundle has no message `key`.
+    pub fn try_t_args(&self, key: &str, args: &[(&str, FluentValue<'_>)]) -> Option<String> {
+        self.bundle.get_message(key)?.value()?;
+        Some(self.t_args(key, args))
     }
 
     pub fn t(&self, key: &str) -> String {
@@ -180,6 +189,11 @@ pub fn text(key: &str, en: bool) -> String {
 /// `FluentValue::from(String)`.
 pub fn text_args(key: &str, args: &[(&str, FluentValue<'_>)], en: bool) -> String {
     SHARED.with(|bundles| bundles[usize::from(en)].t_args(key, args))
+}
+
+/// [`text_args`], or `None` when the shared bundles have no message `key`.
+pub fn try_text_args(key: &str, args: &[(&str, FluentValue<'_>)], en: bool) -> Option<String> {
+    SHARED.with(|bundles| bundles[usize::from(en)].try_t_args(key, args))
 }
 
 /// An attribute of a message of the shared bundles ([`I18n::attr`]), for the

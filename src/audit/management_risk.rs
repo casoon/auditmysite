@@ -559,10 +559,15 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
         .map(|r| r.risk.keyboard_blocking_issues)
         .sum();
 
+    // Averages are rounded, not truncated, like every other batch average
+    // (`summary.average_score`, the module averages): a truncated 95 next to
+    // a rounded 96 reads as two values (#1039).
+    let average =
+        |scores: &[u32]| (scores.iter().sum::<u32>() as f64 / scores.len() as f64).round() as u32;
     let accessibility = if reports.is_empty() {
         0
     } else {
-        reports.iter().map(|r| r.score).sum::<u32>() / reports.len() as u32
+        average(&reports.iter().map(|r| r.score).collect::<Vec<_>>())
     };
     let module = |name: &str| -> Option<u32> {
         let scores: Vec<u32> = reports
@@ -578,7 +583,7 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
         if scores.is_empty() {
             None
         } else {
-            Some(scores.iter().sum::<u32>() / scores.len() as u32)
+            Some(average(&scores))
         }
     };
     let performance = module("Performance");
@@ -798,5 +803,38 @@ mod tests {
             "{de}"
         );
         assert!(!de.contains("ohne zugänglichen Namen"), "{de}");
+    }
+
+    /// Batch averages are rounded: pages at 95 and 96 average 95.5, which
+    /// is 96 as every other batch average shows it, not a truncated 95 (#1039).
+    #[test]
+    fn conversion_averages_are_rounded_not_truncated() {
+        let page = |score: u32, mobile: u32| {
+            let report = crate::audit::AuditReport::new(
+                "https://example.com".into(),
+                crate::model::WcagLevel::AA,
+                crate::wcag::WcagResults::new(),
+                100,
+            );
+            let mut n = crate::audit::normalized::normalize(&report).normalized;
+            n.score = score;
+            n.module_scores = vec![crate::audit::normalized::ModuleScoreEntry::new(
+                "Mobile", mobile, "measured", true,
+            )];
+            n
+        };
+        let kinds = build_management_risk_kinds(&[page(95, 80), page(96, 81)]);
+        let conversion = kinds
+            .iter()
+            .find_map(|kind| match kind {
+                ManagementRiskKind::Conversion {
+                    accessibility,
+                    mobile,
+                    ..
+                } => Some((*accessibility, *mobile)),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(conversion, (96, Some(81)));
     }
 }

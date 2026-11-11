@@ -144,7 +144,7 @@ src/
 │   ├── interactive_finding.rs # Journey/trace types, InteractiveFinding + interactive_finding_text (#406 en/de)
 │   ├── finding_contract.rs # One finding contract for every domain: domain adapters, cause/scoring responsibility, finding inventory, indexability expectation
 │   ├── finding_text.rs  # MessageText: a finding message as a function of the language (module `*_text(kind, values, en)` bound to kind + raw values); `localized_report` / `localized_context` return the run-language copy of a report the PDF builders read (shared-rule texts, then `localize_domain_texts` for non-WCAG findings; #898, #406, #937)
-│   ├── finding_titles.rs # German titles of non-WCAG findings by rule_id (JSON keeps the English check title)
+│   ├── finding_titles.rs # Titles of non-WCAG findings by rule_id from locales/*/finding-titles.ftl (English in the JSON)
 │   ├── finding_derive.rs # Derived finding fields: priority score, assurance (confidence/verification from detection method + evidence quality), complexity/expected-impact kinds + texts, BFSG relevance
 │   ├── signal_contract.rs # Versioned contracts of the heuristic signals (target, method, applicability, evidence, uncertainty, permitted interpretation, validation status); see docs/calibration.md
 │   ├── module_set.rs    # `Module` and `ModuleSet`: the modules a run selects next to the accessibility checks (`PipelineConfig.modules`, #933)

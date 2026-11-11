@@ -469,7 +469,8 @@ struct Collected {
     scoring: FindingScoring,
     scope: LocationScope,
     /// The message as a function of the language (#898); `message` is its
-    /// `en = true` rendering.
+    /// `en = true` rendering, except for HTML conformance, which stores the
+    /// checker's own message (#1039).
     text: Option<crate::audit::finding_text::MessageText>,
     /// Elements this one collected problem stands for (1 unless the module
     /// reports an aggregate such as "79 touch targets too small", #952-3).
@@ -544,7 +545,7 @@ fn severity_from(s: &str) -> Severity {
 }
 
 /// Stable snake_case code of a serde-serialized kind enum.
-fn kind_code<T: Serialize>(kind: &T) -> String {
+pub(crate) fn kind_code<T: Serialize>(kind: &T) -> String {
     let raw = match serde_json::to_value(kind) {
         Ok(serde_json::Value::String(s)) => s,
         Ok(serde_json::Value::Object(map)) => map.keys().next().cloned().unwrap_or_default(),
@@ -1259,6 +1260,7 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
     let title = first
         .title
         .clone()
+        .or_else(|| crate::audit::finding_titles::finding_title(&rule_id, true))
         .unwrap_or_else(|| check_title(&first.check));
 
     let help_url = crate::audit::rule_docs::finding_help_url(&rule_id);

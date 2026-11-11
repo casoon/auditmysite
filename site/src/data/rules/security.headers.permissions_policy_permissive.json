@@ -2,7 +2,7 @@
   "id": "security.headers.permissions_policy_permissive",
   "url": "https://casoon.github.io/auditmysite/rules/security.headers.permissions_policy_permissive/",
   "domain": "security",
-  "title": "Permissions policy permissive",
+  "title": "Permissions-Policy too permissive",
   "outcome": "automatic",
   "area": "Security, response headers",
   "checks": [
