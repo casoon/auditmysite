@@ -92,7 +92,7 @@ fn exhausted_stability_measurements(
 pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) -> ReportViewModel {
     let localized;
     let normalized = if config.locale != "en" {
-        localized = with_localized_shared_texts(normalized);
+        localized = crate::audit::finding_text::localized_context(normalized);
         &localized
     } else {
         normalized
@@ -490,19 +490,6 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         management_risks,
         annotations: None,
     }
-}
-
-/// The report with shared-rule texts in the run language (see
-/// [`crate::output::builder::helpers::localize_shared_texts`]).
-fn with_localized_shared_texts<'a>(ctx: &AuditContext<'a>) -> AuditContext<'a> {
-    let mut ctx = ctx.clone();
-    crate::output::builder::helpers::localize_shared_texts(
-        &mut ctx.normalized.findings,
-        &ctx.raw_wcag.localized_texts,
-    );
-    // Findings outside the WCAG engine, in the run language (#898).
-    crate::audit::finding_text::localize_domain_texts(&mut ctx.normalized.findings, false);
-    ctx
 }
 
 #[cfg(test)]

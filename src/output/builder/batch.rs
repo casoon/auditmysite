@@ -102,12 +102,7 @@ pub fn build_batch_presentation_with_normalized(
             .collect();
         localized = normalized_reports
             .iter()
-            .cloned()
-            .map(|mut report| {
-                super::helpers::localize_shared_texts(&mut report.findings, &texts);
-                crate::audit::finding_text::localize_domain_texts(&mut report.findings, false);
-                report
-            })
+            .map(|report| crate::audit::finding_text::localized_report(report, &texts))
             .collect();
         &localized
     };

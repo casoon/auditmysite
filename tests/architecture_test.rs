@@ -286,30 +286,87 @@ fn normalized_finding_literals(source: &str) -> Vec<usize> {
     found
 }
 
+/// Lines (1-based) of `source` that take a `NormalizedFinding` by mutable
+/// reference: `&mut NormalizedFinding`, `&mut [NormalizedFinding]`,
+/// `&mut Vec<NormalizedFinding>`, with or without a module path.
+fn mutable_normalized_finding_refs(source: &str) -> Vec<usize> {
+    let mut found = Vec::new();
+    for (i, line) in source.lines().enumerate() {
+        if line.trim_start().starts_with("//") {
+            continue;
+        }
+        for (at, _) in line.match_indices("&mut ") {
+            let ty = line[at + "&mut ".len()..]
+                .split([',', ')', '=', '{', ';'])
+                .next()
+                .unwrap_or_default();
+            if ty.contains("NormalizedFinding") {
+                found.push(i + 1);
+            }
+        }
+    }
+    found
+}
+
+/// The non-test code of `src/output` as `(relative path, source)`.
+fn output_code() -> Vec<(String, String)> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut files = Vec::new();
+    rust_files(&root.join("src/output"), &mut files);
+    assert!(!files.is_empty(), "src/output has no Rust files");
+    files
+        .into_iter()
+        // A file included as `#[cfg(test)] mod tests;` is test code as a whole.
+        .filter(|f| f.file_name().is_none_or(|n| n != "tests.rs"))
+        .map(|f| {
+            let code = without_cfg_test_items(&fs::read_to_string(&f).unwrap());
+            (f.strip_prefix(root).unwrap().display().to_string(), code)
+        })
+        .collect()
+}
+
 /// The output layer reads `NormalizedFinding`, it never builds one (#937): the
 /// normalisation in `audit` owns the construction. No baseline, every literal
 /// outside `#[cfg(test)]` code is a failure.
 #[test]
 fn output_never_constructs_a_normalized_finding() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let mut files = Vec::new();
-    rust_files(&root.join("src/output"), &mut files);
-    assert!(!files.is_empty(), "src/output has no Rust files");
     let mut problems = Vec::new();
-    for file in files {
-        // A file included as `#[cfg(test)] mod tests;` is test code as a whole.
-        if file.file_name().is_some_and(|n| n == "tests.rs") {
-            continue;
-        }
-        let source = without_cfg_test_items(&fs::read_to_string(&file).unwrap());
-        for line in normalized_finding_literals(&source) {
+    for (file, code) in output_code() {
+        for line in normalized_finding_literals(&code) {
             problems.push(format!(
-                "{}: `NormalizedFinding {{ .. }}` built in output (#937), line {line} after removing cfg(test) items",
-                file.strip_prefix(root).unwrap().display()
+                "{file}: `NormalizedFinding {{ .. }}` built in output (#937), line {line} after removing cfg(test) items"
             ));
         }
     }
     assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+/// Nor does it change one: the run-language copy of a report comes from
+/// `audit::finding_text` (#937). No baseline, every `&mut` outside
+/// `#[cfg(test)]` code is a failure.
+#[test]
+fn output_never_takes_a_normalized_finding_by_mutable_reference() {
+    let mut problems = Vec::new();
+    for (file, code) in output_code() {
+        for line in mutable_normalized_finding_refs(&code) {
+            problems.push(format!(
+                "{file}: `&mut` NormalizedFinding in output (#937), line {line} after removing cfg(test) items"
+            ));
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+#[test]
+fn the_mutable_reference_check_sees_every_spelling_and_skips_shared_ones() {
+    let source = "\
+fn a(f: &mut NormalizedFinding) {}
+fn b(f: &mut [NormalizedFinding], t: &Map) {}
+fn c(f: &mut Vec<crate::audit::normalized::NormalizedFinding>) {}
+fn d(f: &mut [crate::audit::normalized::NormalizedFinding]) {}
+fn e(f: &NormalizedFinding, g: &[NormalizedFinding], h: &mut String) {}
+";
+    assert_eq!(mutable_normalized_finding_refs(source), vec![1, 2, 3, 4]);
 }
 
 #[test]

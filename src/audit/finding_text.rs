@@ -12,10 +12,11 @@
 //! The binding is memory-only: it is never serialized, so a report read back
 //! from JSON keeps its canonical English text.
 
+use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
-use crate::audit::normalized::NormalizedFinding;
+use crate::audit::normalized::{AuditContext, NormalizedFinding, NormalizedReport};
 
 /// A message as a function of the language: `true` = canonical English.
 #[derive(Clone)]
@@ -60,6 +61,53 @@ pub fn localize_domain_texts(findings: &mut [NormalizedFinding], en: bool) {
             finding.technical_impact = message;
         }
     }
+}
+
+/// Replace shared-rule texts (description, occurrence message and fix) by their run-language
+/// version. Findings keep canonical English (#406);
+/// `WcagResults::localized_texts` maps those texts for a German run, and only
+/// the PDF builders apply it (through [`localized_report`]).
+fn localize_shared_texts(findings: &mut [NormalizedFinding], texts: &HashMap<String, String>) {
+    if texts.is_empty() {
+        return;
+    }
+    let localize = |text: &mut String| {
+        if let Some(localized) = texts.get(text.as_str()) {
+            *text = localized.clone();
+        }
+    };
+    for finding in findings {
+        localize(&mut finding.description);
+        for occurrence in &mut finding.occurrences {
+            localize(&mut occurrence.message);
+            if let Some(fix) = occurrence.fix_suggestion.as_mut() {
+                localize(fix);
+            }
+        }
+    }
+}
+
+/// A copy of `report` whose finding texts are in the run language of a
+/// non-English PDF: shared-rule texts through `shared_texts`
+/// (`WcagResults::localized_texts`), then the non-WCAG texts re-derived from
+/// their bound [`MessageText`] (#898). The report itself, and with it the
+/// canonical English JSON, is not touched; output only reads the copy.
+pub fn localized_report(
+    report: &NormalizedReport,
+    shared_texts: &HashMap<String, String>,
+) -> NormalizedReport {
+    let mut report = report.clone();
+    localize_shared_texts(&mut report.findings, shared_texts);
+    localize_domain_texts(&mut report.findings, false);
+    report
+}
+
+/// [`localized_report`] for the single-report context, with the shared-rule
+/// texts of its own WCAG results.
+pub fn localized_context<'a>(context: &AuditContext<'a>) -> AuditContext<'a> {
+    let mut context = context.clone();
+    context.normalized = localized_report(&context.normalized, &context.raw_wcag.localized_texts);
+    context
 }
 
 #[cfg(test)]
