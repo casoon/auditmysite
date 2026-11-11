@@ -3,6 +3,9 @@
 //! Analyzes HTTP security headers and SSL/TLS configuration.
 
 pub mod module;
+
+#[cfg(test)]
+mod issue_texts_export;
 pub(crate) mod sourcemap;
 pub use module::SecurityModule;
 pub use sourcemap::{audit_source_maps, SourceMapLeak, SourceMapLeakAudit};

@@ -3,6 +3,9 @@
 //! Analyzes viewport, touch targets, font sizes, and responsive layout.
 
 pub mod module;
+
+#[cfg(test)]
+mod issue_texts_export;
 pub mod ux_heuristics;
 pub use module::MobileModule;
 pub use ux_heuristics::{analyze_ux_heuristics, UxHeuristicFinding, UxHeuristics};
