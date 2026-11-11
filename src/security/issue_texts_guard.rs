@@ -28,7 +28,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 20);
+    assert_eq!(en.len(), 24);
 }
 
 #[test]
@@ -89,6 +89,10 @@ fn no_input_leaves_a_key_or_a_placeholder_in_a_message() {
                 let text = security_issue_text(kind, &values, en);
                 assert!(!leaks(&text), "{kind:?} {values:?} (en={en}): {text}");
             }
+        }
+        for category in super::SecurityCategory::all() {
+            let label = category.label(en);
+            assert!(!leaks(&label), "{category:?} (en={en}): {label}");
         }
     }
 }

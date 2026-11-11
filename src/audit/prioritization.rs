@@ -25,37 +25,15 @@ pub enum Priority {
 }
 
 impl Priority {
-    pub fn label(&self, en: bool) -> &'static str {
-        match self {
-            Priority::Critical => {
-                if en {
-                    "Critical"
-                } else {
-                    "Kritisch"
-                }
-            }
-            Priority::High => {
-                if en {
-                    "High"
-                } else {
-                    "Hoch"
-                }
-            }
-            Priority::Medium => {
-                if en {
-                    "Medium"
-                } else {
-                    "Mittel"
-                }
-            }
-            Priority::Low => {
-                if en {
-                    "Low"
-                } else {
-                    "Niedrig"
-                }
-            }
-        }
+    /// The `labels-priority-*` message of `locales/{en,de}/labels.ftl`.
+    pub fn label(&self, en: bool) -> String {
+        let key = match self {
+            Priority::Critical => "labels-priority-critical",
+            Priority::High => "labels-priority-high",
+            Priority::Medium => "labels-priority-medium",
+            Priority::Low => "labels-priority-low",
+        };
+        crate::i18n::text(key, en)
     }
 }
 
@@ -79,30 +57,14 @@ impl Effort {
         self.max(floor)
     }
 
-    pub fn label(&self, en: bool) -> &'static str {
-        match self {
-            Effort::Quick => {
-                if en {
-                    "Low complexity"
-                } else {
-                    "Geringe Komplexität"
-                }
-            }
-            Effort::Medium => {
-                if en {
-                    "Medium effort"
-                } else {
-                    "Mittlerer Aufwand"
-                }
-            }
-            Effort::Structural => {
-                if en {
-                    "High complexity"
-                } else {
-                    "Hohe Komplexität"
-                }
-            }
-        }
+    /// The `labels-effort-*` message of `locales/{en,de}/labels.ftl`.
+    pub fn label(&self, en: bool) -> String {
+        let key = match self {
+            Effort::Quick => "labels-effort-quick",
+            Effort::Medium => "labels-effort-medium",
+            Effort::Structural => "labels-effort-structural",
+        };
+        crate::i18n::text(key, en)
     }
 }
 
@@ -115,25 +77,14 @@ pub enum ExecutionPriority {
 }
 
 impl ExecutionPriority {
-    pub fn label(&self, en: bool) -> &'static str {
-        match self {
-            ExecutionPriority::Immediate => {
-                if en {
-                    "Urgent"
-                } else {
-                    "Dringend"
-                }
-            }
-            ExecutionPriority::Important => {
-                if en {
-                    "High"
-                } else {
-                    "Hoch"
-                }
-            }
-            // "Standard" is identical in both locales.
-            ExecutionPriority::Optional => "Standard",
-        }
+    /// The `labels-execution-priority-*` message of `locales/{en,de}/labels.ftl`.
+    pub fn label(&self, en: bool) -> String {
+        let key = match self {
+            ExecutionPriority::Immediate => "labels-execution-priority-immediate",
+            ExecutionPriority::Important => "labels-execution-priority-important",
+            ExecutionPriority::Optional => "labels-execution-priority-optional",
+        };
+        crate::i18n::text(key, en)
     }
 }
 

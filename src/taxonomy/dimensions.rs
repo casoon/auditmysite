@@ -144,74 +144,37 @@ impl Subcategory {
         }
     }
 
-    /// Nutzerfreundlicher Label (`en = true` englisch, sonst deutsch).
-    pub fn label(&self, en: bool) -> &'static str {
-        if en {
-            match self {
-                Self::ContentAlternatives => "Content & Alternatives",
-                Self::StructureSemantics => "Structure & Semantics",
-                Self::NavigationInteraction => "Navigation & Operation",
-                Self::FormsInteraction => "Forms & Interaction",
-                Self::LanguageClarity => "Language & Clarity",
-                Self::TechnicalRobustness => "Technical Robustness",
-                Self::VisualPresentation => "Visual Presentation",
-
-                Self::LoadBehavior => "Load Behavior",
-                Self::Interactivity => "Interactivity",
-                Self::VisualStability => "Stability",
-                Self::ResourceUsage => "Resource Usage",
-                Self::TechnicalComplexity => "Technical Complexity",
-
-                Self::SnippetMetadata => "Snippet & Metadata",
-                Self::ContentStructure => "Content Structure",
-                Self::Indexability => "Indexability",
-                Self::Linking => "Linking",
-                Self::SemanticSignals => "Semantic Signals",
-
-                Self::Transport => "Transport",
-                Self::Headers => "Security Headers",
-                Self::BrowserProtection => "Browser Protection",
-                Self::ServerConfiguration => "Server Configuration",
-
-                Self::Viewport => "Viewport",
-                Self::TouchUsability => "Touch & Usability",
-                Self::Readability => "Readability",
-                Self::ResponsiveLayout => "Responsive Layout",
-                Self::ContentSizing => "Content Sizing",
-            }
-        } else {
-            match self {
-                Self::ContentAlternatives => "Inhalte & Alternativen",
-                Self::StructureSemantics => "Struktur & Semantik",
-                Self::NavigationInteraction => "Navigation & Bedienung",
-                Self::FormsInteraction => "Formulare & Interaktion",
-                Self::LanguageClarity => "Sprache & Verständlichkeit",
-                Self::TechnicalRobustness => "Technische Robustheit",
-                Self::VisualPresentation => "Visuelle Darstellung",
-
-                Self::LoadBehavior => "Ladeverhalten",
-                Self::Interactivity => "Interaktivität",
-                Self::VisualStability => "Stabilität",
-                Self::ResourceUsage => "Ressourcenverbrauch",
-                Self::TechnicalComplexity => "Technische Komplexität",
-
-                Self::SnippetMetadata => "Snippet & Metadaten",
-                Self::ContentStructure => "Inhaltsstruktur",
-                Self::Indexability => "Indexierbarkeit",
-                Self::Linking => "Verlinkung",
-                Self::SemanticSignals => "Semantische Signale",
-
-                Self::Transport => "Transport",
-                Self::Headers => "Security Headers",
-                Self::BrowserProtection => "Browser-Schutz",
-                Self::ServerConfiguration => "Server-Konfiguration",
-
-                Self::Viewport => "Viewport",
-                Self::TouchUsability => "Touch & Bedienbarkeit",
-                Self::Readability => "Lesbarkeit",
-                Self::ResponsiveLayout => "Responsive Layout",
-                Self::ContentSizing => "Content Sizing",
-            }
-        }
+    /// Nutzerfreundlicher Label (`en = true` englisch, sonst deutsch): die
+    /// `labels-subcategory-*`-Message aus `locales/{en,de}/labels.ftl`.
+    pub fn label(&self, en: bool) -> String {
+        let key = match self {
+            Self::ContentAlternatives => "labels-subcategory-content-alternatives",
+            Self::StructureSemantics => "labels-subcategory-structure-semantics",
+            Self::NavigationInteraction => "labels-subcategory-navigation-interaction",
+            Self::FormsInteraction => "labels-subcategory-forms-interaction",
+            Self::LanguageClarity => "labels-subcategory-language-clarity",
+            Self::TechnicalRobustness => "labels-subcategory-technical-robustness",
+            Self::VisualPresentation => "labels-subcategory-visual-presentation",
+            Self::LoadBehavior => "labels-subcategory-load-behavior",
+            Self::Interactivity => "labels-subcategory-interactivity",
+            Self::VisualStability => "labels-subcategory-visual-stability",
+            Self::ResourceUsage => "labels-subcategory-resource-usage",
+            Self::TechnicalComplexity => "labels-subcategory-technical-complexity",
+            Self::SnippetMetadata => "labels-subcategory-snippet-metadata",
+            Self::ContentStructure => "labels-subcategory-content-structure",
+            Self::Indexability => "labels-subcategory-indexability",
+            Self::Linking => "labels-subcategory-linking",
+            Self::SemanticSignals => "labels-subcategory-semantic-signals",
+            Self::Transport => "labels-subcategory-transport",
+            Self::Headers => "labels-subcategory-headers",
+            Self::BrowserProtection => "labels-subcategory-browser-protection",
+            Self::ServerConfiguration => "labels-subcategory-server-configuration",
+            Self::Viewport => "labels-subcategory-viewport",
+            Self::TouchUsability => "labels-subcategory-touch-usability",
+            Self::Readability => "labels-subcategory-readability",
+            Self::ResponsiveLayout => "labels-subcategory-responsive-layout",
+            Self::ContentSizing => "labels-subcategory-content-sizing",
+        };
+        crate::i18n::text(key, en)
     }
 }

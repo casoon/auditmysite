@@ -244,7 +244,7 @@ pub(super) fn build_actions_block(
 
     // Determine primary responsible role from the largest group
     let primary_role = {
-        let mut role_counts: std::collections::HashMap<&str, usize> =
+        let mut role_counts: std::collections::HashMap<String, usize> =
             std::collections::HashMap::new();
         for r in &plan.role_assignments {
             *role_counts.entry(r.role.label(en)).or_default() += r.responsibilities.len();
@@ -254,7 +254,7 @@ pub(super) fn build_actions_block(
             .max_by(|(a_role, a_count), (b_role, b_count)| {
                 a_count.cmp(b_count).then_with(|| b_role.cmp(a_role))
             })
-            .map(|(r, _)| r.to_string())
+            .map(|(r, _)| r)
             .unwrap_or_default()
     };
 

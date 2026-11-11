@@ -50,31 +50,15 @@ pub enum Role {
 }
 
 impl Role {
-    pub fn label(&self, en: bool) -> &'static str {
-        match self {
-            Role::Development => {
-                if en {
-                    "Development"
-                } else {
-                    "Entwicklung"
-                }
-            }
-            Role::Editorial => {
-                if en {
-                    "Content"
-                } else {
-                    "Redaktion"
-                }
-            }
-            Role::DesignUx => "Design / UX",
-            Role::ProjectManagement => {
-                if en {
-                    "Project management"
-                } else {
-                    "Projektleitung"
-                }
-            }
-        }
+    /// The `labels-role-*` message of `locales/{en,de}/labels.ftl`.
+    pub fn label(&self, en: bool) -> String {
+        let key = match self {
+            Role::Development => "labels-role-development",
+            Role::Editorial => "labels-role-editorial",
+            Role::DesignUx => "labels-role-design-ux",
+            Role::ProjectManagement => "labels-role-project-management",
+        };
+        crate::i18n::text(key, en)
     }
 }
 

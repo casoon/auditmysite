@@ -1,7 +1,9 @@
 pub mod number;
 
 #[cfg(test)]
-mod label_texts_export;
+pub(crate) mod label_texts_export;
+#[cfg(test)]
+mod label_texts_guard;
 
 use std::sync::Arc;
 
@@ -23,9 +25,12 @@ impl I18n {
         // Report texts, the rule texts (the catalogue of `taxonomy::rules`
         // and the explanations of `output::explanations`) the page-health
         // issue texts (`seo::page_health`), the SEO issue texts and labels
-        // (`seo::technical`, `seo::meta`, `seo::schema`, `seo::robots`), the
-        // security finding texts (`security`) and the mobile finding texts
-        // (`mobile`) are six resources of the one bundle.
+        // (`seo::technical`, `seo::meta`, `seo::schema`, `seo::robots`,
+        // `seo::profile`, `seo::serp`), the
+        // security finding texts and category labels (`security`), the
+        // mobile finding texts (`mobile`) and the labels of cross-cutting
+        // enums (`labels.ftl`: page intent, action priority, effort and role,
+        // issue class, subcategory) are seven resources of the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -34,6 +39,7 @@ impl I18n {
                 include_str!("../../locales/en/seo-issues.ftl"),
                 include_str!("../../locales/en/security-issues.ftl"),
                 include_str!("../../locales/en/mobile-issues.ftl"),
+                include_str!("../../locales/en/labels.ftl"),
             ],
             _ => [
                 include_str!("../../locales/de/report.ftl"),
@@ -42,6 +48,7 @@ impl I18n {
                 include_str!("../../locales/de/seo-issues.ftl"),
                 include_str!("../../locales/de/security-issues.ftl"),
                 include_str!("../../locales/de/mobile-issues.ftl"),
+                include_str!("../../locales/de/labels.ftl"),
             ],
         };
         for ftl in sources {

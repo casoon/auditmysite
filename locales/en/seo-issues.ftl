@@ -5,7 +5,8 @@
 # messages as numbers, so the plural agreement lives here. Which issues exist
 # and their severity stay in Rust. Also the table labels of the structured-data
 # issues (`seo::schema::schema_issue_label`) and of the robots.txt audit (bot
-# classes and policy labels of `seo::robots`).
+# classes and policy labels of `seo::robots`), the labels of the SEO content
+# profile (`seo::profile`) and the SERP status labels (`seo::serp`).
 
 seo-technical-no-https = Page is not served over HTTPS
 seo-technical-no-canonical = Missing canonical URL
@@ -107,3 +108,26 @@ seo-robots-policy-ai-training-blocked-conservative = AI training blocked (conser
 seo-robots-policy-ai-training-blocked-search-allowed = AI training blocked, AI search allowed
 seo-robots-policy-ai-access-open = AI access open
 seo-robots-policy-no-explicit-ai-rule = No explicit AI rule
+
+# Labels of the SEO content profile (`seo::profile`): the maturity level with
+# its description and the page type. `PageType::NavigationHub` takes the hub
+# label of the page intent (labels.ftl).
+seo-profile-maturity-basic = Basic
+seo-profile-maturity-standard = Standard
+seo-profile-maturity-advanced = Advanced
+seo-profile-maturity-professional = Professional
+seo-profile-maturity-description-basic = Fundamental SEO measures are largely absent.
+seo-profile-maturity-description-standard = Basic SEO is in place; advanced techniques are missing.
+seo-profile-maturity-description-advanced = Good SEO coverage with structured data and social tags.
+seo-profile-maturity-description-professional = Very broad technical SEO coverage; no statement on strategic content quality.
+seo-profile-page-type-editorial = Editorial / Article
+seo-profile-page-type-structured-content = Structured knowledge content
+seo-profile-page-type-marketing-landing = Marketing / Landing Page
+seo-profile-page-type-media-heavy = Media-oriented page
+seo-profile-page-type-utility = Transactional / Utility
+seo-profile-page-type-thin-content = Thin / Minimal Content
+
+# Status labels of the SERP signals (`seo::serp::SerpSignalStatus::label`).
+seo-serp-status-ok = OK
+seo-serp-status-warning = Warning
+seo-serp-status-fail = Error

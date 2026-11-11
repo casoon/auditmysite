@@ -1,7 +1,7 @@
 # Texts of the security findings (`security::security_issue_text`, #936): one
 # message per finding kind. Counts reach the messages as numbers, so the plural
 # agreement lives here; which findings exist, their severity and the default
-# values stay in Rust.
+# values stay in Rust. Also the labels of the security categories.
 
 security-missing-https = Seite wird nicht über HTTPS ausgeliefert
 security-missing-csp = Content-Security-Policy-Header fehlt
@@ -27,3 +27,9 @@ security-csp-wildcard-script-source = CSP erlaubt Wildcard-Skriptquellen
 security-csp-unsafe-inline-style = CSP erlaubt unsafe-inline-Styles ohne Nonce-/Hash-Absicherung
 security-csp-wildcard-source = CSP enthält Wildcard-Quellausdrücke
 security-csp-missing-directive = CSP fehlt die { $directive }-Direktive
+
+# Labels of the security categories (`security::SecurityCategory::label`).
+security-category-response-headers = Response-Header
+security-category-transport-security = Transportsicherheit
+security-category-access-policies = Zugriffs-Richtlinien
+security-category-third-party-exposure = Drittanbieter-Exposition

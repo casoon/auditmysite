@@ -107,8 +107,8 @@ src/
 │   ├── rules.rs         # Canonical rule list (RULES) with metadata; a rule's texts come from `locales/<lang>/rules.ftl` via `Rule::title`/`user_impact`/`technical_impact(en)`, key = `rule_text_key(id)`: one message per rule id, which also carries the explanation texts of a rule that has an explanation entry under its own id (#935)
 │   ├── rule_docs.rs     # rule_doc_url(): rule id → page on the project site (help_url, #929)
 │   ├── criteria.rs      # WCAG success-criterion definitions
-│   ├── dimensions.rs    # Dimension enum (Barrierefreiheit, Usability, ...)
-│   ├── issue_class.rs   # IssueClass enum (Fehlend, Falsch, Unvollständig)
+│   ├── dimensions.rs    # Dimension enum (Barrierefreiheit, Usability, ...); subcategory labels: `labels-subcategory-*` in `locales/<lang>/labels.ftl` (#936)
+│   ├── issue_class.rs   # IssueClass enum (Fehlend, Falsch, Unvollständig); labels: `labels-issue-class-*` in `locales/<lang>/labels.ftl` (#936)
 │   ├── score.rs         # Taxonomy-based score impact helpers
 │   ├── score_area.rs    # rule_id → ScoreArea map for the accessibility breakdown
 │   └── severity.rs      # Severity mapping helpers
@@ -155,7 +155,7 @@ src/
 │   ├── summary.rs       # Cross-page aggregation logic
 │   ├── template_dedup.rs # Template-level root-cause deduplication (batch)
 │   ├── occurrence_analysis.rs # Occurrence counting across categories
-│   ├── prioritization.rs # Fix-guidance prioritization
+│   ├── prioritization.rs # Fix-guidance prioritization (priority, effort and execution-priority labels: `labels-*` in `locales/<lang>/labels.ftl`, #936)
 │   ├── verdict.rs       # Decision contract: versioned profile, the only verdict policy (single + batch); stored in NormalizedReport/BatchSummary
 │   ├── management_risk.rs # Risk dimensions shared by the JSON and PDF outputs
 │   ├── batch_consistency.rs # Cross-page consistency checks (incl. WCAG 3.2.6 help comparison)
@@ -193,7 +193,7 @@ src/
 │   │   ├── root_causes.rs     # Root-cause analysis (A, B, C…) + timeframe roadmap
 │   │   ├── sanitize.rs  # Drops glyphs no report font can display (PDF/UA)
 │   │   └── detail_modules/ # Per-module chapter renderers
-│   ├── report_model.rs  # ViewModel structs for PDF
+│   ├── report_model.rs  # ViewModel structs for PDF (role labels: `labels-role-*` in `locales/<lang>/labels.ftl`, #936)
 │   ├── explanations.rs  # Explanation table (EXPLANATIONS: owner role, effort, code examples per entry key), the explicit table `RULE_ENTRIES` (which entry each taxonomy rule id uses) and the lookup; the prose comes from `locales/<lang>/rules.ftl` via `RuleExplanation::customer_title`/`customer_description`/`user_impact`/`typical_cause`/`recommendation`/`technical_note(en)`, key = `explanation_text_key(key)`: the rule's message for an entry keyed by a rule id, `explanation-<key>` for an entry keyed by a WCAG criterion or an axe id (#935)
 │   ├── search_experience.rs # Search/AI-visibility presentation helpers
 │   ├── localized.rs     # Locale-aware text helpers
@@ -241,7 +241,7 @@ src/
 │   ├── mod.rs, module.rs
 │   ├── meta.rs          # Meta tags (the finding texts: `seo-meta-*` in `locales/<lang>/seo-issues.ftl`)
 │   ├── headings.rs      # Heading structure
-│   ├── profile.rs       # SEO content profile
+│   ├── profile.rs       # SEO content profile (maturity and page-type labels: `seo-profile-*` in `locales/<lang>/seo-issues.ftl`, #936)
 │   ├── schema.rs        # Structured data (JSON-LD/schema.org; the issue texts and table labels: `seo-schema-*` in `locales/<lang>/seo-issues.ftl`; `label_texts_export.rs` beside it is the ignored text-export test of these labels and of the robots.txt labels)
 │   ├── schema_rules.rs  # Feature-specific required/recommended property rules
 │   ├── schema_fit.rs    # Page-intent and URL based primary-schema fit
@@ -249,6 +249,7 @@ src/
 │   ├── social.rs        # Open Graph / Twitter Card
 │   ├── technical.rs     # robots/canonical/hreflang (the issue texts: `seo-technical-*` in `locales/<lang>/seo-issues.ftl`, #936; `issue_texts_export.rs` and `issue_texts_guard.rs` beside it are the ignored text-export test and the guards of that file)
 │   ├── robots.rs        # robots.txt audit (bot-class and policy labels: `seo-robots-*` in `locales/<lang>/seo-issues.ftl`, #936)
+│   ├── serp.rs          # SERP readiness pass (status labels: `seo-serp-status-*` in `locales/<lang>/seo-issues.ftl`, #936)
 │   ├── page_health.rs   # Page-health types, analyze_page_health, URL analysis
 │   ├── page_health/     # dom.rs (DOM inspection; HTML validation lives in html_conform), probes.rs
 │   │                    # (HTTP probes), issues.rs (collect_issues: thresholds, severities and arguments; the texts are the `page-health-*` messages of `locales/<lang>/page-health.ftl`, #936), text_export.rs (ignored test: exports every issue text in both languages) and text_guard.rs (guards of page-health.ftl)
@@ -256,7 +257,7 @@ src/
 │   └── ...
 │
 ├── security/            # Security header analysis
-│   ├── mod.rs, module.rs  # finding texts: `security-*` in `locales/<lang>/security-issues.ftl` (#936)
+│   ├── mod.rs, module.rs  # finding texts and category labels: `security-*` in `locales/<lang>/security-issues.ftl` (#936)
 │   └── issue_texts_export.rs, issue_texts_guard.rs  # ignored text-export test and guards of security-issues.ftl
 │
 ├── mobile/              # Mobile friendliness analysis
@@ -283,7 +284,7 @@ src/
 ├── page_flow/           # AXTree user-flow heuristic (page intent, friction points; indicator `journey`, #938). Not `a11y_journey`
 │   ├── mod.rs, module.rs
 │   ├── analysis.rs
-│   ├── page_intent.rs
+│   ├── page_intent.rs   # page-intent labels: `labels-page-intent-*` in `locales/<lang>/labels.ftl` (#936)
 │   ├── scoring.rs
 │   └── js/early_text.js # Visible text in the first viewport (embedded script)
 │
@@ -324,11 +325,11 @@ src/
 ├── studio/              # Studio contract types (GUI data contract)
 │   └── mod.rs
 │
-└── i18n/                # Project Fluent (.ftl) loader, library default language: German (the CLI default is English); one bundle per language from `locales/<lang>/report.ftl` (report texts), `page-health.ftl` (the page-health issue texts of `seo::page_health`, #936), `seo-issues.ftl` (the technical, meta-tag and structured-data issue texts of `seo::technical`, `seo::meta` and `seo::schema`, and the structured-data and robots.txt table labels of `seo::schema` and `seo::robots`, #936), `security-issues.ftl` (the security finding texts of `security`, #936), `mobile-issues.ftl` (the mobile finding texts and touch-target context labels of `mobile`, #936) and `rules.ftl` (rule texts, one message per rule id with attributes, including the explanation texts of a rule with an entry under its own id, and explanation texts for the entries keyed by a WCAG criterion or an axe id, one message per entry with attributes, #935); `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts, `I18n::attr` = message attributes, `text_args` = a message with named arguments for the pure `*_text(…, en)` functions
+└── i18n/                # Project Fluent (.ftl) loader, library default language: German (the CLI default is English); one bundle per language from `locales/<lang>/report.ftl` (report texts), `page-health.ftl` (the page-health issue texts of `seo::page_health`, #936), `seo-issues.ftl` (the technical, meta-tag and structured-data issue texts of `seo::technical`, `seo::meta` and `seo::schema`, and the structured-data and robots.txt table labels of `seo::schema` and `seo::robots`, the content-profile labels of `seo::profile` and the SERP status labels of `seo::serp`, #936), `security-issues.ftl` (the security finding texts and category labels of `security`, #936), `mobile-issues.ftl` (the mobile finding texts and touch-target context labels of `mobile`, #936), `labels.ftl` (the labels of cross-cutting enums: page intent, action priority, effort, execution priority and role, issue class and subcategory, #936; `label_texts_export.rs` and `label_texts_guard.rs` here are the ignored text-export test of all enum labels moved in that step and the guards of `labels.ftl`) and `rules.ftl` (rule texts, one message per rule id with attributes, including the explanation texts of a rule with an entry under its own id, and explanation texts for the entries keyed by a WCAG criterion or an axe id, one message per entry with attributes, #935); `number.rs` = the one decimal formatter, `I18n::count` = plural-aware counts, `I18n::attr` = message attributes, `text_args` = a message with named arguments for the pure `*_text(…, en)` functions
     └── mod.rs
 
 locales/                 # Fluent sources, compiled in with include_str!
-├── de/                  # report.ftl, rules.ftl, page-health.ftl, seo-issues.ftl, security-issues.ftl, mobile-issues.ftl
+├── de/                  # report.ftl, rules.ftl, page-health.ftl, seo-issues.ftl, security-issues.ftl, mobile-issues.ftl, labels.ftl
 └── en/                  # same key sets as de/ (guard tests in i18n, taxonomy::rules and output::explanations)
 ```
 

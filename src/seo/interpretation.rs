@@ -320,7 +320,7 @@ mod tests {
         let text =
             seo_interpretation_text(&seo_with_page_type(65, &PageType::NavigationHub), false);
         assert!(
-            text.contains(PageType::NavigationHub.label(false)),
+            text.contains(&PageType::NavigationHub.label(false)),
             "page type missing: {text}",
         );
     }
