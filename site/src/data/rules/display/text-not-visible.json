@@ -2,7 +2,7 @@
   "id": "display/text-not-visible",
   "url": "https://casoon.github.io/auditmysite/rules/display/text-not-visible/",
   "domain": "wcag",
-  "title": "Visualisation text layer missing in text mode",
+  "title": "Text layer missing in text mode",
   "outcome": "automatic",
   "area": "Accessibility, Content & Alternatives",
   "criterion": "1.1.1",

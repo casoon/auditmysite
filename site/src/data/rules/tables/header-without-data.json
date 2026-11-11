@@ -2,7 +2,7 @@
   "id": "tables/header-without-data",
   "url": "https://casoon.github.io/auditmysite/rules/tables/header-without-data/",
   "domain": "wcag",
-  "title": "Table header without associated data cells",
+  "title": "Table header without data cells",
   "outcome": "automatic",
   "area": "Accessibility, Structure & Semantics",
   "criterion": "1.3.1",

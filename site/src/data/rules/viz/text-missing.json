@@ -2,7 +2,7 @@
   "id": "viz/text-missing",
   "url": "https://casoon.github.io/auditmysite/rules/viz/text-missing/",
   "domain": "wcag",
-  "title": "Visualisation text layer missing in text mode",
+  "title": "Visualisation without a text layer",
   "outcome": "automatic",
   "area": "Accessibility, Content & Alternatives",
   "criterion": "1.1.1",

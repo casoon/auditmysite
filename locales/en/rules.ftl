@@ -1,6 +1,11 @@
-# Rule catalogue texts: one message per rule id of `src/taxonomy/rules.rs`
-# (`RULES`), in the order of that table. The message value is the title,
-# the attributes carry the user impact and the technical impact.
+# Rule texts: one message per rule id of `src/taxonomy/rules.rs` (`RULES`),
+# in the order of that table. The message value is the title, shown for the
+# rule everywhere (finding, `fix_guidance[]`, PDF, table). The attributes
+# `.user-impact` and `.technical-impact` are the catalogue texts and exist for
+# every rule. A rule that has an explanation entry under its own id (the
+# entry key is the rule id, see `RULE_ENTRIES` in `src/output/explanations.rs`)
+# also carries the explanation texts `.description`, `.explanation-user-impact`,
+# `.typical-cause`, `.recommendation` and `.technical-note`.
 # The key is `rule-` plus the rule id with `/` written as `-`
 # (`taxonomy::rules::rule_text_key`).
 
@@ -17,6 +22,11 @@ rule-images-alt-missing = Missing alternative text on images
 rule-images-alt-suspicious = Alternative text probably not descriptive
     .user-impact = Screen reader users hear text that does not convey the image content.
     .technical-impact = alt attribute present but without descriptive content.
+    .description = An image has alternative text that probably does not describe its content: a file name, a filler word such as "image" or "logo", or just one or two characters.
+    .explanation-user-impact = Screen reader users hear text that does not convey the image content to them.
+    .typical-cause = The CMS copies the file name as alternative text, or the required field was filled with a placeholder.
+    .recommendation = Check whether the text describes the image; otherwise replace it with a description, or with alt="" for decorative images.
+    .technical-note = Detected heuristically, hence for review: alt="5" on an image of a five is correct.
 
 rule-video-caption = Missing captions for videos
     .user-impact = Deaf or hard-of-hearing users cannot perceive spoken content.
@@ -36,9 +46,14 @@ rule-headings-section-without-heading = Missing section headings
     .user-impact = Users cannot jump directly to specific content.
     .technical-impact = Missing sub-headings in long content blocks.
 
-rule-orientation-root-rotated = Restricted screen orientation
+rule-orientation-root-rotated = Page forces a screen orientation by rotating its root
     .user-impact = Users with fixed-mount screens (e.g. wheelchair-mounted) cannot read the page.
     .technical-impact = The computed transform (matrix) or rotate of html or body turns by a quarter turn, measured in the audited viewport.
+    .description = The root element (html or body) is rotated by a quarter turn. The page is then usable in one orientation only, unless a specific orientation is essential.
+    .explanation-user-impact = People whose device is mounted in a fixed position, for example on a wheelchair, cannot change the orientation and see the page rotated or cut off.
+    .typical-cause = A transform: rotate(90deg) or rotate: 90deg on html or body that is meant to imitate landscape in portrait.
+    .recommendation = Remove the rotation and make the layout usable in both orientations. Only fix an orientation when it is essential (a piano, a bank cheque).
+    .technical-note = The computed transform matrix and the rotate property of html and body are measured in the audited viewport; a lock that applies in the other orientation only shows in the run of that viewport. Whether an orientation is essential is a human judgement.
 
 rule-orientation-content-hidden = Restricted screen orientation
     .user-impact = Users with fixed-mount screens (e.g. wheelchair-mounted) cannot read the page.
@@ -50,9 +65,14 @@ rule-keyboard-interactive-not-focusable = Content not operable by keyboard
     .user-impact = Keyboard users are excluded from functionality.
     .technical-impact = Click handler without keyboard alternative.
 
-rule-keyboard-trap = Keyboard trap — focus cannot leave the element
+rule-keyboard-trap = Keyboard trap cannot be automatically tested
     .user-impact = The page becomes effectively unusable for keyboard users.
     .technical-impact = Missing focus management in modal elements.
+    .description = Whether keyboard focus can become permanently trapped inside a dialog, carousel, or custom JavaScript widget cannot be determined automatically. It requires manually navigating the page using only the Tab key.
+    .explanation-user-impact = People who navigate exclusively via keyboard or screen reader can become stuck inside a component and lose the ability to leave the page by keyboard.
+    .typical-cause = Custom dialogs, carousels, or widgets with their own JavaScript focus management that provide no way back out via the Escape key, a reachable close button, or a documented keyboard shortcut.
+    .recommendation = Ensure every focusable region has a way to leave it by keyboard: the Escape key, a visible close button reachable by Tab, or a documented keyboard shortcut.
+    .technical-note = Navigate the page using only Tab/Shift+Tab and verify every dialog/widget can be exited. For custom focus management, implement an Escape handler and a reachable close button.
 
 rule-headings-none = Missing bypass navigation
     .user-impact = Keyboard users must tab through the navigation on every page change.
@@ -97,10 +117,20 @@ rule-focus-visible = Focus indicator not visible
 rule-focus-obscured = Focused element entirely obscured
     .user-impact = Keyboard users tab to an element that is entirely covered by a sticky header, footer, cookie banner, or similar overlay and is therefore not visible.
     .technical-impact = Focus pass: element focused, scrolled into view with scrollIntoView({"{"}block:'nearest'{"}"}), 3×3 points sampled with elementsFromPoint; every point lies under a position: fixed/sticky element.
+    .description = After focusing and scrolling, every sample point of a control lies under a fixed or sticky element such as a header bar or a cookie banner.
+    .explanation-user-impact = Keyboard users tab to an element they cannot see and do not know where focus is.
+    .typical-cause = A fixed or sticky bar that reaches lower than scroll-padding-top, or a banner that covers controls of the page.
+    .recommendation = Set scroll-padding-top at least as large as the fixed bar and place banners so they do not cover controls.
+    .technical-note = Measured after focusing with scrollIntoView({"{"} block: 'nearest' {"}"}), 3 by 3 points per control via elementsFromPoint. A real Tab may scroll differently, so the value is a hint to check, not proof. The hint about a bar that reaches lower than scroll-padding-top belongs to this id as well.
 
 rule-focus-obscured-enhanced = Focused element partially obscured
     .user-impact = Keyboard users tab to an element whose visible area is partially covered by a sticky header, footer, cookie banner, or similar overlay.
     .technical-impact = Focus pass as for focus/obscured; at least one sample point lies under a position: fixed/sticky element.
+    .description = After focusing and scrolling, at least one sample point of a control lies under a fixed or sticky element (level AAA).
+    .explanation-user-impact = Keyboard users see a focused control only in part and may not recognise its label or state.
+    .typical-cause = A sticky footer, chat button or cookie banner that covers an edge of the page.
+    .recommendation = Keep room above and below fixed elements (scroll-padding, page margin) or make the elements smaller.
+    .technical-note = The same measurement as for focus/obscured, a different threshold: every covered sample point is reported. Sampling only approximates "any part", so the result stays a hint to check.
 
 rule-label-in-name-mismatch = Visible text ≠ accessible name
     .user-impact = Voice-control users cannot address the element.
@@ -145,6 +175,11 @@ rule-links-purpose-link-only = Unclear link label without context (AAA)
 rule-links-new-window-unannounced = New window without notice (AAA)
     .user-impact = Users unexpectedly lose context; the back button does not lead back.
     .technical-impact = target="_blank" without a notice in the accessible name.
+    .description = A link opens a new window or tab (target="_blank") without saying so in its text. WCAG 3.2.5 (AAA) asks that such context changes happen only on request; announcing it in the link text is the usual way.
+    .explanation-user-impact = Screen reader and magnifier users often miss the window change; the back button then does not return to the previous page.
+    .typical-cause = External links or PDF downloads opened with target="_blank".
+    .recommendation = Announce it in the link text, e.g. "(opens in a new window)", or drop target="_blank".
+    .technical-note = A visible icon only counts with a text alternative in the accessible name (technique G201).
 
 rule-manual-pointer-gestures = Missing alternative for pointer gestures
     .user-impact = Users with motor impairments cannot operate the functionality.
@@ -203,14 +238,29 @@ rule-forms-redundant-entry = Missing reuse of previously entered data
 rule-auth-paste-blocked = Paste blocked in password or code field
     .user-impact = Users can use neither a password manager nor the clipboard. Anyone who cannot memorise passwords or transcribe them accurately, for example because of cognitive or motor impairments, fails to sign in.
     .technical-impact = A synthetic paste event is cancelled and the probe text is not in the field afterwards (a paste handler calling preventDefault() or returning false); measured in same-origin frames and open shadow roots too.
+    .description = A password or one-time-code field cancels the paste event and does not insert the text itself. Password managers and the clipboard do not work there.
+    .explanation-user-impact = Anyone who cannot memorise passwords or transcribe them accurately, for example because of cognitive or motor impairments, fails to sign in.
+    .typical-cause = A paste handler with preventDefault() or onpaste="return false", usually meant as a security measure.
+    .recommendation = Remove the handler. If the text is sanitised, insert the sanitised text into the field instead of forbidding the paste.
+    .technical-note = A synthetic, cancelable paste event is dispatched on password and code fields, including same-origin frames and open shadow roots; the field value is restored afterwards. The event is not trusted (isTrusted is false): a handler that reacts only to real events or key presses stays unseen. autocomplete="off" is not a finding.
 
 rule-auth-captcha = Review CAPTCHA in authentication form
     .user-impact = Text and puzzle CAPTCHAs lock people with cognitive impairments, dyslexia or low vision out of signing in when no alternative is offered.
     .technical-impact = Interactive CAPTCHA widget (reCAPTCHA, hCaptcha, image CAPTCHA) in a form with a password or one-time-code field.
+    .description = A sign-in form contains a CAPTCHA. Whether it is an object-recognition test or an alternative without a cognitive test is offered needs to be checked.
+    .explanation-user-impact = People who cannot read, transcribe or remember distorted characters cannot get past the sign-in.
+    .typical-cause = A text or puzzle CAPTCHA against bots, without a second way in.
+    .recommendation = Offer a sign-in without a cognitive test, e.g. a passkey, an e-mail link or a non-interactive bot check. An object-recognition test is allowed at level AA.
+    .technical-note = Review hint: the kind of test and any alternatives are not in the markup. A CAPTCHA on a contact form is outside 3.3.8.
 
 rule-forms-no-submit = Form without submit button
     .user-impact = Keyboard and screen reader users have a harder time completing the form.
     .technical-impact = Missing submit control in the form.
+    .description = A form collects input but has no button or other control that explicitly submits it.
+    .explanation-user-impact = Without a submit control it is unclear when the input takes effect. If the form submits when a field changes instead, the context changes without warning.
+    .typical-cause = Filter and search forms submitted by script when a field changes, or a button outside the form without a form attribute.
+    .recommendation = Add a button type="submit" to the form or associate one via the form attribute. If a form only changes content on the page, check that no change of context happens.
+    .technical-note = Without an action and without a text field only script can submit the form; the finding is then a review hint (#728).
 
 rule-manual-help = Missing input help (AAA)
     .user-impact = Users do not know what format or data to enter in a field.
@@ -249,6 +299,11 @@ rule-language-part-undetermined = Check text in another language without lang
 rule-language-part-unmarked = Check text in another language without lang
     .user-impact = Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.
     .technical-impact = Heuristic language detection per text block; pages that are neither German nor English stay untested.
+    .description = A passage appears to be written in another language than the page, without a lang attribute marking it.
+    .explanation-user-impact = Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.
+    .typical-cause = Quotes, product names or teasers in another language without lang.
+    .recommendation = Mark the passage with lang, for example <p lang="en">.
+    .technical-note = Review hint: language detection is a heuristic and knows German and English. On pages in other languages the check is recorded as untested.
 
 rule-language-abbreviation-unexpanded = Missing explanation of abbreviations (AAA)
     .user-impact = Users do not understand the content if they do not know the abbreviation.
@@ -268,13 +323,23 @@ rule-contrast-text-enhanced = Enhanced color contrast not met (AAA)
     .user-impact = Text remains hard to read for people with substantially reduced vision.
     .technical-impact = Contrast ratio below 7:1 for normal text or 4.5:1 for large text.
 
-rule-zoom-viewport-locked = Text not sufficiently resizable
+rule-zoom-viewport-locked = Zoom blocked by the viewport meta tag
     .user-impact = Users with low vision lose content when zooming in.
     .technical-impact = Fixed pixel values, overflow:hidden.
+    .description = The viewport meta tag prevents zooming (user-scalable=no) or limits it to less than 200%.
+    .explanation-user-impact = People with visual impairments cannot enlarge the page on mobile devices and lose content.
+    .typical-cause = user-scalable=no or maximum-scale=1, set to prevent accidental zooming or to stabilize a layout.
+    .recommendation = Remove user-scalable=no and maximum-scale from the viewport meta tag.
+    .technical-note = A limit between 200% and 500% does not violate 1.4.4 and is reported separately.
 
 rule-zoom-viewport-missing = Missing viewport declaration
     .user-impact = On mobile devices the text appears below any readable size; zooming in forces horizontal scrolling. Desktop browsers are not affected.
     .technical-impact = No <meta name="viewport"> in the document.
+    .description = The document has no viewport meta tag. Mobile browsers then assume a desktop width and scale the page down.
+    .explanation-user-impact = On mobile devices the text appears below any readable size; zooming in forces horizontal scrolling. Desktop browsers are not affected.
+    .typical-cause = The template sets no viewport meta tag, as with older pages or pages built for desktop only.
+    .recommendation = Add a viewport meta tag with width=device-width to the <head>.
+    .technical-note = Desktop browsers ignore the tag; only the mobile rendering is affected. The layout must then also work in narrow viewports (1.4.10 Reflow).
 
 rule-css-overflow-hidden = No reflow at 320 CSS pixels
     .user-impact = Users zooming to 400% must scroll in two directions — content becomes inaccessible.
@@ -307,6 +372,11 @@ rule-patterns-tooltip-unreferenced = Inaccessible hover or focus content (toolti
 rule-media-audio-autoplay = Check autoplaying audio for a control
     .user-impact = Audio that starts on its own drowns out screen reader speech.
     .technical-impact = <audio autoplay> without muted; whether it plays longer than three seconds and can be paused is not in the markup.
+    .description = An audio element starts by itself when the page loads and is not muted.
+    .explanation-user-impact = Audio that starts on its own drowns out screen reader speech, which makes the control hard to find.
+    .typical-cause = <audio autoplay> for background music or ads.
+    .recommendation = Do not start audio automatically, or offer a control to pause or lower it at the start of the page.
+    .technical-note = Review hint (WCAG 1.4.2): whether the audio plays longer than three seconds and can be paused is not in the markup.
 
 rule-text-justified = Limited visual presentation of text (AAA)
     .user-impact = Users with visual impairments or dyslexia have difficulty reading.
@@ -325,6 +395,11 @@ rule-visual-presentation = Limited visual presentation of text (AAA)
 rule-keyboard-hidden-focusable = Focusable element hidden from screen readers
     .user-impact = Keyboard users reach elements that screen readers do not announce — invisible traps.
     .technical-impact = aria-hidden="true" on a focusable element or its ancestor.
+    .description = An interactive element is hidden from screen readers via aria-hidden="true", but can still be focused using the keyboard (tab key).
+    .explanation-user-impact = Keyboard users navigate to hidden elements (focus traps), while screen reader users receive no feedback about the element.
+    .typical-cause = Using aria-hidden="true" to hide an element visually without setting tabindex="-1" or hiding the element via display:none.
+    .recommendation = To hide an element completely, use display:none or visibility:hidden. If it should only be hidden from screen readers, make it unfocusable (tabindex="-1").
+    .technical-note = Focusable elements (a, button, input) inside an aria-hidden="true" tree must either be removed from tab order or hidden completely.
 
 rule-status-live-overridden = Status messages not programmatically determinable
     .user-impact = Screen readers do not announce status messages correctly.
@@ -333,18 +408,33 @@ rule-status-live-overridden = Status messages not programmatically determinable
 rule-aria-required-attribute-missing = Required ARIA attribute missing
     .user-impact = Assistive technologies cannot reliably expose the element state or value.
     .technical-impact = Role and ARIA attribute set are incomplete.
+    .description = An element carries a role that announces a state (such as checkbox or slider) but not the attribute that carries this state.
+    .explanation-user-impact = Screen reader users do not learn whether a switch is on or which value a slider has.
+    .typical-cause = Custom controls set the role but maintain the state only visually.
+    .recommendation = Set the required attribute and update it on every state change, or use a native element.
+    .technical-note = For example aria-checked for checkbox/radio/switch, aria-expanded for combobox, aria-valuenow for slider/spinbutton/meter.
 
 rule-aria-required-parent-missing = Element outside its required parent context
     .user-impact = Assistive technologies cannot convey the element's relationship to its group (e.g. a tab to its tab list).
     .technical-impact = Missing structural parent context for the ARIA role in use.
+    .description = An element with a role such as tab, option, or listitem is not contained in an element with the required role.
+    .explanation-user-impact = Screen readers cannot assign the element to a widget; position and count ("tab 2 of 3") are not announced.
+    .typical-cause = An element with its own role in between, such as an <li> between role="tablist" and role="tab".
+    .recommendation = Place the element directly in the required container, or neutralize the elements in between with role="presentation".
+    .technical-note = Checked against the DOM. An <li> in a list that became something else via role stays a listitem, even when the browser flattens it in the accessibility tree.
 
 rule-inert-dialog-inert = Invalid modern interaction attributes
     .user-impact = Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.
     .technical-impact = Broken popovertarget references, unnamed surfaces, or active focus inside inert regions.
 
-rule-modern-attribute-misuse = Invalid modern interaction attributes
+rule-modern-attribute-misuse = Broken dialog or popover control
     .user-impact = Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.
     .technical-impact = Broken popovertarget references, unnamed surfaces, or active focus inside inert regions.
+    .description = Modern HTML attributes for popovers, dialogs, or disabled regions are used incompletely or inconsistently.
+    .explanation-user-impact = Keyboard and screen reader users may open, focus, or leave surfaces without understandable feedback.
+    .typical-cause = popovertarget points to a missing element, a visible dialog has no accessible name, or an active region is marked inert at the same time.
+    .recommendation = Check popover targets, name visible dialogs and menus, and use inert only for regions that are truly inactive.
+    .technical-note = popovertarget must reference an element with popover. Open dialogs, menus, and popovers need aria-label, aria-labelledby, or another suitable name.
 
 rule-popover-target-invalid = Invalid modern interaction attributes
     .user-impact = Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.
@@ -357,18 +447,38 @@ rule-popover-target-missing = Invalid modern interaction attributes
 rule-aria-attribute-prohibited = Prohibited ARIA attributes
     .user-impact = Screen readers receive contradictory or invalid semantics.
     .technical-impact = ARIA attributes do not match the implicit or explicit role.
+    .description = Attributes are used on HTML elements or ARIA roles that are not permitted or meaningful for that specific role.
+    .explanation-user-impact = Screen readers receive conflicting or incorrect markup signals, which can impair accessibility.
+    .typical-cause = Using ARIA attributes (like aria-label or aria-expanded) on elements that do not have an interactive role (e.g. span or div without role).
+    .recommendation = Check the ARIA specification for the respective role. Only use ARIA attributes on appropriate elements and roles.
+    .technical-note = Prohibited attributes on generic elements: <span aria-label="text"> is invalid. Use native elements or valid roles (e.g. role="button").
 
 rule-aria-attribute-not-allowed = ARIA attribute not allowed for this role
     .user-impact = Assistive technologies ignore the attribute or interpret it incorrectly.
     .technical-impact = The attribute/role combination does not match the ARIA specification.
+    .description = An element carries an ARIA attribute its role does not support, or one that must not be used alongside a native attribute.
+    .explanation-user-impact = Screen readers ignore the attribute or receive conflicting information about state and value.
+    .typical-cause = States such as aria-expanded or aria-checked on elements without a matching role, such as a div.
+    .recommendation = Move the attribute to the element with the matching role, set a matching role, or remove the attribute.
+    .technical-note = The explicit or implicit role is judged. Also covered are the cases from ARIA in HTML, such as aria-checked on a native checkbox.
 
 rule-aria-attribute-value-invalid = Invalid ARIA attribute value
     .user-impact = Assistive technologies cannot correctly convey the element's state or relationship.
     .technical-impact = Attribute value does not match the value type defined in the ARIA specification.
+    .description = An ARIA attribute has a value outside its allowed range, such as aria-expanded="yes".
+    .explanation-user-impact = Browsers fall back to the default value; the state is announced incorrectly or not at all to screen reader users.
+    .typical-cause = Values from other conventions (yes/no, 1/0) or typos in token values.
+    .recommendation = Only use the values the ARIA specification defines for the attribute, such as true or false.
+    .technical-note = Unknown values of aria-current and aria-invalid count as true under ARIA 1.2 and are not reported.
 
 rule-aria-reference-missing = Empty reference in an ARIA relationship attribute
     .user-impact = Assistive technologies cannot resolve the intended relationship between the elements.
     .technical-impact = Relationship attribute without a valid ID reference.
+    .description = An ARIA relationship attribute (such as aria-controls or aria-labelledby) is empty or references an ID that does not exist on the page.
+    .explanation-user-impact = Screen readers cannot establish the relationship: the label, description, or controlled region is missing.
+    .typical-cause = The target's ID was renamed or is created later by script; components set the attribute before the target exists.
+    .recommendation = Point the attribute at the ID of an existing element or remove it.
+    .technical-note = Checked are aria-labelledby, aria-describedby, aria-controls, aria-owns, and aria-activedescendant.
 
 rule-aria-role-abstract = Invalid ARIA role
     .user-impact = Assistive technologies cannot determine the element's function.
@@ -377,26 +487,51 @@ rule-aria-role-abstract = Invalid ARIA role
 rule-aria-role-invalid = Invalid ARIA role
     .user-impact = Assistive technologies cannot determine the element's function.
     .technical-impact = Role value is not defined in the ARIA specification.
+    .description = A role attribute contains a value that does not exist in WAI-ARIA, or an abstract role that must not be used in markup.
+    .explanation-user-impact = Browsers ignore the role; screen readers announce the element differently than intended.
+    .typical-cause = Typos, invented roles, or abstract roles such as widget or landmark.
+    .recommendation = Use a role from the ARIA specification, or remove the role attribute and use a native element.
+    .technical-note = Roles are case-sensitive: role="Button" is invalid.
 
 rule-aria-attribute-unknown = Invalid ARIA attribute name
     .user-impact = Assistive technologies ignore the attribute entirely.
     .technical-impact = Attribute name does not exist in the ARIA specification.
+    .description = An element carries an aria-* attribute that does not exist in WAI-ARIA, usually a typo.
+    .explanation-user-impact = The browser ignores the attribute; the intended label, relationship, or state is missing.
+    .typical-cause = Misspelled attributes such as aria-labeledby instead of aria-labelledby.
+    .recommendation = Check the name against the ARIA specification and correct it, or remove the attribute.
+    .technical-note = Attributes from the WAI-ARIA 1.3 draft that browsers already support (such as aria-description) count as known.
 
-rule-document-lang-mismatch = Conflicting language declarations
+rule-document-lang-mismatch = lang and xml:lang disagree
     .user-impact = Assistive technologies receive conflicting information about the content's language.
     .technical-impact = lang and xml:lang do not agree on the primary subtag.
+    .description = The <html> element carries lang and xml:lang with different languages.
+    .explanation-user-impact = Screen readers pick a different language depending on the attribute and may mispronounce the page.
+    .typical-cause = Templates carried over from XHTML where only one attribute was updated.
+    .recommendation = Remove xml:lang or set it to the same value as lang.
+    .technical-note = The primary language of both attributes is compared.
 
 rule-tables-headers-attr-invalid = Invalid headers reference in a table cell
     .user-impact = Screen readers cannot associate the cell with its correct column/row header, or none at all.
     .technical-impact = headers attribute does not reference a valid th cell in the same table.
+    .description = A table cell references an ID via headers that is not a header cell of the same table.
+    .explanation-user-impact = Screen readers announce the wrong header or none at all for the cell.
+    .typical-cause = Renamed or copied IDs, references to cells of other tables.
+    .recommendation = Point headers only at IDs of <th> in the same table, or use scope for simple tables.
+    .technical-note = Only cells are checked (td, th and their roles); HTML defines the attribute only there.
 
 rule-tables-data-undetermined = Table header without associated data cells
     .user-impact = Screen readers announce a header that structures no data.
     .technical-impact = Header cell with no associated data cells in the table.
 
-rule-tables-header-without-data = Table header without associated data cells
+rule-tables-header-without-data = Table header without data cells
     .user-impact = Screen readers announce a header that structures no data.
     .technical-impact = Header cell with no associated data cells in the table.
+    .description = A header cell (<th>) applies to no data cell – the table has headers but no data below or beside them.
+    .explanation-user-impact = Screen readers cannot relate data cells to a header; the table reads as empty or wrongly built.
+    .typical-cause = Tables used for layout only, or data rows that a script adds later.
+    .recommendation = Use header cells only where data follows; build layout without <table>.
+    .technical-note = Empty data cells, cells with aria-hidden content and column headers over row headers are no error. A pool of rows not yet rendered gives an untested note instead of a violation.
 
 rule-aria-tabpanel-missing = Tab list without an associated tab panel
     .user-impact = Screen reader users cannot locate the content associated with a tab after activating it.
@@ -405,30 +540,65 @@ rule-aria-tabpanel-missing = Tab list without an associated tab panel
 rule-aria-tab-selected-missing = No tab marked as selected
     .user-impact = Screen reader users are not told which tab is active and which one the visible content belongs to.
     .technical-impact = tablist without a tab carrying aria-selected="true".
+    .description = None of the tabs in a tab list carries aria-selected="true".
+    .explanation-user-impact = Screen reader users are not told which tab is active and which one the visible content belongs to.
+    .typical-cause = The active tab is highlighted by a CSS class only.
+    .recommendation = Set aria-selected="true" on the active tab and update it when the tab changes.
+    .technical-note = For review: ARIA 1.2 says SHOULD. Tabs without the attribute count as not selected, which is correct for the inactive ones.
 
 rule-patterns-accordion-controls-missing = Expanded button without a reference to its region
     .user-impact = Screen reader users are not told which region was expanded.
     .technical-impact = aria-expanded="true" without aria-controls; WAI-ARIA does not require it, the APG lists it as optional for the disclosure pattern.
+    .description = An expanded button (aria-expanded="true") does not reference the region it controls with aria-controls.
+    .explanation-user-impact = Screen reader users are not told which region was expanded and cannot jump straight to it.
+    .typical-cause = Accordion or disclosure scripts that only toggle aria-expanded.
+    .recommendation = Set aria-controls on the button to the ID of the controlled region.
+    .technical-note = Review hint: WAI-ARIA does not require aria-controls, the APG lists it as optional for the disclosure pattern. A <summary> does not need it.
 
 rule-dialog-modal-unmarked = Dialog not marked as modal
     .user-impact = If the dialog is meant to be modal, screen readers keep reading the content behind it as if it were reachable.
     .technical-impact = role="dialog" without aria-modal="true"; whether the dialog is meant to be modal only shows in its behavior.
+    .description = An element with role="dialog" does not carry aria-modal="true". Whether the dialog is meant to be modal needs to be checked.
+    .explanation-user-impact = If the dialog is meant to be modal, screen readers keep reading the content behind it as if it were reachable.
+    .typical-cause = A custom dialog built from a div with role="dialog", without aria-modal.
+    .recommendation = Mark a modal dialog with aria-modal="true", or use a native <dialog> opened with showModal(). A non-modal dialog does not need the attribute.
+    .technical-note = ARIA does not require aria-modal; this is a review hint, not a violation.
 
-rule-aria-combobox-popup-missing = Combobox without an options list
+rule-aria-combobox-popup-missing = Expanded combobox without a reference to its popup
     .user-impact = Screen reader users cannot tell what choices the combobox offers.
     .technical-impact = combobox without associated listbox/option elements.
+    .description = A combobox is marked as expanded but does not reference its list of options with aria-controls.
+    .explanation-user-impact = Screen reader users are not told which options the combobox offers and cannot reach them.
+    .typical-cause = The list sits next to the combobox instead of inside it, and aria-controls is missing.
+    .recommendation = Set aria-controls on the combobox to the ID of the list.
+    .technical-note = ARIA 1.2 requires aria-controls (MUST). A popup in the combobox's own subtree or via aria-owns (ARIA 1.1) is still accepted.
 
 rule-frames-name-missing = Iframe without accessible name
     .user-impact = Screen reader users cannot identify the purpose and content of the embedded frame.
     .technical-impact = Missing accessible name on iframe/frame.
+    .description = An <iframe> has no accessible name (title, aria-label or aria-labelledby).
+    .explanation-user-impact = Screen readers announce just "frame" when entering it; users cannot tell what it contains or skip it on purpose.
+    .typical-cause = Embedded maps, videos, widgets or ads without a title attribute.
+    .recommendation = Give every visible <iframe> a title that describes its content.
+    .technical-note = WCAG technique H64. Frames with role="none"/"presentation", hidden, aria-hidden or width and height 0/1 do not count.
 
 rule-frames-cross-origin = Cross-origin iframe: review manually
     .user-impact = Embedded content (maps, videos, consent widgets) may be inaccessible to screen reader users.
     .technical-impact = Iframe content is unreachable via CDP — automatic rule checking is not possible.
+    .description = The document inside an iframe could not be read by the testing tool, so it was not tested. The frame has a foreign origin, or its navigation had not finished.
+    .explanation-user-impact = Embedded content such as maps, booking widgets or consent dialogs may be inaccessible to screen reader and keyboard users without the report showing it.
+    .typical-cause = Third-party content in an iframe with a foreign origin; the page cannot read its document.
+    .recommendation = Check the frame content by hand or test its address on its own; ask the provider for an accessible embed.
+    .technical-note = A coverage note, not a conformance check and tied to no success criterion. It measures whether the frame's contentDocument is readable; presentational, hidden or 1 px frames are skipped. Without the measurement the rule is reported as not run.
 
 rule-ids-duplicate = Referenced ID is assigned more than once
     .user-impact = Assistive technology cannot resolve the relationship unambiguously and announces the name or description of the wrong element.
     .technical-impact = The same ID occurs more than once in the DOM and is referenced by a for, headers or aria attribute.
+    .description = Multiple elements on the page share the same id, and another element references it (e.g. label for, aria-labelledby). Which of them is meant can no longer be determined.
+    .explanation-user-impact = Screen readers resolve the relationship to the wrong element and announce the wrong name or description.
+    .typical-cause = Repeatedly embedded components or templates (e.g. menu items, widgets) that use a static ID instead of a per-instance unique ID.
+    .recommendation = Assign each ID only once per document. For reused components, generate the ID dynamically (e.g. with an index or slug).
+    .technical-note = Make IDs unique, e.g. by appending an index or a unique identifier per component instance.
 
 rule-images-server-side-map = Server-side image map used
     .user-impact = Keyboard and screen reader users cannot target the individual image regions.
@@ -453,6 +623,11 @@ rule-objects-alt-missing = Missing text alternative on embedded objects
 rule-html-content-model = HTML5 content model violation
     .user-impact = Screen readers cannot reliably parse the structure, even when it appears superficially valid.
     .technical-impact = Unexpected child element inside a structural container (e.g. <ul>, <table>, <select>).
+    .description = HTML5 content model violation. Screen readers cannot reliably parse the structure, even when it appears superficially valid.
+    .explanation-user-impact = Screen readers cannot reliably parse the structure, even when it appears superficially valid.
+    .typical-cause = Unexpected child element inside a structural container (e.g. <ul>, <table>, <select>).
+    .recommendation = Fix the markup so it matches the HTML5 content model for the element (e.g. a <dl> may only directly contain <dt>/<dd> groups, <div>, <script>, or <template>). Invalid children can be silently "healed" by the browser when building the accessibility tree, hiding the defect from role-based checks while still confusing assistive technology.
+    .technical-note = Unexpected child element inside a structural container (e.g. <ul>, <table>, <select>).
 
 rule-forms-group-missing = Missing grouping for related form fields
     .user-impact = Screen reader users cannot tell that several fields belong to one question/group.
@@ -461,6 +636,11 @@ rule-forms-group-missing = Missing grouping for related form fields
 rule-landmarks-not-top-level = Landmark is nested
     .user-impact = Screen reader users who jump via landmark navigation land in an unexpected context.
     .technical-impact = <header>/<footer>/<main> or role="banner"/"contentinfo"/"main" is a descendant of another landmark.
+    .description = A header, footer or main content region (banner, contentinfo, main) sits inside another landmark instead of at the top level.
+    .explanation-user-impact = Screen reader users who jump to the header, footer or main content via landmark navigation land in an unexpected context.
+    .typical-cause = role="banner", role="contentinfo" or <main> inside <main>, <nav>, <aside> or a named region.
+    .recommendation = Move the header, footer and main content region to the top level of the page, outside any other landmark.
+    .technical-note = A <header>/<footer> inside <main>, <article> or <section> is no banner/contentinfo anyway; reported are explicit roles and <main>. The affected role is named in the finding.
 
 rule-landmarks-banner-duplicate = Multiple banner landmarks
     .user-impact = Screen reader users cannot uniquely identify the page's 'header' region.
@@ -486,57 +666,122 @@ rule-landmarks-contentinfo-missing = Missing contentinfo landmark
     .user-impact = Screen reader users cannot jump straight to the footer with contact and legal information.
     .technical-impact = No element with role="contentinfo" (implicit via a <footer> outside <main>/<article>/<section>, or explicit) present.
 
-rule-lists-item-outside-list = List items outside a list container
+rule-lists-item-outside-list = List item outside a list
     .user-impact = Screen reader users receive no announcement of the list's length/structure.
     .technical-impact = <li> outside <ul>/<ol>.
+    .description = A list item (<li> or role="listitem") is not inside a list.
+    .explanation-user-impact = Screen readers announce a list item without a list that gives its length and position.
+    .typical-cause = The enclosing <ul>/<ol> is missing, for example because a component renders only the items, or role="listitem" sits on an arbitrary element.
+    .recommendation = Wrap list items in a <ul> or <ol> (or role="list"), or remove the list semantics if it is not a list.
+    .technical-note = An <li> needs a <ul>, <ol> or <menu> parent; role="listitem" needs a role="list" ancestor.
 
 rule-headings-skip-level = Skipped heading level
     .user-impact = Screen reader users navigating by headings assume that sections are missing.
     .technical-impact = Heading levels do not follow each other without gaps.
+    .description = Headings skip a level, for example from h2 straight to h4. The page outline has a gap.
+    .explanation-user-impact = Screen reader users navigate via the list of headings and suspect missing content where a level is skipped.
+    .typical-cause = Heading levels chosen for their font size rather than the outline, or components that ship with a fixed level.
+    .recommendation = Nest headings without gaps (h1, h2, h3 ...) and control their look with CSS, not with the level.
+    .technical-note = A heading of level n is followed by at most level n+1. Components should take the level as a parameter.
 
 rule-headings-empty = Empty heading
     .user-impact = Screen reader users find an entry without content in the list of headings.
     .technical-impact = <h1>–<h6> or role="heading" without text and without aria-label.
+    .description = A heading element has no text. It appears in the page outline but says nothing.
+    .explanation-user-impact = Screen reader users navigate via the list of headings and hit an entry without a name.
+    .typical-cause = Heading tags used as spacers or for icons, or CMS fields left empty while the tag is still rendered.
+    .recommendation = Remove empty headings or give them meaningful text; create spacing with CSS.
+    .technical-note = Render the tag only when the title exists. An icon alone does not name a heading.
 
 rule-headings-h1-missing = Missing main heading (h1)
     .user-impact = Screen reader users cannot find the start of the main content via heading navigation.
     .technical-impact = No <h1> element in the document.
+    .description = The page has no level-1 heading that names its topic.
+    .explanation-user-impact = Screen reader users jump to the h1 to learn what the page is about and find none.
+    .typical-cause = The logo or an image stands in for the heading, or the template renders the main heading as an h2 or as styled text.
+    .recommendation = Give every page one h1 that states its topic, at the start of the main content.
+    .technical-note = The h1 belongs inside <main>, not in the header logo.
 
 rule-headings-h1-multiple = Multiple main headings (h1)
     .user-impact = Screen reader users find it harder to tell the actual page title from the rest.
     .technical-impact = Several <h1> elements in the document.
+    .description = The page has more than one level-1 heading. HTML allows this, but it should be intentional.
+    .explanation-user-impact = Screen reader users find it harder to tell the actual page title from other sections.
+    .typical-cause = The logo, teasers or a sidebar also use h1, often from a shared template.
+    .recommendation = Check whether each h1 really names a main topic of the page; move all others to h2 or below.
+    .technical-note = A review note, not a violation: whether it is a problem depends on the page structure.
 
 rule-lists-invalid-structure = List with invalid child elements
     .user-impact = Screen reader users hear a wrong number of list items or lose content.
     .technical-impact = Direct children of <ul>/<ol>/role="list" are not <li>/role="listitem".
+    .description = A list (<ul>, <ol> or role="list") has direct children that are not list items.
+    .explanation-user-impact = Screen readers announce the wrong number of items or read parts of the list outside its list context.
+    .typical-cause = Wrapper <div>s, separators or headings placed directly in the list, often by a slider or menu component.
+    .recommendation = Put all list content inside <li> elements; move wrappers and separators into the items or create them with CSS.
+    .technical-note = Direct children of <ul>/<ol> may only be <li>, <script> and <template>.
 
 rule-lists-empty = Empty list
     .user-impact = Screen readers announce a list without content.
     .technical-impact = <ul>/<ol>/role="list" without <li>/role="listitem".
+    .description = A list contains no list items at all.
+    .explanation-user-impact = Screen readers announce a list that turns out to have nothing in it.
+    .typical-cause = Lists filled by script or from the CMS that stay empty, or list markup used as a mere layout container.
+    .recommendation = Do not output empty lists, or render the list element only once there are items.
+    .technical-note = Check for items before rendering; a layout container does not need a <ul>.
 
 rule-lists-term-without-definition = Term without definition in a description list
     .user-impact = Screen reader users cannot recognize the term and its definition as belonging together.
     .technical-impact = <dt> without a following <dd> inside the <dl>.
+    .description = A description list (<dl>) contains a term (<dt>) without a matching description (<dd>).
+    .explanation-user-impact = Screen readers read out a term that is followed by no description.
+    .typical-cause = Empty CMS fields, or a <dl> used as a label/value layout where the value is missing.
+    .recommendation = Output at least one <dd> for every <dt>, or leave the term out when there is no description.
+    .technical-note = Checked within the same parent, including <div> groups inside the <dl>.
 
 rule-tables-header-missing = Data table without header cells
     .user-impact = Screen reader users hear cell values without their row or column label.
     .technical-impact = No <th> and no cell with role="columnheader"/"rowheader".
+    .description = A table has no header cells that label its rows or columns.
+    .explanation-user-impact = Screen reader users hear only values when moving through the cells, without learning which column or row they belong to.
+    .typical-cause = The header row is built from bold <td> cells instead of <th>, or the table is used for layout only.
+    .recommendation = Mark header cells as <th> (with scope="col" or scope="row"). If the table is only for layout, replace it with CSS layout or set role="presentation".
+    .technical-note = Header cells are <th> or elements with role="columnheader"/"rowheader" anywhere in the table.
 
 rule-tables-name-missing = Data table without a name
     .user-impact = Screen reader users are not told what the table is about when entering it.
     .technical-impact = No <caption> and no aria-label on the table.
+    .description = A table has neither a <caption> nor a name via aria-label or aria-labelledby.
+    .explanation-user-impact = Users who list the tables on a page see only "table" and have to open each one to find the right one.
+    .typical-cause = The caption is a heading or paragraph above the table that is not linked to it.
+    .recommendation = Give the table a <caption>, or link the existing heading with aria-labelledby. Whether a name is needed depends on the context.
+    .technical-note = A review note, not a violation: <caption> as the first child of the <table>, or aria-labelledby pointing to the heading.
 
 rule-tables-presentational-with-headers = Layout table with header cells
     .user-impact = Screen reader users receive contradictory signals about whether this is a data table.
     .technical-impact = role="presentation"/"none" on a table with <th>.
+    .description = A table is marked as layout only (role="presentation" or "none") but contains header cells.
+    .explanation-user-impact = Assistive technology receives contradictory information: no table according to the role, table structure according to the header cells.
+    .typical-cause = role="presentation" was applied to tables across the board, including real data tables.
+    .recommendation = Remove role="presentation" from data tables. In layout tables, replace <th> with <td>.
+    .technical-note = A table with <th> or role="columnheader"/"rowheader" must not carry role="presentation"/"none".
 
 rule-document-lang-invalid = Invalid page language
     .user-impact = Screen readers choose a wrong or the default pronunciation.
     .technical-impact = Invalid value in the html element's lang attribute.
+    .description = The page's lang attribute is set but does not hold a valid language code (for example "english" instead of "en").
+    .explanation-user-impact = Screen readers do not recognize the language and read the text with the wrong or the default pronunciation.
+    .typical-cause = A language name instead of a code, an underscore instead of a hyphen (de_DE), or an empty value from the template.
+    .recommendation = Use a valid BCP 47 code, such as lang="en" or lang="en-GB".
+    .technical-note = A primary subtag of two or three letters, followed only by alphanumeric subtags separated by hyphens.
 
 rule-keyboard-positive-tabindex = Positive tabindex changes the focus order
     .user-impact = Keyboard users reach elements in an order that does not match the page layout.
     .technical-impact = tabindex value greater than 0.
+    .description = An element has a tabindex greater than 0 and therefore receives focus before all other elements, regardless of where it sits on the page.
+    .explanation-user-impact = Keyboard users jump around the page unpredictably when tabbing and lose their bearings.
+    .typical-cause = Attempts to bring single elements forward with tabindex="1", often in form or search widgets.
+    .recommendation = Remove positive tabindex values and set the order through the order in the HTML; tabindex="0" or "-1" is enough.
+    .technical-note = Use only tabindex="0" (focusable in natural order) and "-1" (focusable by script only).
 
 rule-forms-title-only-label = Form field labeled only via the title attribute
     .user-impact = The title attribute is read inconsistently or not at all by many screen readers; sighted users only see it on hover.
@@ -545,6 +790,11 @@ rule-forms-title-only-label = Form field labeled only via the title attribute
 rule-zoom-viewport-scale-limited = Viewport meta tag prevents zooming to 500%
     .user-impact = Users with low vision cannot magnify the page content enough.
     .technical-impact = maximum-scale in the viewport meta tag set below 5.
+    .description = The viewport meta tag limits maximum-scale to a value below 5, so users cannot magnify the page to 500% on mobile devices.
+    .explanation-user-impact = Users with low vision cannot magnify the page content enough.
+    .typical-cause = maximum-scale was set to prevent accidental zooming or to stabilize a layout.
+    .recommendation = Remove maximum-scale or set it to at least 5.
+    .technical-note = Best practice: 1.4.4 requires 200% and is met with this limit. A limit below 2, or user-scalable=no, is reported as a separate 1.4.4 violation.
 
 rule-keyboard-click-handler-not-focusable = Click handler without keyboard equivalent
     .user-impact = Keyboard users cannot trigger the function.
@@ -578,9 +828,14 @@ rule-forms-error-unidentified = Invalid field without an accessible error descri
     .user-impact = Screen reader users learn that an error exists, but not what it is.
     .technical-impact = aria-invalid="true" without a description/aria-describedby pointing to a visible error element.
 
-rule-aria-owns-conflict = ARIA reference points to an ambiguous ID
+rule-aria-owns-conflict = Element owned by several elements via aria-owns
     .user-impact = Assistive technologies cannot reliably determine which element is referenced.
     .technical-impact = The referenced ID occurs more than once in the DOM.
+    .description = The same ID appears in the aria-owns of several elements. Which element is the owner remains undetermined.
+    .explanation-user-impact = Assistive technologies cannot assign the element to one widget; name, role, and value become unreliable.
+    .typical-cause = Components included several times that point to the same list, or a duplicated ID.
+    .recommendation = List each element in the aria-owns of a single element only.
+    .technical-note = WAI-ARIA 1.2: an ID must not be specified in more than one other element's aria-owns at any time.
 
 rule-names-required-missing = Interactive element without a meaningful name
     .user-impact = Screen reader users are not told what the element does.
@@ -597,10 +852,20 @@ rule-names-title-only = Native title attribute as the only description
 rule-description-duplicates-name = Description repeats the name
     .user-impact = Screen readers announce the same text twice without adding information.
     .technical-impact = aria-describedby or title yields the same text as the name.
+    .description = An element's accessible name and accessible description are identical. The element has a name; the repeated announcement is best practice, not a missing name.
+    .explanation-user-impact = Screen readers announce the same text twice without adding information.
+    .typical-cause = title or aria-describedby repeats the visible text or the aria-label, e.g. title="Close" on a "Close" button.
+    .recommendation = Remove the description, or fill it with information that goes beyond the name.
+    .technical-note = Best practice, anchored to WCAG 4.1.2. Compares name and description from the browser's accessibility tree.
 
-rule-aria-required-children-missing = Required child elements of an ARIA role are missing
+rule-aria-required-children-missing = Required owned elements of an ARIA role are missing
     .user-impact = Assistive technologies cannot resolve the relationship between the widget's parts.
     .technical-impact = e.g. role="tablist" without corresponding role="tabpanel" elements.
+    .description = A container such as role="tablist", "list", or "menu" contains none of the elements its role requires.
+    .explanation-user-impact = Screen readers announce an empty or broken container; users cannot find its items.
+    .typical-cause = The items carry no role or a different one, or an element with its own role sits between the container and its items.
+    .recommendation = Give the items the required role, such as role="tab" in a tablist, or remove the container's role.
+    .technical-note = Only containers with an explicit role are checked; native tables and lists define their parts through HTML.
 
 rule-dialog-name-missing = Dialog without an accessible name
     .user-impact = Screen reader users are not told what the dialog is about when it opens.
@@ -641,45 +906,93 @@ rule-keyboard-focusable-no-role = Focusable element without an interactive role
 rule-display-toggle-missing = No display-mode toggle
     .user-impact = If there really is no toggle, visitors who cannot cope with motion or graphics cannot switch to a calm or text-only display.
     .technical-impact = No [data-display-toggle] element on a page with figure[data-viz].
+    .description = The page shows visualisations, but no toggle marked [data-display-toggle] was found.
+    .explanation-user-impact = If there really is no toggle, visitors who cannot cope with motion, 3D or graphics are stuck with the full display.
+    .typical-cause = Visualisations marked up per the convention, but the toggle was not added or not marked with [data-display-toggle].
+    .recommendation = Offer an operable toggle on every page with visualisations that switches between visual, calm and text and stores the choice.
+    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 2.2.2 (Pause, Stop, Hide). Checks for a [data-display-toggle] element in the rendered DOM.
 
 rule-display-init-missing = Display mode set too late
     .user-impact = The page can briefly render in the wrong mode, for example with animation, before the chosen calm mode applies.
     .technical-impact = data-display not set by a blocking script in <head>.
+    .description = The chosen display is not applied before the page is first shown.
+    .explanation-user-impact = The page can briefly show animation or graphics even though a calm display was chosen.
+    .typical-cause = data-display is set in a deferred or module script instead of a small blocking script in <head>.
+    .recommendation = Set the mode in a small blocking script in <head>, before the page body starts.
+    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 2.2.2. Measured via CDP: an observer injected before navigation records whether html[data-display] was already set when <body> was inserted.
 
 rule-display-text-media-visible = Visualisations visible in text mode
     .user-impact = Visitors who chose text mode still get graphics or moving content.
     .technical-impact = [data-viz-live]/[data-viz-static] or figure media visible with html[data-display=text].
+    .description = In text mode a visualisation still shows graphics, canvas or video.
+    .explanation-user-impact = Visitors who chose text mode still get graphics or moving content.
+    .typical-cause = The CSS for html[data-display="text"] does not hide [data-viz-live] or [data-viz-static].
+    .recommendation = In text mode hide the live and static parts of the visualisation and show only the text layer.
+    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 2.2.2. Checks the rendered layout in text mode; elements up to 32x32 px count as icons.
 
-rule-display-text-not-visible = Visualisation text layer missing in text mode
+rule-display-text-not-visible = Text layer missing in text mode
     .user-impact = In text mode the statement of the visualisation is lost.
     .technical-impact = [data-viz-text] missing, empty or not visible with html[data-display=text].
+    .description = In text mode a visualisation shows no readable statement.
+    .explanation-user-impact = Visitors who chose text mode do not learn what the visualisation says.
+    .typical-cause = [data-viz-text] is missing, empty or stays hidden in text mode.
+    .recommendation = Give every visualisation a text layer (key statement, for charts the values as a table, source) and show it in text mode.
+    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 1.1.1 (Non-text Content). Checks the rendered layout in text mode.
 
-rule-viz-text-missing = Visualisation text layer missing in text mode
+rule-viz-text-missing = Visualisation without a text layer
     .user-impact = In text mode the statement of the visualisation is lost.
     .technical-impact = [data-viz-text] missing, empty or not visible with html[data-display=text].
+    .description = A visualisation has no text layer marked [data-viz-text], or only an empty one.
+    .explanation-user-impact = Those who cannot see the graphic do not get its statement; text mode has nothing to show in its place.
+    .typical-cause = The description sits in an element without the [data-viz-text] mark, or the visualisation was built without a text layer.
+    .recommendation = Give every figure[data-viz] a text layer with the statement (for charts the values, preferably as a <table>) and name the source.
+    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 1.1.1. Only checks that text is there, not whether it conveys the key message. From the markup, in every mode.
 
 rule-display-text-hidden = Visualisation text layer hidden from assistive technology
     .user-impact = Screen reader users do not get the statement of the visualisation.
     .technical-impact = hidden, aria-hidden=true, inert or display:none/visibility:hidden on [data-viz-text] or an ancestor.
+    .description = The text layer of a visualisation is hidden from screen readers.
+    .explanation-user-impact = Screen reader users do not get the statement of the visualisation.
+    .typical-cause = hidden, aria-hidden="true", inert or display:none on [data-viz-text] or a surrounding element, usually to hide it in the graphical display.
+    .recommendation = Hide the text layer only visually (visually-hidden), never from assistive technology.
+    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 1.1.1. Checked in the rendered DOM in every mode, including computed styles.
 
 rule-viz-caption-missing = Visualisation without a caption
     .user-impact = Nothing names the visualisation in a few words; those who cannot see it do not learn what it is about before reading through the text layer.
     .technical-impact = figure[data-viz] without a <figcaption> as a direct child.
+    .description = A visualisation has no <figcaption> naming it in a few words.
+    .explanation-user-impact = Nothing names the visualisation briefly; those who cannot see it have to read the text layer to know what it is about.
+    .typical-cause = The <figcaption> is missing or sits outside the <figure>.
+    .recommendation = Add a <figcaption> as a direct child of the figure[data-viz].
+    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 1.1.1. Checks presence, not content.
 
 rule-viz-static-missing = Moving visualisation without a still image
     .user-impact = In calm mode nothing replaces the motion; those who cannot cope with motion get either the motion or nothing.
     .technical-impact = figure[data-viz=3d|interactive] without a descendant carrying [data-viz-static].
+    .description = A 3D or interactive visualisation has no still image for calm mode.
+    .explanation-user-impact = Those who cannot cope with motion get nothing in calm mode that replaces the motion.
+    .typical-cause = Only the moving version was built, without a still image marked [data-viz-static].
+    .recommendation = Include a still image marked [data-viz-static] in the visualisation and show it instead of the motion in calm mode.
+    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 2.2.2. Applies to data-viz="3d" and "interactive".
 
 rule-viz-table-missing = Chart without a values table
     .user-impact = The relations between the values are lost unless the text layer conveys them another way.
     .technical-impact = figure[data-viz=chart] without a <table> in its subtree.
+    .description = A chart has no table with its values. Check whether the text layer conveys them without one.
+    .explanation-user-impact = The relations between the values can be lost when they exist only as running text or not at all.
+    .typical-cause = The values exist only in the graphic or in one sentence, often deliberately for sparklines.
+    .recommendation = Put the values into the text layer as a <table> unless a sentence carries them just as completely.
+    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 1.3.1. A review note, not a failure: only a person can judge whether a sentence is enough.
 
-# Explanation texts: one message per entry of `EXPLANATIONS` in
-# `src/output/explanations.rs`, in the order of that table. The message value
+# Explanation texts of the entries of `EXPLANATIONS` in
+# `src/output/explanations.rs` that are keyed by a WCAG criterion number or an
+# axe id, in the order of that table: one message per entry. The message value
 # is the customer title, the attributes carry the description, the user
 # impact, the typical cause, the recommendation and the technical note.
 # The key is `explanation-` plus the table key with `.`, `/` and `_` written
-# as `-` (`output::explanations::explanation_text_key`).
+# as `-` (`output::explanations::explanation_text_key`). An entry keyed by a
+# rule id has no message here: its texts are attributes of the rule message
+# above.
 
 ## 1. Perceivable
 
@@ -738,13 +1051,6 @@ explanation-landmark-unique = Landmarks are not uniquely named
     .typical-cause = Multiple <nav>, <aside>, or role="region" elements on the same page (e.g. main navigation and breadcrumb navigation) without an aria-label or aria-labelledby to distinguish them.
     .recommendation = Give each landmark of the same role its own descriptive aria-label, e.g. aria-label="Main navigation" and aria-label="Breadcrumb".
     .technical-note = Add aria-label or aria-labelledby to each of the repeated same-role landmarks. The names must actually differ — repeating the identical label does not satisfy this check.
-
-explanation-keyboard-trap = Keyboard trap cannot be automatically tested
-    .description = Whether keyboard focus can become permanently trapped inside a dialog, carousel, or custom JavaScript widget cannot be determined automatically. It requires manually navigating the page using only the Tab key.
-    .user-impact = People who navigate exclusively via keyboard or screen reader can become stuck inside a component and lose the ability to leave the page by keyboard.
-    .typical-cause = Custom dialogs, carousels, or widgets with their own JavaScript focus management that provide no way back out via the Escape key, a reachable close button, or a documented keyboard shortcut.
-    .recommendation = Ensure every focusable region has a way to leave it by keyboard: the Escape key, a visible close button reachable by Tab, or a documented keyboard shortcut.
-    .technical-note = Navigate the page using only Tab/Shift+Tab and verify every dialog/widget can be exited. For custom focus management, implement an Escape handler and a reachable close button.
 
 explanation-1-3-5 = Missing input purpose identification
     .description = Form fields lack machine-readable identification of their purpose. As a result, browsers and assistive technologies cannot offer autofill suggestions or help users complete forms faster.
@@ -853,13 +1159,6 @@ explanation-2-4-4 = Unclear or generic link text
     .recommendation = Phrase link text so it is understandable without surrounding context (e.g. 'Web development services' instead of 'learn more').
     .technical-note = Use descriptive link text. If a visually short text is required, use aria-label or aria-labelledby for an extended description.
 
-explanation-links-new-window-unannounced = New window without notice
-    .description = A link opens a new window or tab (target="_blank") without saying so in its text. WCAG 3.2.5 (AAA) asks that such context changes happen only on request; announcing it in the link text is the usual way.
-    .user-impact = Screen reader and magnifier users often miss the window change; the back button then does not return to the previous page.
-    .typical-cause = External links or PDF downloads opened with target="_blank".
-    .recommendation = Announce it in the link text, e.g. "(opens in a new window)", or drop target="_blank".
-    .technical-note = A visible icon only counts with a text alternative in the accessible name (technique G201).
-
 explanation-link-name-context = Generic link text with possible contextual meaning
     .description = The link text alone is unspecific (e.g. "Start", "next"), but sits next to descriptive text that may explain the link's purpose. WCAG 2.4.4 explicitly allows a link's purpose to be derived from its text together with its context — whether that is the case here can only be confirmed by manual review.
     .user-impact = Whether the link's purpose is understandable to screen reader users depends on whether the surrounding text is actually read out before the link is reached, and whether the connection is unambiguous. Without manual review it is unclear whether users are actually affected.
@@ -934,40 +1233,12 @@ explanation-3-3-2 = Missing labels and instructions on forms
 
 ## 4. Robust
 
-explanation-ids-duplicate = Referenced ID is assigned more than once
-    .description = Multiple elements on the page share the same id, and another element references it (e.g. label for, aria-labelledby). Which of them is meant can no longer be determined.
-    .user-impact = Screen readers resolve the relationship to the wrong element and announce the wrong name or description.
-    .typical-cause = Repeatedly embedded components or templates (e.g. menu items, widgets) that use a static ID instead of a per-instance unique ID.
-    .recommendation = Assign each ID only once per document. For reused components, generate the ID dynamically (e.g. with an index or slug).
-    .technical-note = Make IDs unique, e.g. by appending an index or a unique identifier per component instance.
-
 explanation-4-1-2 = Missing name/role on controls
     .description = Interactive elements (buttons, links, form fields) have no accessible name or recognizable role. Assistive technologies cannot convey what the element is.
     .user-impact = Screen reader users hear, for example, only 'button' with no description of its function, or a clickable element is not recognized as interactive at all.
     .typical-cause = Buttons or links with no text or aria-label. Icon-only buttons without an accessible name. Custom widgets without ARIA roles.
     .recommendation = Give every interactive element a clear, accessible name. Prefer native HTML elements. For icon buttons: use aria-label.
     .technical-note = Buttons: visible text or aria-label. Links: descriptive link text. Inputs: associated <label>. Custom widgets: role + aria-label + ARIA states.
-
-explanation-keyboard-hidden-focusable = Keyboard focus on hidden elements
-    .description = An interactive element is hidden from screen readers via aria-hidden="true", but can still be focused using the keyboard (tab key).
-    .user-impact = Keyboard users navigate to hidden elements (focus traps), while screen reader users receive no feedback about the element.
-    .typical-cause = Using aria-hidden="true" to hide an element visually without setting tabindex="-1" or hiding the element via display:none.
-    .recommendation = To hide an element completely, use display:none or visibility:hidden. If it should only be hidden from screen readers, make it unfocusable (tabindex="-1").
-    .technical-note = Focusable elements (a, button, input) inside an aria-hidden="true" tree must either be removed from tab order or hidden completely.
-
-explanation-aria-attribute-prohibited = Prohibited ARIA attributes
-    .description = Attributes are used on HTML elements or ARIA roles that are not permitted or meaningful for that specific role.
-    .user-impact = Screen readers receive conflicting or incorrect markup signals, which can impair accessibility.
-    .typical-cause = Using ARIA attributes (like aria-label or aria-expanded) on elements that do not have an interactive role (e.g. span or div without role).
-    .recommendation = Check the ARIA specification for the respective role. Only use ARIA attributes on appropriate elements and roles.
-    .technical-note = Prohibited attributes on generic elements: <span aria-label="text"> is invalid. Use native elements or valid roles (e.g. role="button").
-
-explanation-modern-attribute-misuse = Broken dialog or popover control
-    .description = Modern HTML attributes for popovers, dialogs, or disabled regions are used incompletely or inconsistently.
-    .user-impact = Keyboard and screen reader users may open, focus, or leave surfaces without understandable feedback.
-    .typical-cause = popovertarget points to a missing element, a visible dialog has no accessible name, or an active region is marked inert at the same time.
-    .recommendation = Check popover targets, name visible dialogs and menus, and use inert only for regions that are truly inactive.
-    .technical-note = popovertarget must reference an element with popover. Open dialogs, menus, and popovers need aria-label, aria-labelledby, or another suitable name.
 
 ## SEO rules (no WCAG criterion)
 
@@ -1006,7 +1277,7 @@ explanation-seo-headings-empty-heading = Empty heading
     .recommendation = Remove empty heading elements or fill them with real, descriptive text. Components should only render the heading element when a title is present.
     .technical-note = WCAG 1.3.1 (Info and Relationships, Level A) and 2.4.6 (Headings and Labels, Level AA) require headings to carry recognizable, programmatically available text.
 
-## Rule-specific texts replacing the WCAG-criterion fallback
+## Rule-specific texts keyed by an axe id
 
 explanation-server-side-image-map = Server-side image map used
     .description = Server-side image map used. Keyboard and screen reader users cannot target the individual image regions.
@@ -1042,13 +1313,6 @@ explanation-object-alt = Missing text alternative on embedded objects
     .typical-cause = <object> without text content or aria-label.
     .recommendation = Provide a text alternative inside the <object> element or via aria-label.
     .technical-note = <object> without text content or aria-label.
-
-explanation-html-content-model = HTML5 content model violation
-    .description = HTML5 content model violation. Screen readers cannot reliably parse the structure, even when it appears superficially valid.
-    .user-impact = Screen readers cannot reliably parse the structure, even when it appears superficially valid.
-    .typical-cause = Unexpected child element inside a structural container (e.g. <ul>, <table>, <select>).
-    .recommendation = Fix the markup so it matches the HTML5 content model for the element (e.g. a <dl> may only directly contain <dt>/<dd> groups, <div>, <script>, or <template>). Invalid children can be silently "healed" by the browser when building the accessibility tree, hiding the defect from role-based checks while still confusing assistive technology.
-    .technical-note = Unexpected child element inside a structural container (e.g. <ul>, <table>, <select>).
 
 explanation-form-field-group = Missing grouping for related form fields
     .description = Missing grouping for related form fields. Screen reader users cannot tell that several fields belong to one question/group.
@@ -1176,13 +1440,6 @@ explanation-title-only-description = Native title attribute as the only descript
     .recommendation = Add a visible label, or set the name via aria-label/aria-labelledby or a <label>; use title only for supplementary hints.
     .technical-note = Best practice, anchored to WCAG 4.1.2. Not 1.4.13: the browser tooltip of the title attribute is controlled by the user agent and exempt there. Checks button, a[href] and input with title and without text content, aria-label and aria-labelledby.
 
-explanation-description-duplicates-name = Description repeats the name
-    .description = An element's accessible name and accessible description are identical. The element has a name; the repeated announcement is best practice, not a missing name.
-    .user-impact = Screen readers announce the same text twice without adding information.
-    .typical-cause = title or aria-describedby repeats the visible text or the aria-label, e.g. title="Close" on a "Close" button.
-    .recommendation = Remove the description, or fill it with information that goes beyond the name.
-    .technical-note = Best practice, anchored to WCAG 4.1.2. Compares name and description from the browser's accessibility tree.
-
 explanation-aria-required-children = Required child elements of an ARIA role are missing
     .description = Required child elements of an ARIA role are missing. Assistive technologies cannot resolve the relationship between the widget's parts.
     .user-impact = Assistive technologies cannot resolve the relationship between the widget's parts.
@@ -1225,106 +1482,6 @@ explanation-summary-name = Summary element without an accessible name
     .recommendation = Add text content to the <summary> element describing what the disclosure section contains.
     .technical-note = <summary> without text content or aria-label.
 
-## Shared rule ids with their own taxonomy entry (plan 56)
-
-explanation-headings-skip-level = Skipped heading level
-    .description = Headings skip a level, for example from h2 straight to h4. The page outline has a gap.
-    .user-impact = Screen reader users navigate via the list of headings and suspect missing content where a level is skipped.
-    .typical-cause = Heading levels chosen for their font size rather than the outline, or components that ship with a fixed level.
-    .recommendation = Nest headings without gaps (h1, h2, h3 ...) and control their look with CSS, not with the level.
-    .technical-note = A heading of level n is followed by at most level n+1. Components should take the level as a parameter.
-
-explanation-headings-empty = Empty heading
-    .description = A heading element has no text. It appears in the page outline but says nothing.
-    .user-impact = Screen reader users navigate via the list of headings and hit an entry without a name.
-    .typical-cause = Heading tags used as spacers or for icons, or CMS fields left empty while the tag is still rendered.
-    .recommendation = Remove empty headings or give them meaningful text; create spacing with CSS.
-    .technical-note = Render the tag only when the title exists. An icon alone does not name a heading.
-
-explanation-headings-h1-missing = Missing main heading (h1)
-    .description = The page has no level-1 heading that names its topic.
-    .user-impact = Screen reader users jump to the h1 to learn what the page is about and find none.
-    .typical-cause = The logo or an image stands in for the heading, or the template renders the main heading as an h2 or as styled text.
-    .recommendation = Give every page one h1 that states its topic, at the start of the main content.
-    .technical-note = The h1 belongs inside <main>, not in the header logo.
-
-explanation-headings-h1-multiple = Multiple main headings (h1)
-    .description = The page has more than one level-1 heading. HTML allows this, but it should be intentional.
-    .user-impact = Screen reader users find it harder to tell the actual page title from other sections.
-    .typical-cause = The logo, teasers or a sidebar also use h1, often from a shared template.
-    .recommendation = Check whether each h1 really names a main topic of the page; move all others to h2 or below.
-    .technical-note = A review note, not a violation: whether it is a problem depends on the page structure.
-
-explanation-lists-invalid-structure = List with invalid child elements
-    .description = A list (<ul>, <ol> or role="list") has direct children that are not list items.
-    .user-impact = Screen readers announce the wrong number of items or read parts of the list outside its list context.
-    .typical-cause = Wrapper <div>s, separators or headings placed directly in the list, often by a slider or menu component.
-    .recommendation = Put all list content inside <li> elements; move wrappers and separators into the items or create them with CSS.
-    .technical-note = Direct children of <ul>/<ol> may only be <li>, <script> and <template>.
-
-explanation-lists-empty = Empty list
-    .description = A list contains no list items at all.
-    .user-impact = Screen readers announce a list that turns out to have nothing in it.
-    .typical-cause = Lists filled by script or from the CMS that stay empty, or list markup used as a mere layout container.
-    .recommendation = Do not output empty lists, or render the list element only once there are items.
-    .technical-note = Check for items before rendering; a layout container does not need a <ul>.
-
-explanation-lists-item-outside-list = List item outside a list
-    .description = A list item (<li> or role="listitem") is not inside a list.
-    .user-impact = Screen readers announce a list item without a list that gives its length and position.
-    .typical-cause = The enclosing <ul>/<ol> is missing, for example because a component renders only the items, or role="listitem" sits on an arbitrary element.
-    .recommendation = Wrap list items in a <ul> or <ol> (or role="list"), or remove the list semantics if it is not a list.
-    .technical-note = An <li> needs a <ul>, <ol> or <menu> parent; role="listitem" needs a role="list" ancestor.
-
-explanation-lists-term-without-definition = Term without definition
-    .description = A description list (<dl>) contains a term (<dt>) without a matching description (<dd>).
-    .user-impact = Screen readers read out a term that is followed by no description.
-    .typical-cause = Empty CMS fields, or a <dl> used as a label/value layout where the value is missing.
-    .recommendation = Output at least one <dd> for every <dt>, or leave the term out when there is no description.
-    .technical-note = Checked within the same parent, including <div> groups inside the <dl>.
-
-explanation-tables-header-missing = Data table without header cells
-    .description = A table has no header cells that label its rows or columns.
-    .user-impact = Screen reader users hear only values when moving through the cells, without learning which column or row they belong to.
-    .typical-cause = The header row is built from bold <td> cells instead of <th>, or the table is used for layout only.
-    .recommendation = Mark header cells as <th> (with scope="col" or scope="row"). If the table is only for layout, replace it with CSS layout or set role="presentation".
-    .technical-note = Header cells are <th> or elements with role="columnheader"/"rowheader" anywhere in the table.
-
-explanation-tables-name-missing = Data table without a name
-    .description = A table has neither a <caption> nor a name via aria-label or aria-labelledby.
-    .user-impact = Users who list the tables on a page see only "table" and have to open each one to find the right one.
-    .typical-cause = The caption is a heading or paragraph above the table that is not linked to it.
-    .recommendation = Give the table a <caption>, or link the existing heading with aria-labelledby. Whether a name is needed depends on the context.
-    .technical-note = A review note, not a violation: <caption> as the first child of the <table>, or aria-labelledby pointing to the heading.
-
-explanation-tables-presentational-with-headers = Layout table with header cells
-    .description = A table is marked as layout only (role="presentation" or "none") but contains header cells.
-    .user-impact = Assistive technology receives contradictory information: no table according to the role, table structure according to the header cells.
-    .typical-cause = role="presentation" was applied to tables across the board, including real data tables.
-    .recommendation = Remove role="presentation" from data tables. In layout tables, replace <th> with <td>.
-    .technical-note = A table with <th> or role="columnheader"/"rowheader" must not carry role="presentation"/"none".
-
-explanation-document-lang-invalid = Invalid page language
-    .description = The page's lang attribute is set but does not hold a valid language code (for example "english" instead of "en").
-    .user-impact = Screen readers do not recognize the language and read the text with the wrong or the default pronunciation.
-    .typical-cause = A language name instead of a code, an underscore instead of a hyphen (de_DE), or an empty value from the template.
-    .recommendation = Use a valid BCP 47 code, such as lang="en" or lang="en-GB".
-    .technical-note = A primary subtag of two or three letters, followed only by alphanumeric subtags separated by hyphens.
-
-explanation-keyboard-positive-tabindex = Positive tabindex changes the focus order
-    .description = An element has a tabindex greater than 0 and therefore receives focus before all other elements, regardless of where it sits on the page.
-    .user-impact = Keyboard users jump around the page unpredictably when tabbing and lose their bearings.
-    .typical-cause = Attempts to bring single elements forward with tabindex="1", often in form or search widgets.
-    .recommendation = Remove positive tabindex values and set the order through the order in the HTML; tabindex="0" or "-1" is enough.
-    .technical-note = Use only tabindex="0" (focusable in natural order) and "-1" (focusable by script only).
-
-explanation-zoom-viewport-scale-limited = Zoom limited by the viewport meta tag
-    .description = The viewport meta tag limits maximum-scale to a value below 5, so users cannot magnify the page to 500% on mobile devices.
-    .user-impact = Users with low vision cannot magnify the page content enough.
-    .typical-cause = maximum-scale was set to prevent accidental zooming or to stabilize a layout.
-    .recommendation = Remove maximum-scale or set it to at least 5.
-    .technical-note = Best practice: 1.4.4 requires 200% and is met with this limit. A limit below 2, or user-scalable=no, is reported as a separate 1.4.4 violation.
-
 ## Missing navigation and contentinfo landmark (plan 56)
 
 explanation-landmark-navigation-present = Missing navigation landmark
@@ -1341,291 +1498,3 @@ explanation-landmark-contentinfo-present = Missing contentinfo landmark
     .recommendation = Mark up the page footer as a <footer> directly under <body>, outside <main>.
     .technical-note = Only a <footer> outside <main>, <article>, <aside>, <nav> and <section> implicitly gets role="contentinfo".
 
-## Measurements on the running page (#1002–#1007)
-
-explanation-frames-cross-origin = Embedded frame could not be tested
-    .description = The document inside an iframe could not be read by the testing tool, so it was not tested. The frame has a foreign origin, or its navigation had not finished.
-    .user-impact = Embedded content such as maps, booking widgets or consent dialogs may be inaccessible to screen reader and keyboard users without the report showing it.
-    .typical-cause = Third-party content in an iframe with a foreign origin; the page cannot read its document.
-    .recommendation = Check the frame content by hand or test its address on its own; ask the provider for an accessible embed.
-    .technical-note = A coverage note, not a conformance check and tied to no success criterion. It measures whether the frame's contentDocument is readable; presentational, hidden or 1 px frames are skipped. Without the measurement the rule is reported as not run.
-
-explanation-orientation-root-rotated = Page forces a screen orientation by rotating its root
-    .description = The root element (html or body) is rotated by a quarter turn. The page is then usable in one orientation only, unless a specific orientation is essential.
-    .user-impact = People whose device is mounted in a fixed position, for example on a wheelchair, cannot change the orientation and see the page rotated or cut off.
-    .typical-cause = A transform: rotate(90deg) or rotate: 90deg on html or body that is meant to imitate landscape in portrait.
-    .recommendation = Remove the rotation and make the layout usable in both orientations. Only fix an orientation when it is essential (a piano, a bank cheque).
-    .technical-note = The computed transform matrix and the rotate property of html and body are measured in the audited viewport; a lock that applies in the other orientation only shows in the run of that viewport. Whether an orientation is essential is a human judgement.
-
-explanation-auth-paste-blocked = Paste blocked in password or code field
-    .description = A password or one-time-code field cancels the paste event and does not insert the text itself. Password managers and the clipboard do not work there.
-    .user-impact = Anyone who cannot memorise passwords or transcribe them accurately, for example because of cognitive or motor impairments, fails to sign in.
-    .typical-cause = A paste handler with preventDefault() or onpaste="return false", usually meant as a security measure.
-    .recommendation = Remove the handler. If the text is sanitised, insert the sanitised text into the field instead of forbidding the paste.
-    .technical-note = A synthetic, cancelable paste event is dispatched on password and code fields, including same-origin frames and open shadow roots; the field value is restored afterwards. The event is not trusted (isTrusted is false): a handler that reacts only to real events or key presses stays unseen. autocomplete="off" is not a finding.
-
-explanation-focus-obscured = Focused element entirely obscured
-    .description = After focusing and scrolling, every sample point of a control lies under a fixed or sticky element such as a header bar or a cookie banner.
-    .user-impact = Keyboard users tab to an element they cannot see and do not know where focus is.
-    .typical-cause = A fixed or sticky bar that reaches lower than scroll-padding-top, or a banner that covers controls of the page.
-    .recommendation = Set scroll-padding-top at least as large as the fixed bar and place banners so they do not cover controls.
-    .technical-note = Measured after focusing with scrollIntoView({"{"} block: 'nearest' {"}"}), 3 by 3 points per control via elementsFromPoint. A real Tab may scroll differently, so the value is a hint to check, not proof. The hint about a bar that reaches lower than scroll-padding-top belongs to this id as well.
-
-explanation-focus-obscured-enhanced = Focused element partially obscured
-    .description = After focusing and scrolling, at least one sample point of a control lies under a fixed or sticky element (level AAA).
-    .user-impact = Keyboard users see a focused control only in part and may not recognise its label or state.
-    .typical-cause = A sticky footer, chat button or cookie banner that covers an edge of the page.
-    .recommendation = Keep room above and below fixed elements (scroll-padding, page margin) or make the elements smaller.
-    .technical-note = The same measurement as for focus/obscured, a different threshold: every covered sample point is reported. Sampling only approximates "any part", so the result stays a hint to check.
-
-## Shared rule ids from #690 without a fitting text
-
-explanation-zoom-viewport-locked = Zoom blocked by the viewport meta tag
-    .description = The viewport meta tag prevents zooming (user-scalable=no) or limits it to less than 200%.
-    .user-impact = People with visual impairments cannot enlarge the page on mobile devices and lose content.
-    .typical-cause = user-scalable=no or maximum-scale=1, set to prevent accidental zooming or to stabilize a layout.
-    .recommendation = Remove user-scalable=no and maximum-scale from the viewport meta tag.
-    .technical-note = A limit between 200% and 500% does not violate 1.4.4 and is reported separately.
-
-explanation-zoom-viewport-missing = Missing viewport declaration
-    .description = The document has no viewport meta tag. Mobile browsers then assume a desktop width and scale the page down.
-    .user-impact = On mobile devices the text appears below any readable size; zooming in forces horizontal scrolling. Desktop browsers are not affected.
-    .typical-cause = The template sets no viewport meta tag, as with older pages or pages built for desktop only.
-    .recommendation = Add a viewport meta tag with width=device-width to the <head>.
-    .technical-note = Desktop browsers ignore the tag; only the mobile rendering is affected. The layout must then also work in narrow viewports (1.4.10 Reflow).
-
-explanation-aria-reference-missing = ARIA reference points nowhere
-    .description = An ARIA relationship attribute (such as aria-controls or aria-labelledby) is empty or references an ID that does not exist on the page.
-    .user-impact = Screen readers cannot establish the relationship: the label, description, or controlled region is missing.
-    .typical-cause = The target's ID was renamed or is created later by script; components set the attribute before the target exists.
-    .recommendation = Point the attribute at the ID of an existing element or remove it.
-    .technical-note = Checked are aria-labelledby, aria-describedby, aria-controls, aria-owns, and aria-activedescendant.
-
-explanation-aria-required-attribute-missing = Required ARIA attribute missing
-    .description = An element carries a role that announces a state (such as checkbox or slider) but not the attribute that carries this state.
-    .user-impact = Screen reader users do not learn whether a switch is on or which value a slider has.
-    .typical-cause = Custom controls set the role but maintain the state only visually.
-    .recommendation = Set the required attribute and update it on every state change, or use a native element.
-    .technical-note = For example aria-checked for checkbox/radio/switch, aria-expanded for combobox, aria-valuenow for slider/spinbutton/meter.
-
-explanation-images-alt-suspicious = Alternative text probably not descriptive
-    .description = An image has alternative text that probably does not describe its content: a file name, a filler word such as "image" or "logo", or just one or two characters.
-    .user-impact = Screen reader users hear text that does not convey the image content to them.
-    .typical-cause = The CMS copies the file name as alternative text, or the required field was filled with a placeholder.
-    .recommendation = Check whether the text describes the image; otherwise replace it with a description, or with alt="" for decorative images.
-    .technical-note = Detected heuristically, hence for review: alt="5" on an image of a five is correct.
-
-## Shared rule ids from #691 (B1) without a fitting text
-
-explanation-aria-role-invalid = Invalid ARIA role
-    .description = A role attribute contains a value that does not exist in WAI-ARIA, or an abstract role that must not be used in markup.
-    .user-impact = Browsers ignore the role; screen readers announce the element differently than intended.
-    .typical-cause = Typos, invented roles, or abstract roles such as widget or landmark.
-    .recommendation = Use a role from the ARIA specification, or remove the role attribute and use a native element.
-    .technical-note = Roles are case-sensitive: role="Button" is invalid.
-
-explanation-aria-attribute-unknown = Unknown ARIA attribute
-    .description = An element carries an aria-* attribute that does not exist in WAI-ARIA, usually a typo.
-    .user-impact = The browser ignores the attribute; the intended label, relationship, or state is missing.
-    .typical-cause = Misspelled attributes such as aria-labeledby instead of aria-labelledby.
-    .recommendation = Check the name against the ARIA specification and correct it, or remove the attribute.
-    .technical-note = Attributes from the WAI-ARIA 1.3 draft that browsers already support (such as aria-description) count as known.
-
-explanation-aria-attribute-value-invalid = Invalid ARIA attribute value
-    .description = An ARIA attribute has a value outside its allowed range, such as aria-expanded="yes".
-    .user-impact = Browsers fall back to the default value; the state is announced incorrectly or not at all to screen reader users.
-    .typical-cause = Values from other conventions (yes/no, 1/0) or typos in token values.
-    .recommendation = Only use the values the ARIA specification defines for the attribute, such as true or false.
-    .technical-note = Unknown values of aria-current and aria-invalid count as true under ARIA 1.2 and are not reported.
-
-explanation-aria-owns-conflict = Element owned by several elements via aria-owns
-    .description = The same ID appears in the aria-owns of several elements. Which element is the owner remains undetermined.
-    .user-impact = Assistive technologies cannot assign the element to one widget; name, role, and value become unreliable.
-    .typical-cause = Components included several times that point to the same list, or a duplicated ID.
-    .recommendation = List each element in the aria-owns of a single element only.
-    .technical-note = WAI-ARIA 1.2: an ID must not be specified in more than one other element's aria-owns at any time.
-
-explanation-aria-tab-selected-missing = No tab marked as selected
-    .description = None of the tabs in a tab list carries aria-selected="true".
-    .user-impact = Screen reader users are not told which tab is active and which one the visible content belongs to.
-    .typical-cause = The active tab is highlighted by a CSS class only.
-    .recommendation = Set aria-selected="true" on the active tab and update it when the tab changes.
-    .technical-note = For review: ARIA 1.2 says SHOULD. Tabs without the attribute count as not selected, which is correct for the inactive ones.
-
-explanation-aria-combobox-popup-missing = Expanded combobox without a reference to its popup
-    .description = A combobox is marked as expanded but does not reference its list of options with aria-controls.
-    .user-impact = Screen reader users are not told which options the combobox offers and cannot reach them.
-    .typical-cause = The list sits next to the combobox instead of inside it, and aria-controls is missing.
-    .recommendation = Set aria-controls on the combobox to the ID of the list.
-    .technical-note = ARIA 1.2 requires aria-controls (MUST). A popup in the combobox's own subtree or via aria-owns (ARIA 1.1) is still accepted.
-
-explanation-aria-attribute-not-allowed = ARIA attribute not allowed on this role
-    .description = An element carries an ARIA attribute its role does not support, or one that must not be used alongside a native attribute.
-    .user-impact = Screen readers ignore the attribute or receive conflicting information about state and value.
-    .typical-cause = States such as aria-expanded or aria-checked on elements without a matching role, such as a div.
-    .recommendation = Move the attribute to the element with the matching role, set a matching role, or remove the attribute.
-    .technical-note = The explicit or implicit role is judged. Also covered are the cases from ARIA in HTML, such as aria-checked on a native checkbox.
-
-explanation-aria-required-parent-missing = Element outside its required parent context
-    .description = An element with a role such as tab, option, or listitem is not contained in an element with the required role.
-    .user-impact = Screen readers cannot assign the element to a widget; position and count ("tab 2 of 3") are not announced.
-    .typical-cause = An element with its own role in between, such as an <li> between role="tablist" and role="tab".
-    .recommendation = Place the element directly in the required container, or neutralize the elements in between with role="presentation".
-    .technical-note = Checked against the DOM. An <li> in a list that became something else via role stays a listitem, even when the browser flattens it in the accessibility tree.
-
-explanation-aria-required-children-missing = Required owned elements of an ARIA role are missing
-    .description = A container such as role="tablist", "list", or "menu" contains none of the elements its role requires.
-    .user-impact = Screen readers announce an empty or broken container; users cannot find its items.
-    .typical-cause = The items carry no role or a different one, or an element with its own role sits between the container and its items.
-    .recommendation = Give the items the required role, such as role="tab" in a tablist, or remove the container's role.
-    .technical-note = Only containers with an explicit role are checked; native tables and lists define their parts through HTML.
-
-## Shared rule ids from #692 (B2) without a fitting text
-
-explanation-dialog-modal-unmarked = Dialog not marked as modal
-    .description = An element with role="dialog" does not carry aria-modal="true". Whether the dialog is meant to be modal needs to be checked.
-    .user-impact = If the dialog is meant to be modal, screen readers keep reading the content behind it as if it were reachable.
-    .typical-cause = A custom dialog built from a div with role="dialog", without aria-modal.
-    .recommendation = Mark a modal dialog with aria-modal="true", or use a native <dialog> opened with showModal(). A non-modal dialog does not need the attribute.
-    .technical-note = ARIA does not require aria-modal; this is a review hint, not a violation.
-
-## Shared rule ids from #693 (B3) without a fitting text
-
-explanation-forms-no-submit = Form without a submit control
-    .description = A form collects input but has no button or other control that explicitly submits it.
-    .user-impact = Without a submit control it is unclear when the input takes effect. If the form submits when a field changes instead, the context changes without warning.
-    .typical-cause = Filter and search forms submitted by script when a field changes, or a button outside the form without a form attribute.
-    .recommendation = Add a button type="submit" to the form or associate one via the form attribute. If a form only changes content on the page, check that no change of context happens.
-    .technical-note = Without an action and without a text field only script can submit the form; the finding is then a review hint (#728).
-
-explanation-auth-captcha = Review CAPTCHA in sign-in form
-    .description = A sign-in form contains a CAPTCHA. Whether it is an object-recognition test or an alternative without a cognitive test is offered needs to be checked.
-    .user-impact = People who cannot read, transcribe or remember distorted characters cannot get past the sign-in.
-    .typical-cause = A text or puzzle CAPTCHA against bots, without a second way in.
-    .recommendation = Offer a sign-in without a cognitive test, e.g. a passkey, an e-mail link or a non-interactive bot check. An object-recognition test is allowed at level AA.
-    .technical-note = Review hint: the kind of test and any alternatives are not in the markup. A CAPTCHA on a contact form is outside 3.3.8.
-
-## Shared rule ids from #694 without a fitting text
-
-explanation-landmarks-not-top-level = Landmark is nested
-    .description = A header, footer or main content region (banner, contentinfo, main) sits inside another landmark instead of at the top level.
-    .user-impact = Screen reader users who jump to the header, footer or main content via landmark navigation land in an unexpected context.
-    .typical-cause = role="banner", role="contentinfo" or <main> inside <main>, <nav>, <aside> or a named region.
-    .recommendation = Move the header, footer and main content region to the top level of the page, outside any other landmark.
-    .technical-note = A <header>/<footer> inside <main>, <article> or <section> is no banner/contentinfo anyway; reported are explicit roles and <main>. The affected role is named in the finding.
-
-explanation-patterns-accordion-controls-missing = Expanded button without a reference to its region
-    .description = An expanded button (aria-expanded="true") does not reference the region it controls with aria-controls.
-    .user-impact = Screen reader users are not told which region was expanded and cannot jump straight to it.
-    .typical-cause = Accordion or disclosure scripts that only toggle aria-expanded.
-    .recommendation = Set aria-controls on the button to the ID of the controlled region.
-    .technical-note = Review hint: WAI-ARIA does not require aria-controls, the APG lists it as optional for the disclosure pattern. A <summary> does not need it.
-
-## Shared rule ids from #697 without a fitting text
-
-explanation-tables-header-without-data = Table header without data cells
-    .description = A header cell (<th>) applies to no data cell – the table has headers but no data below or beside them.
-    .user-impact = Screen readers cannot relate data cells to a header; the table reads as empty or wrongly built.
-    .typical-cause = Tables used for layout only, or data rows that a script adds later.
-    .recommendation = Use header cells only where data follows; build layout without <table>.
-    .technical-note = Empty data cells, cells with aria-hidden content and column headers over row headers are no error. A pool of rows not yet rendered gives an untested note instead of a violation.
-
-explanation-tables-headers-attr-invalid = headers attribute points nowhere
-    .description = A table cell references an ID via headers that is not a header cell of the same table.
-    .user-impact = Screen readers announce the wrong header or none at all for the cell.
-    .typical-cause = Renamed or copied IDs, references to cells of other tables.
-    .recommendation = Point headers only at IDs of <th> in the same table, or use scope for simple tables.
-    .technical-note = Only cells are checked (td, th and their roles); HTML defines the attribute only there.
-
-explanation-document-lang-mismatch = lang and xml:lang disagree
-    .description = The <html> element carries lang and xml:lang with different languages.
-    .user-impact = Screen readers pick a different language depending on the attribute and may mispronounce the page.
-    .typical-cause = Templates carried over from XHTML where only one attribute was updated.
-    .recommendation = Remove xml:lang or set it to the same value as lang.
-    .technical-note = The primary language of both attributes is compared.
-
-explanation-language-part-unmarked = Check text in another language without lang
-    .description = A passage appears to be written in another language than the page, without a lang attribute marking it.
-    .user-impact = Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.
-    .typical-cause = Quotes, product names or teasers in another language without lang.
-    .recommendation = Mark the passage with lang, for example <p lang="en">.
-    .technical-note = Review hint: language detection is a heuristic and knows German and English. On pages in other languages the check is recorded as untested.
-
-## Shared rule ids from #696 without a fitting text
-
-explanation-media-audio-autoplay = Check autoplaying audio for a control
-    .description = An audio element starts by itself when the page loads and is not muted.
-    .user-impact = Audio that starts on its own drowns out screen reader speech, which makes the control hard to find.
-    .typical-cause = <audio autoplay> for background music or ads.
-    .recommendation = Do not start audio automatically, or offer a control to pause or lower it at the start of the page.
-    .technical-note = Review hint (WCAG 1.4.2): whether the audio plays longer than three seconds and can be paused is not in the markup.
-
-explanation-frames-name-missing = Embedded frame without a name
-    .description = An <iframe> has no accessible name (title, aria-label or aria-labelledby).
-    .user-impact = Screen readers announce just "frame" when entering it; users cannot tell what it contains or skip it on purpose.
-    .typical-cause = Embedded maps, videos, widgets or ads without a title attribute.
-    .recommendation = Give every visible <iframe> a title that describes its content.
-    .technical-note = WCAG technique H64. Frames with role="none"/"presentation", hidden, aria-hidden or width and height 0/1 do not count.
-
-explanation-display-toggle-missing = No display-mode toggle
-    .description = The page shows visualisations, but no toggle marked [data-display-toggle] was found.
-    .user-impact = If there really is no toggle, visitors who cannot cope with motion, 3D or graphics are stuck with the full display.
-    .typical-cause = Visualisations marked up per the convention, but the toggle was not added or not marked with [data-display-toggle].
-    .recommendation = Offer an operable toggle on every page with visualisations that switches between visual, calm and text and stores the choice.
-    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 2.2.2 (Pause, Stop, Hide). Checks for a [data-display-toggle] element in the rendered DOM.
-
-explanation-display-init-missing = Display mode set too late
-    .description = The chosen display is not applied before the page is first shown.
-    .user-impact = The page can briefly show animation or graphics even though a calm display was chosen.
-    .typical-cause = data-display is set in a deferred or module script instead of a small blocking script in <head>.
-    .recommendation = Set the mode in a small blocking script in <head>, before the page body starts.
-    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 2.2.2. Measured via CDP: an observer injected before navigation records whether html[data-display] was already set when <body> was inserted.
-
-explanation-display-text-media-visible = Visualisations visible in text mode
-    .description = In text mode a visualisation still shows graphics, canvas or video.
-    .user-impact = Visitors who chose text mode still get graphics or moving content.
-    .typical-cause = The CSS for html[data-display="text"] does not hide [data-viz-live] or [data-viz-static].
-    .recommendation = In text mode hide the live and static parts of the visualisation and show only the text layer.
-    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 2.2.2. Checks the rendered layout in text mode; elements up to 32x32 px count as icons.
-
-explanation-display-text-not-visible = Text layer missing in text mode
-    .description = In text mode a visualisation shows no readable statement.
-    .user-impact = Visitors who chose text mode do not learn what the visualisation says.
-    .typical-cause = [data-viz-text] is missing, empty or stays hidden in text mode.
-    .recommendation = Give every visualisation a text layer (key statement, for charts the values as a table, source) and show it in text mode.
-    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 1.1.1 (Non-text Content). Checks the rendered layout in text mode.
-
-explanation-display-text-hidden = Text layer hidden from assistive technology
-    .description = The text layer of a visualisation is hidden from screen readers.
-    .user-impact = Screen reader users do not get the statement of the visualisation.
-    .typical-cause = hidden, aria-hidden="true", inert or display:none on [data-viz-text] or a surrounding element, usually to hide it in the graphical display.
-    .recommendation = Hide the text layer only visually (visually-hidden), never from assistive technology.
-    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 1.1.1. Checked in the rendered DOM in every mode, including computed styles.
-
-explanation-viz-text-missing = Visualisation without a text layer
-    .description = A visualisation has no text layer marked [data-viz-text], or only an empty one.
-    .user-impact = Those who cannot see the graphic do not get its statement; text mode has nothing to show in its place.
-    .typical-cause = The description sits in an element without the [data-viz-text] mark, or the visualisation was built without a text layer.
-    .recommendation = Give every figure[data-viz] a text layer with the statement (for charts the values, preferably as a <table>) and name the source.
-    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 1.1.1. Only checks that text is there, not whether it conveys the key message. From the markup, in every mode.
-
-explanation-viz-caption-missing = Visualisation without a caption
-    .description = A visualisation has no <figcaption> naming it in a few words.
-    .user-impact = Nothing names the visualisation briefly; those who cannot see it have to read the text layer to know what it is about.
-    .typical-cause = The <figcaption> is missing or sits outside the <figure>.
-    .recommendation = Add a <figcaption> as a direct child of the figure[data-viz].
-    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 1.1.1. Checks presence, not content.
-
-explanation-viz-static-missing = Moving visualisation without a still image
-    .description = A 3D or interactive visualisation has no still image for calm mode.
-    .user-impact = Those who cannot cope with motion get nothing in calm mode that replaces the motion.
-    .typical-cause = Only the moving version was built, without a still image marked [data-viz-static].
-    .recommendation = Include a still image marked [data-viz-static] in the visualisation and show it instead of the motion in calm mode.
-    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 2.2.2. Applies to data-viz="3d" and "interactive".
-
-explanation-viz-table-missing = Chart without a values table
-    .description = A chart has no table with its values. Check whether the text layer conveys them without one.
-    .user-impact = The relations between the values can be lost when they exist only as running text or not at all.
-    .typical-cause = The values exist only in the graphic or in one sentence, often deliberately for sparklines.
-    .recommendation = Put the values into the text layer as a <table> unless a sentence carries them just as completely.
-    .technical-note = Best practice from the BarrierLab display-mode convention (draft v0), not a WCAG requirement; anchored to WCAG 1.3.1. A review note, not a failure: only a person can judge whether a sentence is enough.

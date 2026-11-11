@@ -46,7 +46,7 @@
     },
     {
       "id": "display/text-not-visible",
-      "title": "Visualisation text layer missing in text mode",
+      "title": "Text layer missing in text mode",
       "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.1.1",
@@ -126,7 +126,7 @@
     },
     {
       "id": "viz/text-missing",
-      "title": "Visualisation text layer missing in text mode",
+      "title": "Visualisation without a text layer",
       "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.1.1",
@@ -278,7 +278,7 @@
     },
     {
       "id": "lists/item-outside-list",
-      "title": "List items outside a list container",
+      "title": "List item outside a list",
       "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.3.1",
@@ -310,7 +310,7 @@
     },
     {
       "id": "tables/header-without-data",
-      "title": "Table header without associated data cells",
+      "title": "Table header without data cells",
       "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.3.1",
@@ -366,7 +366,7 @@
     },
     {
       "id": "orientation/root-rotated",
-      "title": "Restricted screen orientation",
+      "title": "Page forces a screen orientation by rotating its root",
       "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.3.4",
@@ -422,7 +422,7 @@
     },
     {
       "id": "zoom/viewport-locked",
-      "title": "Text not sufficiently resizable",
+      "title": "Zoom blocked by the viewport meta tag",
       "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.4.4",
@@ -558,7 +558,7 @@
     },
     {
       "id": "keyboard-trap",
-      "title": "Keyboard trap — focus cannot leave the element",
+      "title": "Keyboard trap cannot be automatically tested",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.1.2",
@@ -886,7 +886,7 @@
     },
     {
       "id": "document/lang-mismatch",
-      "title": "Conflicting language declarations",
+      "title": "lang and xml:lang disagree",
       "domain": "wcag",
       "outcome": "automatic",
       "criterion": "3.1.1",
@@ -1094,7 +1094,7 @@
     },
     {
       "id": "aria/combobox-popup-missing",
-      "title": "Combobox without an options list",
+      "title": "Expanded combobox without a reference to its popup",
       "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
@@ -1102,7 +1102,7 @@
     },
     {
       "id": "aria/owns-conflict",
-      "title": "ARIA reference points to an ambiguous ID",
+      "title": "Element owned by several elements via aria-owns",
       "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
@@ -1126,7 +1126,7 @@
     },
     {
       "id": "aria/required-children-missing",
-      "title": "Required child elements of an ARIA role are missing",
+      "title": "Required owned elements of an ARIA role are missing",
       "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
@@ -1270,7 +1270,7 @@
     },
     {
       "id": "modern-attribute-misuse",
-      "title": "Invalid modern interaction attributes",
+      "title": "Broken dialog or popover control",
       "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",

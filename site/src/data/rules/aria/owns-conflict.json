@@ -2,7 +2,7 @@
   "id": "aria/owns-conflict",
   "url": "https://casoon.github.io/auditmysite/rules/aria/owns-conflict/",
   "domain": "wcag",
-  "title": "ARIA reference points to an ambiguous ID",
+  "title": "Element owned by several elements via aria-owns",
   "outcome": "automatic",
   "area": "Accessibility, Technical Robustness",
   "criterion": "4.1.2",

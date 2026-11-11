@@ -136,19 +136,23 @@ surface that owns its lifecycle:
   callout titles, status labels, and short reusable PDF/JSON presentation text.
   New PDF renderer text should start here.
 - `locales/{de,en}/rules.ftl`: the texts of the rule catalogue
-  (`src/taxonomy/rules.rs`): one message per rule id, the title as its value,
-  user impact and technical impact as attributes. Read through `Rule::title`,
-  `Rule::user_impact` and `Rule::technical_impact`. The same files hold the
-  explanation texts of `src/output/explanations.rs`: one message
-  `explanation-<key>` per entry of the explanation table, the customer title as
-  its value, description, user impact, typical cause, recommendation and
-  technical note as attributes. Read through the methods of `RuleExplanation`
-  (`customer_title`, `customer_description`, `user_impact`, `typical_cause`,
-  `recommendation`, `technical_note`).
-- `src/output/explanations.rs`: the explanation table itself: which rule keys
-  have an explanation, owner role, effort, and the code examples (canonical
-  English). These are rule catalog facts rather than layout labels; their prose
-  lives in `rules.ftl`. Do not add generic report UI copy here.
+  (`src/taxonomy/rules.rs`): one message `rule-<id>` per rule id, the one title
+  of the rule as its value, user impact and technical impact as attributes. Read
+  through `Rule::title`, `Rule::user_impact` and `Rule::technical_impact`. A
+  rule that has an explanation entry under its own id carries the explanation
+  texts (`.description`, `.explanation-user-impact`, `.typical-cause`,
+  `.recommendation`, `.technical-note`) on the same message. The explanation
+  entries keyed by a WCAG criterion number or an axe id (shared texts) are
+  messages `explanation-<key>` in the same files, the customer title as value
+  and the same five attributes (`.user-impact` here). Read through the methods
+  of `RuleExplanation` (`customer_title`, `customer_description`,
+  `user_impact`, `typical_cause`, `recommendation`, `technical_note`), which
+  pick the right message.
+- `src/output/explanations.rs`: the explanation table itself: which entries
+  exist, owner role, effort, and the code examples (canonical English), plus
+  `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are
+  rule catalog facts rather than layout labels; their prose lives in
+  `rules.ftl`. Do not add generic report UI copy here.
 - `src/audit/interpretation.rs`: computed interpretation sentences that depend
   on normalized audit signals and must be available before the output layer is
   built. Prefer Fluent keys in the interpretation model when the text is a fixed

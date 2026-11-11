@@ -2,7 +2,7 @@
   "id": "aria/required-children-missing",
   "url": "https://casoon.github.io/auditmysite/rules/aria/required-children-missing/",
   "domain": "wcag",
-  "title": "Required child elements of an ARIA role are missing",
+  "title": "Required owned elements of an ARIA role are missing",
   "outcome": "automatic",
   "area": "Accessibility, Technical Robustness",
   "criterion": "4.1.2",

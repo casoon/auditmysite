@@ -198,6 +198,16 @@ without limits.
   ONLY text source — the analysis calls it with `en=true`, the PDF builder with the run language.
   Examples: `source_quality`, `content_visibility`, `ai_visibility`, `journey`, `ux`,
   `seo/page_health` (`collect_issues`), `screen_reader`.
+- **Rule texts live in Fluent, one message per rule id (#935):** `locales/{de,en}/rules.ftl`
+  holds `rule-<id>` (`/` written as `-`) for every taxonomy rule: the value is the one title of the
+  rule (finding, `fix_guidance[]`, PDF, table), `.user-impact` and `.technical-impact` are the
+  catalogue texts. A rule that has an explanation entry under its own id carries its five
+  explanation texts on the same message (`.description`, `.explanation-user-impact`,
+  `.typical-cause`, `.recommendation`, `.technical-note`); a new explanation keyed by a rule id
+  is never a separate `explanation-` message. Entries keyed by a WCAG criterion number or an axe
+  id stay `explanation-<key>` messages. Which entry a rule id uses is the explicit table
+  `RULE_ENTRIES` in `src/output/explanations.rs`; a rule without a row has no explanation, nothing
+  is derived from its WCAG reference. Rust holds only keys, role, effort and code examples.
 - **Detection language ≠ message language:** language-dependent DETECTION (e.g. stopword matching
   for generic link texts) follows the **page language**, not the output language. Pass both
   separately (see `screen_reader::analyze_reading_sequence(detect_locale, message_en)`).

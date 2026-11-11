@@ -393,6 +393,20 @@ score weight in the report rather than the defaults, add an entry to
 `src/taxonomy/rules.rs` and its texts to `locales/de/rules.ftl` and
 `locales/en/rules.ftl`; say so in the pull request if you are unsure.
 
+Texts of a rule live in one place: the message `rule-<id>` in both
+`rules.ftl` files (`/` in the id written as `-`), with the title as its value
+and `.user-impact` and `.technical-impact` as attributes. A customer-language
+explanation for the rule is an entry in `EXPLANATIONS` in
+`src/output/explanations.rs` (owner role, effort, code examples) keyed by the
+rule id; its five texts (`.description`, `.explanation-user-impact`,
+`.typical-cause`, `.recommendation`, `.technical-note`) become further
+attributes of the same `rule-<id>` message, and the entry is listed in
+`RULE_ENTRIES` as `("<id>", "<id>")`. A rule that shares the text of another
+entry (or of its WCAG criterion) gets no message of its own for it: list it in
+`RULE_ENTRIES` with the key of that entry. Entries keyed by a criterion number
+or an axe id keep an `explanation-<key>` message. A rule without a row in
+`RULE_ENTRIES` has no explanation; none is derived from its WCAG reference.
+
 ## Code conventions
 
 - Format with `cargo fmt`; Clippy runs with `-D warnings`, with and without optional

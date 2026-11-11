@@ -5,8 +5,11 @@
 //!
 //! The prose of an explanation (title, description, user impact, typical
 //! cause, recommendation, technical note) is not in this table: it lives in
-//! `locales/<lang>/rules.ftl` under the key [`explanation_text_key`] and is
-//! read through the text methods of [`RuleExplanation`] (#935).
+//! `locales/<lang>/rules.ftl` and is read through the text methods of
+//! [`RuleExplanation`], under the key [`explanation_text_key`] (#935). An entry
+//! whose key is a taxonomy rule id has no message of its own: its texts are
+//! attributes of the rule's message (`rule-<id>`), and its title is the rule's
+//! title. Which entry a rule id uses is `RULE_ENTRIES`, an explicit table.
 
 use crate::output::report_model::{Effort, ExampleBlock, Role};
 
@@ -26,12 +29,23 @@ pub struct RuleExplanation {
     pub example_decorative: Option<&'static str>,
 }
 
-/// The Fluent message of an explanation's texts in `locales/<lang>/rules.ftl`:
-/// `explanation-` plus the table key, with `.`, `/` and `_` written as `-`
-/// (the keys are WCAG IDs, axe IDs and rule IDs; a Fluent identifier allows
-/// only letters, digits, `_` and `-`).
+/// The Fluent message of an explanation's texts in `locales/<lang>/rules.ftl`.
+/// For an entry keyed by a taxonomy rule id it is the rule's message
+/// ([`crate::taxonomy::rules::rule_text_key`]); for an entry keyed by a WCAG
+/// criterion number or an axe id it is `explanation-` plus the table key, with
+/// `.`, `/` and `_` written as `-` (a Fluent identifier allows only letters,
+/// digits, `_` and `-`).
 pub fn explanation_text_key(key: &str) -> String {
-    format!("explanation-{}", key.replace(['.', '/', '_'], "-"))
+    if is_rule_entry(key) {
+        crate::taxonomy::rules::rule_text_key(key)
+    } else {
+        format!("explanation-{}", key.replace(['.', '/', '_'], "-"))
+    }
+}
+
+/// Whether the entry is keyed by a taxonomy rule id.
+fn is_rule_entry(key: &str) -> bool {
+    crate::taxonomy::RuleLookup::by_id(key).is_some()
 }
 
 impl RuleExplanation {
@@ -48,7 +62,8 @@ impl RuleExplanation {
     }
 
     /// Customer-facing title (`en = true` canonical English, as in the JSON;
-    /// otherwise German).
+    /// otherwise German). For an entry keyed by a rule id it is the rule's
+    /// title.
     pub fn customer_title(&self, en: bool) -> String {
         crate::i18n::text(&explanation_text_key(self.key), en)
     }
@@ -62,7 +77,13 @@ impl RuleExplanation {
     /// Who is affected and how (`en = true` canonical English, otherwise
     /// German).
     pub fn user_impact(&self, en: bool) -> String {
-        crate::i18n::attr_text(&explanation_text_key(self.key), "user-impact", en)
+        // On a rule message `.user-impact` is the shorter catalogue text.
+        let attribute = if is_rule_entry(self.key) {
+            "explanation-user-impact"
+        } else {
+            "user-impact"
+        };
+        crate::i18n::attr_text(&explanation_text_key(self.key), attribute, en)
     }
 
     /// Why this typically happens (`en = true` canonical English, otherwise
@@ -84,7 +105,7 @@ impl RuleExplanation {
     }
 }
 
-/// All rule explanations, keyed by WCAG ID or taxonomy rule ID — for review
+/// All rule explanations, keyed by WCAG ID, axe ID or taxonomy rule ID — for review
 /// surfaces that need to enumerate every customer text (e.g.
 /// `export_all_interpretations`). Test-only: no production caller needs the
 /// full list.
@@ -93,29 +114,21 @@ pub(crate) fn all() -> &'static [(&'static str, RuleExplanation)] {
     EXPLANATIONS
 }
 
-/// Look up the explanation for a rule by its WCAG ID (e.g., "1.1.1")
-/// or engine rule ID (e.g., "images/alt-missing")
+/// Look up an explanation by a taxonomy rule id (e.g. "images/alt-missing"),
+/// an axe id or a WCAG criterion number (e.g. "1.1.1").
+///
+/// A key of `EXPLANATIONS` finds its own entry; a taxonomy rule id finds the
+/// entry `RULE_ENTRIES` lists for it, and a rule that is not listed has no
+/// explanation. Nothing else is derived: in particular a rule does not fall
+/// back to the entry of its WCAG criterion unless the table says so.
 pub fn get_explanation(rule_id: &str) -> Option<&'static RuleExplanation> {
-    // Direct lookup by WCAG ID
-    if let Some(expl) = EXPLANATIONS
+    let key = RULE_ENTRIES
         .iter()
         .find(|(id, _)| *id == rule_id)
-        .map(|(_, e)| e)
-    {
-        return Some(expl);
-    }
-    // Eine geteilte Kennung, die einen abgeloesten Befund unveraendert
-    // uebernimmt, nimmt dessen Text (#690).
-    if let Some((_, key)) = SHARED_ALIASES.iter().find(|(id, _)| *id == rule_id) {
-        return get_explanation(key);
-    }
-    // Fallback: a registered rule resolves to the text of its WCAG criterion.
-    let rule = crate::taxonomy::RuleLookup::by_id(rule_id)?;
-    // external_ref is "WCAG 1.1.1" — extract the number
-    let wcag_id = rule.external_ref?.strip_prefix("WCAG ")?;
+        .map_or(rule_id, |(_, key)| *key);
     EXPLANATIONS
         .iter()
-        .find(|(id, _)| *id == wcag_id)
+        .find(|(id, _)| *id == key)
         .map(|(_, e)| e)
 }
 
@@ -125,11 +138,12 @@ pub fn get_explanation(rule_id: &str) -> Option<&'static RuleExplanation> {
 ///
 /// Several distinct checks share one taxonomy rule id or WCAG criterion — the
 /// many "1.3.1" checks (landmarks, lists, tables, form groups) are the usual
-/// case. `get_explanation` resolves a taxonomy id through `external_ref` down
-/// to the bare WCAG number, so looking up by rule id or criterion *alone*
-/// silently returns an explanation written for a different check (#571). The
-/// rule-specific overrides that prevent this are keyed by axe id (e.g.
-/// "landmark-unique"), and are only reachable when the axe id is tried first.
+/// case. A rule id whose `RULE_ENTRIES` row lists a criterion entry, like the
+/// criterion itself, returns that shared text, so looking up by rule id or
+/// criterion *alone* silently returns an explanation written for a different
+/// check (#571). The rule-specific overrides that prevent this are keyed by
+/// axe id (e.g. "landmark-unique"), and are only reachable when the axe id is
+/// tried first.
 ///
 /// Every caller that turns a `NormalizedFinding` into customer-facing text
 /// must go through here so the order cannot drift apart again (plan 32).
@@ -144,10 +158,128 @@ pub fn resolve_explanation(
         .or_else(|| get_explanation(wcag_criterion))
 }
 
-/// Geteilte Kennungen (`wcag::shared`), deren Text der der abgeloesten
-/// auditmysite-Regel ist -- derselbe Befund, eine neue Kennung (#690).
-static SHARED_ALIASES: &[(&str, &str)] = &[
-    ("landmarks/main-missing", "landmark-one-main"),
+/// How a taxonomy rule id reaches its explanation: for every rule that has
+/// one, the key of the entry in `EXPLANATIONS` it uses. This table is the
+/// only way a rule id resolves to an entry; nothing derives an entry from the
+/// rule's WCAG reference or its text. A rule that is not listed has no
+/// explanation. `RULE_ENTRIES` and `taxonomy::RULES` are held against each
+/// other by the tests below.
+static RULE_ENTRIES: &[(&str, &str)] = &[
+    // Own entry: the rule id is the entry key, and the entry's texts are
+    // attributes of the rule's message in `rules.ftl`.
+    ("images/alt-suspicious", "images/alt-suspicious"),
+    ("orientation/root-rotated", "orientation/root-rotated"),
+    ("keyboard-trap", "keyboard-trap"),
+    ("focus/obscured", "focus/obscured"),
+    ("focus/obscured-enhanced", "focus/obscured-enhanced"),
+    (
+        "links/new-window-unannounced",
+        "links/new-window-unannounced",
+    ),
+    ("auth/paste-blocked", "auth/paste-blocked"),
+    ("auth/captcha", "auth/captcha"),
+    ("forms/no-submit", "forms/no-submit"),
+    ("language/part-unmarked", "language/part-unmarked"),
+    ("zoom/viewport-locked", "zoom/viewport-locked"),
+    ("zoom/viewport-missing", "zoom/viewport-missing"),
+    ("media/audio-autoplay", "media/audio-autoplay"),
+    ("keyboard/hidden-focusable", "keyboard/hidden-focusable"),
+    (
+        "aria/required-attribute-missing",
+        "aria/required-attribute-missing",
+    ),
+    (
+        "aria/required-parent-missing",
+        "aria/required-parent-missing",
+    ),
+    ("modern-attribute-misuse", "modern-attribute-misuse"),
+    ("aria/attribute-prohibited", "aria/attribute-prohibited"),
+    ("aria/attribute-not-allowed", "aria/attribute-not-allowed"),
+    (
+        "aria/attribute-value-invalid",
+        "aria/attribute-value-invalid",
+    ),
+    ("aria/reference-missing", "aria/reference-missing"),
+    ("aria/role-invalid", "aria/role-invalid"),
+    ("aria/attribute-unknown", "aria/attribute-unknown"),
+    ("document/lang-mismatch", "document/lang-mismatch"),
+    ("tables/headers-attr-invalid", "tables/headers-attr-invalid"),
+    ("tables/header-without-data", "tables/header-without-data"),
+    ("aria/tab-selected-missing", "aria/tab-selected-missing"),
+    (
+        "patterns/accordion-controls-missing",
+        "patterns/accordion-controls-missing",
+    ),
+    ("dialog/modal-unmarked", "dialog/modal-unmarked"),
+    ("aria/combobox-popup-missing", "aria/combobox-popup-missing"),
+    ("frames/name-missing", "frames/name-missing"),
+    ("frames/cross-origin", "frames/cross-origin"),
+    ("ids/duplicate", "ids/duplicate"),
+    ("html-content-model", "html-content-model"),
+    ("landmarks/not-top-level", "landmarks/not-top-level"),
+    ("lists/item-outside-list", "lists/item-outside-list"),
+    ("headings/skip-level", "headings/skip-level"),
+    ("headings/empty", "headings/empty"),
+    ("headings/h1-missing", "headings/h1-missing"),
+    ("headings/h1-multiple", "headings/h1-multiple"),
+    ("lists/invalid-structure", "lists/invalid-structure"),
+    ("lists/empty", "lists/empty"),
+    (
+        "lists/term-without-definition",
+        "lists/term-without-definition",
+    ),
+    ("tables/header-missing", "tables/header-missing"),
+    ("tables/name-missing", "tables/name-missing"),
+    (
+        "tables/presentational-with-headers",
+        "tables/presentational-with-headers",
+    ),
+    ("document/lang-invalid", "document/lang-invalid"),
+    ("keyboard/positive-tabindex", "keyboard/positive-tabindex"),
+    ("zoom/viewport-scale-limited", "zoom/viewport-scale-limited"),
+    ("aria/owns-conflict", "aria/owns-conflict"),
+    ("description-duplicates-name", "description-duplicates-name"),
+    (
+        "aria/required-children-missing",
+        "aria/required-children-missing",
+    ),
+    ("display/toggle-missing", "display/toggle-missing"),
+    ("display/init-missing", "display/init-missing"),
+    ("display/text-media-visible", "display/text-media-visible"),
+    ("display/text-not-visible", "display/text-not-visible"),
+    ("viz/text-missing", "viz/text-missing"),
+    ("display/text-hidden", "display/text-hidden"),
+    ("viz/caption-missing", "viz/caption-missing"),
+    ("viz/static-missing", "viz/static-missing"),
+    ("viz/table-missing", "viz/table-missing"),
+    // Shared entry: another entry describes the same finding. A shared id
+    // that replaced a former auditmysite rule (#690-#697) uses that rule's
+    // text; the `aria/tabpanel-missing` text is the one `widget_rules`
+    // reported under that id; the popover and inert checks share the
+    // dialog/popover control text; the link-purpose ids use the 2.4.4
+    // explanation of the former `link-name`.
+    ("landmarks/not-unique", "landmark-unique"),
+    ("links/generic-name", "2.4.4"),
+    ("links/single-character-name", "2.4.4"),
+    ("links/url-name", "2.4.4"),
+    ("language/part-undetermined", "language/part-unmarked"),
+    ("inert/dialog-inert", "modern-attribute-misuse"),
+    ("popover/target-invalid", "modern-attribute-misuse"),
+    ("popover/target-missing", "modern-attribute-misuse"),
+    ("aria/role-abstract", "aria/role-invalid"),
+    ("tables/data-undetermined", "tables/header-without-data"),
+    ("aria/tabpanel-missing", "aria-required-children"),
+    ("images/server-side-map", "server-side-image-map"),
+    ("svg/name-missing", "svg-img-alt"),
+    ("images/area-alt-missing", "area-alt"),
+    ("images/input-alt-missing", "input-image-alt"),
+    ("objects/alt-missing", "object-alt"),
+    ("forms/group-missing", "form-field-group"),
+    ("landmarks/banner-duplicate", "landmark-no-duplicate-banner"),
+    (
+        "landmarks/contentinfo-duplicate",
+        "landmark-no-duplicate-contentinfo",
+    ),
     ("landmarks/main-duplicate", "landmark-no-duplicate-main"),
     ("landmarks/banner-missing", "landmark-banner-present"),
     (
@@ -158,78 +290,69 @@ static SHARED_ALIASES: &[(&str, &str)] = &[
         "landmarks/contentinfo-missing",
         "landmark-contentinfo-present",
     ),
-    ("svg/name-missing", "svg-img-alt"),
-    ("links/name-missing", "control-missing-label"),
-    ("buttons/name-missing", "control-missing-label"),
-    ("keyboard/skip-link-missing", "skip-link"),
-    // #691: Der Text zu `aria-required-children` beschreibt genau die
-    // Tabliste ohne Tab-Panel, die `widget_rules` unter dieser Kennung meldete.
-    ("aria/tabpanel-missing", "aria-required-children"),
-    ("aria/role-abstract", "aria/role-invalid"),
-    // #692: Der Text zu `aria-label` beschreibt fehlende und rein
-    // symbolische Namen schon zusammen.
-    ("names/required-missing", "aria-label"),
-    ("names/symbol-only", "aria-label"),
-    ("dialog/name-missing", "dialog-name"),
-    ("summary/name-missing", "summary-name"),
-    // #693: Die uebrigen Formularkennungen finden ihren Text ueber das
-    // Kriterium (3.3.2, 1.3.5, 3.2.1, 3.2.2) wie die abgeloesten Regeln.
     ("forms/title-only-label", "label-title-only"),
-    ("forms/group-missing", "form-field-group"),
-    ("forms/error-unidentified", "input-error-message"),
-    // #694: Landmarks und Tastatur mit dem Text der abgeloesten Regel.
-    // `headings/none`, `keyboard/interactive-not-focusable` und
-    // `dialog/focusable-missing` finden ihn ueber das Kriterium (2.4.1,
-    // 2.1.1, 2.4.3) wie `bypass`, `keyboard` und `dialog-no-focusable`.
-    ("landmarks/not-unique", "landmark-unique"),
-    ("landmarks/banner-duplicate", "landmark-no-duplicate-banner"),
-    (
-        "landmarks/contentinfo-duplicate",
-        "landmark-no-duplicate-contentinfo",
-    ),
-    ("landmarks/content-outside", "region"),
-    ("keyboard/focusable-no-role", "focusable-no-role"),
-    // #695: Links und Zeiger. `navigation/location-missing` findet den Text
-    // ueber das Kriterium 2.4.8 wie `location`.
     (
         "keyboard/click-handler-not-focusable",
         "click-events-have-key-events",
     ),
-    ("links/used-as-button", "link-as-button"),
-    // Linkzweck (Plan 98): die 2.4.4-Erklärung der früheren `link-name`.
-    ("links/generic-name", "2.4.4"),
-    ("links/url-name", "2.4.4"),
-    ("links/single-character-name", "2.4.4"),
-    // #696: Bilder und Medien mit dem Text der abgeloesten Regel.
-    ("images/area-alt-missing", "area-alt"),
-    ("images/input-alt-missing", "input-image-alt"),
-    ("objects/alt-missing", "object-alt"),
-    ("images/server-side-map", "server-side-image-map"),
-    // #697: Rollen und Namen mit dem Text der abgeloesten Regel; die
-    // Tabellen- und Sprachkennungen teilen sich je einen Text.
-    ("aria/role-redundant", "redundant-role"),
-    ("names/title-only", "title-only-description"),
-    ("tables/data-undetermined", "tables/header-without-data"),
-    ("language/part-undetermined", "language/part-unmarked"),
-    // Stylesheets (a11y-rules 0.19); Bewegung, Ausrichtung und Text finden
-    // ihren Text ueber das Kriterium wie die abgeloesten Regeln.
+    ("keyboard/pointer-only", "click-events-have-key-events"),
+    ("landmarks/main-missing", "landmark-one-main"),
+    ("keyboard/skip-link-missing", "skip-link"),
     ("focus/outline-removed", "focus-visible-outline-none"),
-    // Darstellung mit berechneten Stilen (#698); `color/link-indistinct`
-    // findet seinen Text ueber 1.4.1 wie `link-in-text-block`.
-    ("lists/role-redundant", "redundant-role"),
     (
         "keyboard/scrollable-region-not-focusable",
         "scrollable-region-focusable",
     ),
-    // Heuristiken ueber Layout-Angaben (#698): `targets/*`, `order/*` und
-    // `motion/infinite-animation` finden ihren Text ueber das Kriterium wie
-    // die abgeloesten Regeln; `keyboard/pointer-only` nimmt den der
-    // Klick-Handler ohne Tastatur.
-    ("keyboard/pointer-only", "click-events-have-key-events"),
-    // The popover and inert checks share the dialog/popover control text.
-    ("popover/target-missing", "modern-attribute-misuse"),
-    ("popover/target-invalid", "modern-attribute-misuse"),
-    ("inert/dialog-inert", "modern-attribute-misuse"),
+    ("forms/error-unidentified", "input-error-message"),
+    ("names/required-missing", "aria-label"),
+    ("names/symbol-only", "aria-label"),
+    ("names/title-only", "title-only-description"),
+    ("dialog/name-missing", "dialog-name"),
+    ("buttons/name-missing", "control-missing-label"),
+    ("links/name-missing", "control-missing-label"),
+    ("links/used-as-button", "link-as-button"),
+    ("aria/role-redundant", "redundant-role"),
+    ("lists/role-redundant", "redundant-role"),
+    ("summary/name-missing", "summary-name"),
+    ("landmarks/content-outside", "region"),
+    ("keyboard/focusable-no-role", "focusable-no-role"),
+    // Criterion entry: the explanation is written for the rule's WCAG
+    // criterion, not for the rule.
+    ("image-alt", "1.1.1"),
+    ("images/alt-missing", "1.1.1"),
+    ("video-caption", "1.2.2"),
+    ("media-alt", "1.2.8"),
+    ("headings/section-without-heading", "2.4.10"),
+    ("keyboard/interactive-not-focusable", "2.1.1"),
+    ("headings/none", "2.4.1"),
+    ("document-title", "2.4.2"),
+    ("document/title-empty", "2.4.2"),
+    ("document/title-missing", "2.4.2"),
+    ("dialog/focusable-missing", "2.4.3"),
+    ("focus-visible", "2.4.7"),
+    ("label-in-name/mismatch", "2.5.3"),
+    ("targets/size", "2.5.8"),
+    ("forms/autocomplete-invalid", "1.3.5"),
+    ("forms/purpose-missing", "1.3.5"),
+    ("forms/group-name-missing", "3.3.2"),
+    ("forms/instructions-missing", "3.3.2"),
+    ("forms/label-missing", "3.3.2"),
+    ("forms/placeholder-as-label", "3.3.2"),
+    ("forms/required-unmarked", "3.3.2"),
+    ("document/lang-missing", "3.1.1"),
+    ("html-has-lang", "3.1.1"),
+    ("context/autofocus", "3.2.1"),
+    ("context/on-focus", "3.2.1"),
+    ("context/on-input", "3.2.2"),
+    ("contrast/text-insufficient", "1.4.3"),
+    ("contrast/text-undetermined", "1.4.3"),
+    ("css-overflow-hidden", "1.4.10"),
+    ("contrast/control-insufficient", "1.4.11"),
+    ("contrast/control-undetermined", "1.4.11"),
+    ("text-spacing/clipped", "1.4.12"),
+    ("color/link-indistinct", "1.4.1"),
+    ("patterns/tooltip-unreferenced", "1.4.13"),
+    ("focus/indicator-missing", "2.4.7"),
 ];
 
 /// All WCAG rule explanations indexed by rule ID
@@ -1370,9 +1493,9 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             example_decorative: None,
         },
     ),
-    // ── Geteilte Kennungen aus #690 ohne passenden Text ──
-    // Die uebrigen uebernommenen Kennungen teilen ihren Text mit der
-    // abgeloesten Regel (`SHARED_ALIASES`) oder mit ihrem Kriterium.
+    // ── Shared ids from #690 without a fitting text ──
+    // The other shared ids take the text of the former rule or of their
+    // criterion, as `RULE_ENTRIES` lists.
     (
         "zoom/viewport-locked",
         RuleExplanation {
@@ -1986,6 +2109,16 @@ mod tests {
         "technical-note",
     ];
 
+    /// The same five texts as attributes of a rule message, where
+    /// `.user-impact` already holds the shorter catalogue text.
+    const RULE_MESSAGE_ATTRIBUTES: [&str; 5] = [
+        "description",
+        "explanation-user-impact",
+        "typical-cause",
+        "recommendation",
+        "technical-note",
+    ];
+
     /// The six texts of an explanation in one language, by field name.
     fn texts(expl: &RuleExplanation, en: bool) -> [(&'static str, String); 6] {
         [
@@ -2025,29 +2158,45 @@ mod tests {
         }
     }
 
-    /// Beside the rule catalogue texts (`rule-…`, held to the catalogue in
-    /// `taxonomy::rules::tests`), `rules.ftl` holds exactly the explanation
-    /// texts: every entry has its title and its five attributes in German and
-    /// English, and neither file holds any other message or attribute.
+    /// `rules.ftl` holds exactly the texts of both tables and nothing else. A
+    /// rule has its title, `.user-impact` and `.technical-impact`; a rule that
+    /// has an entry under its own id carries the five explanation texts as
+    /// further attributes of the same message. An entry keyed by a criterion
+    /// number or an axe id has its own `explanation-` message with the title
+    /// and the five attributes. No `explanation-` message exists for a key
+    /// that is a rule id.
     #[test]
-    fn rules_ftl_holds_exactly_the_explanation_texts_beside_the_rule_texts() {
-        let expected: std::collections::BTreeSet<String> = EXPLANATIONS
-            .iter()
-            .flat_map(|(key, _)| {
-                let key = explanation_text_key(key);
-                let mut entries: Vec<String> = ATTRIBUTES
-                    .iter()
-                    .map(|attribute| format!("{key}.{attribute}"))
-                    .collect();
-                entries.push(key);
-                entries
-            })
-            .collect();
+    fn rules_ftl_holds_exactly_the_rule_texts_and_the_explanation_texts() {
+        let mut expected = std::collections::BTreeSet::new();
+        for rule in crate::taxonomy::rules::RULES {
+            let key = crate::taxonomy::rules::rule_text_key(rule.id);
+            expected.insert(format!("{key}.user-impact"));
+            expected.insert(format!("{key}.technical-impact"));
+            expected.insert(key);
+        }
+        for (key, _) in EXPLANATIONS {
+            let text_key = explanation_text_key(key);
+            if is_rule_entry(key) {
+                assert!(
+                    text_key.starts_with("rule-"),
+                    "entry {key} is a rule id but reads {text_key}"
+                );
+                for attribute in RULE_MESSAGE_ATTRIBUTES {
+                    expected.insert(format!("{text_key}.{attribute}"));
+                }
+            } else {
+                assert!(
+                    text_key.starts_with("explanation-"),
+                    "entry {key} is no rule id but reads {text_key}"
+                );
+                for attribute in ATTRIBUTES {
+                    expected.insert(format!("{text_key}.{attribute}"));
+                }
+                expected.insert(text_key);
+            }
+        }
         for (locale, ftl) in [("de", RULES_FTL_DE), ("en", RULES_FTL_EN)] {
-            let entries: std::collections::BTreeSet<String> = crate::i18n::ftl_entries(ftl)
-                .into_iter()
-                .filter(|entry| !entry.starts_with("rule-"))
-                .collect();
+            let entries = crate::i18n::ftl_entries(ftl);
             let missing: Vec<_> = expected.difference(&entries).collect();
             let unused: Vec<_> = entries.difference(&expected).collect();
             assert!(
@@ -2059,6 +2208,59 @@ mod tests {
                 "in {locale}/rules.ftl without a rule or an explanation: {unused:?}"
             );
         }
+    }
+
+    /// Every row of `RULE_ENTRIES` names a taxonomy rule and an entry that
+    /// exists, no rule is listed twice, and a rule that has an entry under its
+    /// own id is listed with it.
+    #[test]
+    fn rule_entries_name_existing_rules_and_entries() {
+        let mut listed = std::collections::BTreeSet::new();
+        for (rule_id, key) in RULE_ENTRIES {
+            assert!(
+                crate::taxonomy::RuleLookup::by_id(rule_id).is_some(),
+                "{rule_id} is not a taxonomy rule id"
+            );
+            assert!(
+                EXPLANATIONS.iter().any(|(k, _)| k == key),
+                "{rule_id} names the entry {key}, which does not exist"
+            );
+            assert!(listed.insert(*rule_id), "{rule_id} is listed twice");
+        }
+        for (key, _) in EXPLANATIONS {
+            if is_rule_entry(key) {
+                assert!(
+                    RULE_ENTRIES.contains(&(*key, *key)),
+                    "the entry {key} is keyed by a rule id but not listed for it"
+                );
+            }
+        }
+    }
+
+    /// The registry covers the rules that have an explanation and no other:
+    /// a rule resolves to exactly the entry its row names, and a rule without
+    /// a row has none, whatever its WCAG reference (no derivation through
+    /// `external_ref`). The counts are those measured when the table replaced
+    /// the alias table and the criterion fallback (#935): 61 own entries, 43
+    /// shared entries and 35 criterion entries; 25 rules have no explanation.
+    #[test]
+    fn rule_entries_cover_exactly_the_rules_with_an_explanation() {
+        let (mut own, mut other, mut none) = (0, 0, 0);
+        for rule in crate::taxonomy::rules::RULES {
+            let listed = RULE_ENTRIES
+                .iter()
+                .find(|(id, _)| *id == rule.id)
+                .map(|(_, key)| *key);
+            let resolved = get_explanation(rule.id).map(|e| e.key);
+            assert_eq!(resolved, listed, "rule {}", rule.id);
+            match listed {
+                Some(key) if key == rule.id => own += 1,
+                Some(_) => other += 1,
+                None => none += 1,
+            }
+        }
+        assert_eq!((own, other, none), (61, 78, 25));
+        assert_eq!(RULE_ENTRIES.len(), 61 + 78);
     }
 
     /// The lookup the reports use resolves for every entry: a missing message
@@ -2127,6 +2329,54 @@ mod tests {
         eprintln!(
             "Wrote {} explanation text records to {}",
             records.len(),
+            out_path.display()
+        );
+    }
+
+    /// Export which table entry every lookup resolves to, for review: the
+    /// result of `get_explanation` and of `resolve_explanation` (axe id, rule
+    /// id, criterion) for every taxonomy rule, and of `get_explanation` for
+    /// every table key.
+    ///
+    /// Ignored by default; run on demand to (re)generate the file:
+    ///   cargo test --lib export_explanation_resolution -- --ignored --nocapture
+    #[test]
+    #[ignore = "run on demand to regenerate reports/explanation-resolution.json"]
+    fn export_explanation_resolution() {
+        use std::collections::BTreeMap;
+        let key_of = |e: Option<&RuleExplanation>| e.map(|e| e.key);
+        let mut by_rule_id = BTreeMap::new();
+        let mut by_resolve = BTreeMap::new();
+        for rule in crate::taxonomy::rules::RULES {
+            let criterion = rule
+                .external_ref
+                .and_then(|r| r.strip_prefix("WCAG "))
+                .unwrap_or("");
+            by_rule_id.insert(rule.id, key_of(get_explanation(rule.id)));
+            by_resolve.insert(
+                rule.id,
+                key_of(resolve_explanation(rule.axe_id, rule.id, criterion)),
+            );
+        }
+        let by_table_key: BTreeMap<_, _> = EXPLANATIONS
+            .iter()
+            .map(|(key, _)| (*key, key_of(get_explanation(key))))
+            .collect();
+
+        let out_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("reports");
+        std::fs::create_dir_all(&out_dir).expect("create reports/");
+        let out_path = out_dir.join("explanation-resolution.json");
+        let out = serde_json::to_string_pretty(&serde_json::json!({
+            "get_explanation_by_rule_id": by_rule_id,
+            "resolve_explanation_by_rule": by_resolve,
+            "get_explanation_by_table_key": by_table_key,
+        }))
+        .expect("serialize explanation resolution");
+        std::fs::write(&out_path, out).expect("write reports/explanation-resolution.json");
+        eprintln!(
+            "Wrote the resolution of {} rules and {} table keys to {}",
+            by_rule_id.len(),
+            by_table_key.len(),
             out_path.display()
         );
     }

@@ -2,7 +2,7 @@
   "id": "aria/combobox-popup-missing",
   "url": "https://casoon.github.io/auditmysite/rules/aria/combobox-popup-missing/",
   "domain": "wcag",
-  "title": "Combobox without an options list",
+  "title": "Expanded combobox without a reference to its popup",
   "outcome": "automatic",
   "area": "Accessibility, Forms & Interaction",
   "criterion": "4.1.2",

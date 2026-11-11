@@ -2,7 +2,7 @@
   "id": "orientation/root-rotated",
   "url": "https://casoon.github.io/auditmysite/rules/orientation/root-rotated/",
   "domain": "wcag",
-  "title": "Restricted screen orientation",
+  "title": "Page forces a screen orientation by rotating its root",
   "outcome": "automatic",
   "area": "Accessibility, Structure & Semantics",
   "criterion": "1.3.4",

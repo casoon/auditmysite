@@ -2,7 +2,7 @@
   "id": "document/lang-mismatch",
   "url": "https://casoon.github.io/auditmysite/rules/document/lang-mismatch/",
   "domain": "wcag",
-  "title": "Conflicting language declarations",
+  "title": "lang and xml:lang disagree",
   "outcome": "automatic",
   "area": "Accessibility, Language & Clarity",
   "criterion": "3.1.1",
