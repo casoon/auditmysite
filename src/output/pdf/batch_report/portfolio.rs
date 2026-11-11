@@ -15,6 +15,7 @@ use super::appendix::render_batch_crawl_links;
 pub(super) fn render_batch_module_portfolio(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
+    normalized_reports: &[crate::audit::normalized::NormalizedReport],
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     if pres.portfolio_summary.module_averages.is_empty() {
@@ -66,7 +67,8 @@ pub(super) fn render_batch_module_portfolio(
     .with_title(i18n.t("batch-module-portfolio-table-title"));
 
     for (name, score) in &pres.portfolio_summary.module_averages {
-        let spread = match module_score_spread(pres, name) {
+        let measured = module_score_spread(pres, name);
+        let spread = match measured {
             Some((min, max, pages)) if min == max => i18n.t_args(
                 "batch-module-spread-constant",
                 &[("value", min.to_string()), ("pages", pages.to_string())],
@@ -85,7 +87,13 @@ pub(super) fn render_batch_module_portfolio(
             localized_module_name(name, en).to_string(),
             format!("{score}/100"),
             spread,
-            module_effect_sentence(name, *score, en),
+            module_effect_sentence(
+                name,
+                *score,
+                measured.map(|(min, _, _)| min),
+                module_high_findings(normalized_reports, name),
+                i18n,
+            ),
         ]);
     }
     builder = builder.add_component(table);
@@ -132,100 +140,76 @@ pub(super) fn localized_module_name(name: &str, en: bool) -> &str {
     }
 }
 
-pub(super) fn module_effect_sentence(module_name: &str, score: u32, en: bool) -> String {
-    let band = match score {
-        90..=100 => 0,
-        75..=89 => 1,
-        60..=74 => 2,
-        _ => 3,
+/// Open findings of high or critical severity that belong to a module,
+/// summed over the pages.
+pub(super) fn module_high_findings(
+    normalized_reports: &[crate::audit::normalized::NormalizedReport],
+    module_name: &str,
+) -> usize {
+    use crate::audit::finding_contract::FindingDomain as D;
+    let domains: &[D] = match module_name {
+        "Accessibility" => &[D::Accessibility, D::AccessibilityJourney, D::ScreenReader],
+        "Performance" => &[D::Performance],
+        "SEO" => &[D::Seo],
+        "Security" => &[D::Security],
+        "Mobile" => &[D::Mobile],
+        "HTML Conformance" => &[D::HtmlConformance],
+        "Best Practices" => &[D::BestPractices],
+        _ => &[],
     };
+    normalized_reports
+        .iter()
+        .flat_map(|report| report.findings.iter())
+        .filter(|f| {
+            domains.contains(&f.contract.domain) && f.severity >= crate::taxonomy::Severity::High
+        })
+        .count()
+}
 
-    match (module_name, band, en) {
-        ("Accessibility", 0, true) => {
-            "Accessibility is broadly stable; remaining findings are concentrated on individual pages."
+/// The effect sentence of a module row. It claims a clean or stable state
+/// only when the data shows one — every measured page at 90 or above and no
+/// open high-severity finding of the module; the band of the average alone
+/// put "signals are clean" next to a high finding and "variance" next to the
+/// same value on every page (#1039).
+pub(super) fn module_effect_sentence(
+    module_name: &str,
+    score: u32,
+    weakest_page: Option<u32>,
+    high_findings: usize,
+    i18n: &I18n,
+) -> String {
+    let slug = match module_name {
+        "Accessibility" => "accessibility",
+        "Performance" => "performance",
+        "SEO" => "seo",
+        "Security" => "security",
+        "Mobile" => "mobile",
+        "HTML Conformance" => "html-conformance",
+        _ => "other",
+    };
+    if score >= 90 {
+        if high_findings > 0 {
+            return i18n.count("batch-effect-open-high", high_findings);
         }
-        ("Accessibility", 0, false) => {
-            "Barrierefreiheit ist breit stabil; verbleibende Befunde konzentrieren sich auf einzelne Seiten."
+        if let Some(min) = weakest_page.filter(|min| *min < 90) {
+            return i18n.t_args("batch-effect-uneven", &[("min", i64::from(min))]);
         }
-        ("Accessibility", _, true) => {
-            "Accessibility barriers affect repeated user paths and should be prioritized by reach."
-        }
-        ("Accessibility", _, false) => {
-            "Barrieren betreffen wiederkehrende Nutzerpfade und sollten nach Reichweite priorisiert werden."
-        }
-        ("Performance", 0, true) => {
-            "Loading behavior is reliable across most audited pages."
-        }
-        ("Performance", 0, false) => {
-            "Das Ladeverhalten ist über die meisten geprüften Seiten zuverlässig."
-        }
-        ("Performance", _, true) => {
-            "Performance variance can slow important page groups and weaken completion rates."
-        }
-        ("Performance", _, false) => {
-            "Performance-Streuung kann wichtige Seitengruppen verlangsamen und Abschlüsse erschweren."
-        }
-        ("SEO", 0, true) => {
-            "Search visibility basics are consistent across the audited URL set."
-        }
-        ("SEO", 0, false) => {
-            "Grundlagen für Sichtbarkeit in Suchmaschinen sind im geprüften URL-Set konsistent."
-        }
-        ("SEO", _, true) => {
-            "SEO inconsistencies can dilute discoverability across page templates."
-        }
-        ("SEO", _, false) => {
-            "SEO-Inkonsistenzen können die Auffindbarkeit über Seitentemplates hinweg schwächen."
-        }
-        ("Security", 0, true) => {
-            "Security signals are clean in the automated checks across the audited pages."
-        }
-        ("Security", 0, false) => {
-            "Security-Signale sind in den automatisierten Checks über die geprüften Seiten sauber."
-        }
-        ("Security", _, true) => {
-            "Security findings should be resolved centrally because they often affect all templates."
-        }
-        ("Security", _, false) => {
-            "Security-Befunde sollten zentral gelöst werden, da sie häufig alle Templates betreffen."
-        }
-        ("Mobile", 0, true) => "Mobile usage is stable across the audited pages.",
-        ("Mobile", 0, false) => {
-            "Die Nutzung auf Mobilgeräten ist über die geprüften Seiten stabil."
-        }
-        ("Mobile", _, true) => {
-            "Mobile issues can reduce usability on smaller screens across page groups."
-        }
-        ("Mobile", _, false) => {
-            "Mobile Probleme können die Nutzung auf kleineren Displays über Seitengruppen erschweren."
-        }
-        ("HTML Conformance", 0, true) => {
-            "HTML markup is spec-conformant across the audited pages, which keeps browsers and assistive technology parsing it consistently."
-        }
-        ("HTML Conformance", 0, false) => {
-            "Das HTML-Markup ist über die geprüften Seiten spezifikationskonform, wodurch Browser und assistive Technologien es konsistent interpretieren."
-        }
-        ("HTML Conformance", _, true) => {
-            "HTML conformance issues often come from a shared template and can affect parsing and accessibility tooling across many pages at once."
-        }
-        ("HTML Conformance", _, false) => {
-            "HTML-Konformitätsprobleme stammen häufig aus einem gemeinsamen Template und können die Interpretation durch Browser und assistive Technologien seitenübergreifend beeinträchtigen."
-        }
-        (_, 0, true) => "The module is stable across most audited pages.",
-        (_, 0, false) => "Das Modul ist über die meisten geprüften Seiten stabil.",
-        (_, 1, true) => "The module has a usable foundation with targeted cleanup potential.",
-        (_, 1, false) => "Das Modul hat eine tragfähige Basis mit gezieltem Bereinigungsbedarf.",
-        (_, 2, true) => "The module shows recurring weaknesses across the audited URL set.",
-        (_, 2, false) => "Das Modul zeigt wiederkehrende Schwächen im geprüften URL-Set.",
-        (_, _, true) => "The module needs structural attention across multiple pages.",
-        (_, _, false) => "Das Modul benötigt strukturelle Aufmerksamkeit über mehrere Seiten.",
+        return i18n.t(&format!("batch-effect-{slug}-good"));
     }
-    .to_string()
+    if slug != "other" {
+        return i18n.t(&format!("batch-effect-{slug}-weak"));
+    }
+    i18n.t(match score {
+        75..=89 => "batch-effect-other-usable",
+        60..=74 => "batch-effect-other-recurring",
+        _ => "batch-effect-other-structural",
+    })
 }
 
 pub(super) fn render_batch_impact_summary(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
+    legal_flags: usize,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let en = is_english(i18n);
@@ -277,7 +261,9 @@ pub(super) fn render_batch_impact_summary(
     } else {
         "Geringe Auswirkung auf den geprüften Seiten — automatisiert keine kritischen oder hohen Barrieren erkannt."
     };
-    let legal_impact = if dist.critical > 0 {
+    // The legal flags the batch decision fails on, not critical findings
+    // alone (#1039).
+    let legal_impact = if legal_flags > 0 {
         if en {
             "WCAG Level A/AA violations detected automatically — manual review required for a defensible BFSG classification."
         } else {
@@ -388,7 +374,9 @@ pub(super) fn render_batch_tech_url_matrix(
         TableColumn::new(i18n.t("batch-col-links-to")).with_width("10%"),
         TableColumn::new(i18n.t("batch-col-links-from")).with_width("10%"),
         TableColumn::new(i18n.t("batch-col-words")).with_width("10%"),
-        TableColumn::new("Score").with_width("12%"),
+        // The accessibility score; "Score" in the ranking above is the
+        // combined technical value (#1039).
+        TableColumn::new(i18n.t("batch-matrix-col-accessibility")).with_width("12%"),
     ])
     .with_title(i18n.t("batch-table-pages-overview"));
 

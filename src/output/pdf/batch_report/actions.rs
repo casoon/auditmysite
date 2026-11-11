@@ -193,13 +193,15 @@ pub(super) fn render_next_steps_batch(
         builder = builder.add_component(table);
     }
 
-    let callout_body = if en {
-        "For a complete WCAG conformance check we additionally recommend a manual audit with assistive technologies (screen reader, keyboard navigation). This automated audit covers about 30–40% of WCAG criteria."
-    } else {
-        "Für eine vollständige WCAG-Konformitätsprüfung empfehlen wir ergänzend einen manuellen Audit mit assistiven Technologien (Screenreader, Tastaturnavigation). Dieser automatisierte Audit deckt ca. 30–40% der WCAG-Kriterien ab."
-    };
+    // The share comes from the criteria list the JSON reports as
+    // `summary.wcag_coverage`, not from a fixed "30–40%" (#1039).
+    let (automated, total) = crate::wcag::coverage::coverage_stats();
+    let callout_body = i18n.t_args(
+        "batch-next-steps-manual",
+        &[("automated", automated as i64), ("total", total as i64)],
+    );
     builder = builder
-        .add_component(Callout::info(callout_body).with_title(i18n.t("section-next-steps-block")));
+        .add_component(Callout::info(&callout_body).with_title(i18n.t("section-next-steps-block")));
 
     builder
 }

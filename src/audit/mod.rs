@@ -49,12 +49,12 @@ pub use artifacts::{
     to_audit_report, AuditArtifacts, CacheLookup, CacheMiss, DocumentIdentity, ExpectedProfile,
     FetchArtifact, ReplayError, SnapshotArtifact, SnapshotVersions,
 };
-pub(crate) use batch::pool_acquire_timeout_secs;
 pub use batch::{
     analyze_sitemap_diagnostics, analyze_sitemap_diagnostics_with_progress,
     count_sitemap_entries_shallow, parse_sitemap, read_url_file, run_concurrent_batch,
     BatchAuditError, BatchConfig, BatchResult, ProgressCallback,
 };
+pub(crate) use batch::{inbound_link_counts, pool_acquire_timeout_secs};
 pub use budget::{evaluate_budgets, BudgetSeverity, BudgetViolation};
 pub use catalog::AuditCatalog;
 pub use crawl::{analyze_crawl_links, crawl_site, CrawlNode, CrawlResult};

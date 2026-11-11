@@ -199,6 +199,8 @@ pub(super) fn render_batch_cover(
         .add_component(build_batch_cover_score_row(
             score,
             &pres.portfolio_summary.grade,
+            batch.summary.decision.verdict,
+            batch.summary.audit_quality.qualified_results,
             pres.portfolio_summary.total_urls as u32,
             pres.portfolio_summary.total_violations as u32,
             i18n,
@@ -236,10 +238,14 @@ pub(super) fn render_batch_cover(
     // otherwise empty page 3 (plan 108). It now opens the contents page; an
     // executive report has no contents page and keeps it on page 2.
     let en = crate::output::localized::is_english(i18n);
+    let scope_note = batch_scope_callout(
+        config.level == ReportLevel::Technical && !pres.appendix.per_url.is_empty(),
+        i18n,
+    );
     if config.level != ReportLevel::Executive {
         builder = builder
             .add_component(PageBreak::new())
-            .add_component(super::super::output_scope_callout(i18n))
+            .add_component(scope_note)
             .add_component(
                 TableOfContents::new()
                     .with_title(if en { "Contents" } else { "Inhalt" })
@@ -247,11 +253,106 @@ pub(super) fn render_batch_cover(
             );
     } else {
         builder = builder
-            .add_component(super::super::output_scope_callout(i18n))
+            .add_component(scope_note)
             .add_component(PageBreak::new());
     }
 
     Ok(builder)
+}
+
+/// What this PDF leaves out and where it is. It names the technical appendix
+/// only when this report has one — the same condition `build_batch_report`
+/// renders it under (#1039).
+fn batch_scope_callout(has_appendix: bool, i18n: &I18n) -> Callout {
+    Callout::info(i18n.t(if has_appendix {
+        "batch-scope-note-appendix"
+    } else {
+        "batch-scope-note-json"
+    }))
+    .with_title(i18n.t("batch-scope-note-title"))
+}
+
+/// The batch decision and its reasons, as the single report states its own
+/// (`render_overall_rating`). The decision appeared nowhere in the batch PDF,
+/// next to "a very good result" on a batch that failed on legal flags
+/// (#1039).
+fn render_batch_overall_rating(
+    builder: renderreport::engine::ReportBuilder,
+    batch: &BatchReport,
+    score: u32,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    use crate::audit::verdict::Verdict;
+    use fluent_bundle::FluentValue;
+    let summary = &batch.summary;
+    let verdict = summary.decision.verdict;
+    let rating = crate::registry::SCORE_RANGE.label(score as f32, is_english(i18n));
+    let verdict_word = i18n.t(match verdict {
+        Verdict::Pass => "batch-rating-verdict-pass",
+        Verdict::Warn => "batch-rating-verdict-warn",
+        Verdict::Fail => "batch-rating-verdict-fail",
+    });
+    let mut body = i18n.t_args(
+        "batch-rating-body",
+        &[
+            ("rating", FluentValue::from(rating.to_string())),
+            ("verdict", FluentValue::from(verdict_word)),
+            ("passed", FluentValue::from(summary.passed as i64)),
+            ("total", FluentValue::from(summary.total_urls as i64)),
+        ],
+    );
+    let reasons: Vec<String> = crate::audit::verdict::batch_reason_kinds(summary)
+        .into_iter()
+        .map(|kind| batch_reason_text(kind, i18n))
+        .collect();
+    if !reasons.is_empty() {
+        body.push(' ');
+        body.push_str(&i18n.t_args("batch-rating-reasons", &[("reasons", reasons.join(", "))]));
+    }
+    let callout = match verdict {
+        Verdict::Fail => Callout::warning(&body),
+        Verdict::Warn => Callout::info(&body),
+        Verdict::Pass => Callout::success(&body),
+    };
+    builder
+        .add_component(callout.with_title(i18n.t("batch-rating-title")))
+        .add_component(
+            Label::new(i18n.t("batch-rating-note"))
+                .with_size("8.5pt")
+                .with_color(crate::output::pdf::design::tokens::MUTED),
+        )
+}
+
+/// Reader-facing text of one batch decision reason in the run language.
+pub(super) fn batch_reason_text(
+    kind: crate::audit::verdict::BatchReasonKind,
+    i18n: &I18n,
+) -> String {
+    use crate::audit::verdict::BatchReasonKind as K;
+    use fluent_bundle::FluentValue;
+    let n = |v: usize| FluentValue::from(v as i64);
+    let s = |v: u32| FluentValue::from(i64::from(v));
+    match kind {
+        K::NoUrlAudited { attempted } => i18n.count("batch-reason-no-url-audited", attempted),
+        K::LegalFlags(count) => i18n.count("batch-reason-legal-flags", count),
+        K::BlockingIssues(count) => i18n.count("batch-reason-blocking-issues", count),
+        K::TechnicalBlockers(count) => i18n.count("batch-reason-technical-blockers", count),
+        K::AverageBelowFailThreshold { score, threshold } => i18n.t_args(
+            "batch-reason-average-below-fail",
+            &[("score", s(score)), ("threshold", s(threshold))],
+        ),
+        K::IncompleteScope { audited, requested } => i18n.t_args(
+            "batch-reason-incomplete-scope",
+            &[("audited", n(audited)), ("requested", n(requested))],
+        ),
+        K::AuditQualityNotComplete => i18n.t("batch-reason-audit-quality"),
+        K::AverageBelowWarnThreshold { score, threshold } => i18n.t_args(
+            "batch-reason-average-below-warn",
+            &[("score", s(score)), ("threshold", s(threshold))],
+        ),
+        K::FailedUrls(count) => i18n.count("batch-reason-failed-urls", count),
+        K::ViolationsFound(count) => i18n.count("batch-reason-violations-found", count),
+    }
 }
 
 /// At most this many unaudited URLs are listed by name; the count is always
@@ -302,9 +403,11 @@ fn render_batch_unaudited_urls(
         .add_component(list)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn render_batch_status_section(
     mut builder: renderreport::engine::ReportBuilder,
     batch: &BatchReport,
+    normalized_reports: &[crate::audit::normalized::NormalizedReport],
     pres: &BatchPresentation,
     en301549_rollup: &[crate::wcag::en301549::BatchClauseRollup],
     failed_en_criteria: &std::collections::BTreeSet<String>,
@@ -324,11 +427,6 @@ pub(super) fn render_batch_status_section(
         }
         _ => Callout::success(&pres.portfolio_summary.risk_summary).with_title(&assessment),
     };
-    builder = builder
-        .add_component(Section::new(i18n.t("batch-section-status")).with_level(1))
-        .add_component(callout);
-    builder = render_batch_unaudited_urls(builder, batch, i18n);
-
     // Score overview cards
     // Both counts are WCAG occurrences: `total_violations` sums every
     // module's findings, `dist` counts per-page groups (plan 79).
@@ -337,6 +435,11 @@ pub(super) fn render_batch_status_section(
         .average_score
         .expect(super::UNMEASURED_REFUSED)
         .round() as u32;
+    builder = builder.add_component(Section::new(i18n.t("batch-section-status")).with_level(1));
+    builder = render_batch_overall_rating(builder, batch, score, i18n);
+    builder = builder.add_component(callout);
+    builder = render_batch_unaudited_urls(builder, batch, i18n);
+
     let occ = &pres.portfolio_summary.occurrence_distribution;
     builder = builder.add_component(build_batch_overview_grid(
         pres.portfolio_summary.total_urls as u32,
@@ -350,7 +453,7 @@ pub(super) fn render_batch_status_section(
     ));
 
     // Key points
-    let key_points = build_batch_key_points(pres, dist, i18n);
+    let key_points = build_batch_key_points(pres, dist, batch.summary.legal_flags, i18n);
     let mut kp_list = List::new().with_title(i18n.t("narrative-key-points-title"));
     for point in &key_points {
         kp_list = kp_list.add_item(point);
@@ -358,7 +461,7 @@ pub(super) fn render_batch_status_section(
     builder = builder.add_component(kp_list);
 
     // Impact summary
-    builder = render_batch_impact_summary(builder, pres, i18n);
+    builder = render_batch_impact_summary(builder, pres, batch.summary.legal_flags, i18n);
 
     // Quick actions
     let actions = build_batch_quick_actions(pres, i18n);
@@ -372,7 +475,7 @@ pub(super) fn render_batch_status_section(
         );
     }
 
-    builder = render_batch_management_risks(builder, pres, i18n);
+    builder = render_batch_management_risks(builder, normalized_reports, i18n);
 
     // EN 301 549 clause roll-up — opt-in only (see `--annex en301549`).
     if config.annex == Some(crate::model::AnnexKind::En301549) {

@@ -1535,7 +1535,7 @@ pub struct UrlMatrixRow {
     pub rank: usize,
     pub url: String,
     pub title: Option<String>,
-    /// Pages within the batch that link to this URL
+    /// Distinct other pages within the batch that link to this URL
     pub inbound_links: usize,
     /// All outgoing links from this page (internal + external)
     pub outbound_links: u32,

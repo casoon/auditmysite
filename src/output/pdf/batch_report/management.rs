@@ -166,20 +166,23 @@ pub(super) fn build_batch_assessment(
         } else {
             "Verbesserungswürdig auf dem Weg zur Barrierefreiheit".to_string()
         }
+    } else if dist.critical > 0 {
+        // From 75 up the severity refines the band label; above 90 too, where
+        // "largely accessible" used to stand next to open high findings and a
+        // failing verdict (#1039).
+        if en {
+            "Technically stable, but with critical barriers".to_string()
+        } else {
+            "Technisch stabil, aber mit kritischen Barrieren".to_string()
+        }
+    } else if dist.high > 0 {
+        if en {
+            "Good foundation, but not accessible".to_string()
+        } else {
+            "Gute Basis, aber nicht barrierefrei".to_string()
+        }
     } else if score < 90 {
-        if dist.critical > 0 {
-            if en {
-                "Technically stable, but with critical barriers".to_string()
-            } else {
-                "Technisch stabil, aber mit kritischen Barrieren".to_string()
-            }
-        } else if dist.high > 0 {
-            if en {
-                "Good foundation, but not accessible".to_string()
-            } else {
-                "Gute Basis, aber nicht barrierefrei".to_string()
-            }
-        } else if en {
+        if en {
             "Largely accessible — fine-tuning".to_string()
         } else {
             "Weitgehend barrierefrei — Feinschliff".to_string()
@@ -191,143 +194,37 @@ pub(super) fn build_batch_assessment(
     }
 }
 
+/// The management risk dimensions of the batch: the same derivation the JSON
+/// publishes as `summary.management_risks` (`audit::management_risk`), its
+/// text re-derived in the run language. A second heuristic here graded legal
+/// risk "medium" where the JSON said "high" and counted 8 recurring patterns
+/// where the JSON counted 12 rules (#1039).
 pub(super) fn render_batch_management_risks(
     builder: renderreport::engine::ReportBuilder,
-    pres: &BatchPresentation,
+    normalized_reports: &[crate::audit::normalized::NormalizedReport],
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    use crate::audit::management_risk::RiskTier;
     let en = is_english(i18n);
-    let dist = &pres.portfolio_summary.severity_distribution;
-    let avg = pres
-        .portfolio_summary
-        .average_score
-        .expect(super::UNMEASURED_REFUSED)
-        .round() as u32;
-    let seo = pres
-        .portfolio_summary
-        .module_averages
-        .iter()
-        .find(|(name, _)| name == "SEO")
-        .map(|(_, score)| *score);
-    let component_count = pres
-        .top_issues
-        .iter()
-        .filter(|issue| issue.is_component_issue || issue.affected_urls.len() > 1)
-        .count();
-    let legal_level = if dist.critical > 0 {
-        if en {
-            "High"
-        } else {
-            "Hoch"
-        }
-    } else if dist.high > 0 {
-        if en {
-            "Medium"
-        } else {
-            "Mittel"
-        }
-    } else if en {
-        "Low"
-    } else {
-        "Niedrig"
-    };
-    let visibility_level = match seo {
-        Some(score) if score < 60 => {
-            if en {
-                "High"
-            } else {
-                "Hoch"
-            }
-        }
-        Some(score) if score < 80 => {
-            if en {
-                "Medium"
-            } else {
-                "Mittel"
-            }
-        }
-        Some(_) => {
-            if en {
-                "Low"
-            } else {
-                "Niedrig"
-            }
-        }
-        None => {
-            if en {
-                "Unknown"
-            } else {
-                "Unbekannt"
-            }
-        }
-    };
-    let project_level = if component_count >= 3 {
-        if en {
-            "High"
-        } else {
-            "Hoch"
-        }
-    } else if component_count > 0 {
-        if en {
-            "Medium"
-        } else {
-            "Mittel"
-        }
-    } else if en {
-        "Low"
-    } else {
-        "Niedrig"
-    };
-
     let mut kv = KeyValueList::new().with_title(if en {
         "Management risk view"
     } else {
         "Management-Risikoansicht"
     });
-    kv = kv
-        .add(
-            if en {
-                "Legal / BFSG-EAA"
-            } else {
-                "Recht / BFSG-EAA"
-            },
-            format!(
-                "{} — {} critical/high findings across {} URLs",
-                legal_level,
-                dist.critical + dist.high,
-                pres.portfolio_summary.total_urls
-            ),
-        )
-        .add(
-            if en {
-                "Conversion / usability"
-            } else {
-                "Conversion / Nutzbarkeit"
-            },
-            format!("{} / 100 average accessibility score", avg),
-        )
-        .add(
-            if en {
-                "SEO / visibility"
-            } else {
-                "SEO / Sichtbarkeit"
-            },
-            seo.map(|score| format!("{} — SEO {} / 100", visibility_level, score))
-                .unwrap_or_else(|| visibility_level.to_string()),
-        )
-        .add(
-            if en { "Project risk" } else { "Projektrisiko" },
-            format!(
-                "{} — {} recurring component/template {}",
-                project_level,
-                component_count,
-                if component_count == 1 {
-                    "pattern"
-                } else {
-                    "patterns"
-                }
-            ),
+    for kind in crate::audit::management_risk::build_management_risk_kinds(normalized_reports) {
+        let tier = match kind.tier() {
+            RiskTier::High => i18n.t("risk-level-high"),
+            RiskTier::Medium => i18n.t("risk-level-medium"),
+            RiskTier::Low => i18n.t("risk-level-low"),
+            // A module that was not run is neither a risk nor a strength
+            // (as in the single report).
+            RiskTier::Unknown => continue,
+        };
+        kv = kv.add(
+            kind.dimension(en),
+            format!("{tier} — {}", kind.rationale(en)),
         );
+    }
     builder.add_component(kv)
 }
 
@@ -603,6 +500,7 @@ fn change_scope_label(complexity: &str, en: bool) -> String {
 pub(super) fn build_batch_key_points(
     pres: &BatchPresentation,
     dist: &SeverityDistribution,
+    legal_flags: usize,
     i18n: &I18n,
 ) -> Vec<String> {
     let en = is_english(i18n);
@@ -646,8 +544,11 @@ pub(super) fn build_batch_key_points(
         }
     }
 
-    // Point 3: Legal status
-    if dist.critical > 0 {
+    // Point 3: Legal status — from the legal flags the batch decision uses
+    // (high or critical Level A/AA rules), as the single report does; keyed on
+    // critical findings alone it read "no Level A/AA violations" next to a
+    // high AA finding (#1039).
+    if legal_flags > 0 {
         if en {
             points.push(
                 "WCAG Level A/AA violations detected automatically — manual review needed for a defensible BFSG classification".to_string(),

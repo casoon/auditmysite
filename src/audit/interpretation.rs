@@ -1056,18 +1056,28 @@ fn pick_verdict_key(
     legal_flags: usize,
     counts: &crate::audit::normalized::SeverityCounts,
 ) -> String {
-    // A page with legal-relevant Level-A/AA findings must never receive the
-    // reassuring "solid" verdict, regardless of an otherwise passable score (#356).
-    let key = verdict_tier_key("verdict-tier", score);
-    if legal_flags > 0
-        && !matches!(
-            key.as_str(),
-            "verdict-tier-deficient" | "verdict-tier-critical"
-        )
-    {
-        return "verdict-tier-deficient".to_string();
+    match legal_gate("verdict-tier", score, legal_flags) {
+        Some(key) => key,
+        None => top_tier_key(verdict_tier_key("verdict-tier", score), counts),
     }
-    top_tier_key(key, counts)
+}
+
+/// The batch cover sentence: the band of the average accessibility score,
+/// under the same legal gate as a single page (#356) — a batch that fails on
+/// legal flags must not read "a very good result" (#1039).
+pub fn batch_verdict_key(average: u32, legal_flags: usize) -> String {
+    legal_gate("verdict-batch", average, legal_flags)
+        .unwrap_or_else(|| verdict_tier_key("verdict-batch", average))
+}
+
+/// Legal-relevant Level-A/AA findings never receive a reassuring tier,
+/// regardless of an otherwise passable score (#356): the tier drops to
+/// `deficient`. `None` when the gate does not apply.
+fn legal_gate(prefix: &str, score: u32, legal_flags: usize) -> Option<String> {
+    let key = verdict_tier_key(prefix, score);
+    let deficient = format!("{prefix}-deficient");
+    let critical = format!("{prefix}-critical");
+    (legal_flags > 0 && key != deficient && key != critical).then_some(deficient)
 }
 
 fn pick_score_note_key(normalized: &AuditContext<'_>) -> Option<String> {

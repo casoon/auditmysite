@@ -401,6 +401,10 @@ fn render_seo_sitemap_http_issues(
         }
         builder = builder.add_component(table);
     }
+    // The JSON field is only written when there is an issue to list (#1039).
+    if issues.is_empty() {
+        return builder;
+    }
     builder.add_component(TextBlock::new(i18n.t("batch-sitemap-http-json-note")))
 }
 
@@ -440,12 +444,9 @@ fn render_seo_sitemap_orphans(
         }
         builder = builder.add_component(table);
         if !pres.portfolio_summary.orphan_sitemap_urls.is_empty() {
-            builder = builder.add_component(TextBlock::new(i18n.t_args(
+            builder = builder.add_component(TextBlock::new(i18n.count(
                 "batch-sitemap-orphan-note",
-                &[(
-                    "count",
-                    pres.portfolio_summary.orphan_sitemap_urls.len().to_string(),
-                )],
+                pres.portfolio_summary.orphan_sitemap_urls.len(),
             )));
         }
     }
@@ -535,10 +536,9 @@ fn render_seo_crawl_depth(
                 let reached: usize = diag.depth_histogram.values().sum();
                 let unobserved = pres.portfolio_summary.total_urls.saturating_sub(reached);
                 if unobserved > 0 {
-                    builder = builder.add_component(TextBlock::new(i18n.t_args(
-                        "batch-crawl-depth-unobserved-count",
-                        &[("count", unobserved.to_string())],
-                    )));
+                    builder = builder.add_component(TextBlock::new(
+                        i18n.count("batch-crawl-depth-unobserved-count", unobserved),
+                    ));
                 }
             } else {
                 for url in &diag.unreachable_pages {
