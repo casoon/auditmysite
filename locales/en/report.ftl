@@ -956,7 +956,7 @@ batch-seo-impact-duplicate = { $insight } → keyword cannibalization, split ran
 batch-seo-near-dup-title = Near-duplicate content → keyword cannibalization
 batch-seo-risk-high = High — consolidate
 batch-seo-risk-medium = Medium — differentiate
-batch-seo-duplicate-title = Identical metadata across pages → differentiate titles, descriptions and H1s
+batch-seo-duplicate-title = Identical metadata on several pages
 batch-col-dup-type = Type
 batch-col-dup-value = Shared value
 batch-col-dup-count = Pages
@@ -1479,6 +1479,18 @@ batch-scope-note-title = How to read this report
 batch-scope-note-appendix = This PDF is a condensed audit report. It highlights the most important findings, risks and improvement areas, but does not list every technical occurrence. Details per URL are in the technical appendix at the end of this report; the raw data is in the JSON report of the same run.
 batch-scope-note-json = This PDF is a condensed audit report. It highlights the most important findings, risks and improvement areas, but does not list every technical occurrence. The raw data is in the JSON report of the same run; the report level technical (--report-level technical) adds a per-URL appendix.
 batch-next-steps-manual = For a complete WCAG conformance check we additionally recommend a manual audit with assistive technologies (screen reader, keyboard navigation). This audit checks { $automated } of { $total } WCAG 2.2 Level A/AA success criteria automatically; the others need a manual review.
+batch-next-steps-intro = What the automated audit leaves open.
+batch-col-role = Role
+batch-topics-title = Content topics on several pages
+batch-table-pages-profile = Page type and top issues per page
+batch-seo-profiles-title = Content profile per page
+batch-col-dup-urls = URLs
+batch-dup-pages-more = { $list } and { $count } more
+batch-user-impact-critical = Critical — on the audited pages, barriers severely hamper use with assistive technologies
+batch-user-impact-limited = Limited — structural issues impede users with assistive technologies
+batch-user-impact-good = Good — individual barriers for assistive technologies on several pages
+batch-user-impact-very-good = Very good — assistive technologies are largely supported
+batch-user-impact-barriers-fail = Usable with barriers — a high average, but barriers on the audited pages fail the automated check (see the overall rating)
 batch-effect-open-high = { $count ->
         [one] Good average, but 1 high-severity finding of this module is still open on the audited pages.
        *[other] Good average, but { $count } high-severity findings of this module are still open on the audited pages.

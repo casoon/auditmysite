@@ -953,7 +953,7 @@ batch-seo-impact-duplicate = { $insight } → Keyword-Kannibalisierung, Aufteilu
 batch-seo-near-dup-title = Near-Duplicate-Content → Keyword-Kannibalisierung
 batch-seo-risk-high = Hoch — konsolidieren
 batch-seo-risk-medium = Mittel — differenzieren
-batch-seo-duplicate-title = Gleichlautende Metadaten über Seiten → Titles, Descriptions und H1s unterscheiden
+batch-seo-duplicate-title = Gleichlautende Metadaten auf mehreren Seiten
 batch-col-dup-type = Typ
 batch-col-dup-value = Geteilter Wert
 batch-col-dup-count = Seiten
@@ -1476,6 +1476,18 @@ batch-scope-note-title = Einordnung dieses Reports
 batch-scope-note-appendix = Dieser PDF-Report ist ein verdichteter Audit-Bericht. Er zeigt die wichtigsten Befunde, Risiken und Verbesserungsfelder, enthält aber nicht jede technische Einzelstelle. Details je URL stehen im technischen Anhang am Ende dieses Reports, die Rohdaten im JSON-Report desselben Laufs.
 batch-scope-note-json = Dieser PDF-Report ist ein verdichteter Audit-Bericht. Er zeigt die wichtigsten Befunde, Risiken und Verbesserungsfelder, enthält aber nicht jede technische Einzelstelle. Die Rohdaten stehen im JSON-Report desselben Laufs; die Report-Stufe technical (--report-level technical) ergänzt einen Anhang je URL.
 batch-next-steps-manual = Für eine vollständige WCAG-Konformitätsprüfung empfehlen wir ergänzend einen manuellen Audit mit assistiven Technologien (Screenreader, Tastaturnavigation). Dieser Audit prüft { $automated } von { $total } Erfolgskriterien der WCAG 2.2 (Stufe A/AA) automatisiert; die übrigen brauchen eine manuelle Prüfung.
+batch-next-steps-intro = Was der automatisierte Audit offen lässt.
+batch-col-role = Rolle
+batch-topics-title = Inhaltsthemen auf mehreren Seiten
+batch-table-pages-profile = Seitentyp und häufigste Befunde je Seite
+batch-seo-profiles-title = Inhaltsprofil je Seite
+batch-col-dup-urls = URLs
+batch-dup-pages-more = { $list } und { $count } weitere
+batch-user-impact-critical = Kritisch — auf den geprüften Seiten erschweren Barrieren die Nutzung mit Hilfstechnologien erheblich
+batch-user-impact-limited = Eingeschränkt — strukturelle Probleme behindern Nutzer mit Hilfstechnologien
+batch-user-impact-good = Gut — einzelne Barrieren für Hilfstechnologien auf mehreren Seiten
+batch-user-impact-very-good = Sehr gut — Hilfstechnologien werden weitgehend unterstützt
+batch-user-impact-barriers-fail = Mit Barrieren nutzbar — hoher Durchschnitt, aber Barrieren auf den geprüften Seiten lassen die automatisierte Prüfung scheitern (siehe Gesamteinstufung)
 batch-effect-open-high = { $count ->
         [one] Guter Durchschnitt, aber 1 Befund hoher Schwere dieses Moduls ist auf den geprüften Seiten noch offen.
        *[other] Guter Durchschnitt, aber { $count } Befunde hoher Schwere dieses Moduls sind auf den geprüften Seiten noch offen.

@@ -150,7 +150,7 @@ fn build_batch_report(
         builder = super::annotations::render_assessments_section(builder, resolved, true, &i18n);
     }
 
-    builder = render_next_steps_batch(builder, &pres, &i18n);
+    builder = render_next_steps_batch(builder, &i18n);
 
     if config.level == ReportLevel::Technical && !pres.appendix.per_url.is_empty() {
         builder = render_batch_appendix(builder, &pres, &i18n);
@@ -494,6 +494,254 @@ mod tests {
             pres.portfolio_summary.risk_summary,
             i18n.t_args(key, &[("count", at_level as i64), ("total", 3i64)])
         );
+    }
+
+    /// A failing contrast page whose CSP allows inline scripts (High) and
+    /// whose markup has one schema error with a line:column location.
+    fn security_page(url: &str) -> AuditReport {
+        use crate::security::{
+            HeaderTier, SecurityAnalysis, SecurityHeaders, SecurityIssue, SslInfo,
+        };
+        contrast_page(url)
+            .with_security(SecurityAnalysis {
+                score: 90,
+                grade: "A".to_string(),
+                headers: SecurityHeaders {
+                    content_security_policy: Some("script-src 'unsafe-inline'".to_string()),
+                    ..Default::default()
+                },
+                ssl: SslInfo {
+                    https: true,
+                    ..Default::default()
+                },
+                issues: vec![SecurityIssue {
+                    header: "Content-Security-Policy".to_string(),
+                    issue_type: "unsafe_inline_script".to_string(),
+                    message: "CSP allows unsafe-inline scripts without nonce/hash protection"
+                        .to_string(),
+                    severity: crate::taxonomy::Severity::High,
+                    tier: HeaderTier::Baseline,
+                    values: Default::default(),
+                    score_deduction: 0,
+                }],
+                recommendations: vec![],
+                protection: Default::default(),
+                sourcemap_leaks: Default::default(),
+                fetch: Default::default(),
+            })
+            .with_html_conform(crate::html_conform::HtmlConformAnalysis {
+                score: 90,
+                checked: true,
+                error_count: 1,
+                warning_count: 0,
+                info_count: 0,
+                distinct_defect_count: 1,
+                findings: vec![crate::html_conform::HtmlConformFinding {
+                    rule_id: "schema.html5".to_string(),
+                    severity: "error".to_string(),
+                    message: "unexpected element `style` at 261:27335".to_string(),
+                    location: Some("261:27335".to_string()),
+                    byte_offset: None,
+                    detail: None,
+                }],
+                raw_html: None,
+            })
+    }
+
+    fn security_batch() -> BatchReport {
+        BatchReport::from_reports(
+            ["a", "b", "c"]
+                .iter()
+                .map(|p| security_page(&format!("https://example.com/{p}")))
+                .collect(),
+            vec![],
+            100,
+        )
+    }
+
+    /// #1039: the action plan covers the ranked security action with the fix
+    /// the security module gives, its scope is the measured reach (the same
+    /// words as the cards), and the closing section no longer repeats the
+    /// first three actions with a bare rank and a guessed scope.
+    #[test]
+    fn action_plan_covers_ranked_actions_with_measured_scope() {
+        for locale in ["en", "de"] {
+            let i18n = I18n::new(locale).unwrap();
+            let batch = security_batch();
+            let pres = build_batch_presentation_with_locale(&batch, &i18n);
+            let plan = &pres.action_plan;
+            let planned: Vec<&crate::output::report_model::ActionItem> = plan
+                .quick_wins
+                .iter()
+                .chain(&plan.medium_term)
+                .chain(&plan.structural)
+                .collect();
+            let fix = i18n.t("recommendation-security-csp-unsafe-inline");
+            let security = planned
+                .iter()
+                .find(|item| item.rule_id == "security.headers.unsafe_inline_script")
+                .unwrap_or_else(|| panic!("{locale}: security action missing from the plan"));
+            assert!(security.full_text().ends_with(&fix), "{locale}");
+            assert_eq!(security.affected_urls.len(), 3);
+            let group = pres
+                .top_issues
+                .iter()
+                .find(|g| g.finding.rule_id == "security.headers.unsafe_inline_script")
+                .expect("security group");
+            assert_eq!(group.recommendation, fix);
+
+            let out = typ(&batch, locale);
+            let all_pages = actions::batch_reach_label(3, 3, &i18n);
+            assert_eq!(all_pages, i18n.t("batch-meta-global"));
+            // The plan row: the action and its measured reach.
+            assert!(
+                out.contains(&format!("\"{}\", ", security.full_text())),
+                "{locale}"
+            );
+            assert!(out.contains(&format!("\"{all_pages}\"")), "{locale}");
+            // Plan rows carry the measured reach, never a keyword guess.
+            for guessed in [
+                "\"Content\"",
+                "\"component-based\"",
+                "\"komponentenbasiert\"",
+            ] {
+                assert!(!out.contains(guessed), "{locale}: {guessed}");
+            }
+            assert!(out.contains(&i18n.t("batch-next-steps-intro")), "{locale}");
+            // The quick action keeps the whole first sentence of the fix; the
+            // German one has a "bzw." inside.
+            assert!(out.contains(&format!("label: \"{fix}\"")), "{locale}");
+        }
+    }
+
+    /// #1039: a cross-page card prints neither one page's checker message
+    /// (with its line:column) nor the problem a second time as user impact.
+    #[test]
+    fn batch_cards_carry_no_page_detail_and_no_repeat() {
+        let i18n = I18n::new("en").unwrap();
+        let batch = security_batch();
+        let pres = build_batch_presentation_with_locale(&batch, &i18n);
+        let group = |rule: &str| {
+            pres.top_issues
+                .iter()
+                .find(|g| g.finding.rule_id == rule)
+                .unwrap_or_else(|| panic!("{rule}"))
+        };
+        let security = group("security.headers.unsafe_inline_script");
+        assert_eq!(security.customer_description, security.user_impact);
+        let (problem, impact) = actions::card_problem_and_impact(security);
+        assert_eq!(problem, Some(security.customer_description.as_str()));
+        assert_eq!(impact, None);
+        let schema = group("html_conform.schema.html5");
+        assert_eq!(actions::card_problem_and_impact(schema), (None, None));
+        let out = typ(&batch, "en");
+        assert!(!out.contains("261:27335"));
+    }
+
+    /// #1039: the user line of the impact summary does not rate users "very
+    /// good" next to a verdict that fails on barriers for them.
+    #[test]
+    fn user_rating_does_not_contradict_the_verdict() {
+        use crate::audit::verdict::BatchReasonKind as K;
+        assert_eq!(
+            portfolio::batch_user_impact_key(95, &[K::LegalFlags(1)]),
+            "batch-user-impact-barriers-fail"
+        );
+        assert_eq!(
+            portfolio::batch_user_impact_key(80, &[K::BlockingIssues(2)]),
+            "batch-user-impact-barriers-fail"
+        );
+        assert_eq!(
+            portfolio::batch_user_impact_key(95, &[K::FailedUrls(1)]),
+            "batch-user-impact-very-good"
+        );
+        assert_eq!(
+            portfolio::batch_user_impact_key(40, &[K::LegalFlags(1)]),
+            "batch-user-impact-critical"
+        );
+        let batch = failing_batch();
+        for locale in ["en", "de"] {
+            let i18n = I18n::new(locale).unwrap();
+            let out = typ(&batch, locale);
+            assert!(
+                out.contains(&i18n.t("batch-user-impact-barriers-fail")),
+                "{locale}"
+            );
+            assert!(
+                !out.contains(&i18n.t("batch-user-impact-very-good")),
+                "{locale}"
+            );
+        }
+    }
+
+    /// #1039: lists that would name every page are collapsed or retitled,
+    /// and counts match the pages they stand for.
+    #[test]
+    fn cross_page_lists_select_or_collapse() {
+        let i18n = I18n::new("en").unwrap();
+        let batch = BatchReport::from_reports(
+            ["a", "b", "c"]
+                .iter()
+                .map(|p| content_page(&format!("https://example.com/{p}")))
+                .collect(),
+            vec![],
+            100,
+        );
+        let pres = build_batch_presentation_with_locale(&batch, &i18n);
+        assert_eq!(pres.portfolio_summary.weakest_content_pages.len(), 3);
+        let all = seo::content_profiles_if_lists_overlap(&pres).expect("lists overlap");
+        assert_eq!(all.len(), 3);
+        let out = typ(&batch, "en");
+        assert!(out.contains(&i18n.t("batch-seo-profiles-title")));
+        assert!(!out.contains(&i18n.t("batch-seo-weakest-title")));
+        assert!(!out.contains(&i18n.t("batch-table-top-pages")));
+        assert!(out.contains(&i18n.t("batch-table-pages-profile")));
+        assert!(!out.contains(&i18n.t("batch-table-focus-pages")));
+        assert_eq!(
+            portfolio::focus_table_title_key(11),
+            "batch-table-focus-pages"
+        );
+
+        // Shared metadata: every page, or names plus the rest as a count.
+        let urls: Vec<String> = (1..=5).map(|i| format!("https://x.test/{i}")).collect();
+        assert_eq!(
+            seo::duplicate_pages_text(&urls, 5, &i18n),
+            i18n.t("batch-meta-global")
+        );
+        assert_eq!(
+            seo::duplicate_pages_text(&urls, 8, &i18n),
+            "x.test/1, x.test/2, x.test/3 and 2 more"
+        );
+        assert_eq!(
+            seo::duplicate_pages_text(&urls[..2], 8, &i18n),
+            "x.test/1, x.test/2"
+        );
+
+        // Topics of one page are not cross-page topics.
+        let topics = vec![("astro".to_string(), 2), ("agb".to_string(), 1)];
+        let shared: Vec<_> = consistency::topics_on_several_pages(&topics).collect();
+        assert_eq!(shared, vec![&("astro".to_string(), 2)]);
+
+        // A page one click from the start page is not "furthest away".
+        let diag = crate::audit::CrawlDepthDiagnostics {
+            start_url: "https://x.test/".to_string(),
+            start_source: "fetched_homepage".to_string(),
+            depth_histogram: [(1, 3), (2, 1)].into_iter().collect(),
+            deepest_pages: [("https://x.test/deep", 2), ("https://x.test/near", 1)]
+                .into_iter()
+                .map(|(url, depth)| crate::audit::CrawlDepthEntry {
+                    url: url.to_string(),
+                    depth,
+                })
+                .collect(),
+            unreachable_pages: vec![],
+            partial_batch: true,
+        };
+        let far: Vec<&str> = seo::far_pages(&diag)
+            .into_iter()
+            .map(|e| e.url.as_str())
+            .collect();
+        assert_eq!(far, vec!["https://x.test/deep"]);
     }
 
     #[test]

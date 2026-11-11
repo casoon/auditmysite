@@ -44,19 +44,30 @@ pub(super) fn build_batch_quick_actions(pres: &BatchPresentation, _i18n: &I18n) 
     actions
 }
 
-/// Enhanced action plan with effort + scope columns
+/// How far a cross-page item reaches, in the words of the batch cards: all
+/// audited pages, some of them, or one page. The one wording for the cards
+/// and the action plan, so the two cannot name the scope differently (#1039).
+pub(super) fn batch_reach_label(urls: usize, total_urls: usize, i18n: &I18n) -> String {
+    if urls >= total_urls {
+        i18n.t("batch-meta-global")
+    } else if urls <= 1 {
+        i18n.t("batch-meta-single-page")
+    } else {
+        i18n.t_args(
+            "batch-meta-some-pages",
+            &[("count", urls as i64), ("total", total_urls as i64)],
+        )
+    }
+}
+
+/// Action plan grouped by effort; the scope is the measured reach of the
+/// findings behind each action, not a guess from its wording (#1039).
 pub(super) fn render_batch_action_plan_enhanced(
     mut builder: renderreport::engine::ReportBuilder,
     plan: &ActionPlan,
+    total_urls: usize,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
-    let effort_col = if en { "Effort" } else { "Aufwand" };
-    let role_col = if en { "Role" } else { "Rolle" };
-    let scope_global = "global";
-    let scope_content = "Content";
-    let scope_component = if en { "Component" } else { "Komponente" };
-
     let render_section = |mut b: renderreport::engine::ReportBuilder,
                           title: String,
                           items: &[crate::output::report_model::ActionItem],
@@ -68,34 +79,16 @@ pub(super) fn render_batch_action_plan_enhanced(
         b = b.add_component(Section::new(title).with_level(2));
         let mut table = AuditTable::new(vec![
             TableColumn::new(i18n.t("column-action")),
-            TableColumn::new(effort_col),
-            TableColumn::new(if en { "Scope" } else { "Reichweite" }),
-            TableColumn::new(role_col),
+            TableColumn::new(i18n.t("column-timeframe")),
+            TableColumn::new(i18n.t("batch-meta-scope")),
+            TableColumn::new(i18n.t("batch-col-role")),
             TableColumn::new(i18n.t("column-priority")),
         ]);
         for item in items {
-            let action_lower = item.action.to_lowercase();
-            let scope = if action_lower.contains("alle")
-                || action_lower.contains("global")
-                || action_lower.contains("designsystem")
-                || action_lower.contains("design system")
-                || action_lower.contains("seitenübergreifend")
-                || action_lower.contains("site-wide")
-            {
-                scope_global
-            } else if action_lower.contains("content")
-                || action_lower.contains("text")
-                || action_lower.contains("bild")
-                || action_lower.contains("image")
-            {
-                scope_content
-            } else {
-                scope_component
-            };
             table = table.add_row(vec![
                 item.full_text(),
                 effort_label_i18n(item.effort, i18n),
-                scope.to_string(),
+                batch_reach_label(item.affected_urls.len(), total_urls, i18n),
                 role_label_i18n(item.role, i18n),
                 priority_label_i18n(item.priority, i18n),
             ]);
@@ -124,74 +117,21 @@ pub(super) fn render_batch_action_plan_enhanced(
     builder
 }
 
-/// Closing section for batch report
+/// Closing section for batch report. The action plan above already lists
+/// every action with its scope; this section only adds what the automated
+/// audit leaves open (a repeat of the first three actions with a bare rank
+/// was dropped, #1039).
 pub(super) fn render_next_steps_batch(
     mut builder: renderreport::engine::ReportBuilder,
-    pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
-    let intro = if en {
-        "Concrete recommendation for implementation."
-    } else {
-        "Konkrete Handlungsempfehlung für die Umsetzung."
-    };
     builder = builder.add_component(
-        SectionHeaderSplit::new(i18n.t("section-next-steps-recommended"), intro).with_level(1),
+        SectionHeaderSplit::new(
+            i18n.t("section-next-steps-recommended"),
+            i18n.t("batch-next-steps-intro"),
+        )
+        .with_level(1),
     );
-
-    let mut steps: Vec<(String, &str)> = Vec::new();
-
-    let scope_global = "global";
-    let scope_component = if en {
-        "component-based"
-    } else {
-        "komponentenbasiert"
-    };
-
-    // From quick wins
-    for item in &pres.action_plan.quick_wins {
-        if steps.len() >= 3 {
-            break;
-        }
-        let action_lower = item.action.to_lowercase();
-        let scope = if action_lower.contains("alle")
-            || action_lower.contains("designsystem")
-            || action_lower.contains("design system")
-            || action_lower.contains("global")
-        {
-            scope_global
-        } else {
-            scope_component
-        };
-        steps.push((item.full_text(), scope));
-    }
-
-    // Fallback from medium_term
-    if steps.len() < 3 {
-        for item in &pres.action_plan.medium_term {
-            if steps.len() >= 3 {
-                break;
-            }
-            steps.push((item.full_text(), scope_component));
-        }
-    }
-
-    if !steps.is_empty() {
-        let mut table = AuditTable::new(vec![
-            TableColumn::new(i18n.t("column-priority")),
-            TableColumn::new(i18n.t("column-action")),
-            TableColumn::new(if en { "Scope" } else { "Reichweite" }),
-        ]);
-        for (i, (action, scope)) in steps.iter().enumerate() {
-            table = table.add_row(vec![
-                format!("{}", i + 1),
-                action.clone(),
-                scope.to_string(),
-            ]);
-        }
-        builder = builder.add_component(table);
-    }
 
     // The share comes from the criteria list the JSON reports as
     // `summary.wcag_coverage`, not from a fixed "30–40%" (#1039).
@@ -298,8 +238,6 @@ pub(super) fn render_batch_top_issues(
     builder = render_batch_decision_actions(builder, pres, i18n);
 
     // Unified problem blocks
-    let scope_global_word = i18n.t("batch-meta-global");
-    let scope_single_page = i18n.t("batch-meta-single-page");
     let effort_word = i18n.t("batch-meta-effort");
     let scope_word = i18n.t("batch-meta-scope");
     let impact_user_label = i18n.t("batch-meta-impact-user");
@@ -311,17 +249,7 @@ pub(super) fn render_batch_top_issues(
         // Three tiers: a finding on 9 of 20 pages is neither global nor
         // "isolated content" (plan 99).
         let urls = group.affected_urls.len();
-        let total_urls = pres.portfolio_summary.total_urls;
-        let scope = if urls >= total_urls {
-            scope_global_word.clone()
-        } else if urls <= 1 {
-            scope_single_page.clone()
-        } else {
-            i18n.t_args(
-                "batch-meta-some-pages",
-                &[("count", urls as i64), ("total", total_urls as i64)],
-            )
-        };
+        let scope = batch_reach_label(urls, pres.portfolio_summary.total_urls, i18n);
         let affected_urls_word = i18n.t_args("batch-meta-affected-urls", &[("count", urls as i64)]);
         let effort_label = effort_short_label_i18n(group.effort, i18n);
         let meta_line = format!(
@@ -335,14 +263,15 @@ pub(super) fn render_batch_top_issues(
             scope
         );
 
-        let mut kv = KeyValueList::new()
-            .with_title(&group.title)
-            .add(
-                i18n.t("findings-card-key-problem"),
-                &group.customer_description,
-            )
-            .add(&impact_user_label, &group.user_impact)
-            .add(&impact_business_label, &group.business_impact);
+        let (problem, user_impact) = card_problem_and_impact(group);
+        let mut kv = KeyValueList::new().with_title(&group.title);
+        if let Some(problem) = problem {
+            kv = kv.add(i18n.t("findings-card-key-problem"), problem);
+        }
+        if let Some(user_impact) = user_impact {
+            kv = kv.add(&impact_user_label, user_impact);
+        }
+        kv = kv.add(&impact_business_label, &group.business_impact);
         if !group.typical_cause.is_empty() {
             kv = kv.add(i18n.t("findings-card-key-cause"), &group.typical_cause);
         }
@@ -356,6 +285,21 @@ pub(super) fn render_batch_top_issues(
     builder
 }
 
+/// The problem and user-impact lines of a cross-page card. An HTML
+/// conformance finding's text is one occurrence's checker message, with its
+/// line:column — page detail, not a statement about the rule across pages.
+/// A rule without its own user-impact text repeats the problem there. Both
+/// are left out rather than printed as page detail or twice (#1039).
+pub(super) fn card_problem_and_impact(group: &FindingGroup) -> (Option<&str>, Option<&str>) {
+    if group.finding.rule_id.starts_with("html_conform.") {
+        return (None, None);
+    }
+    let problem = Some(group.customer_description.as_str()).filter(|t| !t.trim().is_empty());
+    let user_impact = Some(group.user_impact.as_str())
+        .filter(|t| !t.trim().is_empty() && Some(t.trim()) != problem.map(str::trim));
+    (problem, user_impact)
+}
+
 pub(super) fn render_batch_action_plan_section(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
@@ -365,7 +309,12 @@ pub(super) fn render_batch_action_plan_section(
     builder = builder.add_component(
         SectionHeaderSplit::new(i18n.t("batch-action-plan-title"), action_intro).with_level(1),
     );
-    builder = render_batch_action_plan_enhanced(builder, &pres.action_plan, i18n);
+    builder = render_batch_action_plan_enhanced(
+        builder,
+        &pres.action_plan,
+        pres.portfolio_summary.total_urls,
+        i18n,
+    );
 
     // Render blocking
     if !pres.portfolio_summary.render_blocking_summary.is_empty() {

@@ -467,7 +467,13 @@ pub(super) fn render_batch_status_section(
     builder = builder.add_component(kp_list);
 
     // Impact summary
-    builder = render_batch_impact_summary(builder, pres, batch.summary.legal_flags, i18n);
+    builder = render_batch_impact_summary(
+        builder,
+        pres,
+        batch.summary.legal_flags,
+        &crate::audit::verdict::batch_reason_kinds(&batch.summary),
+        i18n,
+    );
 
     // Quick actions
     let actions = build_batch_quick_actions(pres, i18n);

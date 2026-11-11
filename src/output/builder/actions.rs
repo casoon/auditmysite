@@ -109,6 +109,7 @@ pub(super) fn derive_action_plan(i18n: &I18n, finding_groups: &[FindingGroup]) -
             is_systemic: group.is_component_issue,
             occurrence_count: group.finding.occurrence_count,
             rule_id: group.finding.rule_id.clone(),
+            affected_urls: group.affected_urls.clone(),
         };
         match group.effort {
             Effort::Quick => quick_wins.push(item),
@@ -121,18 +122,29 @@ pub(super) fn derive_action_plan(i18n: &I18n, finding_groups: &[FindingGroup]) -
     medium_term.sort_by_key(|b| std::cmp::Reverse(b.execution_priority));
     structural.sort_by_key(|b| std::cmp::Reverse(b.execution_priority));
 
-    // Deduplicate by action text across ALL phases (keep first occurrence = highest phase/priority)
-    let mut seen_actions: std::collections::HashSet<String> = std::collections::HashSet::new();
-    let dedup =
-        |items: Vec<ActionItem>, seen: &mut std::collections::HashSet<String>| -> Vec<ActionItem> {
-            items
-                .into_iter()
-                .filter(|i| seen.insert(format!("{}\n{}", i.action, i.hint)))
-                .collect()
-        };
-    let quick_wins = dedup(quick_wins, &mut seen_actions);
-    let medium_term = dedup(medium_term, &mut seen_actions);
-    let structural = dedup(structural, &mut seen_actions);
+    // Deduplicate by action text across ALL phases (keep first occurrence =
+    // highest phase/priority). The kept action reaches the pages of every
+    // group it stands for.
+    let mut phases = [quick_wins, medium_term, structural];
+    let mut kept: HashMap<String, (usize, usize)> = HashMap::new();
+    let mut deduped: [Vec<ActionItem>; 3] = Default::default();
+    for (phase, items) in phases.iter_mut().enumerate() {
+        for item in std::mem::take(items) {
+            let key = format!("{}\n{}", item.action, item.hint);
+            if let Some(&(kept_phase, index)) = kept.get(&key) {
+                let target = &mut deduped[kept_phase][index].affected_urls;
+                for url in item.affected_urls {
+                    if !target.contains(&url) {
+                        target.push(url);
+                    }
+                }
+            } else {
+                kept.insert(key, (phase, deduped[phase].len()));
+                deduped[phase].push(item);
+            }
+        }
+    }
+    let [quick_wins, medium_term, structural] = deduped;
 
     let mut role_map: HashMap<Role, Vec<String>> = HashMap::new();
     for group in finding_groups {

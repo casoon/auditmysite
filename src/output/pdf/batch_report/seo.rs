@@ -73,6 +73,27 @@ fn render_seo_weakest_pages(
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    // With few pages the lowest and the strongest five are the same pages:
+    // one list of every profiled page instead of two lists naming them twice
+    // under opposite titles (#1039).
+    if let Some(all) = content_profiles_if_lists_overlap(pres) {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new("URL"),
+            TableColumn::new(i18n.t("batch-col-page-type")),
+            TableColumn::new(i18n.t("batch-col-profile")),
+        ])
+        .with_title(i18n.t("batch-seo-profiles-title"));
+        for (url, page_type, score) in &all {
+            table = table.add_row(vec![
+                short_url(url, 42),
+                page_type.clone(),
+                format!("{score}/100"),
+            ]);
+        }
+        return builder
+            .add_component(table)
+            .add_component(TextBlock::new(i18n.t("batch-seo-weakest-note")));
+    }
     // The five pages with the lowest content profile, listed as such: a low
     // profile is no observed problem, and a word count is no basis for
     // "+300–800 words" or a guessed ranking impact (plan 84).
@@ -174,7 +195,7 @@ fn render_seo_duplicate_content(
             TableColumn::new(i18n.t("batch-col-dup-type")),
             TableColumn::new(i18n.t("batch-col-dup-value")),
             TableColumn::new(i18n.t("batch-col-dup-count")),
-            TableColumn::new(i18n.t("batch-col-pages-list")),
+            TableColumn::new(i18n.t("batch-col-dup-urls")),
         ])
         .with_title(i18n.t("batch-seo-duplicate-title"));
 
@@ -186,13 +207,8 @@ fn render_seo_duplicate_content(
                 "og_image" => i18n.t("batch-dup-kind-og-image"),
                 other => other.to_string(),
             };
-            let examples = group
-                .urls
-                .iter()
-                .take(3)
-                .map(|u| short_url(u, 30))
-                .collect::<Vec<_>>()
-                .join(", ");
+            let examples =
+                duplicate_pages_text(&group.urls, pres.portfolio_summary.total_urls, i18n);
             table = table.add_row(vec![
                 kind_label,
                 group.value.clone(),
@@ -204,6 +220,36 @@ fn render_seo_duplicate_content(
     }
 
     builder
+}
+
+/// The pages sharing one metadata value: "all audited pages" when it is every
+/// page, otherwise up to three names plus how many more — three names under
+/// a count of five read as a contradiction (#1039).
+pub(super) fn duplicate_pages_text(urls: &[String], total_urls: usize, i18n: &I18n) -> String {
+    const LISTED: usize = 3;
+    if urls.len() >= total_urls {
+        return i18n.t("batch-meta-global");
+    }
+    let list = urls
+        .iter()
+        .take(LISTED)
+        .map(|u| short_url(u, 30))
+        .collect::<Vec<_>>()
+        .join(", ");
+    if urls.len() > LISTED {
+        i18n.t_args(
+            "batch-dup-pages-more",
+            &[
+                ("list", fluent_bundle::FluentValue::from(list)),
+                (
+                    "count",
+                    fluent_bundle::FluentValue::from((urls.len() - LISTED) as i64),
+                ),
+            ],
+        )
+    } else {
+        list
+    }
 }
 
 fn render_seo_missing_tags(
@@ -475,6 +521,17 @@ fn render_seo_robots_conflicts(
     builder
 }
 
+/// The pages listed as "furthest away": more than one click from the start
+/// page. A page one click away is not far; the histogram counts it (#1039).
+pub(super) fn far_pages(
+    diag: &crate::audit::CrawlDepthDiagnostics,
+) -> Vec<&crate::audit::CrawlDepthEntry> {
+    diag.deepest_pages
+        .iter()
+        .filter(|entry| entry.depth > 1)
+        .collect()
+}
+
 fn render_seo_crawl_depth(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
@@ -512,7 +569,9 @@ fn render_seo_crawl_depth(
             builder = builder.add_component(Callout::info(i18n.t("batch-crawl-depth-caveat")));
         }
 
-        if !diag.deepest_pages.is_empty() || !diag.unreachable_pages.is_empty() {
+        let deep_pages = far_pages(diag);
+        let unreachable_rows = !diag.partial_batch && !diag.unreachable_pages.is_empty();
+        if !deep_pages.is_empty() || unreachable_rows {
             let mut table = AuditTable::new(vec![
                 TableColumn::new(i18n.t("batch-col-dup-type")),
                 TableColumn::new(i18n.t("batch-col-page-a")),
@@ -520,27 +579,14 @@ fn render_seo_crawl_depth(
             ])
             .with_title(i18n.t("batch-crawl-depth-title"));
 
-            for entry in &diag.deepest_pages {
+            for entry in deep_pages {
                 table = table.add_row(vec![
                     i18n.t("batch-crawl-depth-kind-deepest"),
                     short_url(&entry.url, 50),
                     entry.depth.to_string(),
                 ]);
             }
-            // In a sample most pages have no observed path; a row each pushed
-            // the measured depths off the page. The count stays, the list
-            // is in the JSON (plan 91).
-            if diag.partial_batch {
-                builder = builder.add_component(table);
-                // The JSON list is capped; the count is audited minus reached.
-                let reached: usize = diag.depth_histogram.values().sum();
-                let unobserved = pres.portfolio_summary.total_urls.saturating_sub(reached);
-                if unobserved > 0 {
-                    builder = builder.add_component(TextBlock::new(
-                        i18n.count("batch-crawl-depth-unobserved-count", unobserved),
-                    ));
-                }
-            } else {
+            if unreachable_rows {
                 for url in &diag.unreachable_pages {
                     table = table.add_row(vec![
                         i18n.t("batch-crawl-depth-kind-unreachable"),
@@ -548,7 +594,20 @@ fn render_seo_crawl_depth(
                         "—".to_string(),
                     ]);
                 }
-                builder = builder.add_component(table);
+            }
+            builder = builder.add_component(table);
+        }
+        // In a sample most pages have no observed path; a row each pushed
+        // the measured depths off the page. The count stays, the list is in
+        // the JSON (plan 91).
+        if diag.partial_batch {
+            // The JSON list is capped; the count is audited minus reached.
+            let reached: usize = diag.depth_histogram.values().sum();
+            let unobserved = pres.portfolio_summary.total_urls.saturating_sub(reached);
+            if unobserved > 0 {
+                builder = builder.add_component(TextBlock::new(
+                    i18n.count("batch-crawl-depth-unobserved-count", unobserved),
+                ));
             }
         }
     } else if pres.portfolio_summary.crawl_depths_unavailable {
@@ -662,11 +721,39 @@ fn render_seo_schema_distribution(
     builder
 }
 
+/// Every profiled page, lowest profile first, when the "lowest" and the
+/// "strongest" list share a page — they then rank no subset worth two lists.
+/// `None` while the two lists are disjoint.
+pub(super) fn content_profiles_if_lists_overlap(
+    pres: &BatchPresentation,
+) -> Option<Vec<(String, String, u32)>> {
+    let weakest = &pres.portfolio_summary.weakest_content_pages;
+    let strongest = &pres.portfolio_summary.strongest_content_pages;
+    if !weakest
+        .iter()
+        .any(|(url, _, _)| strongest.iter().any(|(other, _, _)| other == url))
+    {
+        return None;
+    }
+    let mut all: Vec<(String, String, u32)> = weakest.clone();
+    for page in strongest {
+        if !all.iter().any(|(url, _, _)| *url == page.0) {
+            all.push(page.clone());
+        }
+    }
+    all.sort_by(|a, b| a.2.cmp(&b.2).then_with(|| a.0.cmp(&b.0)));
+    Some(all)
+}
+
 fn render_seo_strongest_pages(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    // Shown with the lowest profiles as one list (#1039).
+    if content_profiles_if_lists_overlap(pres).is_some() {
+        return builder;
+    }
     if !pres.portfolio_summary.strongest_content_pages.is_empty() {
         let mut strengths = AuditTable::new(vec![
             TableColumn::new("URL"),

@@ -1194,6 +1194,10 @@ pub struct ActionItem {
     /// matching root-cause letter (A, B, C…) assigned in the root-cause
     /// analysis section.
     pub rule_id: String,
+    /// Audited pages the action reaches: the affected URLs of every finding
+    /// group it stands for (one action can cover a rule family). Empty in
+    /// the single-page report.
+    pub affected_urls: Vec<String>,
 }
 
 pub struct RoleAssignment {
