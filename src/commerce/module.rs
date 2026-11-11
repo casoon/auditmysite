@@ -14,7 +14,7 @@ use crate::tech_stack::TechCategory;
 
 use super::analyze_commerce;
 
-pub struct CommerceModule;
+pub(crate) struct CommerceModule;
 
 #[async_trait]
 impl AuditModule for CommerceModule {

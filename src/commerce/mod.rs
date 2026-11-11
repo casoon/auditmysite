@@ -26,9 +26,9 @@
 //! never claims no such function exists on the page, only that none was
 //! identified via the tracked `autocomplete` signal.
 
-pub mod module;
+pub(crate) mod module;
 
-pub use module::CommerceModule;
+pub(crate) use module::CommerceModule;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -86,7 +86,7 @@ pub enum CommercePageKind {
 }
 
 /// Classify a shop page from its URL path and whether it carries Product schema.
-pub fn detect_page_kind(url: &str, has_product_schema: bool) -> CommercePageKind {
+pub(crate) fn detect_page_kind(url: &str, has_product_schema: bool) -> CommercePageKind {
     // Path including the leading slash (so "/kategorie/" needles match), host stripped.
     let after_scheme = url.split_once("://").map(|(_, rest)| rest).unwrap_or(url);
     let path = match after_scheme.find('/') {
@@ -170,6 +170,10 @@ pub struct TrustPages {
     pub kontakt: bool,
 }
 
+#[expect(
+    clippy::enum_variant_names,
+    reason = "every kind names a missing element; the variant names are the serialized `missing_*` kinds of the JSON report"
+)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CommerceFindingKind {
@@ -197,7 +201,7 @@ pub struct CommerceFinding {
 
 /// Site-wide commerce roll-up across an audited batch (slice 2b).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CommerceSiteSummary {
+pub(crate) struct CommerceSiteSummary {
     /// Trust pages linked on at least one audited page (union).
     pub trust_pages_linked: TrustPages,
     /// Mandatory/trust categories not linked anywhere in the audited set.
@@ -209,7 +213,7 @@ pub struct CommerceSiteSummary {
 
 /// Aggregate per-page commerce results into a site-wide roll-up. Returns `None`
 /// when no audited page produced commerce data (i.e. not a shop).
-pub fn aggregate_site_commerce<'a>(
+pub(crate) fn aggregate_site_commerce<'a>(
     commerces: impl Iterator<Item = &'a CommerceAnalysis>,
 ) -> Option<CommerceSiteSummary> {
     use CommerceFindingKind::*;
@@ -309,7 +313,7 @@ const BFSG_PARAGRAPH_ECOMMERCE: &str = "§ 19 Nr. 3 BFSGV";
 /// identification/authentication-purpose field (BFSGV §19 Nr. 3 signal, see
 /// this module's doc comment). Returns `None` for pages with neither product
 /// schema nor a shop stack (non-shop pages).
-pub fn analyze_commerce(
+pub(crate) fn analyze_commerce(
     url: &str,
     structured_data: &StructuredData,
     anchor_texts: &[String],
@@ -426,7 +430,7 @@ fn push_trust_findings(t: &TrustPages, out: &mut Vec<CommerceFinding>) {
 }
 
 /// Detect mandatory/trust page links from anchor texts (case-insensitive).
-pub fn detect_trust_pages(anchor_texts: &[String]) -> TrustPages {
+pub(crate) fn detect_trust_pages(anchor_texts: &[String]) -> TrustPages {
     let lower: Vec<String> = anchor_texts.iter().map(|t| t.to_lowercase()).collect();
     let any = |needles: &[&str]| lower.iter().any(|t| needles.iter().any(|n| t.contains(n)));
     TrustPages {
@@ -448,7 +452,7 @@ fn finding(kind: CommerceFindingKind, severity: Severity) -> CommerceFinding {
 }
 
 /// Single source of truth for finding wording (#406).
-pub fn commerce_finding_text(kind: CommerceFindingKind, en: bool) -> String {
+pub(crate) fn commerce_finding_text(kind: CommerceFindingKind, en: bool) -> String {
     use CommerceFindingKind::*;
     match (kind, en) {
         (MissingPrice, true) => {

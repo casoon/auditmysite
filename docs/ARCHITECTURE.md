@@ -23,7 +23,7 @@ auditmysite is a WCAG 2.2 AA accessibility checker written in Rust. It uses Chro
 ```
 src/
 ├── main.rs              # CLI entry point
-├── lib.rs               # Library exports
+├── lib.rs               # Library exports; modules are `pub(crate)` unless listed in the curated surface (see "Library surface")
 ├── error.rs             # Error types (AuditError)
 ├── annotations.rs       # --annotations (#961): reads the barrierlab annotation file, matches it to findings; outputs render the result apart from the findings
 ├── util.rs              # Utility functions
@@ -315,7 +315,7 @@ src/
 │   ├── live_regions.rs  # MutationObserver over aria-live regions — records events, not state
 │   └── stability.rs     # Bounded DOM/app-ready settling before each capture
 │
-├── assessment/          # Shared assessment types and evidence model
+├── assessment/          # Shared assessment types and evidence model (`pub(crate)`, types re-exported at the root)
 │   └── mod.rs
 │
 ├── studio/              # Studio contract types (GUI data contract)
@@ -328,6 +328,20 @@ locales/                 # Fluent sources, compiled in with include_str!
 ├── de/                  # report.ftl, rules.ftl, page-health.ftl, seo-issues.ftl
 └── en/                  # same key sets as de/ (guard tests in i18n, taxonomy::rules and output::explanations)
 ```
+
+## Library surface
+
+The crate is a CLI first; the library is for Studio and for programs that run the pipeline
+(#940). `src/lib.rs` declares the visibility of every module, and `docs/reference/api.md` holds the
+policy and the table: *curated* modules (`audit`, `browser`, `cli`, `error`, `model`, `output`,
+`studio`) are `pub` and only the items api.md lists are covered by the semver promise, *queued*
+modules are `pub` only because the two binaries, the integration tests (which are external crates
+and see only the public surface) or Studio import from them, and *crate* modules (`assessment`,
+`commerce`) are `pub(crate)`. A new module is `pub(crate)`; adding a `pub mod` needs a row in
+`tests/fixtures/architecture/library_surface.txt` and in api.md, which
+`cargo test --test library_surface` enforces. The same test pins the paths Studio imports. The
+queued modules are narrowed in slices, each a `pub(crate)` change plus the tests that moved next to
+the code (order in api.md).
 
 ## Data Flow
 

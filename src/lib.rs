@@ -1,5 +1,10 @@
 //! AuditMySite - Resource-efficient WCAG 2.2 AA Accessibility Checker
 //!
+//! **Stability:** the CLI, the JSON report and the curated library surface listed in
+//! `docs/reference/api.md` are stable; every other `pub` item, and every `#[doc(hidden)]` one, is
+//! public only for the binaries, the integration tests and Studio and may change in any release.
+//! Modules are narrowed to `pub(crate)` one by one (#940).
+//!
 //! A fast, accurate accessibility auditing tool written in Rust.
 //! Uses Chrome DevTools Protocol (CDP) to extract the Accessibility Tree
 //! and analyze it for WCAG violations.
@@ -48,24 +53,14 @@
 //! }
 //! ```
 //!
-//! ## Modules
+//! ## Public surface
 //!
-//! - Browser and capture: [`browser`], [`accessibility`] (AXTree extraction),
-//!   [`interaction`], [`a11y_journey`]
-//! - Accessibility checks: [`wcag`] (rule engine), [`screen_reader`],
-//!   [`html_conform`], [`patterns`]
-//! - Further analysis modules: [`performance`], [`seo`], [`security`],
-//!   [`mobile`], [`best_practices`], [`page_flow`], [`ux`],
-//!   [`content_visibility`], [`ai_visibility`], [`source_quality`],
-//!   [`tech_stack`], [`commerce`]
-//! - Orchestration and scoring: [`audit`] (pipeline, batch, normalization),
-//!   [`taxonomy`], [`assessment`], [`registry`]
-//! - Output: [`output`] (JSON, table, PDF), [`lint`] (report-lint),
-//!   [`studio`] (types shared with auditmysite_studio), [`i18n`]
-//! - Entry points and support: [`cli`], [`model`] (shared value types),
-//!   [`error`], [`util`]
-//!
-//! See `docs/ARCHITECTURE.md` for the full module structure.
+//! The entry points are in [`audit`] (pipeline, batch, report types, normalised report),
+//! [`browser`] (browser management), [`output`] (JSON, SARIF, PDF and table writers), [`error`] and
+//! [`model`] (shared value types); [`studio`] is the contract with auditmysite_studio. The
+//! other `pub` modules are not covered by the stability promise and are being narrowed; the
+//! table of what is covered, what is queued and what is already `pub(crate)` is in
+//! `docs/reference/api.md`. See `docs/ARCHITECTURE.md` for the full module structure.
 //!
 //! ## WCAG coverage
 //!
@@ -82,12 +77,12 @@ pub mod a11y_journey;
 pub mod accessibility;
 pub mod ai_visibility;
 pub mod annotations;
-pub mod assessment;
+pub(crate) mod assessment;
 pub mod audit;
 pub mod best_practices;
 pub mod browser;
 pub mod cli;
-pub mod commerce;
+pub(crate) mod commerce;
 pub mod content_visibility;
 pub mod display;
 pub mod error;
