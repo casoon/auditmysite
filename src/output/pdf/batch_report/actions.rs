@@ -251,7 +251,7 @@ pub(super) fn render_batch_top_issues(
                     content: pres
                         .top_issues
                         .iter()
-                        .find(|g| g.rule_id == c.rule_id)
+                        .find(|g| g.finding.rule_id == c.rule_id)
                         .map(|g| g.title.clone())
                         .unwrap_or_else(|| c.rule_id.clone()),
                     icon: None,
@@ -325,7 +325,7 @@ pub(super) fn render_batch_top_issues(
         let effort_label = effort_short_label_i18n(group.effort, i18n);
         let meta_line = format!(
             "{} {} · {} {} · {}: {} · {}: {}",
-            group.occurrence_count,
+            group.finding.occurrence_count,
             occurrences_word_top,
             urls,
             affected_urls_word,

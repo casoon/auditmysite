@@ -168,9 +168,10 @@ pub fn render_single_report_for(
     for tier in &vm.findings.by_severity {
         let mut group = RmFindingGroup::new(&tier.label).with_total_count(tier.total_occurrences);
         for f in tier.findings.iter().take(3) {
-            let mut finding = Finding::new(severity_tone(f.severity), &f.customer_description)
-                .with_rule_id(&f.rule_id)
-                .with_remedy(&f.recommendation);
+            let mut finding =
+                Finding::new(severity_tone(f.finding.severity), &f.customer_description)
+                    .with_rule_id(&f.finding.rule_id)
+                    .with_remedy(&f.recommendation);
             if !f.title.is_empty() {
                 finding =
                     finding.with_location(runemark::location::Location::Selector(f.title.clone()));
@@ -367,9 +368,12 @@ pub fn render_batch_report(
         RmFindingGroup::new("Top recurring rules").with_total_count(presentation.top_issues.len());
     for issue in presentation.top_issues.iter().take(5) {
         group = group.add_finding(
-            Finding::new(severity_tone(issue.severity), &issue.customer_description)
-                .with_rule_id(&issue.rule_id)
-                .with_remedy(&issue.recommendation),
+            Finding::new(
+                severity_tone(issue.finding.severity),
+                &issue.customer_description,
+            )
+            .with_rule_id(&issue.finding.rule_id)
+            .with_remedy(&issue.recommendation),
         );
     }
     if !group.findings.is_empty() {

@@ -106,19 +106,15 @@ pub fn build_batch_presentation_with_normalized(
     let top_issues: Vec<FindingGroup> =
         crate::audit::normalized::aggregate_batch_findings(normalized_reports)
             .into_iter()
-            .map(|batch| {
-                let mut group = finding_group_from_normalized(i18n, &batch.finding);
-                group.affected_urls = batch.urls;
-                group
-            })
+            .map(|(finding, urls)| finding_group_from_normalized(i18n, finding, urls))
             .collect();
 
     let issue_frequency: Vec<IssueFrequency> = top_issues
         .iter()
         .map(|g| IssueFrequency {
             problem: g.title.clone(),
-            wcag: g.wcag_criterion.clone(),
-            occurrences: g.occurrence_count,
+            wcag: g.finding.wcag_criterion.clone(),
+            occurrences: g.finding.occurrence_count,
             affected_urls: g.affected_urls.len(),
             priority: g.priority,
         })
@@ -1646,9 +1642,7 @@ fn normalized_finding_groups(i18n: &I18n, normalized: &NormalizedReport) -> Vec<
         .findings
         .iter()
         .map(|finding| {
-            let mut group = finding_group_from_normalized(i18n, finding);
-            group.affected_urls = vec![normalized.url.clone()];
-            group
+            finding_group_from_normalized(i18n, finding.clone(), vec![normalized.url.clone()])
         })
         .collect()
 }

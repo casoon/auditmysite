@@ -113,16 +113,8 @@ pub(super) fn derive_positive_aspects_from_normalized(
 impl Clone for FindingGroup {
     fn clone(&self) -> Self {
         FindingGroup {
+            finding: self.finding.clone(),
             title: self.title.clone(),
-            rule_id: self.rule_id.clone(),
-            finding_id: self.finding_id.clone(),
-            wcag_criterion: self.wcag_criterion.clone(),
-            wcag_level: self.wcag_level.clone(),
-            help_url: self.help_url.clone(),
-            dimension: self.dimension.clone(),
-            subcategory: self.subcategory.clone(),
-            issue_class: self.issue_class.clone(),
-            severity: self.severity,
             priority: self.priority,
             customer_description: self.customer_description.clone(),
             user_impact: self.user_impact.clone(),
@@ -130,19 +122,7 @@ impl Clone for FindingGroup {
             typical_cause: self.typical_cause.clone(),
             recommendation: self.recommendation.clone(),
             technical_note: self.technical_note.clone(),
-            confidence: self.confidence.clone(),
-            false_positive_risk: self.false_positive_risk.clone(),
-            verification: self.verification.clone(),
-            complexity: self.complexity.clone(),
-            complexity_reason: self.complexity_reason.clone(),
-            complexity_kind: self.complexity_kind,
-            expected_impact: self.expected_impact.clone(),
-            expected_impact_kind: self.expected_impact_kind.clone(),
-            bfsg_relevance: self.bfsg_relevance.clone(),
-            remediation_priority: self.remediation_priority.clone(),
-            occurrence_count: self.occurrence_count,
             affected_urls: self.affected_urls.clone(),
-            affected_elements: self.affected_elements,
             additional_occurrences: self.additional_occurrences,
             pattern_clusters: self
                 .pattern_clusters

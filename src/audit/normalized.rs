@@ -1076,27 +1076,23 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
     findings
 }
 
-/// One finding of a batch: a rule aggregated over every page it occurs on.
-#[derive(Debug, Clone)]
-pub struct BatchFinding {
-    /// The rule's finding with batch-wide `occurrence_count`, `severity` and
-    /// everything derived from them (priority, complexity, expected impact).
-    pub finding: NormalizedFinding,
-    /// Pages the rule occurs on, in batch order.
-    pub urls: Vec<String>,
-}
-
 /// Aggregates the findings of a batch per rule, in `action_order` — the one
 /// source for `top_actions` in the batch JSON and the top actions, finding
 /// list and action plan in the batch PDF (plan 64).
+///
+/// Each entry is the rule's finding with batch-wide `occurrence_count`,
+/// `severity` and everything derived from them (priority, complexity,
+/// expected impact), and the pages the rule occurs on, in batch order.
 ///
 /// Severity is the highest any page reported, as within a page (#288). The
 /// count-dependent fields are re-derived from the batch-wide count, so the
 /// expected impact no longer quotes one page's count next to the batch reach.
 /// A WCAG rule and an SEO check reporting the same defect under one title
 /// appear once, as the WCAG finding, as in the single report (plan 59).
-pub fn aggregate_batch_findings(reports: &[NormalizedReport]) -> Vec<BatchFinding> {
-    let mut aggregated: Vec<BatchFinding> = Vec::new();
+pub fn aggregate_batch_findings(
+    reports: &[NormalizedReport],
+) -> Vec<(NormalizedFinding, Vec<String>)> {
+    let mut aggregated: Vec<(NormalizedFinding, Vec<String>)> = Vec::new();
     let mut index: HashMap<String, usize> = HashMap::new();
     for report in reports {
         // Actions are primary findings: references and derived indicator
@@ -1104,19 +1100,16 @@ pub fn aggregate_batch_findings(reports: &[NormalizedReport]) -> Vec<BatchFindin
         for finding in report.findings.iter().filter(|f| f.contract.is_primary()) {
             match index.get(&finding.aggregation_key) {
                 Some(&i) => {
-                    let entry = &mut aggregated[i];
-                    entry.finding.occurrence_count += finding.occurrence_count;
-                    entry.finding.severity = entry.finding.severity.max(finding.severity);
-                    if !entry.urls.contains(&report.url) {
-                        entry.urls.push(report.url.clone());
+                    let (entry, urls) = &mut aggregated[i];
+                    entry.occurrence_count += finding.occurrence_count;
+                    entry.severity = entry.severity.max(finding.severity);
+                    if !urls.contains(&report.url) {
+                        urls.push(report.url.clone());
                     }
                 }
                 None => {
                     index.insert(finding.aggregation_key.clone(), aggregated.len());
-                    aggregated.push(BatchFinding {
-                        finding: finding.clone(),
-                        urls: vec![report.url.clone()],
-                    });
+                    aggregated.push((finding.clone(), vec![report.url.clone()]));
                 }
             }
         }
@@ -1124,18 +1117,17 @@ pub fn aggregate_batch_findings(reports: &[NormalizedReport]) -> Vec<BatchFindin
 
     let wcag_titles: HashSet<String> = aggregated
         .iter()
-        .filter(|b| b.finding.category == "wcag")
-        .map(|b| b.finding.title.trim().to_lowercase())
+        .filter(|(f, _)| f.category == "wcag")
+        .map(|(f, _)| f.title.trim().to_lowercase())
         .collect();
-    aggregated.retain(|b| {
-        b.finding.category == "wcag"
-            || !wcag_titles.contains(&b.finding.title.trim().to_lowercase())
+    aggregated.retain(|(f, _)| {
+        f.category == "wcag" || !wcag_titles.contains(&f.title.trim().to_lowercase())
     });
 
-    for entry in &mut aggregated {
-        rederive_count_dependent_fields(&mut entry.finding);
+    for (finding, _) in &mut aggregated {
+        rederive_count_dependent_fields(finding);
     }
-    aggregated.sort_by(|a, b| crate::audit::prioritization::action_order(&a.finding, &b.finding));
+    aggregated.sort_by(|(a, _), (b, _)| crate::audit::prioritization::action_order(a, b));
     aggregated
 }
 

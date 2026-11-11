@@ -506,7 +506,7 @@ fn every_domain_reaches_findings_inventory_and_projections() {
         .findings
         .all_findings
         .iter()
-        .map(|f| f.rule_id.as_str())
+        .map(|f| f.finding.rule_id.as_str())
         .collect();
     let visible: BTreeSet<&str> = normalized
         .findings
@@ -731,9 +731,9 @@ fn terminal_lists_the_view_model_findings_per_tier() {
         for finding in tier.findings.iter().take(3) {
             listed += 1;
             assert!(
-                terminal.contains(&finding.rule_id),
+                terminal.contains(&finding.finding.rule_id),
                 "terminal drops `{}`:\n{terminal}",
-                finding.rule_id
+                finding.finding.rule_id
             );
         }
     }

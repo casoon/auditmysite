@@ -10,11 +10,13 @@ use super::actions::{build_narrative_arc, derive_business_impact, localized_find
 
 /// The one `FindingGroup` builder of the single and the batch report (#937).
 /// A batch group is built from the cross-page aggregate finding
-/// (`aggregate_batch_findings`: summed `occurrence_count`, highest `severity`);
-/// the caller fills `affected_urls`, the only value a finding does not carry.
+/// (`aggregate_batch_findings`: summed `occurrence_count`, highest `severity`)
+/// and the pages it occurs on, the only value a finding does not carry; a
+/// single report passes no pages.
 pub(super) fn finding_group_from_normalized(
     i18n: &I18n,
-    f: &crate::audit::normalized::NormalizedFinding,
+    f: crate::audit::normalized::NormalizedFinding,
+    affected_urls: Vec<String>,
 ) -> FindingGroup {
     let locale = i18n.locale();
     let en = locale == "en";
@@ -39,7 +41,7 @@ pub(super) fn finding_group_from_normalized(
             // explanation's, which may be the criterion's fallback text and
             // would rename e.g. an invalid ARIA value to "missing name/role"
             // (plan 59).
-            localized_finding_text(locale, f).0,
+            localized_finding_text(locale, &f).0,
             expl.customer_description(en),
             expl.user_impact(en),
             derive_business_impact(
@@ -66,7 +68,7 @@ pub(super) fn finding_group_from_normalized(
         // has no English counterpart). Using `f.description` here (canonical
         // English, #406) would leak raw English prose into German reports —
         // never do that (Rule C, plain-language report plan).
-        let (title_loc, user_impact_loc, technical_loc) = localized_finding_text(locale, f);
+        let (title_loc, user_impact_loc, technical_loc) = localized_finding_text(locale, &f);
         (
             title_loc,
             technical_loc,
@@ -125,17 +127,24 @@ pub(super) fn finding_group_from_normalized(
         role,
     );
 
+    let structural_cause = if f.occurrence_count >= 10 {
+        Some(i18n.t_args(
+            "finding-structural-cause-component",
+            &[("count", f.occurrence_count.to_string())],
+        ))
+    } else if f.occurrence_count >= 5 {
+        Some(i18n.t_args(
+            "finding-structural-cause-shared",
+            &[("count", f.occurrence_count.to_string())],
+        ))
+    } else {
+        None
+    };
+    let is_component_issue = f.occurrence_count >= 10;
+    let criticality_tier = classify_criticality_tier(&f.category, &f.wcag_level);
+
     FindingGroup {
         title,
-        rule_id: f.rule_id.clone(),
-        finding_id: f.id.clone(),
-        wcag_criterion: f.wcag_criterion.clone(),
-        wcag_level: f.wcag_level.clone(),
-        help_url: f.understanding_url.clone(),
-        dimension: Some(f.dimension.clone()),
-        subcategory: Some(f.subcategory.clone()),
-        issue_class: Some(f.issue_class.clone()),
-        severity: f.severity,
         priority: severity_to_priority(f.severity),
         customer_description: customer_desc,
         user_impact: user_impact_text,
@@ -143,19 +152,7 @@ pub(super) fn finding_group_from_normalized(
         typical_cause,
         recommendation,
         technical_note,
-        confidence: f.confidence.clone(),
-        false_positive_risk: f.false_positive_risk.clone(),
-        verification: f.verification.clone(),
-        complexity: f.complexity.clone(),
-        complexity_reason: f.complexity_reason.clone(),
-        complexity_kind: f.complexity_kind,
-        expected_impact: f.expected_impact.clone(),
-        expected_impact_kind: f.expected_impact_kind.clone(),
-        bfsg_relevance: f.bfsg_relevance.clone(),
-        remediation_priority: f.remediation_priority.clone(),
-        occurrence_count: f.occurrence_count,
-        affected_urls: Vec::new(),
-        affected_elements: f.occurrence_count,
+        affected_urls,
         additional_occurrences,
         pattern_clusters,
         location_hints,
@@ -164,21 +161,10 @@ pub(super) fn finding_group_from_normalized(
         effort,
         execution_priority,
         examples,
-        structural_cause: if f.occurrence_count >= 10 {
-            Some(i18n.t_args(
-                "finding-structural-cause-component",
-                &[("count", f.occurrence_count.to_string())],
-            ))
-        } else if f.occurrence_count >= 5 {
-            Some(i18n.t_args(
-                "finding-structural-cause-shared",
-                &[("count", f.occurrence_count.to_string())],
-            ))
-        } else {
-            None
-        },
-        is_component_issue: f.occurrence_count >= 10,
-        criticality_tier: classify_criticality_tier(&f.category, &f.wcag_level),
+        structural_cause,
+        is_component_issue,
+        criticality_tier,
+        finding: f,
         narrative,
     }
 }
@@ -259,7 +245,7 @@ mod fallback_tests {
     fn fallback_customer_description_is_localized_not_raw_english() {
         let i18n = I18n::new("de").expect("test locale should load");
         let finding = uncovered_rule_finding();
-        let group = finding_group_from_normalized(&i18n, &finding);
+        let group = finding_group_from_normalized(&i18n, finding.clone(), Vec::new());
 
         assert_ne!(group.customer_description, finding.description);
         assert!(!group.customer_description.is_empty());
@@ -300,7 +286,7 @@ mod fallback_tests {
     fn region_finding_gets_landmark_example_not_table_fallback() {
         let i18n = I18n::new("de").expect("test locale should load");
         let finding = region_finding();
-        let group = finding_group_from_normalized(&i18n, &finding);
+        let group = finding_group_from_normalized(&i18n, finding.clone(), Vec::new());
 
         assert!(
             group.recommendation.contains("Landmark"),
@@ -344,13 +330,13 @@ mod fallback_tests {
     fn landmark_unique_finding_gets_own_title_not_generic_1_3_1_fallback() {
         let i18n = I18n::new("de").expect("test locale should load");
         let finding = landmark_unique_finding();
-        let group = finding_group_from_normalized(&i18n, &finding);
+        let group = finding_group_from_normalized(&i18n, finding.clone(), Vec::new());
 
         assert_eq!(group.title, "Landmarks nicht eindeutig benannt");
         assert_ne!(group.title, "Fehlende semantische Struktur");
         // Title and occurrence_count must come from the same finding, not an
         // accidental pairing across two different findings.
-        assert_eq!(group.occurrence_count, 31);
+        assert_eq!(group.finding.occurrence_count, 31);
     }
 
     /// Same fallback branch in English: no German umlauts/ß should leak in
@@ -359,7 +345,7 @@ mod fallback_tests {
     fn fallback_customer_description_en_has_no_german_umlauts() {
         let i18n = I18n::new("en").expect("test locale should load");
         let finding = uncovered_rule_finding();
-        let group = finding_group_from_normalized(&i18n, &finding);
+        let group = finding_group_from_normalized(&i18n, finding.clone(), Vec::new());
 
         assert!(!group.customer_description.is_empty());
         assert!(!group

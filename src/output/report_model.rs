@@ -661,20 +661,19 @@ pub struct NarrativeArc {
     pub umsetzung: String,
 }
 
-/// A grouped finding with customer-facing explanation
+/// The view model of one finding: the normalised finding it is derived from,
+/// plus the run-language texts and the presentation values the PDF, the
+/// terminal table and the action plan read (#937). Everything the finding
+/// already carries (rule id, criterion, severity, complexity, BFSG relevance,
+/// occurrence count, ...) is read from `finding`, never copied.
 pub struct FindingGroup {
+    /// The finding this group presents: one page's finding in a single
+    /// report, the cross-page aggregate (`aggregate_batch_findings`: summed
+    /// `occurrence_count`, highest `severity`) in a batch report. Its texts are
+    /// canonical English, or the run-language copy of `finding_text`.
+    pub finding: crate::audit::normalized::NormalizedFinding,
+    /// Rule title in the run language (`finding.title` is canonical English).
     pub title: String,
-    pub rule_id: String,
-    /// `findings[].id` of the JSON (`F-…`); the key annotations attach by.
-    pub finding_id: String,
-    pub wcag_criterion: String,
-    pub wcag_level: String,
-    /// Official reference URL for the criterion (e.g. WCAG Understanding page).
-    pub help_url: Option<String>,
-    pub dimension: Option<String>,
-    pub subcategory: Option<String>,
-    pub issue_class: Option<String>,
-    pub severity: Severity,
     pub priority: Priority,
     pub customer_description: String,
     pub user_impact: String,
@@ -682,23 +681,8 @@ pub struct FindingGroup {
     pub typical_cause: String,
     pub recommendation: String,
     pub technical_note: String,
-    pub confidence: String,
-    pub false_positive_risk: String,
-    pub verification: String,
-    pub complexity: String,
-    pub complexity_reason: String,
-    /// Stable identifier for `complexity_reason`'s sentence shape (for
-    /// localized re-derivation at render time, #406).
-    pub complexity_kind: crate::audit::normalized::ComplexityKind,
-    pub expected_impact: String,
-    /// Stable identifier for `expected_impact`'s sentence shape (for
-    /// localized re-derivation at render time, #406).
-    pub expected_impact_kind: crate::audit::normalized::ExpectedImpactKind,
-    pub bfsg_relevance: String,
-    pub remediation_priority: String,
-    pub occurrence_count: usize,
+    /// Pages the finding occurs on: empty in a single report.
     pub affected_urls: Vec<String>,
-    pub affected_elements: usize,
     pub additional_occurrences: usize,
     pub pattern_clusters: Vec<FindingPatternCluster>,
     pub location_hints: Vec<String>,

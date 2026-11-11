@@ -177,7 +177,7 @@ src/
 │   ├── sarif.rs         # SARIF output format
 │   ├── builder/         # AuditReport → PDF ViewModel transformation
 │   │   ├── mod.rs, actions.rs, modules.rs, helpers.rs, batch.rs
-│   │   ├── finding_group.rs # The one `report_model::FindingGroup` builder, shared by single and batch reports (#937); the batch caller only adds `affected_urls` to a cross-page aggregate finding
+│   │   ├── finding_group.rs # The one `report_model::FindingGroup` builder, shared by single and batch reports (#937); a group holds the `NormalizedFinding` it presents (a page's finding, or a cross-page aggregate with its `affected_urls`) plus the run-language texts
 │   │   └── single/      # Single-report builder (findings, etc.)
 │   │       └── module_details.rs + module_details/ # Per-module detail presentations,
 │   │                        # one file per module (mirrors pdf/detail_modules/)
@@ -421,7 +421,7 @@ Central data layer between raw `AuditReport` and output formats:
 - Carries explicit audit quality, module/rule execution status, accessibility assessments, and Journey coverage
 - Computes grade from corrected score
 - Single source of truth for JSON, PDF, and CLI output — ensures consistent scores
-- `NormalizedFinding` is built in `audit/` only (`normalized.rs`, `finding_contract.rs`). `output/` reads it and derives its view models (`report_model::FindingGroup`) from it, in one builder (`output/builder/finding_group.rs`) for the single and the batch report; `output_never_constructs_a_normalized_finding` in `tests/architecture_test.rs` fails on any struct literal under `src/output/` outside `#[cfg(test)]` items, and `output_never_takes_a_normalized_finding_by_mutable_reference` on any `&mut` to one. The run-language copy of a report for the German PDF is made in `audit/finding_text.rs`; `output/` only reads it (#937)
+- `NormalizedFinding` is built in `audit/` only (`normalized.rs`, `finding_contract.rs`). `output/` reads it and derives its view models (`report_model::FindingGroup`) from it, in one builder (`output/builder/finding_group.rs`) for the single and the batch report; a `FindingGroup` holds the finding in its field `finding` and adds only presentation (localized texts, effort, occurrence samples, narrative), it copies no finding field. A batch finding is the cross-page aggregate of `audit::normalized::aggregate_batch_findings`, a `NormalizedFinding` paired with the pages it occurs on. `FindingContract` is the `contract` field of every finding (`findings[].contract` in the JSON), not a separate representation; `output_never_constructs_a_normalized_finding` in `tests/architecture_test.rs` fails on any struct literal under `src/output/` outside `#[cfg(test)]` items, and `output_never_takes_a_normalized_finding_by_mutable_reference` on any `&mut` to one. The run-language copy of a report for the German PDF is made in `audit/finding_text.rs`; `output/` only reads it (#937)
 
 The overall score is reconstructed from contributing `module_scores` and their
 published weights, for single- and dual-viewport runs. Unchecked HTML conformance

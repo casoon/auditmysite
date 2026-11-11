@@ -62,9 +62,9 @@ pub(super) fn first_sentence(text: &str) -> &str {
 
 #[cfg(test)]
 fn customer_perspective_title(group: &FindingGroup, en: bool) -> &'static str {
-    let rule = group.rule_id.as_str();
-    let dimension = group.dimension.as_deref().unwrap_or_default();
-    let subcategory = group.subcategory.as_deref().unwrap_or_default();
+    let rule = group.finding.rule_id.as_str();
+    let dimension = group.finding.dimension.as_str();
+    let subcategory = group.finding.subcategory.as_str();
     let haystack = format!(
         "{} {} {} {}",
         rule,
@@ -246,7 +246,7 @@ pub(super) fn render_finding_technical(
     acronyms_expanded: &mut bool,
 ) -> renderreport::engine::ReportBuilder {
     let en = is_english(i18n);
-    let severity_prefix = match group.severity {
+    let severity_prefix = match group.finding.severity {
         crate::wcag::Severity::Critical => {
             if en {
                 "[Critical] "
@@ -276,28 +276,33 @@ pub(super) fn render_finding_technical(
             }
         }
     };
-    let color = super::design::severity_color(group.severity);
+    let color = super::design::severity_color(group.finding.severity);
 
-    let header = if !group.wcag_criterion.is_empty() {
+    let header = if !group.finding.wcag_criterion.is_empty() {
         // Flag criteria WCAG 2.2 added (e.g. 2.5.8) inline — they are inside
         // this report's audit-scope ratio and EN 301 549 V4.1.1, but were not
         // part of WCAG 2.1 / EN 301 549 V3.2.1. A finding tagged just "AA"
         // would hide that (#572, plan 54 §1).
-        let wcag22_suffix = if crate::wcag::coverage::is_wcag22_only(&group.wcag_criterion) {
+        let wcag22_suffix = if crate::wcag::coverage::is_wcag22_only(&group.finding.wcag_criterion)
+        {
             ", WCAG 2.2"
         } else {
             ""
         };
         format!(
             "{}{} — WCAG {} ({}{})",
-            severity_prefix, group.title, group.wcag_criterion, group.wcag_level, wcag22_suffix
+            severity_prefix,
+            group.title,
+            group.finding.wcag_criterion,
+            group.finding.wcag_level,
+            wcag22_suffix
         )
     } else if group.title.is_empty() {
         // Raw internal rule ids (e.g. "seo.headings.multiple_h1") are never
         // customer-facing prose — only fall back to one when there's truly no
         // title to show at all, and even then, don't also glue it onto a
         // perfectly good title as an unexplained suffix (#QA-039 report review).
-        format!("{}{}", severity_prefix, group.rule_id)
+        format!("{}{}", severity_prefix, group.finding.rule_id)
     } else {
         format!("{}{}", severity_prefix, group.title)
     };
@@ -364,7 +369,7 @@ pub(super) fn render_finding_technical(
                 } else {
                     "Umsetzungspriorität"
                 },
-                report_code_label(&group.remediation_priority, i18n),
+                report_code_label(&group.finding.remediation_priority, i18n),
             )
             .with_accent(super::design::tokens::INK),
         ])
@@ -387,7 +392,7 @@ pub(super) fn render_finding_technical(
             } else {
                 "Erkennungssicherheit"
             },
-            report_code_label(&group.confidence, i18n),
+            report_code_label(&group.finding.confidence, i18n),
         )
         .add(
             if is_english(i18n) {
@@ -395,22 +400,23 @@ pub(super) fn render_finding_technical(
             } else {
                 "Falschpositiv-Risiko"
             },
-            report_code_label(&group.false_positive_risk, i18n),
+            report_code_label(&group.finding.false_positive_risk, i18n),
         )
         .add(
             bfsg_eaa_label(i18n, acronyms_expanded),
-            report_code_label(&group.bfsg_relevance, i18n),
+            report_code_label(&group.finding.bfsg_relevance, i18n),
         )
         .add(
             i18n.t("finding-elements"),
-            group.affected_elements.to_string(),
+            group.finding.occurrence_count.to_string(),
         )
         .add(
             i18n.t("finding-occurrences"),
-            group.occurrence_count.to_string(),
+            group.finding.occurrence_count.to_string(),
         );
     if let Some(url) = group
-        .help_url
+        .finding
+        .understanding_url
         .as_deref()
         .map(str::trim)
         .filter(|u| !u.is_empty())
@@ -425,15 +431,16 @@ pub(super) fn render_finding_technical(
     // (mirroring the JSON), so printing them directly leaked raw English
     // prose into otherwise fully German reports (#406).
     let expected_impact =
-        crate::audit::normalized::expected_impact_text(&group.expected_impact_kind, en);
-    let complexity_reason = crate::audit::normalized::complexity_text(group.complexity_kind, en);
+        crate::audit::normalized::expected_impact_text(&group.finding.expected_impact_kind, en);
+    let complexity_reason =
+        crate::audit::normalized::complexity_text(group.finding.complexity_kind, en);
     // The 1.3.1 self-test is about headings and landmarks; the content-model
     // finding is about invalid children of lists and tables, so it does not
     // apply there (#902).
-    let recheck_instruction = if group.rule_id.contains("html-content-model") {
+    let recheck_instruction = if group.finding.rule_id.contains("html-content-model") {
         None
     } else {
-        manual_recheck_instruction(&group.wcag_criterion, en)
+        manual_recheck_instruction(&group.finding.wcag_criterion, en)
     };
     if !expected_impact.is_empty() || !complexity_reason.is_empty() || recheck_instruction.is_some()
     {
@@ -463,7 +470,7 @@ pub(super) fn render_finding_technical(
                 &complexity_reason,
             );
         }
-        if group.verification == "manual_review_recommended" {
+        if group.finding.verification == "manual_review_recommended" {
             assessment = assessment.add(
                 if is_english(i18n) {
                     "Verification"
@@ -511,7 +518,7 @@ pub(super) fn render_finding_technical(
     // The validator's "selector" is a source position (`190:12271`) and its
     // node id the rule key, not an element: the element type comes from the
     // message when it names one, the position is shown as line and column.
-    let is_html_conform = group.rule_id.starts_with("html_conform.");
+    let is_html_conform = group.finding.rule_id.starts_with("html_conform.");
     let location_label = |selector: &str| -> String {
         match is_html_conform
             .then(|| crate::html_conform::message::parse_location(selector))
@@ -784,9 +791,8 @@ fn extract_element_type(selector: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::customer_perspective_title;
-    use crate::output::report_model::{
-        CriticalityTier, Effort, FindingGroup, FindingPatternCluster, NarrativeArc, Priority, Role,
-    };
+    use crate::output::pdf::single_report::risk_and_strength_tests::test_report_view_model;
+    use crate::output::report_model::FindingGroup;
     use crate::wcag::Severity;
 
     /// Die Messwerte der geteilten Kontrastregel kommen ohne `:1`, die der
@@ -823,12 +829,12 @@ mod tests {
         use crate::screen_reader::BfsgVerdict;
 
         let mut contrast = group("contrast/text-insufficient", "Contrast", "Accessibility");
-        contrast.bfsg_relevance = "medium".to_string();
+        contrast.finding.bfsg_relevance = "medium".to_string();
         let mut html = group("html_conform.schema.html5", "Schema", "HTML Conformance");
-        html.bfsg_relevance = "low".to_string();
+        html.finding.bfsg_relevance = "low".to_string();
         let mut manual = group("a11y.x", "Manual", "Accessibility");
-        manual.bfsg_relevance = "high".to_string();
-        manual.verification = "manual_review_recommended".to_string();
+        manual.finding.bfsg_relevance = "high".to_string();
+        manual.finding.verification = "manual_review_recommended".to_string();
 
         assert_eq!(bfsg_relevant_wcag_findings(&[html.clone(), manual]), 0);
         let relevant = bfsg_relevant_wcag_findings(&[contrast, html]);
@@ -864,59 +870,19 @@ mod tests {
     }
 
     fn group(rule_id: &str, title: &str, dimension: &str) -> FindingGroup {
-        FindingGroup {
-            title: title.to_string(),
-            rule_id: rule_id.to_string(),
-            finding_id: String::new(),
-            wcag_criterion: String::new(),
-            wcag_level: String::new(),
-            help_url: None,
-            dimension: Some(dimension.to_string()),
-            subcategory: None,
-            issue_class: None,
-            severity: Severity::High,
-            priority: Priority::High,
-            customer_description: String::new(),
-            user_impact: "Nutzer können die betroffene Funktion nicht zuverlässig verwenden."
-                .to_string(),
-            business_impact: String::new(),
-            typical_cause: String::new(),
-            recommendation: String::new(),
-            technical_note: String::new(),
-            confidence: String::new(),
-            false_positive_risk: String::new(),
-            verification: String::new(),
-            complexity: String::new(),
-            complexity_reason: String::new(),
-            complexity_kind: crate::audit::normalized::ComplexityKind::LowScope,
-            expected_impact: String::new(),
-            expected_impact_kind: crate::audit::normalized::ExpectedImpactKind::Other {
-                occurrence_count: 1,
-                score_effect: crate::audit::normalized::ScoreEffect::Low,
-            },
-            bfsg_relevance: String::new(),
-            remediation_priority: String::new(),
-            occurrence_count: 1,
-            affected_urls: vec![],
-            affected_elements: 1,
-            additional_occurrences: 0,
-            pattern_clusters: Vec::<FindingPatternCluster>::new(),
-            location_hints: vec![],
-            representative_occurrences: vec![],
-            responsible_role: Role::Development,
-            effort: Effort::Medium,
-            execution_priority: crate::output::report_model::ExecutionPriority::Important,
-            examples: vec![],
-            structural_cause: None,
-            is_component_issue: false,
-            criticality_tier: CriticalityTier::Mandatory,
-            narrative: NarrativeArc {
-                diagnose: String::new(),
-                ursache: String::new(),
-                wirkung: String::new(),
-                umsetzung: String::new(),
-            },
-        }
+        let mut group = test_report_view_model().findings.all_findings.remove(0);
+        group.title = title.to_string();
+        group.user_impact =
+            "Nutzer können die betroffene Funktion nicht zuverlässig verwenden.".to_string();
+        let f = &mut group.finding;
+        f.rule_id = rule_id.to_string();
+        f.dimension = dimension.to_string();
+        f.subcategory = String::new();
+        f.severity = Severity::High;
+        f.occurrence_count = 1;
+        f.bfsg_relevance = String::new();
+        f.verification = String::new();
+        group
     }
 
     #[test]

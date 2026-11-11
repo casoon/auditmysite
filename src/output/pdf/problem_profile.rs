@@ -56,16 +56,19 @@ fn compute_problem_concentration(vm: &ReportViewModel) -> Option<ProblemConcentr
         .findings
         .all_findings
         .iter()
-        .filter(|f| f.occurrence_count > 0 && !f.wcag_criterion.is_empty())
+        .filter(|f| f.finding.occurrence_count > 0 && !f.finding.wcag_criterion.is_empty())
         .collect();
     if findings.is_empty() {
         return None;
     }
-    findings.sort_by_key(|f| std::cmp::Reverse(f.occurrence_count));
+    findings.sort_by_key(|f| std::cmp::Reverse(f.finding.occurrence_count));
 
-    let total_occurrences: usize = findings.iter().map(|f| f.occurrence_count).sum();
+    let total_occurrences: usize = findings.iter().map(|f| f.finding.occurrence_count).sum();
     let top_n = findings.len().min(PROBLEM_CONCENTRATION_TOP_N);
-    let top_occurrences: usize = findings[..top_n].iter().map(|f| f.occurrence_count).sum();
+    let top_occurrences: usize = findings[..top_n]
+        .iter()
+        .map(|f| f.finding.occurrence_count)
+        .sum();
     let concentration_pct = if total_occurrences > 0 {
         (top_occurrences as f64 * 100.0 / total_occurrences as f64).round() as i64
     } else {
@@ -495,10 +498,10 @@ mod tests {
         ];
         // 1 occurrence — matches the real audit's single text-spacing finding.
         let mut finding = vm.findings.all_findings[0].clone();
-        finding.rule_id = "1.4.12".into();
+        finding.finding.rule_id = "1.4.12".into();
         finding.title = "Inhalt wird abgeschnitten".into();
-        finding.occurrence_count = 1;
-        finding.wcag_criterion = "1.4.12".into();
+        finding.finding.occurrence_count = 1;
+        finding.finding.wcag_criterion = "1.4.12".into();
         vm.findings.all_findings = vec![finding];
 
         let kind = classify_problem_profile(&vm);
@@ -534,16 +537,16 @@ mod tests {
             crate::audit::normalized::ModuleScoreEntry::new("Mobile", 80, "measured", true),
         ];
         let mut f1 = vm.findings.all_findings[0].clone();
-        f1.rule_id = "1.4.3".into();
+        f1.finding.rule_id = "1.4.3".into();
         f1.title = "Kontrast unzureichend".into();
-        f1.occurrence_count = 60;
-        f1.wcag_criterion = "1.4.3".into();
+        f1.finding.occurrence_count = 60;
+        f1.finding.wcag_criterion = "1.4.3".into();
 
         let mut f2 = vm.findings.all_findings[0].clone();
-        f2.rule_id = "4.1.2".into();
+        f2.finding.rule_id = "4.1.2".into();
         f2.title = "Name/Rolle fehlt".into();
-        f2.occurrence_count = 30;
-        f2.wcag_criterion = "4.1.2".into();
+        f2.finding.occurrence_count = 30;
+        f2.finding.wcag_criterion = "4.1.2".into();
         vm.findings.all_findings = vec![f1, f2];
 
         let kind = classify_problem_profile(&vm);

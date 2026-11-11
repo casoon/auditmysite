@@ -412,7 +412,7 @@ mod tests {
             .findings
             .all_findings
             .iter()
-            .map(|f| f.wcag_criterion.as_str())
+            .map(|f| f.finding.wcag_criterion.as_str())
             .collect();
 
         for &criterion in &criteria {
@@ -938,9 +938,9 @@ mod tests {
         let group = pres
             .top_issues
             .iter()
-            .find(|g| g.rule_id == "timing/meta-refresh")
+            .find(|g| g.finding.rule_id == "timing/meta-refresh")
             .expect("the rule is aggregated");
-        assert_eq!(group.occurrence_count, 28);
+        assert_eq!(group.finding.occurrence_count, 28);
         assert_eq!(group.affected_urls.len(), 2);
         assert_eq!(
             group.customer_description,

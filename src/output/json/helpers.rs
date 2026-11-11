@@ -430,8 +430,7 @@ pub(super) fn build_decision_actions(
     crate::audit::normalized::aggregate_batch_findings(reports)
         .into_iter()
         .take(8)
-        .map(|batch| {
-            let finding = batch.finding;
+        .map(|(finding, urls)| {
             // `root_causes` is sorted by reach, so the first match is the
             // rule's most widespread pattern.
             let root_cause_id = root_causes
@@ -445,7 +444,7 @@ pub(super) fn build_decision_actions(
                 priority: finding.remediation_priority,
                 complexity: finding.complexity,
                 occurrence_count: finding.occurrence_count,
-                url_count: batch.urls.len(),
+                url_count: urls.len(),
                 finding_id: finding.id,
                 root_cause_id,
                 expected_impact: finding.expected_impact,
