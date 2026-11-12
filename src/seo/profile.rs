@@ -4,6 +4,7 @@
 //! und erzeugt eine kompakte Zusammenfassung: Was ist die Seite, welche technischen
 //! SEO-Signale werden eingesetzt, wie vollständig sind strukturierte Daten.
 
+use fluent_bundle::FluentValue;
 use serde::{Deserialize, Serialize};
 use web_checks::meta::LengthClass;
 
@@ -350,61 +351,34 @@ fn classify_page(seo: &SeoAnalysis, en: bool) -> PageClassification {
 
     let intent_fit_score =
         score_intent_fit(&primary_type, word_count, h2_plus_count, internal_links);
-    let mut attributes = Vec::new();
+    let mut attribute_keys = Vec::new();
     if word_count >= 1200 {
-        attributes.push(if en { "text-rich" } else { "textstark" }.to_string());
+        attribute_keys.push("seo-profile-attribute-text-rich");
     } else if word_count < 300 {
-        attributes.push(if en { "very short" } else { "sehr kurz" }.to_string());
+        attribute_keys.push("seo-profile-attribute-very-short");
     }
     if h2_plus_count >= 3 {
-        attributes.push(if en { "structured" } else { "strukturiert" }.to_string());
+        attribute_keys.push("seo-profile-attribute-structured");
     }
     if internal_links >= 30 {
-        attributes.push(
-            if en {
-                "navigation-heavy"
-            } else {
-                "navigationslastig"
-            }
-            .to_string(),
-        );
+        attribute_keys.push("seo-profile-attribute-navigation-heavy");
     }
     if seo.social.open_graph.is_some() {
-        attributes.push(
-            if en {
-                "visually oriented"
-            } else {
-                "visuell geprägt"
-            }
-            .to_string(),
-        );
+        attribute_keys.push("seo-profile-attribute-visually-oriented");
     }
     if has_faq {
-        attributes.push(
-            if en {
-                "knowledge-oriented"
-            } else {
-                "wissensorientiert"
-            }
-            .to_string(),
-        );
+        attribute_keys.push("seo-profile-attribute-knowledge-oriented");
     }
     if matches!(primary_type, PageType::MarketingLanding) {
-        attributes.push(
-            if en {
-                "conversion-oriented"
-            } else {
-                "conversionorientiert"
-            }
-            .to_string(),
-        );
+        attribute_keys.push("seo-profile-attribute-conversion-oriented");
     }
     if matches!(primary_type, PageType::Utility) {
-        attributes.push(if en { "purpose-bound" } else { "zweckgebunden" }.to_string());
+        attribute_keys.push("seo-profile-attribute-purpose-bound");
     }
     if matches!(primary_type, PageType::ThinContent) {
-        attributes.push(if en { "thin" } else { "dünn" }.to_string());
+        attribute_keys.push("seo-profile-attribute-thin");
     }
+    let mut attributes: Vec<String> = attribute_keys.into_iter().map(|key| t(key, en)).collect();
     attributes.sort();
     attributes.dedup();
 
@@ -586,9 +560,9 @@ fn derive_content_type(seo: &SeoAnalysis, en: bool) -> String {
     if let Some(ref og) = seo.social.open_graph {
         if let Some(ref og_type) = og.og_type {
             match og_type.as_str() {
-                "article" => return if en { "Article" } else { "Artikel" }.to_string(),
-                "product" => return if en { "Product" } else { "Produkt" }.to_string(),
-                "profile" => return if en { "Profile" } else { "Profil" }.to_string(),
+                "article" => return t("seo-profile-content-type-article", en),
+                "product" => return t("seo-profile-content-type-product", en),
+                "profile" => return t("seo-profile-content-type-profile", en),
                 "website" => {} // generic, check schema types
                 _ => {}
             }
@@ -596,44 +570,19 @@ fn derive_content_type(seo: &SeoAnalysis, en: bool) -> String {
     }
 
     // Check JSON-LD types
-    for t in &seo.structured_data.types {
-        match t {
+    for schema_type in &seo.structured_data.types {
+        let key = match schema_type {
             SchemaType::Article | SchemaType::BlogPosting | SchemaType::NewsArticle => {
-                return if en {
-                    "Article / Blog"
-                } else {
-                    "Artikel / Blog"
-                }
-                .to_string()
+                "seo-profile-content-type-article-blog"
             }
-            SchemaType::Product => {
-                return if en {
-                    "E-Commerce / Product"
-                } else {
-                    "E-Commerce / Produkt"
-                }
-                .to_string()
-            }
-            SchemaType::LocalBusiness => {
-                return if en {
-                    "Local business"
-                } else {
-                    "Lokales Unternehmen"
-                }
-                .to_string()
-            }
-            SchemaType::Event => return if en { "Event" } else { "Veranstaltung" }.to_string(),
-            SchemaType::Recipe => return if en { "Recipe" } else { "Rezept" }.to_string(),
-            SchemaType::FAQPage => {
-                return if en {
-                    "FAQ / Information page"
-                } else {
-                    "FAQ / Informationsseite"
-                }
-                .to_string()
-            }
-            _ => {}
-        }
+            SchemaType::Product => "seo-profile-content-type-ecommerce-product",
+            SchemaType::LocalBusiness => "seo-profile-content-type-local-business",
+            SchemaType::Event => "seo-profile-content-type-event",
+            SchemaType::Recipe => "seo-profile-content-type-recipe",
+            SchemaType::FAQPage => "seo-profile-content-type-faq",
+            _ => continue,
+        };
+        return t(key, en);
     }
 
     "Website".to_string()
@@ -660,10 +609,8 @@ fn build_summary(seo: &SeoAnalysis, en: bool) -> String {
         title.to_string()
     } else if !desc.is_empty() {
         desc.to_string()
-    } else if en {
-        "No meta information found.".to_string()
     } else {
-        "Keine Meta-Informationen gefunden.".to_string()
+        t("seo-profile-summary-none", en)
     }
 }
 
@@ -999,11 +946,7 @@ fn analyze_generic(v: &serde_json::Value, en: bool) -> SchemaExtracted {
                 serde_json::Value::Number(n) => n.to_string(),
                 serde_json::Value::Bool(b) => b.to_string(),
                 serde_json::Value::Array(a) => {
-                    if en {
-                        format!("[{} entries]", a.len())
-                    } else {
-                        format!("[{} Einträge]", a.len())
-                    }
+                    count_text("seo-profile-generic-array-entries", a.len(), en)
                 }
                 serde_json::Value::Object(_) => "{...}".to_string(),
                 serde_json::Value::Null => continue,
@@ -1058,6 +1001,21 @@ fn check(label: &str, passed: bool, detail: Option<String>) -> SignalCheck {
     }
 }
 
+/// The `seo-profile-*` message `key` of `locales/{en,de}/seo-issues.ftl`.
+fn t(key: &str, en: bool) -> String {
+    crate::i18n::text(key, en)
+}
+
+/// The `seo-profile-*` message `key` with the number `$count`.
+fn count_text(key: &str, count: usize, en: bool) -> String {
+    crate::i18n::count_text(key, count, en)
+}
+
+/// The `seo-profile-*` message `key` with the text `$list`.
+fn list_text(key: &str, list: &str, en: bool) -> String {
+    crate::i18n::text_args(key, &[("list", FluentValue::from(list.to_string()))], en)
+}
+
 fn build_meta_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
     let title_ok = seo
         .meta
@@ -1072,22 +1030,12 @@ fn build_meta_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
         .map(|d| web_checks::meta::DESCRIPTION.classify(d) == LengthClass::Ok)
         .unwrap_or(false);
 
-    let chars = |n: usize| {
-        if en {
-            format!("{} characters", n)
-        } else {
-            format!("{} Zeichen", n)
-        }
-    };
-    let missing = || if en { "missing" } else { "fehlt" }.to_string();
+    let chars = |n: usize| count_text("seo-profile-detail-characters", n, en);
+    let missing = || t("seo-profile-detail-missing", en);
 
     let checks = vec![
         check(
-            if en {
-                "Title present & length optimal"
-            } else {
-                "Title vorhanden & Länge optimal"
-            },
+            &t("seo-profile-check-title", en),
             title_ok,
             seo.meta
                 .title
@@ -1095,11 +1043,7 @@ fn build_meta_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
                 .map(|t| chars(web_checks::meta::length(t))),
         ),
         check(
-            if en {
-                "Description present & length optimal"
-            } else {
-                "Description vorhanden & Länge optimal"
-            },
+            &t("seo-profile-check-description", en),
             desc_ok,
             seo.meta
                 .description
@@ -1107,29 +1051,17 @@ fn build_meta_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
                 .map(|d| chars(web_checks::meta::length(d))),
         ),
         check(
-            if en {
-                "Viewport configured"
-            } else {
-                "Viewport konfiguriert"
-            },
+            &t("seo-profile-check-viewport", en),
             seo.meta.viewport.is_some(),
             Some(seo.meta.viewport.clone().unwrap_or_else(missing)),
         ),
         check(
-            if en {
-                "Charset defined"
-            } else {
-                "Charset definiert"
-            },
+            &t("seo-profile-check-charset", en),
             seo.meta.charset.is_some(),
             Some(seo.meta.charset.clone().unwrap_or_else(missing)),
         ),
         check(
-            if en {
-                "Language (lang) set"
-            } else {
-                "Sprache (lang) gesetzt"
-            },
+            &t("seo-profile-check-lang-set", en),
             seo.meta.lang.is_some(),
             seo.meta.lang.clone(),
         ),
@@ -1169,90 +1101,59 @@ fn build_heading_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
 
     let checks = vec![
         check(
-            if en { "Exactly one H1" } else { "Genau ein H1" },
+            &t("seo-profile-check-single-h1", en),
             h1_ok,
-            Some(if en {
-                format!("{} H1 tags found", seo.headings.h1_count)
-            } else {
-                format!("{} H1-Tags gefunden", seo.headings.h1_count)
-            }),
+            Some(count_text(
+                "seo-profile-detail-h1-count",
+                seo.headings.h1_count,
+                en,
+            )),
         ),
         check(
-            if en {
-                "H1 text present"
-            } else {
-                "H1-Text vorhanden"
-            },
+            &t("seo-profile-check-h1-text", en),
             h1_not_empty,
             Some(
                 seo.headings
                     .h1_text
                     .clone()
-                    .unwrap_or_else(|| if en { "no H1 text" } else { "kein H1-Text" }.to_string()),
+                    .unwrap_or_else(|| t("seo-profile-detail-no-h1-text", en)),
             ),
         ),
         check(
-            if en {
-                "No skipped levels"
-            } else {
-                "Keine übersprungenen Ebenen"
-            },
+            &t("seo-profile-check-no-skipped-levels", en),
             no_skipped,
-            Some(
+            Some(t(
                 if no_skipped {
-                    if en {
-                        "no gaps"
-                    } else {
-                        "keine Lücken"
-                    }
-                } else if en {
-                    "levels skipped"
+                    "seo-profile-detail-no-gaps"
                 } else {
-                    "Ebenen übersprungen"
-                }
-                .to_string(),
-            ),
+                    "seo-profile-detail-levels-skipped"
+                },
+                en,
+            )),
         ),
         check(
-            if en {
-                "Logical hierarchy"
-            } else {
-                "Logische Hierarchie"
-            },
+            &t("seo-profile-check-logical-hierarchy", en),
             no_issues,
             Some(if no_issues {
-                if en { "no issues" } else { "keine Probleme" }.to_string()
+                t("seo-profile-detail-no-issues", en)
             } else {
-                let first = match (first_not_h1, first_level) {
-                    (true, Some(level)) if en => format!(", first heading is H{level}"),
-                    (true, Some(level)) => format!(", erste Überschrift ist H{level}"),
-                    _ => String::new(),
-                };
-                if en {
-                    format!(
-                        "{order_problems} {}{first}",
-                        if order_problems == 1 {
-                            "issue"
-                        } else {
-                            "issues"
-                        }
-                    )
-                } else {
-                    format!(
-                        "{order_problems} {}{first}",
-                        if order_problems == 1 {
-                            "Problem"
-                        } else {
-                            "Probleme"
-                        }
-                    )
+                match (first_not_h1, first_level) {
+                    (true, Some(level)) => crate::i18n::text_args(
+                        "seo-profile-detail-order-problems-first-heading",
+                        &[
+                            ("count", FluentValue::from(order_problems as i64)),
+                            ("level", FluentValue::from(i64::from(level))),
+                        ],
+                        en,
+                    ),
+                    _ => count_text("seo-profile-detail-order-problems", order_problems, en),
                 }
             }),
         ),
     ];
     let (passed, total) = category_counts(&checks);
     SignalCategory {
-        name: if en { "Headings" } else { "Überschriften" }.to_string(),
+        name: t("seo-profile-category-headings", en),
         passed,
         total,
         checks,
@@ -1276,36 +1177,24 @@ fn build_social_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
         .unwrap_or(false);
 
     let present_or_missing = |present: bool| {
-        if present {
-            if en {
-                "present"
+        t(
+            if present {
+                "seo-profile-detail-present"
             } else {
-                "vorhanden"
-            }
-        } else if en {
-            "missing"
-        } else {
-            "fehlt"
-        }
-        .to_string()
+                "seo-profile-detail-missing"
+            },
+            en,
+        )
     };
 
     let checks = vec![
         check(
-            if en {
-                "OpenGraph tags present"
-            } else {
-                "OpenGraph-Tags vorhanden"
-            },
+            &t("seo-profile-check-og-present", en),
             og_present,
             Some(present_or_missing(og_present)),
         ),
         check(
-            if en {
-                "OpenGraph ≥ 80% complete"
-            } else {
-                "OpenGraph ≥ 80% vollständig"
-            },
+            &t("seo-profile-check-og-complete", en),
             og_complete,
             seo.social
                 .open_graph
@@ -1314,20 +1203,12 @@ fn build_social_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
                 .or_else(|| Some(present_or_missing(false))),
         ),
         check(
-            if en {
-                "Twitter Card present"
-            } else {
-                "Twitter Card vorhanden"
-            },
+            &t("seo-profile-check-twitter-present", en),
             tw_present,
             Some(present_or_missing(tw_present)),
         ),
         check(
-            if en {
-                "Twitter Card ≥ 75% complete"
-            } else {
-                "Twitter Card ≥ 75% vollständig"
-            },
+            &t("seo-profile-check-twitter-complete", en),
             tw_complete,
             seo.social
                 .twitter_card
@@ -1353,26 +1234,20 @@ fn build_technical_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
         .map(|r| !r.contains("noindex"))
         .unwrap_or(true); // No robots meta = ok (default is index)
 
-    let missing = || if en { "missing" } else { "fehlt" }.to_string();
+    let missing = || t("seo-profile-detail-missing", en);
 
     let checks = vec![
         check(
             "HTTPS",
             seo.technical.https,
-            Some(
+            Some(t(
                 if seo.technical.https {
-                    if en {
-                        "active"
-                    } else {
-                        "aktiv"
-                    }
-                } else if en {
-                    "missing"
+                    "seo-profile-detail-active"
                 } else {
-                    "fehlt"
-                }
-                .to_string(),
-            ),
+                    "seo-profile-detail-missing"
+                },
+                en,
+            )),
         ),
         check(
             "Canonical URL",
@@ -1380,52 +1255,37 @@ fn build_technical_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
             Some(seo.technical.canonical_url.clone().unwrap_or_else(missing)),
         ),
         check(
-            if en {
-                "Language (lang)"
-            } else {
-                "Sprache (lang)"
-            },
+            &t("seo-profile-check-lang", en),
             seo.technical.has_lang,
             Some(seo.technical.lang.clone().unwrap_or_else(missing)),
         ),
         check(
-            if en {
-                "Hreflang (multilingual)"
-            } else {
-                "Hreflang (Mehrsprachigkeit)"
-            },
+            &t("seo-profile-check-hreflang", en),
             true,
             Some(if seo.technical.has_hreflang {
-                if en {
-                    format!("{} languages", seo.technical.hreflang.len())
-                } else {
-                    format!("{} Sprachen", seo.technical.hreflang.len())
-                }
-            } else if en {
-                "no hreflang tags (not needed for a single-language page)".to_string()
+                count_text(
+                    "seo-profile-detail-hreflang-languages",
+                    seo.technical.hreflang.len(),
+                    en,
+                )
             } else {
-                "keine Hreflang-Tags (bei einsprachigen Seiten nicht nötig)".to_string()
+                t("seo-profile-detail-no-hreflang", en)
             }),
         ),
         check(
-            if en {
-                "Robots allows indexing"
-            } else {
-                "Robots erlaubt Indexierung"
-            },
+            &t("seo-profile-check-robots-indexing", en),
             robots_ok,
-            Some(seo.technical.robots_meta.clone().unwrap_or_else(|| {
-                if en {
-                    "no robots meta tag (default: index)".to_string()
-                } else {
-                    "kein Robots-Meta-Tag (Standard: index)".to_string()
-                }
-            })),
+            Some(
+                seo.technical
+                    .robots_meta
+                    .clone()
+                    .unwrap_or_else(|| t("seo-profile-detail-no-robots-meta", en)),
+            ),
         ),
     ];
     let (passed, total) = category_counts(&checks);
     SignalCategory {
-        name: if en { "Technical" } else { "Technisch" }.to_string(),
+        name: t("seo-profile-category-technical", en),
         passed,
         total,
         checks,
@@ -1444,18 +1304,10 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
 
     let mut checks = vec![
         check(
-            if en {
-                "Structured data present"
-            } else {
-                "Strukturierte Daten vorhanden"
-            },
+            &t("seo-profile-check-structured-data", en),
             has_any,
             Some(if !has_any {
-                if en {
-                    "no structured data".to_string()
-                } else {
-                    "keine strukturierten Daten".to_string()
-                }
+                t("seo-profile-detail-no-structured-data", en)
             } else {
                 let n = seo
                     .structured_data
@@ -1472,63 +1324,42 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
                     .iter()
                     .any(|schema| !schema.is_valid)
                 {
-                    if en {
-                        "JSON-LD detected but not evaluable".to_string()
-                    } else {
-                        "JSON-LD erkannt, aber nicht auswertbar".to_string()
-                    }
-                } else if en {
+                    t("seo-profile-detail-jsonld-not-evaluable", en)
+                } else {
                     // has_structured_data is true via microdata/RDFa, but
                     // json_ld is empty — the count only tracks JSON-LD, so
                     // "0 Schemas" would contradict the passing checkmark above.
-                    "structured data detected (microdata/RDFa, no JSON-LD)".to_string()
-                } else {
-                    "strukturierte Daten erkannt (Microdata/RDFa, kein JSON-LD)".to_string()
+                    t("seo-profile-detail-microdata-only", en)
                 }
             }),
         ),
         check(
-            if en {
-                "Rich-result type detected"
-            } else {
-                "Rich-Result-Typ erkannt"
-            },
+            &t("seo-profile-check-rich-result", en),
             has_rich,
             Some(if has_rich {
-                if en {
-                    format!(
-                        "{} (type detection only; eligibility also requires complete, matching content)",
-                        seo.structured_data.rich_snippets_potential.join(", ")
-                    )
-                } else {
-                    format!(
-                        "{} (nur Typ-Erkennung; Eignung erfordert zusätzlich vollständige, passende Inhalte)",
-                        seo.structured_data.rich_snippets_potential.join(", ")
-                    )
-                }
-            } else if en {
-                "no rich-result types detected".to_string()
+                crate::i18n::text_args(
+                    "seo-profile-detail-rich-result-types",
+                    &[(
+                        "types",
+                        FluentValue::from(seo.structured_data.rich_snippets_potential.join(", ")),
+                    )],
+                    en,
+                )
             } else {
-                "keine Rich-Result-Typen erkannt".to_string()
+                t("seo-profile-detail-no-rich-result-types", en)
             }),
         ),
         check(
             "Organization/WebSite Schema",
             has_org,
-            Some(
+            Some(t(
                 if has_org {
-                    if en {
-                        "present"
-                    } else {
-                        "vorhanden"
-                    }
-                } else if en {
-                    "missing"
+                    "seo-profile-detail-present"
                 } else {
-                    "fehlt"
-                }
-                .to_string(),
-            ),
+                    "seo-profile-detail-missing"
+                },
+                en,
+            )),
         ),
     ];
 
@@ -1566,18 +1397,14 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
             .into_iter()
             .flatten()
             .collect();
-            Some(if en {
-                format!("Missing: {}", missing.join(", "))
-            } else {
-                format!("Fehlt: {}", missing.join(", "))
-            })
+            Some(list_text(
+                "seo-profile-detail-nap-missing",
+                &missing.join(", "),
+                en,
+            ))
         };
         checks.push(check(
-            if en {
-                "LocalBusiness NAP complete"
-            } else {
-                "LocalBusiness NAP vollständig"
-            },
+            &t("seo-profile-check-local-business-nap", en),
             nap_complete,
             nap_detail,
         ));
@@ -1586,37 +1413,17 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
         let has_geo = !lb["geo"].is_null()
             && (!lb["geo"]["latitude"].is_null() || !lb["geo"]["longitude"].is_null());
         checks.push(check(
-            if en {
-                "LocalBusiness geo coordinates"
-            } else {
-                "LocalBusiness Geo-Koordinaten"
-            },
+            &t("seo-profile-check-local-business-geo", en),
             has_geo,
-            if has_geo {
-                None
-            } else if en {
-                Some("geo.latitude/longitude missing".to_string())
-            } else {
-                Some("geo.latitude/longitude fehlt".to_string())
-            },
+            (!has_geo).then(|| t("seo-profile-detail-geo-missing", en)),
         ));
 
         // Trust signals: sameAs (authority links to social profiles / Wikidata)
         let has_same_as = !lb["sameAs"].is_null();
         checks.push(check(
-            if en {
-                "LocalBusiness sameAs (authority links)"
-            } else {
-                "LocalBusiness sameAs (Autoritätslinks)"
-            },
+            &t("seo-profile-check-local-business-same-as", en),
             has_same_as,
-            if has_same_as {
-                None
-            } else if en {
-                Some("sameAs missing — prevents a knowledge panel".to_string())
-            } else {
-                Some("sameAs fehlt — verhindert Knowledge-Panel".to_string())
-            },
+            (!has_same_as).then(|| t("seo-profile-detail-same-as-missing", en)),
         ));
 
         // aggregateRating
@@ -1624,13 +1431,7 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
         checks.push(check(
             "LocalBusiness aggregateRating",
             has_rating,
-            if has_rating {
-                None
-            } else if en {
-                Some("aggregateRating missing — no stars in the SERP".to_string())
-            } else {
-                Some("aggregateRating fehlt — keine Sterne im SERP".to_string())
-            },
+            (!has_rating).then(|| t("seo-profile-detail-rating-missing", en)),
         ));
 
         // Contradiction check: multiple conflicting LocalBusiness schemas
@@ -1640,35 +1441,17 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
                 .iter()
                 .all(|s| s.content["name"].as_str().unwrap_or("") == first_name);
             checks.push(check(
-                if en {
-                    "LocalBusiness schemas consistent"
-                } else {
-                    "LocalBusiness-Schemas konsistent"
-                },
+                &t("seo-profile-check-local-business-consistent", en),
                 consistent,
-                if consistent {
-                    if en {
-                        Some(format!(
-                            "{} schemas, name consistent",
-                            local_businesses.len()
-                        ))
+                Some(count_text(
+                    if consistent {
+                        "seo-profile-detail-local-business-consistent"
                     } else {
-                        Some(format!(
-                            "{} Schemas, Name einheitlich",
-                            local_businesses.len()
-                        ))
-                    }
-                } else if en {
-                    Some(format!(
-                        "{} schemas with conflicting name",
-                        local_businesses.len()
-                    ))
-                } else {
-                    Some(format!(
-                        "{} Schemas mit widersprüchlichem Namen",
-                        local_businesses.len()
-                    ))
-                },
+                        "seo-profile-detail-local-business-conflicting"
+                    },
+                    local_businesses.len(),
+                    en,
+                )),
             ));
         }
     }
@@ -1681,11 +1464,7 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
         .collect();
     if !structural_issues.is_empty() {
         checks.push(check(
-            if en {
-                "JSON-LD syntax and structure"
-            } else {
-                "JSON-LD-Syntax und -Struktur"
-            },
+            &t("seo-profile-check-jsonld-structure", en),
             false,
             Some(
                 structural_issues
@@ -1709,29 +1488,17 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
         let passed =
             assessment.requirement_status != SchemaRequirementStatus::MissingRequiredProperties;
         let detail = if !assessment.missing_required.is_empty() {
-            if en {
-                format!(
-                    "Missing required: {}",
-                    assessment.missing_required.join(", ")
-                )
-            } else {
-                format!(
-                    "Pflichtangaben fehlen: {}",
-                    assessment.missing_required.join(", ")
-                )
-            }
+            list_text(
+                "seo-profile-detail-missing-required",
+                &assessment.missing_required.join(", "),
+                en,
+            )
         } else if !assessment.missing_recommended.is_empty() {
-            if en {
-                format!(
-                    "Recommended properties not present: {}",
-                    assessment.missing_recommended.join(", ")
-                )
-            } else {
-                format!(
-                    "Empfohlene Angaben nicht vorhanden: {}",
-                    assessment.missing_recommended.join(", ")
-                )
-            }
+            list_text(
+                "seo-profile-detail-missing-recommended",
+                &assessment.missing_recommended.join(", "),
+                en,
+            )
         } else {
             crate::seo::schema_rules::status_text(assessment, en).to_string()
         };
@@ -1748,12 +1515,7 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
 
     let (passed, total) = category_counts(&checks);
     SignalCategory {
-        name: if en {
-            "Structured data"
-        } else {
-            "Strukturierte Daten"
-        }
-        .to_string(),
+        name: t("seo-profile-category-structured-data", en),
         passed,
         total,
         checks,
@@ -1767,37 +1529,21 @@ fn build_content_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
 
     let checks = vec![
         check(
-            if en {
-                "Readable text volume (≥ 300 words, guideline)"
-            } else {
-                "Lesbarer Textumfang (≥ 300 Wörter, Richtwert)"
-            },
+            &t("seo-profile-check-text-volume", en),
             wc >= 300,
-            Some(if en {
-                format!("{} words", wc)
-            } else {
-                format!("{} Wörter", wc)
-            }),
+            Some(count_text("seo-profile-detail-words", wc as usize, en)),
         ),
         check(
-            if en {
-                "Internal linking (≥ 3 links)"
-            } else {
-                "Interne Verlinkung (≥ 3 Links)"
-            },
+            &t("seo-profile-check-internal-linking", en),
             il >= 3,
-            Some(if en {
-                format!("{} internal links", il)
-            } else {
-                format!("{} interne Links", il)
-            }),
+            Some(count_text(
+                "seo-profile-detail-internal-links",
+                il as usize,
+                en,
+            )),
         ),
         check(
-            if en {
-                "Link density > 0.5%"
-            } else {
-                "Linkdichte > 0,5%"
-            },
+            &t("seo-profile-check-link-density", en),
             link_density > 0.005,
             Some(format!(
                 "{}%",
@@ -1807,12 +1553,7 @@ fn build_content_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory {
     ];
     let (passed, total) = category_counts(&checks);
     SignalCategory {
-        name: if en {
-            "Technical content base"
-        } else {
-            "Technische Inhaltsbasis"
-        }
-        .to_string(),
+        name: t("seo-profile-category-content-base", en),
         passed,
         total,
         checks,

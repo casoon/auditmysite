@@ -5,8 +5,8 @@
 # messages as numbers, so the plural agreement lives here. Which issues exist
 # and their severity stay in Rust. Also the table labels of the structured-data
 # issues (`seo::schema::schema_issue_label`) and of the robots.txt audit (bot
-# classes and policy labels of `seo::robots`), the labels of the SEO content
-# profile (`seo::profile`), the SERP status labels (`seo::serp`) and the
+# classes and policy labels of `seo::robots`), the labels and texts of the SEO
+# content profile (`seo::profile`), the SERP status labels (`seo::serp`) and the
 # structured-data fit and content-parity texts (`seo::schema_fit`,
 # `seo::schema_parity`).
 
@@ -128,6 +128,100 @@ seo-profile-page-type-marketing-landing = Marketing / Landing Page
 seo-profile-page-type-media-heavy = Media-oriented page
 seo-profile-page-type-utility = Transactional / Utility
 seo-profile-page-type-thin-content = Thin / Minimal Content
+
+# Texts of the SEO content profile (`seo::profile::build_content_profile`):
+# the page attributes, the content type, the summary without meta
+# information, the entry count of a generic schema field and the names,
+# check labels and details of the signal categories. Which attribute, check
+# and detail applies stays in Rust; language-neutral names (Meta-Tags, Social
+# Media, HTTPS, Canonical URL, Website) are written there.
+seo-profile-attribute-text-rich = text-rich
+seo-profile-attribute-very-short = very short
+seo-profile-attribute-structured = structured
+seo-profile-attribute-navigation-heavy = navigation-heavy
+seo-profile-attribute-visually-oriented = visually oriented
+seo-profile-attribute-knowledge-oriented = knowledge-oriented
+seo-profile-attribute-conversion-oriented = conversion-oriented
+seo-profile-attribute-purpose-bound = purpose-bound
+seo-profile-attribute-thin = thin
+seo-profile-content-type-article = Article
+seo-profile-content-type-product = Product
+seo-profile-content-type-profile = Profile
+seo-profile-content-type-article-blog = Article / Blog
+seo-profile-content-type-ecommerce-product = E-Commerce / Product
+seo-profile-content-type-local-business = Local business
+seo-profile-content-type-event = Event
+seo-profile-content-type-recipe = Recipe
+seo-profile-content-type-faq = FAQ / Information page
+seo-profile-summary-none = No meta information found.
+seo-profile-generic-array-entries = [{ $count } entries]
+seo-profile-detail-characters = { $count } characters
+seo-profile-detail-missing = missing
+seo-profile-detail-present = present
+seo-profile-detail-active = active
+seo-profile-check-title = Title present & length optimal
+seo-profile-check-description = Description present & length optimal
+seo-profile-check-viewport = Viewport configured
+seo-profile-check-charset = Charset defined
+seo-profile-check-lang-set = Language (lang) set
+seo-profile-category-headings = Headings
+seo-profile-check-single-h1 = Exactly one H1
+seo-profile-detail-h1-count = { $count } H1 tags found
+seo-profile-check-h1-text = H1 text present
+seo-profile-detail-no-h1-text = no H1 text
+seo-profile-check-no-skipped-levels = No skipped levels
+seo-profile-detail-no-gaps = no gaps
+seo-profile-detail-levels-skipped = levels skipped
+seo-profile-check-logical-hierarchy = Logical hierarchy
+seo-profile-detail-no-issues = no issues
+seo-profile-detail-order-problems =
+    { $count } { $count ->
+        [one] issue
+       *[other] issues
+    }
+seo-profile-detail-order-problems-first-heading =
+    { $count } { $count ->
+        [one] issue
+       *[other] issues
+    }, first heading is H{ $level }
+seo-profile-check-og-present = OpenGraph tags present
+seo-profile-check-og-complete = OpenGraph ≥ 80% complete
+seo-profile-check-twitter-present = Twitter Card present
+seo-profile-check-twitter-complete = Twitter Card ≥ 75% complete
+seo-profile-category-technical = Technical
+seo-profile-check-lang = Language (lang)
+seo-profile-check-hreflang = Hreflang (multilingual)
+seo-profile-detail-hreflang-languages = { $count } languages
+seo-profile-detail-no-hreflang = no hreflang tags (not needed for a single-language page)
+seo-profile-check-robots-indexing = Robots allows indexing
+seo-profile-detail-no-robots-meta = no robots meta tag (default: index)
+seo-profile-category-structured-data = Structured data
+seo-profile-check-structured-data = Structured data present
+seo-profile-detail-no-structured-data = no structured data
+seo-profile-detail-jsonld-not-evaluable = JSON-LD detected but not evaluable
+seo-profile-detail-microdata-only = structured data detected (microdata/RDFa, no JSON-LD)
+seo-profile-check-rich-result = Rich-result type detected
+seo-profile-detail-rich-result-types = { $types } (type detection only; eligibility also requires complete, matching content)
+seo-profile-detail-no-rich-result-types = no rich-result types detected
+seo-profile-check-local-business-nap = LocalBusiness NAP complete
+seo-profile-detail-nap-missing = Missing: { $list }
+seo-profile-check-local-business-geo = LocalBusiness geo coordinates
+seo-profile-detail-geo-missing = geo.latitude/longitude missing
+seo-profile-check-local-business-same-as = LocalBusiness sameAs (authority links)
+seo-profile-detail-same-as-missing = sameAs missing — prevents a knowledge panel
+seo-profile-detail-rating-missing = aggregateRating missing — no stars in the SERP
+seo-profile-check-local-business-consistent = LocalBusiness schemas consistent
+seo-profile-detail-local-business-consistent = { $count } schemas, name consistent
+seo-profile-detail-local-business-conflicting = { $count } schemas with conflicting name
+seo-profile-check-jsonld-structure = JSON-LD syntax and structure
+seo-profile-detail-missing-required = Missing required: { $list }
+seo-profile-detail-missing-recommended = Recommended properties not present: { $list }
+seo-profile-category-content-base = Technical content base
+seo-profile-check-text-volume = Readable text volume (≥ 300 words, guideline)
+seo-profile-detail-words = { $count } words
+seo-profile-check-internal-linking = Internal linking (≥ 3 links)
+seo-profile-detail-internal-links = { $count } internal links
+seo-profile-check-link-density = Link density > 0.5%
 
 # Status labels of the SERP signals (`seo::serp::SerpSignalStatus::label`).
 seo-serp-status-ok = OK

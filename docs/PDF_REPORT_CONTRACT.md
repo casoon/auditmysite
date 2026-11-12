@@ -166,7 +166,11 @@ surface that owns its lifecycle:
   robots.txt audit (`seo::robots::BotClass::label`, `infer_robots_policy`,
   `localize_policy_label`, `seo-robots-*`), the content-profile labels
   (`seo::profile::SeoMaturityLevel::label`/`description`, `PageType::label`,
-  `seo-profile-*`) and the SERP status labels
+  `seo-profile-*`) and texts (`seo::profile::build_content_profile`: content
+  type, summary fallback, page attributes and the names, check labels and
+  details of the signal categories, `seo-profile-*`; which check and detail
+  applies stays in Rust, language-neutral names such as `Meta-Tags` and
+  `HTTPS` are written there) and the SERP status labels
   (`seo::serp::SerpSignalStatus::label`, `seo-serp-status-*`), the
   structured-data fit labels (`seo::schema_fit::SchemaPageKind::label`,
   `SchemaFitAssessment::fit_text`, `seo-schema-fit-*`) and the content-parity
