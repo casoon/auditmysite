@@ -20,6 +20,7 @@ use crate::common::detection_corpus::{
 };
 use crate::common::rule_contracts::{load_contracts, Automation, RuleContract};
 use auditmysite::audit::finding_contract::check_title;
+use auditmysite::audit::finding_titles::finding_title;
 use auditmysite::audit::rule_docs::{library_page_id, schema_page_id, security_page_id};
 use auditmysite::seo::schema_rules::{feature_label, SchemaFeature};
 use auditmysite::taxonomy::rules::RULES;
@@ -398,7 +399,7 @@ pub fn pages() -> Vec<RulePage> {
     for (page_id, checks) in by_page {
         let issue_type = page_id.rsplit('.').next().unwrap().to_string();
         // The title the finding itself carries in the JSON.
-        let title = check_title(&issue_type);
+        let title = finding_title(&page_id, true).unwrap_or_else(|| check_title(&issue_type));
         pages.push(RulePage {
             url: rule_doc_url(&page_id),
             id: page_id,

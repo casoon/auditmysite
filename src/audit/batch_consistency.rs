@@ -887,7 +887,24 @@ fn analyze_schema_graph(reports: &[AuditReport]) -> SchemaGraphAnalysis {
     }
 }
 
-/// Recursively collect entities with `@id` from a JSON-LD value.
+/// The `@type` of a JSON-LD node: a single type, or the sorted types of an
+/// array. `None` for a node without one.
+fn schema_node_type(obj: &serde_json::Map<String, serde_json::Value>) -> Option<String> {
+    match obj.get("@type")? {
+        serde_json::Value::String(t) => Some(t.clone()),
+        serde_json::Value::Array(types) => {
+            let mut types: Vec<&str> = types.iter().filter_map(|t| t.as_str()).collect();
+            types.sort_unstable();
+            (!types.is_empty()).then(|| types.join(", "))
+        }
+        _ => None,
+    }
+}
+
+/// Recursively collect the entities a JSON-LD value declares: nodes with
+/// `@id` and `@type`. A node with `@id` but without `@type` (`"founder":
+/// {"@id": "…#person"}`) references an entity declared elsewhere and declares
+/// no type, so it is not compared (#1039).
 fn collect_schema_entities(
     value: &serde_json::Value,
     page_url: &str,
@@ -895,12 +912,10 @@ fn collect_schema_entities(
 ) {
     match value {
         serde_json::Value::Object(obj) => {
-            if let Some(id) = obj.get("@id").and_then(|v| v.as_str()) {
-                let schema_type = obj
-                    .get("@type")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
+            if let (Some(id), Some(schema_type)) = (
+                obj.get("@id").and_then(|v| v.as_str()),
+                schema_node_type(obj),
+            ) {
                 let name = obj
                     .get("name")
                     .and_then(|v| v.as_str())
@@ -1386,5 +1401,60 @@ mod tests {
             conflict_ids,
             ["https://a.com/#a", "https://a.com/#m", "https://a.com/#z"]
         );
+    }
+
+    /// A reference node (`{"@id": …}` without `@type`) declares no type: an
+    /// entity declared as Person on every page and referenced from another
+    /// node is no conflict (JSON-LD 1.1, node references; #1039).
+    #[test]
+    fn test_schema_graph_reference_nodes_are_not_declarations() {
+        use crate::seo::schema::{JsonLdSchema, StructuredData};
+        use serde_json::json;
+
+        let make_schema_report = |url: &str| {
+            let mut report = AuditReport::new(url.into(), WcagLevel::AA, WcagResults::new(), 100);
+            report.discoverability.seo = Some(SeoAnalysis {
+                structured_data: StructuredData {
+                    json_ld: vec![JsonLdSchema {
+                        schema_type: "Organization".to_string(),
+                        schema_types: vec!["Organization".to_string(), "Person".to_string()],
+                        content: json!({
+                            "@graph": [
+                                {
+                                    "@id": "https://a.com/#org",
+                                    "@type": "Organization",
+                                    "name": "Acme",
+                                    "founder": { "@id": "https://a.com/#person" }
+                                },
+                                {
+                                    "@id": "https://a.com/#person",
+                                    "@type": "Person",
+                                    "name": "Jane",
+                                    "worksFor": { "@id": "https://a.com/#org" }
+                                }
+                            ]
+                        }),
+                        is_valid: true,
+                    }],
+                    has_structured_data: true,
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+            report
+        };
+
+        let reports = vec![
+            make_schema_report("https://a.com/"),
+            make_schema_report("https://a.com/about"),
+        ];
+        let batch = BatchReport::from_reports(reports, vec![], 100);
+        let a = analyze(&batch).expect("batch ≥ 2");
+        assert!(
+            a.schema_graph.conflicts.is_empty(),
+            "{:?}",
+            a.schema_graph.conflicts
+        );
+        assert!(a.schema_graph.findings.is_empty());
     }
 }

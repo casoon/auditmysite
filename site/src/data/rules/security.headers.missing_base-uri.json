@@ -2,7 +2,7 @@
   "id": "security.headers.missing_base-uri",
   "url": "https://casoon.github.io/auditmysite/rules/security.headers.missing_base-uri/",
   "domain": "security",
-  "title": "Missing base-uri",
+  "title": "CSP: base-uri directive missing",
   "outcome": "automatic",
   "area": "Security, response headers",
   "checks": [

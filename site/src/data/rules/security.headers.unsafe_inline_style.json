@@ -2,7 +2,7 @@
   "id": "security.headers.unsafe_inline_style",
   "url": "https://casoon.github.io/auditmysite/rules/security.headers.unsafe_inline_style/",
   "domain": "security",
-  "title": "Unsafe inline style",
+  "title": "CSP allows inline styles",
   "outcome": "automatic",
   "area": "Security, response headers",
   "checks": [

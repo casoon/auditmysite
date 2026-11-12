@@ -2,7 +2,7 @@
   "id": "security.headers.missing_object-src",
   "url": "https://casoon.github.io/auditmysite/rules/security.headers.missing_object-src/",
   "domain": "security",
-  "title": "Missing object-src",
+  "title": "CSP: object-src directive missing",
   "outcome": "automatic",
   "area": "Security, response headers",
   "checks": [

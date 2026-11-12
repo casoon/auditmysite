@@ -2,7 +2,7 @@
   "id": "security.headers.unsafe_inline_script",
   "url": "https://casoon.github.io/auditmysite/rules/security.headers.unsafe_inline_script/",
   "domain": "security",
-  "title": "Unsafe inline script",
+  "title": "CSP allows inline scripts",
   "outcome": "automatic",
   "area": "Security, response headers",
   "checks": [

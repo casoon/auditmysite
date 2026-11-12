@@ -522,7 +522,9 @@ pub(super) fn average_accessibility_score(reports: &[NormalizedReport]) -> u32 {
     if reports.is_empty() {
         0
     } else {
-        reports.iter().map(|r| r.score).sum::<u32>() / reports.len() as u32
+        // Rounded like `summary.average_score` and the module averages (#1039).
+        let sum: u32 = reports.iter().map(|r| r.score).sum();
+        (sum as f64 / reports.len() as f64).round() as u32
     }
 }
 

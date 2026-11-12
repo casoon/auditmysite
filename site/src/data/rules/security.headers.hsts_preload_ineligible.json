@@ -2,7 +2,7 @@
   "id": "security.headers.hsts_preload_ineligible",
   "url": "https://casoon.github.io/auditmysite/rules/security.headers.hsts_preload_ineligible/",
   "domain": "security",
-  "title": "Hsts preload ineligible",
+  "title": "HSTS preload requirements not met",
   "outcome": "automatic",
   "area": "Security, response headers",
   "checks": [
