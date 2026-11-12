@@ -208,6 +208,15 @@ surface that owns its lifecycle:
   joined. A basis or identity finding the analysis stores in canonical English
   is the English message itself (`$basis`, `$finding`); the German message
   translates it.
+- `locales/{de,en}/single-report.ftl`: the texts of the single PDF's page
+  sections (`output::pdf::single_report`, `single-report-*`): the part
+  dividers, the management summary (scope line, evidence note, overall
+  rating, risks and strengths, key measures), the findings classification and
+  matrix, the appendix with its manual-review notes, the recognized structural
+  patterns and the dual viewport summary. The render functions keep the
+  thresholds, which message applies and how lists are joined; the severity
+  labels, the overall rating title, verdict words and reasons, the module
+  names and the matrix column headers are reused `report.ftl` messages.
 - `src/output/explanations.rs`: the explanation table itself: which entries
   exist, owner role, effort, and the code examples (canonical English), plus
   `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are

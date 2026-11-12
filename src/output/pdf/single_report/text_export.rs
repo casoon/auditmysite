@@ -383,7 +383,6 @@ fn export_findings(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
             components(render_findings_section(
                 bare(),
                 vm,
-                lang == "en",
                 i18n,
                 0,
                 &mut seq,
@@ -592,7 +591,7 @@ fn export_dual_viewport(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
 }
 
 /// Every record of the export, in both languages.
-fn records() -> Vec<Value> {
+pub(super) fn records() -> Vec<Value> {
     let mut records: Vec<Value> = Vec::new();
     for lang in LANGS {
         let i18n = I18n::new(lang).unwrap();
