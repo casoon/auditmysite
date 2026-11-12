@@ -18,6 +18,8 @@ mod privacy;
 mod seo;
 #[cfg(test)]
 mod text_export;
+#[cfg(test)]
+mod text_guard;
 
 use actions::*;
 use appendix::*;

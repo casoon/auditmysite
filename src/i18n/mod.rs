@@ -35,7 +35,9 @@ impl I18n {
         // enums (`labels.ftl`: page intent, execution priority, issue class,
         // subcategory, evidence source and field) and the titles of the
         // findings outside the WCAG taxonomy and their fixes
-        // (`audit::finding_titles`) are nine resources of the one bundle.
+        // (`audit::finding_titles`) and the texts of the batch PDF's
+        // consistency and management sections (`batch-consistency.ftl`) are
+        // ten resources of the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -47,6 +49,7 @@ impl I18n {
                 include_str!("../../locales/en/labels.ftl"),
                 include_str!("../../locales/en/finding-titles.ftl"),
                 include_str!("../../locales/en/finding-fixes.ftl"),
+                include_str!("../../locales/en/batch-consistency.ftl"),
             ],
             _ => [
                 include_str!("../../locales/de/report.ftl"),
@@ -58,6 +61,7 @@ impl I18n {
                 include_str!("../../locales/de/labels.ftl"),
                 include_str!("../../locales/de/finding-titles.ftl"),
                 include_str!("../../locales/de/finding-fixes.ftl"),
+                include_str!("../../locales/de/batch-consistency.ftl"),
             ],
         };
         for ftl in sources {

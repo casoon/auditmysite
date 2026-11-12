@@ -412,7 +412,6 @@ fn dist(critical: usize, high: usize) -> SeverityDistribution {
 }
 
 fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
-    let en = lang == "en";
     for kind in [
         "consent_banner",
         "bypass_blocks_untested",
@@ -427,7 +426,7 @@ fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
             "audit_flag_batch_title",
             kind,
             lang,
-            audit_flag_batch_title(kind, en)
+            audit_flag_batch_title(kind, i18n)
         ]));
     }
 
@@ -623,15 +622,21 @@ fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
     }
 }
 
-#[test]
-#[ignore = "writes reports/batch-consistency-texts.json; run before and after a change of the text storage"]
-fn export_batch_consistency_texts() {
+/// Every record of the export, in both languages.
+pub(super) fn records() -> Vec<Value> {
     let mut records: Vec<Value> = Vec::new();
     for lang in LANGS {
         let i18n = I18n::new(lang).unwrap();
         export_consistency(&mut records, lang, &i18n);
         export_management(&mut records, lang, &i18n);
     }
+    records
+}
+
+#[test]
+#[ignore = "writes reports/batch-consistency-texts.json; run before and after a change of the text storage"]
+fn export_batch_consistency_texts() {
+    let records = records();
     let path = std::env::var("BATCH_CONSISTENCY_TEXT_EXPORT").unwrap_or_else(|_| {
         format!(
             "{}/reports/batch-consistency-texts.json",

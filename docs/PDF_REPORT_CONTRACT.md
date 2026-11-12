@@ -192,6 +192,15 @@ surface that owns its lifecycle:
   mapping. The PDF tables of priority, role and effort use their own
   `report.ftl` messages (`priority-*`, `role-*`, `effort-*`), which word some of
   them differently; the `labels-` prefix keeps the two apart.
+- `locales/{de,en}/batch-consistency.ftl`: the texts of the batch PDF's
+  cross-page consistency section (`output::pdf::batch_report::consistency`,
+  `batch-consistency-*`) and of its management assessment, key points, audit
+  caveats, internal comparison and decision table
+  (`output::pdf::batch_report::management`, `batch-management-*`). The render
+  functions keep the thresholds, which message applies and how lists are
+  joined. A basis or identity finding the analysis stores in canonical English
+  is the English message itself (`$basis`, `$finding`); the German message
+  translates it.
 - `src/output/explanations.rs`: the explanation table itself: which entries
   exist, owner role, effort, and the code examples (canonical English), plus
   `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are
