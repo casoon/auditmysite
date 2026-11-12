@@ -124,7 +124,8 @@ fn report() -> AuditReport {
 }
 
 fn view_model(report: &AuditReport, level: ReportLevel, lang: &str) -> ReportViewModel {
-    let normalized = crate::audit::normalized::normalize(report);
+    let normalized = crate::audit::validation::normalize_checked(report)
+        .expect("fixture report passes the report contract");
     let config = ReportConfig {
         level,
         locale: lang.to_string(),
@@ -453,7 +454,8 @@ fn export_appendix(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
         for journey_state in [None, Some(false), Some(true)] {
             let mut report = report();
             report.accessibility_journey = journey_state.map(|b| journey(b, 2));
-            let normalized = crate::audit::normalized::normalize(&report);
+            let normalized = crate::audit::validation::normalize_checked(&report)
+                .expect("fixture report passes the report contract");
             let vm = view_model(&report, level, lang);
             let config = ReportConfig {
                 level,
