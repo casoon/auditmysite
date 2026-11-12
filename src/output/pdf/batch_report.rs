@@ -370,6 +370,107 @@ mod tests {
         )));
     }
 
+    /// A failing page with SEO data: 1392 words make the profile attribute
+    /// "text-rich" and need a thousands separator.
+    fn content_page(url: &str) -> AuditReport {
+        let mut seo = crate::seo::SeoAnalysis::default();
+        seo.technical.word_count = 1392;
+        seo.content_profile = Some(crate::seo::build_content_profile(&seo, "en"));
+        contrast_page(url).with_seo(seo)
+    }
+
+    /// #1039: numbers, module names, profile attributes and the ranking
+    /// headers auditmysite supplies follow the run language.
+    #[test]
+    fn batch_pdf_writes_the_run_language() {
+        let batch = BatchReport::from_reports(
+            ["a", "b", "c"]
+                .iter()
+                .map(|p| content_page(&format!("https://example.com/{p}")))
+                .collect(),
+            vec![],
+            100,
+        );
+        let seo = batch.reports[0].discoverability.seo.as_ref().unwrap();
+        for (locale, words, foreign_words) in [("en", "1,392", "1.392"), ("de", "1.392", "1,392")] {
+            let en = locale == "en";
+            let i18n = I18n::new(locale).unwrap();
+            let out = typ(&batch, locale);
+            assert!(out.contains(&format!("\"{words}\"")), "{locale}");
+            assert!(!out.contains(&format!("\"{foreign_words}\"")), "{locale}");
+            // Attributes in the run language and not cut mid-word.
+            let attributes = crate::seo::build_content_profile(seo, locale)
+                .page_classification
+                .attributes
+                .join(", ");
+            assert!(out.contains(&format!("\"{attributes}\"")), "{locale}");
+            // renderreport's built-in German table title is gone; the extra
+            // ranking columns carry the run language's labels.
+            assert!(!out.contains("title: \"Website-Ranking\""), "{locale}");
+            assert!(out.contains(&format!("label: \"{}\"", i18n.t("batch-ranking-col-seo"))));
+            assert!(!en || !out.contains("label: \"Konf.\""));
+            for key in [
+                "batch-col-links-to",
+                "batch-col-links-from",
+                "batch-col-score",
+            ] {
+                assert!(
+                    out.contains(&format!("header: \"{}\"", i18n.t(key))),
+                    "{key}"
+                );
+            }
+            // One module name throughout: the module comparison and the
+            // cover frame use the localized one.
+            let accessibility = portfolio::localized_module_name("Accessibility", en);
+            assert!(
+                out.contains(&format!("((\"{accessibility}\", ")),
+                "{locale}"
+            );
+            if !en {
+                assert!(!out.contains("(\"Accessibility\", "));
+                assert!(!out.contains("value: \"Accessibility"));
+            }
+        }
+    }
+
+    /// #1039: counts select singular and plural.
+    #[test]
+    fn batch_counts_agree_with_their_nouns() {
+        let en = I18n::new("en").unwrap();
+        let de = I18n::new("de").unwrap();
+        assert_eq!(en.count("batch-meta-occurrences", 1), "1 occurrence");
+        assert_eq!(en.count("batch-meta-occurrences", 7), "7 occurrences");
+        assert_eq!(
+            crate::i18n::count_text("batch-topic-pages", 1, true),
+            "Present on 1 audited page"
+        );
+        assert_eq!(
+            crate::i18n::count_text("batch-topic-pages", 1, false),
+            "Auf 1 geprüften Seite vertreten"
+        );
+        let summary = crate::output::report_model::InteractiveJourneySummary {
+            total_pages_tested: 5,
+            pages_with_issues: 1,
+            categories: vec![],
+            has_critical: false,
+        };
+        assert_eq!(
+            interactive::interactive_callout_text(&summary, &en),
+            "1 of 5 tested pages has interactive issues — 4 pages without issues."
+        );
+        assert_eq!(
+            interactive::interactive_callout_text(&summary, &de),
+            "1 von 5 geprüften Seiten hat interaktive Befunde — 4 Seiten ohne Befunde."
+        );
+        assert_eq!(
+            en.t_args(
+                "batch-module-spread-constant",
+                &[("value", 100i64), ("pages", 1i64)]
+            ),
+            "100 on the 1 measured page"
+        );
+    }
+
     /// #1039: "some pages" was printed when every page carried the level.
     #[test]
     fn risk_summary_counts_the_pages_at_the_level() {

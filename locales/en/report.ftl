@@ -240,8 +240,8 @@ batch-col-severity = Severity
 batch-col-description = Description
 batch-col-metric = Metric
 batch-col-budget = Budget
-batch-col-links-to = Links to
-batch-col-links-from = Links from
+batch-col-links-to = Inbound links
+batch-col-links-from = Outbound links
 batch-col-words = Words
 batch-action-plan-title = Action plan
 batch-section-broken-links-internal = Internal broken links
@@ -908,7 +908,10 @@ batch-col-affected-urls = Affected URLs
 batch-meta-global = All audited pages
 batch-meta-some-pages = { $count } of { $total } pages
 batch-meta-single-page = One page — page-specific
-batch-meta-occurrences = occurrences
+batch-meta-occurrences = { $count ->
+        [one] 1 occurrence
+       *[other] { $count } occurrences
+    }
 batch-meta-affected-urls = { $count ->
     [one] affected URL
    *[other] affected URLs
@@ -1017,10 +1020,16 @@ batch-module-portfolio-title = Module portfolio
 batch-module-portfolio-intro = Aggregated module values across the audited URL set: average, spread over the pages with a measurement, and effect per module.
 batch-module-portfolio-table-title = Module values and spread
 batch-col-module = Module
-batch-col-score = Score
+batch-col-score = Average
 batch-col-spread = Spread
-batch-module-spread-constant = { $value } on all { $pages } measured pages
-batch-module-spread-range = { $min }–{ $max } ({ $pages } pages)
+batch-module-spread-constant = { $pages ->
+        [one] { $value } on the 1 measured page
+       *[other] { $value } on all { $pages } measured pages
+    }
+batch-module-spread-range = { $min }–{ $max } ({ $pages ->
+        [one] 1 page
+       *[other] { $pages } pages
+    })
 batch-col-effect = Effect
 batch-schema-summary-all = All { $total } pages have structured data.
 batch-schema-summary-some = { $without } of { $total } pages without structured data.
@@ -1464,6 +1473,7 @@ batch-risk-summary-high = { $count } of { $total } audited pages show high risk.
 batch-risk-summary-critical = { $count } of { $total } audited pages show critical risk. WCAG Level A/AA violations detected automatically — prioritised remediation recommended; whether legal obligations follow depends on the applicable framework (e.g. BFSG/EAA) and needs a manual review.
 batch-matrix-col-accessibility = Accessibility
 batch-schema-matrix-col-kind = Page kind (schema check)
+batch-schema-matrix-title = Schema coverage by page kind
 batch-schema-matrix-note = The schema check classifies each page on its own, from page intent, URL and visible content, to pick the schema.org types that would fit it; this page kind can differ from the content page type in the other sections. Suggested types are optional, not a requirement.
 batch-scope-note-title = How to read this report
 batch-scope-note-appendix = This PDF is a condensed audit report. It highlights the most important findings, risks and improvement areas, but does not list every technical occurrence. Details per URL are in the technical appendix at the end of this report; the raw data is in the JSON report of the same run.
@@ -1490,3 +1500,22 @@ batch-effect-other-good = The module is stable across the audited pages.
 batch-effect-other-usable = The module has a usable foundation with targeted cleanup potential.
 batch-effect-other-recurring = The module shows recurring weaknesses across the audited URL set.
 batch-effect-other-structural = The module needs structural attention across multiple pages.
+batch-ranking-col-seo = SEO
+batch-ranking-col-performance = Perf
+batch-ranking-col-security = Sec
+batch-ranking-col-html-conformance = HTML
+batch-topic-pages = { $count ->
+        [one] Present on 1 audited page
+       *[other] Present on { $count } audited pages
+    }
+batch-interactive-none = { $total ->
+        [one] No interactive issues detected on the tested page.
+       *[other] No interactive issues detected on any of the { $total } tested pages.
+    }
+batch-interactive-some = { $count ->
+        [one] 1 of { $total } tested pages has
+       *[other] { $count } of { $total } tested pages have
+    } interactive issues — { $clean ->
+        [one] 1 page
+       *[other] { $clean } pages
+    } without issues.

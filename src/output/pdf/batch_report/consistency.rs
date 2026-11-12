@@ -551,11 +551,7 @@ fn render_consistency_page_type_matrix(
             })
             .with_width("34%"),
         ])
-        .with_title(if en {
-            "Page-type and schema-coverage matrix"
-        } else {
-            "Matrix aus Seitentyp und Schema-Abdeckung"
-        });
+        .with_title(i18n.t("batch-schema-matrix-title"));
         for row in &structured.page_type_matrix {
             table = table.add_row(vec![
                 short_url(&row.url, 48),
@@ -753,11 +749,7 @@ fn render_consistency_top_topics(
             .map(|(topic, pages)| {
                 ChecklistRow::new(
                     topic,
-                    if en {
-                        format!("Present on {pages} audited pages")
-                    } else {
-                        format!("Auf {pages} geprüften Seiten vertreten")
-                    },
+                    crate::i18n::count_text("batch-topic-pages", *pages, en),
                 )
                 .with_status("good")
             })

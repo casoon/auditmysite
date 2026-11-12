@@ -108,11 +108,3 @@ pub(super) fn render_diagnosis_section(
 
     builder
 }
-
-pub(super) fn format_word_count(n: u32) -> String {
-    if n >= 1_000 {
-        format!("{}.{:03}", n / 1_000, n % 1_000)
-    } else {
-        n.to_string()
-    }
-}

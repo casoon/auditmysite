@@ -12,7 +12,7 @@ pub(in crate::output::pdf) fn render_a11y_journey_findings(
         Section::new(if en {
             "Keyboard Accessibility Journey"
         } else {
-            "Tastatur-Accessibility-Journey"
+            "Tastatur-Journey zur Barrierefreiheit"
         })
         .with_level(2),
     );

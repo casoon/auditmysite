@@ -44,6 +44,26 @@ pub(super) fn translate_interactive_category(category: &str, en: bool) -> String
     .to_string()
 }
 
+/// The summary sentence; verb and noun agree with the counts (#1039).
+pub(super) fn interactive_callout_text(
+    summary: &crate::output::report_model::InteractiveJourneySummary,
+    i18n: &I18n,
+) -> String {
+    let total = summary.total_pages_tested as i64;
+    if summary.pages_with_issues == 0 {
+        return i18n.t_args("batch-interactive-none", &[("total", total)]);
+    }
+    let with_issues = summary.pages_with_issues as i64;
+    i18n.t_args(
+        "batch-interactive-some",
+        &[
+            ("count", with_issues),
+            ("total", total),
+            ("clean", total - with_issues),
+        ],
+    )
+}
+
 pub(super) fn render_batch_interactive_summary(
     mut builder: renderreport::engine::ReportBuilder,
     summary: &crate::output::report_model::InteractiveJourneySummary,
@@ -55,7 +75,7 @@ pub(super) fn render_batch_interactive_summary(
     let title = if en {
         "Keyboard Accessibility Journey"
     } else {
-        "Tastatur-Accessibility-Journey"
+        "Tastatur-Journey zur Barrierefreiheit"
     };
     let intro = if en {
         "Interactive tests verify whether focus management, state transitions, and keyboard navigation behave correctly — not just whether the initial page tree is well-structured."
@@ -64,33 +84,7 @@ pub(super) fn render_batch_interactive_summary(
     };
     builder = builder.add_component(SectionHeaderSplit::new(title, intro).with_level(1));
 
-    let callout_text = if summary.pages_with_issues == 0 {
-        if en {
-            format!(
-                "No interactive issues detected on any of the {} tested pages.",
-                summary.total_pages_tested
-            )
-        } else {
-            format!(
-                "Keine interaktiven Befunde auf den {} geprüften Seiten.",
-                summary.total_pages_tested
-            )
-        }
-    } else if en {
-        format!(
-            "{} of {} tested pages have interactive issues — {} pages without issues.",
-            summary.pages_with_issues,
-            summary.total_pages_tested,
-            summary.total_pages_tested - summary.pages_with_issues
-        )
-    } else {
-        format!(
-            "{} von {} geprüften Seiten haben interaktive Befunde — {} Seiten ohne Befunde.",
-            summary.pages_with_issues,
-            summary.total_pages_tested,
-            summary.total_pages_tested - summary.pages_with_issues
-        )
-    };
+    let callout_text = interactive_callout_text(summary, i18n);
     builder = builder.add_component(if summary.has_critical {
         Callout::warning(&callout_text)
     } else if summary.pages_with_issues > 0 {

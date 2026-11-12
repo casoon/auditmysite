@@ -300,7 +300,6 @@ pub(super) fn render_batch_top_issues(
     // Unified problem blocks
     let scope_global_word = i18n.t("batch-meta-global");
     let scope_single_page = i18n.t("batch-meta-single-page");
-    let occurrences_word_top = i18n.t("batch-meta-occurrences");
     let effort_word = i18n.t("batch-meta-effort");
     let scope_word = i18n.t("batch-meta-scope");
     let impact_user_label = i18n.t("batch-meta-impact-user");
@@ -326,9 +325,8 @@ pub(super) fn render_batch_top_issues(
         let affected_urls_word = i18n.t_args("batch-meta-affected-urls", &[("count", urls as i64)]);
         let effort_label = effort_short_label_i18n(group.effort, i18n);
         let meta_line = format!(
-            "{} {} · {} {} · {}: {} · {}: {}",
-            group.finding.occurrence_count,
-            occurrences_word_top,
+            "{} · {} {} · {}: {} · {}: {}",
+            i18n.count("batch-meta-occurrences", group.finding.occurrence_count),
             urls,
             affected_urls_word,
             effort_word,
@@ -397,7 +395,14 @@ pub(super) fn render_batch_action_plan_section(
                     res.kind.clone(),
                     format!("{} / {}", res.pages, pres.portfolio_summary.total_urls),
                     if res.transfer_bytes > 0 {
-                        format!("{:.1} KB", res.transfer_bytes as f64 / 1024.0)
+                        format!(
+                            "{} KB",
+                            crate::i18n::number::decimal(
+                                res.transfer_bytes as f64 / 1024.0,
+                                1,
+                                is_english(i18n)
+                            )
+                        )
                     } else {
                         "–".to_string()
                     },

@@ -237,8 +237,8 @@ batch-col-severity = Schweregrad
 batch-col-description = Beschreibung
 batch-col-metric = Metrik
 batch-col-budget = Budget
-batch-col-links-to = Links zu
-batch-col-links-from = Links von
+batch-col-links-to = Eingehende Links
+batch-col-links-from = Ausgehende Links
 batch-col-words = Wörter
 batch-action-plan-title = Maßnahmenplan
 batch-section-broken-links-internal = Interne Broken Links
@@ -908,7 +908,7 @@ batch-col-affected-urls = Betr. URLs
 batch-meta-global = Alle geprüften Seiten
 batch-meta-some-pages = { $count } von { $total } Seiten
 batch-meta-single-page = Eine Seite — seitenspezifisch
-batch-meta-occurrences = Vorkommen
+batch-meta-occurrences = { $count } Vorkommen
 batch-meta-affected-urls = { $count ->
     [one] betroffene URL
    *[other] betroffene URLs
@@ -1017,10 +1017,16 @@ batch-module-portfolio-title = Modul-Portfolio
 batch-module-portfolio-intro = Aggregierte Modulwerte über das geprüfte URL-Set: Schnitt, Spannweite über die Seiten mit Messung und Wirkung je Modul.
 batch-module-portfolio-table-title = Modulwerte und Spannweite
 batch-col-module = Modul
-batch-col-score = Score
+batch-col-score = Durchschnitt
 batch-col-spread = Spannweite
-batch-module-spread-constant = { $value } auf allen { $pages } Seiten mit Messung
-batch-module-spread-range = { $min }–{ $max } ({ $pages } Seiten)
+batch-module-spread-constant = { $pages ->
+        [one] { $value } auf der 1 Seite mit Messung
+       *[other] { $value } auf allen { $pages } Seiten mit Messung
+    }
+batch-module-spread-range = { $min }–{ $max } ({ $pages ->
+        [one] 1 Seite
+       *[other] { $pages } Seiten
+    })
 batch-col-effect = Wirkung
 batch-schema-summary-all = Alle { $total } Seiten haben strukturierte Daten.
 batch-schema-summary-some = { $without } von { $total } Seiten ohne strukturierte Daten.
@@ -1464,6 +1470,7 @@ batch-risk-summary-high = { $count } von { $total } geprüften Seiten weisen hoh
 batch-risk-summary-critical = { $count } von { $total } geprüften Seiten weisen kritisches Risiko auf. WCAG-Level-A/AA-Verstöße automatisiert erkannt — vorrangige Behebung empfohlen; ob daraus rechtliche Pflichten folgen, hängt vom anwendbaren Rahmen (z. B. BFSG/EAA) ab und braucht eine manuelle Prüfung.
 batch-matrix-col-accessibility = Barrierefreiheit
 batch-schema-matrix-col-kind = Seitenart (Schema-Prüfung)
+batch-schema-matrix-title = Schema-Abdeckung nach Seitenart
 batch-schema-matrix-note = Die Schema-Prüfung ordnet jede Seite eigenständig aus Seitenzweck, URL und sichtbarem Inhalt ein, um die passenden schema.org-Typen zu wählen; diese Seitenart kann vom inhaltlichen Seitentyp der übrigen Abschnitte abweichen. Vorgeschlagene Typen sind optional, keine Pflicht.
 batch-scope-note-title = Einordnung dieses Reports
 batch-scope-note-appendix = Dieser PDF-Report ist ein verdichteter Audit-Bericht. Er zeigt die wichtigsten Befunde, Risiken und Verbesserungsfelder, enthält aber nicht jede technische Einzelstelle. Details je URL stehen im technischen Anhang am Ende dieses Reports, die Rohdaten im JSON-Report desselben Laufs.
@@ -1490,3 +1497,22 @@ batch-effect-other-good = Das Modul ist über die geprüften Seiten stabil.
 batch-effect-other-usable = Das Modul hat eine tragfähige Basis mit gezieltem Bereinigungsbedarf.
 batch-effect-other-recurring = Das Modul zeigt wiederkehrende Schwächen im geprüften URL-Set.
 batch-effect-other-structural = Das Modul benötigt strukturelle Aufmerksamkeit über mehrere Seiten.
+batch-ranking-col-seo = SEO
+batch-ranking-col-performance = Perf
+batch-ranking-col-security = Sich.
+batch-ranking-col-html-conformance = HTML
+batch-topic-pages = { $count ->
+        [one] Auf 1 geprüften Seite vertreten
+       *[other] Auf { $count } geprüften Seiten vertreten
+    }
+batch-interactive-none = { $total ->
+        [one] Keine interaktiven Befunde auf der geprüften Seite.
+       *[other] Keine interaktiven Befunde auf den { $total } geprüften Seiten.
+    }
+batch-interactive-some = { $count ->
+        [one] 1 von { $total } geprüften Seiten hat
+       *[other] { $count } von { $total } geprüften Seiten haben
+    } interaktive Befunde — { $clean ->
+        [one] 1 Seite
+       *[other] { $clean } Seiten
+    } ohne Befunde.
