@@ -39,6 +39,9 @@ use crate::model::{AnnexKind, ReportLevel};
 use crate::output::module::active_report_modules;
 use crate::output::report_model::*;
 
+#[cfg(test)]
+mod text_export;
+
 /// Render a part divider — visually separates the three report parts (#246).
 ///
 /// Each divider produces a page break, a strong level=1 section header tagged
