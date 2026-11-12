@@ -280,7 +280,10 @@ It validates:
    limit of 90 (#894). A mutation or docs.rs failure found here costs a branch push; found
    on the tag it costs a re-tag (2.0.0 and 2.0.1 both needed one).
 5. Push the tag `vX.Y.Z`; `release.yml` runs the same full QA on the tag commit, then builds.
-6. Wait for the job `docs.rs Build (sandbox parity)` on the tag run, only then `cargo publish`.
+6. Wait for the job `docs.rs Build (sandbox parity)` on the tag run, only then approve the job
+   `Publish to crates.io` (environment `crates-io`). It publishes through crates.io Trusted
+   Publishing with a short-lived OIDC token; no registry token is stored, and a local
+   `cargo publish` is rejected.
 
 ### Human release smoke
 

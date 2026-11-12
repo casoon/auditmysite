@@ -139,6 +139,34 @@ fn test_release_and_pre_push_use_shared_version_check() {
     );
 }
 
+/// The crate is published only by the release workflow, through crates.io
+/// Trusted Publishing: after the GitHub release, behind the reviewer of the
+/// `crates-io` environment (who checks the docs.rs sandbox job first, #588),
+/// from the checked-in lockfile, with a short-lived OIDC token and no stored
+/// registry secret.
+#[test]
+fn crate_is_published_by_the_release_workflow_through_trusted_publishing() {
+    let release_yml = read_repo_file(".github/workflows/release.yml");
+    let publish = workflow_job_body(&release_yml, "publish-crate");
+    assert!(publish.contains("needs: release"), "{publish}");
+    assert!(publish.contains("environment: crates-io"), "{publish}");
+    assert!(publish.contains("id-token: write"), "{publish}");
+    assert!(
+        publish.contains("rust-lang/crates-io-auth-action@"),
+        "{publish}"
+    );
+    assert!(publish.contains("cargo publish --locked"), "{publish}");
+    assert!(
+        !release_yml.contains("secrets.CARGO_REGISTRY_TOKEN"),
+        "no stored registry token"
+    );
+    assert_eq!(
+        release_yml.matches("cargo publish").count(),
+        1,
+        "one publish step"
+    );
+}
+
 /// Body of a top-level job in a workflow file: from `  <name>:` up to the
 /// next top-level job (or the end of the file).
 fn workflow_job_body<'a>(workflow: &'a str, job: &str) -> &'a str {
