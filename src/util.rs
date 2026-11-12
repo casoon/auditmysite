@@ -54,24 +54,60 @@ pub fn truncate_url(s: &str, max_len: usize) -> String {
 }
 
 /// A URL for a narrow table cell: the scheme dropped and, when still too
-/// long, the middle cut instead of the end — the end of a path is what tells
-/// sibling pages apart. `truncate_url` turned `/aktuelles/news/hafen` and
-/// `/aktuelles/news/bahn` into the same `https://www.example.de/akt...`
-/// (plan 92). Safe for multi-byte UTF-8.
+/// long, whole path segments in the middle replaced by `…` — the host and the
+/// last path segment always stay readable, since the end of a path is what
+/// tells sibling pages apart. `truncate_url` turned `/aktuelles/news/hafen`
+/// and `/aktuelles/news/bahn` into the same `https://www.example.de/akt...`
+/// (plan 92); cutting at a character count split host and slug mid-word
+/// (`www.casoon.…o-entwicklung-rostock/`, #1039). A URL with no segment to
+/// drop is returned whole, even above `max_len`. Safe for multi-byte UTF-8.
 pub fn short_url(url: &str, max_len: usize) -> String {
     let bare = url
         .strip_prefix("https://")
         .or_else(|| url.strip_prefix("http://"))
         .unwrap_or(url);
-    let chars: Vec<char> = bare.chars().collect();
-    if chars.len() <= max_len || max_len < 8 {
+    if bare.chars().count() <= max_len {
         return bare.to_string();
     }
-    let head = max_len / 3;
-    let tail = max_len - head - 1;
-    let start: String = chars[..head].iter().collect();
-    let end: String = chars[chars.len() - tail..].iter().collect();
-    format!("{start}…{end}")
+    let Some(slash) = bare.find('/') else {
+        return bare.to_string();
+    };
+    let (host, path) = bare.split_at(slash);
+    let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+    let Some((last, leading)) = segments.split_last() else {
+        return bare.to_string();
+    };
+    if leading.is_empty() {
+        return bare.to_string();
+    }
+    let tail = format!("/…/{last}{}", if path.ends_with('/') { "/" } else { "" });
+    let tail_len = tail.chars().count();
+    let mut head = host.to_string();
+    for segment in leading {
+        let candidate = format!("{head}/{segment}");
+        if candidate.chars().count() + tail_len > max_len {
+            break;
+        }
+        head = candidate;
+    }
+    format!("{head}{tail}")
+}
+
+/// Text for a narrow table cell, cut at the last word boundary that fits and
+/// ended with `…` — never in the middle of a word or of the text (#1039).
+/// A first word longer than `max_chars` is cut at the character limit.
+/// Safe for multi-byte UTF-8.
+pub fn truncate_words(text: &str, max_chars: usize) -> String {
+    if text.chars().count() <= max_chars {
+        return text.to_string();
+    }
+    let room: String = text.chars().take(max_chars.saturating_sub(1)).collect();
+    let cut = room
+        .rfind(char::is_whitespace)
+        .filter(|&at| at > 0)
+        .map_or(room.as_str(), |at| &room[..at]);
+    let cut = cut.trim_end_matches(|c: char| c.is_whitespace() || ",;:–—-".contains(c));
+    format!("{cut}…")
 }
 
 /// Truncate a string for display purposes, ellipsizing with `…` (safe for
@@ -106,10 +142,38 @@ mod tests {
             40,
         );
         assert_ne!(a, b);
-        assert!(a.ends_with("hafen-hamburg-erweiterung"), "{a}");
-        assert!(a.starts_with("www.example"), "{a}");
-        assert_eq!(a.chars().count(), 40);
+        assert_eq!(a, "www.example.de/…/hafen-hamburg-erweiterung");
         assert_eq!(short_url("https://example.de/kurz", 40), "example.de/kurz");
+        // Whole leading segments are kept while they fit.
+        assert_eq!(
+            short_url("https://www.example.de/aktuelles/news/hafen/", 34),
+            "www.example.de/aktuelles/…/hafen/"
+        );
+        // Host and one segment: nothing to drop, nothing cut mid-word.
+        assert_eq!(
+            short_url("https://www.casoon.de/astro-entwicklung-rostock/", 34),
+            "www.casoon.de/astro-entwicklung-rostock/"
+        );
+    }
+
+    #[test]
+    fn truncate_words_ends_at_a_word() {
+        assert_eq!(
+            truncate_words("Allgemeine Geschäftsbedingungen", 36),
+            "Allgemeine Geschäftsbedingungen"
+        );
+        assert_eq!(
+            truncate_words("White-Label Webentwicklung für Agenturen – CASOON", 36),
+            "White-Label Webentwicklung für…"
+        );
+        assert_eq!(
+            truncate_words("Astro im Unternehmen – Enterprise Webentwicklung", 36),
+            "Astro im Unternehmen – Enterprise…"
+        );
+        assert_eq!(
+            truncate_words("Unbreakablewordthatislong", 10),
+            "Unbreakab…"
+        );
     }
 
     #[test]

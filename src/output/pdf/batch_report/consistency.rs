@@ -22,10 +22,13 @@ pub(super) fn render_batch_consistency(
     } else {
         "Seitenübergreifende Konsistenz"
     };
+    // The heading check counts H1 per page; it measures no WCAG criterion.
+    // 3.2.4 (Consistent Identification) is not measured at all and stands as
+    // a manual review in the criteria table below (#1039).
     let intro = if en {
-        "Checks that shared elements are consistent across all audited pages: navigation and headings (WCAG 3.2.3 / 3.2.4), canonical URLs (a search-engine signal, not a WCAG criterion) and security headers."
+        "Checks that shared elements are consistent across all audited pages: navigation (WCAG 3.2.3), the main heading (H1) per page, canonical URLs (a search-engine signal, not a WCAG criterion) and security headers."
     } else {
-        "Prüft, ob geteilte Elemente auf allen geprüften Seiten konsistent sind: Navigation und Überschriften (WCAG 3.2.3 / 3.2.4), Canonical-URLs (ein Suchmaschinen-Signal, kein WCAG-Kriterium) und Sicherheits-Header."
+        "Prüft, ob geteilte Elemente auf allen geprüften Seiten konsistent sind: Navigation (WCAG 3.2.3), die Hauptüberschrift (H1) je Seite, Canonical-URLs (ein Suchmaschinen-Signal, kein WCAG-Kriterium) und Sicherheits-Header."
     };
     builder = builder.add_component(SectionHeaderSplit::new(title, intro).with_level(2));
 
@@ -47,7 +50,7 @@ pub(super) fn render_batch_consistency(
             if en {
                 "No navigation inconsistencies detected."
             } else {
-                "Keine Navigation-Inkonsistenzen erkannt."
+                "Keine Navigations-Inkonsistenzen erkannt."
             },
         )
         .with_status("good")]
@@ -246,7 +249,12 @@ pub(super) fn render_batch_consistency(
     builder = render_consistency_schema_conflicts(builder, consistency, en);
 
     let structured = &consistency.structured_data;
-    builder = render_consistency_structured_types(builder, structured, en);
+    // The SEO section already shows the pages per schema type, with their
+    // share; the same table a second time under another title is left out
+    // (#1039).
+    if pres.portfolio_summary.schema_distribution.is_empty() {
+        builder = render_consistency_structured_types(builder, structured, en);
+    }
 
     builder = render_consistency_structured_blockers(builder, structured, en);
 
@@ -298,14 +306,17 @@ fn render_consistency_wcag_cross_page(
             } else if en {
                 assessment.basis.clone()
             } else {
+                // The same statement as the canonical English basis; the
+                // German one used to drop the candidates and unaudited-links
+                // part of 2.4.5 (#1039).
                 match assessment.criterion.as_str() {
-                    value if value.starts_with("3.2.3") => "Hauptnavigation und Skip-Link-Vorkommen wurden über alle geprüften Seiten verglichen.",
-                    value if value.starts_with("3.2.4") => "Gleichartige Bedienelemente benötigen einen seitenübergreifenden Vergleich ihrer zugänglichen Namen; die aktuelle Evidenz reicht nicht für eine Konformitätsaussage.",
-                    _ => "Eingehende Links im geprüften Seitenset wurden ausgewertet; Suche, Sitemap und Ausnahmen für Prozessschritte müssen manuell bestätigt werden.",
+                    value if value.starts_with("3.2.3") => "Vorhandensein von Hauptnavigation und Skip-Link über das geprüfte Seitenset verglichen",
+                    value if value.starts_with("3.2.4") => "Die Identität von Komponenten erfordert einen Vergleich der zugänglichen Namen gleichwertiger Bedienelemente; die aktuelle Evidenz reicht nicht für eine Konformitätsaussage",
+                    _ => "Eingehende Links nur innerhalb des geprüften Seitensets beobachtet; Seiten ohne einen solchen Link sind Kandidaten, und Suche, Sitemap-Seiten, Links von nicht geprüften Seiten sowie Ausnahmen für Prozessschritte müssen manuell bestätigt werden",
                 }.to_string()
             };
             table = table.add_row(vec![
-                assessment.criterion.clone(),
+                criterion_label(&assessment.criterion, en),
                 status.to_string(),
                 basis,
             ]);
@@ -314,6 +325,24 @@ fn render_consistency_wcag_cross_page(
     }
 
     builder
+}
+
+/// "3.2.3 Consistent Navigation" in the run language. The JSON keeps the
+/// canonical English name; the German one comes from the WCAG criterion
+/// table the EN 301 549 mapping already translates (#572), so there is no
+/// second translation to drift (#1039).
+pub(super) fn criterion_label(criterion: &str, en: bool) -> String {
+    if en {
+        return criterion.to_string();
+    }
+    let number = criterion.split_whitespace().next().unwrap_or(criterion);
+    crate::wcag::en301549::EN301549_WEB_CLAUSES
+        .iter()
+        .find(|clause| clause.wcag == number)
+        .map_or_else(
+            || criterion.to_string(),
+            |clause| format!("{number} {}", clause.title_de),
+        )
 }
 
 fn render_consistency_help_deviations(
@@ -390,10 +419,13 @@ fn render_consistency_orphan_pages(
             } else {
                 "Seiten ohne beobachteten eingehenden Link innerhalb der geprüften URLs"
             }))
+            // Counted from the links between the audited pages only
+            // (`inbound_link_counts`); unlike the sitemap link graph, the
+            // fetched homepage's links are not in it (#1039).
             .add_component(TextBlock::new(if en {
-                "Only the links of the audited pages were observed. A page listed here can still be linked from pages outside the sample, a search or a sitemap page — it is a candidate, not a confirmed orphan."
+                "Only links between the audited pages were counted here; the links of a homepage outside the sample are not included. A page listed here can still be linked from the homepage, pages outside the sample, a search or a sitemap page — it is a candidate, not a confirmed orphan."
             } else {
-                "Beobachtet wurden nur die Links der geprüften Seiten. Eine hier genannte Seite kann von Seiten außerhalb der Stichprobe, über die Suche oder eine Sitemap-Seite verlinkt sein — sie ist ein Kandidat, keine bestätigte verwaiste Seite."
+                "Gezählt wurden hier nur Links zwischen den geprüften Seiten; die Links einer Startseite außerhalb der Stichprobe sind nicht enthalten. Eine hier genannte Seite kann von der Startseite, von Seiten außerhalb der Stichprobe, über die Suche oder eine Sitemap-Seite verlinkt sein — sie ist ein Kandidat, keine bestätigte verwaiste Seite."
             }));
     }
 

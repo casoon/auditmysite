@@ -222,6 +222,7 @@ batch-col-priority = Priorität
 batch-col-source = Quelle
 batch-col-status-code = Status
 batch-col-final-url = Final-URL
+batch-col-page = Seite
 batch-col-page-a = Seite A
 batch-col-page-b = Seite B
 batch-col-similarity = Ähnlichkeit
@@ -248,7 +249,7 @@ batch-section-redirect-chains = Redirect-Ketten
 batch-redirect-chains-title = Redirect-Ketten (> 1 Hop)
 batch-col-target = Ziel
 batch-url-ranking-title = URL-Ranking
-batch-url-ranking-intro = Sortiert nach Barrierefreiheit (Spalte A11y), niedrigster Wert zuerst; bei Gleichstand mehr kritische/hohe Befunde zuerst. „Score“ ist der kombinierte technische Wert. Ein niedriger Wert zeigt, wo am meisten verloren geht — einzelne kritische Funktionsbefunde können auch Seiten mit gutem Wert betreffen.
+batch-url-ranking-intro = Sortiert nach Barrierefreiheit (Spalte „{ $accessibility }“), niedrigster Wert zuerst; bei Gleichstand mehr kritische/hohe WCAG-Befunde (Spalte „{ $critical }“) zuerst. „{ $overall }“ ist der kombinierte technische Wert. Ein niedriger Wert zeigt, wo am meisten verloren geht — einzelne kritische Funktionsbefunde können auch Seiten mit gutem Wert betreffen.
 batch-render-blocking-section = Render-Blocking & Assets
 batch-render-blocking-kv-title = Render-Blocking-Übersicht (domainweit)
 batch-render-blocking-intro = Render-blockierende Ressourcen und Third-Party-Traffic, aggregiert über alle geprüften Seiten.
@@ -279,7 +280,7 @@ batch-col-redirect-chain = Kette
 batch-redirect-chain-type-long = Lange Kette
 batch-redirect-chain-type-loop = Loop
 batch-section-tech-url-matrix = Technische URL-Matrix
-batch-section-tech-url-matrix-intro = Verdichtete Übersicht aller geprüften URLs mit Fokus auf technische Priorisierung. Jede Zeile zeigt Score, Problemintensität und den größten Hebel für die weitere Optimierung.
+batch-section-tech-url-matrix-intro = Eine Zeile je geprüfter URL: Seitentitel, eingehende Links von den anderen geprüften Seiten, ausgehende Links (intern und extern), Wortzahl und Barrierefreiheitswert.
 batch-table-pages-overview = Seiten-Übersicht
 batch-table-focus-pages = Fokus auf problematische Seiten
 batch-table-page-type-distribution = Seitentyp-Verteilung
@@ -457,6 +458,7 @@ impact-base-seo = Kann Sichtbarkeit in Suchmaschinen reduzieren und organischen 
 impact-base-security = Erhöht Angriffsfläche und Risiko für Datenverlust.
 impact-base-performance = Verschlechtert Ladezeit und Nutzererlebnis, erhöht Absprungrate.
 impact-base-mobile = Beeinträchtigt mobile Nutzbarkeit für die Mehrheit der Nutzer.
+impact-base-html-conformance = Erhöht den Wartungsaufwand und das Risiko, dass Browser und Hilfstechnologien die Seite unterschiedlich auslegen.
 impact-base-accessibility-readability = Beeinträchtigt Lesbarkeit für Nutzer mit Sehschwäche.
 impact-base-accessibility-exclude = Kann Nutzende ausschließen und im Anwendungsbereich von BFSG/EAA rechtlich relevant sein.
 impact-base-accessibility-exclude-plain = Kann Nutzende ausschließen.
@@ -996,6 +998,12 @@ batch-sitemap-orphan-note = { $count ->
         [one] 1 geprüfte Seite
        *[other] { $count } geprüfte Seiten
     } ohne beobachteten eingehenden Link. Beobachtet wurden nur die Links der geprüften Seiten und der Startseite — Seiten außerhalb der Stichprobe, Suche und Menüs aus Skripten fehlen. Das sind Kandidaten, keine bestätigt verwaisten Seiten.
+batch-sitemap-orphan-note-no-homepage = { $count ->
+        [one] 1 geprüfte Seite
+       *[other] { $count } geprüfte Seiten
+    } ohne beobachteten eingehenden Link. Beobachtet wurden nur die Links der geprüften Seiten; die Links der Startseite sind nicht enthalten, und Seiten außerhalb der Stichprobe, Suche und Menüs aus Skripten fehlen. Das sind Kandidaten, keine bestätigt verwaisten Seiten.
+batch-seo-sitemap-orphan-title-orphans = Sitemap-Linkgraph → Seiten ohne beobachteten Eingang
+batch-seo-sitemap-orphan-title-missing = Sitemap-Linkgraph → intern verlinkte Seiten, die in der Sitemap fehlen
 batch-sitemap-kind-linked-missing = Intern verlinkt, fehlt in Sitemap
 batch-seo-robots-conflicts-title = Sitemap vs. robots.txt → Indexierungsabsicht durch Disallow-Regel blockiert
 batch-col-robots-rule = Blockierende Disallow-Regel
@@ -1513,7 +1521,7 @@ batch-ranking-col-rank = Nr.
 batch-ranking-col-page = Seite
 batch-ranking-col-overall = Gesamt
 batch-ranking-col-accessibility = Barrierefr.
-batch-ranking-col-critical-high = Krit./hoch
+batch-ranking-col-critical-high = WCAG krit./hoch
 batch-ranking-col-seo = SEO
 batch-ranking-col-performance = Perf
 batch-ranking-col-security = Sich.

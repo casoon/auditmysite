@@ -72,6 +72,23 @@ pub fn finding_title(rule_id: &str, en: bool) -> Option<String> {
     text(&title_key(rule_id), &[])
 }
 
+/// The title a report shows as a heading or table cell: [`finding_title`]
+/// without the checker's rule id an HTML conformance assertion carries in
+/// parentheses ("Redundant ARIA role (roles.unnecessary-list)", #1039). The
+/// stored title keeps the id, so two rules of one family stay apart in the
+/// JSON; a reader gets the family's title. `None` like [`finding_title`].
+pub fn display_title(rule_id: &str, en: bool) -> Option<String> {
+    if rule_id.starts_with("html_conform.assertion.") {
+        let family = crate::html_conform::recommendation::family(rule_id).unwrap_or("generic");
+        return crate::i18n::try_text_args(
+            &format!("finding-title-html-conform-{family}"),
+            &[],
+            en,
+        );
+    }
+    finding_title(rule_id, en)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

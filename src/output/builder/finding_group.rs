@@ -24,6 +24,23 @@ pub(super) fn finding_group_from_normalized(
     // `explanations::resolve_explanation` for why it must not be reordered
     // (#571, #357, plan 32).
     let explanation = resolve_explanation(f.axe_id.as_deref(), &f.rule_id, &f.wcag_criterion);
+    // How widespread the finding is, for the "Frequent:" prefix of the
+    // business impact: the pages it occurs on in a batch, its occurrences on
+    // the one page of a single report. Seven occurrences on one page read
+    // "Frequent" in a cross-page card (#1039).
+    let spread = if affected_urls.is_empty() {
+        f.occurrence_count
+    } else {
+        affected_urls.len()
+    };
+    // An HTML conformance finding gets its own business sentence; the
+    // accessibility fallback put the user statement "Can exclude users." in
+    // the business row (#1039).
+    let business_dimension = if f.rule_id.starts_with("html_conform.") {
+        "HTML Conformance"
+    } else {
+        f.dimension.as_str()
+    };
 
     let (
         title,
@@ -47,10 +64,10 @@ pub(super) fn finding_group_from_normalized(
             derive_business_impact(
                 i18n,
                 &expl.user_impact(en),
-                f.dimension.as_str(),
+                business_dimension,
                 f.severity,
                 Some(f.subcategory_kind.label(false).as_str()),
-                f.occurrence_count,
+                spread,
                 f.bfsg_relevance.as_str(),
             ),
             expl.typical_cause(en),
@@ -76,10 +93,10 @@ pub(super) fn finding_group_from_normalized(
             derive_business_impact(
                 i18n,
                 &user_impact_loc,
-                f.dimension.as_str(),
+                business_dimension,
                 f.severity,
                 Some(f.subcategory_kind.label(false).as_str()),
-                f.occurrence_count,
+                spread,
                 f.bfsg_relevance.as_str(),
             ),
             String::new(),
@@ -110,6 +127,11 @@ pub(super) fn finding_group_from_normalized(
     // weighs how many there are. A card read "Aufwand: Geringe Komplexität"
     // next to "53 Vorkommen deuten auf ein Template-Problem hin".
     let effort = effort.at_least_for_complexity(&f.complexity);
+    // Headings and table cells show the title without the checker's rule id
+    // of an HTML conformance assertion (#1039).
+    let title = crate::audit::finding_titles::display_title(&f.rule_id, en)
+        .filter(|_| f.rule_id.starts_with("html_conform.assertion."))
+        .unwrap_or(title);
     let execution_priority = derive_execution_priority(f.severity, effort, f.dimension.as_str());
 
     let examples = explanation.map(|e| e.examples()).unwrap_or_default();
