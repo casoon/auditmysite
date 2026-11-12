@@ -372,16 +372,24 @@ pub(super) fn render_batch_url_ranking(
             )
             .with_level(1),
         )
-        .add_component(ranking_table(rows));
+        .add_component(ranking_table(rows, i18n));
 
     builder
 }
 
 /// The ranking table without renderreport's built-in German title
 /// ("Website-Ranking"): the section header above already names it in the run
-/// language (#1039).
-fn ranking_table(rows: Vec<BenchmarkRow>) -> BenchmarkTable {
-    let mut table = BenchmarkTable::new(rows);
+/// language. The fixed columns are labelled in the run language too; the
+/// score column is the overall score and the last one counts critical and
+/// high findings (`UrlSummary::critical_violations`, #1039).
+fn ranking_table(rows: Vec<BenchmarkRow>, i18n: &I18n) -> BenchmarkTable {
+    let mut table = BenchmarkTable::new(rows).with_labels(
+        i18n.t("batch-ranking-col-rank"),
+        i18n.t("batch-ranking-col-page"),
+        i18n.t("batch-ranking-col-overall"),
+        i18n.t("batch-ranking-col-accessibility"),
+        i18n.t("batch-ranking-col-critical-high"),
+    );
     table.title = None;
     table
 }

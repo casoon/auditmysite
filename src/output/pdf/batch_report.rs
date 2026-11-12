@@ -409,6 +409,20 @@ mod tests {
             assert!(!out.contains("title: \"Website-Ranking\""), "{locale}");
             assert!(out.contains(&format!("label: \"{}\"", i18n.t("batch-ranking-col-seo"))));
             assert!(!en || !out.contains("label: \"Konf.\""));
+            // The fixed ranking columns too: the overall score and the count
+            // of critical and high findings, in the run language.
+            for (field, key) in [
+                ("label_rank", "batch-ranking-col-rank"),
+                ("label_domain", "batch-ranking-col-page"),
+                ("label_score", "batch-ranking-col-overall"),
+                ("label_accessibility", "batch-ranking-col-accessibility"),
+                ("label_critical_issues", "batch-ranking-col-critical-high"),
+            ] {
+                assert!(
+                    out.contains(&format!("{field}: \"{}\"", i18n.t(key))),
+                    "{locale} {field}"
+                );
+            }
             for key in [
                 "batch-col-links-to",
                 "batch-col-links-from",
