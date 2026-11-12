@@ -16,6 +16,8 @@ mod overview;
 mod portfolio;
 mod privacy;
 mod seo;
+#[cfg(test)]
+mod text_export;
 
 use actions::*;
 use appendix::*;
