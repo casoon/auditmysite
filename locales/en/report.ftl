@@ -225,6 +225,7 @@ batch-col-priority = Priority
 batch-col-source = Source
 batch-col-status-code = Status
 batch-col-final-url = Final URL
+batch-col-page = Page
 batch-col-page-a = Page A
 batch-col-page-b = Page B
 batch-col-similarity = Similarity
@@ -251,7 +252,7 @@ batch-section-redirect-chains = Redirect chains
 batch-redirect-chains-title = Redirect chains (> 1 hop)
 batch-col-target = Target
 batch-url-ranking-title = URL ranking
-batch-url-ranking-intro = Sorted by accessibility (column A11y), lowest first; ties put more critical/high findings first. "Score" is the combined technical score. A low value shows where most is lost — single critical functional findings can affect pages with a good score too.
+batch-url-ranking-intro = Sorted by accessibility (column "{ $accessibility }"), lowest first; ties put more critical/high WCAG findings (column "{ $critical }") first. "{ $overall }" is the combined technical score. A low value shows where most is lost — single critical functional findings can affect pages with a good score too.
 batch-render-blocking-section = Render blocking & assets
 batch-render-blocking-kv-title = Render-blocking overview (domain-wide)
 batch-render-blocking-intro = Render-blocking resources and third-party traffic, aggregated across all audited pages.
@@ -282,7 +283,7 @@ batch-col-redirect-chain = Chain
 batch-redirect-chain-type-long = Long chain
 batch-redirect-chain-type-loop = Loop
 batch-section-tech-url-matrix = Technical URL matrix
-batch-section-tech-url-matrix-intro = Condensed overview of all audited URLs focused on technical prioritization. Each row shows score, issue intensity, and the biggest lever for further optimization.
+batch-section-tech-url-matrix-intro = One row per audited URL: its page title, inbound links from the other audited pages, outbound links (internal and external), word count and accessibility score.
 batch-table-pages-overview = Pages overview
 batch-table-focus-pages = Focus on problematic pages
 batch-table-page-type-distribution = Page-type distribution
@@ -460,6 +461,7 @@ impact-base-seo = Can reduce search engine visibility and decrease organic traff
 impact-base-security = Increases attack surface and risk of data loss.
 impact-base-performance = Worsens load time and user experience, increases bounce rate.
 impact-base-mobile = Impairs mobile usability for the majority of users.
+impact-base-html-conformance = Raises maintenance effort and the risk that browsers and assistive technologies interpret the page differently.
 impact-base-accessibility-readability = Impairs readability for users with visual impairment.
 impact-base-accessibility-exclude = Can exclude users and may be legally relevant where the BFSG/EAA applies.
 impact-base-accessibility-exclude-plain = Can exclude users.
@@ -999,6 +1001,12 @@ batch-sitemap-orphan-note = { $count ->
         [one] 1 audited page
        *[other] { $count } audited pages
     } without an observed inbound link. Only the links of the audited pages and the homepage were observed — pages outside the sample, search and script-built menus are missing. These are candidates, not confirmed orphans.
+batch-sitemap-orphan-note-no-homepage = { $count ->
+        [one] 1 audited page
+       *[other] { $count } audited pages
+    } without an observed inbound link. Only the links of the audited pages were observed; the homepage's links are not included, and pages outside the sample, search and script-built menus are missing. These are candidates, not confirmed orphans.
+batch-seo-sitemap-orphan-title-orphans = Sitemap link graph → pages without observed inbound link
+batch-seo-sitemap-orphan-title-missing = Sitemap link graph → internally linked pages missing from the sitemap
 batch-sitemap-kind-linked-missing = Internally linked, missing from sitemap
 batch-seo-robots-conflicts-title = Sitemap vs. robots.txt → indexing intent blocked by a Disallow rule
 batch-col-robots-rule = Blocking Disallow rule
@@ -1522,7 +1530,7 @@ batch-ranking-col-rank = No.
 batch-ranking-col-page = Page
 batch-ranking-col-overall = Overall
 batch-ranking-col-accessibility = A11y
-batch-ranking-col-critical-high = Critical/high
+batch-ranking-col-critical-high = WCAG crit./high
 batch-ranking-col-seo = SEO
 batch-ranking-col-performance = Perf
 batch-ranking-col-security = Sec

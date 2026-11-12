@@ -293,7 +293,7 @@ fn render_seo_canonical_issues(
     if !pres.portfolio_summary.canonical_issues.is_empty() {
         let mut table = AuditTable::new(vec![
             TableColumn::new(i18n.t("batch-col-dup-type")),
-            TableColumn::new(i18n.t("batch-col-page-a")),
+            TableColumn::new(i18n.t("batch-col-page")),
             TableColumn::new(i18n.t("batch-col-dup-value")),
         ])
         .with_title(i18n.t("batch-seo-canonical-title"));
@@ -306,11 +306,7 @@ fn render_seo_canonical_issues(
                 "target_unreachable" => i18n.t("batch-canonical-target-unreachable"),
                 other => other.to_string(),
             };
-            let detail = if issue.detail.chars().count() > 50 {
-                format!("{}…", issue.detail.chars().take(50).collect::<String>())
-            } else {
-                issue.detail.clone()
-            };
+            let detail = crate::util::truncate_words(&issue.detail, 51);
             table = table.add_row(vec![kind_label, short_url(&issue.url, 35), detail]);
         }
         builder = builder.add_component(table);
@@ -423,7 +419,7 @@ fn render_seo_sitemap_http_issues(
     if !others.is_empty() {
         let mut table = AuditTable::new(vec![
             TableColumn::new(i18n.t("batch-col-dup-type")),
-            TableColumn::new(i18n.t("batch-col-page-a")),
+            TableColumn::new(i18n.t("batch-col-page")),
             TableColumn::new(i18n.t("batch-col-status-code")),
             TableColumn::new(i18n.t("batch-col-dup-value")),
         ])
@@ -442,7 +438,7 @@ fn render_seo_sitemap_http_issues(
                     .status_code
                     .map(|code| code.to_string())
                     .unwrap_or_else(|| "n/a".to_string()),
-                short_url(&issue.detail, 45),
+                crate::util::truncate_words(&issue.detail, 45),
             ]);
         }
         builder = builder.add_component(table);
@@ -464,9 +460,12 @@ fn render_seo_sitemap_orphans(
     {
         let mut table = AuditTable::new(vec![
             TableColumn::new(i18n.t("batch-col-dup-type")),
-            TableColumn::new(i18n.t("batch-col-page-a")),
+            TableColumn::new(i18n.t("batch-col-page")),
         ])
-        .with_title(i18n.t("batch-seo-sitemap-orphan-title"));
+        .with_title(i18n.t(sitemap_orphan_title_key(
+            !pres.portfolio_summary.orphan_sitemap_urls.is_empty(),
+            !pres.portfolio_summary.linked_not_in_sitemap.is_empty(),
+        )));
 
         // Candidates from a partial graph: a short list, not a site-wide
         // verdict (plan 82).
@@ -490,14 +489,31 @@ fn render_seo_sitemap_orphans(
         }
         builder = builder.add_component(table);
         if !pres.portfolio_summary.orphan_sitemap_urls.is_empty() {
+            // The homepage's links seed the graph only when it was fetched;
+            // its crawl-depth diagnostics exist exactly then (#1039).
+            let homepage_observed = pres.portfolio_summary.crawl_depth_diagnostics.is_some();
             builder = builder.add_component(TextBlock::new(i18n.count(
-                "batch-sitemap-orphan-note",
+                if homepage_observed {
+                    "batch-sitemap-orphan-note"
+                } else {
+                    "batch-sitemap-orphan-note-no-homepage"
+                },
                 pres.portfolio_summary.orphan_sitemap_urls.len(),
             )));
         }
     }
 
     builder
+}
+
+/// The sitemap link-graph table names only the row kinds it has: a title
+/// promising "missing sitemap entries" stood over a table without one (#1039).
+pub(super) fn sitemap_orphan_title_key(orphans: bool, missing: bool) -> &'static str {
+    match (orphans, missing) {
+        (true, false) => "batch-seo-sitemap-orphan-title-orphans",
+        (false, true) => "batch-seo-sitemap-orphan-title-missing",
+        _ => "batch-seo-sitemap-orphan-title",
+    }
 }
 
 fn render_seo_robots_conflicts(
@@ -507,7 +523,7 @@ fn render_seo_robots_conflicts(
 ) -> renderreport::engine::ReportBuilder {
     if !pres.portfolio_summary.robots_conflicts.is_empty() {
         let mut table = AuditTable::new(vec![
-            TableColumn::new(i18n.t("batch-col-page-a")),
+            TableColumn::new(i18n.t("batch-col-page")),
             TableColumn::new(i18n.t("batch-col-robots-rule")),
         ])
         .with_title(i18n.t("batch-seo-robots-conflicts-title"));
@@ -574,7 +590,7 @@ fn render_seo_crawl_depth(
         if !deep_pages.is_empty() || unreachable_rows {
             let mut table = AuditTable::new(vec![
                 TableColumn::new(i18n.t("batch-col-dup-type")),
-                TableColumn::new(i18n.t("batch-col-page-a")),
+                TableColumn::new(i18n.t("batch-col-page")),
                 TableColumn::new(i18n.t("batch-col-crawl-depth")),
             ])
             .with_title(i18n.t("batch-crawl-depth-title"));

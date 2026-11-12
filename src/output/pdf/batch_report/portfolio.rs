@@ -126,7 +126,7 @@ pub(super) fn localized_module_name(name: &str, en: bool) -> &str {
         ("Best Practices", false) => "Best Practices",
         ("Mobile", false) => "Mobile",
         ("Performance", false) => "Performance",
-        ("Security", false) => "Security",
+        ("Security", false) => "Sicherheit",
         ("HTML Conformance", false) => "HTML-Konformität",
         ("SEO", false) => "SEO",
         ("UX", false) => "UX",
@@ -366,15 +366,26 @@ pub(super) fn render_batch_url_ranking(
 
     builder = builder
         .add_component(
-            SectionHeaderSplit::new(
-                i18n.t("batch-url-ranking-title"),
-                i18n.t("batch-url-ranking-intro"),
-            )
-            .with_level(1),
+            SectionHeaderSplit::new(i18n.t("batch-url-ranking-title"), ranking_intro(i18n))
+                .with_level(1),
         )
         .add_component(ranking_table(rows, i18n));
 
     builder
+}
+
+/// The ranking intro names the columns by the labels the table prints, so
+/// it cannot speak of an "A11y" or "Score" column the table does not have
+/// (#1039).
+pub(super) fn ranking_intro(i18n: &I18n) -> String {
+    i18n.t_args(
+        "batch-url-ranking-intro",
+        &[
+            ("accessibility", i18n.t("batch-ranking-col-accessibility")),
+            ("critical", i18n.t("batch-ranking-col-critical-high")),
+            ("overall", i18n.t("batch-ranking-col-overall")),
+        ],
+    )
 }
 
 /// The ranking table without renderreport's built-in German title
@@ -441,7 +452,7 @@ pub(super) fn render_batch_tech_url_matrix(
             short_url(&row.url, 34),
             row.title
                 .as_deref()
-                .map(|t| short_url(t, 36))
+                .map(|t| crate::util::truncate_words(t, 36))
                 .unwrap_or_else(|| "—".to_string()),
             row.inbound_links.to_string(),
             row.outbound_links.to_string(),
@@ -474,7 +485,7 @@ pub(super) fn render_batch_tech_url_matrix(
                 if detail.top_issues.is_empty() {
                     "—".to_string()
                 } else {
-                    short_url(&detail.top_issues.join(", "), 52)
+                    leading_items(&detail.top_issues, 80, i18n)
                 },
             ]);
         }
@@ -482,6 +493,35 @@ pub(super) fn render_batch_tech_url_matrix(
     }
 
     builder
+}
+
+/// The first items of a list that fit `max_chars` together, each whole, and
+/// how many more there are. One cut through the joined list printed
+/// "Insufficient colo… frame-ancestors directive missing" (#1039). The first
+/// item is always shown.
+pub(super) fn leading_items(items: &[String], max_chars: usize, i18n: &I18n) -> String {
+    let mut shown: Vec<&str> = Vec::new();
+    let mut length = 0;
+    for item in items {
+        let added = item.chars().count() + if shown.is_empty() { 0 } else { 2 };
+        if !shown.is_empty() && length + added > max_chars {
+            break;
+        }
+        length += added;
+        shown.push(item);
+    }
+    let list = shown.join(", ");
+    let rest = items.len() - shown.len();
+    if rest == 0 {
+        return list;
+    }
+    i18n.t_args(
+        "batch-dup-pages-more",
+        &[
+            ("list", fluent_bundle::FluentValue::from(list)),
+            ("count", fluent_bundle::FluentValue::from(rest as i64)),
+        ],
+    )
 }
 
 #[cfg(test)]

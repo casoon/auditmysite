@@ -231,6 +231,11 @@ fn derive_business_impact_base(
         "Security" => i18n.t("impact-base-security"),
         "Performance" => i18n.t("impact-base-performance"),
         "Mobile" => i18n.t("impact-base-mobile"),
+        // Without legal relevance, "Can exclude users." was a user statement
+        // in the business row (#1039).
+        "HTML Conformance" if !matches!(bfsg_relevance, "high" | "medium") => {
+            i18n.t("impact-base-html-conformance")
+        }
         "Accessibility" => {
             if subcategory == Some("Visuelle Darstellung")
                 || user_impact.contains("Kontrast")
