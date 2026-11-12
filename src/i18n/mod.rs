@@ -34,8 +34,8 @@ impl I18n {
         // mobile finding texts (`mobile`) and the labels of cross-cutting
         // enums (`labels.ftl`: page intent, execution priority, issue class,
         // subcategory, evidence source and field) and the titles of the
-        // findings outside the WCAG taxonomy (`audit::finding_titles`) are
-        // eight resources of the one bundle.
+        // findings outside the WCAG taxonomy and their fixes
+        // (`audit::finding_titles`) are nine resources of the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -46,6 +46,7 @@ impl I18n {
                 include_str!("../../locales/en/mobile-issues.ftl"),
                 include_str!("../../locales/en/labels.ftl"),
                 include_str!("../../locales/en/finding-titles.ftl"),
+                include_str!("../../locales/en/finding-fixes.ftl"),
             ],
             _ => [
                 include_str!("../../locales/de/report.ftl"),
@@ -56,6 +57,7 @@ impl I18n {
                 include_str!("../../locales/de/mobile-issues.ftl"),
                 include_str!("../../locales/de/labels.ftl"),
                 include_str!("../../locales/de/finding-titles.ftl"),
+                include_str!("../../locales/de/finding-fixes.ftl"),
             ],
         };
         for ftl in sources {

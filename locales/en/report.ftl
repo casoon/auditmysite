@@ -1284,6 +1284,12 @@ html-conform-ids-title = Make duplicate IDs unique
 html-conform-ids-fix = Assign each id only once per document, including repeated components and cards. Label references (for), ARIA references and anchors otherwise point to the wrong element. Repeated components need an id generated per instance.
 html-conform-headings-title = Correct the heading structure
 html-conform-headings-fix = Use heading levels without gaps and without empty headings: do not skip a level (h1 straight to h3), give every section and article element a heading and set exactly one main heading. The level follows the outline, not the wanted font size.
+html-conform-headings-empty-fix = Give every h1–h6 element text that names its section, or remove the empty heading; an empty heading is announced without a name.
+html-conform-headings-article-lacks-heading-fix = Give every article element a heading (h2–h6) that names its content, or use a div where the content is not a self-contained article.
+html-conform-headings-section-lacks-heading-fix = Give every section element a heading (h2–h6) that names its content, or use a div where the content is not a thematic section of the outline.
+html-conform-headings-no-top-level-fix = Mark up the main heading of the page as h1; the page has headings, but none of level 1.
+html-conform-headings-skip-level-fix = Do not skip a heading level: an h3 straight after the h1 needs an h2 between them or becomes an h2 itself. The level follows the outline, not the wanted font size.
+html-conform-headings-offset-range-fix = Set the headingoffset attribute to a whole number from 0 to 8.
 html-conform-language-title = Declare the page language on the html element
 html-conform-language-fix = Set the lang attribute on the html element to the matching language code (for example lang=en) and, if xml:lang is present, use the same value. Screen readers pick the pronunciation from it.
 html-conform-image-alt-title = Give images a text alternative

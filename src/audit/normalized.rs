@@ -1279,6 +1279,11 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
     findings
 }
 
+/// How many of the aggregated batch findings are the batch's top actions:
+/// `summary.top_actions` in the JSON, the PDF's top-actions table and its
+/// action plan list the same ones (#1039).
+pub const BATCH_TOP_ACTION_COUNT: usize = 8;
+
 /// Aggregates the findings of a batch per rule, in `action_order` — the one
 /// source for `top_actions` in the batch JSON and the top actions, finding
 /// list and action plan in the batch PDF (plan 64).
@@ -1300,7 +1305,23 @@ pub fn aggregate_batch_findings(
     for report in reports {
         // Actions are primary findings: references and derived indicator
         // findings stay on the page, not in the batch action list (#780).
-        for finding in report.findings.iter().filter(|f| f.contract.is_primary()) {
+        // A reference whose cause no primary finding of the page carries is
+        // the page's only record of that cause and is listed: the Mobile
+        // 44 px touch-target measurement when WCAG 2.5.8 (24 px) did not fire
+        // (#1039).
+        let charged: HashSet<&str> = report
+            .findings
+            .iter()
+            .filter(|f| f.contract.is_primary())
+            .map(|f| f.contract.cause.as_str())
+            .collect();
+        let listed = |f: &&NormalizedFinding| {
+            f.contract.is_primary()
+                || (f.contract.scoring.effect
+                    == crate::audit::finding_contract::ScoringEffect::Reference
+                    && !charged.contains(f.contract.cause.as_str()))
+        };
+        for finding in report.findings.iter().filter(listed) {
             match index.get(&finding.aggregation_key) {
                 Some(&i) => {
                     let (entry, urls) = &mut aggregated[i];
@@ -3698,5 +3719,73 @@ mod tests {
             "Accessibility must contribute in dual-viewport mode, got: {:?}",
             names_contributing
         );
+    }
+
+    /// #1039: the Mobile touch-target finding is a reference to WCAG 2.5.8.
+    /// On a page where 2.5.8 charges the cause it stays out of the batch
+    /// actions; on a page where nothing charges it (targets between 24 and
+    /// 44 px) it is listed, with the occurrences of those pages only.
+    #[test]
+    fn batch_lists_a_reference_whose_cause_nothing_charges() {
+        let page = |url: &str, wcag_fires: bool| {
+            let mut results = WcagResults::new();
+            if wcag_fires {
+                results.add_violation(
+                    Violation::new(
+                        "2.5.8",
+                        "Target Size (Minimum)",
+                        crate::model::WcagLevel::AA,
+                        Severity::Medium,
+                        "target too small",
+                        "a.x",
+                    )
+                    .with_rule_id("targets/size"),
+                );
+            }
+            let report = AuditReport::new(url.into(), WcagLevel::AA, results, 1).with_mobile(
+                crate::mobile::MobileFriendliness {
+                    score: 100,
+                    viewport: Default::default(),
+                    touch_targets: Default::default(),
+                    font_sizes: Default::default(),
+                    content_sizing: Default::default(),
+                    issues: vec![crate::mobile::MobileIssue {
+                        category: "touch_targets".into(),
+                        issue_type: "small_targets".into(),
+                        message: "3 touch targets are too small".into(),
+                        severity: Severity::Low,
+                        impact: "x".into(),
+                        values: crate::mobile::MobileIssueValues {
+                            small_target_count: Some(3),
+                            ..Default::default()
+                        },
+                    }],
+                },
+            );
+            normalize(&report).normalized
+        };
+        let reports = [
+            page("https://example.com/a", false),
+            page("https://example.com/b", false),
+            page("https://example.com/c", true),
+        ];
+        let aggregated = aggregate_batch_findings(&reports);
+        let (mobile, urls) = aggregated
+            .iter()
+            .find(|(f, _)| f.rule_id == "mobile.small_targets")
+            .expect("touch targets listed where 2.5.8 did not charge them");
+        assert_eq!(mobile.occurrence_count, 6);
+        assert_eq!(urls, &["https://example.com/a", "https://example.com/b"]);
+        let (_, wcag_urls) = aggregated
+            .iter()
+            .find(|(f, _)| f.rule_id == "targets/size")
+            .expect("2.5.8 finding");
+        assert_eq!(wcag_urls, &["https://example.com/c"]);
+
+        // Only the page where 2.5.8 charges the cause: no second action.
+        let aggregated = aggregate_batch_findings(&reports[2..]);
+        assert!(!aggregated
+            .iter()
+            .any(|(f, _)| f.rule_id == "mobile.small_targets"));
     }
 }

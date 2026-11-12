@@ -1281,6 +1281,12 @@ html-conform-ids-title = Doppelte IDs eindeutig machen
 html-conform-ids-fix = Jede id im Dokument nur einmal vergeben, auch bei wiederholten Komponenten oder Karten. Label-Bezüge (for), ARIA-Verweise und Anker zeigen sonst auf das falsche Element. Wiederholte Komponenten brauchen eine pro Instanz erzeugte id.
 html-conform-headings-title = Überschriftenstruktur korrigieren
 html-conform-headings-fix = Überschriftenebenen lückenlos und ohne leere Überschriften einsetzen: keine Ebene überspringen (h1 direkt zu h3), jedes section- und article-Element mit einer Überschrift versehen und genau eine Hauptüberschrift setzen. Die Ebene folgt der Gliederung, nicht der gewünschten Schriftgröße.
+html-conform-headings-empty-fix = Jedem h1–h6-Element einen Text geben, der seinen Abschnitt benennt, oder die leere Überschrift entfernen; eine leere Überschrift wird ohne Namen angesagt.
+html-conform-headings-article-lacks-heading-fix = Jedem article-Element eine Überschrift (h2–h6) geben, die seinen Inhalt benennt, oder ein div verwenden, wo der Inhalt kein eigenständiger Artikel ist.
+html-conform-headings-section-lacks-heading-fix = Jedem section-Element eine Überschrift (h2–h6) geben, die seinen Inhalt benennt, oder ein div verwenden, wo der Inhalt kein thematischer Abschnitt der Gliederung ist.
+html-conform-headings-no-top-level-fix = Die Hauptüberschrift der Seite als h1 auszeichnen; die Seite hat Überschriften, aber keine der Ebene 1.
+html-conform-headings-skip-level-fix = Keine Überschriftenebene überspringen: Ein h3 direkt nach dem h1 braucht ein h2 dazwischen oder wird selbst zum h2. Die Ebene folgt der Gliederung, nicht der gewünschten Schriftgröße.
+html-conform-headings-offset-range-fix = Das Attribut headingoffset auf eine ganze Zahl von 0 bis 8 setzen.
 html-conform-language-title = Seitensprache am html-Element angeben
 html-conform-language-fix = Das lang-Attribut am html-Element mit dem passenden Sprachcode setzen (zum Beispiel lang=de) und, falls xml:lang vorhanden ist, denselben Wert verwenden. Screenreader wählen die Aussprache danach.
 html-conform-image-alt-title = Bildern eine Textalternative geben

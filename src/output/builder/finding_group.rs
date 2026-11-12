@@ -112,6 +112,11 @@ pub(super) fn finding_group_from_normalized(
                 // module lists for it; without one it had no fix and no place
                 // in the action plan (#1039).
                 fix
+            } else if let Some(fix) = crate::audit::finding_titles::finding_fix(&f.rule_id, en) {
+                // Page-health and mobile checks carry their written fix, so a
+                // top action is never missing from the plan for want of one
+                // (#1039).
+                fix
             } else {
                 f.occurrences
                     .first()

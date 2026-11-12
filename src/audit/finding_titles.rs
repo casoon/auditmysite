@@ -5,14 +5,25 @@
 //! [`finding_title`] is the only source: the analysis bakes its English into
 //! the JSON `title`, the PDF and the table call it with the run language.
 
-/// Fluent key of the title of `rule_id`: every character other than an ASCII
-/// letter or digit written as `-`.
-fn title_key(rule_id: &str) -> String {
-    let id: String = rule_id
+/// `rule_id` with every character other than an ASCII letter or digit written
+/// as `-`: the key part of its title and its fix.
+fn key_id(rule_id: &str) -> String {
+    rule_id
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-        .collect();
-    format!("finding-title-{id}")
+        .collect()
+}
+
+/// Fluent key of the title of `rule_id`.
+fn title_key(rule_id: &str) -> String {
+    format!("finding-title-{}", key_id(rule_id))
+}
+
+/// The written fix of the finding with `rule_id` in the requested language
+/// (`finding-fix-*` of `locales/{en,de}/finding-fixes.ftl`), or `None` for a
+/// check without one (#1039).
+pub fn finding_fix(rule_id: &str, en: bool) -> Option<String> {
+    crate::i18n::try_text_args(&format!("finding-fix-{}", key_id(rule_id)), &[], en)
 }
 
 /// Title of the finding with `rule_id` in the requested language, or `None`
@@ -312,6 +323,45 @@ mod tests {
                 "{rule_id}: German in the English title {en:?}"
             );
             assert_ne!(en, de, "{rule_id}: German title is the English one");
+        }
+    }
+
+    /// #1039: every page-health and mobile check has a written fix in both
+    /// languages, so it reaches the action plan like the security checks.
+    #[test]
+    fn every_page_health_and_mobile_check_has_a_fix() {
+        let ids: Vec<String> = emitted_rule_ids()
+            .into_iter()
+            .filter(|id| id.starts_with("seo.page_health.") || id.starts_with("mobile."))
+            .collect();
+        assert!(ids.len() >= 46, "{ids:?}");
+        for rule_id in ids {
+            let en =
+                finding_fix(&rule_id, true).unwrap_or_else(|| panic!("{rule_id}: no English fix"));
+            let de =
+                finding_fix(&rule_id, false).unwrap_or_else(|| panic!("{rule_id}: no German fix"));
+            assert!(
+                !en.chars().any(|c| "äöüÄÖÜß".contains(c)),
+                "{rule_id}: German in the English fix {en:?}"
+            );
+            assert_ne!(en, de, "{rule_id}: German fix is the English one");
+        }
+    }
+
+    /// Every fix belongs to a rule id this build emits, and both locales
+    /// define the same fixes.
+    #[test]
+    fn fixes_belong_to_emitted_rule_ids() {
+        let en = crate::i18n::ftl_entries(include_str!("../../locales/en/finding-fixes.ftl"));
+        let de = crate::i18n::ftl_entries(include_str!("../../locales/de/finding-fixes.ftl"));
+        assert_eq!(en, de);
+        let keys: Vec<String> = emitted_rule_ids()
+            .iter()
+            .map(|id| format!("finding-fix-{}", key_id(id)))
+            .collect();
+        for entry in &en {
+            let key = entry.split(['.', ' ']).next().unwrap_or(entry);
+            assert!(keys.iter().any(|k| k == key), "{entry}: no such rule id");
         }
     }
 

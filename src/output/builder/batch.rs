@@ -175,7 +175,15 @@ pub fn build_batch_presentation_with_normalized(
         }
     };
 
-    let action_plan = derive_action_plan(i18n, &top_issues);
+    // The plan arranges the top actions by effort: the same findings as the
+    // JSON `top_actions` and the PDF's top-actions table, never a different
+    // selection (#1039).
+    let action_plan = derive_action_plan(
+        i18n,
+        &top_issues[..top_issues
+            .len()
+            .min(crate::audit::normalized::BATCH_TOP_ACTION_COUNT)],
+    );
 
     let mut url_ranking: Vec<UrlSummary> = batch
         .reports
@@ -2666,5 +2674,129 @@ mod interactive_summary_tests {
                 "TabOrder"
             ]
         );
+    }
+}
+
+#[cfg(test)]
+mod action_plan_selection_tests {
+    use super::*;
+    use crate::audit::AuditReport;
+    use crate::model::WcagLevel;
+    use crate::seo::page_health::{PageHealthAnalysis, PageHealthIssue};
+    use crate::seo::SeoAnalysis;
+    use crate::wcag::WcagResults;
+
+    const PAGE_HEALTH: &[(&str, &str)] = &[
+        ("http1_only", "medium"),
+        ("inefficient_cache", "medium"),
+        ("large_dom", "medium"),
+        ("images_without_srcset", "medium"),
+        ("oversized_images", "medium"),
+        ("fonts_not_preloaded", "low"),
+        ("inefficient_resource_cache", "low"),
+        ("missing_preconnect", "low"),
+        ("generic_404_page", "low"),
+    ];
+
+    fn page(url: &str) -> AuditReport {
+        let seo = SeoAnalysis {
+            page_health: Some(PageHealthAnalysis {
+                issues: PAGE_HEALTH
+                    .iter()
+                    .map(|(issue_type, severity)| PageHealthIssue {
+                        issue_type: issue_type.to_string(),
+                        message: issue_type.to_string(),
+                        severity: severity.to_string(),
+                    })
+                    .collect(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        AuditReport::new(url.to_string(), WcagLevel::AA, WcagResults::new(), 100)
+            .with_seo(seo)
+            .with_html_conform(crate::html_conform::HtmlConformAnalysis {
+                score: 90,
+                checked: true,
+                error_count: 0,
+                warning_count: 1,
+                info_count: 0,
+                distinct_defect_count: 1,
+                findings: vec![crate::html_conform::HtmlConformFinding {
+                    rule_id: "assertion.headings.section-lacks-heading".to_string(),
+                    severity: "warning".to_string(),
+                    message: "Section lacks heading.".to_string(),
+                    location: None,
+                    byte_offset: None,
+                    detail: None,
+                }],
+                raw_html: None,
+            })
+    }
+
+    /// #1039: the action plan arranges exactly the top actions by effort —
+    /// the page-health actions among them are not dropped for want of a fix,
+    /// and nothing below the top actions is added.
+    #[test]
+    fn action_plan_holds_exactly_the_top_actions() {
+        let batch = BatchReport::from_reports(
+            vec![page("https://example.com/a"), page("https://example.com/b")],
+            vec![],
+            100,
+        );
+        for locale in ["en", "de"] {
+            let i18n = I18n::new(locale).unwrap();
+            let pres = build_batch_presentation_with_locale(&batch, &i18n);
+            assert!(
+                pres.issue_frequency.len() > crate::audit::normalized::BATCH_TOP_ACTION_COUNT,
+                "the fixture must rank more findings than there are top actions"
+            );
+            let top: std::collections::BTreeSet<&str> = pres
+                .top_issues
+                .iter()
+                .take(crate::audit::normalized::BATCH_TOP_ACTION_COUNT)
+                .map(|g| g.finding.rule_id.as_str())
+                .collect();
+            let plan = &pres.action_plan;
+            let planned: std::collections::BTreeSet<&str> = plan
+                .quick_wins
+                .iter()
+                .chain(&plan.medium_term)
+                .chain(&plan.structural)
+                .map(|item| item.rule_id.as_str())
+                .collect();
+            assert_eq!(planned, top, "{locale}");
+            for rule in [
+                "seo.page_health.http1_only",
+                "seo.page_health.inefficient_cache",
+            ] {
+                assert!(planned.contains(rule), "{locale}: {rule}");
+                let group = pres
+                    .top_issues
+                    .iter()
+                    .find(|g| g.finding.rule_id == rule)
+                    .unwrap();
+                assert_eq!(
+                    Some(group.recommendation.clone()),
+                    crate::audit::finding_titles::finding_fix(rule, locale == "en"),
+                    "{locale}: {rule}"
+                );
+            }
+            // The section rule carries the fix of its own rule.
+            let heading = pres
+                .top_issues
+                .iter()
+                .find(|g| {
+                    g.finding
+                        .rule_id
+                        .ends_with("headings.section-lacks-heading")
+                })
+                .expect("heading group");
+            assert_eq!(
+                heading.recommendation,
+                i18n.t("html-conform-headings-section-lacks-heading-fix"),
+                "{locale}"
+            );
+        }
     }
 }
