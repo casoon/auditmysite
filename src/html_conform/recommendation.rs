@@ -173,13 +173,38 @@ pub(crate) fn family(rule_id: &str) -> Option<&'static str> {
     Some(family)
 }
 
-/// Localized `(title, fix hint)` for a checker rule id. An id without a family
-/// gets the generic pair, so a finding never lacks a recommendation.
+/// Rules whose family fix would name defects the rule does not report get a
+/// fix of their own (`html-conform-<key>-fix`): the heading rules each check
+/// one thing, and the family text led with skipped levels on a section
+/// without a heading (#1039).
+const RULE_FIXES: &[(&str, &str)] = &[
+    ("headings.empty", "headings-empty"),
+    (
+        "headings.article-lacks-heading",
+        "headings-article-lacks-heading",
+    ),
+    (
+        "headings.section-lacks-heading",
+        "headings-section-lacks-heading",
+    ),
+    ("headings.no-top-level", "headings-no-top-level"),
+    ("headings.skip-level-h1-to-h3", "headings-skip-level"),
+    ("headingoffset-range.zero-to-eight", "headings-offset-range"),
+];
+
+/// Localized `(title, fix hint)` for a checker rule id: the fix of the rule
+/// where it has one, else that of its family. An id without a family gets the
+/// generic pair, so a finding never lacks a recommendation.
 pub(crate) fn recommendation(rule_id: &str, i18n: &I18n) -> (String, String) {
     let family = family(rule_id).unwrap_or("generic");
+    let bare = bare_id(rule_id);
+    let fix_key = RULE_FIXES
+        .iter()
+        .find(|(id, _)| *id == bare)
+        .map_or(family, |(_, key)| *key);
     (
         i18n.t(&format!("html-conform-{family}-title")),
-        i18n.t(&format!("html-conform-{family}-fix")),
+        i18n.t(&format!("html-conform-{fix_key}-fix")),
     )
 }
 
@@ -285,6 +310,42 @@ mod tests {
                 "family {family_name} matches no rule id"
             );
         }
+    }
+
+    /// #1039: each heading rule of the checker has a fix of its own, and the
+    /// fix of a section without a heading speaks of sections, not of skipped
+    /// levels.
+    #[test]
+    fn every_heading_rule_has_its_own_fix() {
+        let heading_ids: Vec<String> = checker_rule_ids()
+            .into_iter()
+            .filter(|id| family(&format!("html_conform.{id}")) == Some("headings"))
+            .collect();
+        assert!(heading_ids.len() >= 6, "{heading_ids:?}");
+        for locale in ["de", "en"] {
+            let i18n = I18n::new(locale).unwrap();
+            let family_fix = i18n.t("html-conform-headings-fix");
+            let fixes: std::collections::BTreeSet<String> = heading_ids
+                .iter()
+                .map(|id| {
+                    let (_, fix) = recommendation(&format!("html_conform.{id}"), &i18n);
+                    assert!(!fix.starts_with("html-conform-"), "{locale}: {id}: {fix}");
+                    assert_ne!(fix, family_fix, "{locale}: {id} has no fix of its own");
+                    if locale == "en" {
+                        assert!(!fix.contains(['ä', 'ö', 'ü', 'ß']), "{id}: {fix}");
+                    }
+                    fix
+                })
+                .collect();
+            assert_eq!(fixes.len(), heading_ids.len(), "{locale}: shared fixes");
+        }
+        let en = I18n::new("en").unwrap();
+        let (title, fix) =
+            recommendation("html_conform.assertion.headings.section-lacks-heading", &en);
+        assert_eq!(title, en.t("html-conform-headings-title"));
+        assert_eq!(fix, en.t("html-conform-headings-section-lacks-heading-fix"));
+        assert!(fix.contains("section"), "{fix}");
+        assert!(!fix.contains("h1 straight to h3"), "{fix}");
     }
 
     #[test]

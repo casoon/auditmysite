@@ -394,7 +394,11 @@ pub(super) fn render_batch_decision_actions(
     });
 
     let mut count = 0;
-    for group in pres.top_issues.iter().take(8) {
+    for group in pres
+        .top_issues
+        .iter()
+        .take(crate::audit::normalized::BATCH_TOP_ACTION_COUNT)
+    {
         // A verified template cluster for this rule overrides the loose
         // occurrence-count heuristic with the evidence-backed claim (and its
         // confirmed/likely distinction) instead of the vague "likely shared

@@ -429,7 +429,7 @@ pub(super) fn build_decision_actions(
 ) -> Vec<DecisionAction> {
     crate::audit::normalized::aggregate_batch_findings(reports)
         .into_iter()
-        .take(8)
+        .take(crate::audit::normalized::BATCH_TOP_ACTION_COUNT)
         .map(|(finding, urls)| {
             // `root_causes` is sorted by reach, so the first match is the
             // rule's most widespread pattern.
