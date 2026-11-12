@@ -251,10 +251,6 @@ pub(crate) fn normalize_assessments(results: &WcagResults) -> Vec<AccessibilityA
         .collect()
 }
 
-fn default_finding_category() -> String {
-    "wcag".to_string()
-}
-
 /// One element pattern of a finding: the rule at elements whose selectors
 /// normalize to the same form (`a11y_report::normalize_selector`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -307,29 +303,29 @@ pub(super) fn finding_patterns<'a>(
 }
 
 /// Ein normalisiertes Finding — gruppiert nach Regel, mit Taxonomie-Feldern
+///
+/// The JSON shape is the private `NormalizedFindingWire`: it adds `category`, which is
+/// derived from `contract.domain` ([`NormalizedFinding::category`]), at its
+/// place in the object, and rejects a `category` that names another domain,
+/// a `rule_id` the contract's source and check do not name, and an
+/// `aggregation_key` other than the `rule_id`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(into = "NormalizedFindingWire", try_from = "NormalizedFindingWire")]
 #[non_exhaustive]
 pub struct NormalizedFinding {
     /// Stable finding id (`F-` + 8 hex) from the rule alone: a finding is one
     /// rule on one page, so the id stays the same on every page and in every
     /// run, also when an element is added (2.0 finding model, plan 100).
-    #[serde(default)]
     pub id: String,
     /// The finding's id is in the findings baseline (`--baseline`, #930): it
     /// does not affect the decision. Present only when `true`.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub known: bool,
     /// The element patterns of this finding, most occurrences first, at most
     /// [`MAX_PATTERNS`]. A pattern id equals the root-cause id of that rule
     /// and pattern, so the same template on several pages shares it.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub patterns: Vec<FindingPattern>,
     /// Number of distinct patterns, also those beyond [`MAX_PATTERNS`].
-    #[serde(default)]
     pub pattern_count: usize,
-    /// Category: "wcag" for WCAG accessibility findings, "seo" for SEO findings.
-    #[serde(default = "default_finding_category")]
-    pub category: String,
     /// Regel-ID der Engine, zugleich Schlüssel der Taxonomie (z.B. "images/alt-missing")
     pub rule_id: String,
     /// WCAG-Kriterium (z.B. "1.1.1")
@@ -348,28 +344,22 @@ pub struct NormalizedFinding {
     /// Canonical taxonomy key for the dimension — kept internal for PDF
     /// re-derivation in the runtime locale. Not serialized (JSON uses the
     /// English `dimension` label above).
-    #[serde(skip)]
     pub dimension_kind: crate::taxonomy::Dimension,
     /// Canonical taxonomy key for the subcategory (see `dimension_kind`).
-    #[serde(skip)]
     pub subcategory_kind: crate::taxonomy::Subcategory,
     /// Canonical taxonomy key for the issue class (see `dimension_kind`).
-    #[serde(skip)]
     pub issue_class_kind: crate::taxonomy::IssueClass,
     /// Schweregrad
     pub severity: Severity,
     /// Auswirkung auf den Nutzer
-    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub user_impact: String,
     /// Technische Auswirkung
-    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub technical_impact: String,
     /// Strukturierter Score-Impact
     pub score_impact: ScoreImpactData,
-    /// Report-Sichtbarkeit
-    #[serde(skip)]
+    /// Report-Sichtbarkeit (not serialized)
     pub report_visibility: ReportVisibilityData,
-    /// Aggregationsschlüssel (= rule_id)
+    /// Aggregation key; always equal to `rule_id`.
     pub aggregation_key: String,
 
     /// Titel der Regel
@@ -378,51 +368,38 @@ pub struct NormalizedFinding {
     pub description: String,
     /// Documentation page of the rule on the project site
     /// (`taxonomy::rule_doc_url`); absent for findings without a rule page.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub help_url: Option<String>,
     /// Official reference for the criterion (the WCAG Understanding page),
     /// absent when the rule names none.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub understanding_url: Option<String>,
     /// Anzahl Vorkommen
     pub occurrence_count: usize,
     /// Prioritätswert für Maßnahmenplanung (impact × reach / effort)
     pub priority_score: f32,
     /// Detection confidence for the automated finding. Does not affect severity.
-    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub confidence: String,
     /// Estimated false-positive risk for this automated finding.
-    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub false_positive_risk: String,
     /// Verification wording: confirmed automatically or manual review recommended.
-    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub verification: String,
     /// Detection method and evidence quality `confidence`,
     /// `false_positive_risk` and `verification` were derived from (#784).
-    #[serde(default)]
     pub assurance: AssuranceBasis,
     /// Implementation complexity class, independent from severity.
-    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub complexity: String,
     /// Short explanation of the complexity classification.
-    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub complexity_reason: String,
     /// Stable identifier for `complexity_reason`'s sentence shape (for localized
     /// re-derivation by [`complexity_text`], #406).
-    #[serde(default)]
     pub complexity_kind: ComplexityKind,
     /// Expected effect of fixing this finding group.
-    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub expected_impact: String,
     /// Stable identifier for `expected_impact`'s sentence shape (for localized
     /// re-derivation by [`expected_impact_text`], #406).
-    #[serde(default)]
     pub expected_impact_kind: ExpectedImpactKind,
     /// Cautious BFSG/EAA relevance classification.
-    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub bfsg_relevance: String,
     /// Execution priority label, separate from severity/risk.
-    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub remediation_priority: String,
     /// Einzelne Vorkommen
     pub occurrences: Vec<OccurrenceDetail>,
@@ -431,7 +408,234 @@ pub struct NormalizedFinding {
     pub contract: crate::audit::finding_contract::FindingContract,
 }
 
+/// The JSON form of [`NormalizedFinding`], field for field in JSON order.
+/// `category` is written from `contract.domain`; on reading it may be absent,
+/// and if present it must name `contract.domain`.
+#[derive(Serialize, Deserialize)]
+struct NormalizedFindingWire {
+    #[serde(default)]
+    id: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    known: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    patterns: Vec<FindingPattern>,
+    #[serde(default)]
+    pattern_count: usize,
+    /// "wcag" for WCAG accessibility findings, the domain name otherwise
+    /// (`FindingDomain::category`).
+    #[serde(default)]
+    category: Option<String>,
+    rule_id: String,
+    wcag_criterion: String,
+    axe_id: Option<String>,
+    wcag_level: String,
+    dimension: String,
+    subcategory: String,
+    issue_class: String,
+    severity: Severity,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    user_impact: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    technical_impact: String,
+    score_impact: ScoreImpactData,
+    aggregation_key: String,
+    title: String,
+    description: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    help_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    understanding_url: Option<String>,
+    occurrence_count: usize,
+    priority_score: f32,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    confidence: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    false_positive_risk: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    verification: String,
+    #[serde(default)]
+    assurance: AssuranceBasis,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    complexity: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    complexity_reason: String,
+    #[serde(default)]
+    complexity_kind: ComplexityKind,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    expected_impact: String,
+    #[serde(default)]
+    expected_impact_kind: ExpectedImpactKind,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    bfsg_relevance: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    remediation_priority: String,
+    occurrences: Vec<OccurrenceDetail>,
+    contract: crate::audit::finding_contract::FindingContract,
+}
+
+impl From<NormalizedFinding> for NormalizedFindingWire {
+    fn from(f: NormalizedFinding) -> Self {
+        let category = Some(f.category().to_string());
+        let NormalizedFinding {
+            id,
+            known,
+            patterns,
+            pattern_count,
+            rule_id,
+            wcag_criterion,
+            axe_id,
+            wcag_level,
+            dimension,
+            subcategory,
+            issue_class,
+            dimension_kind: _,
+            subcategory_kind: _,
+            issue_class_kind: _,
+            severity,
+            user_impact,
+            technical_impact,
+            score_impact,
+            report_visibility: _,
+            aggregation_key,
+            title,
+            description,
+            help_url,
+            understanding_url,
+            occurrence_count,
+            priority_score,
+            confidence,
+            false_positive_risk,
+            verification,
+            assurance,
+            complexity,
+            complexity_reason,
+            complexity_kind,
+            expected_impact,
+            expected_impact_kind,
+            bfsg_relevance,
+            remediation_priority,
+            occurrences,
+            contract,
+        } = f;
+        Self {
+            id,
+            known,
+            patterns,
+            pattern_count,
+            category,
+            rule_id,
+            wcag_criterion,
+            axe_id,
+            wcag_level,
+            dimension,
+            subcategory,
+            issue_class,
+            severity,
+            user_impact,
+            technical_impact,
+            score_impact,
+            aggregation_key,
+            title,
+            description,
+            help_url,
+            understanding_url,
+            occurrence_count,
+            priority_score,
+            confidence,
+            false_positive_risk,
+            verification,
+            assurance,
+            complexity,
+            complexity_reason,
+            complexity_kind,
+            expected_impact,
+            expected_impact_kind,
+            bfsg_relevance,
+            remediation_priority,
+            occurrences,
+            contract,
+        }
+    }
+}
+
+impl TryFrom<NormalizedFindingWire> for NormalizedFinding {
+    type Error = String;
+
+    fn try_from(w: NormalizedFindingWire) -> Result<Self, Self::Error> {
+        let expected = w.contract.domain.category();
+        if let Some(category) = w.category.as_deref().filter(|c| *c != expected) {
+            return Err(format!(
+                "finding {}: category \"{category}\" does not name contract.domain \"{}\" \
+                 (expected category \"{expected}\")",
+                w.rule_id,
+                w.contract.domain.as_str()
+            ));
+        }
+        let expected = w.contract.rule_id();
+        if w.rule_id != expected {
+            return Err(format!(
+                "finding {}: rule_id does not name contract source \"{}\" and check \"{}\" \
+                 (expected rule_id \"{expected}\")",
+                w.rule_id, w.contract.source, w.contract.check
+            ));
+        }
+        if w.aggregation_key != w.rule_id {
+            return Err(format!(
+                "finding {}: aggregation_key \"{}\" differs from rule_id",
+                w.rule_id, w.aggregation_key
+            ));
+        }
+        Ok(Self {
+            id: w.id,
+            known: w.known,
+            patterns: w.patterns,
+            pattern_count: w.pattern_count,
+            rule_id: w.rule_id,
+            wcag_criterion: w.wcag_criterion,
+            axe_id: w.axe_id,
+            wcag_level: w.wcag_level,
+            dimension: w.dimension,
+            subcategory: w.subcategory,
+            issue_class: w.issue_class,
+            dimension_kind: Default::default(),
+            subcategory_kind: Default::default(),
+            issue_class_kind: Default::default(),
+            severity: w.severity,
+            user_impact: w.user_impact,
+            technical_impact: w.technical_impact,
+            score_impact: w.score_impact,
+            report_visibility: Default::default(),
+            aggregation_key: w.aggregation_key,
+            title: w.title,
+            description: w.description,
+            help_url: w.help_url,
+            understanding_url: w.understanding_url,
+            occurrence_count: w.occurrence_count,
+            priority_score: w.priority_score,
+            confidence: w.confidence,
+            false_positive_risk: w.false_positive_risk,
+            verification: w.verification,
+            assurance: w.assurance,
+            complexity: w.complexity,
+            complexity_reason: w.complexity_reason,
+            complexity_kind: w.complexity_kind,
+            expected_impact: w.expected_impact,
+            expected_impact_kind: w.expected_impact_kind,
+            bfsg_relevance: w.bfsg_relevance,
+            remediation_priority: w.remediation_priority,
+            occurrences: w.occurrences,
+            contract: w.contract,
+        })
+    }
+}
+
 impl NormalizedFinding {
+    /// `wcag` for accessibility rule findings, the domain name otherwise;
+    /// derived from `contract.domain` (`FindingDomain::category`).
+    pub fn category(&self) -> &'static str {
+        self.contract.domain.category()
+    }
+
     /// See [`is_bfsg_relevant_open`].
     pub fn is_bfsg_relevant(&self) -> bool {
         is_bfsg_relevant_open(
@@ -1033,7 +1237,6 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 id,
                 patterns,
                 pattern_count,
-                category: "wcag".to_string(),
                 rule_id: tax_id.clone(),
                 wcag_criterion: wcag_criterion_of(&first.rule),
                 axe_id,
@@ -1117,11 +1320,11 @@ pub fn aggregate_batch_findings(
 
     let wcag_titles: HashSet<String> = aggregated
         .iter()
-        .filter(|(f, _)| f.category == "wcag")
+        .filter(|(f, _)| f.category() == "wcag")
         .map(|(f, _)| f.title.trim().to_lowercase())
         .collect();
     aggregated.retain(|(f, _)| {
-        f.category == "wcag" || !wcag_titles.contains(&f.title.trim().to_lowercase())
+        f.category() == "wcag" || !wcag_titles.contains(&f.title.trim().to_lowercase())
     });
 
     for (finding, _) in &mut aggregated {
@@ -1135,7 +1338,7 @@ pub fn aggregate_batch_findings(
 /// from severity and occurrence count, after both changed in aggregation.
 fn rederive_count_dependent_fields(f: &mut NormalizedFinding) {
     let count = f.occurrence_count;
-    let issue_class_de = if f.category == "wcag" {
+    let issue_class_de = if f.category() == "wcag" {
         f.issue_class_kind.label(false)
     } else {
         "issue".to_string()
@@ -1145,12 +1348,12 @@ fn rederive_count_dependent_fields(f: &mut NormalizedFinding) {
     f.complexity_reason = complexity_text(complexity_kind, true);
     f.complexity = complexity;
     f.complexity_kind = complexity_kind;
-    f.expected_impact_kind = derive_expected_impact(f.severity, count, &f.category, &f.wcag_level);
+    f.expected_impact_kind = derive_expected_impact(f.severity, count, f.category(), &f.wcag_level);
     f.expected_impact = expected_impact_text(&f.expected_impact_kind, true);
     f.remediation_priority = derive_remediation_priority(f.severity, count, &f.complexity);
     f.bfsg_relevance = derive_bfsg_relevance(
         &f.rule_id,
-        &f.category,
+        f.category(),
         &f.wcag_criterion,
         &f.wcag_level,
         f.severity,
@@ -1424,7 +1627,7 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     // Severity counts — only WCAG findings count (not SEO findings).
     // `severity_counts` zählt Findings (eine Zeile pro Regel/Severity),
     // `occurrence_counts` zählt Element-Occurrences (Summe aller betroffenen Elemente).
-    let wcag_findings: Vec<_> = findings.iter().filter(|f| f.category == "wcag").collect();
+    let wcag_findings: Vec<_> = findings.iter().filter(|f| f.category() == "wcag").collect();
     let severity_counts = SeverityCounts {
         critical: wcag_findings
             .iter()
@@ -1845,6 +2048,57 @@ mod tests {
             1
         );
         n.validate().unwrap();
+    }
+
+    /// #937: `category` is derived from `contract.domain`. The JSON keeps it
+    /// between `pattern_count` and `rule_id`; reading accepts it absent and
+    /// rejects one that names another domain.
+    #[test]
+    fn category_follows_the_contract_domain_in_json() {
+        let mut results = WcagResults::new();
+        results.add_violation(
+            Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                crate::model::WcagLevel::A,
+                Severity::High,
+                "image has no alt",
+                "img.hero",
+            )
+            .with_rule_id("images/alt-missing")
+            .with_selector("img.hero"),
+        );
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+        let finding = normalize(&report)
+            .normalized
+            .findings
+            .into_iter()
+            .find(|f| f.rule_id == "images/alt-missing")
+            .unwrap();
+        assert_eq!(finding.category(), "wcag");
+
+        let json = serde_json::to_string(&finding).unwrap();
+        assert!(
+            json.contains(r#""pattern_count":1,"category":"wcag","rule_id":"images/alt-missing""#),
+            "{json}"
+        );
+        let back: NormalizedFinding = serde_json::from_str(&json).unwrap();
+        assert_eq!(serde_json::to_string(&back).unwrap(), json);
+
+        let absent = json.replace(r#""category":"wcag","#, "");
+        let back: NormalizedFinding = serde_json::from_str(&absent).unwrap();
+        assert_eq!(serde_json::to_string(&back).unwrap(), json);
+
+        let foreign = json.replace(r#""category":"wcag""#, r#""category":"seo""#);
+        let err = serde_json::from_str::<NormalizedFinding>(&foreign)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains(
+                r#"category "seo" does not name contract.domain "accessibility" (expected category "wcag")"#
+            ),
+            "{err}"
+        );
     }
 
     /// #929: `help_url` is the rule's page on the project site whatever the

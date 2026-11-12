@@ -66,7 +66,6 @@ pub const CONTRACT_CODES: &[&str] = &[
     "decision_profile",
     "execution_completeness",
     "failed_rule_checks",
-    "finding_domain",
     "finding_identity",
     "finding_inventory",
     "finding_occurrences",
@@ -191,7 +190,7 @@ impl NormalizedReport {
         }
         let mut finding_counts = [0usize; 5];
         let mut occurrence_counts = [0usize; 5];
-        for finding in self.findings.iter().filter(|f| f.category == "wcag") {
+        for finding in self.findings.iter().filter(|f| f.category() == "wcag") {
             let index = match finding.severity {
                 crate::taxonomy::Severity::Critical => 0,
                 crate::taxonomy::Severity::High => 1,
@@ -222,7 +221,7 @@ impl NormalizedReport {
             .findings
             .iter()
             .filter(|f| {
-                f.category == "wcag"
+                f.category() == "wcag"
                     && f.wcag_level == "A"
                     && matches!(
                         f.severity,
@@ -721,12 +720,6 @@ impl NormalizedReport {
                 "finding ids must be unique on a page".into(),
             );
             check(
-                finding.category == finding.contract.domain.category(),
-                "finding_domain",
-                format!("findings[{}].contract.domain", finding.rule_id),
-                "category must name the contract domain".into(),
-            );
-            check(
                 finding.occurrence_count > 0,
                 "finding_occurrences",
                 format!("findings[{}]", finding.rule_id),
@@ -760,7 +753,7 @@ impl NormalizedReport {
                 ),
             }
         }
-        for finding in self.findings.iter().filter(|f| f.category != "wcag") {
+        for finding in self.findings.iter().filter(|f| f.category() != "wcag") {
             check(
                 self.finding_inventory.iter().any(|entry| {
                     matches!(&entry.disposition,

@@ -561,7 +561,7 @@ pub fn derive_annex(findings: &[NormalizedFinding]) -> Vec<ClauseRollup> {
         .map(|clause| {
             let matching: Vec<&NormalizedFinding> = findings
                 .iter()
-                .filter(|f| f.category == "wcag" && f.wcag_criterion == clause.wcag)
+                .filter(|f| f.category() == "wcag" && f.wcag_criterion == clause.wcag)
                 .collect();
 
             if !matching.is_empty() {
@@ -674,7 +674,7 @@ pub fn out_of_standard_finding_count(findings: &[NormalizedFinding]) -> usize {
     findings
         .iter()
         .filter(|f| {
-            f.category == "wcag"
+            f.category() == "wcag"
                 && !EN301549_WEB_CLAUSES
                     .iter()
                     .any(|c| c.wcag == f.wcag_criterion)
@@ -697,7 +697,6 @@ mod tests {
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,
-            category: "wcag".into(),
             rule_id: rule_id.into(),
             wcag_criterion: wcag_criterion.into(),
             axe_id: None,

@@ -389,7 +389,7 @@ fn apportion<const N: usize>(parts: &[f64; N], sum: f64, total: u32) -> [u32; N]
 pub(crate) fn score_area_for_finding(
     finding: &crate::audit::normalized::NormalizedFinding,
 ) -> Option<&'static str> {
-    if finding.category != "wcag" {
+    if finding.category() != "wcag" {
         return None;
     }
     Some(
@@ -571,7 +571,7 @@ pub(super) fn distinct_wcag_rule_count(
 ) -> usize {
     findings
         .iter()
-        .filter(|finding| finding.category == "wcag")
+        .filter(|finding| finding.category() == "wcag")
         .map(|f| f.rule_id.as_str())
         .collect::<std::collections::HashSet<_>>()
         .len()
@@ -756,7 +756,6 @@ mod tests {
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,
-            category: "wcag".into(),
             rule_id: rule_id.into(),
             wcag_criterion: "1.3.4".into(),
             axe_id: None,
@@ -1088,14 +1087,14 @@ mod tests {
     #[test]
     fn score_area_excludes_non_wcag_findings() {
         let mut seo = make_finding("seo.headings.multiple_h1", "Two H1 headings found.");
-        seo.category = "seo".into();
+        seo.contract.domain = crate::audit::finding_contract::FindingDomain::Seo;
         assert_eq!(score_area_for_finding(&seo), None);
     }
 
     #[test]
     fn seo_findings_do_not_reach_the_accessibility_breakdown() {
         let mut seo = make_finding("seo.headings.multiple_h1", "Two H1 headings found.");
-        seo.category = "seo".into();
+        seo.contract.domain = crate::audit::finding_contract::FindingDomain::Seo;
         seo.occurrence_count = 40;
         let report = make_report(vec![seo]);
 

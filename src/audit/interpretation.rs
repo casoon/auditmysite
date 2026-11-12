@@ -4,7 +4,7 @@
 //! and technical-overview bullets are available in both DE and EN without
 //! needing the builder to know about thresholds.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -231,8 +231,9 @@ pub struct Interpretation {
     /// tech complexity) as pre-computed DE+EN pairs.
     pub technical_overview: Vec<LocalizedText>,
     /// Per-module score interpretation keyed by module name (lowercase,
-    /// e.g. `"accessibility"`, `"performance"`).
-    pub per_module: HashMap<String, LocalizedText>,
+    /// e.g. `"accessibility"`, `"performance"`), in key order so that a
+    /// serialized report does not vary between runs.
+    pub per_module: BTreeMap<String, LocalizedText>,
     /// Overall score band for the accessibility score.
     pub overall_score_band: ScoreBand,
     /// Three-row overall impact table (user experience, risk level, conversion
@@ -760,8 +761,8 @@ fn build_technical_overview_localized(
     bullets
 }
 
-fn build_per_module_localized(normalized: &AuditContext<'_>) -> HashMap<String, LocalizedText> {
-    let mut map = HashMap::new();
+fn build_per_module_localized(normalized: &AuditContext<'_>) -> BTreeMap<String, LocalizedText> {
+    let mut map = BTreeMap::new();
 
     map.insert(
         "accessibility".to_string(),
@@ -1713,6 +1714,47 @@ mod tests {
             AccessibilityClaimKind::NotMeasured
         );
         assert!(interp.technical_overview[0].en.contains("Not measured"));
+    }
+
+    /// `per_module` serializes in key order, not in insertion order (which
+    /// puts security before mobile) or a run-dependent hash order, so a
+    /// serialized `NormalizedReport` is the same in every run.
+    #[test]
+    fn per_module_serializes_in_key_order() {
+        use crate::security::{SecurityAnalysis, SecurityHeaders, SslInfo};
+
+        let mut report = crate::audit::AuditReport::new(
+            "https://example.com".to_string(),
+            crate::WcagLevel::AA,
+            crate::wcag::WcagResults::new(),
+            100,
+        )
+        .with_mobile(crate::mobile::MobileFriendliness {
+            score: 80,
+            viewport: Default::default(),
+            touch_targets: Default::default(),
+            font_sizes: Default::default(),
+            content_sizing: Default::default(),
+            issues: vec![],
+        });
+        report.security = Some(SecurityAnalysis {
+            score: 95,
+            grade: "A".to_string(),
+            headers: SecurityHeaders::default(),
+            ssl: SslInfo::default(),
+            issues: vec![],
+            protection: Default::default(),
+            sourcemap_leaks: Default::default(),
+            fetch: Default::default(),
+            recommendations: vec![],
+        });
+        let ctx = crate::audit::normalized::normalize(&report);
+        let json = serde_json::to_string(&Interpretation::from_context(&ctx)).unwrap();
+        let positions: Vec<usize> = ["accessibility", "mobile", "security"]
+            .iter()
+            .map(|key| json.find(&format!(r#""{key}":{{"#)).expect(key))
+            .collect();
+        assert!(positions.windows(2).all(|w| w[0] < w[1]), "{json}");
     }
 
     /// Guard (#406): the English claim texts carry no German characters.

@@ -427,7 +427,7 @@ fn test_single_violations_match_severity_counts() {
         page.violation_count,
         page.findings
             .iter()
-            .filter(|finding| finding.category == "wcag")
+            .filter(|finding| finding.category() == "wcag")
             .map(|f| f.occurrence_count)
             .sum::<usize>()
     );

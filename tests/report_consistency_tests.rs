@@ -669,7 +669,7 @@ fn test_severity_counts_match_findings() {
         .normalized
         .findings
         .iter()
-        .filter(|f| f.category == "wcag")
+        .filter(|f| f.category() == "wcag")
     {
         match f.severity {
             Severity::Critical => {
@@ -774,7 +774,7 @@ fn test_json_separates_wcag_counts_from_all_category_findings() {
         .normalized
         .findings
         .iter()
-        .filter(|f| f.category == "seo")
+        .filter(|f| f.category() == "seo")
         .count();
     assert!(seo_rules > 0, "test report must contain SEO findings");
 
@@ -782,13 +782,13 @@ fn test_json_separates_wcag_counts_from_all_category_findings() {
         .normalized
         .findings
         .iter()
-        .filter(|f| f.category == "wcag")
+        .filter(|f| f.category() == "wcag")
         .count();
     let wcag_occurrences: usize = normalized
         .normalized
         .findings
         .iter()
-        .filter(|f| f.category == "wcag")
+        .filter(|f| f.category() == "wcag")
         .map(|f| f.occurrence_count)
         .sum();
 

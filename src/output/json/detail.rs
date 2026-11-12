@@ -205,12 +205,12 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
     let wcag_findings: Vec<_> = normalized
         .findings
         .iter()
-        .filter(|f| f.category == "wcag")
+        .filter(|f| f.category() == "wcag")
         .collect();
     let seo_findings: Vec<_> = normalized
         .findings
         .iter()
-        .filter(|f| f.category == "seo")
+        .filter(|f| f.category() == "seo")
         .collect();
 
     let tech_stack = ctx.raw_tech_stack.and_then(|m| {

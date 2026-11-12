@@ -38,7 +38,7 @@
 
 ## Finding Contract
 
-`pages[].findings[]` holds every problem any module collected, one finding per rule (WCAG) or per collector check (`<source>.<check>`, e.g. `seo.technical.noindex`). `category` is `wcag` for accessibility rule findings and the domain name otherwise. Each finding carries `contract`:
+`pages[].findings[]` holds every problem any module collected, one finding per rule (WCAG) or per collector check (`<source>.<check>`, e.g. `seo.technical.noindex`). `category` is `wcag` for accessibility rule findings and the domain name otherwise; it is derived from `contract.domain`, and a report whose `category` names another domain is rejected when it is read back. `rule_id` is `contract.check` for a WCAG finding (`contract.source` `wcag`) and `<contract.source>.<contract.check>` otherwise, `aggregation_key` equals `rule_id`; a report that breaks either is rejected when it is read back. Each finding carries `contract`:
 
 - `domain`, `source`, `check` — where the finding comes from.
 - `outcome` — `fail`, or `review` for heuristic and context-dependent checks.
@@ -206,7 +206,7 @@ A report that contradicts itself is rejected with machine-readable codes (`Repor
 
 - Baseline: `baseline`.
 - Scores and decision: `score_range`, `grade`, `overall_score`, `average_score`, `score_method`, `module_grade`, `module_weight`, `module_identity`, `weighted_measurement`, `viewport_score`, `semantic_score_cap`, `gate_score_cap`, `passed`, `decision`, `decision_contract`, `decision_profile`, `cause_charged_twice`.
-- Findings and counts: `finding_domain`, `finding_identity`, `finding_inventory`, `finding_occurrences`, `occurrence_counts`, `severity_counts`, `rule_findings_preserved`.
+- Findings and counts: `finding_identity`, `finding_inventory`, `finding_occurrences`, `occurrence_counts`, `severity_counts`, `rule_findings_preserved`.
 - Execution scope: `requested_execution`, `requested_rule_outcome`, `rule_outcome_duplicate`, `rule_outcome_above_level`, `rule_outcome_filtered`, `requested_subcheck_outcome`, `frame_rule_outcome_missing`, `frame_rule_outcome_duplicate`, `frame_rule_outcome_unexpected`, `frame_rule_outcome_above_level`, `measurement_profile_read_only`, `measurement_profile_journeys`, `browser_provenance`.
 - Quality and collections: `accessibility_module`, `audit_quality`, `execution_completeness`, `quality_qualification`, `failed_rule_checks`, `collector_unknown`, `collection_state_unexplained`, `collection_gap_completed`, `collection_gap_scored`.
 - Batch: `batch_aggregation`, `total_urls`, `sample_strata`.

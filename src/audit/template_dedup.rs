@@ -88,7 +88,7 @@ pub fn detect_root_causes(reports: &[NormalizedReport]) -> Vec<RootCause> {
     let total_pages = reports.len();
     let mut by_id: HashMap<String, Acc> = HashMap::new();
     for report in reports {
-        for finding in report.findings.iter().filter(|f| f.category == "wcag") {
+        for finding in report.findings.iter().filter(|f| f.category() == "wcag") {
             for pattern in &finding.patterns {
                 let normalized = normalize_selector(&pattern.selector);
                 let snippets: Vec<&str> = finding

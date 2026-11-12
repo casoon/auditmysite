@@ -485,7 +485,7 @@ pub fn format_sarif(reports: &[&NormalizedReport]) -> anyhow::Result<String> {
                             level: result_level(&finding.severity, finding.contract.outcome),
                         },
                         properties: SarifRuleProperties {
-                            tags: vec![finding.category.clone(), finding.dimension.clone()],
+                            tags: vec![finding.category().to_string(), finding.dimension.clone()],
                             wcag_criterion: if finding.wcag_criterion.is_empty() {
                                 None
                             } else {

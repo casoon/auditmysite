@@ -267,11 +267,18 @@ impl FindingContract {
         )
     }
 
+    /// The rule id this contract names, which `NormalizedFinding::rule_id`
+    /// and `aggregation_key` hold: the check of a WCAG rule finding,
+    /// `{source}.{check}` for every other source.
+    pub(crate) fn rule_id(&self) -> String {
+        contract_rule_id(&self.source, &self.check)
+    }
+
     /// Contract of a WCAG rule finding: charged in the accessibility score.
     pub(crate) fn wcag(rule_id: &str, finding_id: &str) -> Self {
         Self {
             domain: FindingDomain::Accessibility,
-            source: "wcag".to_string(),
+            source: WCAG_SOURCE.to_string(),
             check: rule_id.to_string(),
             outcome: FindingOutcome::Fail,
             applicability: Applicability::Applies,
@@ -282,6 +289,19 @@ impl FindingContract {
             scoring: FindingScoring::new("Accessibility", ScoringEffect::Deduction),
             scope: LocationScope::Element,
         }
+    }
+}
+
+/// Source of the WCAG rule findings; its check is the engine's rule id.
+const WCAG_SOURCE: &str = "wcag";
+
+/// See [`FindingContract::rule_id`]; the one place the finding's rule id is
+/// derived from source and check.
+fn contract_rule_id(source: &str, check: &str) -> String {
+    if source == WCAG_SOURCE {
+        check.to_string()
+    } else {
+        format!("{source}.{check}")
     }
 }
 
@@ -1184,7 +1204,7 @@ fn collected_anchor(c: &Collected) -> OccurrenceAnchor {
 
 fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFinding {
     let first = &group[0];
-    let rule_id = format!("{}.{}", first.source, first.check);
+    let rule_id = contract_rule_id(first.source, &first.check);
     let severity = group
         .iter()
         .map(|c| c.severity)
@@ -1270,7 +1290,6 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
         id,
         patterns,
         pattern_count,
-        category: category.to_string(),
         rule_id: rule_id.clone(),
         wcag_criterion: String::new(),
         axe_id: None,
@@ -1697,6 +1716,75 @@ mod tests {
         n.findings
             .iter()
             .find(|f| f.rule_id == "seo.technical.noindex")
+    }
+
+    /// `rule_id` and `aggregation_key` name the contract: the check of a WCAG
+    /// finding, `{source}.{check}` otherwise. Reading a finding back rejects
+    /// either one when it disagrees.
+    #[test]
+    fn rule_id_names_the_contract_on_read() {
+        let mut results = WcagResults::new();
+        results.add_violation(
+            crate::wcag::Violation::new(
+                "1.1.1",
+                "Non-text Content",
+                crate::model::WcagLevel::A,
+                Severity::High,
+                "image has no alt",
+                "n1",
+            )
+            .with_rule_id("images/alt-missing")
+            .with_selector("img.hero"),
+        );
+        let mut report = AuditReport::new(
+            "https://example.com".into(),
+            crate::model::WcagLevel::AA,
+            results,
+            100,
+        );
+        let mut seo = seo(true);
+        crate::seo::rescore(&mut seo, Default::default());
+        report.discoverability.seo = Some(seo);
+        let n = normalize(&report).normalized;
+        let wcag = n
+            .findings
+            .iter()
+            .find(|f| f.rule_id == "images/alt-missing")
+            .unwrap();
+        let domain = noindex(&n).unwrap();
+
+        for (finding, wrong) in [(wcag, "images/alt-wrong"), (domain, "seo.technical.other")] {
+            assert_eq!(finding.rule_id, finding.contract.rule_id());
+            assert_eq!(finding.aggregation_key, finding.rule_id);
+            let json = serde_json::to_string(finding).unwrap();
+            let back: NormalizedFinding = serde_json::from_str(&json).unwrap();
+            assert_eq!(serde_json::to_string(&back).unwrap(), json);
+
+            let id = format!(r#""rule_id":"{}""#, finding.rule_id);
+            let renamed = json.replace(&id, &format!(r#""rule_id":"{wrong}""#));
+            let err = serde_json::from_str::<NormalizedFinding>(&renamed)
+                .unwrap_err()
+                .to_string();
+            assert!(
+                err.contains(&format!(
+                    r#"finding {wrong}: rule_id does not name contract source "{}" and check "{}" (expected rule_id "{}")"#,
+                    finding.contract.source, finding.contract.check, finding.rule_id
+                )),
+                "{err}"
+            );
+
+            let key = format!(r#""aggregation_key":"{}""#, finding.rule_id);
+            let regrouped = json.replace(&key, &format!(r#""aggregation_key":"{wrong}""#));
+            let err = serde_json::from_str::<NormalizedFinding>(&regrouped)
+                .unwrap_err()
+                .to_string();
+            assert!(
+                err.contains(&format!(
+                    r#"aggregation_key "{wrong}" differs from rule_id"#
+                )),
+                "{err}"
+            );
+        }
     }
 
     /// U15 reproduction: an indexable page and a noindex page both scored SEO
