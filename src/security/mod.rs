@@ -549,10 +549,28 @@ impl SecurityIssue {
     /// `None` for an `(header, issue_type)` pair this build does not know —
     /// callers then fall back to the stored canonical-English `message`.
     pub fn kind(&self) -> Option<SecurityIssueKind> {
+        SecurityIssueKind::from_stored(&self.issue_type, &self.header)
+    }
+
+    /// The finding's message in `locale`'s language. Falls back to the stored
+    /// canonical English for kinds this build does not recognize.
+    pub fn localized_message(&self, en: bool) -> String {
+        match self.kind() {
+            Some(kind) => security_issue_text(kind, &self.values, en),
+            None => self.message.clone(),
+        }
+    }
+}
+
+impl SecurityIssueKind {
+    /// The kind of a stored `(issue_type, header)` pair; `None` for a pair this
+    /// build does not know. The finding's rule id carries the `issue_type`
+    /// (`security.headers.<issue_type>`) but not the header.
+    pub fn from_stored(issue_type: &str, header: &str) -> Option<Self> {
         use SecurityIssueKind::*;
-        let kind = match self.issue_type.as_str() {
+        let kind = match issue_type {
             "missing_https" => MissingHttps,
-            "missing_header" => match self.header.as_str() {
+            "missing_header" => match header {
                 "Content-Security-Policy" => MissingCsp,
                 "X-Content-Type-Options" => MissingXContentTypeOptions,
                 "X-Frame-Options" => MissingXFrameOptions,
@@ -576,15 +594,6 @@ impl SecurityIssue {
             _ => return None,
         };
         Some(kind)
-    }
-
-    /// The finding's message in `locale`'s language. Falls back to the stored
-    /// canonical English for kinds this build does not recognize.
-    pub fn localized_message(&self, en: bool) -> String {
-        match self.kind() {
-            Some(kind) => security_issue_text(kind, &self.values, en),
-            None => self.message.clone(),
-        }
     }
 }
 

@@ -41,6 +41,9 @@ pub(super) fn compact_html(s: &str, max: usize) -> String {
     truncate_url(&result, max)
 }
 
+/// Abbreviations followed by ". " inside a sentence.
+const SENTENCE_INNER_ABBREVIATIONS: &[&str] = &["bzw", "ggf", "inkl", "evtl", "vgl", "ca"];
+
 pub(super) fn first_sentence(text: &str) -> &str {
     let mut search_from = 0;
     while let Some(rel) = text[search_from..].find(". ") {
@@ -54,6 +57,16 @@ pub(super) fn first_sentence(text: &str) -> &str {
                 search_from = pos + 2;
                 continue;
             }
+        }
+        // Multi-letter abbreviations ("Skripte bzw. -Styles") end no
+        // sentence either.
+        let word = text[..pos]
+            .rsplit(|c: char| c.is_whitespace())
+            .next()
+            .unwrap_or("");
+        if SENTENCE_INNER_ABBREVIATIONS.contains(&word) {
+            search_from = pos + 2;
+            continue;
         }
         return &text[..pos + 1];
     }
@@ -794,6 +807,19 @@ mod tests {
     use crate::output::pdf::single_report::risk_and_strength_tests::test_report_view_model;
     use crate::output::report_model::FindingGroup;
     use crate::wcag::Severity;
+
+    /// #1039: the German CSP fix has a "bzw." inside its first sentence.
+    #[test]
+    fn first_sentence_skips_inner_abbreviations() {
+        assert_eq!(
+            super::first_sentence("Skripte bzw. -Styles zulassen. Rest."),
+            "Skripte bzw. -Styles zulassen."
+        );
+        assert_eq!(
+            super::first_sentence("Erst z. B. dies. Dann das."),
+            "Erst z. B. dies."
+        );
+    }
 
     /// Die Messwerte der geteilten Kontrastregel kommen ohne `:1`, die der
     /// frueheren lokalen mit; beide ergeben dieselbe Zeile.

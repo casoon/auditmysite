@@ -319,6 +319,7 @@ mod tests {
             is_systemic: false,
             occurrence_count: occurrences,
             rule_id: rule_id.to_string(),
+            affected_urls: Vec::new(),
         }
     }
 

@@ -356,6 +356,43 @@ pub(super) fn derive_security_card_context(
     )
 }
 
+/// The `recommendation-security-*` message for a misconfigured-header kind.
+/// `None` for a missing header: the header checks of
+/// [`derive_security_recommendations`] cover those.
+fn security_issue_recommendation_key(
+    kind: crate::security::SecurityIssueKind,
+) -> Option<&'static str> {
+    use crate::security::SecurityIssueKind;
+    let key = match kind {
+        SecurityIssueKind::CspUnsafeInlineScript | SecurityIssueKind::CspUnsafeInlineStyle => {
+            "recommendation-security-csp-unsafe-inline"
+        }
+        SecurityIssueKind::CspUnsafeEvalScript => "recommendation-security-csp-unsafe-eval",
+        SecurityIssueKind::CspWildcardScriptSource | SecurityIssueKind::CspWildcardSource => {
+            "recommendation-security-csp-wildcard"
+        }
+        SecurityIssueKind::CspMissingDirective => "recommendation-security-csp-directive",
+        SecurityIssueKind::CorsWildcardCredentials => "recommendation-security-cors-credentials",
+        SecurityIssueKind::PermissionsPolicyPermissive => {
+            "recommendation-security-permissions-permissive"
+        }
+        SecurityIssueKind::PublicSourceMap => "recommendation-security-sourcemap",
+        SecurityIssueKind::HstsPreloadIneligible => "recommendation-security-hsts-preload",
+        _ => return None,
+    };
+    Some(key)
+}
+
+/// The fix of a `security.headers.<issue_type>` finding: the same text the
+/// security module lists for that issue. `None` for other rules and for a
+/// missing header, whose rule id does not say which header it is.
+pub(super) fn security_finding_recommendation(rule_id: &str, i18n: &I18n) -> Option<String> {
+    let issue_type = rule_id.strip_prefix("security.headers.")?;
+    crate::security::SecurityIssueKind::from_stored(issue_type, "")
+        .and_then(security_issue_recommendation_key)
+        .map(|key| i18n.t(key))
+}
+
 pub(super) fn derive_security_recommendations(
     i18n: &I18n,
     sec: &crate::security::SecurityAnalysis,
@@ -400,28 +437,8 @@ pub(super) fn derive_security_recommendations(
     // Keyed on `SecurityIssueKind` rather than on the message text, so a
     // reworded finding cannot silently drop its recommendation.
     for issue in &sec.issues {
-        let Some(kind) = issue.kind() else { continue };
-        use crate::security::SecurityIssueKind;
-        let key = match kind {
-            SecurityIssueKind::CspUnsafeInlineScript | SecurityIssueKind::CspUnsafeInlineStyle => {
-                "recommendation-security-csp-unsafe-inline"
-            }
-            SecurityIssueKind::CspUnsafeEvalScript => "recommendation-security-csp-unsafe-eval",
-            SecurityIssueKind::CspWildcardScriptSource | SecurityIssueKind::CspWildcardSource => {
-                "recommendation-security-csp-wildcard"
-            }
-            SecurityIssueKind::CspMissingDirective => "recommendation-security-csp-directive",
-            SecurityIssueKind::CorsWildcardCredentials => {
-                "recommendation-security-cors-credentials"
-            }
-            SecurityIssueKind::PermissionsPolicyPermissive => {
-                "recommendation-security-permissions-permissive"
-            }
-            SecurityIssueKind::PublicSourceMap => "recommendation-security-sourcemap",
-            SecurityIssueKind::HstsPreloadIneligible => "recommendation-security-hsts-preload",
-            // Missing headers are already covered by the checks above; adding
-            // them here would duplicate every entry.
-            _ => continue,
+        let Some(key) = issue.kind().and_then(security_issue_recommendation_key) else {
+            continue;
         };
         let text = i18n.t(key);
         if !recommendations.contains(&text) {
@@ -649,6 +666,32 @@ mod tests {
 
         let recs = derive_security_recommendations(&i18n, &sec);
         assert_eq!(recs, vec![i18n.t("recommendation-security-default")]);
+    }
+
+    /// #1039: a security finding's fix is the text the security module lists
+    /// for its issue; a missing header (no header in the rule id) and other
+    /// rules have none.
+    #[test]
+    fn security_finding_gets_the_module_fix() {
+        for locale in ["en", "de"] {
+            let i18n = I18n::new(locale).expect("locale loads");
+            assert_eq!(
+                security_finding_recommendation("security.headers.unsafe_inline_script", &i18n),
+                Some(i18n.t("recommendation-security-csp-unsafe-inline"))
+            );
+            assert_eq!(
+                security_finding_recommendation("security.headers.missing_frame-ancestors", &i18n),
+                Some(i18n.t("recommendation-security-csp-directive"))
+            );
+            assert_eq!(
+                security_finding_recommendation("security.headers.missing_header", &i18n),
+                None
+            );
+            assert_eq!(
+                security_finding_recommendation("contrast/text-insufficient", &i18n),
+                None
+            );
+        }
     }
 
     /// Missing headers must not be reported twice now that issues also feed

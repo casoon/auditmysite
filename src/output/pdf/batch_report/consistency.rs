@@ -735,30 +735,33 @@ fn render_consistency_identity_findings(
     builder
 }
 
+/// The topics found on at least two audited pages. A topic of one page is
+/// that page's subject, not a topic across the site (#1039).
+pub(super) fn topics_on_several_pages(
+    topics: &[(String, usize)],
+) -> impl Iterator<Item = &(String, usize)> {
+    topics.iter().filter(|(_, pages)| *pages >= 2)
+}
+
 fn render_consistency_top_topics(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
     en: bool,
 ) -> renderreport::engine::ReportBuilder {
-    if !pres.portfolio_summary.top_topics.is_empty() {
-        let rows = pres
-            .portfolio_summary
-            .top_topics
-            .iter()
-            .take(10)
-            .map(|(topic, pages)| {
-                ChecklistRow::new(
-                    topic,
-                    crate::i18n::count_text("batch-topic-pages", *pages, en),
-                )
-                .with_status("good")
-            })
-            .collect();
-        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-            "Dominant content topics"
-        } else {
-            "Dominante Inhaltsthemen"
-        }));
+    let rows: Vec<ChecklistRow> = topics_on_several_pages(&pres.portfolio_summary.top_topics)
+        .take(10)
+        .map(|(topic, pages)| {
+            ChecklistRow::new(
+                topic,
+                crate::i18n::count_text("batch-topic-pages", *pages, en),
+            )
+            .with_status("good")
+        })
+        .collect();
+    if !rows.is_empty() {
+        builder = builder.add_component(
+            ChecklistPanel::new(rows).with_title(crate::i18n::text("batch-topics-title", en)),
+        );
     }
 
     builder

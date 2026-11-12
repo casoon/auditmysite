@@ -206,10 +206,32 @@ pub(super) fn module_effect_sentence(
     })
 }
 
+/// The Fluent message of the user line in the impact summary. The average
+/// alone read "Very good" next to a failed verdict: when barriers for users
+/// (legal flags, blocking issues) fail the batch, the line says so instead of
+/// a good rating (#1039).
+pub(super) fn batch_user_impact_key(
+    a11y_avg: u32,
+    reasons: &[crate::audit::verdict::BatchReasonKind],
+) -> &'static str {
+    use crate::audit::verdict::BatchReasonKind as K;
+    let barriers_fail = reasons
+        .iter()
+        .any(|reason| matches!(reason, K::LegalFlags(_) | K::BlockingIssues(_)));
+    match a11y_avg {
+        s if s < 50 => "batch-user-impact-critical",
+        s if s < 70 => "batch-user-impact-limited",
+        _ if barriers_fail => "batch-user-impact-barriers-fail",
+        s if s < 85 => "batch-user-impact-good",
+        _ => "batch-user-impact-very-good",
+    }
+}
+
 pub(super) fn render_batch_impact_summary(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
     legal_flags: usize,
+    reasons: &[crate::audit::verdict::BatchReasonKind],
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let en = is_english(i18n);
@@ -220,28 +242,7 @@ pub(super) fn render_batch_impact_summary(
         .expect(super::UNMEASURED_REFUSED)
         .round() as u32;
 
-    let user_impact = match (a11y_avg, en) {
-        (s, true) if s < 50 => {
-            "Critical — on the audited pages, barriers severely hamper use with assistive technologies"
-        }
-        (s, false) if s < 50 => {
-            "Kritisch — auf den geprüften Seiten erschweren Barrieren die Nutzung mit Hilfstechnologien erheblich"
-        }
-        (s, true) if s < 70 => {
-            "Limited — structural issues impede users with assistive technologies"
-        }
-        (s, false) if s < 70 => {
-            "Eingeschränkt — strukturelle Probleme behindern Nutzer mit Hilfstechnologien"
-        }
-        (s, true) if s < 85 => {
-            "Good — individual barriers for assistive technologies on several pages"
-        }
-        (s, false) if s < 85 => {
-            "Gut — einzelne Barrieren für Hilfstechnologien auf mehreren Seiten"
-        }
-        (_, true) => "Very good — assistive technologies are largely supported",
-        (_, false) => "Sehr gut — Hilfstechnologien werden weitgehend unterstützt",
-    };
+    let user_impact = i18n.t(batch_user_impact_key(a11y_avg, reasons));
     let business_impact = if dist.critical > 0 {
         // About the audited pages: how far beyond the sample the barriers
         // reach is not measured (plan 80).
@@ -288,6 +289,31 @@ pub(super) fn render_batch_impact_summary(
     builder = builder.add_component(impact_kv);
 
     builder
+}
+
+/// At most this many pages in the per-page type and top-issue table.
+const MAX_FOCUS_PAGES: usize = 10;
+
+/// The pages of the per-page type and top-issue table: every page while they
+/// fit, otherwise the lowest accessibility scores. It used to take the first
+/// ten in sitemap order and call them "problematic" (#1039).
+fn focus_pages(details: &[CompactUrlSummary]) -> Vec<&CompactUrlSummary> {
+    let mut pages: Vec<&CompactUrlSummary> = details.iter().collect();
+    if pages.len() > MAX_FOCUS_PAGES {
+        pages.sort_by(|a, b| a.score.total_cmp(&b.score).then_with(|| a.url.cmp(&b.url)));
+        pages.truncate(MAX_FOCUS_PAGES);
+    }
+    pages
+}
+
+/// The title of that table: it selects "problematic" pages only when it
+/// leaves pages out; listing all of them, it is a per-page overview.
+pub(super) fn focus_table_title_key(pages: usize) -> &'static str {
+    if pages > MAX_FOCUS_PAGES {
+        "batch-table-focus-pages"
+    } else {
+        "batch-table-pages-profile"
+    }
 }
 
 /// Extra scored dimensions shown in the URL ranking table, as
@@ -424,9 +450,9 @@ pub(super) fn render_batch_tech_url_matrix(
             TableColumn::new(i18n.t("batch-col-attributes")),
             TableColumn::new(i18n.t("batch-col-top-issues")),
         ])
-        .with_title(i18n.t("batch-table-focus-pages"));
+        .with_title(i18n.t(focus_table_title_key(pres.url_details.len())));
 
-        for detail in pres.url_details.iter().take(10) {
+        for detail in focus_pages(&pres.url_details) {
             focus_table = focus_table.add_row(vec![
                 short_url(&detail.url, 38),
                 detail.page_type.clone().unwrap_or_else(|| "—".to_string()),
