@@ -1,4 +1,5 @@
 use crate::output::localized::is_english;
+use fluent_bundle::FluentValue;
 use renderreport::components::advanced::{ChecklistPanel, ChecklistRow, SectionHeaderSplit};
 use renderreport::components::text::TextBlock;
 use renderreport::components::{AuditTable, Callout, TableColumn};
@@ -16,63 +17,51 @@ pub(super) fn render_batch_consistency(
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
-    let title = if en {
-        "Cross-page consistency"
-    } else {
-        "Seitenübergreifende Konsistenz"
-    };
     // The heading check counts H1 per page; it measures no WCAG criterion.
     // 3.2.4 (Consistent Identification) is not measured at all and stands as
     // a manual review in the criteria table below (#1039).
-    let intro = if en {
-        "Checks that shared elements are consistent across all audited pages: navigation (WCAG 3.2.3), the main heading (H1) per page, canonical URLs (a search-engine signal, not a WCAG criterion) and security headers."
-    } else {
-        "Prüft, ob geteilte Elemente auf allen geprüften Seiten konsistent sind: Navigation (WCAG 3.2.3), die Hauptüberschrift (H1) je Seite, Canonical-URLs (ein Suchmaschinen-Signal, kein WCAG-Kriterium) und Sicherheits-Header."
+    builder = builder.add_component(
+        SectionHeaderSplit::new(
+            i18n.t("batch-consistency-title"),
+            i18n.t("batch-consistency-intro"),
+        )
+        .with_level(2),
+    );
+    let consistent = |detail_key: &str| {
+        vec![
+            ChecklistRow::new(i18n.t("batch-consistency-consistent"), i18n.t(detail_key))
+                .with_status("good"),
+        ]
     };
-    builder = builder.add_component(SectionHeaderSplit::new(title, intro).with_level(2));
+    let missing_on = |missing: usize, total: usize| {
+        i18n.t_args(
+            "batch-consistency-missing-on-pages",
+            &[
+                ("missing", FluentValue::from(missing as i64)),
+                ("total", FluentValue::from(total as i64)),
+            ],
+        )
+    };
 
     let nav = &consistency.navigation;
-    let nav_title = if en {
-        format!(
-            "Navigation ({}/{} with main nav, {}/{} with skip link)",
-            nav.pages_with_main_nav, nav.total_pages, nav.pages_with_skip_link, nav.total_pages
-        )
-    } else {
-        format!(
-            "Navigation ({}/{} mit Hauptnav, {}/{} mit Skip-Link)",
-            nav.pages_with_main_nav, nav.total_pages, nav.pages_with_skip_link, nav.total_pages
-        )
-    };
+    let nav_title = i18n.t_args(
+        "batch-consistency-nav-title",
+        &[
+            ("main", FluentValue::from(nav.pages_with_main_nav as i64)),
+            ("skip", FluentValue::from(nav.pages_with_skip_link as i64)),
+            ("total", FluentValue::from(nav.total_pages as i64)),
+        ],
+    );
     let nav_rows: Vec<ChecklistRow> = if nav.findings.is_empty() {
-        vec![ChecklistRow::new(
-            if en { "Consistent" } else { "Konsistent" },
-            if en {
-                "No navigation inconsistencies detected."
-            } else {
-                "Keine Navigations-Inkonsistenzen erkannt."
-            },
-        )
-        .with_status("good")]
+        consistent("batch-consistency-nav-consistent")
     } else {
         let mut rows = Vec::new();
         if nav.pages_with_main_nav < nav.total_pages {
             let missing = nav.total_pages - nav.pages_with_main_nav;
             rows.push(
                 ChecklistRow::new(
-                    if en {
-                        "Main navigation"
-                    } else {
-                        "Hauptnavigation"
-                    },
-                    if en {
-                        format!("Missing on {missing} of {} audited pages.", nav.total_pages)
-                    } else {
-                        format!(
-                            "Fehlt auf {missing} von {} geprüften Seiten.",
-                            nav.total_pages
-                        )
-                    },
+                    i18n.t("batch-consistency-main-nav"),
+                    missing_on(missing, nav.total_pages),
                 )
                 .with_status("warn"),
             );
@@ -81,15 +70,8 @@ pub(super) fn render_batch_consistency(
             let missing = nav.total_pages - nav.pages_with_skip_link;
             rows.push(
                 ChecklistRow::new(
-                    if en { "Skip link" } else { "Skip-Link" },
-                    if en {
-                        format!("Missing on {missing} of {} audited pages.", nav.total_pages)
-                    } else {
-                        format!(
-                            "Fehlt auf {missing} von {} geprüften Seiten.",
-                            nav.total_pages
-                        )
-                    },
+                    i18n.t("batch-consistency-skip-link"),
+                    missing_on(missing, nav.total_pages),
                 )
                 .with_status("warn"),
             );
@@ -99,38 +81,30 @@ pub(super) fn render_batch_consistency(
     builder = builder.add_component(ChecklistPanel::new(nav_rows).with_title(&nav_title));
 
     let h = &consistency.headings;
-    let head_title = if en {
-        format!(
-            "Headings ({}/{} with single H1, {} missing, {} multiple)",
-            h.pages_with_single_h1, h.total_pages, h.pages_with_no_h1, h.pages_with_multiple_h1
-        )
-    } else {
-        format!(
-            "Überschriften ({}/{} mit einem H1, {} ohne H1, {} mit mehreren)",
-            h.pages_with_single_h1, h.total_pages, h.pages_with_no_h1, h.pages_with_multiple_h1
-        )
-    };
+    let head_title = i18n.t_args(
+        "batch-consistency-headings-title",
+        &[
+            ("single", FluentValue::from(h.pages_with_single_h1 as i64)),
+            ("total", FluentValue::from(h.total_pages as i64)),
+            ("none", FluentValue::from(h.pages_with_no_h1 as i64)),
+            (
+                "multiple",
+                FluentValue::from(h.pages_with_multiple_h1 as i64),
+            ),
+        ],
+    );
     let head_rows: Vec<ChecklistRow> = if h.findings.is_empty() {
-        vec![ChecklistRow::new(
-            if en { "Consistent" } else { "Konsistent" },
-            if en {
-                "Every page starts with exactly one H1."
-            } else {
-                "Jede Seite beginnt mit genau einem H1."
-            },
-        )
-        .with_status("good")]
+        consistent("batch-consistency-headings-consistent")
     } else {
         let mut rows = Vec::new();
         if h.pages_with_no_h1 > 0 {
             rows.push(
                 ChecklistRow::new(
-                    if en { "Missing H1" } else { "Fehlende H1" },
-                    if en {
-                        format!("{} audited pages have no H1.", h.pages_with_no_h1)
-                    } else {
-                        format!("{} geprüfte Seiten haben keine H1.", h.pages_with_no_h1)
-                    },
+                    i18n.t("batch-consistency-missing-h1"),
+                    i18n.t_args(
+                        "batch-consistency-missing-h1-detail",
+                        &[("count", FluentValue::from(h.pages_with_no_h1 as i64))],
+                    ),
                 )
                 .with_status("warn"),
             );
@@ -138,22 +112,11 @@ pub(super) fn render_batch_consistency(
         if h.pages_with_multiple_h1 > 0 {
             rows.push(
                 ChecklistRow::new(
-                    if en {
-                        "Multiple H1 headings"
-                    } else {
-                        "Mehrere H1-Überschriften"
-                    },
-                    if en {
-                        format!(
-                            "{} audited pages have multiple H1 headings.",
-                            h.pages_with_multiple_h1
-                        )
-                    } else {
-                        format!(
-                            "{} geprüfte Seiten haben mehrere H1-Überschriften.",
-                            h.pages_with_multiple_h1
-                        )
-                    },
+                    i18n.t("batch-consistency-multiple-h1"),
+                    i18n.t_args(
+                        "batch-consistency-multiple-h1-detail",
+                        &[("count", FluentValue::from(h.pages_with_multiple_h1 as i64))],
+                    ),
                 )
                 .with_status("warn"),
             );
@@ -163,48 +126,30 @@ pub(super) fn render_batch_consistency(
     builder = builder.add_component(ChecklistPanel::new(head_rows).with_title(&head_title));
 
     let c = &consistency.canonical;
-    let canon_title = if en {
-        format!(
-            "Canonical URLs (www: {}, non-www: {}, missing: {} of {})",
-            c.www_count, c.non_www_count, c.missing_count, c.total_pages
-        )
-    } else {
-        format!(
-            "Canonical-URLs (www: {}, ohne www: {}, fehlend: {} von {})",
-            c.www_count, c.non_www_count, c.missing_count, c.total_pages
-        )
-    };
+    let canon_title = i18n.t_args(
+        "batch-consistency-canonical-title",
+        &[
+            ("www", FluentValue::from(c.www_count as i64)),
+            ("non_www", FluentValue::from(c.non_www_count as i64)),
+            ("missing", FluentValue::from(c.missing_count as i64)),
+            ("total", FluentValue::from(c.total_pages as i64)),
+        ],
+    );
     let canon_rows: Vec<ChecklistRow> = if c.findings.is_empty() {
-        vec![ChecklistRow::new(
-            if en { "Consistent" } else { "Konsistent" },
-            if en {
-                "All pages canonicalize to the same domain variant."
-            } else {
-                "Alle Seiten kanonisieren auf dieselbe Domain-Variante."
-            },
-        )
-        .with_status("good")]
+        consistent("batch-consistency-canonical-consistent")
     } else {
         let mut rows = Vec::new();
         if c.www_count > 0 && c.non_www_count > 0 {
             rows.push(
                 ChecklistRow::new(
-                    if en {
-                        "Mixed host strategy"
-                    } else {
-                        "Gemischte Host-Strategie"
-                    },
-                    if en {
-                        format!(
-                            "{} pages use www and {} use non-www canonicals.",
-                            c.www_count, c.non_www_count
-                        )
-                    } else {
-                        format!(
-                            "{} Seiten verwenden www- und {} Seiten nicht-www-Canonicals.",
-                            c.www_count, c.non_www_count
-                        )
-                    },
+                    i18n.t("batch-consistency-mixed-hosts"),
+                    i18n.t_args(
+                        "batch-consistency-mixed-hosts-detail",
+                        &[
+                            ("www", FluentValue::from(c.www_count as i64)),
+                            ("non_www", FluentValue::from(c.non_www_count as i64)),
+                        ],
+                    ),
                 )
                 .with_status("warn"),
             );
@@ -212,24 +157,16 @@ pub(super) fn render_batch_consistency(
         if c.missing_count > 0 {
             rows.push(
                 ChecklistRow::new(
-                    if en {
-                        "Missing canonical"
-                    } else {
-                        "Fehlendes Canonical"
-                    },
+                    i18n.t("batch-consistency-missing-canonical"),
                     // Optional tag: without it search engines pick the
                     // canonical URL themselves (plan 88).
-                    if en {
-                        format!(
-                            "Missing on {} of {} audited pages. Optional: search engines then choose the canonical URL themselves. It only matters where URL variants exist (parameters, www/non-www); that was not checked here.",
-                            c.missing_count, c.total_pages
-                        )
-                    } else {
-                        format!(
-                            "Fehlt auf {} von {} geprüften Seiten. Optional: Suchmaschinen wählen die kanonische URL dann selbst. Relevant wird das erst bei URL-Varianten (Parameter, www/ohne www); das wurde hier nicht geprüft.",
-                            c.missing_count, c.total_pages
-                        )
-                    },
+                    i18n.t_args(
+                        "batch-consistency-missing-canonical-detail",
+                        &[
+                            ("missing", FluentValue::from(c.missing_count as i64)),
+                            ("total", FluentValue::from(c.total_pages as i64)),
+                        ],
+                    ),
                 )
                 .with_status("info"),
             );
@@ -238,35 +175,35 @@ pub(super) fn render_batch_consistency(
     };
     builder = builder.add_component(ChecklistPanel::new(canon_rows).with_title(&canon_title));
 
-    builder = render_security_header_consistency(builder, pres, en);
+    builder = render_security_header_consistency(builder, pres, i18n);
 
-    builder = render_consistency_wcag_cross_page(builder, consistency, en);
+    builder = render_consistency_wcag_cross_page(builder, consistency, i18n);
 
-    builder = render_consistency_help_deviations(builder, consistency, en);
+    builder = render_consistency_help_deviations(builder, consistency, i18n);
 
-    builder = render_consistency_orphan_pages(builder, consistency, en);
+    builder = render_consistency_orphan_pages(builder, consistency, i18n);
 
-    builder = render_consistency_schema_conflicts(builder, consistency, en);
+    builder = render_consistency_schema_conflicts(builder, consistency, i18n);
 
     let structured = &consistency.structured_data;
     // The SEO section already shows the pages per schema type, with their
     // share; the same table a second time under another title is left out
     // (#1039).
     if pres.portfolio_summary.schema_distribution.is_empty() {
-        builder = render_consistency_structured_types(builder, structured, en);
+        builder = render_consistency_structured_types(builder, structured, i18n);
     }
 
-    builder = render_consistency_structured_blockers(builder, structured, en);
+    builder = render_consistency_structured_blockers(builder, structured, i18n);
 
-    builder = render_consistency_structured_parity(builder, structured, en);
+    builder = render_consistency_structured_parity(builder, structured, i18n);
 
     builder = render_consistency_page_type_matrix(builder, structured, i18n);
 
-    builder = render_consistency_identity_findings(builder, structured, en);
+    builder = render_consistency_identity_findings(builder, structured, i18n);
 
-    builder = render_consistency_top_topics(builder, pres, en);
+    builder = render_consistency_top_topics(builder, pres, i18n);
 
-    builder = render_consistency_overlap_pairs(builder, pres, en);
+    builder = render_consistency_overlap_pairs(builder, pres, i18n);
 
     builder
 }
@@ -274,50 +211,41 @@ pub(super) fn render_batch_consistency(
 fn render_consistency_wcag_cross_page(
     mut builder: renderreport::engine::ReportBuilder,
     consistency: &crate::audit::batch_consistency::BatchConsistencyAnalysis,
-    en: bool,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     if !consistency.wcag_cross_page.is_empty() {
+        let en = is_english(i18n);
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if en { "Criterion" } else { "Kriterium" }).with_width("28%"),
+            TableColumn::new(i18n.t("batch-consistency-col-criterion")).with_width("28%"),
             TableColumn::new("Status").with_width("20%"),
-            TableColumn::new(if en {
-                "Assessment basis"
-            } else {
-                "Prüfgrundlage"
-            })
-            .with_width("52%"),
+            TableColumn::new(i18n.t("batch-consistency-col-basis")).with_width("52%"),
         ])
-        .with_title(if en {
-            "Cross-page WCAG assessment"
-        } else {
-            "Seitenübergreifende WCAG-Prüfung"
-        });
+        .with_title(i18n.t("batch-consistency-wcag-title"));
         for assessment in &consistency.wcag_cross_page {
-            let status = match (assessment.status.as_str(), en) {
-                ("no_inconsistency_detected", true) => "No inconsistency detected",
-                ("no_inconsistency_detected", false) => "Keine Inkonsistenz erkannt",
-                ("warning", true) => "Warning",
-                ("warning", false) => "Warnung",
-                (_, true) => "Manual review",
-                (_, false) => "Manuell prüfen",
-            };
+            let status = i18n.t(match assessment.status.as_str() {
+                "no_inconsistency_detected" => "batch-consistency-status-no-inconsistency",
+                "warning" => "batch-consistency-status-warning",
+                _ => "batch-consistency-status-manual-review",
+            });
             let basis = if assessment.criterion.starts_with("3.2.6") {
                 crate::audit::batch_consistency::consistent_help_basis(&consistency.help, en)
-            } else if en {
-                assessment.basis.clone()
             } else {
-                // The same statement as the canonical English basis; the
-                // German one used to drop the candidates and unaudited-links
-                // part of 2.4.5 (#1039).
-                match assessment.criterion.as_str() {
-                    value if value.starts_with("3.2.3") => "Vorhandensein von Hauptnavigation und Skip-Link über das geprüfte Seitenset verglichen",
-                    value if value.starts_with("3.2.4") => "Die Identität von Komponenten erfordert einen Vergleich der zugänglichen Namen gleichwertiger Bedienelemente; die aktuelle Evidenz reicht nicht für eine Konformitätsaussage",
-                    _ => "Eingehende Links nur innerhalb des geprüften Seitensets beobachtet; Seiten ohne einen solchen Link sind Kandidaten, und Suche, Sitemap-Seiten, Links von nicht geprüften Seiten sowie Ausnahmen für Prozessschritte müssen manuell bestätigt werden",
-                }.to_string()
+                // The English message is the canonical basis itself; the
+                // German one states the same, it used to drop the candidates
+                // and unaudited-links part of 2.4.5 (#1039).
+                let key = match assessment.criterion.as_str() {
+                    value if value.starts_with("3.2.3") => "batch-consistency-basis-navigation",
+                    value if value.starts_with("3.2.4") => "batch-consistency-basis-identification",
+                    _ => "batch-consistency-basis-multiple-ways",
+                };
+                i18n.t_args(
+                    key,
+                    &[("basis", FluentValue::from(assessment.basis.as_str()))],
+                )
             };
             table = table.add_row(vec![
                 criterion_label(&assessment.criterion, en),
-                status.to_string(),
+                status,
                 basis,
             ]);
         }
@@ -348,9 +276,10 @@ pub(super) fn criterion_label(criterion: &str, en: bool) -> String {
 fn render_consistency_help_deviations(
     mut builder: renderreport::engine::ReportBuilder,
     consistency: &crate::audit::batch_consistency::BatchConsistencyAnalysis,
-    en: bool,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     if !consistency.help.deviations.is_empty() {
+        let en = is_english(i18n);
         // Batch reports stay aggregated: the first rows illustrate the
         // pattern, the full list is in the JSON.
         const MAX_ROWS: usize = 10;
@@ -369,23 +298,16 @@ fn render_consistency_help_deviations(
         if deviations.len() > MAX_ROWS {
             let rest = deviations.len() - MAX_ROWS;
             rows.push(ChecklistRow::new(
-                if en {
-                    format!("{rest} further deviations")
-                } else {
-                    format!("{rest} weitere Abweichungen")
-                },
-                if en {
-                    "see JSON report"
-                } else {
-                    "siehe JSON-Report"
-                },
+                i18n.t_args(
+                    "batch-consistency-help-more",
+                    &[("count", FluentValue::from(rest as i64))],
+                ),
+                i18n.t("batch-consistency-see-json"),
             ));
         }
-        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-            "Consistent help (WCAG 3.2.6): deviations"
-        } else {
-            "Konsistente Hilfe (WCAG 3.2.6): Abweichungen"
-        }));
+        builder = builder.add_component(
+            ChecklistPanel::new(rows).with_title(i18n.t("batch-consistency-help-title")),
+        );
     }
 
     builder
@@ -394,7 +316,7 @@ fn render_consistency_help_deviations(
 fn render_consistency_orphan_pages(
     mut builder: renderreport::engine::ReportBuilder,
     consistency: &crate::audit::batch_consistency::BatchConsistencyAnalysis,
-    en: bool,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     if !consistency.orphan_pages.orphan_urls.is_empty() {
         let rows = consistency
@@ -402,31 +324,17 @@ fn render_consistency_orphan_pages(
             .orphan_urls
             .iter()
             .map(|url| {
-                ChecklistRow::new(
-                    if en {
-                        "No inbound link observed"
-                    } else {
-                        "Kein eingehender Link beobachtet"
-                    },
-                    url,
-                )
-                .with_status("warn")
+                ChecklistRow::new(i18n.t("batch-consistency-orphan-row"), url).with_status("warn")
             })
             .collect();
         builder = builder
-            .add_component(ChecklistPanel::new(rows).with_title(if en {
-                "Pages without an observed inbound link within the audited URLs"
-            } else {
-                "Seiten ohne beobachteten eingehenden Link innerhalb der geprüften URLs"
-            }))
+            .add_component(
+                ChecklistPanel::new(rows).with_title(i18n.t("batch-consistency-orphan-title")),
+            )
             // Counted from the links between the audited pages only
             // (`inbound_link_counts`); unlike the sitemap link graph, the
             // fetched homepage's links are not in it (#1039).
-            .add_component(TextBlock::new(if en {
-                "Only links between the audited pages were counted here; the links of a homepage outside the sample are not included. A page listed here can still be linked from the homepage, pages outside the sample, a search or a sitemap page — it is a candidate, not a confirmed orphan."
-            } else {
-                "Gezählt wurden hier nur Links zwischen den geprüften Seiten; die Links einer Startseite außerhalb der Stichprobe sind nicht enthalten. Eine hier genannte Seite kann von der Startseite, von Seiten außerhalb der Stichprobe, über die Suche oder eine Sitemap-Seite verlinkt sein — sie ist ein Kandidat, keine bestätigte verwaiste Seite."
-            }));
+            .add_component(TextBlock::new(i18n.t("batch-consistency-orphan-note")));
     }
 
     builder
@@ -435,7 +343,7 @@ fn render_consistency_orphan_pages(
 fn render_consistency_schema_conflicts(
     mut builder: renderreport::engine::ReportBuilder,
     consistency: &crate::audit::batch_consistency::BatchConsistencyAnalysis,
-    en: bool,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     if !consistency.schema_graph.conflicts.is_empty() {
         let rows = consistency
@@ -447,11 +355,10 @@ fn render_consistency_schema_conflicts(
                     .with_status("warn")
             })
             .collect();
-        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-            "Schema entity identity conflicts"
-        } else {
-            "Identitätskonflikte bei Schema-Entitäten"
-        }));
+        builder = builder.add_component(
+            ChecklistPanel::new(rows)
+                .with_title(i18n.t("batch-consistency-schema-conflicts-title")),
+        );
     }
 
     builder
@@ -460,23 +367,14 @@ fn render_consistency_schema_conflicts(
 fn render_consistency_structured_types(
     mut builder: renderreport::engine::ReportBuilder,
     structured: &crate::audit::batch_consistency::StructuredDataConsistency,
-    en: bool,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     if !structured.type_distribution.is_empty() {
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if en { "Schema type" } else { "Schema-Typ" }).with_width("68%"),
-            TableColumn::new(if en {
-                "Audited pages"
-            } else {
-                "Geprüfte Seiten"
-            })
-            .with_width("32%"),
+            TableColumn::new(i18n.t("batch-col-schema-type")).with_width("68%"),
+            TableColumn::new(i18n.t("batch-consistency-col-audited-pages")).with_width("32%"),
         ])
-        .with_title(if en {
-            "Structured-data distribution"
-        } else {
-            "Verteilung strukturierter Daten"
-        });
+        .with_title(i18n.t("batch-consistency-structured-types-title"));
         for item in &structured.type_distribution {
             table = table.add_row(vec![item.schema_type.clone(), item.pages.to_string()]);
         }
@@ -489,7 +387,7 @@ fn render_consistency_structured_types(
 fn render_consistency_structured_blockers(
     mut builder: renderreport::engine::ReportBuilder,
     structured: &crate::audit::batch_consistency::StructuredDataConsistency,
-    en: bool,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     if !structured.recurring_blockers.is_empty() {
         let rows = structured
@@ -498,26 +396,17 @@ fn render_consistency_structured_blockers(
             .map(|finding| {
                 ChecklistRow::new(
                     &finding.key,
-                    if en {
-                        format!(
-                            "Required condition missing on {} audited pages",
-                            finding.affected_pages
-                        )
-                    } else {
-                        format!(
-                            "Pflichtbedingung fehlt auf {} geprüften Seiten",
-                            finding.affected_pages
-                        )
-                    },
+                    i18n.t_args(
+                        "batch-consistency-blocker-detail",
+                        &[("count", FluentValue::from(finding.affected_pages as i64))],
+                    ),
                 )
                 .with_status("warn")
             })
             .collect();
-        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-            "Recurring structured-data blockers"
-        } else {
-            "Wiederkehrende Blocker bei strukturierten Daten"
-        }));
+        builder = builder.add_component(
+            ChecklistPanel::new(rows).with_title(i18n.t("batch-consistency-blockers-title")),
+        );
     }
 
     builder
@@ -526,7 +415,7 @@ fn render_consistency_structured_blockers(
 fn render_consistency_structured_parity(
     mut builder: renderreport::engine::ReportBuilder,
     structured: &crate::audit::batch_consistency::StructuredDataConsistency,
-    en: bool,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     if !structured.parity_mismatches.is_empty() {
         let rows = structured
@@ -535,26 +424,17 @@ fn render_consistency_structured_parity(
             .map(|finding| {
                 ChecklistRow::new(
                     &finding.key,
-                    if en {
-                        format!(
-                            "Visible content differs on {} audited pages",
-                            finding.affected_pages
-                        )
-                    } else {
-                        format!(
-                            "Sichtbarer Inhalt weicht auf {} geprüften Seiten ab",
-                            finding.affected_pages
-                        )
-                    },
+                    i18n.t_args(
+                        "batch-consistency-parity-detail",
+                        &[("count", FluentValue::from(finding.affected_pages as i64))],
+                    ),
                 )
                 .with_status("warn")
             })
             .collect();
-        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-            "Recurring schema/content mismatches"
-        } else {
-            "Wiederkehrende Abweichungen zwischen Schema und Inhalt"
-        }));
+        builder = builder.add_component(
+            ChecklistPanel::new(rows).with_title(i18n.t("batch-consistency-parity-title")),
+        );
     }
 
     builder
@@ -576,19 +456,14 @@ fn render_consistency_page_type_matrix(
             TableColumn::new("URL").with_width("31%"),
             TableColumn::new(i18n.t("batch-schema-matrix-col-kind")).with_width("19%"),
             TableColumn::new("Status").with_width("16%"),
-            TableColumn::new(if en {
-                "Suggested / detected"
-            } else {
-                "Vorgeschlagen / erkannt"
-            })
-            .with_width("34%"),
+            TableColumn::new(i18n.t("batch-consistency-matrix-col-types")).with_width("34%"),
         ])
         .with_title(i18n.t("batch-schema-matrix-title"));
         for row in &structured.page_type_matrix {
             table = table.add_row(vec![
                 short_url(&row.url, 48),
                 schema_page_kind_label(&row.page_kind, en),
-                schema_coverage_label(&row.coverage_status, en),
+                schema_coverage_label(&row.coverage_status, i18n),
                 format!(
                     "{} / {}",
                     if row.expected_types.is_empty() {
@@ -615,7 +490,7 @@ fn render_consistency_page_type_matrix(
 fn render_security_header_consistency(
     builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
-    en: bool,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let headers = &pres.portfolio_summary.security_header_consistency;
     let Some(checked) = headers.first().map(|h| h.pages_checked) else {
@@ -636,17 +511,14 @@ fn render_security_header_consistency(
             rows.push(
                 ChecklistRow::new(
                     &h.header,
-                    if en {
-                        format!(
-                            "Sent on {} of {} pages; missing e.g. on {examples}.",
-                            h.pages_present, h.pages_checked
-                        )
-                    } else {
-                        format!(
-                            "Auf {} von {} Seiten gesetzt; fehlt z. B. auf {examples}.",
-                            h.pages_present, h.pages_checked
-                        )
-                    },
+                    i18n.t_args(
+                        "batch-consistency-header-partial",
+                        &[
+                            ("present", FluentValue::from(h.pages_present as i64)),
+                            ("checked", FluentValue::from(h.pages_checked as i64)),
+                            ("examples", FluentValue::from(examples)),
+                        ],
+                    ),
                 )
                 .with_status("warn"),
             );
@@ -654,17 +526,13 @@ fn render_security_header_consistency(
             rows.push(
                 ChecklistRow::new(
                     &h.header,
-                    if en {
-                        format!(
-                            "{} different values across {} pages.",
-                            h.distinct_values, h.pages_present
-                        )
-                    } else {
-                        format!(
-                            "{} verschiedene Werte auf {} Seiten.",
-                            h.distinct_values, h.pages_present
-                        )
-                    },
+                    i18n.t_args(
+                        "batch-consistency-header-values",
+                        &[
+                            ("values", FluentValue::from(h.distinct_values as i64)),
+                            ("present", FluentValue::from(h.pages_present as i64)),
+                        ],
+                    ),
                 )
                 .with_status("warn"),
             );
@@ -677,29 +545,26 @@ fn render_security_header_consistency(
     if !uniform_set.is_empty() || !uniform_missing.is_empty() {
         let mut parts = Vec::new();
         if !uniform_set.is_empty() {
-            parts.push(if en {
-                format!("same value on all pages: {}", uniform_set.join(", "))
-            } else {
-                format!("überall gleich gesetzt: {}", uniform_set.join(", "))
-            });
+            parts.push(i18n.t_args(
+                "batch-consistency-header-uniform-set",
+                &[("headers", FluentValue::from(uniform_set.join(", ")))],
+            ));
         }
         if !uniform_missing.is_empty() {
-            parts.push(if en {
-                format!("missing on all pages: {}", uniform_missing.join(", "))
-            } else {
-                format!("auf keiner Seite gesetzt: {}", uniform_missing.join(", "))
-            });
+            parts.push(i18n.t_args(
+                "batch-consistency-header-uniform-missing",
+                &[("headers", FluentValue::from(uniform_missing.join(", ")))],
+            ));
         }
         rows.push(
-            ChecklistRow::new(if en { "Uniform" } else { "Einheitlich" }, parts.join("; "))
+            ChecklistRow::new(i18n.t("batch-consistency-header-uniform"), parts.join("; "))
                 .with_status("info"),
         );
     }
-    builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-        format!("Security headers across pages ({checked} pages with a security check)")
-    } else {
-        format!("Sicherheits-Header über die Seiten ({checked} Seiten mit Sicherheitsprüfung)")
-    }))
+    builder.add_component(ChecklistPanel::new(rows).with_title(i18n.t_args(
+        "batch-consistency-headers-title",
+        &[("checked", FluentValue::from(checked as i64))],
+    )))
 }
 
 /// Page-type key of the schema matrix in the run language; the JSON keeps
@@ -713,55 +578,45 @@ fn schema_page_kind_label(key: &str, en: bool) -> String {
 }
 
 /// Coverage-status key of the schema matrix in the run language.
-fn schema_coverage_label(key: &str, en: bool) -> String {
+fn schema_coverage_label(key: &str, i18n: &I18n) -> String {
     use crate::seo::schema_fit::SchemaCoverageStatus;
     let status =
         serde_json::from_value::<SchemaCoverageStatus>(serde_json::Value::String(key.to_string()));
-    let label = match (status, en) {
-        (Ok(SchemaCoverageStatus::Complete), true) => "Covered",
-        (Ok(SchemaCoverageStatus::Complete), false) => "Abgedeckt",
-        (Ok(SchemaCoverageStatus::Opportunity), true) => "Optional addition",
-        (Ok(SchemaCoverageStatus::Opportunity), false) => "Optionale Ergänzung",
-        (Ok(SchemaCoverageStatus::ManualReview), true) => "Review manually",
-        (Ok(SchemaCoverageStatus::ManualReview), false) => "Manuell prüfen",
-        (Ok(SchemaCoverageStatus::NotApplicable), true) => "Not applicable",
-        (Ok(SchemaCoverageStatus::NotApplicable), false) => "Nicht anwendbar",
-        (Err(_), _) => return key.to_string(),
-    };
-    label.to_string()
+    i18n.t(match status {
+        Ok(SchemaCoverageStatus::Complete) => "batch-consistency-coverage-complete",
+        Ok(SchemaCoverageStatus::Opportunity) => "batch-consistency-coverage-opportunity",
+        Ok(SchemaCoverageStatus::ManualReview) => "batch-consistency-coverage-manual-review",
+        Ok(SchemaCoverageStatus::NotApplicable) => "batch-consistency-coverage-not-applicable",
+        Err(_) => return key.to_string(),
+    })
 }
 
 fn render_consistency_identity_findings(
     mut builder: renderreport::engine::ReportBuilder,
     structured: &crate::audit::batch_consistency::StructuredDataConsistency,
-    en: bool,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     if !structured.identity_findings.is_empty() {
         let rows = structured
             .identity_findings
             .iter()
             .map(|finding| {
-                let localized = if en {
-                    finding.clone()
-                } else if finding.contains("different @id values") {
-                    "Die Organisationsidentität verwendet auf den geprüften Seiten unterschiedliche @id-Werte."
-                        .to_string()
+                // The English message is the stored finding itself.
+                let key = if finding.contains("different @id values") {
+                    "batch-consistency-identity-ids-differ"
                 } else {
-                    "Mindestens ein Organisationsknoten besitzt keine stabile @id zur seitenübergreifenden Identitätsprüfung."
-                        .to_string()
+                    "batch-consistency-identity-id-missing"
                 };
                 ChecklistRow::new(
-                    if en { "Organization identity" } else { "Organisationsidentität" },
-                    localized,
+                    i18n.t("batch-consistency-identity-row"),
+                    i18n.t_args(key, &[("finding", FluentValue::from(finding.as_str()))]),
                 )
                 .with_status("warn")
             })
             .collect();
-        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-            "Site-wide entity identity"
-        } else {
-            "Websiteweite Entitätsidentität"
-        }));
+        builder = builder.add_component(
+            ChecklistPanel::new(rows).with_title(i18n.t("batch-consistency-identity-title")),
+        );
     }
 
     builder
@@ -778,22 +633,17 @@ pub(super) fn topics_on_several_pages(
 fn render_consistency_top_topics(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
-    en: bool,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let rows: Vec<ChecklistRow> = topics_on_several_pages(&pres.portfolio_summary.top_topics)
         .take(10)
         .map(|(topic, pages)| {
-            ChecklistRow::new(
-                topic,
-                crate::i18n::count_text("batch-topic-pages", *pages, en),
-            )
-            .with_status("good")
+            ChecklistRow::new(topic, i18n.count("batch-topic-pages", *pages)).with_status("good")
         })
         .collect();
     if !rows.is_empty() {
-        builder = builder.add_component(
-            ChecklistPanel::new(rows).with_title(crate::i18n::text("batch-topics-title", en)),
-        );
+        builder = builder
+            .add_component(ChecklistPanel::new(rows).with_title(i18n.t("batch-topics-title")));
     }
 
     builder
@@ -802,7 +652,7 @@ fn render_consistency_top_topics(
 fn render_consistency_overlap_pairs(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
-    en: bool,
+    i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     if !pres.portfolio_summary.overlap_pairs.is_empty() {
         let rows = pres
@@ -818,26 +668,20 @@ fn render_consistency_overlap_pairs(
                         short_url(&pair.url_a, 40),
                         short_url(&pair.url_b, 40)
                     ),
-                    if en {
-                        format!(
-                            "Topic-term similarity {} % · shared terms: {terms}",
-                            pair.similarity_percent
-                        )
-                    } else {
-                        format!(
-                            "Begriffsähnlichkeit {} % · gemeinsame Begriffe: {terms}",
-                            pair.similarity_percent
-                        )
-                    },
+                    i18n.t_args(
+                        "batch-consistency-overlap-detail",
+                        &[
+                            ("percent", FluentValue::from(pair.similarity_percent as i64)),
+                            ("terms", FluentValue::from(terms)),
+                        ],
+                    ),
                 )
                 .with_status("warn")
             })
             .collect();
-        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-            "Strong topic overlap between pages"
-        } else {
-            "Starke Themenüberschneidungen zwischen Seiten"
-        }));
+        builder = builder.add_component(
+            ChecklistPanel::new(rows).with_title(i18n.t("batch-consistency-overlap-title")),
+        );
     }
 
     builder
@@ -849,12 +693,14 @@ mod tests {
 
     #[test]
     fn schema_matrix_keys_are_localized() {
+        let de = I18n::new("de").unwrap();
+        let en = I18n::new("en").unwrap();
         assert_eq!(
-            schema_coverage_label("manual_review", false),
+            schema_coverage_label("manual_review", &de),
             "Manuell prüfen"
         );
         assert_eq!(
-            schema_coverage_label("opportunity", true),
+            schema_coverage_label("opportunity", &en),
             "Optional addition"
         );
         assert_ne!(
@@ -866,9 +712,6 @@ mod tests {
             schema_page_kind_label("corporate_page", true)
         );
         // unknown keys pass through rather than vanish
-        assert_eq!(
-            schema_coverage_label("something_new", false),
-            "something_new"
-        );
+        assert_eq!(schema_coverage_label("something_new", &de), "something_new");
     }
 }
