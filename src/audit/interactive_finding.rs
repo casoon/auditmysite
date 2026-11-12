@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::taxonomy::Severity;
 
+#[cfg(test)]
+mod text_export;
+
 // ---------------------------------------------------------------------------
 // Accessibility-Journey-Layer (Phase 1: Foundation only — types live here so
 // `NormalizedReport` is schema-stable for all future phases.)
