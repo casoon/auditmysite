@@ -624,8 +624,219 @@ mod tests {
             assert!(out.contains(&i18n.t("batch-next-steps-intro")), "{locale}");
             // The quick action keeps the whole first sentence of the fix; the
             // German one has a "bzw." inside.
-            assert!(out.contains(&format!("label: \"{fix}\"")), "{locale}");
+            assert!(out.contains(&format!("content: \"{fix}\"")), "{locale}");
         }
+    }
+
+    /// The Typst calls of the report body: the component templates in the
+    /// dump carry their own (German) defaults and are not report text.
+    fn body_calls(out: &str) -> String {
+        out.lines()
+            .filter(|line| {
+                let line = line.trim_start();
+                [
+                    "#audit-table(",
+                    "#key-value-list(",
+                    "#callout(",
+                    "#checklist-panel(",
+                    "#list(",
+                    "#section-header-split(",
+                    "#section(",
+                    "#label(",
+                    "#textblock(",
+                    "#benchmark-table(",
+                    "#grid-component(",
+                ]
+                .iter()
+                .any(|call| line.starts_with(call))
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// #1039 slice 4a: the batch wording in both languages — localized
+    /// criterion and module names, band word, WCAG-labelled counts, the
+    /// ranking intro naming the printed columns, the matrix intro naming its
+    /// columns, no conformance claim in the assessment title, "–" for an
+    /// empty WCAG cell, no empty diagnosis column — and no German in the
+    /// English body.
+    #[test]
+    fn batch_wording_follows_the_printed_content() {
+        let batch = security_batch();
+        for locale in ["en", "de"] {
+            let en = locale == "en";
+            let i18n = I18n::new(locale).unwrap();
+            let out = typ(&batch, locale);
+            let body = body_calls(&out);
+            // Band word of the defined five bands.
+            let score = batch.summary.average_score.unwrap().round() as f32;
+            let band = crate::registry::FIVE_BAND.label(score, en);
+            assert!(body.contains(&format!("content: \"{band} — ")), "{locale}");
+            assert!(!body.contains("Bereich —") && !body.contains("range —"));
+            // The ranking intro quotes the column labels the table prints.
+            assert!(body.contains(&portfolio::ranking_intro(&i18n)), "{locale}");
+            for key in [
+                "batch-ranking-col-accessibility",
+                "batch-ranking-col-critical-high",
+                "batch-ranking-col-overall",
+            ] {
+                assert!(portfolio::ranking_intro(&i18n).contains(&i18n.t(key)));
+            }
+            assert!(i18n.t("batch-ranking-col-critical-high").contains("WCAG"));
+            assert!(body.contains(&i18n.t("batch-section-tech-url-matrix-intro")));
+            // Module names: the German report says "Sicherheit" throughout.
+            if !en {
+                assert!(!body.contains("\"Security\""), "{locale}");
+                assert!(!body.contains("(\"Security\", "));
+                assert!(body.contains("(\"Sicherheit\", "));
+            }
+            // A conformance claim next to "not a statement of conformance".
+            for claim in ["not accessible", "nicht barrierefrei"] {
+                assert!(!body.contains(claim), "{locale}: {claim}");
+            }
+            // The count of the overview card is labelled as a WCAG count.
+            assert!(body.contains(if en {
+                "Critical + high WCAG occurrences"
+            } else {
+                "Kritisch + hoch (WCAG-Vorkommen)"
+            }));
+            // No empty cell in the frequency table, no empty diagnosis.
+            assert!(
+                !body.contains("\"\", \"3\", \"3\""),
+                "{locale}: empty WCAG cell"
+            );
+            assert!(!body.contains("diagnosis: \"\""), "{locale}");
+            if en {
+                assert!(
+                    !body.chars().any(|c| "äöüÄÖÜß".contains(c)),
+                    "German in the English batch body"
+                );
+            }
+        }
+    }
+
+    /// #1039: German criterion names come from the WCAG criterion table; the
+    /// English report keeps the canonical name.
+    #[test]
+    fn cross_page_criteria_are_named_in_the_run_language() {
+        assert_eq!(
+            consistency::criterion_label("3.2.3 Consistent Navigation", false),
+            "3.2.3 Konsistente Navigation"
+        );
+        assert_eq!(
+            consistency::criterion_label("2.4.5 Multiple Ways", false),
+            "2.4.5 Mehrere Wege"
+        );
+        assert_eq!(
+            consistency::criterion_label("3.2.6 Consistent Help", false),
+            "3.2.6 Konsistente Hilfe"
+        );
+        assert_eq!(
+            consistency::criterion_label("3.2.4 Consistent Identification", true),
+            "3.2.4 Consistent Identification"
+        );
+        assert_ne!(
+            consistency::criterion_label("3.2.4 Consistent Identification", false),
+            "3.2.4 Consistent Identification"
+        );
+    }
+
+    /// #1039: a tied best or weakest URL says how many pages share it; a
+    /// list cell shows whole items plus a count; the sitemap table title
+    /// names only the rows it has.
+    #[test]
+    fn cells_disclose_ties_and_cut_whole_items() {
+        let en = I18n::new("en").unwrap();
+        let de = I18n::new("de").unwrap();
+        assert_eq!(
+            management::compared_url_text("https://www.casoon.de/agb/", 95, 4, &en),
+            "www.casoon.de/agb/ and 3 more (95/100)"
+        );
+        assert_eq!(
+            management::compared_url_text("https://www.casoon.de/agb/", 95, 4, &de),
+            "www.casoon.de/agb/ und 3 weitere (95/100)"
+        );
+        assert_eq!(
+            management::compared_url_text("https://www.casoon.de/agb/", 99, 1, &en),
+            "www.casoon.de/agb/ (99/100)"
+        );
+        let issues = [
+            "Insufficient color contrast",
+            "CSP: frame-ancestors directive missing",
+            "CSP allows inline scripts",
+        ]
+        .map(str::to_string);
+        assert_eq!(
+            portfolio::leading_items(&issues, 52, &en),
+            "Insufficient color contrast and 2 more"
+        );
+        assert_eq!(
+            portfolio::leading_items(&issues[..1], 52, &en),
+            "Insufficient color contrast"
+        );
+        assert_eq!(
+            seo::sitemap_orphan_title_key(true, false),
+            "batch-seo-sitemap-orphan-title-orphans"
+        );
+        assert_eq!(
+            seo::sitemap_orphan_title_key(false, true),
+            "batch-seo-sitemap-orphan-title-missing"
+        );
+        assert_eq!(
+            seo::sitemap_orphan_title_key(true, true),
+            "batch-seo-sitemap-orphan-title"
+        );
+    }
+
+    /// #1039: a cross-page card is "Frequent" by the pages it occurs on, not
+    /// by occurrences on one page; an HTML conformance card's business row
+    /// holds a business sentence, and its title no checker rule id.
+    #[test]
+    fn batch_cards_rate_spread_by_pages() {
+        let i18n = I18n::new("en").unwrap();
+        let mut page = security_page("https://example.com/a");
+        if let Some(conform) = page.html_conform.as_mut() {
+            conform.findings = (0..7)
+                .map(|i| crate::html_conform::HtmlConformFinding {
+                    rule_id: "assertion.roles.unnecessary-list".to_string(),
+                    severity: "error".to_string(),
+                    message: format!("The \"list\" role is unnecessary for this element ({i})."),
+                    location: None,
+                    byte_offset: None,
+                    detail: None,
+                })
+                .collect();
+            conform.error_count = 7;
+        }
+        let batch = BatchReport::from_reports(
+            vec![page, contrast_page("https://example.com/b")],
+            vec![],
+            100,
+        );
+        let pres = build_batch_presentation_with_locale(&batch, &i18n);
+        let group = pres
+            .top_issues
+            .iter()
+            .find(|g| g.finding.rule_id == "html_conform.assertion.roles.unnecessary-list")
+            .expect("redundant role group");
+        assert_eq!(group.affected_urls.len(), 1);
+        assert!(group.finding.occurrence_count >= 5);
+        assert!(!group
+            .business_impact
+            .starts_with(&i18n.t("impact-prefix-frequent")));
+        assert_eq!(
+            group.business_impact,
+            i18n.t("impact-base-html-conformance")
+        );
+        assert!(
+            !group.title.contains("roles.unnecessary-list"),
+            "{}",
+            group.title
+        );
+        assert_eq!(
+            Some(group.title.clone()),
+            crate::audit::finding_titles::display_title(&group.finding.rule_id, true)
+        );
     }
 
     /// #1039: a cross-page card prints neither one page's checker message

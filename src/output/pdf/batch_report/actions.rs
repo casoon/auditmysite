@@ -226,7 +226,13 @@ pub(super) fn render_batch_top_issues(
         for issue in &pres.issue_frequency {
             freq_table = freq_table.add_row(vec![
                 issue.problem.clone(),
-                issue.wcag.clone(),
+                // "–" for a finding without a WCAG criterion, as in the
+                // decision table below (#1039).
+                if issue.wcag.is_empty() {
+                    "–".to_string()
+                } else {
+                    issue.wcag.clone()
+                },
                 issue.occurrences.to_string(),
                 issue.affected_urls.to_string(),
                 super::super::helpers::priority_label_i18n(issue.priority, i18n),

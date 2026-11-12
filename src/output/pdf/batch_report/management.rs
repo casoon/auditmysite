@@ -157,9 +157,9 @@ pub(super) fn build_batch_assessment(
             }
         } else if dist.high > 0 {
             if en {
-                "Usable foundation, but not yet accessible".to_string()
+                "Usable foundation, but high-severity barriers found".to_string()
             } else {
-                "Nutzbare Basis, aber noch nicht barrierefrei".to_string()
+                "Nutzbare Basis, aber Barrieren hoher Schwere gefunden".to_string()
             }
         } else if en {
             "Needs improvement toward accessibility".to_string()
@@ -176,10 +176,13 @@ pub(super) fn build_batch_assessment(
             "Technisch stabil, aber mit kritischen Barrieren".to_string()
         }
     } else if dist.high > 0 {
+        // What the automated check found, not a conformance claim: the
+        // rating note right above says the band is no statement of
+        // conformance (#1039).
         if en {
-            "Good foundation, but not accessible".to_string()
+            "Good foundation, but high-severity barriers found".to_string()
         } else {
-            "Gute Basis, aber nicht barrierefrei".to_string()
+            "Gute Basis, aber Barrieren hoher Schwere gefunden".to_string()
         }
     } else if score < 90 {
         if en {
@@ -293,10 +296,11 @@ pub(super) fn render_batch_internal_comparison(
             rows.push(vec![label, same, "—".to_string()]);
             continue;
         }
+        let tied = |score: u32| scored.iter().filter(|(_, s)| *s == score).count();
         rows.push(vec![
             label,
-            format!("{} ({}/100)", short_url(best_url, 34), best_score),
-            format!("{} ({}/100)", short_url(worst_url, 34), worst_score),
+            compared_url_text(best_url, best_score, tied(best_score), i18n),
+            compared_url_text(worst_url, worst_score, tied(worst_score), i18n),
         ]);
     }
     if !rows.is_empty() {
@@ -359,6 +363,33 @@ pub(super) fn render_batch_internal_comparison(
     }
 
     builder
+}
+
+/// A best or weakest URL of the module comparison. When other pages share
+/// its score it says so: "agb (95/100)" read as the one weakest page where
+/// four pages scored 95 (#1039).
+pub(super) fn compared_url_text(
+    url: &str,
+    score: u32,
+    pages_at_score: usize,
+    i18n: &I18n,
+) -> String {
+    let url = short_url(url, 34);
+    let named = if pages_at_score > 1 {
+        i18n.t_args(
+            "batch-dup-pages-more",
+            &[
+                ("list", fluent_bundle::FluentValue::from(url)),
+                (
+                    "count",
+                    fluent_bundle::FluentValue::from((pages_at_score - 1) as i64),
+                ),
+            ],
+        )
+    } else {
+        url
+    };
+    format!("{named} ({score}/100)")
 }
 
 pub(super) fn render_batch_decision_actions(

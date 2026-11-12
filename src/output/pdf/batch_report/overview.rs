@@ -1,7 +1,6 @@
 use crate::output::localized::is_english;
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, Grid, KeyValueList, List, PageBreak, SectionHeaderSplit,
-    TableOfContents,
+    Grid, KeyValueList, List, PageBreak, SectionHeaderSplit, TableOfContents,
 };
 use renderreport::components::text::{Label, TextBlock};
 use renderreport::components::MetricCard;
@@ -292,7 +291,10 @@ fn render_batch_overall_rating(
     use fluent_bundle::FluentValue;
     let summary = &batch.summary;
     let verdict = summary.decision.verdict;
-    let rating = crate::registry::SCORE_RANGE.label(score as f32, is_english(i18n));
+    // The defined band words (Sehr gut / Excellent …); the viewport-card
+    // "range" wording read "Excellent range" next to "Sehr guter Bereich"
+    // (#1039).
+    let rating = crate::registry::FIVE_BAND.label(score as f32, is_english(i18n));
     let verdict_word = i18n.t(match verdict {
         Verdict::Pass => "batch-rating-verdict-pass",
         Verdict::Warn => "batch-rating-verdict-warn",
@@ -475,16 +477,15 @@ pub(super) fn render_batch_status_section(
         i18n,
     );
 
-    // Quick actions
+    // Quick actions: a plain list. A checklist panel reserved two thirds of
+    // its width for a diagnosis column that was empty on every row (#1039).
     let actions = build_batch_quick_actions(pres, i18n);
     if !actions.is_empty() {
-        let rows: Vec<ChecklistRow> = actions
-            .iter()
-            .map(|action| ChecklistRow::new(action, "").with_status("warn"))
-            .collect();
-        builder = builder.add_component(
-            ChecklistPanel::new(rows).with_title(i18n.t("narrative-quick-actions-title")),
-        );
+        let mut list = List::new().with_title(i18n.t("narrative-quick-actions-title"));
+        for action in &actions {
+            list = list.add_item(action);
+        }
+        builder = builder.add_component(list);
     }
 
     builder = render_batch_management_risks(builder, normalized_reports, i18n);
@@ -648,10 +649,12 @@ pub(super) fn build_batch_overview_grid(
             Some("#b45309"),
         ),
         (
+            // WCAG findings only (`occurrence_distribution`); security and
+            // HTML findings of high severity are not in it (#1039).
             if en {
-                "Critical + high occurrences"
+                "Critical + high WCAG occurrences"
             } else {
-                "Kritisch + Hoch (Vorkommen)"
+                "Kritisch + hoch (WCAG-Vorkommen)"
             },
             critical_and_high.to_string(),
             Some("#dc2626"),
