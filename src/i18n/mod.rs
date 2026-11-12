@@ -33,11 +33,12 @@ impl I18n {
         // security finding texts and category labels (`security`), the
         // mobile finding texts (`mobile`) and the labels of cross-cutting
         // enums (`labels.ftl`: page intent, execution priority, issue class,
-        // subcategory, evidence source and field) and the titles of the
+        // subcategory, evidence source and field), the titles of the
         // findings outside the WCAG taxonomy and their fixes
-        // (`audit::finding_titles`) and the texts of the batch PDF's
-        // consistency and management sections (`batch-consistency.ftl`) are
-        // ten resources of the one bundle.
+        // (`audit::finding_titles`), the interactive (journey) finding
+        // texts (`audit::interactive_finding`) and the texts of the batch
+        // PDF's consistency and management sections
+        // (`batch-consistency.ftl`) are eleven resources of the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -49,6 +50,7 @@ impl I18n {
                 include_str!("../../locales/en/labels.ftl"),
                 include_str!("../../locales/en/finding-titles.ftl"),
                 include_str!("../../locales/en/finding-fixes.ftl"),
+                include_str!("../../locales/en/interactive.ftl"),
                 include_str!("../../locales/en/batch-consistency.ftl"),
             ],
             _ => [
@@ -61,6 +63,7 @@ impl I18n {
                 include_str!("../../locales/de/labels.ftl"),
                 include_str!("../../locales/de/finding-titles.ftl"),
                 include_str!("../../locales/de/finding-fixes.ftl"),
+                include_str!("../../locales/de/interactive.ftl"),
                 include_str!("../../locales/de/batch-consistency.ftl"),
             ],
         };

@@ -192,6 +192,13 @@ surface that owns its lifecycle:
   mapping. The PDF tables of priority, role and effort use their own
   `report.ftl` messages (`priority-*`, `role-*`, `effort-*`), which word some of
   them differently; the `labels-` prefix keeps the two apart.
+- `locales/{de,en}/interactive.ftl`: the texts of the interactive (journey)
+  findings (`audit::interactive_finding::interactive_finding_text`): one
+  message `interactive-<kind>` and one `interactive-<kind>-fix` per finding
+  kind, plural agreement as a Fluent select, plus the uncertainty note
+  (`finding_uncertainty_text`, `interactive-uncertainty-*`). The function keeps
+  the kind-to-message mapping and the arguments (default values, the quoted
+  page title, the truncation marker of the example list).
 - `locales/{de,en}/batch-consistency.ftl`: the texts of the batch PDF's
   cross-page consistency section (`output::pdf::batch_report::consistency`,
   `batch-consistency-*`) and of its management assessment, key points, audit
