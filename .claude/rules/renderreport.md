@@ -16,9 +16,10 @@ renderreport = { version = "0.2.19", optional = true }
 **Neue Komponente oder Bugfix in renderreport:**
 1. Änderungen in `/Users/jseidel/GitHub/renderreport` vornehmen
 2. Version in `renderreport/Cargo.toml` bumpen (z. B. `0.2.19` → `0.2.20`)
-3. In renderreport committen und pushen: `git push origin main`
+3. In renderreport per PR nach `main` bringen (CHANGELOG-Abschnitt der Version inklusive)
 4. Tag setzen und pushen: `git tag v0.2.20 && git push origin v0.2.20`
-5. Auf crates.io veröffentlichen: `cargo publish --allow-dirty`
+5. Veröffentlichen macht der Release-Workflow: Job `publish-crate` in der Umgebung `crates-io`
+   freigeben (Trusted Publishing; ein lokales `cargo publish` lehnt crates.io ab)
 6. In `auditmysite/Cargo.toml` die Version aktualisieren
 7. `cargo check --features pdf` zur Verifikation
 8. `Cargo.lock` committen
