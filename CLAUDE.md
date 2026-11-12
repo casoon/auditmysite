@@ -143,10 +143,12 @@ version exactly once: what arrives broken there stays broken permanently. Theref
    docs in the real docs.rs sandbox image — its nightly, its memory and time limits, and on what
    `cargo package` would publish. Nothing else in CI answers this: the docs step in
    `check-all-features` builds on the runner, with stable and without a memory cap.
-4. **Only then `cargo publish`.**
+4. **Only then approve the job `Publish to crates.io`** (environment `crates-io`, required
+   reviewer). It runs `cargo publish --locked` through crates.io Trusted Publishing; the crate
+   accepts no other upload, so a local `cargo publish` is rejected.
 
 The job is `continue-on-error` as long as the action is in beta — so it does not block, it
-**informs**. If it is red, do not publish; clarify the cause first.
+**informs**. If it is red, do not approve the publish job; clarify the cause first.
 
 For scale: 1.5.1 needed 4.75 GB of 6.4 GB available RAM there. At that time docs.rs built with
 `all-features = true`, which pulled in `ai-transparency` and raised the dependency graph from 454

@@ -110,7 +110,7 @@ docker run --rm -v "$PWD:/work" ghcr.io/casoon/auditmysite https://example.com -
 
 ### Verify your download
 
-Official binaries and the container image come only from the GitHub releases and the GHCR package of `casoon/auditmysite`, built there by the release workflow, never on a developer machine. To verify a download by hand, check the hash and the signed build provenance:
+Official binaries and the container image come only from the GitHub releases and the GHCR package of `casoon/auditmysite`, built there by the release workflow, never on a developer machine. The same workflow publishes the crate to crates.io through Trusted Publishing. To verify a download by hand, check the hash and the signed build provenance:
 
 ```bash
 shasum -a 256 -c auditmysite-<version>-<target>.tar.gz.sha256
