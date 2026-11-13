@@ -4,6 +4,9 @@ use crate::output::report_model::{
     AffectedElement, AppendixBlock, AppendixViolation, CapabilitySignal, MethodologyBlock,
 };
 
+#[cfg(test)]
+mod text_export;
+
 pub(super) fn build_appendix_block_from_normalized(
     locale: &str,
     normalized: &NormalizedReport,
