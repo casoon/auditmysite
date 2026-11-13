@@ -335,6 +335,9 @@ mod issue_texts_guard;
 mod label_texts_export;
 
 #[cfg(test)]
+mod profile_texts_export;
+
+#[cfg(test)]
 mod score_tests {
     use super::*;
 
