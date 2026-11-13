@@ -228,6 +228,40 @@ seo-serp-status-ok = OK
 seo-serp-status-warning = Warnung
 seo-serp-status-fail = Fehler
 
+# Texts of the SERP signals (`seo::serp::build_serp_analysis`): the
+# category, label and detail of each signal. Which signal and detail applies
+# stays in Rust; language-neutral names (Description, Canonical, Rich Result,
+# robots noindex, robots nosnippet, Favicon, hreflang x-default) are written
+# there.
+seo-serp-category-indexing = Indexierung
+seo-serp-category-title = Titel
+seo-serp-category-appearance = Erscheinungsbild
+seo-serp-category-internationalisation = Internationalisierung
+seo-serp-detail-noindex = Seite ist als noindex markiert und wird nicht indexiert ({ $robots })
+seo-serp-detail-nosnippet = nosnippet verhindert die Meta-Description im SERP-Eintrag.
+seo-serp-label-title-present = Titel vorhanden
+seo-serp-detail-no-title = Kein <title>-Tag gefunden — Pflichtfeld für Google-Listeneinträge.
+seo-serp-label-title-length = Titellänge
+seo-serp-detail-title-length = { $count } Zeichen (empfohlen 30–60)
+seo-serp-label-truncation-risk = Abschneidungsrisiko
+seo-serp-detail-title-truncated = { $count } Zeichen — Titel wird in schmalen SERPs abgeschnitten (ca. 55 Zeichen sicher).
+seo-serp-label-description-present = Description vorhanden
+seo-serp-detail-no-description = Keine Meta-Description — Google zeigt unkontrollierten Seitentext.
+seo-serp-label-description-length = Description-Länge
+seo-serp-detail-description-length = { $count } Zeichen (empfohlen 120–160)
+seo-serp-label-canonical-tag = Canonical-Tag
+seo-serp-detail-no-canonical = Kein Canonical-Tag — Google wählt selbst die kanonische URL.
+seo-serp-label-canonical-self-reference = Canonical-Selbstreferenz
+seo-serp-detail-canonical-other-url = Canonical zeigt auf eine andere URL: { $url }
+seo-serp-detail-favicon-present = Favicon vorhanden (erscheint in mobilen SERPs und Browser-Tabs).
+seo-serp-detail-no-favicon = Kein Favicon gefunden — Google zeigt in mobilen SERPs ein generisches Icon.
+seo-serp-detail-hreflang-x-default = { $count } hreflang-Tags inkl. x-default
+seo-serp-detail-hreflang-no-x-default = { $count } hreflang-Tags, kein x-default — Google-Empfehlung für mehrsprachige Seiten.
+seo-serp-label-breadcrumb-schema = Breadcrumb-Schema
+seo-serp-detail-breadcrumb-complete = BreadcrumbList erkannt, Pflichtangaben erfüllt — für eine Pfadangabe grundsätzlich geeignet.
+seo-serp-detail-breadcrumb-incomplete = BreadcrumbList erkannt, aber unvollständig ({ $list }) — für eine Pfadangabe nicht geeignet.
+seo-serp-detail-no-breadcrumb = Kein BreadcrumbList-Schema — Pfadangabe im SERP-Eintrag nicht möglich.
+
 # Labels of the structured-data fit (`seo::schema_fit`): the page kind
 # (`SchemaPageKind::label`) and the fit status (`SchemaFitAssessment::fit_text`).
 seo-schema-fit-page-kind-merchant-product-detail = Kaufbare Produktdetailseite
