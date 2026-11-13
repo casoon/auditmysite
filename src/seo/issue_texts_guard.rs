@@ -2,7 +2,8 @@
 //! languages, every key defined once, used and resolving without errors, and
 //! no German in the English file. The file also holds the structured-data and
 //! robots.txt table labels, the content-profile labels and texts, the SERP
-//! status labels and the structured-data fit and content-parity texts.
+//! status labels and signal texts and the structured-data fit and
+//! content-parity texts.
 
 use super::issue_texts_export::{meta_values, schema_issues, technical_scenarios, META_KINDS};
 use super::label_texts_export::{robots_audits, BOT_CLASSES, OTHER_POLICIES};
@@ -10,6 +11,7 @@ use super::meta::meta_issue_text;
 use super::profile_texts_export::{profile_scenarios, profile_texts};
 use super::robots::{infer_robots_policy, localize_policy_label};
 use super::schema::{schema_issue_label, schema_issue_text};
+use super::serp_texts_export::{serp_scenarios, serp_texts};
 use super::technical::collect_technical_issues;
 use crate::i18n::detail_texts_export::{
     content_parities, schema_fit, SCHEMA_FIT_STATUSES, SCHEMA_PAGE_KINDS,
@@ -48,7 +50,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 195);
+    assert_eq!(en.len(), 223);
 }
 
 #[test]
@@ -88,6 +90,8 @@ fn every_key_resolves_in_both_languages_without_errors() {
             "schema",
             "visible",
             "types",
+            "robots",
+            "url",
         ] {
             args.set(name, FluentValue::from("x"));
         }
@@ -135,6 +139,15 @@ fn no_input_leaves_a_key_or_a_placeholder_in_a_message() {
         for lang in ["en", "de"] {
             let mut texts = vec![];
             strings(&profile_texts(&seo, lang), &mut texts);
+            for text in texts {
+                assert!(!leaks(&text), "{label} ({lang}): {text}");
+            }
+        }
+    }
+    for (label, seo) in serp_scenarios() {
+        for lang in ["en", "de"] {
+            let mut texts = vec![];
+            strings(&serp_texts(&seo, lang), &mut texts);
             for text in texts {
                 assert!(!leaks(&text), "{label} ({lang}): {text}");
             }
