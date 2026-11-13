@@ -71,7 +71,6 @@ fn module_customer_context(
     // plain-language customer passage, defeating its purpose (#446 readability).
     _interpretation: &str,
 ) -> Label {
-    let en = is_english(i18n);
     // html_conform is score-neutral with a known false-positive gap (see
     // detail_modules/html_conform.rs) -- a generic "clear weakness" sentence
     // for its score would contradict the module's own heuristic-reliability
@@ -82,51 +81,32 @@ fn module_customer_context(
         _ => score,
     };
     let weakness = match scored {
-        Some(s) if s < 50 => Some(pick(
-            i18n,
-            "Der Score zeigt in diesem Bereich eine deutliche Schwäche.",
-            "The score indicates a clear weakness in this area.",
-        )),
-        Some(s) if s < 75 => Some(pick(
-            i18n,
-            "Der Score zeigt in diesem Bereich erkennbares Verbesserungspotenzial.",
-            "The score indicates visible improvement potential in this area.",
-        )),
+        Some(s) if s < 50 => Some(i18n.t("pdf-details-weakness-clear")),
+        Some(s) if s < 75 => Some(i18n.t("pdf-details-weakness-visible")),
         _ => None,
     };
-    let module_text = match (module_key, en) {
-        ("performance", true) => "Visitors may experience delays, unstable rendering or unnecessary data transfer before the page feels usable.",
-        ("performance", false) => "Besucher können Verzögerungen, instabiles Rendering oder unnötige Datenmenge erleben, bevor die Seite nutzbar wirkt.",
-        ("seo", true) => "Search engines and AI systems need clear titles, headings, structured data and enough readable content to understand the page.",
-        ("seo", false) => "Suchmaschinen und KI-Systeme benötigen klare Titel, Überschriften, strukturierte Daten und ausreichend lesbaren Inhalt, um die Seite zu verstehen.",
+    let context_key = match module_key {
+        "performance" => Some("pdf-details-context-performance"),
+        "seo" => Some("pdf-details-context-seo"),
         // The composite's own chapter opener already states what the value combines;
         // repeating it here printed two near-identical lead sentences (#952).
-        ("search_experience", _) => "",
-        ("security", true) => "Security headers and HTTPS signals influence visible trust and reduce avoidable browser-side risk in the checked scope.",
-        ("security", false) => "Security Header und HTTPS-Signale beeinflussen sichtbares Vertrauen und reduzieren vermeidbare Browser-Risiken im geprüften Umfang.",
-        ("html_conform", true) => "Clean, spec-conformant HTML helps browsers, assistive technologies and search engines parse and render the page reliably.",
-        ("html_conform", false) => "Sauberes, spezifikationskonformes HTML hilft Browsern, assistiven Technologien und Suchmaschinen, die Seite zuverlässig zu verarbeiten und darzustellen.",
-        ("mobile", true) => "Mobile visitors depend on readable text, fitting content and controls that are easy to tap on small screens.",
-        ("mobile", false) => "Mobile Besucher sind auf lesbaren Text, passende Inhaltsbreiten und gut antippbare Bedienelemente angewiesen.",
-        ("ux", true) => "This indicator estimates whether the page feels understandable, consistent and low-friction for common visitor tasks.",
-        ("ux", false) => "Dieser Indikator schätzt, ob die Seite für typische Besucheraufgaben verständlich, konsistent und reibungsarm wirkt.",
-        ("journey", true) => "This indicator estimates whether visitors can move through the page intent without avoidable friction.",
-        ("journey", false) => "Dieser Indikator schätzt, ob Besucher ohne vermeidbare Reibung durch den Zweck der Seite kommen.",
-        ("source_quality", true) => "These signals show how well machines can process the page: publisher and security markup, and whether title, language and structured data agree with each other.",
-        ("source_quality", false) => "Diese Signale zeigen, wie gut Maschinen die Seite verarbeiten können: Herausgeber- und Sicherheitsangaben und ob Titel, Sprache und strukturierte Daten zueinander passen.",
-        ("ai_visibility", true) => "AI visibility indicates whether content can be parsed, chunked and attributed by AI-assisted systems.",
-        ("ai_visibility", false) => "KI-Sichtbarkeit zeigt, ob Inhalte von KI-gestützten Systemen gelesen, gegliedert und zugeordnet werden können.",
-        ("content_visibility", true) => "Content visibility combines discoverability, trust and topical depth signals; it is an indicator, not a guarantee of reach.",
-        ("content_visibility", false) => "Content Visibility verbindet Auffindbarkeit, Vertrauen und inhaltliche Tiefe; es ist ein Indikator, keine Reichweiten-Garantie.",
-        _ if en => "This module describes customer-facing quality beyond pure accessibility findings.",
-        _ => "Dieses Modul beschreibt kundennahe Qualität über reine Accessibility-Befunde hinaus.",
+        "search_experience" => None,
+        "security" => Some("pdf-details-context-security"),
+        "html_conform" => Some("pdf-details-context-html-conform"),
+        "mobile" => Some("pdf-details-context-mobile"),
+        "ux" => Some("pdf-details-context-ux"),
+        "journey" => Some("pdf-details-context-journey"),
+        "source_quality" => Some("pdf-details-context-source-quality"),
+        "ai_visibility" => Some("pdf-details-context-ai-visibility"),
+        "content_visibility" => Some("pdf-details-context-content-visibility"),
+        _ => Some("pdf-details-context-other"),
     };
     let mut parts = Vec::new();
     if let Some(w) = weakness {
         parts.push(w);
     }
-    if !module_text.is_empty() {
-        parts.push(module_text);
+    if let Some(key) = context_key {
+        parts.push(i18n.t(key));
     }
     // No meta-label prefix — the plain-language sentence speaks for itself
     // ("Was das für Kunden bedeutet:" was redundant wording, #446 readability).
@@ -147,7 +127,6 @@ pub(super) fn derived_from_note(i18n: &I18n, module_name: &str) -> Option<Label>
     if sources.is_empty() {
         return None;
     }
-    let en = is_english(i18n);
     let names: Vec<String> = sources
         .iter()
         .map(|key| {
@@ -160,15 +139,7 @@ pub(super) fn derived_from_note(i18n: &I18n, module_name: &str) -> Option<Label>
         })
         .collect();
     let list = names.join(", ");
-    let text = if en {
-        format!(
-            "This indicator re-reads results already reported under {list}. It measures nothing of its own, so its agreement with those modules is not independent confirmation."
-        )
-    } else {
-        format!(
-            "Dieser Indikator liest Ergebnisse neu, die bereits unter {list} berichtet werden. Er misst nichts Eigenes — seine Übereinstimmung mit diesen Modulen ist keine unabhängige Bestätigung."
-        )
-    };
+    let text = i18n.t_args("pdf-details-derived-from", &[("list", list)]);
     Some(
         Label::new(text)
             .with_size("10.5pt")
@@ -190,15 +161,13 @@ pub(super) fn a11y_penalty_note(
     if penalty == 0 {
         return builder;
     }
-    let text = if is_english(i18n) {
-        format!(
-            "Includes an accessibility penalty of {penalty} points: {score_before} before it was applied."
-        )
-    } else {
-        format!(
-            "Enthält einen Abzug von {penalty} Punkten für die Barrierefreiheits-Befunde: {score_before} vor dem Abzug."
-        )
-    };
+    let text = i18n.t_args(
+        "pdf-details-a11y-penalty",
+        &[
+            ("penalty", i64::from(penalty)),
+            ("before", i64::from(score_before)),
+        ],
+    );
     builder.add_component(
         Label::new(text)
             .with_size("10.5pt")
@@ -289,12 +258,8 @@ pub(super) fn first_sentence(text: &str) -> String {
 /// Generic label for a module's headline score card. The descriptive module
 /// name lives in the level-2 chapter heading, so the card only needs a short
 /// "overall score" caption (avoids printing the title twice).
-pub(super) fn module_score_caption(i18n: &I18n) -> &'static str {
-    if is_english(i18n) {
-        "Overall score · 0–100"
-    } else {
-        "Gesamtwertung · 0–100"
-    }
+pub(super) fn module_score_caption(i18n: &I18n) -> String {
+    i18n.t("pdf-details-score-caption")
 }
 
 /// Plain-language grade band for a module score, aligned with the report's
@@ -316,16 +281,14 @@ fn vital_status(rating: &str) -> &'static str {
 /// Localizes the canonical English rating token ("good"/"needs-improvement"/
 /// "poor") — printing it raw leaked untranslated English into German report
 /// tables (#406).
-fn vital_rating_label(rating: &str, en: bool) -> &'static str {
-    match (rating, en) {
-        ("good", true) => "Good",
-        ("needs-improvement", true) => "Needs improvement",
-        ("poor", true) => "Poor",
-        ("good", false) => "Gut",
-        ("needs-improvement", false) => "Verbesserungswürdig",
-        ("poor", false) => "Schlecht",
-        _ => "—",
-    }
+fn vital_rating_label(rating: &str, en: bool) -> String {
+    let key = match rating {
+        "good" => "pdf-details-vital-good",
+        "needs-improvement" => "pdf-details-vital-needs-improvement",
+        "poor" => "pdf-details-vital-poor",
+        _ => return "—".to_string(),
+    };
+    crate::i18n::text(key, en)
 }
 
 fn vital_color(rating: &str) -> &'static str {
@@ -333,77 +296,28 @@ fn vital_color(rating: &str) -> &'static str {
 }
 
 fn journey_category_label(category: &str, i18n: &I18n) -> String {
-    let en = is_english(i18n);
-    let label = match category {
-        "TabOrder" => Some(if en { "Tab order" } else { "Tab-Reihenfolge" }),
-        "FocusTrap" => Some(if en { "Focus trap" } else { "Fokus-Falle" }),
-        "StateTransition" => Some(if en {
-            "State transition"
-        } else {
-            "Zustandswechsel"
-        }),
-        "FocusRestoration" => Some(if en {
-            "Focus restoration"
-        } else {
-            "Fokus-Wiederherstellung"
-        }),
-        "FormError" => Some(if en {
-            "Form error announcement"
-        } else {
-            "Formularfehler-Ansage"
-        }),
-        "SpaNavigation" => Some(if en {
-            "SPA navigation"
-        } else {
-            "SPA-Navigation"
-        }),
-        "HiddenFocusable" => Some(if en {
-            "Hidden focusable element"
-        } else {
-            "Verstecktes fokussierbares Element"
-        }),
-        "SkipLink" => Some(if en { "Skip link" } else { "Skip-Link" }),
-        "FocusIndicator" => Some(if en {
-            "Focus indicator"
-        } else {
-            "Fokus-Indikator"
-        }),
-        "MenuJourney" => Some(if en {
-            "Menu navigation"
-        } else {
-            "Menü-Navigation"
-        }),
-        "TabsJourney" => Some(if en {
-            "Tab navigation"
-        } else {
-            "Tab-Navigation"
-        }),
-        "LinkText" => Some(if en { "Link Text" } else { "Linktext" }),
-        "Landmark" => Some(if en { "Landmark" } else { "Landmarke" }),
-        "MediaControls" => Some(if en {
-            "Media controls"
-        } else {
-            "Medienbedienung"
-        }),
-        "AddToCart" => Some(if en {
-            "Add to cart"
-        } else {
-            "In den Warenkorb legen"
-        }),
-        "QuantityStepper" => Some(if en {
-            "Quantity stepper"
-        } else {
-            "Mengenauswahl"
-        }),
-        "HeadingOutline" => Some(if en {
-            "Heading outline"
-        } else {
-            "Überschriftengliederung"
-        }),
+    let key = match category {
+        "TabOrder" => Some("pdf-details-journey-tab-order"),
+        "FocusTrap" => Some("pdf-details-journey-focus-trap"),
+        "StateTransition" => Some("pdf-details-journey-state-transition"),
+        "FocusRestoration" => Some("pdf-details-journey-focus-restoration"),
+        "FormError" => Some("pdf-details-journey-form-error"),
+        "SpaNavigation" => Some("a11y-details-journey-label-spa-navigation"),
+        "HiddenFocusable" => Some("pdf-details-journey-hidden-focusable"),
+        "SkipLink" => Some("pdf-details-journey-skip-link"),
+        "FocusIndicator" => Some("pdf-details-journey-focus-indicator"),
+        "MenuJourney" => Some("pdf-details-journey-menu"),
+        "TabsJourney" => Some("pdf-details-journey-tabs"),
+        "LinkText" => Some("pdf-details-journey-link-text"),
+        "Landmark" => Some("pdf-details-journey-landmark"),
+        "MediaControls" => Some("pdf-details-journey-media-controls"),
+        "AddToCart" => Some("pdf-details-journey-add-to-cart"),
+        "QuantityStepper" => Some("a11y-details-journey-label-quantity-stepper"),
+        "HeadingOutline" => Some("pdf-details-journey-heading-outline"),
         _ => None,
     };
-    if let Some(label) = label {
-        return label.to_string();
+    if let Some(key) = key {
+        return i18n.t(key);
     }
     let mut out = String::new();
     for (i, ch) in category.char_indices() {
