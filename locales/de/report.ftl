@@ -1353,10 +1353,6 @@ count-warnings = { $count ->
         [one] { $count } Warnung
        *[other] { $count } Warnungen
     }
-count-h1-headings = { $count ->
-        [one] { $count } H1-Überschrift
-       *[other] { $count } H1-Überschriften
-    }
 count-link-texts-repeated = { $count ->
         [one] { $count } Linktext kommt
        *[other] { $count } Linktexte kommen

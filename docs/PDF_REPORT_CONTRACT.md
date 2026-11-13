@@ -212,6 +212,14 @@ surface that owns its lifecycle:
   joined. A basis or identity finding the analysis stores in canonical English
   is the English message itself (`$basis`, `$finding`); the German message
   translates it.
+- `locales/{de,en}/seo-details.ftl`: the texts of the single report's SEO
+  module detail presentation (`output::builder::single::module_details::seo`,
+  `seo-details-*`): meta-tag labels and the cross-module notes of meta issues,
+  the heading, social, technical and tracking summaries, the schema inventory
+  details, the signal ratings and the content identity and page profile
+  labels. The builder keeps the rating bands, which message applies and how
+  lists and values are joined; the labels "Description", "Schema.org content
+  type" and "Language" are `pdf-seo-*` messages of `report.ftl`.
 - `src/output/explanations.rs`: the explanation table itself: which entries
   exist, owner role, effort, and the code examples (canonical English), plus
   `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are
