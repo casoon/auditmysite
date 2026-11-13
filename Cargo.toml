@@ -87,7 +87,7 @@ fluent-bundle = "0.16"
 unic-langid = "0.9"
 
 # PDF report generation via Typst.
-renderreport = { version = "0.7.3", optional = true }
+renderreport = { version = "0.7.4", optional = true }
 # Pre-crops the mobile device-preview screenshot for the PDF (see
 # register_page_screenshot_assets) — already in the dependency tree
 # transitively via renderreport's own image handling.
