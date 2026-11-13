@@ -4,6 +4,9 @@ use crate::output::report_model::{
     FindingSeverityTier, FindingSummary,
 };
 
+#[cfg(test)]
+mod text_export;
+
 pub(super) fn build_finding_summary(
     locale: &str,
     counts: &SeverityCounts,

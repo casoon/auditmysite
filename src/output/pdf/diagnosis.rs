@@ -8,6 +8,9 @@ use renderreport::prelude::*;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
 
+#[cfg(test)]
+mod text_export;
+
 pub(super) fn render_diagnosis_section(
     mut builder: renderreport::engine::ReportBuilder,
     diagnosis: &DiagnosisBlock,
