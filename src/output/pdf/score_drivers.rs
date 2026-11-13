@@ -6,7 +6,6 @@
 //! `problem_profile.rs` in plan 27). Only visibility widened to `pub(super)`
 //! where `single_report.rs` calls in; no logic changed in the move.
 
-use crate::output::localized::is_english;
 use renderreport::components::advanced::List;
 use renderreport::components::text::Label;
 use renderreport::components::{AuditTable, TableColumn};
@@ -16,6 +15,11 @@ use super::design;
 use super::detail_modules::score_band_label;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
+
+#[cfg(test)]
+mod text_export;
+#[cfg(test)]
+mod text_guard;
 
 /// "Why is the overall score X" — one compact row per module that actually
 /// feeds the weighted `overall_score`, showing its score, its weight, and a
@@ -32,7 +36,6 @@ pub(super) fn render_score_driver_table(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
     let contributing: Vec<&crate::audit::normalized::ModuleScoreEntry> = vm
         .modules
         .module_scores
@@ -46,29 +49,17 @@ pub(super) fn render_score_driver_table(
     let basis: u32 = contributing.iter().map(|m| m.weight_pct).sum();
     builder = builder
         .add_component(
-            ScoreCard::new(
-                if en {
-                    "Combined technical score · 0–100"
-                } else {
-                    "Kombinierter technischer Wert · 0–100"
-                },
-                vm.summary.overall_score,
-            )
-            .with_description(if en {
-                format!("Weighted across six modules, weight basis {basis}")
-            } else {
-                format!("Gewichtet über sechs Module, Gewichtsbasis {basis}")
-            })
-            .with_thresholds(75, 40),
+            ScoreCard::new(i18n.t("score-drivers-card-title"), vm.summary.overall_score)
+                .with_description(i18n.t_args(
+                    "score-drivers-card-description",
+                    &[("basis", i64::from(basis))],
+                ))
+                .with_thresholds(75, 40),
         )
         .add_component(
-            Label::new(if en {
-                "A different question from the accessibility score on the cover, which is what this report assesses."
-            } else {
-                "Eine andere Frage als der Barrierefreiheitswert auf dem Deckblatt, um den es in diesem Bericht geht."
-            })
-            .with_size("10.5pt")
-            .with_color(design::tokens::NEUTRAL),
+            Label::new(i18n.t("score-drivers-card-note"))
+                .with_size("10.5pt")
+                .with_color(design::tokens::NEUTRAL),
         );
 
     if contributing.len() < 2 {
@@ -95,29 +86,15 @@ pub(super) fn render_score_driver_table(
     let classify =
         |m: &crate::audit::normalized::ModuleScoreEntry, band_corrected: bool| -> &'static str {
             if Some(&m.name) == weakest_name.as_ref() {
-                if en {
-                    "Biggest weak point"
-                } else {
-                    "Größter Schwachpunkt"
-                }
+                "score-drivers-class-weakest"
             } else if m.score < 75 {
-                if en {
-                    "Significant risk driver"
-                } else {
-                    "Erheblicher Risikotreiber"
-                }
+                "score-drivers-class-risk-driver"
             } else if band_corrected {
                 // The wording band was lowered by open severe findings, so the
                 // row must not call the module stabilizing (#952-4).
-                if en {
-                    "Open severe findings limit the rating"
-                } else {
-                    "Offene schwere Befunde begrenzen die Einordnung"
-                }
-            } else if en {
-                "Stabilizes the combined technical score"
+                "score-drivers-class-band-corrected"
             } else {
-                "Stabilisiert den kombinierten Wert"
+                "score-drivers-class-stabilizing"
             }
         };
 
@@ -130,17 +107,16 @@ pub(super) fn render_score_driver_table(
     // rendered separately by `render_overall_score_derivation` below.
     let is_derivation = vm.summary.score_calculation_method != "viewport_weighted";
     let mut table = AuditTable::new(vec![
-        TableColumn::new(if en { "Module" } else { "Modul" }).with_width("28%"),
+        TableColumn::new(i18n.t("label-module")).with_width("28%"),
         TableColumn::new("Score").with_width("14%"),
-        TableColumn::new(if en { "Weight" } else { "Gewichtung" }).with_width("16%"),
-        TableColumn::new(if en { "Assessment" } else { "Einordnung" }).with_width("42%"),
+        TableColumn::new(i18n.t("score-drivers-col-weight")).with_width("16%"),
+        TableColumn::new(i18n.t("score-drivers-col-assessment")).with_width("42%"),
     ])
-    .with_title(match (is_derivation, en) {
-        (true, true) => "Why the combined technical score is what it is",
-        (true, false) => "Wie sich der kombinierte technische Wert zusammensetzt",
-        (false, true) => "The modules that carry weight",
-        (false, false) => "Die gewichteten Module im Einzelnen",
-    });
+    .with_title(i18n.t(if is_derivation {
+        "score-drivers-table-title-derivation"
+    } else {
+        "score-drivers-table-title-weighted"
+    }));
 
     for m in &contributing {
         // Same lookup as `output::builder::helpers::localized_module_name`
@@ -165,7 +141,7 @@ pub(super) fn render_score_driver_table(
             display_name,
             format!("{} ({})", m.score, band),
             format!("{}%", m.weight_pct),
-            classify(m, band_corrected).to_string(),
+            i18n.t(classify(m, band_corrected)),
         ]);
     }
 
@@ -187,7 +163,6 @@ fn render_weight_basis_note(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
     let basis: u32 = vm
         .modules
         .module_scores
@@ -216,35 +191,19 @@ fn render_weight_basis_note(
         .map(|(name, weight)| format!("{name} ({weight} %)"))
         .collect();
 
-    let mut note = if en {
-        format!(
-            "The combined technical score is normalised over the modules that were measured — a weight basis of {basis} of 100, not the full set."
-        )
-    } else {
-        format!(
-            "Der kombinierte technische Wert ist auf die gemessenen Module normiert — Gewichtsbasis {basis} von 100, nicht der volle Satz."
-        )
-    };
+    let mut note = i18n.t_args("score-drivers-basis-note", &[("basis", i64::from(basis))]);
     if !missing.is_empty() {
         note.push(' ');
-        note.push_str(&if en {
-            format!("Not included: {}.", missing.join(", "))
-        } else {
-            format!("Nicht enthalten: {}.", missing.join(", "))
-        });
+        note.push_str(&i18n.t_args(
+            "score-drivers-basis-missing",
+            &[("modules", missing.join(", "))],
+        ));
     }
     note.push(' ');
-    note.push_str(if en {
-        "A score from a different module set is not directly comparable."
-    } else {
-        "Ein Wert aus einem anderen Modulsatz ist damit nicht direkt vergleichbar."
-    });
+    note.push_str(&i18n.t("score-drivers-basis-not-comparable"));
 
-    builder = builder.add_component(Callout::info(&note).with_title(if en {
-        "Weight basis"
-    } else {
-        "Gewichtsbasis"
-    }));
+    builder =
+        builder.add_component(Callout::info(&note).with_title(i18n.t("score-drivers-basis-title")));
     builder
 }
 
@@ -260,56 +219,31 @@ fn render_overall_score_derivation(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
     let Some(sb) = vm.summary.score_breakdown.as_ref() else {
         return builder;
     };
 
     let mut table = AuditTable::new(vec![
-        TableColumn::new(if en { "Step" } else { "Schritt" }).with_width("46%"),
-        TableColumn::new(if en { "Input" } else { "Eingang" }).with_width("34%"),
-        TableColumn::new(if en { "Result" } else { "Ergebnis" }).with_width("20%"),
+        TableColumn::new(i18n.t("score-drivers-derivation-col-step")).with_width("46%"),
+        TableColumn::new(i18n.t("score-drivers-derivation-col-input")).with_width("34%"),
+        TableColumn::new(i18n.t("score-drivers-derivation-col-result")).with_width("20%"),
     ])
-    .with_title(if en {
-        "How the combined technical score was calculated"
-    } else {
-        "Wie der kombinierte technische Wert zustande kommt"
-    });
+    .with_title(i18n.t("score-drivers-derivation-title"));
 
     // Where the two viewport values come from: the module weights above,
     // over the modules measured on that viewport (plan 73).
     table = table.add_row(vec![
-        if en {
-            "Desktop value: accessibility and performance, module weights renormalized".to_string()
-        } else {
-            "Desktop-Wert: Barrierefreiheit und Performance, Modulgewichte neu normiert".to_string()
-        },
-        if en {
-            "measured on desktop".to_string()
-        } else {
-            "auf Desktop gemessen".to_string()
-        },
+        i18n.t("score-drivers-derivation-desktop"),
+        i18n.t("score-drivers-derivation-desktop-input"),
         sb.desktop_overall.to_string(),
     ]);
     table = table.add_row(vec![
-        if en {
-            "Mobile value: all weighted modules except security".to_string()
-        } else {
-            "Mobile-Wert: alle gewichteten Module außer Sicherheit".to_string()
-        },
-        if en {
-            "module weights above, over 90".to_string()
-        } else {
-            "Modulgewichte oben, auf 90 bezogen".to_string()
-        },
+        i18n.t("score-drivers-derivation-mobile"),
+        i18n.t("score-drivers-derivation-mobile-input"),
         sb.mobile_overall.to_string(),
     ]);
     table = table.add_row(vec![
-        if en {
-            "Viewport blend (mobile weighs more)".to_string()
-        } else {
-            "Viewport-Mischung (Mobile zählt mehr)".to_string()
-        },
+        i18n.t("score-drivers-derivation-blend"),
         format!(
             "Desktop {} x {} % + Mobile {} x {} %",
             sb.desktop_overall, sb.desktop_weight_pct, sb.mobile_overall, sb.mobile_weight_pct
@@ -320,11 +254,7 @@ fn render_overall_score_derivation(
     match (sb.security_score, sb.security_weight_pct) {
         (Some(security), Some(security_weight)) => {
             table = table.add_row(vec![
-                if en {
-                    "Security mixed in".to_string()
-                } else {
-                    "Sicherheit eingemischt".to_string()
-                },
+                i18n.t("score-drivers-derivation-security"),
                 format!(
                     "{} x {} % + {} x {} %",
                     sb.viewport_blended_overall,
@@ -337,11 +267,7 @@ fn render_overall_score_derivation(
         }
         _ => {
             table = table.add_row(vec![
-                if en {
-                    "Security not measured — blend carries the full weight".to_string()
-                } else {
-                    "Sicherheit nicht gemessen — die Mischung trägt voll".to_string()
-                },
+                i18n.t("score-drivers-derivation-no-security"),
                 format!("{} x 100 %", sb.viewport_blended_overall),
                 vm.summary.overall_score.to_string(),
             ]);
@@ -350,13 +276,9 @@ fn render_overall_score_derivation(
 
     builder = builder.add_component(table);
     builder.add_component(
-        Label::new(if en {
-            "The module weights above rank what carries how much; this table is the calculation that produced the combined technical score."
-        } else {
-            "Die Modulgewichte oben zeigen, was wie stark zählt; diese Tabelle ist die Rechnung, aus der der kombinierte technische Wert entsteht."
-        })
-        .with_size("8.8pt")
-        .with_color(design::tokens::MUTED),
+        Label::new(i18n.t("score-drivers-derivation-note"))
+            .with_size("8.8pt")
+            .with_color(design::tokens::MUTED),
     )
 }
 
@@ -372,15 +294,10 @@ pub(super) fn render_additional_score_drivers(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
     if vm.summary.technical_overview.len() < 4 {
         return builder;
     }
-    let mut list = List::new().with_title(if en {
-        "Additional score drivers"
-    } else {
-        "Weitere Score-Treiber"
-    });
+    let mut list = List::new().with_title(i18n.t("score-drivers-additional-title"));
     for item in &vm.summary.technical_overview[1..4] {
         list = list.add_item(item);
     }
@@ -409,7 +326,6 @@ pub(super) fn render_subcategory_breakdown(
     critical: &[(String, String)],
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
     if entries.is_empty() {
         return builder;
     }
@@ -439,34 +355,25 @@ pub(super) fn render_subcategory_breakdown(
 
     let mut lines = Vec::new();
     if !weak.is_empty() {
-        lines.push(if en {
-            format!("Critical weaknesses: {}", render_side(&weak))
-        } else {
-            format!("Kritische Schwächen: {}", render_side(&weak))
-        });
+        lines.push(i18n.t_args(
+            "score-drivers-subcategory-weak",
+            &[("items", render_side(&weak))],
+        ));
     }
     if !partial.is_empty() {
-        lines.push(if en {
-            format!("Other sub-areas within {title}: {}", render_side(&partial))
-        } else {
-            format!(
-                "Weitere Teilbereiche der {title}: {}",
-                render_side(&partial)
-            )
-        });
+        lines.push(i18n.t_args(
+            "score-drivers-subcategory-partial",
+            &[
+                ("title", title.to_string()),
+                ("items", render_side(&partial)),
+            ],
+        ));
     }
     if !clean.is_empty() {
-        lines.push(if en {
-            format!(
-                "No findings assigned (100): {}. That says nothing was counted there, not that the area was checked and found free of defects.",
-                clean.join(" · ")
-            )
-        } else {
-            format!(
-                "Ohne zugeordnete Befunde (100): {}. Das heißt nur, dass dort nichts gezählt wurde — nicht, dass der Bereich geprüft und mängelfrei ist.",
-                clean.join(" · ")
-            )
-        });
+        lines.push(i18n.t_args(
+            "score-drivers-subcategory-clean",
+            &[("items", clean.join(" · "))],
+        ));
     }
     if !critical.is_empty() {
         let items = critical
@@ -474,11 +381,7 @@ pub(super) fn render_subcategory_breakdown(
             .map(|(finding, area)| format!("{finding} → {area}"))
             .collect::<Vec<_>>()
             .join(" · ");
-        lines.push(if en {
-            format!("Critical findings and the sub-area they count in: {items}")
-        } else {
-            format!("Kritische Befunde und der Teilbereich, in dem sie zählen: {items}")
-        });
+        lines.push(i18n.t_args("score-drivers-subcategory-critical", &[("items", items)]));
     }
     builder = builder.add_component(Callout::info(lines.join("\n")).with_title(title));
     builder
