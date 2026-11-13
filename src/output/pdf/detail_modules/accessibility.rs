@@ -2,6 +2,8 @@ use super::*;
 
 #[cfg(test)]
 mod text_export;
+#[cfg(test)]
+mod text_guard;
 
 pub(in crate::output::pdf) fn render_a11y_journey_findings(
     mut builder: renderreport::engine::ReportBuilder,
@@ -11,14 +13,9 @@ pub(in crate::output::pdf) fn render_a11y_journey_findings(
 ) -> renderreport::engine::ReportBuilder {
     let en = is_english(i18n);
 
-    builder = builder.add_component(PageBreak::new()).add_component(
-        Section::new(if en {
-            "Keyboard Accessibility Journey"
-        } else {
-            "Tastatur-Journey zur Barrierefreiheit"
-        })
-        .with_level(2),
-    );
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(Section::new(i18n.t("a11y-details-journey-title")).with_level(2));
 
     // Collapse identical journey findings (same journey, category, message and
     // severity) into a single row with an occurrence count. Repeated identical
@@ -48,48 +45,17 @@ pub(in crate::output::pdf) fn render_a11y_journey_findings(
         .filter(|(f, _)| f.severity == crate::taxonomy::Severity::High)
         .count();
     let overview = if critical_count > 0 {
-        if en {
-            format!(
-                "{} critical and {} high issues detected during keyboard and state-transition tests.",
-                critical_count, high_count
-            )
-        } else {
-            format!(
-                "{} kritische und {} hohe Befunde aus Tastatur- und Zustandswechsel-Tests.",
-                critical_count, high_count
-            )
-        }
+        i18n.t_args(
+            "a11y-details-journey-overview-critical",
+            &[
+                ("critical", critical_count as i64),
+                ("high", high_count as i64),
+            ],
+        )
     } else if high_count > 0 {
-        if en {
-            format!("{} high-severity interactive issues found.", high_count)
-        } else {
-            format!(
-                "{} interaktive Befunde mit hoher Schwere gefunden.",
-                high_count
-            )
-        }
-    } else if en {
-        format!(
-            "{} minor interactive {} — no critical or high barriers detected.",
-            deduped.len(),
-            if deduped.len() == 1 {
-                "issue"
-            } else {
-                "issues"
-            }
-        )
+        i18n.count("a11y-details-journey-overview-high", high_count)
     } else {
-        format!(
-            "{} {} interaktive{} Befund{} — keine kritischen oder hohen Barrieren erkannt.",
-            deduped.len(),
-            if deduped.len() == 1 {
-                "kleinerer"
-            } else {
-                "kleinere"
-            },
-            if deduped.len() == 1 { "r" } else { "" },
-            if deduped.len() == 1 { "" } else { "e" }
-        )
+        i18n.count("a11y-details-journey-overview-minor", deduped.len())
     };
     // Never a success callout: this section only renders when there *are*
     // interactive findings, so green read as "all clear" directly above the
@@ -129,42 +95,23 @@ pub(in crate::output::pdf) fn render_a11y_journey_findings(
         builder = builder.add_component(Finding::new(&title, sev, &body));
     }
     if deduped.len() > 10 {
-        let more = if en {
-            format!(
-                "{} additional interactive findings in the JSON report.",
-                deduped.len() - 10
-            )
-        } else {
-            format!(
-                "{} weitere interaktive Befunde im JSON-Report.",
-                deduped.len() - 10
-            )
-        };
+        let more = i18n.count("a11y-details-journey-more", deduped.len() - 10);
         builder = builder.add_component(Callout::info(&more));
     }
 
     if let Some(journey_data) = journey {
         if !journey_data.traces.is_empty() {
-            let mut kv = KeyValueList::new().with_title(if en {
-                "Tested Journey Sequences"
-            } else {
-                "Geprüfte Journey-Sequenzen"
-            });
+            let mut kv = KeyValueList::new().with_title(i18n.t("a11y-details-journey-sequences"));
             for trace in &journey_data.traces {
                 let step_count = trace.steps.len();
-                let summary = format!("{} {}", step_count, if en { "steps" } else { "Schritte" });
+                let summary = i18n.count("a11y-details-journey-steps", step_count);
                 kv = kv.add(journey_label(&trace.journey, en), summary);
             }
             builder = builder.add_component(kv);
         }
     }
 
-    let disclaimer = if en {
-        "These tests check whether browser, DOM, focus, and accessibility tree provide a robust foundation for screen reader use. They do not simulate the exact output of NVDA, JAWS, or VoiceOver."
-    } else {
-        "Diese Tests prüfen, ob Browser, DOM, Fokus und Accessibility Tree eine robuste Grundlage für Screenreader-Nutzung liefern. Sie simulieren nicht den exakten Output von NVDA, JAWS oder VoiceOver."
-    };
-    builder = builder.add_component(Callout::info(disclaimer));
+    builder = builder.add_component(Callout::info(i18n.t("a11y-details-journey-disclaimer")));
 
     builder
 }
@@ -223,22 +170,12 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
 ) -> renderreport::engine::ReportBuilder {
     let en = is_english(i18n);
 
-    builder = builder.add_component(PageBreak::new()).add_component(
-        Section::new(if en {
-            "Screen Reader Reading Order"
-        } else {
-            "Screenreader-Lesereihenfolge"
-        })
-        .with_level(2),
-    );
+    builder = builder
+        .add_component(PageBreak::new())
+        .add_component(Section::new(i18n.t("a11y-details-sr-title")).with_level(2));
 
-    let intro = if en {
-        "How the page is announced to screen reader users: reading order, landmark and heading quality, and accessible names. These are structural checks on the accessibility tree, not a simulation of NVDA, JAWS or VoiceOver."
-    } else {
-        "Wie die Seite Screenreader-Nutzern angekündigt wird: Lesereihenfolge, Landmark- und Heading-Qualität sowie zugängliche Namen. Strukturelle Prüfungen am Accessibility Tree, keine Simulation von NVDA, JAWS oder VoiceOver."
-    };
     builder = builder.add_component(
-        Label::new(intro)
+        Label::new(i18n.t("a11y-details-sr-intro"))
             .with_size("10.5pt")
             .with_color(crate::output::pdf::design::tokens::NEUTRAL),
     );
@@ -247,61 +184,38 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
     builder = builder.add_component(
         MetricStrip::new(vec![
             MetricStripItem::new(
-                if en {
-                    "Heading quality"
-                } else {
-                    "Heading-Qualität"
-                },
+                i18n.t("a11y-details-sr-heading-quality"),
                 format!("{} / 100", s.heading_quality_score),
             )
             .with_accent(crate::output::pdf::design::score_color(
                 s.heading_quality_score as u8,
             )),
             MetricStripItem::new(
-                if en {
-                    "Landmark quality"
-                } else {
-                    "Landmark-Qualität"
-                },
+                i18n.t("a11y-details-sr-landmark-quality"),
                 format!("{} / 100", s.landmark_quality_score),
             )
             .with_accent(crate::output::pdf::design::score_color(
                 s.landmark_quality_score as u8,
             )),
             MetricStripItem::new(
-                if en {
-                    "Name quality"
-                } else {
-                    "Namens-Qualität"
-                },
+                i18n.t("a11y-details-sr-name-quality"),
                 format!("{} / 100", s.name_quality_score),
             )
             .with_accent(crate::output::pdf::design::score_color(
                 s.name_quality_score as u8,
             )),
             MetricStripItem::new(
-                if en {
-                    "Announced nodes"
-                } else {
-                    "Angekündigte Knoten"
-                },
+                i18n.t("a11y-details-sr-announced-nodes"),
                 s.total_announced_nodes.to_string(),
             ),
-            MetricStripItem::new(
-                if en { "Tab stops" } else { "Tab-Stopps" },
-                s.tab_stops.to_string(),
-            ),
+            MetricStripItem::new(i18n.t("a11y-details-sr-tab-stops"), s.tab_stops.to_string()),
         ])
         .compact(),
     );
     builder = builder.add_component(
-        Label::new(if en {
-            "The three quality scores use a 0–100 scale (higher is better) and summarize the detected heading hierarchy, landmark structure, and accessible names. Announced nodes and tab stops are simple counts, not quality scores."
-        } else {
-            "Die drei Qualitätswerte nutzen eine Skala von 0–100 (höher ist besser) und verdichten erkannte Überschriftenhierarchie, Landmark-Struktur und zugängliche Namen. Angekündigte Knoten und Tab-Stopps sind reine Anzahlen, keine Qualitätswerte."
-        })
-        .with_size("9pt")
-        .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+        Label::new(i18n.t("a11y-details-sr-score-note"))
+            .with_size("9pt")
+            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
     );
 
     let bfsg_note = bfsg_callout(
@@ -348,26 +262,19 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
             }
         }
 
-        let sev_label = |sev: &str| -> &'static str {
-            match (sev, en) {
-                ("high", true) => "High",
-                ("high", false) => "Hoch",
-                ("medium", true) => "Medium",
-                ("medium", false) => "Mittel",
-                (_, true) => "Low",
-                (_, false) => "Niedrig",
-            }
+        let sev_label = |sev: &str| {
+            i18n.t(match sev {
+                "high" => "severity-high",
+                "medium" => "severity-medium",
+                _ => "severity-low",
+            })
         };
 
         let mut table = AuditTable::new(vec![
             TableColumn::new(i18n.t("label-issue")).with_width("75%"),
             TableColumn::new(i18n.t("label-severity")).with_width("25%"),
         ])
-        .with_title(if en {
-            "Screen reader findings"
-        } else {
-            "Screenreader-Befunde"
-        });
+        .with_title(i18n.t("a11y-details-sr-findings-title"));
         for (issue, count) in deduped {
             let mut msg = if count > 1 {
                 format!("{} ({}×)", issue.message, count)
@@ -382,7 +289,7 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
                 msg.push(' ');
                 msg.push_str(instruction);
             }
-            table = table.add_row(vec![msg, sev_label(&issue.severity).to_string()]);
+            table = table.add_row(vec![msg, sev_label(&issue.severity)]);
         }
         builder = builder.add_component(table);
     }
@@ -405,39 +312,23 @@ pub(super) fn journey_label(journey: &str, en: bool) -> String {
         _ => (journey, None),
     };
 
-    let label = match base {
-        "tab_walk" => Some(if en { "Tab walk" } else { "Tab-Durchlauf" }),
-        "spa_navigation" => Some(if en {
-            "SPA navigation"
-        } else {
-            "SPA-Navigation"
-        }),
-        "skip_link" => Some(if en { "Skip link" } else { "Sprunglink" }),
-        "disclosure" => Some(if en {
-            "Disclosure menu"
-        } else {
-            "Aufklapp-Menü"
-        }),
-        "menu" => Some(if en { "Menu" } else { "Menü" }),
-        "modal" => Some(if en { "Modal dialog" } else { "Dialog" }),
-        "tabs" => Some(if en { "Tab panel" } else { "Tab-Panel" }),
-        "form_error" => Some(if en { "Form error" } else { "Formularfehler" }),
-        "add_to_cart" => Some(if en {
-            "Add to cart"
-        } else {
-            "In den Warenkorb"
-        }),
-        "quantity_stepper" => Some(if en {
-            "Quantity stepper"
-        } else {
-            "Mengenauswahl"
-        }),
+    let key = match base {
+        "tab_walk" => Some("a11y-details-journey-label-tab-walk"),
+        "spa_navigation" => Some("a11y-details-journey-label-spa-navigation"),
+        "skip_link" => Some("a11y-details-journey-label-skip-link"),
+        "disclosure" => Some("a11y-details-journey-label-disclosure"),
+        "menu" => Some("a11y-details-journey-label-menu"),
+        "modal" => Some("a11y-details-journey-label-modal"),
+        "tabs" => Some("a11y-details-journey-label-tabs"),
+        "form_error" => Some("a11y-details-journey-label-form-error"),
+        "add_to_cart" => Some("a11y-details-journey-label-add-to-cart"),
+        "quantity_stepper" => Some("a11y-details-journey-label-quantity-stepper"),
         _ => None,
     };
 
-    match (label, index) {
+    match (key.map(|key| crate::i18n::text(key, en)), index) {
         (Some(label), Some(index)) => format!("{label} {index}"),
-        (Some(label), None) => label.to_string(),
+        (Some(label), None) => label,
         (None, _) => journey.to_string(),
     }
 }
@@ -453,30 +344,20 @@ pub(in crate::output::pdf) fn bfsg_callout(
     // the BFSG at all or whether every legal requirement is met. "No
     // violations" would read as a legal clearance the audit cannot give.
     match verdict {
-        BfsgVerdict::NoViolationsFound => Callout::info(if en {
-            "BFSG-relevant technical criteria: no violations detected within the automated scope. This is neither a conformance statement nor a legal assessment; a test with a real screen reader is still open."
-        } else {
-            "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang keine Verstöße erkannt. Das ist weder eine Konformitätsaussage noch eine rechtliche Prüfung; ein Test mit einem echten Screenreader steht noch aus."
-        }),
-        BfsgVerdict::Incomplete => Callout::warning(if en {
-            "BFSG-relevant technical criteria: the accessibility tree looks incomplete (consent wall suspected), so the absence of violations says nothing. Repeat the audit on the full page."
-        } else {
-            "BFSG-relevante technische Kriterien: Der Accessibility Tree wirkt unvollständig (vermutlich Consent-Banner), das Ausbleiben von Verstößen sagt daher nichts aus. Die Prüfung auf der vollständigen Seite wiederholen."
-        }),
-        BfsgVerdict::ViolationsFound => Callout::warning(if en {
-            "BFSG-relevant technical criteria: violations detected within the automated scope (see issues below). This is not a legal conformance assessment."
-        } else {
-            "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang Verstöße festgestellt (siehe Befunde unten). Dies ist keine rechtliche Konformitätsprüfung."
-        }),
-        BfsgVerdict::NeedsReview => Callout::info(if en {
-            "BFSG-relevant technical criteria: no confirmed violation within the automated scope, but findings that need a manual check (see issues below). This is not a legal conformance assessment."
-        } else {
-            "BFSG-relevante technische Kriterien: im automatisierten Prüfumfang kein bestätigter Verstoß, aber Hinweise, die von Hand zu prüfen sind (siehe Befunde unten). Dies ist keine rechtliche Konformitätsprüfung."
-        }),
-        BfsgVerdict::NotEvaluated => Callout::info(if en {
-            "BFSG-relevant technical criteria were not evaluated for this page."
-        } else {
-            "BFSG-relevante technische Kriterien wurden für diese Seite nicht geprüft."
-        }),
+        BfsgVerdict::NoViolationsFound => {
+            Callout::info(crate::i18n::text("a11y-details-bfsg-no-violations", en))
+        }
+        BfsgVerdict::Incomplete => {
+            Callout::warning(crate::i18n::text("a11y-details-bfsg-incomplete", en))
+        }
+        BfsgVerdict::ViolationsFound => {
+            Callout::warning(crate::i18n::text("a11y-details-bfsg-violations", en))
+        }
+        BfsgVerdict::NeedsReview => {
+            Callout::info(crate::i18n::text("a11y-details-bfsg-needs-review", en))
+        }
+        BfsgVerdict::NotEvaluated => {
+            Callout::info(crate::i18n::text("a11y-details-bfsg-not-evaluated", en))
+        }
     }
 }

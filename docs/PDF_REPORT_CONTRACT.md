@@ -240,6 +240,16 @@ surface that owns its lifecycle:
   labels. The builder keeps the rating bands, which message applies and how
   lists and values are joined; the labels "Description", "Schema.org content
   type" and "Language" are `pdf-seo-*` messages of `report.ftl`.
+- `locales/{de,en}/accessibility-details.ftl`: the texts of the single PDF's
+  accessibility detail sections (`output::pdf::detail_modules::accessibility`,
+  `a11y-details-*`): the keyboard accessibility journey (title, overview,
+  overflow note, tested sequences, journey labels, disclaimer), the
+  screen-reader reading order (title, intro, metric labels, score note,
+  findings table title) and the BFSG callout per verdict. The renderer keeps
+  the deduplication, which message applies and the score format; the counts
+  are Fluent numbers and the minor-issue plural is a Fluent select. The
+  severity labels of the screen-reader findings reuse `severity-*` of
+  `report.ftl`.
 - `src/output/explanations.rs`: the explanation table itself: which entries
   exist, owner role, effort, and the code examples (canonical English), plus
   `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are
