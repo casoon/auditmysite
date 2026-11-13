@@ -1,5 +1,8 @@
 use super::*;
 
+#[cfg(test)]
+mod text_export;
+
 pub(in crate::output::pdf) fn render_a11y_journey_findings(
     mut builder: renderreport::engine::ReportBuilder,
     findings: &[crate::audit::normalized::InteractiveFinding],
