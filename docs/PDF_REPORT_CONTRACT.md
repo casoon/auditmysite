@@ -212,6 +212,17 @@ surface that owns its lifecycle:
   joined. A basis or identity finding the analysis stores in canonical English
   is the English message itself (`$basis`, `$finding`); the German message
   translates it.
+- `locales/{de,en}/methodology.ftl`: the texts of the single report's
+  methodology section (`output::builder::single::methodology::build_methodology`:
+  scope, method, limitations, disclaimer, the audit-fact labels and values, the
+  confidence summary and the capability matrix, `methodology-*`) and the score
+  methodology of its appendix (`build_appendix_block_from_normalized`). The
+  builder keeps the thresholds, which message applies and how lists are
+  joined; the runtime keeps its number format in `i18n::number`. The
+  confidence summary and capability matrix also feed the JSON detail, which
+  builds them in English. The fact labels WCAG level, Checked nodes, Runtime,
+  Audit notes, Display mode and Active modules reuse the identical `report.ftl`
+  messages (`scope-box-*`, `batch-cover-frame-*`).
 - `src/output/explanations.rs`: the explanation table itself: which entries
   exist, owner role, effort, and the code examples (canonical English), plus
   `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are

@@ -36,9 +36,11 @@ impl I18n {
         // subcategory, evidence source and field), the titles of the
         // findings outside the WCAG taxonomy and their fixes
         // (`audit::finding_titles`), the interactive (journey) finding
-        // texts (`audit::interactive_finding`) and the texts of the batch
-        // PDF's consistency and management sections
-        // (`batch-consistency.ftl`) are eleven resources of the one bundle.
+        // texts (`audit::interactive_finding`), the texts of the batch PDF's
+        // consistency and management sections (`batch-consistency.ftl`) and
+        // the texts of the single report's methodology section
+        // (`methodology.ftl`, `output::builder::single::methodology`) are
+        // twelve resources of the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -52,6 +54,7 @@ impl I18n {
                 include_str!("../../locales/en/finding-fixes.ftl"),
                 include_str!("../../locales/en/interactive.ftl"),
                 include_str!("../../locales/en/batch-consistency.ftl"),
+                include_str!("../../locales/en/methodology.ftl"),
             ],
             _ => [
                 include_str!("../../locales/de/report.ftl"),
@@ -65,6 +68,7 @@ impl I18n {
                 include_str!("../../locales/de/finding-fixes.ftl"),
                 include_str!("../../locales/de/interactive.ftl"),
                 include_str!("../../locales/de/batch-consistency.ftl"),
+                include_str!("../../locales/de/methodology.ftl"),
             ],
         };
         for ftl in sources {
