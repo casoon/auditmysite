@@ -38,6 +38,7 @@ impl TestServer {
     pub(super) async fn start() -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
+        warm_up_loopback(addr);
         let routes: Arc<Mutex<HashMap<String, Route>>> = Arc::default();
         let hits: Arc<Mutex<HashMap<String, usize>>> = Arc::default();
         let (r, h) = (routes.clone(), hits.clone());
@@ -181,6 +182,20 @@ impl BrowserProbe for FakeProbe {
             }
         })
     }
+}
+
+/// Opens one loopback connection per test process, with a generous timeout,
+/// before any test measures against `test_limits()`. A host network filter
+/// (seen with LuLu on macOS) holds the first connection of a new process
+/// while it identifies the binary, which can take longer than the 500 ms
+/// connect timeout; later connections are not held. The connection completes
+/// in the kernel's accept backlog, so the server need not be running yet, and
+/// it sends no request, so no route is hit. Parallel tests wait for it.
+fn warm_up_loopback(addr: std::net::SocketAddr) {
+    static WARM_UP: std::sync::Once = std::sync::Once::new();
+    WARM_UP.call_once(|| {
+        let _ = std::net::TcpStream::connect_timeout(&addr, Duration::from_secs(30));
+    });
 }
 
 pub(super) fn test_limits() -> Limits {
