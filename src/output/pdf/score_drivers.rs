@@ -17,6 +17,9 @@ use super::detail_modules::score_band_label;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
 
+#[cfg(test)]
+mod text_export;
+
 /// "Why is the overall score X" — one compact row per module that actually
 /// feeds the weighted `overall_score`, showing its score, its weight, and a
 /// plain-language classification of whether it drags the overall score down
