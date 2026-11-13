@@ -261,6 +261,17 @@ surface that owns its lifecycle:
   are Fluent numbers and the minor-issue plural is a Fluent select. The
   severity labels of the screen-reader findings reuse `severity-*` of
   `report.ftl`.
+- `locales/{de,en}/score-drivers.ftl`: the texts of the single PDF's score
+  drivers in the management summary (`output::pdf::score_drivers`,
+  `score-drivers-*`): the combined technical score card, the score-driver
+  table (title per calculation method, column headings, the assessment per
+  module), the weight-basis note, the viewport-weighted score derivation
+  (title, column headings, step and input labels, note), the additional
+  score drivers title and the subcategory breakdown lines. The renderer
+  keeps which assessment applies (weakest module, risk driver, corrected
+  band), the module lists, the score and weight cells and the formula
+  cells; the weight basis is a Fluent number. The module column heading
+  reuses `label-module` of `report.ftl`.
 - `src/output/explanations.rs`: the explanation table itself: which entries
   exist, owner role, effort, and the code examples (canonical English), plus
   `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are

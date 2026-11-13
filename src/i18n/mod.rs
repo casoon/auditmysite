@@ -45,10 +45,12 @@ impl I18n {
         // module detail presentation (`seo-details.ftl`), the texts of the
         // single report's findings overview and system diagnosis
         // (`diagnosis.ftl`, `output::builder::single::diagnosis`,
-        // `output::pdf::diagnosis`) and the texts of the accessibility
-        // detail sections (`accessibility-details.ftl`,
-        // `output::pdf::detail_modules::accessibility`) are sixteen
-        // resources of the one bundle.
+        // `output::pdf::diagnosis`), the texts of the accessibility detail
+        // sections (`accessibility-details.ftl`,
+        // `output::pdf::detail_modules::accessibility`) and the texts of the
+        // management summary's score drivers (`score-drivers.ftl`,
+        // `output::pdf::score_drivers`) are seventeen resources of the one
+        // bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -67,6 +69,7 @@ impl I18n {
                 include_str!("../../locales/en/seo-details.ftl"),
                 include_str!("../../locales/en/diagnosis.ftl"),
                 include_str!("../../locales/en/accessibility-details.ftl"),
+                include_str!("../../locales/en/score-drivers.ftl"),
             ],
             _ => [
                 include_str!("../../locales/de/report.ftl"),
@@ -85,6 +88,7 @@ impl I18n {
                 include_str!("../../locales/de/seo-details.ftl"),
                 include_str!("../../locales/de/diagnosis.ftl"),
                 include_str!("../../locales/de/accessibility-details.ftl"),
+                include_str!("../../locales/de/score-drivers.ftl"),
             ],
         };
         for ftl in sources {
