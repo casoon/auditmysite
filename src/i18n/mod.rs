@@ -36,11 +36,14 @@ impl I18n {
         // subcategory, evidence source and field), the titles of the
         // findings outside the WCAG taxonomy and their fixes
         // (`audit::finding_titles`), the interactive (journey) finding
-        // texts (`audit::interactive_finding`), the texts of the batch
-        // PDF's consistency and management sections
-        // (`batch-consistency.ftl`) and the texts of the SEO module detail
-        // presentation (`seo-details.ftl`) are twelve resources of the one
-        // bundle.
+        // texts (`audit::interactive_finding`), the texts of the batch PDF's
+        // consistency and management sections (`batch-consistency.ftl`),
+        // the texts of the single PDF's page sections (`single-report.ftl`,
+        // `output::pdf::single_report`), the texts of the single report's
+        // methodology section (`methodology.ftl`,
+        // `output::builder::single::methodology`) and the texts of the SEO
+        // module detail presentation (`seo-details.ftl`) are fourteen
+        // resources of the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -54,6 +57,8 @@ impl I18n {
                 include_str!("../../locales/en/finding-fixes.ftl"),
                 include_str!("../../locales/en/interactive.ftl"),
                 include_str!("../../locales/en/batch-consistency.ftl"),
+                include_str!("../../locales/en/single-report.ftl"),
+                include_str!("../../locales/en/methodology.ftl"),
                 include_str!("../../locales/en/seo-details.ftl"),
             ],
             _ => [
@@ -68,6 +73,8 @@ impl I18n {
                 include_str!("../../locales/de/finding-fixes.ftl"),
                 include_str!("../../locales/de/interactive.ftl"),
                 include_str!("../../locales/de/batch-consistency.ftl"),
+                include_str!("../../locales/de/single-report.ftl"),
+                include_str!("../../locales/de/methodology.ftl"),
                 include_str!("../../locales/de/seo-details.ftl"),
             ],
         };

@@ -4,6 +4,7 @@
 //! components, and returns the builder for further chaining.
 
 use crate::output::localized::is_english;
+use fluent_bundle::FluentValue;
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, DevicePreview, DiagnosisPanel, DiagnosisRow, Divider, List,
     MetricStrip, MetricStripItem, PageBreak, SectionHeaderSplit,
@@ -39,6 +40,11 @@ use crate::model::{AnnexKind, ReportLevel};
 use crate::output::module::active_report_modules;
 use crate::output::report_model::*;
 
+#[cfg(test)]
+mod text_export;
+#[cfg(test)]
+mod text_guard;
+
 /// Render a part divider — visually separates the three report parts (#246).
 ///
 /// Each divider produces a page break, a strong level=1 section header tagged
@@ -54,17 +60,13 @@ pub(super) fn render_part_divider(
     audience_body: &str,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
-    let eyebrow = if en {
-        if part_num == 3 {
-            "PART 3 OF 3 · TECHNICAL APPENDIX".to_string()
-        } else {
-            format!("PART {} OF 3", part_num)
-        }
-    } else if part_num == 3 {
-        "TEIL 3 VON 3 · TECHNISCHER ANHANG".to_string()
+    let eyebrow = if part_num == 3 {
+        i18n.t("single-report-part-eyebrow-appendix")
     } else {
-        format!("TEIL {} VON 3", part_num)
+        i18n.t_args(
+            "single-report-part-eyebrow",
+            &[("part", i64::from(part_num))],
+        )
     };
     if part_num > 1 {
         builder = builder.add_component(PageBreak::new());
@@ -99,7 +101,6 @@ pub(super) fn render_part_divider(
 /// plus a critical/high/medium breakdown. Zero counts read as "all clear"
 /// (green), non-zero counts carry their severity hue.
 fn build_severity_counter_strip(vm: &ReportViewModel, i18n: &I18n) -> MetricStrip {
-    let en = is_english(i18n);
     let count_accent = |n: u32, hue: &'static str| {
         if n > 0 {
             hue
@@ -109,29 +110,19 @@ fn build_severity_counter_strip(vm: &ReportViewModel, i18n: &I18n) -> MetricStri
     };
     let items = vec![
         MetricStripItem::new(
-            if en {
-                "WCAG occurrences"
-            } else {
-                "WCAG-Vorkommen"
-            },
+            i18n.t("single-report-wcag-occurrences"),
             vm.severity.total.to_string(),
         )
         .with_accent(design::tokens::INK),
         MetricStripItem::new(
-            if en { "Critical" } else { "Kritisch" },
+            i18n.t("severity-critical"),
             vm.severity.critical.to_string(),
         )
         .with_accent(count_accent(vm.severity.critical, design::tokens::DANGER)),
-        MetricStripItem::new(
-            if en { "High" } else { "Hoch" },
-            vm.severity.high.to_string(),
-        )
-        .with_accent(count_accent(vm.severity.high, design::tokens::DANGER)),
-        MetricStripItem::new(
-            if en { "Medium" } else { "Mittel" },
-            vm.severity.medium.to_string(),
-        )
-        .with_accent(count_accent(vm.severity.medium, design::tokens::WARN_DEEP)),
+        MetricStripItem::new(i18n.t("severity-high"), vm.severity.high.to_string())
+            .with_accent(count_accent(vm.severity.high, design::tokens::DANGER)),
+        MetricStripItem::new(i18n.t("severity-medium"), vm.severity.medium.to_string())
+            .with_accent(count_accent(vm.severity.medium, design::tokens::WARN_DEEP)),
     ];
     MetricStrip::new(items).compact()
 }
@@ -166,7 +157,6 @@ fn render_module_split_dashboards(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
     // plan/7-management-summary-consolidation.md ("lighter" option): the
     // weighted, "measured" modules (Accessibility/Performance/Security/
     // Mobile/SEO) are now covered by the score-driver table above with more
@@ -193,18 +183,14 @@ fn render_module_split_dashboards(
         .collect();
 
     if !strong.is_empty() {
-        builder = builder.add_component(CardDashboard::new(strong).with_title(if en {
-            "What works particularly well"
-        } else {
-            "Was besonders gut funktioniert"
-        }));
+        builder = builder.add_component(
+            CardDashboard::new(strong).with_title(i18n.t("single-report-dashboard-strong")),
+        );
     }
     if !weak.is_empty() {
-        builder = builder.add_component(CardDashboard::new(weak).with_title(if en {
-            "Where optimization pays off"
-        } else {
-            "Wo sich Optimierung lohnt"
-        }));
+        builder = builder.add_component(
+            CardDashboard::new(weak).with_title(i18n.t("single-report-dashboard-weak")),
+        );
     } else if !indicator_modules.is_empty() {
         // Module *scores* (0-100 per module) are a different axis from the
         // verdict (which fails on blocking operability issues or legal flags
@@ -218,17 +204,11 @@ fn render_module_split_dashboards(
         // Scoped to the indicator modules shown here — the weighted/measured
         // modules' status is the score-driver table's job, not this one's.
         let risk_gated = vm.summary.ci_verdict == crate::audit::verdict::Verdict::Fail;
-        let message = if risk_gated {
-            if en {
-                "The additional indicator modules (UX, Journey, …) are in good shape, but barriers elsewhere in this report (operability, possible legal relevance) still require action — see Management Summary."
-            } else {
-                "Die zusätzlichen Indikator-Module (UX, Journey, …) sind in gutem Zustand, dennoch zeigt dieser Report an anderer Stelle Barrieren mit Handlungsbedarf (Bedienbarkeit, mögliche Rechtsrelevanz) — siehe Management-Zusammenfassung."
-            }
-        } else if en {
-            "The additional indicator modules (UX, Journey, …) are in good shape — no module needs prioritized optimization."
+        let message = i18n.t(if risk_gated {
+            "single-report-dashboard-good-but-gated"
         } else {
-            "Die zusätzlichen Indikator-Module (UX, Journey, …) sind in gutem Zustand — kein Modul erfordert vorrangige Optimierung."
-        };
+            "single-report-dashboard-all-good"
+        });
         builder = builder.add_component(Label::new(message).with_size("10.5pt").with_color(
             if risk_gated {
                 design::tokens::WARN_DEEP
@@ -268,20 +248,16 @@ fn render_overall_rating(
     let en = is_english(i18n);
 
     let rating = crate::registry::SCORE_RANGE.label(vm.summary.score as f32, en);
-    let verdict_word = match (vm.summary.ci_verdict, en) {
-        (Verdict::Pass, true) => "passed",
-        (Verdict::Pass, false) => "bestanden",
-        (Verdict::Warn, true) => "passed with reservations",
-        (Verdict::Warn, false) => "mit Vorbehalt bestanden",
-        (Verdict::Fail, true) => "not passed",
-        (Verdict::Fail, false) => "nicht bestanden",
-    };
+    let verdict_word = i18n.t(match vm.summary.ci_verdict {
+        Verdict::Pass => "batch-rating-verdict-pass",
+        Verdict::Warn => "batch-rating-verdict-warn",
+        Verdict::Fail => "batch-rating-verdict-fail",
+    });
 
-    let mut body = if en {
-        format!("{rating} — automated check {verdict_word}.")
-    } else {
-        format!("{rating} — automatisierte Prüfung {verdict_word}.")
-    };
+    let mut body = i18n.t_args(
+        "single-report-rating-body",
+        &[("rating", rating), ("verdict", verdict_word.as_str())],
+    );
 
     // The partial-run reason is dropped here when the provisional sentence
     // below already carries it — otherwise the same fact is stated twice in
@@ -303,11 +279,7 @@ fn render_overall_rating(
             .collect::<Vec<_>>()
             .join(", ");
         body.push(' ');
-        body.push_str(&if en {
-            format!("Reasons: {reasons}.")
-        } else {
-            format!("Gründe: {reasons}.")
-        });
+        body.push_str(&i18n.t_args("batch-rating-reasons", &[("reasons", reasons)]));
     }
 
     if let Some(baseline) = &vm.summary.baseline {
@@ -325,32 +297,19 @@ fn render_overall_rating(
     // settled one — and it has to say so here, not on page ~60 (plan 44).
     if vm.summary.run_is_partial {
         body.push(' ');
-        body.push_str(if en {
-            "This run did not complete in full, so the rating is provisional and describes only what was measured successfully."
-        } else {
-            "Dieser Lauf ist nicht vollständig durchgelaufen; die Einstufung ist daher vorläufig und beschreibt nur den erfolgreich gemessenen Umfang."
-        });
+        body.push_str(&i18n.t("single-report-rating-provisional"));
     }
 
-    let title = if en {
-        "Overall rating"
-    } else {
-        "Gesamteinstufung"
-    };
     let callout = match vm.summary.ci_verdict {
         Verdict::Fail => Callout::warning(&body),
         Verdict::Warn => Callout::info(&body),
         Verdict::Pass => Callout::success(&body),
     };
-    builder = builder.add_component(callout.with_title(title));
+    builder = builder.add_component(callout.with_title(i18n.t("batch-rating-title")));
     builder.add_component(
-        Label::new(if en {
-            "The rating is a band label for the accessibility score within the automated scope, not a statement of conformance."
-        } else {
-            "Die Einstufung ist ein Bandlabel für den Barrierefreiheitswert im automatisierten Prüfumfang, kein Konformitätsnachweis."
-        })
-        .with_size("8.5pt")
-        .with_color(design::tokens::MUTED),
+        Label::new(i18n.t("single-report-rating-note"))
+            .with_size("8.5pt")
+            .with_color(design::tokens::MUTED),
     )
 }
 
@@ -406,26 +365,15 @@ pub(super) fn render_risks_and_strengths(
         // caveat mechanism/wording as the clean-run verdict callout (#572)
         // instead of inventing new phrasing.
         let (automated, total) = crate::wcag::coverage::coverage_stats();
-        let empty_state = if en {
-            format!(
-                "No priority risks identified within the automated audit scope. This result applies to the automated audit scope only ({automated} of about {total} testable WCAG 2.2 AA criteria); criteria requiring manual review are listed in the appendix."
-            )
-        } else {
-            format!(
-                "Keine prioritären Risiken im automatisierten Prüfumfang erkannt. Diese Einschätzung bezieht sich ausschließlich auf den automatisierten Prüfumfang ({automated} von ca. {total} testbaren WCAG-2.2-AA-Kriterien); Kriterien mit manuellem Prüfbedarf sind im Anhang aufgeführt."
-            )
-        };
-        builder = builder.add_component(Callout::success(&empty_state).with_title(if en {
-            "Key Risks"
-        } else {
-            "Wichtigste Risiken"
-        }));
+        let empty_state = i18n.t_args(
+            "single-report-risks-none",
+            &[("automated", automated as i64), ("total", total as i64)],
+        );
+        builder = builder.add_component(
+            Callout::success(&empty_state).with_title(i18n.t("single-report-risks-title")),
+        );
     } else {
-        let title = if en {
-            format!("Key Risks ({} identified)", risks.len())
-        } else {
-            format!("Wichtigste Risiken ({} erkannt)", risks.len())
-        };
+        let title = i18n.count("single-report-risks-title-count", risks.len());
         let rows: Vec<ChecklistRow> = risks
             .into_iter()
             .map(|d| ChecklistRow::new(d.label, d.description).with_status(d.status))
@@ -438,11 +386,9 @@ pub(super) fn render_risks_and_strengths(
             .into_iter()
             .map(|d| ChecklistRow::new(d.label, d.description).with_status("good"))
             .collect();
-        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-            "Strengths within the audited scope"
-        } else {
-            "Stärken im geprüften Umfang"
-        }));
+        builder = builder.add_component(
+            ChecklistPanel::new(rows).with_title(i18n.t("single-report-strengths-title")),
+        );
     }
 
     builder
@@ -473,14 +419,22 @@ fn join_label(rule: &str, name: &str) -> String {
     }
 }
 
+/// " (+n more of the same kind)" for a measure that stands for `extra`
+/// further findings, empty for none.
+fn more_suffix(extra: usize, en: bool) -> String {
+    match extra {
+        0 => String::new(),
+        n => format!(
+            " {}",
+            crate::i18n::count_text("single-report-measure-more", n, en)
+        ),
+    }
+}
+
 impl TopMeasure {
     /// Title and body of this measure as an action-plan card.
     pub(super) fn card_parts(&self, extra: usize, en: bool) -> (String, String) {
-        let more = match (extra, en) {
-            (0, _) => String::new(),
-            (n, true) => format!(" (+{n} more of the same kind)"),
-            (n, false) => format!(" (+{n} weitere gleicher Art)"),
-        };
+        let more = more_suffix(extra, en);
         if self.title.is_empty() {
             (self.module.clone(), format!("{}{more}", self.detail))
         } else {
@@ -492,11 +446,7 @@ impl TopMeasure {
     }
 
     fn render(&self, index: usize, extra: usize, en: bool) -> String {
-        let more = match (extra, en) {
-            (0, _) => String::new(),
-            (n, true) => format!(" (+{n} more of the same kind)"),
-            (n, false) => format!(" (+{n} weitere gleicher Art)"),
-        };
+        let more = more_suffix(extra, en);
         if self.title.is_empty() {
             format!("{}. {} — {}{more}", index, self.module, self.detail)
         } else {
@@ -718,22 +668,12 @@ pub(super) fn top_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(TopMeasure
 
 pub(super) fn build_top_measures_list(vm: &ReportViewModel, i18n: &I18n) -> List {
     let en = is_english(i18n);
-    let list_title = if en {
-        "5 Key Measures"
-    } else {
-        "Die 5 wichtigsten Maßnahmen"
-    };
-    let mut list = List::new().with_title(list_title);
+    let mut list = List::new().with_title(i18n.t("single-report-measures-title"));
 
     let measures = top_measures(vm, i18n);
 
     if measures.is_empty() {
-        let no_measures = if en {
-            "No urgent actions required."
-        } else {
-            "Keine dringenden Maßnahmen erforderlich."
-        };
-        list = list.add_item(no_measures);
+        list = list.add_item(i18n.t("single-report-measures-none"));
         return list;
     }
 
@@ -762,11 +702,7 @@ fn module_label_accessibility(i18n: &I18n) -> String {
 /// one source: a reader who only ever sees the cover would otherwise read
 /// "Barrierefreiheit 100" as a statement about the whole site.
 pub(super) fn audit_scope_line(en: bool) -> String {
-    if en {
-        "Audited: 1 URL · Desktop and Mobile · no website crawl".to_string()
-    } else {
-        "Geprüft: 1 URL · Desktop und Mobile · kein Website-Crawl".to_string()
-    }
+    crate::i18n::text("single-report-scope-line", en)
 }
 
 pub(super) fn render_management_page(
@@ -775,25 +711,13 @@ pub(super) fn render_management_page(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let en = is_english(i18n);
-    let mgt_title = if en {
-        "Management Summary"
-    } else {
-        "Management-Sicht"
-    };
-    let mgt_subtitle = if en {
-        "Overall status, key risks, prioritized actions, and leverage at a glance."
-    } else {
-        "Gesamtstatus, Hauptrisiken, wichtigste Maßnahmen und Hebel auf einen Blick."
-    };
-
     builder = builder.add_component(
-        SectionHeaderSplit::new(mgt_title, mgt_subtitle)
-            .with_eyebrow(if en {
-                "MANAGEMENT SUMMARY"
-            } else {
-                "MANAGEMENT-SUMMARY"
-            })
-            .with_level(1),
+        SectionHeaderSplit::new(
+            i18n.t("single-report-management-title"),
+            i18n.t("single-report-management-intro"),
+        )
+        .with_eyebrow(i18n.t("single-report-management-eyebrow"))
+        .with_level(1),
     );
 
     builder = builder.add_component(
@@ -810,13 +734,9 @@ pub(super) fn render_management_page(
     // full breakdown (finding groups vs. occurrences, all categories) still
     // lives only in the appendix, this is just the one-line pointer (#572).
     builder = builder.add_component(
-        Label::new(if en {
-            "Occurrences = individual affected elements, not the number of distinct rules — see the appendix for the full breakdown."
-        } else {
-            "Vorkommen = einzelne betroffene Elemente, nicht die Anzahl unterschiedlicher Regeln — vollständige Aufschlüsselung im Anhang."
-        })
-        .with_size("8.5pt")
-        .with_color(design::tokens::MUTED),
+        Label::new(i18n.t("single-report-occurrences-definition"))
+            .with_size("8.5pt")
+            .with_color(design::tokens::MUTED),
     );
 
     // The strip counts confirmed WCAG occurrences only. Without this line a
@@ -829,30 +749,38 @@ pub(super) fn render_management_page(
     let manual_only = crate::wcag::coverage::manual_review_criteria().len();
     if evidence.warnings > 0 || evidence.manual_checks > 0 {
         builder = builder.add_component(
-            Label::new(if en {
-                format!(
-                    "Counted here are confirmed WCAG violations only. In addition: {} heuristic accessibility warning(s) and {} point(s) on this page to confirm by hand — documented, but not scored. A further {} WCAG criteria can only be checked manually (appendix).",
-                    evidence.warnings, evidence.manual_checks, manual_only
-                )
-            } else {
-                format!(
-                    "Gezählt sind hier ausschließlich bestätigte WCAG-Verstöße. Zusätzlich dokumentiert, aber nicht in den Score eingerechnet: {} und {} auf dieser Seite zur manuellen Bestätigung. Weitere {} WCAG-Kriterien lassen sich nur manuell prüfen (Anhang).",
-                    crate::i18n::count_text("count-heuristic-warnings", evidence.warnings as usize, false),
-                    crate::i18n::count_text("count-manual-points", evidence.manual_checks as usize, false),
-                    manual_only
-                )
-            })
+            Label::new(i18n.t_args(
+                "single-report-evidence-note",
+                &[
+                    ("warnings", FluentValue::from(i64::from(evidence.warnings))),
+                    (
+                        "manual",
+                        FluentValue::from(i64::from(evidence.manual_checks)),
+                    ),
+                    ("manual_only", FluentValue::from(manual_only as i64)),
+                    (
+                        "warnings_text",
+                        FluentValue::from(
+                            i18n.count("count-heuristic-warnings", evidence.warnings as usize),
+                        ),
+                    ),
+                    (
+                        "manual_text",
+                        FluentValue::from(
+                            i18n.count("count-manual-points", evidence.manual_checks as usize),
+                        ),
+                    ),
+                ],
+            ))
             .with_size("8.5pt")
             .with_color(design::tokens::MUTED),
         );
     }
 
     // 2. Overall verdict (the single core sentence)
-    builder = builder.add_component(Callout::info(&vm.summary.verdict).with_title(if en {
-        "Overall Verdict"
-    } else {
-        "Gesamturteil"
-    }));
+    builder = builder.add_component(
+        Callout::info(&vm.summary.verdict).with_title(i18n.t("single-report-overall-verdict")),
+    );
 
     builder = render_overall_rating(builder, vm, i18n);
 
@@ -871,13 +799,9 @@ pub(super) fn render_management_page(
         // "audit incomplete" warning next to a clean run read as if the
         // tool itself had failed, see `audit_quality_severe`).
         let callout = if vm.summary.audit_quality_severe {
-            Callout::warning(note).with_title(if en {
-                "Audit Quality"
-            } else {
-                "Audit-Qualität"
-            })
+            Callout::warning(note).with_title(i18n.t("single-report-audit-quality"))
         } else {
-            Callout::info(note).with_title(if en { "Coverage" } else { "Prüfabdeckung" })
+            Callout::info(note).with_title(i18n.t("single-report-coverage"))
         };
         builder = builder.add_component(callout);
     }
@@ -888,15 +812,10 @@ pub(super) fn render_management_page(
     if !vm.severity.has_issues {
         let (automated, total) = crate::wcag::coverage::coverage_stats();
         builder = builder.add_component(
-            Label::new(if en {
-                format!(
-                    "This result applies to the automated audit scope only ({automated} of ~{total} testable WCAG 2.2 AA criteria); criteria requiring manual review are listed in the appendix."
-                )
-            } else {
-                format!(
-                    "Diese Einschätzung bezieht sich ausschließlich auf den automatisierten Prüfumfang ({automated} von ca. {total} testbaren WCAG-2.2-AA-Kriterien); Kriterien mit manuellem Prüfbedarf sind im Anhang aufgeführt."
-                )
-            })
+            Label::new(i18n.t_args(
+                "single-report-clean-scope",
+                &[("automated", automated as i64), ("total", total as i64)],
+            ))
             .with_size("9pt")
             .with_color(design::tokens::MUTED),
         );
@@ -920,15 +839,8 @@ pub(super) fn render_management_page(
         .collect();
     if radar_data.len() >= 3 {
         builder = builder.add_component(
-            Chart::new(
-                if en {
-                    "Quality profile"
-                } else {
-                    "Qualitätsprofil"
-                },
-                ChartType::Radar,
-            )
-            .add_series("scores", radar_data),
+            Chart::new(i18n.t("single-report-quality-profile"), ChartType::Radar)
+                .add_series("scores", radar_data),
         );
     }
 
@@ -957,11 +869,7 @@ pub(super) fn render_management_page(
     // 2e. Accessibility/Security sub-category breakdown — a low module
     // score explained at a finer grain than one number (plan/5-module-
     // accessibility-security-driver-detail.md).
-    let en_label = if en {
-        "Accessibility"
-    } else {
-        "Barrierefreiheit"
-    };
+    let en_label = i18n.t("module-accessibility");
     // Same areas and numbers as the JSON `accessibility_score_breakdown`
     // (#902 item 10).
     let accessibility_entries: Vec<(String, u32)> = vm
@@ -987,20 +895,20 @@ pub(super) fn render_management_page(
         .collect();
     builder = render_subcategory_breakdown(
         builder,
-        en_label,
+        &en_label,
         &accessibility_entries,
         &accessibility_critical,
         i18n,
     );
 
-    let security_label = if en { "Security" } else { "Sicherheit" };
+    let security_label = i18n.t("module-security");
     let security_entries: Vec<(String, u32)> = vm
         .modules
         .security_category_scores
         .iter()
         .map(|s| (s.category_kind.label(en).to_string(), s.score))
         .collect();
-    builder = render_subcategory_breakdown(builder, security_label, &security_entries, &[], i18n);
+    builder = render_subcategory_breakdown(builder, &security_label, &security_entries, &[], i18n);
 
     // 3. Strengths vs. priorities as card groups
     builder = render_module_split_dashboards(builder, vm, i18n);
@@ -1020,8 +928,6 @@ pub(super) fn render_tech_details(
     report: &AuditReport,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
-
     // Technical modules overview DiagnosisPanel
     if !vm.modules.dashboard.is_empty() {
         let diag_rows: Vec<DiagnosisRow> = vm
@@ -1074,7 +980,6 @@ pub(super) fn render_tech_details(
     builder = render_findings_section(
         builder,
         vm,
-        en,
         i18n,
         report_ts,
         &mut evidence_seq,
@@ -1123,21 +1028,13 @@ pub(super) fn render_appendix_full(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let en = is_english(i18n);
-    let (app_title, app_intro) = if en {
-        (
-            "Appendix & Methodology",
-            "Technical scope, methodology, WCAG coverage, and the complete violations list.",
-        )
-    } else {
-        (
-            "Anhang & Methodik",
-            "Prüfumfang, Methodik, WCAG-Coverage und die vollständige Liste der Vorkommen.",
-        )
-    };
     builder = builder.add_component(PageBreak::new()).add_component(
-        SectionHeaderSplit::new(app_title, app_intro)
-            .with_eyebrow(if en { "APPENDIX" } else { "ANHANG" })
-            .with_level(1),
+        SectionHeaderSplit::new(
+            i18n.t("single-report-appendix-title"),
+            i18n.t("single-report-appendix-intro"),
+        )
+        .with_eyebrow(i18n.t("single-report-appendix-eyebrow"))
+        .with_level(1),
     );
 
     // WCAG Coverage (issue #37)
@@ -1227,70 +1124,34 @@ fn render_manual_only_criteria_note(
     builder: renderreport::engine::ReportBuilder,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
-    let rows = if en {
-        vec![
-            ChecklistRow::new(
-                "2.4.3 · Focus Order",
-                "Whether the technical focus order makes sense in context depends on the page's \
-                 content and cannot be assessed automatically.",
-            ),
-            ChecklistRow::new(
-                "3.3.1 · Error Identification",
-                "Whether an error message is actually understandable to people is a content \
-                 question, not a structural check.",
-            ),
-            ChecklistRow::new(
-                "1.4.4 / 1.4.10 · Resize Text & Reflow",
-                "Whether the page stays practically usable at 400% zoom goes beyond the \
-                 technical reflow structure and requires manual review.",
-            ),
-            ChecklistRow::new(
-                "1.1.1 · Non-text Content",
-                "Whether alt text correctly describes the image content can only be judged by \
-                 a person; automated checks can only confirm that alt text is present at all.",
-            ),
-            ChecklistRow::new(
-                "1.2.1 / 1.2.2 · Time-based Media",
-                "Whether a caption or transcript summary correctly reflects a video's content \
-                 cannot be checked automatically.",
-            ),
-        ]
-    } else {
-        vec![
-            ChecklistRow::new(
-                "2.4.3 · Fokusreihenfolge",
-                "Ob die technische Fokusreihenfolge inhaltlich sinnvoll ist, hängt vom \
-                 Seitenaufbau ab und lässt sich nicht automatisiert bewerten.",
-            ),
-            ChecklistRow::new(
-                "3.3.1 · Fehlerkennzeichnung",
-                "Ob eine Fehlermeldung für Menschen tatsächlich verständlich ist, ist eine \
-                 inhaltliche Frage und kein struktureller Check.",
-            ),
-            ChecklistRow::new(
-                "1.4.4 / 1.4.10 · Textgröße & Reflow",
-                "Ob die Seite bei 400 % Zoom praktisch bedienbar bleibt, geht über die \
-                 technische Reflow-Struktur hinaus und erfordert eine manuelle Prüfung.",
-            ),
-            ChecklistRow::new(
-                "1.1.1 · Nicht-Text-Inhalte",
-                "Ob ein Alternativtext den Bildinhalt korrekt beschreibt, kann nur ein Mensch \
-                 beurteilen; automatisiert prüfbar ist nur, ob überhaupt ein Alternativtext \
-                 vorhanden ist.",
-            ),
-            ChecklistRow::new(
-                "1.2.1 / 1.2.2 · Zeitbasierte Medien",
-                "Ob eine Untertitel- oder Transkript-Zusammenfassung den Videoinhalt inhaltlich \
-                 korrekt wiedergibt, lässt sich nicht automatisiert prüfen.",
-            ),
-        ]
-    };
-    builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-        "Structurally manual-only criteria"
-    } else {
-        "Strukturell nur manuell prüfbare Kriterien"
-    }))
+    let rows = [
+        (
+            "single-report-manual-only-focus-order",
+            "single-report-manual-only-focus-order-text",
+        ),
+        (
+            "single-report-manual-only-error-identification",
+            "single-report-manual-only-error-identification-text",
+        ),
+        (
+            "single-report-manual-only-reflow",
+            "single-report-manual-only-reflow-text",
+        ),
+        (
+            "single-report-manual-only-non-text",
+            "single-report-manual-only-non-text-text",
+        ),
+        (
+            "single-report-manual-only-media",
+            "single-report-manual-only-media-text",
+        ),
+    ]
+    .into_iter()
+    .map(|(label, text)| ChecklistRow::new(i18n.t(label), i18n.t(text)))
+    .collect();
+    builder.add_component(
+        ChecklistPanel::new(rows).with_title(i18n.t("single-report-manual-only-title")),
+    )
 }
 
 /// One row per distinct (label, hint) pair, in first-seen order, with the
@@ -1338,13 +1199,7 @@ fn render_assessment_and_execution_notes(
                 .and_then(crate::output::explanations::get_explanation)
                 .or_else(|| crate::output::explanations::get_explanation(&finding.rule))
                 .map(|explanation| explanation.recommendation(en))
-                .unwrap_or_else(|| {
-                    if en {
-                        "Verify this criterion manually on the rendered page.".to_string()
-                    } else {
-                        "Dieses Kriterium manuell an der gerenderten Seite prüfen.".to_string()
-                    }
-                });
+                .unwrap_or_else(|| i18n.t("single-report-manual-review-fallback"));
             if let Some(instruction) = manual_recheck_instruction(&finding.rule, en) {
                 recommendation.push(' ');
                 recommendation.push_str(instruction);
@@ -1353,11 +1208,7 @@ fn render_assessment_and_execution_notes(
                 format!(
                     "{} · {}",
                     finding.rule,
-                    if en {
-                        "Manual review"
-                    } else {
-                        "Manuelle Prüfung"
-                    }
+                    i18n.t("single-report-manual-review")
                 ),
                 recommendation,
             ));
@@ -1369,55 +1220,40 @@ fn render_assessment_and_execution_notes(
                 .and_then(crate::output::explanations::get_explanation)
                 .or_else(|| crate::output::explanations::get_explanation(&finding.rule))
                 .map(|explanation| explanation.recommendation(en))
-                .unwrap_or_else(|| {
-                    if en {
-                        "Confirm this heuristic signal manually.".to_string()
-                    } else {
-                        "Dieses heuristische Signal manuell bestätigen.".to_string()
-                    }
-                });
+                .unwrap_or_else(|| i18n.t("single-report-warning-fallback"));
             if let Some(instruction) = manual_recheck_instruction(&finding.rule, en) {
                 text.push(' ');
                 text.push_str(instruction);
             }
             entries.push((
-                format!(
-                    "{} · {}",
-                    finding.rule,
-                    if en { "Warning" } else { "Hinweis" }
-                ),
+                format!("{} · {}", finding.rule, i18n.t("single-report-warning")),
                 text,
             ));
         }
         let rows = grouped_checklist_rows(entries, 20);
-        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-            "Manual review and heuristic signals"
-        } else {
-            "Manuelle Prüfpunkte und heuristische Hinweise"
-        }));
+        builder = builder.add_component(
+            ChecklistPanel::new(rows)
+                .with_title(i18n.t("single-report-manual-and-heuristic-title")),
+        );
     }
 
     if let Some(journey) = report.accessibility_journey.as_ref() {
         let execution = &journey.execution;
-        let text = if en {
-            format!(
-                "Interactive coverage: {} of {} attempted journeys completed; {} failed, {} skipped{}.",
-                execution.completed,
-                execution.attempted,
-                execution.failed,
-                execution.skipped,
-                if execution.budget_exhausted { "; budget exhausted" } else { "" }
-            )
+        let budget = if execution.budget_exhausted {
+            i18n.t("single-report-journey-budget-exhausted")
         } else {
-            format!(
-                "Interaktive Abdeckung: {} von {} versuchten Journeys abgeschlossen; {} fehlgeschlagen, {} übersprungen{}.",
-                execution.completed,
-                execution.attempted,
-                execution.failed,
-                execution.skipped,
-                if execution.budget_exhausted { "; Budget ausgeschöpft" } else { "" }
-            )
+            String::new()
         };
+        let text = i18n.t_args(
+            "single-report-journey-coverage",
+            &[
+                ("completed", FluentValue::from(execution.completed as i64)),
+                ("attempted", FluentValue::from(execution.attempted as i64)),
+                ("failed", FluentValue::from(execution.failed as i64)),
+                ("skipped", FluentValue::from(execution.skipped as i64)),
+                ("budget", FluentValue::from(budget)),
+            ],
+        );
         builder = builder.add_component(Label::new(text).with_size("10.5pt").with_color("#475569"));
     }
 
@@ -1427,28 +1263,19 @@ fn render_assessment_and_execution_notes(
 fn render_findings_section(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
-    en: bool,
     i18n: &I18n,
     report_ts: i64,
     evidence_seq: &mut usize,
     acronyms_expanded: &mut bool,
 ) -> renderreport::engine::ReportBuilder {
     if vm.severity.has_issues {
-        let (findings_title, findings_intro) = if en {
-            (
-                "Classification of Findings",
-                "All technical findings, categorized by systemic template relevance and individual page occurrences.",
-            )
-        } else {
-            (
-                "Klassifizierung der Befunde",
-                "Alle technischen Befunde, getrennt nach systemischen Komponentenfehlern und Einzelfällen.",
-            )
-        };
         builder = builder.add_component(PageBreak::new()).add_component(
-            SectionHeaderSplit::new(findings_title, findings_intro)
-                .with_eyebrow(if en { "FINDINGS" } else { "BEFUNDE" })
-                .with_level(2),
+            SectionHeaderSplit::new(
+                i18n.t("single-report-findings-title"),
+                i18n.t("single-report-findings-intro"),
+            )
+            .with_eyebrow(i18n.t("single-report-findings-eyebrow"))
+            .with_level(2),
         );
 
         let all_findings = &vm.findings.all_findings;
@@ -1485,11 +1312,7 @@ fn render_findings_section(
         builder = builder.add_component(
             MetricStrip::new(vec![
                 MetricStripItem::new(
-                    if en {
-                        "Systemic (mandatory)"
-                    } else {
-                        "Systemisch (Pflicht)"
-                    },
+                    i18n.t("single-report-strip-systemic-mandatory"),
                     systemic_mandatory.len().to_string(),
                 )
                 .with_accent(if !systemic_mandatory.is_empty() {
@@ -1498,20 +1321,12 @@ fn render_findings_section(
                     design::tokens::SUCCESS
                 }),
                 MetricStripItem::new(
-                    if en {
-                        "Systemic (optimization)"
-                    } else {
-                        "Systemisch (Optimierung)"
-                    },
+                    i18n.t("single-report-strip-systemic-optimization"),
                     systemic_optimization.len().to_string(),
                 )
                 .with_accent(design::tokens::NEUTRAL),
                 MetricStripItem::new(
-                    if en {
-                        "Local (mandatory)"
-                    } else {
-                        "Lokal (Pflicht)"
-                    },
+                    i18n.t("single-report-strip-local-mandatory"),
                     local_mandatory.len().to_string(),
                 )
                 .with_accent(if !local_mandatory.is_empty() {
@@ -1520,11 +1335,7 @@ fn render_findings_section(
                     design::tokens::SUCCESS
                 }),
                 MetricStripItem::new(
-                    if en {
-                        "Local (optimization)"
-                    } else {
-                        "Lokal (Optimierung)"
-                    },
+                    i18n.t("single-report-strip-local-optimization"),
                     local_optimization.len().to_string(),
                 )
                 .with_accent(design::tokens::NEUTRAL),
@@ -1543,29 +1354,20 @@ fn render_findings_section(
         let matrix_findings: Vec<&FindingGroup> = all_findings.iter().collect();
 
         if !matrix_findings.is_empty() {
-            let (matrix_title, matrix_intro) = if en {
-                (
-                    "Findings Matrix",
-                    "One row per finding group, sorted by priority — an overview to prioritize by before the detail cards below expand on each row.",
-                )
-            } else {
-                (
-                    "Befundmatrix",
-                    "Eine Zeile je Regelgruppe, sortiert nach Priorität – als Überblick zur Priorisierung, bevor die Detailkarten unten jede Zeile vertiefen.",
-                )
-            };
-            builder = builder.add_component(Label::new(matrix_intro).with_size("10.5pt"));
+            builder = builder.add_component(
+                Label::new(i18n.t("single-report-matrix-intro")).with_size("10.5pt"),
+            );
 
             // Four columns with the full finding title: six narrow ones cut
             // titles at 48 and actions at 72 characters. The action and the
             // owner are in the detail card below (plan 76).
             let mut table = AuditTable::new(vec![
-                TableColumn::new(if en { "Priority" } else { "Priorität" }).with_width("13%"),
-                TableColumn::new(if en { "Finding" } else { "Befund" }).with_width("55%"),
-                TableColumn::new(if en { "Occurrences" } else { "Vorkommen" }).with_width("16%"),
-                TableColumn::new(if en { "Effort" } else { "Aufwand" }).with_width("16%"),
+                TableColumn::new(i18n.t("batch-col-priority")).with_width("13%"),
+                TableColumn::new(i18n.t("single-report-matrix-col-finding")).with_width("55%"),
+                TableColumn::new(i18n.t("batch-col-occurrences")).with_width("16%"),
+                TableColumn::new(i18n.t("label-effort")).with_width("16%"),
             ])
-            .with_title(matrix_title);
+            .with_title(i18n.t("single-report-matrix-title"));
 
             for group in matrix_findings.iter().take(FINDINGS_MATRIX_MAX_ROWS) {
                 let finding = if group.finding.wcag_criterion.is_empty() {
@@ -1578,17 +1380,14 @@ fn render_findings_section(
                         group.title, group.finding.wcag_criterion, group.finding.wcag_level
                     )
                 };
-                let scope = if group.is_component_issue {
-                    if en {
-                        format!("Systemic · {}", group.finding.occurrence_count)
+                let scope = i18n.count(
+                    if group.is_component_issue {
+                        "single-report-matrix-systemic"
                     } else {
-                        format!("Systemisch · {}", group.finding.occurrence_count)
-                    }
-                } else if en {
-                    format!("Local · {}", group.finding.occurrence_count)
-                } else {
-                    format!("Lokal · {}", group.finding.occurrence_count)
-                };
+                        "single-report-matrix-local"
+                    },
+                    group.finding.occurrence_count,
+                );
                 table = table.add_row(vec![
                     priority_label_i18n(group.priority, i18n),
                     finding,
@@ -1602,14 +1401,11 @@ fn render_findings_section(
                 .len()
                 .saturating_sub(FINDINGS_MATRIX_MAX_ROWS);
             if remaining > 0 {
-                let note = if en {
-                    format!("{remaining} further findings are listed in the detail cards below.")
-                } else {
-                    format!(
-                        "In den Detailkarten unten aufgeführt: {}.",
-                        i18n.count("count-more-findings", remaining)
-                    )
-                };
+                let note = i18n.count_with(
+                    "single-report-matrix-more",
+                    remaining,
+                    &[("more", i18n.count("count-more-findings", remaining))],
+                );
                 builder = builder.add_component(
                     Label::new(note)
                         .with_size("9pt")
@@ -1624,28 +1420,17 @@ fn render_findings_section(
 
         // 1. Systemic Mandatory
         if !systemic_mandatory.is_empty() {
-            let title = if en {
-                "Systemic Template & Component Issues (WCAG A/AA)"
-            } else {
-                "Systemische Template- & Komponentenfehler (WCAG A/AA)"
-            };
-            let desc = if en {
-                "This pattern suggests a reused component or template — confirming that requires evidence from additional pages. A central fix would likely also resolve the cause on other pages sharing the same pattern."
-            } else {
-                "Dieses Muster deutet auf eine wiederverwendete Komponente oder Vorlage hin — bestätigt ist das erst mit Belegen von weiteren Seiten. Eine zentrale Behebung würde die Ursache voraussichtlich auch auf anderen Seiten mit demselben Muster beheben."
-            };
             if rendered_categories > 0 {
                 builder = builder.add_component(PageBreak::new());
             }
             rendered_categories += 1;
             builder = builder.add_component(
-                SectionHeaderSplit::new(title, desc)
-                    .with_eyebrow(if en {
-                        "SYSTEMIC COMPLIANCE"
-                    } else {
-                        "SYSTEMISCHE PFLICHT"
-                    })
-                    .with_level(2),
+                SectionHeaderSplit::new(
+                    i18n.t("single-report-systemic-mandatory-title"),
+                    i18n.t("single-report-systemic-mandatory-intro"),
+                )
+                .with_eyebrow(i18n.t("single-report-systemic-mandatory-eyebrow"))
+                .with_level(2),
             );
             for group in systemic_mandatory {
                 builder = render_finding_technical(
@@ -1667,28 +1452,17 @@ fn render_findings_section(
 
         // 2. Systemic Optimization
         if !systemic_optimization.is_empty() {
-            let title = if en {
-                "Systemic Quality & SEO Optimizations"
-            } else {
-                "Systemische Qualitäts- & SEO-Optimierungen"
-            };
-            let desc = if en {
-                "These recommendations recur within this single page, which suggests a shared template — confirming that would require checking additional pages."
-            } else {
-                "Diese Empfehlungen wiederholen sich innerhalb dieser einen Seite, was auf eine gemeinsame Vorlage hindeutet — bestätigt ist das erst nach Prüfung weiterer Seiten."
-            };
             if rendered_categories > 0 {
                 builder = builder.add_component(PageBreak::new());
             }
             rendered_categories += 1;
             builder = builder.add_component(
-                SectionHeaderSplit::new(title, desc)
-                    .with_eyebrow(if en {
-                        "SYSTEMIC OPTIMIZATION"
-                    } else {
-                        "SYSTEMISCHE OPTIMIERUNG"
-                    })
-                    .with_level(2),
+                SectionHeaderSplit::new(
+                    i18n.t("single-report-systemic-optimization-title"),
+                    i18n.t("single-report-systemic-optimization-intro"),
+                )
+                .with_eyebrow(i18n.t("single-report-systemic-optimization-eyebrow"))
+                .with_level(2),
             );
             for group in systemic_optimization {
                 builder = render_finding_technical(
@@ -1710,28 +1484,17 @@ fn render_findings_section(
 
         // 3. Local Mandatory
         if !local_mandatory.is_empty() {
-            let title = if en {
-                "Local & Editorial Findings (WCAG A/AA)"
-            } else {
-                "Einzelfälle & Redaktionelle Befunde (WCAG A/AA)"
-            };
-            let desc = if en {
-                "Single instances of accessibility barriers affecting specific pages, images, or editorial content, usually requiring individual resolution."
-            } else {
-                "Punktuelle Barrieren, die nur einzelne Seiten, spezifische Bilder oder redaktionelle Texte betreffen und meist individuell behoben werden müssen."
-            };
             if rendered_categories > 0 {
                 builder = builder.add_component(PageBreak::new());
             }
             rendered_categories += 1;
             builder = builder.add_component(
-                SectionHeaderSplit::new(title, desc)
-                    .with_eyebrow(if en {
-                        "LOCAL COMPLIANCE"
-                    } else {
-                        "LOKALE PFLICHT"
-                    })
-                    .with_level(2),
+                SectionHeaderSplit::new(
+                    i18n.t("single-report-local-mandatory-title"),
+                    i18n.t("single-report-local-mandatory-intro"),
+                )
+                .with_eyebrow(i18n.t("single-report-local-mandatory-eyebrow"))
+                .with_level(2),
             );
             for group in local_mandatory {
                 builder = render_finding_technical(
@@ -1753,28 +1516,17 @@ fn render_findings_section(
 
         // 4. Local Optimization
         if !local_optimization.is_empty() {
-            let title = if en {
-                "Additional Quality & SEO Recommendations"
-            } else {
-                "Ergänzende Qualitäts- & SEO-Empfehlungen"
-            };
-            let desc = if en {
-                "Usability, performance, or SEO recommendations for specific pages."
-            } else {
-                "Ergänzende Empfehlungen zur Verbesserung der Ladezeiten, Suchmaschinenoptimierung und Benutzerfreundlichkeit auf bestimmten Seiten."
-            };
             if rendered_categories > 0 {
                 builder = builder.add_component(PageBreak::new());
             }
             rendered_categories += 1;
             builder = builder.add_component(
-                SectionHeaderSplit::new(title, desc)
-                    .with_eyebrow(if en {
-                        "LOCAL OPTIMIZATION"
-                    } else {
-                        "LOKALE OPTIMIERUNG"
-                    })
-                    .with_level(2),
+                SectionHeaderSplit::new(
+                    i18n.t("single-report-local-optimization-title"),
+                    i18n.t("single-report-local-optimization-intro"),
+                )
+                .with_eyebrow(i18n.t("single-report-local-optimization-eyebrow"))
+                .with_level(2),
             );
             for group in local_optimization {
                 builder = render_finding_technical(
@@ -1803,41 +1555,26 @@ fn render_appendix_section(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
     // Appendix — full violations list, conclusion of Part 2 (#246). Only render
     // the section header when there are violations to list; otherwise it
     // promises a list that never appears (#364).
     if vm.appendix.has_violations {
-        let (appendix_title, appendix_intro) = if en {
-            (
-                "Complete Findings List",
-                "Raw audit data and the full list of detected violations.",
-            )
-        } else {
-            (
-                "Alle Vorkommen",
-                "Rohdaten des Audits und die vollständige Liste aller erkannten Verstöße.",
-            )
-        };
         builder = builder.add_component(PageBreak::new()).add_component(
-            SectionHeaderSplit::new(appendix_title, appendix_intro)
-                .with_eyebrow(if en { "APPENDIX" } else { "ANHANG" })
-                .with_level(2),
+            SectionHeaderSplit::new(
+                i18n.t("single-report-findings-list-title"),
+                i18n.t("single-report-findings-list-intro"),
+            )
+            .with_eyebrow(i18n.t("single-report-appendix-eyebrow"))
+            .with_level(2),
         );
 
         builder = builder.add_component(build_cli_snapshot_table(vm, i18n));
 
         // JSON hint in appendix (#219)
-        let json_note = if en {
-            "The accompanying JSON report contains the complete machine-readable issue list with selectors, occurrences, and all detail data for automated processing."
-        } else {
-            "Der begleitende JSON-Report enthält die vollständige maschinenlesbare Fehlerliste mit Selektoren, Vorkommen und allen Detaildaten für automatisierte Weiterverarbeitung."
-        };
-        builder = builder.add_component(Callout::info(json_note).with_title(if en {
-            "Raw data & processing"
-        } else {
-            "Rohdaten & Weiterverarbeitung"
-        }));
+        builder = builder.add_component(
+            Callout::info(i18n.t("single-report-json-note"))
+                .with_title(i18n.t("single-report-json-note-title")),
+        );
 
         if vm.meta.report_level == ReportLevel::Technical {
             for v in &vm.appendix.violations {
@@ -1904,39 +1641,24 @@ fn render_positive_signals_section(
 
     // A short panel follows the previous chapter under its own heading
     // instead of opening a page for a few rows (plan 76).
-    let en = is_english(i18n);
-    builder = builder.add_component(
-        Section::new(if en {
-            "Recognized structural patterns"
-        } else {
-            "Erkannte Strukturmuster"
-        })
-        .with_level(2),
-    );
+    builder =
+        builder.add_component(Section::new(i18n.t("single-report-patterns-title")).with_level(2));
     let mut rows = Vec::new();
     for signal in signals {
-        let status = if signal.strong {
-            if en {
-                "Strong"
-            } else {
-                "Stark"
-            }
-        } else if en {
-            "Present"
+        let status = i18n.t(if signal.strong {
+            "single-report-pattern-strong"
         } else {
-            "Vorhanden"
-        };
+            "single-report-pattern-present"
+        });
         rows.push(
             ChecklistRow::new(&signal.title, format!("{}: {}", status, signal.description))
                 .with_status(if signal.strong { "good" } else { "info" }),
         );
     }
 
-    builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-        "Recognized in the accessibility tree; no interaction test"
-    } else {
-        "Im Barrierefreiheitsbaum erkannt, ohne Interaktionstest"
-    }))
+    builder.add_component(
+        ChecklistPanel::new(rows).with_title(i18n.t("single-report-patterns-panel-title")),
+    )
 }
 
 fn render_dual_viewport_summary_section(
@@ -1981,24 +1703,16 @@ fn render_dual_viewport_summary_section(
     // metric ("Accessibility-Score", not a bare "93/100") so it doesn't need
     // a caller to already know what dual-viewport scoring means.
     builder = builder.add_component(
-        Label::new(if en {
-            "Dual viewport summary"
-        } else {
-            "Dual-Viewport-Zusammenfassung"
-        })
-        .bold()
-        .with_size("10.5pt"),
+        Label::new(i18n.t("single-report-dual-title"))
+            .bold()
+            .with_size("10.5pt"),
     );
 
     let mut items = Vec::new();
     if let (Some(desktop), Some(mobile)) = (vm.cover.desktop_score, vm.cover.mobile_score) {
         items.push(
             MetricStripItem::new(
-                if en {
-                    "Accessibility - Desktop"
-                } else {
-                    "Barrierefreiheit - Desktop"
-                },
+                i18n.t("single-report-dual-desktop"),
                 format!("{desktop} / 100"),
             )
             .with_unit(score_range_label(desktop, en))
@@ -2006,11 +1720,7 @@ fn render_dual_viewport_summary_section(
         );
         items.push(
             MetricStripItem::new(
-                if en {
-                    "Accessibility - Mobile"
-                } else {
-                    "Barrierefreiheit - Mobile"
-                },
+                i18n.t("single-report-dual-mobile"),
                 format!("{mobile} / 100"),
             )
             .with_unit(score_range_label(mobile, en))
@@ -2018,18 +1728,10 @@ fn render_dual_viewport_summary_section(
         );
         items.push(
             MetricStripItem::new(
-                if en {
-                    "Accessibility - overall"
-                } else {
-                    "Barrierefreiheit - Gesamt"
-                },
+                i18n.t("single-report-dual-overall"),
                 format!("{} / 100", vm.summary.score),
             )
-            .with_unit(if en {
-                "70/30 weighted"
-            } else {
-                "70/30 gewichtet"
-            })
+            .with_unit(i18n.t("single-report-dual-weighted"))
             .with_accent(design::score_color(vm.summary.score as u8)),
         );
     }
@@ -2041,8 +1743,8 @@ fn render_dual_viewport_summary_section(
     {
         items.push(
             MetricStripItem::new(
-                if en { "Preview" } else { "Vorschau" },
-                if en { "Captured" } else { "Erfasst" },
+                i18n.t("single-report-preview"),
+                i18n.t("single-report-preview-captured"),
             )
             .with_accent(design::tokens::SUCCESS),
         );
@@ -2052,11 +1754,10 @@ fn render_dual_viewport_summary_section(
     }
 
     if let crate::audit::ScreenshotStatus::Failed(reason) = &report.screenshot_status {
-        builder = builder.add_component(Callout::warning(if en {
-            format!("Screenshot capture failed: {reason}")
-        } else {
-            format!("Screenshot-Erfassung fehlgeschlagen: {reason}")
-        }));
+        builder = builder.add_component(Callout::warning(i18n.t_args(
+            "single-report-screenshot-failed",
+            &[("reason", reason.as_str())],
+        )));
     }
 
     let occurrence_context = report
@@ -2074,22 +1775,23 @@ fn render_dual_viewport_summary_section(
             .len();
             let mobile = dual.mobile.wcag_results.violations.len();
             let combined = vm.severity.total;
-            if en {
-                format!("WCAG occurrences before cross-viewport consolidation: {desktop} on desktop and {mobile} on mobile. The normalized combined finding list contains {combined} occurrences; this count is used for evidence and remediation, not as a third score. ")
-            } else {
-                format!("WCAG-Vorkommen vor der ansichtsübergreifenden Zusammenführung: {desktop} auf Desktop und {mobile} auf Mobile. Die normalisierte gemeinsame Befundliste enthält {combined} Vorkommen; diese Anzahl dient Evidenz und Maßnahmenplanung, nicht als dritter Score. ")
-            }
+            let context = i18n.t_args(
+                "single-report-dual-occurrences",
+                &[
+                    ("desktop", desktop as i64),
+                    ("mobile", mobile as i64),
+                    ("combined", i64::from(combined)),
+                ],
+            );
+            // The sentence that follows it in the explanation starts after
+            // this space.
+            format!("{context} ")
         })
         .unwrap_or_default();
-    let explanation = if en {
-        format!(
-            "Each viewport accessibility score reflects the severity and variety of automatically detected WCAG findings; 100 means no issue was detected within the automated scope. Lower values mean more remediation pressure. {occurrence_context}The displayed accessibility overall score is calculated from mobile at 70% and desktop at 30%."
-        )
-    } else {
-        format!(
-            "Jeder Barrierefreiheitswert bewertet Schwere und Vielfalt der automatisiert erkannten WCAG-Befunde seiner Ansicht; 100 bedeutet, dass im automatisierten Prüfumfang kein Problem erkannt wurde. Niedrigere Werte bedeuten höheren Handlungsdruck. {occurrence_context}Der ausgewiesene Barrierefreiheits-Gesamtwert wird mit 70 % Mobile und 30 % Desktop berechnet."
-        )
-    };
+    let explanation = i18n.t_args(
+        "single-report-dual-explanation",
+        &[("occurrence_context", occurrence_context)],
+    );
 
     builder.add_component(
         Label::new(explanation)
@@ -2129,7 +1831,6 @@ pub(super) fn render_module_sections(
     // one "KI & Vertrauen" / "AI & Trust" chapter so the three trust- and
     // discoverability-indicator modules read as one section instead of three
     // fragmented ones. They render as level-3 sub-sections under one opener.
-    let en = is_english(i18n);
     let mut ki_opened = false;
     let mut in_ki_chapter = false;
     for module in active_report_modules(report) {
@@ -2141,14 +1842,10 @@ pub(super) fn render_module_sections(
         if is_trust && !ki_opened {
             builder = builder.add_component(PageBreak::new()).add_component(
                 SectionHeaderSplit::new(
-                    if en { "AI & Trust" } else { "KI & Vertrauen" },
-                    if en {
-                        "Technical preparation, AI readability and content visibility — unweighted indicators from technical signals."
-                    } else {
-                        "Technische Aufbereitung, KI-Lesbarkeit und Content-Sichtbarkeit — ungewichtete Indikatoren aus technischen Signalen."
-                    },
+                    i18n.t("single-report-trust-title"),
+                    i18n.t("single-report-trust-intro"),
                 )
-                .with_eyebrow(if en { "TRUST" } else { "VERTRAUEN" })
+                .with_eyebrow(i18n.t("single-report-trust-eyebrow"))
                 .with_level(2),
             );
             ki_opened = true;

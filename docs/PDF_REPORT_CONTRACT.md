@@ -212,6 +212,26 @@ surface that owns its lifecycle:
   joined. A basis or identity finding the analysis stores in canonical English
   is the English message itself (`$basis`, `$finding`); the German message
   translates it.
+- `locales/{de,en}/single-report.ftl`: the texts of the single PDF's page
+  sections (`output::pdf::single_report`, `single-report-*`): the part
+  dividers, the management summary (scope line, evidence note, overall
+  rating, risks and strengths, key measures), the findings classification and
+  matrix, the appendix with its manual-review notes, the recognized structural
+  patterns and the dual viewport summary. The render functions keep the
+  thresholds, which message applies and how lists are joined; the severity
+  labels, the overall rating title, verdict words and reasons, the module
+  names and the matrix column headers are reused `report.ftl` messages.
+- `locales/{de,en}/methodology.ftl`: the texts of the single report's
+  methodology section (`output::builder::single::methodology::build_methodology`:
+  scope, method, limitations, disclaimer, the audit-fact labels and values, the
+  confidence summary and the capability matrix, `methodology-*`) and the score
+  methodology of its appendix (`build_appendix_block_from_normalized`). The
+  builder keeps the thresholds, which message applies and how lists are
+  joined; the runtime keeps its number format in `i18n::number`. The
+  confidence summary and capability matrix also feed the JSON detail, which
+  builds them in English. The fact labels WCAG level, Checked nodes, Runtime,
+  Audit notes, Display mode and Active modules reuse the identical `report.ftl`
+  messages (`scope-box-*`, `batch-cover-frame-*`).
 - `locales/{de,en}/seo-details.ftl`: the texts of the single report's SEO
   module detail presentation (`output::builder::single::module_details::seo`,
   `seo-details-*`): meta-tag labels and the cross-module notes of meta issues,

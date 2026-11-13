@@ -3,6 +3,12 @@ use crate::audit::normalized::NormalizedReport;
 use crate::output::report_model::{
     AffectedElement, AppendixBlock, AppendixViolation, CapabilitySignal, MethodologyBlock,
 };
+use fluent_bundle::FluentValue;
+
+#[cfg(test)]
+mod text_export;
+#[cfg(test)]
+mod text_guard;
 
 pub(super) fn build_appendix_block_from_normalized(
     locale: &str,
@@ -38,15 +44,9 @@ pub(super) fn build_appendix_block_from_normalized(
 
     let has_violations = !violations.is_empty();
 
-    let score_methodology = if locale == "en" {
-        "Score calculation: each accessibility viewport starts at 100 points; taxonomy-defined, rule-specific penalties with logarithmic scaling account for repeated violations. With desktop and mobile data, the canonical accessibility score is 70% mobile plus 30% desktop. The consolidated finding list supports evidence and remediation and does not create a third score. Conflicting signals are flagged but do not alter the score retrospectively."
-    } else {
-        "Score-Berechnung: Jeder Barrierefreiheits-Viewport startet bei 100 Punkten; taxonomiebasierte, regelspezifische Abzüge mit logarithmischer Skalierung berücksichtigen wiederholte Verstöße. Bei Desktop- und Mobile-Daten ist der kanonische Barrierefreiheits-Score 70 % Mobile plus 30 % Desktop. Die zusammengeführte Befundliste dient Evidenz und Maßnahmenplanung und erzeugt keinen dritten Score. Widersprüchliche Signale werden markiert, verändern den Score aber nicht nachträglich."
-    };
-
     AppendixBlock {
         violations,
-        score_methodology: score_methodology.to_string(),
+        score_methodology: crate::i18n::text("methodology-score-methodology", locale == "en"),
         has_violations,
     }
 }
@@ -80,82 +80,48 @@ pub(super) fn build_methodology(
         .collect::<Vec<_>>()
         .join(", ");
 
-    let scope = if en {
-        format!(
-            "Automated audit of {} for accessibility per WCAG 2.2 (level {}). Requested modules: {}.",
-            normalized.url, normalized.wcag_level, requested_modules
-        )
-    } else {
-        format!(
-            "Automatisierte Prüfung der Seite {} auf Barrierefreiheit nach WCAG 2.2 (Level {}). Angeforderte Module: {}.",
-            normalized.url, normalized.wcag_level, requested_modules
-        )
-    };
+    let scope = i18n.t_args(
+        "methodology-scope",
+        &[
+            ("url", FluentValue::from(normalized.url.clone())),
+            (
+                "level",
+                FluentValue::from(normalized.wcag_level.to_string()),
+            ),
+            ("modules", FluentValue::from(requested_modules)),
+        ],
+    );
     let executed_rules = normalized
         .rule_outcomes
         .iter()
         .filter(|outcome| !crate::wcag::rule_run_skipped(outcome))
         .count();
-    let method = if en {
-        format!("The audit was performed via the Chrome DevTools Protocol (CDP) and the browser's native accessibility tree. {executed_rules} automated rule executions were recorded across the configured viewports.")
-    } else {
-        format!("Die Prüfung erfolgte über das Chrome DevTools Protocol (CDP) und den nativen Accessibility Tree des Browsers. Über die konfigurierten Viewports wurden {executed_rules} automatisierte Regelausführungen erfasst.")
-    };
-    let mut limitations = if en {
-        "Automated tests can detect about 30–40% of all accessibility issues. Complex aspects \
-         such as correct tab order, meaningful alt texts, or understandable language additionally \
-         require manual review."
-            .to_string()
-    } else {
-        "Automatisierte Tests können ca. 30–40% aller Barrierefreiheitsprobleme erkennen. \
-         Komplexe Aspekte wie korrekte Tab-Reihenfolge, sinnvolle Alt-Texte oder \
-         verständliche Sprache erfordern zusätzlich manuelle Prüfung."
-            .to_string()
-    };
+    let method = i18n.t_args(
+        "methodology-method",
+        &[("rules", FluentValue::from(executed_rules as i64))],
+    );
+    let mut limitations = i18n.t("methodology-limitations");
     if normalized.execution.quality.qualified_results {
-        limitations.push_str(if en {
-            " This run is incomplete: scores describe only the successfully measured scope."
-        } else {
-            " Dieser Lauf ist unvollständig: Die Scores beschreiben nur den erfolgreich gemessenen Umfang."
-        });
+        limitations.push(' ');
+        limitations.push_str(&i18n.t("methodology-limitations-incomplete"));
     }
-    let disclaimer = if en {
-        "This report represents an automated technical analysis. It does not replace a complete \
-         WCAG 2.2 conformance assessment. A legally defensible accessibility statement requires a \
-         comprehensive manual audit by experts. Accessibility is not a one-time achievable state: \
-         it is an ongoing process, and every new component or piece of content needs to be \
-         re-audited when it is added."
-            .to_string()
-    } else {
-        "Dieser Report stellt eine automatisierte technische Analyse dar. \
-         Er ersetzt keine vollständige Konformitätsbewertung nach WCAG 2.2. \
-         Für eine rechtsverbindliche Aussage zur Barrierefreiheit ist eine \
-         umfassende manuelle Prüfung durch Experten erforderlich. Barrierefreiheit ist kein \
-         einmalig erreichbarer Zustand, sondern ein fortlaufender Prozess: Jede neue Komponente \
-         und jeder neue Inhalt muss bei Einführung erneut geprüft werden."
-            .to_string()
-    };
-
-    let key = |de: &str, en_label: &str| -> String {
-        if en {
-            en_label.to_string()
-        } else {
-            de.to_string()
-        }
-    };
+    let disclaimer = i18n.t("methodology-disclaimer");
 
     let preview_value = if normalized.has_screenshots {
-        if en {
-            "Desktop and mobile captured".to_string()
-        } else {
-            "Desktop und Mobile erfasst".to_string()
-        }
-    } else if en {
-        "Not captured".to_string()
+        i18n.t("methodology-preview-captured")
     } else {
-        "Nicht erfasst".to_string()
+        i18n.t("methodology-preview-not-captured")
     };
 
+    let weight = |module: String, pct: u32| -> String {
+        i18n.t_args(
+            "methodology-weight",
+            &[
+                ("module", FluentValue::from(module)),
+                ("pct", FluentValue::from(i64::from(pct))),
+            ],
+        )
+    };
     let total_score_value = {
         let contributing: Vec<_> = normalized
             .module_scores
@@ -169,20 +135,11 @@ pub(super) fn build_methodology(
                 let pct = (m.weight_pct * 100 + total_raw / 2)
                     .checked_div(total_raw)
                     .unwrap_or(0);
-                let name = localized_module_name(&m.name, i18n);
-                if en {
-                    format!("{name} {pct}%")
-                } else {
-                    format!("{name} {pct} %")
-                }
+                weight(localized_module_name(&m.name, i18n), pct)
             })
             .collect();
         let weights_label = if weights.is_empty() {
-            if en {
-                "Accessibility 100%".to_string()
-            } else {
-                "Barrierefreiheit 100 %".to_string()
-            }
+            weight(i18n.t("module-accessibility"), 100)
         } else {
             weights.join(", ")
         };
@@ -192,30 +149,24 @@ pub(super) fn build_methodology(
             .filter(|m| !m.contributes_to_overall || m.measurement_type == "heuristic")
             .map(|m| localized_module_name(&m.name, i18n))
             .collect();
-        let indicator_note = if indicator_names.is_empty() {
-            String::new()
-        } else if en {
-            format!(
-                " Indicator modules shown separately: {}.",
-                indicator_names.join(", ")
-            )
-        } else {
-            format!(
-                " Separat ausgewiesene Indikator-Module: {}.",
-                indicator_names.join(", ")
-            )
-        };
-        if en {
-            format!(
-                "{} / 100 — contributing weights: {}{}",
-                normalized.overall_score, weights_label, indicator_note
-            )
-        } else {
-            format!(
-                "{} / 100 — beitragende Gewichtung: {}{}",
-                normalized.overall_score, weights_label, indicator_note
-            )
+        let mut value = i18n.t_args(
+            "methodology-combined-score",
+            &[
+                (
+                    "score",
+                    FluentValue::from(i64::from(normalized.overall_score)),
+                ),
+                ("weights", FluentValue::from(weights_label)),
+            ],
+        );
+        if !indicator_names.is_empty() {
+            value.push(' ');
+            value.push_str(&i18n.t_args(
+                "methodology-indicator-modules",
+                &[("modules", FluentValue::from(indicator_names.join(", ")))],
+            ));
         }
+        value
     };
 
     let runtime_unit = "s";
@@ -224,17 +175,20 @@ pub(super) fn build_methodology(
         .viewport_scores
         .as_ref()
         .map(|scores| {
-            if en {
-                format!(
-                    "{} / 100 — 70% mobile ({}) + 30% desktop ({})",
-                    normalized.score, scores.mobile.accessibility, scores.desktop.accessibility
-                )
-            } else {
-                format!(
-                    "{} / 100 — 70 % Mobile ({}) + 30 % Desktop ({})",
-                    normalized.score, scores.mobile.accessibility, scores.desktop.accessibility
-                )
-            }
+            i18n.t_args(
+                "methodology-accessibility-score-viewports",
+                &[
+                    ("score", FluentValue::from(i64::from(normalized.score))),
+                    (
+                        "mobile",
+                        FluentValue::from(i64::from(scores.mobile.accessibility)),
+                    ),
+                    (
+                        "desktop",
+                        FluentValue::from(i64::from(scores.desktop.accessibility)),
+                    ),
+                ],
+            )
         })
         .unwrap_or_else(|| format!("{} / 100", normalized.score));
     let all_occurrences: usize = normalized
@@ -242,86 +196,83 @@ pub(super) fn build_methodology(
         .iter()
         .map(|finding| finding.occurrence_count)
         .sum();
-    let counting_value = if en {
-        format!(
-            "{} distinct WCAG finding groups, {} WCAG occurrences; {} finding rows and {} occurrences across all categories",
-            normalized.severity_counts.total,
-            normalized.occurrence_counts.total,
-            normalized.findings.len(),
-            all_occurrences
-        )
-    } else {
-        format!(
-            "{} unterschiedliche WCAG-Regelgruppen, {} WCAG-Vorkommen; {} Befundzeilen und {} Vorkommen über alle Kategorien",
-            normalized.severity_counts.total,
-            normalized.occurrence_counts.total,
-            normalized.findings.len(),
-            all_occurrences
-        )
-    };
+    let counting_value = i18n.t_args(
+        "methodology-counting",
+        &[
+            (
+                "groups",
+                FluentValue::from(normalized.severity_counts.total as i64),
+            ),
+            (
+                "occurrences",
+                FluentValue::from(normalized.occurrence_counts.total as i64),
+            ),
+            ("rows", FluentValue::from(normalized.findings.len() as i64)),
+            ("all", FluentValue::from(all_occurrences as i64)),
+        ],
+    );
 
     let mut audit_facts = vec![
         (
-            key("Barrierefreiheitswert", "Accessibility score"),
+            i18n.t("methodology-fact-accessibility-score"),
             accessibility_score_value,
         ),
+        (i18n.t("methodology-fact-combined-score"), total_score_value),
+        (i18n.t("methodology-fact-counting"), counting_value),
         (
-            key("Kombinierter technischer Wert", "Combined technical score"),
-            total_score_value,
-        ),
-        (key("Zählweise", "Counting method"), counting_value),
-        (
-            key("WCAG-Level", "WCAG level"),
+            i18n.t("scope-box-wcag-level"),
             normalized.wcag_level.to_string(),
         ),
         // #653: the mode the scores belong to, and what the page offers.
         (
-            key("Darstellungsmodus", "Display mode"),
+            i18n.t("batch-cover-frame-display"),
             crate::display::audited_mode_text(normalized.execution.scope.display_mode, en),
         ),
         (
-            key("Darstellungsmodi der Seite", "Page display modes"),
+            i18n.t("methodology-fact-page-display-modes"),
             crate::display::offered_modes_text(normalized.execution.display_modes.as_ref(), en),
         ),
         (
-            key("Geprüfte Knoten", "Checked nodes"),
+            i18n.t("scope-box-checked-nodes"),
             normalized.nodes_analyzed.to_string(),
         ),
         (
-            key("Laufzeit", "Runtime"),
+            i18n.t("scope-box-runtime"),
             format!(
                 "{} {}",
                 crate::i18n::number::decimal(normalized.duration_ms as f64 / 1000.0, 1, en),
                 runtime_unit
             ),
         ),
-        (key("Aktive Module", "Active modules"), active_modules),
+        (i18n.t("batch-cover-frame-modules"), active_modules),
         (
-            key("Fehlgeschlagene Module", "Failed modules"),
+            i18n.t("methodology-fact-failed-modules"),
             if failed_modules.is_empty() {
-                key("Keine", "None")
+                i18n.t("methodology-failed-modules-none")
             } else {
                 failed_modules
             },
         ),
         (
-            key("Audit-Qualität", "Audit quality"),
+            i18n.t("methodology-fact-audit-quality"),
             // Regression: `{:?}` leaked the raw English enum variant name
             // ("Complete"/"Partial"/"Insufficient") unlocalized into
             // German reports.
             match normalized.execution.quality.status {
-                crate::audit::AuditQualityStatus::Complete => key("Vollständig", "Complete"),
-                crate::audit::AuditQualityStatus::Partial => key("Teilweise", "Partial"),
+                crate::audit::AuditQualityStatus::Complete => {
+                    i18n.t("methodology-quality-complete")
+                }
+                crate::audit::AuditQualityStatus::Partial => i18n.t("methodology-quality-partial"),
                 crate::audit::AuditQualityStatus::Insufficient => {
-                    key("Unzureichend", "Insufficient")
+                    i18n.t("methodology-quality-insufficient")
                 }
             },
         ),
         (
-            key("Audit-Hinweise", "Audit notes"),
+            i18n.t("scope-box-audit-notes"),
             normalized.audit_flags.len().to_string(),
         ),
-        (key("Vorschau", "Preview"), preview_value),
+        (i18n.t("methodology-fact-preview"), preview_value),
     ];
     // Audit exclusions (#645): never silent — selectors, matches (also
     // zero) and what was dropped.
@@ -346,257 +297,113 @@ pub(super) fn build_methodology(
 }
 
 fn build_confidence_summary(locale: &str, normalized: &NormalizedReport) -> Vec<(String, String)> {
-    let en = locale == "en";
+    let t = |key: &str| crate::i18n::text(key, locale == "en");
     let base_confidence = if normalized.nodes_analyzed >= 2_000 {
-        if en {
-            "High"
-        } else {
-            "Hoch"
-        }
+        "methodology-confidence-high"
     } else if normalized.nodes_analyzed >= 500 {
-        if en {
-            "Solid"
-        } else {
-            "Solide"
-        }
-    } else if en {
-        "Limited"
+        "methodology-confidence-solid"
     } else {
-        "Begrenzt"
+        "methodology-confidence-limited"
     };
     let caveat_level = if normalized.audit_flags.is_empty() {
-        if en {
-            "No automatically detected conflict signals"
-        } else {
-            "Keine automatisiert erkannten Konfliktsignale"
-        }
+        "methodology-signals-none"
     } else if normalized.audit_flags.len() == 1 {
-        if en {
-            "1 caveat signal"
-        } else {
-            "1 Hinweissignal"
-        }
-    } else if en {
-        "Multiple caveat signals"
+        "methodology-signals-one"
     } else {
-        "Mehrere Hinweissignale"
+        "methodology-signals-multiple"
     };
     let module_coverage = if normalized.module_scores.len() >= 5 {
-        if en {
-            "Broad"
-        } else {
-            "Breit"
-        }
+        "methodology-coverage-broad"
     } else if normalized.module_scores.len() >= 3 {
-        if en {
-            "Extended"
-        } else {
-            "Erweitert"
-        }
-    } else if en {
-        "Core checks"
+        "methodology-coverage-extended"
     } else {
-        "Kern-Checks"
-    };
-
-    let (label_trust, label_coverage, label_signals, label_manual, val_manual) = if en {
-        (
-            "Audit confidence",
-            "Module coverage",
-            "Conflict signals",
-            "Manual review needed",
-            "Yes, for semantic quality and usage context",
-        )
-    } else {
-        (
-            "Audit-Vertrauen",
-            "Modul-Abdeckung",
-            "Konfliktsignale",
-            "Manuelle Prüfung nötig",
-            "Ja, für semantische Qualität und Nutzungskontext",
-        )
+        "methodology-coverage-core"
     };
 
     vec![
-        (label_trust.to_string(), base_confidence.to_string()),
-        (label_coverage.to_string(), module_coverage.to_string()),
-        (label_signals.to_string(), caveat_level.to_string()),
-        (label_manual.to_string(), val_manual.to_string()),
+        (t("methodology-label-confidence"), t(base_confidence)),
+        (t("methodology-label-coverage"), t(module_coverage)),
+        (t("methodology-label-signals"), t(caveat_level)),
+        (
+            t("methodology-label-manual"),
+            t("methodology-manual-review"),
+        ),
     ]
 }
 
 fn build_capability_matrix(locale: &str, normalized: &NormalizedReport) -> Vec<CapabilitySignal> {
     let en = locale == "en";
-    let confidence_high = if en { "High" } else { "Hoch" };
-    let confidence_solid = if en { "Solid" } else { "Solide" };
-    let confidence_off = if en { "Not active" } else { "Nicht aktiv" };
+    let t = |key: &str| crate::i18n::text(key, en);
+    let has_module = |name: &str| normalized.module_scores.iter().any(|m| m.name == name);
+    let confidence_high = t("methodology-confidence-high");
+    let confidence_solid = t("methodology-confidence-solid");
+    let confidence_off = t("methodology-confidence-off");
 
     let mut capabilities = vec![
         CapabilitySignal {
-            signal: if en {
-                "WCAG rules & occurrences".into()
-            } else {
-                "WCAG-Regeln & Vorkommen".into()
-            },
-            source: if en {
-                "Accessibility tree + rule engine".into()
-            } else {
-                "Accessibility Tree + Regelengine".into()
-            },
+            signal: t("methodology-capability-wcag"),
+            source: t("methodology-capability-wcag-source"),
             confidence: if normalized.nodes_analyzed >= 500 {
-                confidence_high.to_string()
+                confidence_high.clone()
             } else {
-                confidence_solid.to_string()
+                confidence_solid.clone()
             },
             surfaces: vec!["CLI".into(), "JSON".into(), "PDF".into(), "Studio".into()],
-            note: if en {
-                "Primary audit truth for automatically detectable violations.".to_string()
-            } else {
-                "Primäre Audit-Wahrheit für automatisiert erkennbare Verstöße.".to_string()
-            },
+            note: t("methodology-capability-wcag-note"),
         },
         CapabilitySignal {
-            signal: if en {
-                "Web vitals & loading indicators".into()
+            signal: t("methodology-capability-performance"),
+            source: t("methodology-capability-performance-source"),
+            confidence: if has_module("Performance") {
+                confidence_high.clone()
             } else {
-                "Web Vitals & Ladeindikatoren".into()
-            },
-            source: if en {
-                "Performance module".into()
-            } else {
-                "Performance-Modul".into()
-            },
-            confidence: if normalized
-                .module_scores
-                .iter()
-                .any(|m| m.name == "Performance")
-            {
-                confidence_high.to_string()
-            } else {
-                confidence_off.to_string()
+                confidence_off.clone()
             },
             surfaces: vec!["CLI".into(), "JSON".into(), "PDF".into()],
-            note: if en {
-                "FCP, CLS and TTFB are reflected in facts and module sections.".to_string()
-            } else {
-                "FCP, CLS und TTFB werden in Facts und Modulkapiteln gespiegelt.".to_string()
-            },
+            note: t("methodology-capability-performance-note"),
         },
         CapabilitySignal {
-            signal: if en {
-                "SEO structure & schema".into()
+            signal: t("methodology-capability-seo"),
+            source: t("methodology-capability-seo-source"),
+            confidence: if has_module("SEO") {
+                confidence_solid.clone()
             } else {
-                "SEO-Struktur & Schema".into()
-            },
-            source: if en {
-                "SEO module".into()
-            } else {
-                "SEO-Modul".into()
-            },
-            confidence: if normalized.module_scores.iter().any(|m| m.name == "SEO") {
-                confidence_solid.to_string()
-            } else {
-                confidence_off.to_string()
+                confidence_off.clone()
             },
             surfaces: vec!["CLI".into(), "JSON".into(), "PDF".into()],
-            note: if en {
-                "Meta, heading and schema signals are condensed into a report-ready form."
-                    .to_string()
-            } else {
-                "Meta-, Heading- und Schema-Signale sind reportfähig verdichtet.".to_string()
-            },
+            note: t("methodology-capability-seo-note"),
         },
         CapabilitySignal {
-            signal: if en {
-                "Security headers & HTTPS".into()
+            signal: t("methodology-capability-security"),
+            source: t("methodology-capability-security-source"),
+            confidence: if has_module("Security") {
+                confidence_high
             } else {
-                "Security Header & HTTPS".into()
-            },
-            source: if en {
-                "Security module".into()
-            } else {
-                "Security-Modul".into()
-            },
-            confidence: if normalized
-                .module_scores
-                .iter()
-                .any(|m| m.name == "Security")
-            {
-                confidence_high.to_string()
-            } else {
-                confidence_off.to_string()
+                confidence_off
             },
             surfaces: vec!["CLI".into(), "JSON".into(), "PDF".into()],
-            note: if en {
-                "Header presence and HTTPS status remain visible as raw signal.".to_string()
-            } else {
-                "Header-Präsenz und HTTPS-Status bleiben als Rohsignal sichtbar.".to_string()
-            },
+            note: t("methodology-capability-security-note"),
         },
         CapabilitySignal {
-            signal: if en {
-                "Mobile, UX, journey".into()
-            } else {
-                "Mobile, UX, Journey".into()
-            },
-            source: if en {
-                "Heuristic modules".into()
-            } else {
-                "Heuristik-Module".into()
-            },
-            confidence: if en {
-                "Indicator-based".into()
-            } else {
-                "Hinweisbasiert".into()
-            },
+            signal: t("methodology-capability-heuristic"),
+            source: t("methodology-capability-heuristic-source"),
+            confidence: t("methodology-capability-heuristic-confidence"),
             surfaces: vec!["CLI".into(), "JSON".into(), "PDF".into(), "Studio".into()],
-            note: if en {
-                "Useful for prioritization, not the sole UX truth.".to_string()
-            } else {
-                "Zur Priorisierung geeignet, nicht als alleinige UX-Gesamtwahrheit.".to_string()
-            },
+            note: t("methodology-capability-heuristic-note"),
         },
     ];
 
     if !normalized.audit_flags.is_empty() {
         capabilities.push(CapabilitySignal {
-            signal: if en {
-                "Audit conflict signals".into()
-            } else {
-                "Audit-Konfliktsignale".into()
-            },
-            source: if en {
-                "Normalization / cross-checks".into()
-            } else {
-                "Normalisierung / Cross-Checks".into()
-            },
-            confidence: if en {
-                "Explicitly flagged".into()
-            } else {
-                "Explizit markiert".into()
-            },
+            signal: t("methodology-capability-flags"),
+            source: t("methodology-capability-flags-source"),
+            confidence: t("methodology-capability-flags-confidence"),
             surfaces: vec!["JSON".into(), "PDF".into()],
-            note: if en {
-                format!(
-                    "{} conflict {} surfaced openly rather than hidden in the score.",
-                    normalized.audit_flags.len(),
-                    if normalized.audit_flags.len() == 1 {
-                        "signal is"
-                    } else {
-                        "signals are"
-                    }
-                )
-            } else {
-                format!(
-                    "{} {} offen ausgewiesen statt im Score versteckt.",
-                    normalized.audit_flags.len(),
-                    if normalized.audit_flags.len() == 1 {
-                        "Konfliktsignal wird"
-                    } else {
-                        "Konfliktsignale werden"
-                    }
-                )
-            },
+            note: crate::i18n::count_text(
+                "methodology-capability-flags-note",
+                normalized.audit_flags.len(),
+                en,
+            ),
         });
     }
 
