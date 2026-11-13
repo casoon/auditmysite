@@ -170,8 +170,12 @@ surface that owns its lifecycle:
   type, summary fallback, page attributes and the names, check labels and
   details of the signal categories, `seo-profile-*`; which check and detail
   applies stays in Rust, language-neutral names such as `Meta-Tags` and
-  `HTTPS` are written there) and the SERP status labels
-  (`seo::serp::SerpSignalStatus::label`, `seo-serp-status-*`), the
+  `HTTPS` are written there), the SERP status labels
+  (`seo::serp::SerpSignalStatus::label`, `seo-serp-status-*`) and signal
+  texts (`seo::serp::build_serp_analysis`: the category, label and detail of
+  each signal, `seo-serp-*`; which signal and detail applies stays in Rust,
+  language-neutral names such as `Description`, `Canonical` and `Favicon` are
+  written there), the
   structured-data fit labels (`seo::schema_fit::SchemaPageKind::label`,
   `SchemaFitAssessment::fit_text`, `seo-schema-fit-*`) and the content-parity
   texts (`seo::schema_parity::ContentParityAssessment::status_text`/
