@@ -1,11 +1,16 @@
 use crate::audit::normalized::{NormalizedReport, SeverityCounts};
+use crate::i18n::{text, text_args};
 use crate::output::report_model::{
     CriticalityTier, DiagnosisBlock, FindingCluster, FindingCriticalityGroup, FindingGroup,
     FindingSeverityTier, FindingSummary,
 };
+use crate::wcag::Severity;
+use fluent_bundle::FluentValue;
 
 #[cfg(test)]
 mod text_export;
+#[cfg(test)]
+mod text_guard;
 
 pub(super) fn build_finding_summary(
     locale: &str,
@@ -18,29 +23,17 @@ pub(super) fn build_finding_summary(
         .iter()
         .map(|c| format!("{}: {}", c.dimensions, c.description))
         .collect();
-    let issue_pattern_label = match &audit_summary.issue_pattern {
-        crate::audit::summary::IssuePattern::Minimal => {
-            if en { "No findings" } else { "Keine Befunde" }.into()
-        }
-        crate::audit::summary::IssuePattern::SingleDominant => if en {
-            "Single dominant issue"
-        } else {
-            "Einzelnes dominantes Problem"
-        }
-        .into(),
-        crate::audit::summary::IssuePattern::Clustered => if en {
-            "Clustered problems"
-        } else {
-            "Geclusterte Probleme"
-        }
-        .into(),
-        crate::audit::summary::IssuePattern::Scattered => if en {
-            "Scattered issues"
-        } else {
-            "Verteilte Einzelprobleme"
-        }
-        .into(),
-    };
+    let issue_pattern_label = text(
+        match &audit_summary.issue_pattern {
+            crate::audit::summary::IssuePattern::Minimal => "diagnosis-pattern-minimal",
+            crate::audit::summary::IssuePattern::SingleDominant => {
+                "diagnosis-pattern-single-dominant"
+            }
+            crate::audit::summary::IssuePattern::Clustered => "diagnosis-pattern-clustered",
+            crate::audit::summary::IssuePattern::Scattered => "diagnosis-pattern-scattered",
+        },
+        en,
+    );
     FindingSummary {
         total: counts.total,
         critical: counts.critical,
@@ -58,17 +51,15 @@ pub(super) fn build_severity_tiers(
     locale: &str,
     findings: &[FindingGroup],
 ) -> Vec<FindingSeverityTier> {
-    use crate::wcag::Severity;
-
     let en = locale == "en";
     [
-        (Severity::Critical, if en { "Critical" } else { "Kritisch" }),
-        (Severity::High, if en { "High" } else { "Hoch" }),
-        (Severity::Medium, if en { "Medium" } else { "Mittel" }),
-        (Severity::Low, if en { "Low" } else { "Niedrig" }),
+        Severity::Critical,
+        Severity::High,
+        Severity::Medium,
+        Severity::Low,
     ]
     .iter()
-    .filter_map(|(sev, label)| {
+    .filter_map(|sev| {
         let tier_findings: Vec<FindingGroup> = findings
             .iter()
             .filter(|f| f.finding.severity == *sev)
@@ -83,7 +74,7 @@ pub(super) fn build_severity_tiers(
             .sum();
         Some(FindingSeverityTier {
             severity: *sev,
-            label: (*label).to_string(),
+            label: severity_label(*sev, en),
             findings: tier_findings,
             total_occurrences,
         })
@@ -110,44 +101,27 @@ pub(super) fn build_criticality_groups(
             }
             let by_severity = build_severity_tiers(locale, &tier_findings);
             let total_findings = tier_findings.len();
-            let total_occurrences = tier_findings.iter().map(|f| f.finding.occurrence_count).sum();
+            let total_occurrences = tier_findings
+                .iter()
+                .map(|f| f.finding.occurrence_count)
+                .sum();
             let (label, eyebrow, intro) = match tier {
-                CriticalityTier::Mandatory => {
-                    if en {
-                        (
-                            "Legally relevant barriers (WCAG A/AA)".to_string(),
-                            "SECTION 1 · WCAG COMPLIANCE".to_string(),
-                            "Accessibility issues under WCAG Level A/AA. Remediating these issues is recommended for compliance with legal standards (like BFSG).".to_string(),
-                        )
-                    } else {
-                        (
-                            "Gesetzlich relevante Barrieren (WCAG A/AA)".to_string(),
-                            "BEREICH 1 · WCAG-KONFORMITÄT".to_string(),
-                            "Barrierefreiheits-Verstöße nach WCAG Level A/AA. Diese Befunde beschreiben Barrieren, deren Behebung für die Erfüllung gesetzlicher Vorgaben (wie dem BFSG) empfohlen ist.".to_string(),
-                        )
-                    }
-                }
-                CriticalityTier::Optimization => {
-                    if en {
-                        (
-                            "Additional quality & SEO recommendations".to_string(),
-                            "SECTION 2 · OPTIMIZATION".to_string(),
-                            "SEO, AI visibility, UX signals and further quality benchmarks. These improve findability and user experience.".to_string(),
-                        )
-                    } else {
-                        (
-                            "Ergänzende Qualitäts- & SEO-Empfehlungen".to_string(),
-                            "BEREICH 2 · OPTIMIERUNG".to_string(),
-                            "Suchmaschinenoptimierung (SEO), KI-Sichtbarkeit, UX-Signale und weitere Qualitätskriterien. Diese verbessern die Auffindbarkeit und das allgemeine Nutzererlebnis.".to_string(),
-                        )
-                    }
-                }
+                CriticalityTier::Mandatory => (
+                    "diagnosis-tier-mandatory",
+                    "diagnosis-tier-mandatory-eyebrow",
+                    "diagnosis-tier-mandatory-intro",
+                ),
+                CriticalityTier::Optimization => (
+                    "diagnosis-tier-optimization",
+                    "diagnosis-tier-optimization-eyebrow",
+                    "diagnosis-tier-optimization-intro",
+                ),
             };
             Some(FindingCriticalityGroup {
                 tier: *tier,
-                label,
-                eyebrow,
-                intro,
+                label: text(label, en),
+                eyebrow: text(eyebrow, en),
+                intro: text(intro, en),
                 by_severity,
                 total_findings,
                 total_occurrences,
@@ -182,20 +156,12 @@ pub(super) fn build_thematic_clusters(
                 .unwrap_or(crate::wcag::Severity::Low);
             let occurrence_total: usize = groups.iter().map(|g| g.finding.occurrence_count).sum();
             let label = dimension_cluster_label(en, &dimension, groups.len());
-            let severity_label = match worst_severity {
-                crate::wcag::Severity::Critical => {
-                    if en { "Critical" } else { "Kritisch" }.to_string()
-                }
-                crate::wcag::Severity::High => if en { "High" } else { "Hoch" }.to_string(),
-                crate::wcag::Severity::Medium => if en { "Medium" } else { "Mittel" }.to_string(),
-                crate::wcag::Severity::Low => if en { "Low" } else { "Niedrig" }.to_string(),
-            };
             FindingCluster {
                 label,
                 dimension: dimension.clone(),
                 finding_count: groups.len(),
                 occurrence_total,
-                severity_label,
+                severity_label: severity_label(worst_severity, en),
                 finding_titles: groups.iter().map(|g| g.title.clone()).collect(),
             }
         })
@@ -217,46 +183,39 @@ pub(super) fn category_name(dimension: &str, en: bool) -> String {
     }
 }
 
+/// A severity in the run language.
+fn severity_label(severity: Severity, en: bool) -> String {
+    text(
+        match severity {
+            Severity::Critical => "severity-critical",
+            Severity::High => "severity-high",
+            Severity::Medium => "severity-medium",
+            Severity::Low => "severity-low",
+        },
+        en,
+    )
+}
+
 fn dimension_cluster_label(en: bool, dimension: &str, count: usize) -> String {
-    let count_label = crate::i18n::count_text("count-findings", count, en);
-    match dimension {
-        "Accessibility" => {
-            if en {
-                format!("Accessibility barriers ({count_label})")
-            } else {
-                format!("Barrierefreiheits-Barrieren ({count_label})")
-            }
+    let findings = FluentValue::from(crate::i18n::count_text("count-findings", count, en));
+    let key = match dimension {
+        "Accessibility" => "diagnosis-cluster-accessibility",
+        "SEO" => "diagnosis-cluster-seo",
+        "Performance" => "diagnosis-cluster-performance",
+        "Security" => "diagnosis-cluster-security",
+        "Mobile" => "diagnosis-cluster-mobile",
+        other => {
+            return text_args(
+                "diagnosis-cluster-other",
+                &[
+                    ("category", FluentValue::from(category_name(other, en))),
+                    ("findings", findings),
+                ],
+                en,
+            )
         }
-        "SEO" => {
-            if en {
-                format!("SEO issues ({count_label})")
-            } else {
-                format!("SEO-Probleme ({count_label})")
-            }
-        }
-        "Performance" => {
-            if en {
-                format!("Performance issues ({count_label})")
-            } else {
-                format!("Performance-Probleme ({count_label})")
-            }
-        }
-        "Security" => {
-            if en {
-                format!("Security gaps ({count_label})")
-            } else {
-                format!("Sicherheitslücken ({count_label})")
-            }
-        }
-        "Mobile" => {
-            if en {
-                format!("Mobile issues ({count_label})")
-            } else {
-                format!("Mobile-Probleme ({count_label})")
-            }
-        }
-        other => format!("{} ({count_label})", category_name(other, en)),
-    }
+    };
+    text_args(key, &[("findings", findings)], en)
 }
 
 pub(super) fn build_diagnosis_block(
@@ -267,66 +226,28 @@ pub(super) fn build_diagnosis_block(
     use std::collections::BTreeMap;
     let en = locale == "en";
 
-    let section_title = if en {
-        "System diagnosis".to_string()
-    } else {
-        "Systemdiagnose".to_string()
-    };
+    let section_title = text("diagnosis-section-title", en);
 
     let (pattern_label, pattern_description) = match &audit_summary.issue_pattern {
         crate::audit::summary::IssuePattern::Minimal => (
-            if en { "No findings" } else { "Keine Befunde" }.to_string(),
-            if en {
-                "No measurable accessibility barriers detected."
-            } else {
-                "Keine messbaren Barrierefreiheits-Barrieren erkannt."
-            }
-            .to_string(),
+            "diagnosis-pattern-minimal",
+            "diagnosis-pattern-minimal-description",
         ),
         crate::audit::summary::IssuePattern::SingleDominant => (
-            if en {
-                "Single dominant problem"
-            } else {
-                "Einzelnes dominantes Problem"
-            }
-            .to_string(),
-            if en {
-                "One rule type accounts for the majority of all critical/high findings. \
-                 Fixing this one root cause will have the largest single impact."
-            } else {
-                "Ein Regeltyp verursacht den Großteil aller kritischen/hohen Findings. \
-                 Die Behebung dieser einen Ursache hat den größten Einzeleffekt."
-            }
-            .to_string(),
+            "diagnosis-pattern-single-dominant-problem",
+            "diagnosis-pattern-single-dominant-description",
         ),
         crate::audit::summary::IssuePattern::Clustered => (
-            if en { "Clustered problems" } else { "Geclusterte Probleme" }.to_string(),
-            if en {
-                "Issues are grouped in related problem areas. \
-                 Addressing one cluster reduces several findings at once."
-            } else {
-                "Probleme konzentrieren sich in zusammenhängenden Bereichen. \
-                 Die Behebung eines Clusters reduziert mehrere Findings gleichzeitig."
-            }
-            .to_string(),
+            "diagnosis-pattern-clustered",
+            "diagnosis-pattern-clustered-description",
         ),
         crate::audit::summary::IssuePattern::Scattered => (
-            if en {
-                "Distributed individual issues"
-            } else {
-                "Verteilte Einzelprobleme"
-            }
-            .to_string(),
-            if en {
-                "Issues are spread across many independent rules. \
-                 No single root cause dominates — each finding requires individual attention."
-            } else {
-                "Probleme verteilen sich über viele unabhängige Regeln. \
-                 Keine einzelne Ursache dominiert — jedes Finding erfordert individuelle Aufmerksamkeit."
-            }
-            .to_string(),
+            "diagnosis-pattern-distributed",
+            "diagnosis-pattern-scattered-description",
         ),
     };
+    let pattern_label = text(pattern_label, en);
+    let pattern_description = text(pattern_description, en);
 
     let mut dim_map: BTreeMap<String, (usize, crate::wcag::Severity)> = BTreeMap::new();
     for f in &normalized.findings {
@@ -341,17 +262,7 @@ pub(super) fn build_diagnosis_block(
     }
     let mut category_breakdown: Vec<(String, usize, String)> = dim_map
         .into_iter()
-        .map(|(dim, (count, sev))| {
-            let sev_label = match sev {
-                crate::wcag::Severity::Critical => {
-                    if en { "Critical" } else { "Kritisch" }.to_string()
-                }
-                crate::wcag::Severity::High => if en { "High" } else { "Hoch" }.to_string(),
-                crate::wcag::Severity::Medium => if en { "Medium" } else { "Mittel" }.to_string(),
-                crate::wcag::Severity::Low => if en { "Low" } else { "Niedrig" }.to_string(),
-            };
-            (category_name(&dim, en), count, sev_label)
-        })
+        .map(|(dim, (count, sev))| (category_name(&dim, en), count, severity_label(sev, en)))
         .collect();
     category_breakdown.sort_by_key(|c| std::cmp::Reverse(c.1));
 
@@ -383,16 +294,7 @@ pub(super) fn build_diagnosis_block(
                     .max()
                     .unwrap_or(crate::wcag::Severity::Low);
                 let total_occ: usize = items.iter().map(|(_, c, _)| c).sum();
-                let sev_label = match worst {
-                    crate::wcag::Severity::Critical => {
-                        if en { "Critical" } else { "Kritisch" }.to_string()
-                    }
-                    crate::wcag::Severity::High => if en { "High" } else { "Hoch" }.to_string(),
-                    crate::wcag::Severity::Medium => {
-                        if en { "Medium" } else { "Mittel" }.to_string()
-                    }
-                    crate::wcag::Severity::Low => if en { "Low" } else { "Niedrig" }.to_string(),
-                };
+                let sev_label = severity_label(worst, en);
                 FindingCluster {
                     label: dimension_cluster_label(en, &dim, items.len()),
                     dimension: dim.clone(),

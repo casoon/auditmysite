@@ -240,6 +240,17 @@ surface that owns its lifecycle:
   labels. The builder keeps the rating bands, which message applies and how
   lists and values are joined; the labels "Description", "Schema.org content
   type" and "Language" are `pdf-seo-*` messages of `report.ftl`.
+- `locales/{de,en}/diagnosis.ftl`: the texts of the single report's findings
+  overview and system diagnosis (`output::builder::single::diagnosis`:
+  issue-pattern labels and descriptions, the criticality-tier labels, eyebrows
+  and intros and the thematic-cluster labels, `diagnosis-*`) and the
+  dominant-issue spotlight of the PDF diagnosis section
+  (`output::pdf::diagnosis`). The builders keep which message applies to an
+  issue pattern, a tier and a finding category; the severity labels
+  (`severity-*`), the finding count (`count-findings`), the module names of
+  other categories (`module-*`) and the table headings (`diagnosis-col-*`,
+  `diagnosis-table-*`, `diagnosis-clusters-note`) are reused `report.ftl`
+  messages.
 - `src/output/explanations.rs`: the explanation table itself: which entries
   exist, owner role, effort, and the code examples (canonical English), plus
   `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are

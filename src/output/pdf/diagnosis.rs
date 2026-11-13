@@ -1,6 +1,5 @@
 //! Diagnosis section and scope helpers for PDF reports.
 
-use crate::output::localized::is_english;
 use renderreport::components::text::Label;
 use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
@@ -10,14 +9,14 @@ use crate::output::report_model::*;
 
 #[cfg(test)]
 mod text_export;
+#[cfg(test)]
+mod text_guard;
 
 pub(super) fn render_diagnosis_section(
     mut builder: renderreport::engine::ReportBuilder,
     diagnosis: &DiagnosisBlock,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
-
     builder = builder.add_component(Section::new(&diagnosis.section_title).with_level(2));
 
     // Pattern overview — render as clean Label
@@ -31,22 +30,11 @@ pub(super) fn render_diagnosis_section(
 
     // Dominant issue spotlight
     if let Some(ref dominant) = diagnosis.dominant_issue {
-        let spotlight_title = if en {
-            "Single dominant issue"
-        } else {
-            "Einzelnes dominantes Problem"
-        };
-        let spotlight_body = if en {
-            format!(
-                "\"{}\" accounts for the majority of critical/high findings.",
-                dominant
-            )
-        } else {
-            format!(
-                "\"{}\" verursacht den Großteil der kritischen/hohen Findings.",
-                dominant
-            )
-        };
+        let spotlight_title = i18n.t("diagnosis-pattern-single-dominant");
+        let spotlight_body = i18n.t_args(
+            "diagnosis-dominant-spotlight",
+            &[("issue", dominant.as_str())],
+        );
         let spotlight_text = format!("{}: {}", spotlight_title, spotlight_body);
         builder = builder.add_component(
             Label::new(&spotlight_text)
