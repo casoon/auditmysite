@@ -27,6 +27,8 @@ mod performance;
 mod platform;
 mod privacy;
 mod seo;
+#[cfg(test)]
+pub(super) mod text_export;
 
 #[cfg(test)]
 pub(super) use accessibility::effective_bfsg_verdict;

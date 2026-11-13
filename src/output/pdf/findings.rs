@@ -16,6 +16,9 @@ use super::helpers::{
     effort_label_i18n, manual_recheck_instruction, priority_label_i18n, role_label_i18n,
 };
 
+#[cfg(test)]
+mod text_export;
+
 /// Extract the first sentence from a text (up to first period + space, or full text).
 /// Skips common German abbreviations like "z. B.", "d. h.", "u. a.".
 /// Compact an HTML/selector evidence string for table cells: collapse
