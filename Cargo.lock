@@ -3600,9 +3600,9 @@ dependencies = [
 
 [[package]]
 name = "renderreport"
-version = "0.7.3"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb70880935c7f3ab8e38c027fedc020198af413e5a0d17cfee49731dd2c7f9c3"
+checksum = "61888ea3add5fbc8966d7308022b431fc400f6f6f6523d91c4d47ab865df62b2"
 dependencies = [
  "anyhow",
  "barcoders",
@@ -3612,9 +3612,11 @@ dependencies = [
  "qrcode",
  "serde",
  "serde_json",
+ "serde_path_to_error",
  "thiserror 2.0.21",
  "toml 0.8.23",
  "typst",
+ "typst-layout",
  "typst-pdf",
 ]
 
