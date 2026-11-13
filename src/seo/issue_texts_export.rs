@@ -49,7 +49,7 @@ const TEXTS: [&str; 6] = [
     "https://example.com/a-very-long-path/that-keeps-going/and-going/and-going/and-going/and-going/and-going/and-going/and-going/file.min.js?v=1234567890",
 ];
 
-pub(super) fn technical_scenarios() -> Vec<(String, TechnicalSeo)> {
+pub(crate) fn technical_scenarios() -> Vec<(String, TechnicalSeo)> {
     let mut v = Vec::new();
 
     push(&mut v, "quiet".to_string(), Box::new(|_| {}));

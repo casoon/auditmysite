@@ -16,6 +16,9 @@ use crate::seo::interpretation::{
 use crate::seo::{ImageEfficiencyAnalysis, RobotsAudit, SeoAnalysis};
 use crate::util::truncate_url;
 
+#[cfg(test)]
+mod text_export;
+
 pub(super) fn build_seo_details(
     normalized: &AuditContext<'_>,
     i18n: &I18n,

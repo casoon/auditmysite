@@ -326,16 +326,16 @@ fn calculate_seo_score(
 }
 
 #[cfg(test)]
-mod issue_texts_export;
+pub(crate) mod issue_texts_export;
 
 #[cfg(test)]
 mod issue_texts_guard;
 
 #[cfg(test)]
-mod label_texts_export;
+pub(crate) mod label_texts_export;
 
 #[cfg(test)]
-mod profile_texts_export;
+pub(crate) mod profile_texts_export;
 
 #[cfg(test)]
 mod score_tests {
