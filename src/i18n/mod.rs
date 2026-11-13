@@ -39,10 +39,11 @@ impl I18n {
         // texts (`audit::interactive_finding`), the texts of the batch PDF's
         // consistency and management sections (`batch-consistency.ftl`),
         // the texts of the single PDF's page sections (`single-report.ftl`,
-        // `output::pdf::single_report`) and the texts of the single report's
+        // `output::pdf::single_report`), the texts of the single report's
         // methodology section (`methodology.ftl`,
-        // `output::builder::single::methodology`) are thirteen resources of
-        // the one bundle.
+        // `output::builder::single::methodology`) and the texts of the SEO
+        // module detail presentation (`seo-details.ftl`) are fourteen
+        // resources of the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -58,6 +59,7 @@ impl I18n {
                 include_str!("../../locales/en/batch-consistency.ftl"),
                 include_str!("../../locales/en/single-report.ftl"),
                 include_str!("../../locales/en/methodology.ftl"),
+                include_str!("../../locales/en/seo-details.ftl"),
             ],
             _ => [
                 include_str!("../../locales/de/report.ftl"),
@@ -73,6 +75,7 @@ impl I18n {
                 include_str!("../../locales/de/batch-consistency.ftl"),
                 include_str!("../../locales/de/single-report.ftl"),
                 include_str!("../../locales/de/methodology.ftl"),
+                include_str!("../../locales/de/seo-details.ftl"),
             ],
         };
         for ftl in sources {
@@ -322,13 +325,6 @@ mod tests {
             "3 Warnungen",
             "1 warning",
             "3 warnings",
-        ),
-        (
-            "count-h1-headings",
-            "1 H1-Überschrift",
-            "3 H1-Überschriften",
-            "1 H1 heading",
-            "3 H1 headings",
         ),
         (
             "count-link-texts-repeated",

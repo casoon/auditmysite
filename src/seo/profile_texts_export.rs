@@ -95,7 +95,7 @@ fn push(out: &mut Vec<(String, SeoAnalysis)>, label: &str, apply: Apply) {
 }
 
 /// Pages that between them reach every text path of the content profile.
-pub(super) fn profile_scenarios() -> Vec<(String, SeoAnalysis)> {
+pub(crate) fn profile_scenarios() -> Vec<(String, SeoAnalysis)> {
     let mut out = Vec::new();
     push(&mut out, "empty", Box::new(|_| {}));
 

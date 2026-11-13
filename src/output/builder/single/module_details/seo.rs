@@ -5,6 +5,7 @@ use crate::output::report_model::{
     SeoProfilePresentation, SignalDetails,
 };
 use crate::taxonomy::SeverityExt;
+use fluent_bundle::FluentValue;
 
 use super::super::super::helpers::{truncate_list, truncate_url_list, yes_no};
 use super::super::super::modules::build_tracking_summary_text;
@@ -16,6 +17,11 @@ use crate::seo::interpretation::{
 use crate::seo::{ImageEfficiencyAnalysis, RobotsAudit, SeoAnalysis};
 use crate::util::truncate_url;
 
+#[cfg(test)]
+mod text_export;
+#[cfg(test)]
+mod text_guard;
+
 pub(super) fn build_seo_details(
     normalized: &AuditContext<'_>,
     i18n: &I18n,
@@ -26,16 +32,10 @@ pub(super) fn build_seo_details(
         let seo_score = normalized_module_score(&normalized.normalized, "SEO").unwrap_or(s.score);
         let mut meta_tags = Vec::new();
         if let Some(ref title) = s.meta.title {
-            meta_tags.push((
-                if en { "Title" } else { "Titel" }.to_string(),
-                title.clone(),
-            ));
+            meta_tags.push((i18n.t("seo-details-meta-title"), title.clone()));
         }
         if let Some(ref desc) = s.meta.description {
-            meta_tags.push((
-                if en { "Description" } else { "Beschreibung" }.to_string(),
-                desc.clone(),
-            ));
+            meta_tags.push((i18n.t("pdf-seo-meta-description"), desc.clone()));
         }
         if let Some(ref viewport) = s.meta.viewport {
             meta_tags.push(("Viewport".to_string(), viewport.clone()));
@@ -48,27 +48,22 @@ pub(super) fn build_seo_details(
                 // A missing lang or page title is also an accessibility
                 // finding (WCAG 3.1.1 / 2.4.2) and costs points there too —
                 // two perspectives, stated so the overlap is visible (plan 105).
-                let base = i.localized_message(locale == "en");
+                let base = i.localized_message(en);
                 let criterion = match (i.field.as_str(), i.severity) {
                     ("lang", _) => Some("3.1.1"),
                     ("title", crate::wcag::Severity::High) => Some("2.4.2"),
                     _ => None,
                 };
                 let message = match criterion {
-                    Some(c) if locale == "en" => {
-                        format!("{} — also counted under accessibility (WCAG {c})", base)
-                    }
-                    Some(c) => format!("{} — zählt auch in der Barrierefreiheit (WCAG {c})", base),
+                    Some(c) => i18n.t_args(
+                        "seo-details-meta-also-accessibility",
+                        &[("message", base), ("criterion", c.to_string())],
+                    ),
                     // Charged by Mobile and Accessibility, listed here only.
-                    None if i.field == "viewport" && locale == "en" => format!(
-                        "{} — counted under mobile and accessibility, not in the SEO score",
-                        base
-                    ),
-                    None if i.field == "viewport" => format!(
-                        "{} — zählt bei Mobile und Barrierefreiheit, nicht im SEO-Wert",
-                        base
-                    ),
-                    None => base.clone(),
+                    None if i.field == "viewport" => {
+                        i18n.t_args("seo-details-meta-viewport-elsewhere", &[("message", base)])
+                    }
+                    None => base,
                 };
                 (i.field.clone(), i.severity, message)
             })
@@ -286,13 +281,10 @@ pub(super) fn build_seo_details(
                                 .map(|a| format!(" ({})", a))
                                 .unwrap_or_default()
                         ),
-                        SchemaExtracted::FAQPage { question_count, .. } => {
-                            if en {
-                                format!("{} questions", question_count)
-                            } else {
-                                format!("{} Fragen", question_count)
-                            }
-                        }
+                        SchemaExtracted::FAQPage { question_count, .. } => i18n.t_args(
+                            "seo-details-schema-questions",
+                            &[("count", *question_count as i64)],
+                        ),
                         SchemaExtracted::Product {
                             name,
                             price,
@@ -310,19 +302,14 @@ pub(super) fn build_seo_details(
                             name,
                             has_search_action,
                             ..
-                        } => format!(
-                            "{}{}",
-                            name.as_deref().unwrap_or(""),
+                        } => {
+                            let name = name.clone().unwrap_or_default();
                             if *has_search_action {
-                                if en {
-                                    " (search)"
-                                } else {
-                                    " (Suche)"
-                                }
+                                i18n.t_args("seo-details-schema-with-search", &[("name", name)])
                             } else {
-                                ""
+                                name
                             }
-                        ),
+                        }
                         SchemaExtracted::WebPage {
                             name,
                             author,
@@ -345,30 +332,31 @@ pub(super) fn build_seo_details(
                             address,
                             area_served_count,
                             ..
-                        } => format!(
-                            "{}{}{}",
-                            name.as_deref().unwrap_or(""),
-                            address
-                                .as_ref()
-                                .map(|a| format!(" — {}", a))
-                                .unwrap_or_default(),
+                        } => {
+                            let base = format!(
+                                "{}{}",
+                                name.as_deref().unwrap_or(""),
+                                address
+                                    .as_ref()
+                                    .map(|a| format!(" — {}", a))
+                                    .unwrap_or_default()
+                            );
                             if *area_served_count > 0 {
-                                if en {
-                                    format!(" · {} regions", area_served_count)
-                                } else {
-                                    format!(" · {} Regionen", area_served_count)
-                                }
+                                i18n.t_args(
+                                    "seo-details-schema-regions",
+                                    &[
+                                        ("base", FluentValue::from(base)),
+                                        ("count", FluentValue::from(*area_served_count as i64)),
+                                    ],
+                                )
                             } else {
-                                String::new()
-                            }
-                        ),
-                        SchemaExtracted::BreadcrumbList { item_count } => {
-                            if en {
-                                format!("{} levels", item_count)
-                            } else {
-                                format!("{} Ebenen", item_count)
+                                base
                             }
                         }
+                        SchemaExtracted::BreadcrumbList { item_count } => i18n.t_args(
+                            "seo-details-schema-levels",
+                            &[("count", *item_count as i64)],
+                        ),
                         SchemaExtracted::Generic { key_fields } => key_fields
                             .first()
                             .map(|(k, v)| format!("{}: {}", k, v))
@@ -387,24 +375,19 @@ pub(super) fn build_seo_details(
                 .categories
                 .iter()
                 .map(|cat| {
-                    let rating = match (cat.pct(), en) {
-                        (90..=100, true) => "Excellent",
-                        (67..=89, true) => "Good",
-                        (34..=66, true) => "Partial",
-                        (1..=33, true) => "Minimal",
-                        (_, true) => "Missing",
-                        (90..=100, false) => "Sehr gut",
-                        (67..=89, false) => "Gut",
-                        (34..=66, false) => "Teilweise",
-                        (1..=33, false) => "Minimal",
-                        (_, false) => "Fehlt",
+                    let rating = match cat.pct() {
+                        90..=100 => "seo-details-signal-excellent",
+                        67..=89 => "seo-details-signal-good",
+                        34..=66 => "seo-details-signal-partial",
+                        1..=33 => "seo-details-signal-minimal",
+                        _ => "seo-details-signal-missing",
                     };
                     (
                         cat.name.clone(),
                         // Counts, not a percentage: the denominator is the
                         // point (plan 29, D4).
                         format!("{} / {}", cat.passed, cat.total),
-                        rating.to_string(),
+                        i18n.t(rating),
                     )
                 })
                 .collect();
@@ -445,36 +428,27 @@ pub(super) fn build_seo_details(
                 category_hints: cp.content_identity.category_hints.clone(),
                 identity_facts: vec![
                     (
-                        if en { "Page title" } else { "Seitentitel" }.to_string(),
+                        i18n.t("seo-details-identity-page-title"),
                         cp.content_identity
                             .site_name
                             .clone()
                             .unwrap_or_else(|| "—".to_string()),
                     ),
                     (
-                        if en {
-                            "Schema.org content type"
-                        } else {
-                            "Schema.org-Inhaltstyp"
-                        }
-                        .to_string(),
+                        i18n.t("pdf-seo-profile-content-type"),
                         cp.content_identity.content_type.clone(),
                     ),
                     (
-                        if en { "Language" } else { "Sprache" }.to_string(),
+                        i18n.t("pdf-seo-profile-language"),
                         cp.content_identity
                             .language
                             .clone()
                             .unwrap_or_else(|| "—".to_string()),
                     ),
                     (
-                        if en { "Topic hints" } else { "Themenhinweise" }.to_string(),
+                        i18n.t("seo-details-identity-topic-hints"),
                         if cp.content_identity.category_hints.is_empty() {
-                            if en {
-                                "No clear topic hints detected".to_string()
-                            } else {
-                                "Keine klaren Themenhinweise erkannt".to_string()
-                            }
+                            i18n.t("seo-details-identity-no-topic-hints")
                         } else {
                             cp.content_identity.category_hints.join(", ")
                         },
@@ -490,27 +464,23 @@ pub(super) fn build_seo_details(
                 optimization_note: page_profile_optimization_note_text(cp, en),
                 page_profile_facts: vec![
                     (
-                        if en { "SEO page type" } else { "SEO-Seitentyp" }.to_string(),
+                        i18n.t("seo-details-profile-page-type"),
                         cp.page_classification.primary_type.label(en).to_string(),
                     ),
                     (
-                        if en { "Characteristics" } else { "Merkmale" }.to_string(),
+                        i18n.t("seo-details-profile-characteristics"),
                         if cp.page_classification.attributes.is_empty() {
-                            if en {
-                                "No defining characteristics detected".to_string()
-                            } else {
-                                "Keine prägenden Merkmale erkannt".to_string()
-                            }
+                            i18n.t("seo-details-profile-no-characteristics")
                         } else {
                             format!("{}.", cp.page_classification.attributes.join(", "))
                         },
                     ),
                     (
-                        if en { "Classification" } else { "Einordnung" }.to_string(),
+                        i18n.t("seo-details-profile-classification"),
                         page_profile_summary_text(cp, en),
                     ),
                     (
-                        if en { "Recommendation" } else { "Empfehlung" }.to_string(),
+                        i18n.t("seo-details-profile-recommendation"),
                         page_profile_optimization_note_text(cp, en),
                     ),
                 ],
@@ -543,10 +513,10 @@ pub(super) fn build_seo_details(
             interpretation: seo_interpretation_text(s, en),
             meta_tags,
             meta_issues,
-            heading_summary: heading_summary(s, en),
-            social_summary: social_summary(s, en),
-            technical_summary: technical_summary_rows(s, locale, en),
-            tracking_summary: tracking_summary_rows(normalized, s, en),
+            heading_summary: heading_summary(s, i18n),
+            social_summary: social_summary(s, i18n),
+            technical_summary: technical_summary_rows(s, i18n),
+            tracking_summary: tracking_summary_rows(normalized, s, i18n),
             tracking_summary_text: build_tracking_summary_text(i18n, &s.technical),
             profile,
             page_health: s
@@ -573,59 +543,46 @@ pub(super) fn build_seo_details(
     })
 }
 
-fn heading_summary(s: &SeoAnalysis, en: bool) -> String {
-    if en {
-        format!(
-            "{} H1 heading(s), {} headings total, {} issues",
-            s.headings.h1_count,
-            s.headings.total_count,
-            s.headings.issues.len()
-        )
-    } else {
-        format!(
-            "{}, {} Überschriften gesamt, {} Probleme",
-            crate::i18n::count_text("count-h1-headings", s.headings.h1_count, false),
-            s.headings.total_count,
-            s.headings.issues.len()
-        )
-    }
+fn heading_summary(s: &SeoAnalysis, i18n: &I18n) -> String {
+    i18n.t_args(
+        "seo-details-heading-summary",
+        &[
+            ("h1", s.headings.h1_count as i64),
+            ("total", s.headings.total_count as i64),
+            ("issues", s.headings.issues.len() as i64),
+        ],
+    )
 }
 
-fn social_summary(s: &SeoAnalysis, en: bool) -> String {
-    if en {
-        format!(
-            "Open Graph: {}, Twitter Card: {}, Completeness: {}%",
-            if s.social.open_graph.is_some() {
-                "present"
-            } else {
-                "missing"
-            },
-            if s.social.twitter_card.is_some() {
-                "present"
-            } else {
-                "missing"
-            },
-            s.social.completeness
-        )
-    } else {
-        format!(
-            "Open Graph: {}, Twitter Card: {}, Vollständigkeit: {}%",
-            if s.social.open_graph.is_some() {
-                "vorhanden"
-            } else {
-                "fehlt"
-            },
-            if s.social.twitter_card.is_some() {
-                "vorhanden"
-            } else {
-                "fehlt"
-            },
-            s.social.completeness
-        )
-    }
+fn social_summary(s: &SeoAnalysis, i18n: &I18n) -> String {
+    let presence = |present: bool| {
+        i18n.t(if present {
+            "seo-profile-detail-present"
+        } else {
+            "seo-profile-detail-missing"
+        })
+    };
+    i18n.t_args(
+        "seo-details-social-summary",
+        &[
+            (
+                "og",
+                FluentValue::from(presence(s.social.open_graph.is_some())),
+            ),
+            (
+                "twitter",
+                FluentValue::from(presence(s.social.twitter_card.is_some())),
+            ),
+            (
+                "completeness",
+                FluentValue::from(i64::from(s.social.completeness)),
+            ),
+        ],
+    )
 }
 
-fn technical_summary_rows(s: &SeoAnalysis, locale: &str, en: bool) -> Vec<(String, String)> {
+fn technical_summary_rows(s: &SeoAnalysis, i18n: &I18n) -> Vec<(String, String)> {
+    let locale = i18n.locale();
     vec![
         ("HTTPS".to_string(), yes_no(locale, s.technical.https)),
         (
@@ -633,67 +590,40 @@ fn technical_summary_rows(s: &SeoAnalysis, locale: &str, en: bool) -> Vec<(Strin
             yes_no(locale, s.technical.has_canonical),
         ),
         (
-            if en { "Language tag" } else { "Sprachangabe" }.to_string(),
+            i18n.t("seo-details-language-tag"),
             yes_no(locale, s.technical.has_lang),
         ),
         (
-            if en { "Word count" } else { "Wortanzahl" }.to_string(),
+            i18n.t("seo-details-word-count"),
             s.technical.word_count.to_string(),
         ),
         (
-            if en {
-                "Internal links"
-            } else {
-                "Interne Links"
-            }
-            .to_string(),
+            i18n.t("seo-details-internal-links"),
             s.technical.internal_links.to_string(),
         ),
         (
-            if en {
-                "External links"
-            } else {
-                "Externe Links"
-            }
-            .to_string(),
+            i18n.t("seo-details-external-links"),
             s.technical.external_links.to_string(),
         ),
         (
-            if en {
-                "Dofollow links"
-            } else {
-                "Dofollow-Links"
-            }
-            .to_string(),
+            i18n.t("seo-details-dofollow-links"),
             s.technical.dofollow_links.to_string(),
         ),
         (
-            if en {
-                "Nofollow links"
-            } else {
-                "Nofollow-Links"
-            }
-            .to_string(),
+            i18n.t("seo-details-nofollow-links"),
             s.technical.nofollow_links.to_string(),
         ),
         (
             "AMP".to_string(),
             if !s.technical.amp.detected {
-                if en {
-                    "Not detected".to_string()
-                } else {
-                    "Nicht erkannt".to_string()
-                }
+                i18n.t("seo-details-not-detected")
             } else if s.technical.amp.issues.is_empty() {
-                if en {
-                    "Detected, basic signals complete".to_string()
-                } else {
-                    "Erkannt, Basis-Signale vollständig".to_string()
-                }
-            } else if en {
-                format!("Detected, {} basic issue(s)", s.technical.amp.issues.len())
+                i18n.t("seo-details-amp-complete")
             } else {
-                format!("Erkannt, {} Basisproblem(e)", s.technical.amp.issues.len())
+                i18n.t_args(
+                    "seo-details-amp-issues",
+                    &[("count", s.technical.amp.issues.len() as i64)],
+                )
             },
         ),
     ]
@@ -702,41 +632,33 @@ fn technical_summary_rows(s: &SeoAnalysis, locale: &str, en: bool) -> Vec<(Strin
 fn tracking_summary_rows(
     normalized: &AuditContext<'_>,
     s: &SeoAnalysis,
-    en: bool,
+    i18n: &I18n,
 ) -> Vec<(String, String)> {
+    let categories = |summary: String| {
+        format!(
+            "; {}",
+            i18n.t_args("seo-details-categories", &[("summary", summary)])
+        )
+    };
     vec![
         (
-            if en {
-                "Google Fonts (external)"
-            } else {
-                "Google Fonts (extern)"
-            }
-            .to_string(),
+            i18n.t("seo-details-google-fonts"),
             if s.technical.uses_remote_google_fonts {
-                format!(
-                    "{} ({})",
-                    if en { "Yes" } else { "Ja" },
-                    truncate_url_list(&s.technical.google_fonts_sources, 2, 48)
+                i18n.t_args(
+                    "seo-details-google-fonts-used",
+                    &[(
+                        "sources",
+                        truncate_url_list(&s.technical.google_fonts_sources, 2, 48),
+                    )],
                 )
-            } else if en {
-                "No".to_string()
             } else {
-                "Nein".to_string()
+                i18n.t("no")
             },
         ),
         (
-            if en {
-                "Tracking cookies"
-            } else {
-                "Tracking-Cookies"
-            }
-            .to_string(),
+            i18n.t("seo-details-tracking-cookies"),
             if s.technical.tracking_cookies.is_empty() {
-                if en {
-                    "None detected".to_string()
-                } else {
-                    "Keine erkannt".to_string()
-                }
+                i18n.t("seo-details-none-detected")
             } else {
                 format!(
                     "{} ({})",
@@ -751,28 +673,10 @@ fn tracking_summary_rows(
             },
         ),
         (
-            if en {
-                "Cookie inventory"
-            } else {
-                "Cookie-Inventar"
-            }
-            .to_string(),
+            i18n.t("seo-details-cookie-inventory"),
             match s.technical.cookie_inventory.as_deref() {
-                None => {
-                    if en {
-                        "Not collected: the browser cookie jar could not be read".to_string()
-                    } else {
-                        "Nicht erhoben: Der Cookie-Speicher des Browsers war nicht lesbar"
-                            .to_string()
-                    }
-                }
-                Some([]) => {
-                    if en {
-                        "No cookies detected".to_string()
-                    } else {
-                        "Keine Cookies erkannt".to_string()
-                    }
-                }
+                None => i18n.t("seo-details-cookie-inventory-not-collected"),
+                Some([]) => i18n.t("seo-details-no-cookies"),
                 Some(cookie_inventory) => {
                     let risky = cookie_inventory
                         .iter()
@@ -783,18 +687,10 @@ fn tracking_summary_rows(
                             .iter()
                             .filter_map(|cookie| cookie.category.as_deref()),
                     )
-                    .map(|summary| {
-                        if en {
-                            format!("; categories: {summary}")
-                        } else {
-                            format!("; Kategorien: {summary}")
-                        }
-                    })
+                    .map(categories)
                     .unwrap_or_default();
-                    let summary =
-                        crate::i18n::count_text("seo-cookie-inventory", cookie_inventory.len(), en);
-                    let risky_text =
-                        crate::i18n::count_text("seo-cookie-inventory-risky", risky, en);
+                    let summary = i18n.count("seo-cookie-inventory", cookie_inventory.len());
+                    let risky_text = i18n.count("seo-cookie-inventory-risky", risky);
                     format!("{summary}, {risky_text}{category_suffix}")
                 }
             },
@@ -802,11 +698,7 @@ fn tracking_summary_rows(
         (
             "Browser Storage".to_string(),
             if s.technical.storage_items.is_empty() {
-                if en {
-                    "No keys detected".to_string()
-                } else {
-                    "Keine Keys erkannt".to_string()
-                }
+                i18n.t("seo-details-no-storage-keys")
             } else {
                 format!(
                     "{} ({}){}",
@@ -823,41 +715,21 @@ fn tracking_summary_rows(
                             .iter()
                             .filter_map(|item| item.category.as_deref()),
                     )
-                    .map(|summary| {
-                        if en {
-                            format!("; categories: {summary}")
-                        } else {
-                            format!("; Kategorien: {summary}")
-                        }
-                    })
+                    .map(categories)
                     .unwrap_or_default()
                 )
             },
         ),
         (
-            if en {
-                "Tracking signals"
-            } else {
-                "Tracking-Signale"
-            }
-            .to_string(),
+            i18n.t("seo-details-tracking-signals"),
             if s.technical.tracking_signals.is_empty() {
-                if en {
-                    "None detected".to_string()
-                } else {
-                    "Keine erkannt".to_string()
-                }
+                i18n.t("seo-details-none-detected")
             } else {
                 truncate_list(&s.technical.tracking_signals, 3)
             },
         ),
         (
-            if en {
-                "Consent cookies"
-            } else {
-                "Consent-Cookies"
-            }
-            .to_string(),
+            i18n.t("seo-details-consent-cookies"),
             normalized
                 .normalized
                 .consent_privacy
@@ -869,55 +741,29 @@ fn tracking_summary_rows(
                             .iter()
                             .filter_map(|cookie| cookie.category.as_deref()),
                     )
-                    .map(|summary| {
-                        if en {
-                            format!("; categories: {summary}")
-                        } else {
-                            format!("; Kategorien: {summary}")
-                        }
-                    })
+                    .map(categories)
                     .unwrap_or_default();
-                    if en {
-                        format!(
-                            "{} before interaction, {} after interaction, {} new{}",
-                            snapshot.before_interaction.len(),
-                            snapshot.after_interaction.len(),
-                            snapshot.added_after_interaction.len(),
-                            category_suffix
-                        )
-                    } else {
-                        format!(
-                            "{} vor Interaktion, {} nach Interaktion, {} neu{}",
-                            snapshot.before_interaction.len(),
-                            snapshot.after_interaction.len(),
-                            snapshot.added_after_interaction.len(),
-                            category_suffix
-                        )
-                    }
+                    let summary = i18n.t_args(
+                        "seo-details-consent-summary",
+                        &[
+                            ("before", snapshot.before_interaction.len() as i64),
+                            ("after", snapshot.after_interaction.len() as i64),
+                            ("added", snapshot.added_after_interaction.len() as i64),
+                        ],
+                    );
+                    format!("{summary}{category_suffix}")
                 })
-                .unwrap_or_else(|| {
-                    if en {
-                        "Not collected".to_string()
-                    } else {
-                        "Nicht erhoben".to_string()
-                    }
-                }),
+                .unwrap_or_else(|| i18n.t("seo-details-not-collected")),
         ),
         (
             "Zaraz".to_string(),
             if s.technical.zaraz.detected {
-                if en {
-                    format!(
-                        "Detected ({})",
-                        truncate_list(&s.technical.zaraz.signals, 2)
-                    )
-                } else {
-                    format!("Erkannt ({})", truncate_list(&s.technical.zaraz.signals, 2))
-                }
-            } else if en {
-                "Not detected".to_string()
+                i18n.t_args(
+                    "seo-details-zaraz-detected",
+                    &[("signals", truncate_list(&s.technical.zaraz.signals, 2))],
+                )
             } else {
-                "Nicht erkannt".to_string()
+                i18n.t("seo-details-not-detected")
             },
         ),
     ]

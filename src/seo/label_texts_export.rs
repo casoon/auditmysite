@@ -38,7 +38,7 @@ fn group(bot_class: BotClass, blocked: bool) -> RobotsGroup {
 }
 
 /// Every combination of the flags and group kinds `infer_robots_policy` reads.
-pub(super) fn robots_audits() -> Vec<(String, RobotsAudit)> {
+pub(crate) fn robots_audits() -> Vec<(String, RobotsAudit)> {
     let mut out = Vec::new();
     for wildcard in [false, true] {
         for citation in [false, true] {
