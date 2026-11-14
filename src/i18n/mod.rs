@@ -49,13 +49,16 @@ impl I18n {
         // sections (`accessibility-details.ftl`,
         // `output::pdf::detail_modules::accessibility`), the texts of the
         // management summary's score drivers (`score-drivers.ftl`,
-        // `output::pdf::score_drivers`) and the texts of the PDF finding
+        // `output::pdf::score_drivers`), the texts of the PDF finding
         // cards and shared module detail helpers (`pdf-findings.ftl`,
-        // `output::pdf::findings`, `output::pdf::detail_modules`) and the
-        // texts of the batch PDF's journey, module, impact, commerce, EN 301 549
-        // and overview sections (`batch-report.ftl`,
-        // `output::pdf::batch_report::{interactive, portfolio, appendix,
-        // overview}`) are nineteen resources of the one bundle.
+        // `output::pdf::findings`, `output::pdf::detail_modules`), the texts
+        // of the single PDF's frame (`pdf-frame.ftl`, `output::pdf`), of the
+        // action plan block (`actions-block.ftl`,
+        // `output::builder::single::actions_block`) and of the batch PDF's
+        // journey, module, impact, commerce, EN 301 549 and overview sections
+        // (`batch-report.ftl`, `output::pdf::batch_report::{interactive,
+        // portfolio, appendix, overview}`) are twenty-one resources of the
+        // one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -76,6 +79,8 @@ impl I18n {
                 include_str!("../../locales/en/accessibility-details.ftl"),
                 include_str!("../../locales/en/score-drivers.ftl"),
                 include_str!("../../locales/en/pdf-findings.ftl"),
+                include_str!("../../locales/en/pdf-frame.ftl"),
+                include_str!("../../locales/en/actions-block.ftl"),
                 include_str!("../../locales/en/batch-report.ftl"),
             ],
             _ => [
@@ -97,6 +102,8 @@ impl I18n {
                 include_str!("../../locales/de/accessibility-details.ftl"),
                 include_str!("../../locales/de/score-drivers.ftl"),
                 include_str!("../../locales/de/pdf-findings.ftl"),
+                include_str!("../../locales/de/pdf-frame.ftl"),
+                include_str!("../../locales/de/actions-block.ftl"),
                 include_str!("../../locales/de/batch-report.ftl"),
             ],
         };
