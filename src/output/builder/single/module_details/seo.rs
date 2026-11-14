@@ -191,7 +191,7 @@ pub(super) fn build_seo_details(
                             i18n.t("pdf-seo-schema-rule-context-dependent")
                         ),
                         SchemaFeatureAvailability::General => {
-                            crate::seo::schema_rules::status_text(assessment, en).to_string()
+                            crate::seo::schema_rules::status_text(assessment, en)
                         }
                     };
                     let detail = if !assessment.missing_required.is_empty() {
@@ -235,7 +235,7 @@ pub(super) fn build_seo_details(
                                 assessment.schema_type,
                                 crate::seo::schema_rules::feature_label(assessment.feature, en)
                             ),
-                            crate::seo::schema_rules::manual_review_text(*review, en).to_string(),
+                            crate::seo::schema_rules::manual_review_text(*review, en),
                         )
                     })
                 })

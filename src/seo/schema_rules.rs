@@ -4,78 +4,82 @@
 //! `web_checks::structured_data` (web-checks 0.4), shared with astro-post-audit.
 //! This module keeps what is auditmysite's own: the report wording for
 //! features, requirement status and manual-review points (#406 — the
-//! assessment carries canonical kinds, the texts are derived here).
+//! assessment carries canonical kinds, the texts are derived here; the
+//! language-dependent ones are `seo-schema-rules-*` messages of
+//! `locales/{de,en}/seo-issues.ftl`, #936).
 
 pub use web_checks::structured_data::{
     assess_node, inventory_fields, ManualReview, ProductRuleContext, SchemaFeature,
     SchemaFeatureAvailability, SchemaRequirementStatus, SchemaRuleAssessment, RULESET_VERSION,
 };
 
-/// Display name of a rich-result feature.
-pub fn feature_label(feature: SchemaFeature, en: bool) -> &'static str {
+/// Display name of a rich-result feature. Only the breadcrumb name differs
+/// by language (`locales/{de,en}/seo-issues.ftl`); the others are
+/// language-neutral.
+pub fn feature_label(feature: SchemaFeature, en: bool) -> String {
     match feature {
-        SchemaFeature::ProductSnippet => "Product Snippet",
-        SchemaFeature::MerchantListing => "Merchant Listing",
-        SchemaFeature::Article => "Article",
-        SchemaFeature::Breadcrumb => {
-            if en {
-                "Breadcrumb"
-            } else {
-                "Breadcrumb-Navigation"
-            }
+        SchemaFeature::ProductSnippet => "Product Snippet".to_string(),
+        SchemaFeature::MerchantListing => "Merchant Listing".to_string(),
+        SchemaFeature::Article => "Article".to_string(),
+        SchemaFeature::Breadcrumb => crate::i18n::text("seo-schema-rules-feature-breadcrumb", en),
+        SchemaFeature::Organization => "Organization".to_string(),
+        SchemaFeature::LocalBusiness => "LocalBusiness".to_string(),
+        SchemaFeature::Faq => "FAQ".to_string(),
+        SchemaFeature::Event => "Event".to_string(),
+        SchemaFeature::Recipe => "Recipe".to_string(),
+        SchemaFeature::Video => "Video".to_string(),
+        SchemaFeature::JobPosting => "Job Posting".to_string(),
+        SchemaFeature::SoftwareApplication => "Software Application".to_string(),
+        SchemaFeature::ProfilePage => "Profile Page".to_string(),
+        SchemaFeature::ItemList => "Item List".to_string(),
+        SchemaFeature::WebPage => "WebPage".to_string(),
+        SchemaFeature::WebSite => "WebSite".to_string(),
+        SchemaFeature::Person => "Person".to_string(),
+    }
+}
+
+/// Requirement status of an assessment as report text
+/// (`locales/{de,en}/seo-issues.ftl`).
+pub fn status_text(assessment: &SchemaRuleAssessment, en: bool) -> String {
+    let key = match assessment.requirement_status {
+        SchemaRequirementStatus::MeetsRequiredProperties => {
+            "seo-schema-rules-status-meets-required"
         }
-        SchemaFeature::Organization => "Organization",
-        SchemaFeature::LocalBusiness => "LocalBusiness",
-        SchemaFeature::Faq => "FAQ",
-        SchemaFeature::Event => "Event",
-        SchemaFeature::Recipe => "Recipe",
-        SchemaFeature::Video => "Video",
-        SchemaFeature::JobPosting => "Job Posting",
-        SchemaFeature::SoftwareApplication => "Software Application",
-        SchemaFeature::ProfilePage => "Profile Page",
-        SchemaFeature::ItemList => "Item List",
-        SchemaFeature::WebPage => "WebPage",
-        SchemaFeature::WebSite => "WebSite",
-        SchemaFeature::Person => "Person",
-    }
+        SchemaRequirementStatus::MissingRequiredProperties => {
+            "seo-schema-rules-status-missing-required"
+        }
+        SchemaRequirementStatus::RecommendationsOnly => {
+            "seo-schema-rules-status-recommendations-only"
+        }
+        SchemaRequirementStatus::NotEvaluated => "seo-schema-rules-status-not-evaluated",
+    };
+    crate::i18n::text(key, en)
 }
 
-/// Requirement status of an assessment as report text.
-pub fn status_text(assessment: &SchemaRuleAssessment, en: bool) -> &'static str {
-    match (assessment.requirement_status, en) {
-        (SchemaRequirementStatus::MeetsRequiredProperties, true) => "Required properties met",
-        (SchemaRequirementStatus::MeetsRequiredProperties, false) => "Pflichtangaben erfüllt",
-        (SchemaRequirementStatus::MissingRequiredProperties, true) => "Required properties missing",
-        (SchemaRequirementStatus::MissingRequiredProperties, false) => "Pflichtangaben fehlen",
-        (SchemaRequirementStatus::RecommendationsOnly, true) => "No required properties",
-        (SchemaRequirementStatus::RecommendationsOnly, false) => "Keine Pflichtangaben",
-        (SchemaRequirementStatus::NotEvaluated, true) => "Context not established",
-        (SchemaRequirementStatus::NotEvaluated, false) => "Kontext nicht nachgewiesen",
-    }
-}
-
-/// A manual-review point as report text.
-pub fn manual_review_text(review: ManualReview, en: bool) -> &'static str {
-    match (review, en) {
-        (ManualReview::MerchantListingContext, true) => "Confirm that this page is a purchasable product detail page before applying merchant-listing requirements.",
-        (ManualReview::MerchantListingContext, false) => "Prüfen, ob dies eine kaufbare Produktdetailseite ist, bevor Merchant-Listing-Anforderungen angewendet werden.",
-        (ManualReview::CancelledEventKeepsDetails, true) => "Confirm that the cancelled event retains its original startDate and location.",
-        (ManualReview::CancelledEventKeepsDetails, false) => "Prüfen, ob die abgesagte Veranstaltung ihr ursprüngliches startDate und ihren ursprünglichen Ort beibehält.",
-        (ManualReview::EventIsSinglePublicEvent, true) => "Confirm that the event is a single bookable public event and all marked-up details are visible on the page.",
-        (ManualReview::EventIsSinglePublicEvent, false) => "Prüfen, ob es sich um eine einzelne buchbare öffentliche Veranstaltung handelt und alle ausgezeichneten Angaben sichtbar sind.",
-        (ManualReview::RecipeCookAndPrepTime, true) => "Google recommends using cookTime and prepTime together; verify the missing duration.",
-        (ManualReview::RecipeCookAndPrepTime, false) => "Google empfiehlt cookTime und prepTime gemeinsam; die fehlende Dauer ist zu prüfen.",
-        (ManualReview::RecipeMatchesVisibleRecipe, true) => "Confirm that the page describes preparation of one dish and that ingredients and instructions match the visible recipe.",
-        (ManualReview::RecipeMatchesVisibleRecipe, false) => "Prüfen, ob die Seite die Zubereitung eines Gerichts beschreibt und Zutaten sowie Anleitung dem sichtbaren Rezept entsprechen.",
-        (ManualReview::JobPostingIsOpenPosition, true) => "Confirm that this is one currently open position with a visible application path; expired jobs must be removed or marked with a past validThrough date.",
-        (ManualReview::JobPostingIsOpenPosition, false) => "Prüfen, ob genau eine aktuell offene Stelle mit sichtbarem Bewerbungsweg vorliegt; abgelaufene Stellen müssen entfernt oder mit einem vergangenen validThrough-Datum gekennzeichnet werden.",
-        (ManualReview::SoftwareRatingIsGenuine, true) => "Confirm that the rating or review is visible, genuine, and specifically about this application.",
-        (ManualReview::SoftwareRatingIsGenuine, false) => "Prüfen, ob Bewertung oder Rezension sichtbar, authentisch und eindeutig dieser Anwendung zugeordnet ist.",
-        (ManualReview::ProfilePageSubject, true) => "Confirm that the page is primarily about one person or organization affiliated with the site.",
-        (ManualReview::ProfilePageSubject, false) => "Prüfen, ob die Seite hauptsächlich eine mit der Website verbundene Person oder Organisation beschreibt.",
-        (ManualReview::ItemListCanonicalUrls, true) => "Confirm that each listed URL is unique and points to a canonical detail page represented by the visible list.",
-        (ManualReview::ItemListCanonicalUrls, false) => "Prüfen, ob jede aufgeführte URL eindeutig ist und auf eine kanonische Detailseite verweist, die in der sichtbaren Liste enthalten ist.",
-    }
+/// A manual-review point as report text (`locales/{de,en}/seo-issues.ftl`).
+pub fn manual_review_text(review: ManualReview, en: bool) -> String {
+    let key = match review {
+        ManualReview::MerchantListingContext => "seo-schema-rules-review-merchant-listing-context",
+        ManualReview::CancelledEventKeepsDetails => {
+            "seo-schema-rules-review-cancelled-event-keeps-details"
+        }
+        ManualReview::EventIsSinglePublicEvent => {
+            "seo-schema-rules-review-event-is-single-public-event"
+        }
+        ManualReview::RecipeCookAndPrepTime => "seo-schema-rules-review-recipe-cook-and-prep-time",
+        ManualReview::RecipeMatchesVisibleRecipe => {
+            "seo-schema-rules-review-recipe-matches-visible-recipe"
+        }
+        ManualReview::JobPostingIsOpenPosition => {
+            "seo-schema-rules-review-job-posting-is-open-position"
+        }
+        ManualReview::SoftwareRatingIsGenuine => {
+            "seo-schema-rules-review-software-rating-is-genuine"
+        }
+        ManualReview::ProfilePageSubject => "seo-schema-rules-review-profile-page-subject",
+        ManualReview::ItemListCanonicalUrls => "seo-schema-rules-review-item-list-canonical-urls",
+    };
+    crate::i18n::text(key, en)
 }
 
 #[cfg(test)]

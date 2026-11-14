@@ -6,9 +6,10 @@
 # and their severity stay in Rust. Also the table labels of the structured-data
 # issues (`seo::schema::schema_issue_label`) and of the robots.txt audit (bot
 # classes and policy labels of `seo::robots`), the labels and texts of the SEO
-# content profile (`seo::profile`), the SERP status labels (`seo::serp`) and the
+# content profile (`seo::profile`), the SERP status labels (`seo::serp`), the
 # structured-data fit and content-parity texts (`seo::schema_fit`,
-# `seo::schema_parity`).
+# `seo::schema_parity`) and the rich-result rule wording
+# (`seo::schema_rules`).
 
 seo-technical-no-https = Seite wird nicht über HTTPS ausgeliefert
 seo-technical-no-canonical = Fehlende Canonical-URL
@@ -296,3 +297,22 @@ seo-schema-parity-status-not-evaluated = Nicht geprüft
 seo-schema-parity-evidence-match = Schema und sichtbarer Inhalt stimmen überein: { $value }
 seo-schema-parity-evidence-mismatch = Schema: { $schema }; sichtbar: { $visible }
 seo-schema-parity-evidence-not-evaluated = Kein einzelner eindeutiger sichtbarer Wert erkannt
+
+# Wording of the rich-result rules (`seo::schema_rules`): the feature name
+# that differs by language (`feature_label`; the other feature names are
+# language-neutral and written in Rust), the requirement status
+# (`status_text`) and the manual-review points (`manual_review_text`).
+seo-schema-rules-feature-breadcrumb = Breadcrumb-Navigation
+seo-schema-rules-status-meets-required = Pflichtangaben erfüllt
+seo-schema-rules-status-missing-required = Pflichtangaben fehlen
+seo-schema-rules-status-recommendations-only = Keine Pflichtangaben
+seo-schema-rules-status-not-evaluated = Kontext nicht nachgewiesen
+seo-schema-rules-review-merchant-listing-context = Prüfen, ob dies eine kaufbare Produktdetailseite ist, bevor Merchant-Listing-Anforderungen angewendet werden.
+seo-schema-rules-review-cancelled-event-keeps-details = Prüfen, ob die abgesagte Veranstaltung ihr ursprüngliches startDate und ihren ursprünglichen Ort beibehält.
+seo-schema-rules-review-event-is-single-public-event = Prüfen, ob es sich um eine einzelne buchbare öffentliche Veranstaltung handelt und alle ausgezeichneten Angaben sichtbar sind.
+seo-schema-rules-review-recipe-cook-and-prep-time = Google empfiehlt cookTime und prepTime gemeinsam; die fehlende Dauer ist zu prüfen.
+seo-schema-rules-review-recipe-matches-visible-recipe = Prüfen, ob die Seite die Zubereitung eines Gerichts beschreibt und Zutaten sowie Anleitung dem sichtbaren Rezept entsprechen.
+seo-schema-rules-review-job-posting-is-open-position = Prüfen, ob genau eine aktuell offene Stelle mit sichtbarem Bewerbungsweg vorliegt; abgelaufene Stellen müssen entfernt oder mit einem vergangenen validThrough-Datum gekennzeichnet werden.
+seo-schema-rules-review-software-rating-is-genuine = Prüfen, ob Bewertung oder Rezension sichtbar, authentisch und eindeutig dieser Anwendung zugeordnet ist.
+seo-schema-rules-review-profile-page-subject = Prüfen, ob die Seite hauptsächlich eine mit der Website verbundene Person oder Organisation beschreibt.
+seo-schema-rules-review-item-list-canonical-urls = Prüfen, ob jede aufgeführte URL eindeutig ist und auf eine kanonische Detailseite verweist, die in der sichtbaren Liste enthalten ist.
