@@ -23,11 +23,10 @@ use super::score_drivers::{
 use super::appendix::build_cli_snapshot_table;
 use super::bik_guide::render_bik_guide_annex;
 use super::detail_modules::{
-    mobile_category_label, render_a11y_journey_findings, render_ai_visibility,
-    render_best_practices, render_budget_violations, render_commerce, render_content_visibility,
-    render_html_conform, render_journey, render_mobile, render_performance, render_privacy,
-    render_screen_reader_section, render_search_experience, render_security, render_seo,
-    render_source_quality, render_tech_stack, render_ux,
+    mobile_category_label, render_a11y_journey_findings, render_best_practices,
+    render_budget_violations, render_html_conform, render_mobile, render_performance,
+    render_privacy, render_screen_reader_section, render_search_experience, render_security,
+    render_seo, render_tech_stack,
 };
 use super::diagnosis::render_diagnosis_section;
 use super::en301549::render_en301549_annex;
@@ -1832,36 +1831,8 @@ pub(super) fn render_module_sections(
         is_first = false;
     }
 
-    // #14: Source Quality, AI Visibility and Content Visibility are merged into
-    // one "KI & Vertrauen" / "AI & Trust" chapter so the three trust- and
-    // discoverability-indicator modules read as one section instead of three
-    // fragmented ones. They render as level-3 sub-sections under one opener.
-    let mut ki_opened = false;
-    let mut in_ki_chapter = false;
     for module in active_report_modules(report) {
         let key = module.module_key();
-        let is_trust = matches!(
-            key,
-            "source_quality" | "ai_visibility" | "content_visibility"
-        );
-        if is_trust && !ki_opened {
-            builder = builder.add_component(PageBreak::new()).add_component(
-                SectionHeaderSplit::new(
-                    i18n.t("single-report-trust-title"),
-                    i18n.t("single-report-trust-intro"),
-                )
-                .with_eyebrow(i18n.t("single-report-trust-eyebrow"))
-                .with_level(2),
-            );
-            ki_opened = true;
-            in_ki_chapter = true;
-            is_first = true; // the trio's first sub-section flows under the opener
-        } else if !is_trust && in_ki_chapter {
-            // Close the trust chapter before the next, unrelated module.
-            builder = builder.add_component(PageBreak::new());
-            in_ki_chapter = false;
-            is_first = true;
-        }
         let (next_builder, rendered) =
             render_active_module_section(builder, key, vm, report, is_first, i18n);
         builder = next_builder;
@@ -1910,44 +1881,14 @@ fn render_active_module_section(
                 return (render_html_conform(builder, hc, is_first, i18n), true);
             }
         }
-        "commerce" => {
-            if let Some(ref c) = vm.module_details.commerce {
-                return (render_commerce(builder, c, is_first, i18n), true);
-            }
-        }
         "mobile" => {
             if let Some(ref mobile) = vm.module_details.mobile {
                 return (render_mobile(builder, mobile, is_first, i18n), true);
             }
         }
-        "ux" => {
-            if let Some(ref ux) = vm.module_details.ux {
-                return (render_ux(builder, ux, is_first, i18n), true);
-            }
-        }
-        "journey" => {
-            if let Some(ref journey) = vm.module_details.journey {
-                return (render_journey(builder, journey, is_first, i18n), true);
-            }
-        }
         "privacy" => {
             if let Some(ref p) = vm.module_details.privacy {
                 return (render_privacy(builder, p, is_first, i18n), true);
-            }
-        }
-        "source_quality" => {
-            if let Some(ref sq) = vm.module_details.source_quality {
-                return (render_source_quality(builder, sq, is_first, i18n), true);
-            }
-        }
-        "ai_visibility" => {
-            if let Some(ref av) = vm.module_details.ai_visibility {
-                return (render_ai_visibility(builder, av, is_first, i18n), true);
-            }
-        }
-        "content_visibility" => {
-            if let Some(ref cv) = vm.module_details.content_visibility {
-                return (render_content_visibility(builder, cv, is_first, i18n), true);
             }
         }
         "best_practices" => {

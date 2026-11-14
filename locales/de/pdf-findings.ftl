@@ -83,8 +83,6 @@ pdf-details-context-content-visibility = Content Visibility verbindet Auffindbar
 pdf-details-context-other = Dieses Modul beschreibt kundennahe Qualität über reine Accessibility-Befunde hinaus.
 
 ## Module details: notes and captions
-pdf-details-derived-from = Dieser Indikator liest Ergebnisse neu, die bereits unter { $list } berichtet werden. Er misst nichts Eigenes — seine Übereinstimmung mit diesen Modulen ist keine unabhängige Bestätigung.
-pdf-details-a11y-penalty = Enthält einen Abzug von { $penalty } Punkten für die Barrierefreiheits-Befunde: { $before } vor dem Abzug.
 pdf-details-score-caption = Gesamtwertung · 0–100
 
 ## Module details: Web Vitals rating

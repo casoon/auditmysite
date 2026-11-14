@@ -128,6 +128,3 @@ single-report-dual-occurrences = WCAG-Vorkommen vor der ansichtsübergreifenden 
 single-report-dual-explanation = Jeder Barrierefreiheitswert bewertet Schwere und Vielfalt der automatisiert erkannten WCAG-Befunde seiner Ansicht; 100 bedeutet, dass im automatisierten Prüfumfang kein Problem erkannt wurde. Niedrigere Werte bedeuten höheren Handlungsdruck. { $occurrence_context }Der ausgewiesene Barrierefreiheits-Gesamtwert wird mit 70 % Mobile und 30 % Desktop berechnet.
 
 ## AI & Trust chapter
-single-report-trust-title = KI & Vertrauen
-single-report-trust-intro = Technische Aufbereitung, KI-Lesbarkeit und Content-Sichtbarkeit — ungewichtete Indikatoren aus technischen Signalen.
-single-report-trust-eyebrow = VERTRAUEN

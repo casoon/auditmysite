@@ -83,8 +83,6 @@ pdf-details-context-content-visibility = Content visibility combines discoverabi
 pdf-details-context-other = This module describes customer-facing quality beyond pure accessibility findings.
 
 ## Module details: notes and captions
-pdf-details-derived-from = This indicator re-reads results already reported under { $list }. It measures nothing of its own, so its agreement with those modules is not independent confirmation.
-pdf-details-a11y-penalty = Includes an accessibility penalty of { $penalty } points: { $before } before it was applied.
 pdf-details-score-caption = Overall score · 0–100
 
 ## Module details: Web Vitals rating

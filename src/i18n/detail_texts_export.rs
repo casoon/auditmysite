@@ -10,7 +10,7 @@
 //! path can be set with `DETAIL_TEXT_EXPORT`). Run it before and after a
 //! change of how the texts are stored and compare the two files byte for byte.
 
-use crate::assessment::{evidence_field_label, EvidenceSource};
+use crate::assessment::EvidenceSource;
 use crate::seo::page_health::{
     html_validation_check_text, html_validation_detail_text, html_validator_delegated_text,
     html_validator_executed_text, HtmlValidationKind,
@@ -77,33 +77,6 @@ pub(crate) fn evidence_sources() -> [EvidenceSource; 9] {
         EvidenceSource::Computed,
     ]
 }
-
-/// Every path `evidence_field_label` names, and paths it shows as they are or
-/// drops.
-pub(crate) const EVIDENCE_FIELD_PATHS: [&str; 22] = [
-    "heading.h1",
-    "meta.title",
-    "meta.description",
-    "ssr_content_gap",
-    "canonical",
-    "patterns.recognized",
-    "structured_data.type",
-    "structured_data.rich_snippets",
-    "structured_data",
-    "headings.h2_plus",
-    "internal_links",
-    "word_count",
-    "",
-    "some_new_internal_key",
-    "meta.title.extra",
-    "Heading.H1",
-    "FAQPage",
-    "html[lang]",
-    "LocalBusiness.geo.latitude",
-    "{braces} and {$var}",
-    "äöüß — „quotes“ \"x\" <b>; semi",
-    "https://example.com/a-very-long-path/that-keeps-going/and-going/and-going/and-going/file.min.js?v=1234567890",
-];
 
 /// Counts of an HTML validation finding: 0, 1, 2, 5, one that Fluent could
 /// group and the largest stored value.
@@ -256,16 +229,6 @@ fn export_detail_texts() {
                 format!("{source:?}"),
                 lang,
                 source.label(en)
-            ]));
-        }
-    }
-    for path in EVIDENCE_FIELD_PATHS {
-        for (lang, en) in LANGS {
-            records.push(json!([
-                "evidence_field_label",
-                path,
-                lang,
-                evidence_field_label(path, en)
             ]));
         }
     }

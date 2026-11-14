@@ -53,9 +53,7 @@ labels-subcategory-responsive-layout = Responsive Layout
 labels-subcategory-content-sizing = Content Sizing
 
 # Labels of the evidence of a content signal (`assessment`): the source
-# (`EvidenceSource::label`) and the readable names of the field paths
-# `evidence_field_label` knows; which path maps to which message, and that
-# other paths are shown as they are or dropped, stays in Rust.
+# (`EvidenceSource::label`).
 labels-evidence-source-meta = Meta-Tag
 labels-evidence-source-json-ld = JSON-LD
 labels-evidence-source-visible-text = Sichtbarer Text
@@ -65,15 +63,3 @@ labels-evidence-source-ax-tree = Accessibility-Tree
 labels-evidence-source-dom-attribute = DOM-Attribut
 labels-evidence-source-css-property = CSS-Eigenschaft
 labels-evidence-source-computed = Abgeleiteter Wert
-labels-evidence-field-heading-h1 = H1
-labels-evidence-field-meta-title = Titel
-labels-evidence-field-meta-description = Meta-Beschreibung
-labels-evidence-field-ssr-content-gap = Server-Rendering-Lücke
-labels-evidence-field-canonical = Canonical
-labels-evidence-field-patterns-recognized = Erkannte Muster
-labels-evidence-field-structured-data-type = Typ der strukturierten Daten
-labels-evidence-field-structured-data-rich-snippets = Rich-Snippet-Potenzial
-labels-evidence-field-structured-data = Strukturierte Daten
-labels-evidence-field-headings-h2-plus = Überschriften ab H2
-labels-evidence-field-internal-links = Interne Links
-labels-evidence-field-word-count = Wortanzahl
