@@ -17,7 +17,7 @@ pub use batch::{
 };
 pub use single::build_view_model;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "pdf"))]
 pub(crate) use batch::text_export::records as text_export_records;
 
 #[cfg(feature = "pdf")]

@@ -25,6 +25,7 @@
 use chromiumoxide::cdp::browser_protocol::emulation::{MediaFeature, SetEmulatedMediaParams};
 use chromiumoxide::cdp::browser_protocol::page::AddScriptToEvaluateOnNewDocumentParams;
 use chromiumoxide::Page;
+use fluent_bundle::FluentValue;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
@@ -273,30 +274,19 @@ fn info_from_raw(raw: RawDetection) -> Option<DisplayModesInfo> {
 /// Report text for the mode a score belongs to. Single text source for the
 /// PDF (#406); `en` selects the language.
 pub fn audited_mode_text(mode: AuditedDisplayMode, en: bool) -> String {
-    match (mode, en) {
-        (AuditedDisplayMode::SiteDefault, true) => "Site default (no mode chosen)".to_string(),
-        (AuditedDisplayMode::SiteDefault, false) => {
-            "Voreinstellung der Seite (kein Modus gewählt)".to_string()
-        }
-        (m, true) => format!(
-            "{} (chosen via --display{})",
-            audited_mode_value(m),
-            if matches!(m, AuditedDisplayMode::Calm | AuditedDisplayMode::Text) {
-                ", reduced motion emulated"
-            } else {
-                ""
-            }
-        ),
-        (m, false) => format!(
-            "{} (gewählt per --display{})",
-            audited_mode_value(m),
-            if matches!(m, AuditedDisplayMode::Calm | AuditedDisplayMode::Text) {
-                ", reduzierte Bewegung emuliert"
-            } else {
-                ""
-            }
-        ),
+    if mode == AuditedDisplayMode::SiteDefault {
+        return crate::i18n::text("output-display-site-default", en);
     }
+    let key = if matches!(mode, AuditedDisplayMode::Calm | AuditedDisplayMode::Text) {
+        "output-display-chosen-reduced-motion"
+    } else {
+        "output-display-chosen"
+    };
+    crate::i18n::text_args(
+        key,
+        &[("mode", FluentValue::from(audited_mode_value(mode)))],
+        en,
+    )
 }
 
 fn audited_mode_value(mode: AuditedDisplayMode) -> &'static str {
@@ -312,11 +302,7 @@ fn audited_mode_value(mode: AuditedDisplayMode) -> &'static str {
 /// source for the PDF (#406).
 pub fn offered_modes_text(info: Option<&DisplayModesInfo>, en: bool) -> String {
     let Some(info) = info.filter(|i| i.offers_display_modes) else {
-        return if en {
-            "None (no html[data-display])".to_string()
-        } else {
-            "Keine (kein html[data-display])".to_string()
-        };
+        return crate::i18n::text("output-display-offered-none", en);
     };
     let modes = info
         .offered_modes
@@ -325,11 +311,14 @@ pub fn offered_modes_text(info: Option<&DisplayModesInfo>, en: bool) -> String {
         .collect::<Vec<_>>()
         .join(" · ");
     let active = info.active_mode.as_deref().unwrap_or("-");
-    if en {
-        format!("{modes} (rendered: {active})")
-    } else {
-        format!("{modes} (dargestellt: {active})")
-    }
+    crate::i18n::text_args(
+        "output-display-offered",
+        &[
+            ("modes", FluentValue::from(modes)),
+            ("active", FluentValue::from(active)),
+        ],
+        en,
+    )
 }
 
 /// Counter-cases of [`DISPLAY_MODES`] (#777).

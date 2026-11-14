@@ -325,6 +325,20 @@ surface that owns its lifecycle:
   severity labels, the module names, "Share", "Overview" and "Linked" reuse
   `a11y-details-journey-title`, `severity-*`, `module-*`, `batch-col-share`,
   `pdf-commerce-overview-title` and `pdf-commerce-linked`.
+- `locales/{de,en}/output-texts.ftl`: the texts of the report builder helpers
+  (`output::builder::helpers`: report title and subtitle, the security
+  header tier and issue kind labels), the batch builder
+  (`output::builder::batch`: the page-type distribution insights, the lever
+  fallback, the render-blocking summary labels and values, the cover title
+  and URL line), the display mode texts (`display`: the audited mode and the
+  offered modes) and the tech stack, best practices, SEO and performance
+  detail modules (`output::pdf::detail_modules::{indicators, seo,
+  performance}`: chapter takeaways, the schema count with its plural select,
+  the viewport score notes and legend, the lab metric headings), all
+  `output-*`. The code keeps which message applies, the number formats and
+  the values that go into a message (counts, the viewport name, the
+  cover date notation); "Yes", "No", "Metric" and "Value" reuse the `yes`,
+  `no`, `col-metric` and `col-value` messages of `report.ftl`.
 - `src/output/explanations.rs`: the explanation table itself: which entries
   exist, owner role, effort, and the code examples (canonical English), plus
   `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are

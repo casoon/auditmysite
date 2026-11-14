@@ -183,7 +183,7 @@ fn push(records: &mut Vec<Value>, name: &str, input: String, lang: &str, output:
 }
 
 /// Every record of the export, in both languages.
-fn records() -> Vec<Value> {
+pub(super) fn records() -> Vec<Value> {
     let mut records = crate::output::builder::text_export_records();
     for lang in LANGS {
         let i18n = I18n::new(lang).unwrap();

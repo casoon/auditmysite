@@ -3,7 +3,7 @@
 use crate::output::localized::is_english;
 use std::collections::HashMap;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "pdf"))]
 pub(crate) mod text_export;
 
 use crate::audit::normalized::normalize;
@@ -32,27 +32,14 @@ enum DistributionInsightKind {
 }
 
 fn distribution_insight_text(kind: DistributionInsightKind, en: bool) -> String {
-    match (kind, en) {
-        (DistributionInsightKind::HighThinContentShare, false) => {
-            "Hoher Anteil an Thin-Content-Seiten: Das kann Informationswert und SEO-Potenzial begrenzen."
+    let key = match kind {
+        DistributionInsightKind::HighThinContentShare => "output-batch-distribution-thin-content",
+        DistributionInsightKind::NoEditorialContent => "output-batch-distribution-no-editorial",
+        DistributionInsightKind::MarketingDominated => {
+            "output-batch-distribution-marketing-dominated"
         }
-        (DistributionInsightKind::HighThinContentShare, true) => {
-            "High share of thin-content pages: this can limit informational value and SEO potential."
-        }
-        (DistributionInsightKind::NoEditorialContent, false) => {
-            "Editoriale Inhaltsseiten fehlen: Wissensaufbau und Suchintentionen werden kaum bedient."
-        }
-        (DistributionInsightKind::NoEditorialContent, true) => {
-            "No editorial content pages: knowledge-building and informational search intents are barely served."
-        }
-        (DistributionInsightKind::MarketingDominated, false) => {
-            "Marketing- und Landingpages dominieren: Mehr strukturierter Tiefeninhalt würde die Domain ausbalancieren."
-        }
-        (DistributionInsightKind::MarketingDominated, true) => {
-            "Marketing and landing pages dominate: more structured in-depth content would balance the domain."
-        }
-    }
-    .to_string()
+    };
+    crate::i18n::text(key, en)
 }
 
 /// Build a complete presentation model from a batch audit report
@@ -292,13 +279,7 @@ pub fn build_batch_presentation_with_normalized(
                                 .map(|cp| page_profile_optimization_note_text(cp, is_english(i18n)))
                         })
                     })
-                    .unwrap_or_else(|| {
-                        if is_english(i18n) {
-                            "Maintain results".to_string()
-                        } else {
-                            "Ergebnisse stabil halten".to_string()
-                        }
-                    }),
+                    .unwrap_or_else(|| i18n.t("output-batch-lever-fallback")),
                 topic_terms,
                 top_issues: top_issue_titles,
                 module_scores,
@@ -583,35 +564,20 @@ pub fn build_batch_presentation_with_normalized(
                 .filter(|rb| rb.has_blocking())
                 .count();
             let en = is_english(i18n);
-            let (
-                label_pages_analyzed,
-                label_pages_blocking,
-                label_blocking_total,
-                label_third_party,
-            ) = if en {
-                (
-                    "Pages analyzed",
-                    "Pages with blocking",
-                    "Distinct blocking resources",
-                    "Third-party traffic total",
-                )
-            } else {
-                (
-                    "Seiten analysiert",
-                    "Seiten mit Blocking",
-                    "Verschiedene Blocking-Ressourcen",
-                    "Third-Party-Traffic gesamt",
-                )
-            };
-            let pages_count_value = if en {
-                format!("{} of {}", pages_with_data.len(), batch.reports.len())
-            } else {
-                format!("{} von {}", pages_with_data.len(), batch.reports.len())
-            };
+            let pages_count_value = i18n.t_args(
+                "output-batch-blocking-pages-of",
+                &[
+                    ("pages", pages_with_data.len().to_string()),
+                    ("total", batch.reports.len().to_string()),
+                ],
+            );
             vec![
-                (label_pages_analyzed.to_string(), pages_count_value),
                 (
-                    label_pages_blocking.to_string(),
+                    i18n.t("output-batch-blocking-pages-analyzed"),
+                    pages_count_value,
+                ),
+                (
+                    i18n.t("output-batch-blocking-pages-blocking"),
                     format!(
                         "{} ({:.0}%)",
                         pages_with_blocking,
@@ -619,15 +585,17 @@ pub fn build_batch_presentation_with_normalized(
                     ),
                 ),
                 (
-                    label_blocking_total.to_string(),
-                    if en {
-                        format!("{distinct_blocking} ({total_loads} loads across pages)")
-                    } else {
-                        format!("{distinct_blocking} ({total_loads} Einbindungen über alle Seiten)")
-                    },
+                    i18n.t("output-batch-blocking-distinct"),
+                    i18n.t_args(
+                        "output-batch-blocking-loads",
+                        &[
+                            ("distinct", distinct_blocking.to_string()),
+                            ("loads", total_loads.to_string()),
+                        ],
+                    ),
                 ),
                 (
-                    label_third_party.to_string(),
+                    i18n.t("output-batch-blocking-third-party"),
                     format!(
                         "{} KB",
                         crate::i18n::number::decimal(
@@ -839,16 +807,11 @@ pub fn build_batch_presentation_with_normalized(
         .collect();
     BatchPresentation {
         cover: CoverData {
-            title: if en {
-                "Web Accessibility Batch Audit Report".to_string()
-            } else {
-                "Barrierefreiheits-Batch-Audit-Report".to_string()
-            },
-            url: if en {
-                format!("{} URLs audited", batch.summary.total_urls)
-            } else {
-                format!("{} URLs geprüft", batch.summary.total_urls)
-            },
+            title: i18n.t("output-batch-cover-title"),
+            url: i18n.t_args(
+                "output-batch-cover-urls",
+                &[("count", batch.summary.total_urls.to_string())],
+            ),
             date: if en {
                 chrono::Utc::now().format("%Y-%m-%d").to_string()
             } else {

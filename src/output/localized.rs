@@ -5,15 +5,6 @@ pub(crate) fn is_english(i18n: &I18n) -> bool {
 }
 
 #[cfg(feature = "pdf")]
-pub(crate) fn pick<'a>(i18n: &I18n, de: &'a str, en: &'a str) -> &'a str {
-    if is_english(i18n) {
-        en
-    } else {
-        de
-    }
-}
-
-#[cfg(feature = "pdf")]
 /// The one convention for report rows whose value may be missing: a row with
 /// an empty value, a dash or a bare field name is omitted instead of printed
 /// as "Key —" (#952). Absence that matters is stated in its own sentence.

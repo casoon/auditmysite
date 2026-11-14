@@ -58,17 +58,11 @@ pub(super) fn build_consequence_text(i18n: &I18n, normalized: &NormalizedReport)
 }
 
 pub(super) fn localized_report_title(locale: &str) -> String {
-    match locale {
-        "en" => "Website Health Report".to_string(),
-        _ => "Website-Qualitätsbericht".to_string(),
-    }
+    crate::i18n::text("output-report-title", locale == "en")
 }
 
-pub(super) fn localized_report_subtitle(locale: &str) -> &'static str {
-    match locale {
-        "en" => "Automated accessibility audit with optional website quality modules.",
-        _ => "Automatisierter Accessibility-Report mit ergänzenden Qualitätsmodulen.",
-    }
+pub(super) fn localized_report_subtitle(locale: &str) -> String {
+    crate::i18n::text("output-report-subtitle", locale == "en")
 }
 
 pub(super) fn build_verdict_text(
@@ -167,12 +161,7 @@ pub(super) fn build_batch_appendix(
 }
 
 pub(super) fn yes_no(locale: &str, val: bool) -> String {
-    match (locale, val) {
-        ("en", true) => "Yes".to_string(),
-        ("en", false) => "No".to_string(),
-        (_, true) => "Ja".to_string(),
-        (_, false) => "Nein".to_string(),
-    }
+    crate::i18n::text(if val { "yes" } else { "no" }, locale == "en")
 }
 
 /// Localized label for a security header's classification tier (#578) —
@@ -184,17 +173,13 @@ pub(super) fn security_header_tier_label(
     tier: crate::security::HeaderTier,
 ) -> String {
     use crate::security::HeaderTier::*;
-    match (locale, tier) {
-        ("en", Baseline) => "Baseline",
-        ("en", ArchitectureDependent) => "Architecture-dependent",
-        ("en", ContextDependent) => "Context-dependent",
-        ("en", NotAssessable) => "Not assessable remotely",
-        (_, Baseline) => "Basisschutz",
-        (_, ArchitectureDependent) => "Architekturabhängig",
-        (_, ContextDependent) => "Kontextabhängig",
-        (_, NotAssessable) => "Remote nicht bewertbar",
-    }
-    .to_string()
+    let key = match tier {
+        Baseline => "output-header-tier-baseline",
+        ArchitectureDependent => "output-header-tier-architecture-dependent",
+        ContextDependent => "output-header-tier-context-dependent",
+        NotAssessable => "output-header-tier-not-assessable",
+    };
+    crate::i18n::text(key, locale == "en")
 }
 
 /// Localized label distinguishing "header not sent at all" from "header
@@ -203,13 +188,12 @@ pub(super) fn security_header_tier_label(
 /// rendered report instead of leaving it implicit in the finding message.
 pub(super) fn security_issue_kind_label(locale: &str, issue_type: &str) -> String {
     let missing = issue_type == "missing_header" || issue_type == "missing_https";
-    match (locale, missing) {
-        ("en", true) => "Missing",
-        ("en", false) => "Misconfigured",
-        (_, true) => "Fehlt",
-        (_, false) => "Fehlkonfiguriert",
-    }
-    .to_string()
+    let key = if missing {
+        "output-issue-kind-missing"
+    } else {
+        "output-issue-kind-misconfigured"
+    };
+    crate::i18n::text(key, locale == "en")
 }
 
 pub(super) fn truncate_list(items: &[String], limit: usize) -> String {
