@@ -55,7 +55,7 @@ fn item(
 ) -> ActionItem {
     ActionItem {
         action: format!("{} #{seq}", ACTIONS[seq % ACTIONS.len()]),
-        hint: if seq % 2 == 0 {
+        hint: if seq.is_multiple_of(2) {
             String::new()
         } else {
             "Hint text".to_string()

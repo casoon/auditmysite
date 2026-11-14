@@ -169,23 +169,11 @@ fn build_single_report(
     // The gauge strip's label carries the scope qualifier: a bare
     // "Barrierefreiheit 100" on the cover reads as "fully accessible", which
     // no automated run can establish.
-    let (score_lbl, find_lbl, mod_lbl, crit_lbl, no_crit) = if en {
-        (
-            "ACCESSIBILITY · AUTOMATED SCOPE",
-            "WCAG OCCURRENCES",
-            "MODULES IN THE OVERALL SCORE · 0–100 WITHIN THE AUTOMATED SCOPE · HIGHER IS BETTER",
-            "critical/high",
-            "0 critical/high",
-        )
-    } else {
-        (
-            "BARRIEREFREIHEIT · AUTOMATISIERTER PRÜFUMFANG",
-            "WCAG-VORKOMMEN",
-            "MODULE IM GESAMTWERT · 0–100 IM AUTOMATISIERTEN PRÜFUMFANG · HÖHER IST BESSER",
-            "kritisch/hoch",
-            "0 kritisch/hoch",
-        )
-    };
+    let score_lbl = i18n.t("pdf-frame-cover-score-label");
+    let find_lbl = i18n.t("pdf-frame-cover-findings-label");
+    let mod_lbl = i18n.t("pdf-frame-cover-modules-label");
+    let crit_lbl = i18n.t("pdf-frame-cover-critical-label");
+    let no_crit = i18n.t("pdf-frame-cover-no-critical");
 
     // White-label: only a user-supplied custom logo takes the brand slot on the
     // cover; the default keeps the clean text brand (no auto wordmark image).
@@ -218,14 +206,7 @@ fn build_single_report(
         .with_band_phrase(&band_phrase)
         .with_issues(vm.cover.total_issues, vm.cover.critical_issues)
         .with_module_gauges(module_gauges)
-        .with_indicator_gauges(
-            if en {
-                "DERIVED INDICATORS · NOT PART OF THE OVERALL SCORE"
-            } else {
-                "ABGELEITETE INDIKATOREN · NICHT IM GESAMTWERT"
-            },
-            indicator_gauges,
-        )
+        .with_indicator_gauges(i18n.t("pdf-frame-cover-indicators-label"), indicator_gauges)
         .with_labels(score_lbl, find_lbl, mod_lbl, crit_lbl, no_crit);
     if let Some(logo) = custom_logo {
         cover = cover.with_logo(logo);
@@ -238,32 +219,20 @@ fn build_single_report(
     if vm.meta.report_level != ReportLevel::Executive {
         // --- Page 3: Table of Contents ---
         builder = builder.add_component(PageBreak::new());
-        let toc_title = if en { "Contents" } else { "Inhalt" };
-        builder = builder.add_component(TableOfContents::new().with_title(toc_title).with_depth(2));
+        builder = builder.add_component(
+            TableOfContents::new()
+                .with_title(i18n.t("pdf-frame-toc-title"))
+                .with_depth(2),
+        );
 
         // --- Part 1: Befunde nach Ursache (Divider) ---
-        let (p1_title, p1_intro, p1_audience_title, p1_audience_body) = if en {
-            (
-                "Findings by Root Cause",
-                "Which underlying causes explain the most findings, and the prioritized plan to fix them.",
-                "Audience",
-                "Site owners, decision-makers, and developers. This part explains what is driving the findings and what to do next.",
-            )
-        } else {
-            (
-                "Befunde nach Ursache",
-                "Welche Ursachen die meisten Befunde erklären – und der priorisierte Plan, sie zu beheben.",
-                "Zielgruppe",
-                "Inhaber, Entscheider und Entwickler. Dieser Teil erklärt, was die Befunde verursacht und was als Nächstes zu tun ist.",
-            )
-        };
         builder = render_part_divider(
             builder,
             1,
-            p1_title,
-            p1_intro,
-            p1_audience_title,
-            p1_audience_body,
+            &i18n.t("pdf-frame-part1-title"),
+            &i18n.t("pdf-frame-part1-intro"),
+            &i18n.t("pdf-frame-part-audience-title"),
+            &i18n.t("pdf-frame-part1-audience"),
             &i18n,
         );
 
@@ -295,28 +264,13 @@ fn build_single_report(
     }
 
     // --- Part 2: Technische Details für Entwickler (Divider) ---
-    let (p2_title, p2_intro, p2_audience_title, p2_audience_body) = if en {
-        (
-            "Technical Details for Developers",
-            "Detailed WCAG violations, HTML evidence, and code examples grouped by systemic components vs. local instances.",
-            "Audience",
-            "Developers and QA teams. Read this part to implement fixes for all detected violations.",
-        )
-    } else {
-        (
-            "Technische Details für Entwickler",
-            "Detaillierte WCAG-Verstöße, HTML-Evidenzen und Code-Beispiele, gruppiert nach systemischen Komponenten vs. Einzelfällen.",
-            "Zielgruppe",
-            "Entwickler und QA-Teams. Dieser Teil liefert konkrete Code-Befunde zur Behebung aller Barrieren.",
-        )
-    };
     builder = render_part_divider(
         builder,
         2,
-        p2_title,
-        p2_intro,
-        p2_audience_title,
-        p2_audience_body,
+        &i18n.t("pdf-frame-part2-title"),
+        &i18n.t("pdf-frame-part2-intro"),
+        &i18n.t("pdf-frame-part-audience-title"),
+        &i18n.t("pdf-frame-part2-audience"),
         &i18n,
     );
 
@@ -324,28 +278,13 @@ fn build_single_report(
     builder = render_tech_details(builder, &vm, report, &i18n);
 
     // --- Part 3: Qualitäts-Analysen (Divider) ---
-    let (p3_title, p3_intro, p3_audience_title, p3_audience_body) = if en {
-        (
-            "Quality Analyses",
-            "Search engine optimization, load speed, mobile layout, and security header metrics.",
-            "Audience",
-            "Marketing, SEO specialists, and product owners. Read this part to optimize discoverability and performance.",
-        )
-    } else {
-        (
-            "Qualitäts-Analysen",
-            "Suchmaschinenoptimierung, Ladezeiten, mobiles Layout und Sicherheits-Metriken.",
-            "Zielgruppe",
-            "Marketing, SEO-Spezialisten und Product Owner. Dieser Teil ergänzt die Barrierefreiheit um Qualitäts-Indikatoren.",
-        )
-    };
     builder = render_part_divider(
         builder,
         3,
-        p3_title,
-        p3_intro,
-        p3_audience_title,
-        p3_audience_body,
+        &i18n.t("pdf-frame-part3-title"),
+        &i18n.t("pdf-frame-part3-intro"),
+        &i18n.t("pdf-frame-part-audience-title"),
+        &i18n.t("pdf-frame-part3-audience"),
         &i18n,
     );
 
@@ -371,18 +310,11 @@ fn render_audit_confidence_notes(
     audit_flags: &[crate::audit::normalized::AuditFlag],
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
-    let base = if en {
-        "Automated findings are reliable for detectable patterns, but context-dependent WCAG criteria, semantic content quality and user journeys still require manual verification. Indicator modules such as AI visibility, content visibility and UX are best-effort signals, not guarantees."
-    } else {
-        "Automatisierte Befunde sind belastbar für erkennbare Muster, aber kontextabhängige WCAG-Kriterien, semantische Inhaltsqualität und Nutzerwege benötigen weiterhin manuelle Prüfung. Indikator-Module wie KI-Sichtbarkeit, Content Visibility und UX sind Hinweiswerte, keine Garantien."
-    };
-    let title = if en {
-        "Notes on report confidence"
-    } else {
-        "Hinweise zur Aussagekraft"
-    };
-    let text = format!("{}: {}", title, base);
+    let text = format!(
+        "{}: {}",
+        i18n.t("pdf-frame-confidence-title"),
+        i18n.t("pdf-frame-confidence-base")
+    );
     builder = builder.add_component(Label::new(&text).with_size("10.5pt").with_color("#475569"));
 
     if !audit_flags.is_empty() {
@@ -390,64 +322,47 @@ fn render_audit_confidence_notes(
         for flag in audit_flags {
             rows.push(
                 ChecklistRow::new(
-                    audit_flag_title(&flag.kind, en),
-                    audit_flag_customer_text(flag, en),
+                    audit_flag_title(&flag.kind, i18n),
+                    audit_flag_customer_text(flag, i18n),
                 )
                 .with_status("warn"),
             );
         }
-        builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-            "Audit caveats"
-        } else {
-            "Audit-Hinweise"
-        }));
+        builder = builder.add_component(
+            ChecklistPanel::new(rows).with_title(i18n.t("pdf-frame-confidence-caveats-title")),
+        );
     }
     builder
 }
 
-fn audit_flag_title(kind: &str, en: bool) -> &'static str {
-    match (kind, en) {
-        ("consent_banner", true) => "Consent banner",
-        ("consent_banner", false) => "Consent-Banner",
-        ("bypass_blocks_untested", true) => "Skip link verification",
-        ("bypass_blocks_untested", false) => "Skip-Link-Prüfung",
-        ("conflicting_signal", true) => "Conflicting signal",
-        ("conflicting_signal", false) => "Widersprüchliches Signal",
-        ("viewport_gap", true) => "Desktop/mobile difference",
-        ("viewport_gap", false) => "Desktop-/Mobile-Unterschied",
-        // Aligned with the "Prüfabdeckung"/"Coverage" framing on the
-        // management summary page (`SummaryBlock::audit_quality_note`) —
-        // this used to say "Unvollständiger Messumfang" ("incomplete
-        // measurement scope"), which reintroduced the alarming "audit is
-        // broken" tone the summary page deliberately moved away from for a
-        // normal stability-budget limitation (feedback 2026-09-07).
-        ("incomplete_audit", true) => "Limited test coverage",
-        ("incomplete_audit", false) => "Eingeschränkte Prüfabdeckung",
-        ("side_check_unanswered", true) => "Side check without answer",
-        ("side_check_unanswered", false) => "Zusatzprüfung ohne Antwort",
-        ("consent_wall_artifact", true) => "Consent wall artifact",
-        ("consent_wall_artifact", false) => "Consent-Wall-Artefakt",
-        (_, true) => "Audit note",
-        (_, false) => "Audit-Hinweis",
-    }
+/// The titles of the flags the batch report also lists are its
+/// `batch-management-flag-*` messages.
+fn audit_flag_title(kind: &str, i18n: &I18n) -> String {
+    i18n.t(match kind {
+        "consent_banner" => "batch-management-flag-consent-banner",
+        "bypass_blocks_untested" => "batch-management-flag-bypass-blocks-untested",
+        "conflicting_signal" => "batch-management-flag-conflicting-signal",
+        "viewport_gap" => "batch-management-flag-viewport-gap",
+        "incomplete_audit" => "pdf-frame-flag-title-incomplete-audit",
+        "side_check_unanswered" => "pdf-frame-flag-title-side-check-unanswered",
+        "consent_wall_artifact" => "batch-management-flag-consent-wall-artifact",
+        _ => "batch-management-flag-other",
+    })
 }
 
 /// Names the side checks that got no answer. The page itself was measured in
 /// full, so the sentence says which check is missing and that nothing else is.
-fn side_check_unanswered_text(source: &str, en: bool) -> String {
-    let names: Vec<&str> = source
+fn side_check_unanswered_text(source: &str, i18n: &I18n) -> String {
+    let names: Vec<String> = source
         .split(',')
-        .map(|id| match (id, en) {
-            ("seo.www_redirect" | "seo.page_health.www_consolidation", true) => {
-                "www/non-www consolidation (the other host variant did not answer)"
-            }
-            ("seo.www_redirect" | "seo.page_health.www_consolidation", false) => {
-                "www-/non-www-Konsolidierung (die andere Host-Variante antwortete nicht)"
-            }
-            ("security.certificate", true) => "certificate details (not reported by the browser)",
-            ("security.certificate", false) => "Zertifikatsdetails (vom Browser nicht gemeldet)",
-            (_, true) => "an additional check",
-            (_, false) => "eine Zusatzprüfung",
+        .map(|id| {
+            i18n.t(match id {
+                "seo.www_redirect" | "seo.page_health.www_consolidation" => {
+                    "pdf-frame-side-check-www"
+                }
+                "security.certificate" => "pdf-frame-side-check-certificate",
+                _ => "pdf-frame-side-check-other",
+            })
         })
         .fold(Vec::new(), |mut unique, name| {
             if !unique.contains(&name) {
@@ -455,30 +370,17 @@ fn side_check_unanswered_text(source: &str, en: bool) -> String {
             }
             unique
         });
-    let list = names.join("; ");
-    if en {
-        format!("No result for: {list}. The audited page was measured in full; the rating is not provisional because of this.")
-    } else {
-        format!("Kein Ergebnis für: {list}. Die geprüfte Seite wurde vollständig gemessen; die Einstufung ist deshalb nicht vorläufig.")
-    }
+    i18n.t_args("pdf-frame-side-check-text", &[("list", names.join("; "))])
 }
 
-fn audit_flag_customer_text(flag: &crate::audit::normalized::AuditFlag, en: bool) -> String {
-    match (flag.kind.as_str(), en) {
-        ("consent_banner", true) => "A consent banner was detected. Parts of the page may have been hidden or not fully measurable without consent.".to_string(),
-        ("consent_banner", false) => "Ein Consent-Banner wurde erkannt. Teile der Seite können ohne Zustimmung verborgen oder nicht vollständig messbar gewesen sein.".to_string(),
-        ("bypass_blocks_untested", true) => "A skip link exists, but the usage journey indicates that keyboard focus may not reach the intended target.".to_string(),
-        ("bypass_blocks_untested", false) => "Ein Skip-Link ist vorhanden, der Nutzungstest deutet aber darauf hin, dass der Tastaturfokus sein Ziel nicht zuverlässig erreicht.".to_string(),
-        ("conflicting_signal", true) => "Two checks report different signals. Treat this result as a review point rather than a final conclusion.".to_string(),
-        ("conflicting_signal", false) => "Zwei Prüfungen melden unterschiedliche Signale. Dieses Ergebnis sollte als Prüfhilfe statt als endgültige Aussage gelesen werden.".to_string(),
-        ("viewport_gap", true) => "Desktop and mobile results differ strongly. The page experience should be checked separately for both viewports.".to_string(),
-        ("viewport_gap", false) => "Desktop- und Mobile-Ergebnis unterscheiden sich deutlich. Die Nutzung sollte für beide Ansichten getrennt geprüft werden.".to_string(),
-        // Same sentence as the management summary's Partial-run callout
-        // (`build_view_model`'s `audit_quality_note`) — one wording for the
-        // same underlying limitation, not two that could drift apart.
-        ("incomplete_audit", true) => "Individual measurements hit a stability/retry budget and are excluded from the reported scores, which describe only the successfully measured scope.".to_string(),
-        ("incomplete_audit", false) => "Einzelne Messungen haben ein Stabilitäts-/Wiederholungsbudget erreicht und sind daher nicht in den ausgewiesenen Scores enthalten; diese beschreiben den erfolgreich gemessenen Umfang.".to_string(),
-        ("side_check_unanswered", en) => side_check_unanswered_text(&flag.source, en),
+fn audit_flag_customer_text(flag: &crate::audit::normalized::AuditFlag, i18n: &I18n) -> String {
+    match flag.kind.as_str() {
+        "consent_banner" => i18n.t("pdf-frame-flag-text-consent-banner"),
+        "bypass_blocks_untested" => i18n.t("pdf-frame-flag-text-bypass-blocks-untested"),
+        "conflicting_signal" => i18n.t("pdf-frame-flag-text-conflicting-signal"),
+        "viewport_gap" => i18n.t("pdf-frame-flag-text-viewport-gap"),
+        "incomplete_audit" => i18n.t("pdf-frame-flag-text-incomplete-audit"),
+        "side_check_unanswered" => side_check_unanswered_text(&flag.source, i18n),
         _ => flag.message.clone(),
     }
 }
@@ -572,6 +474,8 @@ fn register_page_screenshot_assets(
 
 #[cfg(test)]
 mod frame_text_export;
+#[cfg(test)]
+mod frame_text_guard;
 
 #[cfg(all(test, feature = "pdf_test"))]
 #[path = "tests.rs"]

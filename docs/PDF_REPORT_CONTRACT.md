@@ -295,6 +295,23 @@ surface that owns its lifecycle:
   `severity-*` of `report.ftl`, the journey categories SPA navigation and
   Quantity stepper the `a11y-details-journey-label-*` messages of
   `accessibility-details.ftl`.
+- `locales/{de,en}/pdf-frame.ftl`: the texts of the single PDF's frame
+  (`output::pdf` mod.rs, `pdf-frame-*`): the cover labels, the table of
+  contents title, the three part intros with their audience titles and
+  bodies, the confidence notes and the audit flag customer texts, and the
+  side checks that got no answer. The frame keeps which message applies, the
+  joining of the side check names and the cover band phrase and scope line
+  (messages of the modules that own them); the titles of the audit flags
+  reuse the `batch-management-flag-*` messages of `batch-consistency.ftl`.
+- `locales/{de,en}/actions-block.ftl`: the texts of the single report's
+  action plan block (`output::builder::single::actions_block`,
+  `actions-block-*`): the systemic and local column labels and descriptions,
+  the block title and intro for a good site and for the default case and the
+  risk effect per priority. The block keeps which message applies and the
+  thresholds; the leverage tiers reuse `pdf-findings-code-very-high`,
+  `severity-high` and `severity-low`, and the role, priority, execution
+  priority and effort labels are the messages of their own enums. The JSON
+  detail builds the block with the locale `en`, so it stays canonical English.
 - `src/output/explanations.rs`: the explanation table itself: which entries
   exist, owner role, effort, and the code examples (canonical English), plus
   `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are

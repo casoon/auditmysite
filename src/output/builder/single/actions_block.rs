@@ -18,8 +18,8 @@ fn remediation_leverage(
     occurrence_count: usize,
     effort: Effort,
     priority: Priority,
-    en: bool,
-) -> &'static str {
+    i18n: &I18n,
+) -> String {
     let tier = if occurrence_count >= 10 {
         2
     } else if occurrence_count >= 5
@@ -29,14 +29,11 @@ fn remediation_leverage(
     } else {
         0
     };
-    match (tier, en) {
-        (2, true) => "Very high",
-        (2, false) => "Sehr hoch",
-        (1, true) => "High",
-        (1, false) => "Hoch",
-        (_, true) => "Low",
-        (_, false) => "Niedrig",
-    }
+    i18n.t(match tier {
+        2 => "pdf-findings-code-very-high",
+        1 => "severity-high",
+        _ => "severity-low",
+    })
 }
 
 pub(super) fn build_actions_block(
@@ -107,24 +104,12 @@ pub(super) fn build_actions_block(
             .filter(|(idx, i)| *idx < item_cap || listed_rule_ids.contains(&i.rule_id))
             .map(|(_, i)| {
                 let user_effect = derive_user_effect_from_action(i18n, &i.action, i.effort);
-                let risk_effect = match (i.priority, en) {
-                    (Priority::Critical, true) => {
-                        "Directly reduces critical WCAG violation risk".to_string()
-                    }
-                    (Priority::Critical, false) => {
-                        "Reduziert kritisches WCAG-Verstoßrisiko direkt".to_string()
-                    }
-                    (Priority::High, true) => "Reduces high accessibility risk".to_string(),
-                    (Priority::High, false) => {
-                        "Reduziert hohes Barrierefreiheitsrisiko".to_string()
-                    }
-                    (Priority::Medium, true) => "Lowers medium accessibility risk".to_string(),
-                    (Priority::Medium, false) => {
-                        "Verringert mittleres Barrierefreiheitsrisiko".to_string()
-                    }
-                    (Priority::Low, true) => "Improves WCAG conformance in detail".to_string(),
-                    (Priority::Low, false) => "Verbessert WCAG-Konformität im Detail".to_string(),
-                };
+                let risk_effect = i18n.t(match i.priority {
+                    Priority::Critical => "actions-block-risk-critical",
+                    Priority::High => "actions-block-risk-high",
+                    Priority::Medium => "actions-block-risk-medium",
+                    Priority::Low => "actions-block-risk-low",
+                });
                 RoadmapItemData {
                     action: i.action.clone(),
                     hint: i.hint.clone(),
@@ -137,8 +122,7 @@ pub(super) fn build_actions_block(
                     risk_effect,
                     occurrence_count: i.occurrence_count,
                     rule_id: i.rule_id.clone(),
-                    leverage: remediation_leverage(i.occurrence_count, i.effort, i.priority, en)
-                        .to_string(),
+                    leverage: remediation_leverage(i.occurrence_count, i.effort, i.priority, i18n),
                 }
             })
             .collect()
@@ -173,28 +157,10 @@ pub(super) fn build_actions_block(
     // assertion into a hypothesis, with an explicit verification task
     // attached (only these systemic/component-issue actions carry this
     // ambiguity; local actions below don't).
-    let (systemic_label, systemic_desc) = if en {
-        (
-            "Systemic actions",
-            "Fix once in the template or component — the pattern suggests other pages using it are affected too. Note: verify on additional page types whether the same pattern also occurs there.",
-        )
-    } else {
-        (
-            "Systemische Maßnahmen",
-            "Einmal in Vorlage oder Komponente beheben — das Muster deutet darauf hin, dass auch andere Seiten mit dieser Komponente betroffen sind. Hinweis: auf weiteren Seitentypen gegenprüfen, ob dasselbe Muster dort ebenfalls auftritt.",
-        )
-    };
-    let (local_label, local_desc) = if en {
-        (
-            "Local actions & individual cases",
-            "Targeted corrections on individual pages, images or editorial content.",
-        )
-    } else {
-        (
-            "Lokale Maßnahmen & Einzelfälle",
-            "Punktuelle Korrekturen an einzelnen Seiten, Bildern oder redaktionellen Inhalten.",
-        )
-    };
+    let systemic_label = i18n.t("actions-block-systemic-label");
+    let systemic_desc = i18n.t("actions-block-systemic-desc");
+    let local_label = i18n.t("actions-block-local-label");
+    let local_desc = i18n.t("actions-block-local-desc");
 
     let mut phase_preview = Vec::new();
     let mut columns = Vec::new();
@@ -224,8 +190,8 @@ pub(super) fn build_actions_block(
 
     push_group(
         &systemic,
-        systemic_label,
-        systemic_desc,
+        &systemic_label,
+        &systemic_desc,
         // 4-color palette INFO blue; literal here because the PDF design module
         // is `#[cfg(feature = "pdf")]` and the builder also runs without it.
         "#2563eb",
@@ -234,8 +200,8 @@ pub(super) fn build_actions_block(
     );
     push_group(
         &local,
-        local_label,
-        local_desc,
+        &local_label,
+        &local_desc,
         // 4-color palette NEUTRAL slate (see note above re: pdf feature gate).
         "#475569",
         &mut phase_preview,
@@ -267,28 +233,16 @@ pub(super) fn build_actions_block(
         primary_role,
     };
 
-    let block_title = if is_good_site {
-        if en {
-            "Last optimization steps".to_string()
-        } else {
-            "Letzte Optimierungsschritte".to_string()
-        }
-    } else if en {
-        "Action plan by priority".to_string()
+    let (block_title, intro_text) = if is_good_site {
+        (
+            i18n.t("actions-block-title-good"),
+            i18n.t("actions-block-intro-good"),
+        )
     } else {
-        "Maßnahmenplan nach Priorität".to_string()
-    };
-
-    let intro_text = if is_good_site {
-        if en {
-            "The site is technically well positioned. The following are final optimization levers without structural pressure.".to_string()
-        } else {
-            "Die Seite ist technisch stark aufgestellt. Die folgenden Punkte sind letzte Optimierungshebel ohne strukturellen Druck.".to_string()
-        }
-    } else if en {
-        "Priority 1 issues carry the highest risk and should be addressed first. Priority 2 and 3 items follow. Priority 4 items are recommended improvements.".to_string()
-    } else {
-        "Befunde der Priorität 1 tragen das höchste Risiko und sollten bevorzugt behandelt werden. Danach folgen Priorität 2 und 3. Priorität 4 sind ergänzende Empfehlungen.".to_string()
+        (
+            i18n.t("actions-block-title-default"),
+            i18n.t("actions-block-intro-default"),
+        )
     };
 
     ActionsBlock {
@@ -303,6 +257,8 @@ pub(super) fn build_actions_block(
 
 #[cfg(test)]
 mod text_export;
+#[cfg(test)]
+mod text_guard;
 
 #[cfg(test)]
 mod tests {
