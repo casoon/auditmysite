@@ -176,8 +176,6 @@ pub(super) fn render_batch_internal_comparison(
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
-
     // The internal comparison and outlier detection only carry meaning across a
     // real sample. With one or two URLs "best vs weakest" is identical or
     // trivial, so we show a caveat instead of a misleading table (#450).
@@ -212,7 +210,7 @@ pub(super) fn render_batch_internal_comparison(
             continue;
         }
         scored.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(b.0)));
-        let label = super::portfolio::localized_module_name(&module, en).to_string();
+        let label = super::portfolio::localized_module_name(&module, i18n);
         let (worst_url, worst_score) = scored[0];
         let (best_url, best_score) = scored[scored.len() - 1];
         // No variation: a best and a weakest URL would be an arbitrary pick

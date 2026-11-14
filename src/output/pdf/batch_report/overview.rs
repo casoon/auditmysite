@@ -64,7 +64,7 @@ pub(super) fn render_batch_cover(
             .portfolio_summary
             .active_modules
             .iter()
-            .map(|name| super::portfolio::localized_module_name(name, is_english(i18n)))
+            .map(|name| super::portfolio::localized_module_name(name, i18n))
             .collect::<Vec<_>>()
             .join(", ");
         let mut cover_meta = KeyValueList::new().with_title(i18n.t("batch-cover-frame-title"));
@@ -242,7 +242,6 @@ pub(super) fn render_batch_cover(
     // The scope note used to close page 2, which it overflowed onto an
     // otherwise empty page 3 (plan 108). It now opens the contents page; an
     // executive report has no contents page and keeps it on page 2.
-    let en = crate::output::localized::is_english(i18n);
     let scope_note = batch_scope_callout(
         config.level == ReportLevel::Technical && !pres.appendix.per_url.is_empty(),
         i18n,
@@ -253,7 +252,7 @@ pub(super) fn render_batch_cover(
             .add_component(scope_note)
             .add_component(
                 TableOfContents::new()
-                    .with_title(if en { "Contents" } else { "Inhalt" })
+                    .with_title(i18n.t("batch-report-contents"))
                     .with_depth(1),
             );
     } else {
@@ -457,7 +456,7 @@ pub(super) fn render_batch_status_section(
         pres.portfolio_summary.crawl_links.as_ref().map(|links| {
             (links.broken_internal_links.len() + links.broken_external_links.len()) as u32
         }),
-        is_english(i18n),
+        i18n,
     ));
 
     // Key points
@@ -512,58 +511,38 @@ pub(super) fn render_batch_en301549_rollup(
     use crate::wcag::en301549::ClauseStatus;
 
     let en = is_english(i18n);
-    let (title, intro) = if en {
-        (
-            "EN 301 549 clause mapping",
-            "Domain-wide roll-up of this batch's automated WCAG 2.2 A/AA findings onto EN 301 549 V4.1.1 (2026-09), chapter 9 (Web) clause numbers — the worst status observed across all audited pages, plus how many pages have a confirmed violation.".to_string(),
+    builder = builder.add_component(
+        SectionHeaderSplit::new(
+            i18n.t("batch-report-en301549-title"),
+            i18n.t("batch-report-en301549-intro"),
         )
-    } else {
-        (
-            "EN-301-549-Klauselzuordnung",
-            "Domainweite Zusammenfassung der automatisch erkannten WCAG-2.2-A/AA-Befunde dieses Batches je Klausel von EN 301 549 V4.1.1 (2026-09), Kapitel 9 (Web) — der schlechteste über alle geprüften Seiten beobachtete Status, plus die Anzahl betroffener Seiten.".to_string(),
-        )
-    };
-    builder = builder.add_component(SectionHeaderSplit::new(title, &intro).with_level(2));
+        .with_level(2),
+    );
 
-    let disclaimer_title = if en {
-        "Not an accessibility statement"
-    } else {
-        "Keine Barrierefreiheitserklärung"
-    };
     let disclaimer = if en {
         crate::wcag::en301549::EN301549_DISCLAIMER_EN
     } else {
         crate::wcag::en301549::EN301549_DISCLAIMER_DE
     };
-    builder = builder.add_component(Callout::warning(disclaimer).with_title(disclaimer_title));
+    builder = builder.add_component(
+        Callout::warning(disclaimer).with_title(i18n.t("batch-report-en301549-disclaimer-title")),
+    );
 
-    let status_label = |status: ClauseStatus| -> &'static str {
-        match (status, en) {
-            (ClauseStatus::ViolationsFound, true) => "Violations found",
-            (ClauseStatus::ViolationsFound, false) => "Verstöße gefunden",
-            (ClauseStatus::NoViolationsAutomated, true) => "No violations (automated)",
-            (ClauseStatus::NoViolationsAutomated, false) => "Keine Verstöße (automatisch)",
-            (ClauseStatus::ManualReviewRequired, true) => "Manual review required",
-            (ClauseStatus::ManualReviewRequired, false) => "Manuelle Prüfung erforderlich",
-        }
+    let status_label = |status: ClauseStatus| -> String {
+        i18n.t(match status {
+            ClauseStatus::ViolationsFound => "batch-report-en301549-status-violations",
+            ClauseStatus::NoViolationsAutomated => "batch-report-en301549-status-no-violations",
+            ClauseStatus::ManualReviewRequired => "batch-report-en301549-status-manual",
+        })
     };
 
     let mut table = AuditTable::new(vec![
-        TableColumn::new(if en { "Clause" } else { "Klausel" }).with_width("12%"),
-        TableColumn::new(if en { "Title" } else { "Titel" }).with_width("42%"),
+        TableColumn::new(i18n.t("batch-report-en301549-col-clause")).with_width("12%"),
+        TableColumn::new(i18n.t("batch-report-en301549-col-title")).with_width("42%"),
         TableColumn::new("Status").with_width("28%"),
-        TableColumn::new(if en {
-            "Pages affected"
-        } else {
-            "Betroffene Seiten"
-        })
-        .with_width("18%"),
+        TableColumn::new(i18n.t("batch-report-en301549-col-pages")).with_width("18%"),
     ])
-    .with_title(if en {
-        "Clause roll-up (all 50 WCAG 2.1 A/AA clauses)"
-    } else {
-        "Klausel-Übersicht (alle 50 WCAG-2.1-A/AA-Klauseln)"
-    });
+    .with_title(i18n.t("batch-report-en301549-table-title"));
     for r in rollup {
         let clause_title = if en {
             r.clause.title_en
@@ -576,42 +555,30 @@ pub(super) fn render_batch_en301549_rollup(
             if !matches!(r.status, ClauseStatus::ViolationsFound)
                 && failed_en_criteria.contains(r.clause.wcag)
             {
-                if en {
-                    "Automated evaluation incomplete".to_string()
-                } else {
-                    "Automatisierte Prüfung unvollständig".to_string()
-                }
+                i18n.t("batch-report-en301549-incomplete")
             } else {
-                status_label(r.status).to_string()
+                status_label(r.status)
             },
             r.affected_pages.to_string(),
         ]);
     }
     builder = builder.add_component(table);
 
-    let out_of_scope_title = if en {
-        "Outside this audit's scope"
-    } else {
-        "Außerhalb dieses Prüfumfangs"
-    };
-    let mut out_of_scope_list = List::new().with_title(out_of_scope_title);
+    let mut out_of_scope_list =
+        List::new().with_title(i18n.t("batch-report-en301549-out-of-scope-title"));
     for chapter in crate::wcag::en301549::OUT_OF_SCOPE_CHAPTERS {
         let chapter_title = if en {
             chapter.title_en
         } else {
             chapter.title_de
         };
-        out_of_scope_list = out_of_scope_list.add_item(if en {
-            format!(
-                "Chapter {} \u{2013} {} (not assessed)",
-                chapter.chapter, chapter_title
-            )
-        } else {
-            format!(
-                "Kapitel {} \u{2013} {} (nicht bewertet)",
-                chapter.chapter, chapter_title
-            )
-        });
+        out_of_scope_list = out_of_scope_list.add_item(i18n.t_args(
+            "batch-report-en301549-chapter",
+            &[
+                ("chapter", chapter.chapter.to_string()),
+                ("title", chapter_title.to_string()),
+            ],
+        ));
     }
     builder.add_component(out_of_scope_list)
 }
@@ -622,40 +589,28 @@ pub(super) fn build_batch_overview_grid(
     total_violations: u32,
     critical_and_high: u32,
     broken_internal_links: Option<u32>,
-    en: bool,
+    i18n: &I18n,
 ) -> Grid {
     let mut metrics = vec![
         (
-            if en {
-                "Accessibility average"
-            } else {
-                "Barrierefreiheit Ø"
-            },
+            i18n.t("batch-report-grid-accessibility-average"),
             format!("{average_score} / 100"),
             Some(score_quality_color(average_score)),
         ),
         (
-            if en { "URLs audited" } else { "Geprüfte URLs" },
+            i18n.t("batch-report-grid-urls-audited"),
             total_urls.to_string(),
             Some("#0f766e"),
         ),
         (
-            if en {
-                "WCAG occurrences"
-            } else {
-                "WCAG-Vorkommen"
-            },
+            i18n.t("batch-report-grid-wcag-occurrences"),
             total_violations.to_string(),
             Some("#b45309"),
         ),
         (
             // WCAG findings only (`occurrence_distribution`); security and
             // HTML findings of high severity are not in it (#1039).
-            if en {
-                "Critical + high WCAG occurrences"
-            } else {
-                "Kritisch + hoch (WCAG-Vorkommen)"
-            },
+            i18n.t("batch-report-grid-critical-high"),
             critical_and_high.to_string(),
             Some("#dc2626"),
         ),
@@ -663,7 +618,7 @@ pub(super) fn build_batch_overview_grid(
 
     if let Some(count) = broken_internal_links {
         metrics.push((
-            "Broken Links",
+            "Broken Links".to_string(),
             count.to_string(),
             Some(if count > 0 { "#dc2626" } else { "#0f766e" }),
         ));

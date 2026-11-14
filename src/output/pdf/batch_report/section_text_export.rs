@@ -79,10 +79,6 @@ fn push(records: &mut Vec<Value>, name: &str, input: String, lang: &str, output:
     records.push(json!([name, input, lang, output]));
 }
 
-fn en(lang: &str) -> bool {
-    lang == "en"
-}
-
 fn export_interactive(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
     for category in CATEGORIES {
         push(
@@ -90,7 +86,7 @@ fn export_interactive(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
             "translate_interactive_category",
             format!("{category:?}"),
             lang,
-            json!(translate_interactive_category(category, en(lang))),
+            json!(translate_interactive_category(category, i18n)),
         );
     }
     let severities = [
@@ -145,14 +141,14 @@ fn export_interactive(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
     }
 }
 
-fn export_module_names(records: &mut Vec<Value>, lang: &str) {
+fn export_module_names(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
     for name in MODULES {
         push(
             records,
             "localized_module_name",
             format!("{name:?}"),
             lang,
-            json!(localized_module_name(name, en(lang))),
+            json!(localized_module_name(name, i18n)),
         );
     }
 }
@@ -628,12 +624,7 @@ fn export_status(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
                 format!("score={score} broken={broken:?}"),
                 lang,
                 components(bare().add_component(build_batch_overview_grid(
-                    1_234_567,
-                    score,
-                    12,
-                    3,
-                    broken,
-                    en(lang),
+                    1_234_567, score, 12, 3, broken, i18n,
                 ))),
             );
         }
@@ -681,7 +672,7 @@ pub(super) fn records() -> Vec<Value> {
     for lang in LANGS {
         let i18n = I18n::new(lang).unwrap();
         export_interactive(&mut records, lang, &i18n);
-        export_module_names(&mut records, lang);
+        export_module_names(&mut records, lang, &i18n);
         export_portfolio(&mut records, lang, &i18n);
         export_impact_summary(&mut records, lang, &i18n);
         export_tables(&mut records, lang, &i18n);

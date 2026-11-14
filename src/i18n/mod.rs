@@ -51,8 +51,11 @@ impl I18n {
         // management summary's score drivers (`score-drivers.ftl`,
         // `output::pdf::score_drivers`) and the texts of the PDF finding
         // cards and shared module detail helpers (`pdf-findings.ftl`,
-        // `output::pdf::findings`, `output::pdf::detail_modules`) are
-        // eighteen resources of the one bundle.
+        // `output::pdf::findings`, `output::pdf::detail_modules`) and the
+        // texts of the batch PDF's journey, module, impact, commerce, EN 301 549
+        // and overview sections (`batch-report.ftl`,
+        // `output::pdf::batch_report::{interactive, portfolio, appendix,
+        // overview}`) are nineteen resources of the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -73,6 +76,7 @@ impl I18n {
                 include_str!("../../locales/en/accessibility-details.ftl"),
                 include_str!("../../locales/en/score-drivers.ftl"),
                 include_str!("../../locales/en/pdf-findings.ftl"),
+                include_str!("../../locales/en/batch-report.ftl"),
             ],
             _ => [
                 include_str!("../../locales/de/report.ftl"),
@@ -93,6 +97,7 @@ impl I18n {
                 include_str!("../../locales/de/accessibility-details.ftl"),
                 include_str!("../../locales/de/score-drivers.ftl"),
                 include_str!("../../locales/de/pdf-findings.ftl"),
+                include_str!("../../locales/de/batch-report.ftl"),
             ],
         };
         for ftl in sources {

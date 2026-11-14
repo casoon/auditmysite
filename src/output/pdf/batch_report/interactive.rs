@@ -1,47 +1,32 @@
-use crate::output::localized::is_english;
 use renderreport::components::advanced::SectionHeaderSplit;
 use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
 
 use crate::i18n::I18n;
 
+use super::super::helpers::severity_label_i18n;
+
 // ─── Interactive Journey Summary ────────────────────────────────────────────
 
-pub(super) fn translate_interactive_category(category: &str, en: bool) -> String {
-    match (category, en) {
-        ("TabOrder", true) => "Tab Order",
-        ("TabOrder", false) => "Tab-Reihenfolge",
-        ("FocusTrap", true) => "Focus Trap (Modal)",
-        ("FocusTrap", false) => "Fokus-Falle (Modal)",
-        ("StateTransition", true) => "State Transitions",
-        ("StateTransition", false) => "Zustandswechsel",
-        ("FocusRestoration", true) => "Focus Restoration",
-        ("FocusRestoration", false) => "Fokus-Rückführung",
-        ("FormError", true) => "Form Error Announcement",
-        ("FormError", false) => "Formularfehler-Ankündigung",
-        ("SpaNavigation", true) => "SPA Navigation",
-        ("SpaNavigation", false) => "SPA-Navigation",
-        ("HiddenFocusable", true) => "Hidden Focusable",
-        ("HiddenFocusable", false) => "Verstecktes fokussierbares Element",
-        ("SkipLink", true) => "Skip Link",
-        ("SkipLink", false) => "Skip-Link",
-        ("FocusIndicator", true) => "Focus Indicator",
-        ("FocusIndicator", false) => "Fokus-Indikator",
-        ("MenuJourney", true) => "Menu / Navigation",
-        ("MenuJourney", false) => "Menü / Navigation",
-        ("TabsJourney", true) => "Tab Widget",
-        ("TabsJourney", false) => "Tab-Widget",
-        ("LinkText", true) => "Link Text",
-        ("LinkText", false) => "Linktext",
-        ("Landmark", true) => "Landmark",
-        ("Landmark", false) => "Landmarke",
-        ("MediaControls", true) => "Media Controls",
-        ("MediaControls", false) => "Medienbedienung",
-        ("HeadingOutline", true) => "Heading Outline",
-        ("HeadingOutline", false) => "Überschriftengliederung",
-        _ => category,
-    }
-    .to_string()
+pub(super) fn translate_interactive_category(category: &str, i18n: &I18n) -> String {
+    i18n.t(match category {
+        "TabOrder" => "batch-report-interactive-cat-tab-order",
+        "FocusTrap" => "batch-report-interactive-cat-focus-trap",
+        "StateTransition" => "batch-report-interactive-cat-state-transition",
+        "FocusRestoration" => "batch-report-interactive-cat-focus-restoration",
+        "FormError" => "batch-report-interactive-cat-form-error",
+        "SpaNavigation" => "batch-report-interactive-cat-spa-navigation",
+        "HiddenFocusable" => "batch-report-interactive-cat-hidden-focusable",
+        "SkipLink" => "batch-report-interactive-cat-skip-link",
+        "FocusIndicator" => "batch-report-interactive-cat-focus-indicator",
+        "MenuJourney" => "batch-report-interactive-cat-menu",
+        "TabsJourney" => "batch-report-interactive-cat-tabs",
+        "LinkText" => "batch-report-interactive-cat-link-text",
+        "Landmark" => "batch-report-interactive-cat-landmark",
+        "MediaControls" => "batch-report-interactive-cat-media-controls",
+        "HeadingOutline" => "batch-report-interactive-cat-heading-outline",
+        _ => return category.to_string(),
+    })
 }
 
 /// The summary sentence; verb and noun agree with the counts (#1039).
@@ -70,19 +55,13 @@ pub(super) fn render_batch_interactive_summary(
     total_urls: usize,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
-
-    let title = if en {
-        "Keyboard Accessibility Journey"
-    } else {
-        "Tastatur-Journey zur Barrierefreiheit"
-    };
-    let intro = if en {
-        "Interactive tests verify whether focus management, state transitions, and keyboard navigation behave correctly — not just whether the initial page tree is well-structured."
-    } else {
-        "Interaktive Tests prüfen, ob Fokusführung, Zustandswechsel und Tastaturnavigation korrekt funktionieren — nicht nur ob der initiale Seitenbaum korrekt ausgezeichnet ist."
-    };
-    builder = builder.add_component(SectionHeaderSplit::new(title, intro).with_level(1));
+    builder = builder.add_component(
+        SectionHeaderSplit::new(
+            i18n.t("a11y-details-journey-title"),
+            i18n.t("batch-report-interactive-intro"),
+        )
+        .with_level(1),
+    );
 
     let callout_text = interactive_callout_text(summary, i18n);
     builder = builder.add_component(if summary.has_critical {
@@ -94,65 +73,24 @@ pub(super) fn render_batch_interactive_summary(
     });
 
     if !summary.categories.is_empty() {
-        let category_col = if en { "Category" } else { "Kategorie" };
-        let affected_col = if en {
-            "Affected URLs"
-        } else {
-            "Betroffene URLs"
-        };
-        let share_col = if en { "Share" } else { "Anteil" };
-        let sev_col = if en { "Max. Severity" } else { "Max. Schwere" };
         let mut table = AuditTable::new(vec![
-            TableColumn::new(category_col),
-            TableColumn::new(affected_col),
-            TableColumn::new(share_col),
-            TableColumn::new(sev_col),
+            TableColumn::new(i18n.t("batch-report-interactive-col-category")),
+            TableColumn::new(i18n.t("batch-report-interactive-col-affected")),
+            TableColumn::new(i18n.t("batch-col-share")),
+            TableColumn::new(i18n.t("batch-report-interactive-col-severity")),
         ])
-        .with_title(if en {
-            "Issues by Category"
-        } else {
-            "Befunde nach Kategorie"
-        });
+        .with_title(i18n.t("batch-report-interactive-table-title"));
         for row in &summary.categories {
             let pct = (row.affected_urls * 100)
                 .checked_div(total_urls)
                 .unwrap_or(0);
-            let sev_label = match row.max_severity {
-                crate::wcag::Severity::Critical => {
-                    if en {
-                        "Critical"
-                    } else {
-                        "Kritisch"
-                    }
-                }
-                crate::wcag::Severity::High => {
-                    if en {
-                        "High"
-                    } else {
-                        "Hoch"
-                    }
-                }
-                crate::wcag::Severity::Medium => {
-                    if en {
-                        "Medium"
-                    } else {
-                        "Mittel"
-                    }
-                }
-                crate::wcag::Severity::Low => {
-                    if en {
-                        "Low"
-                    } else {
-                        "Niedrig"
-                    }
-                }
-            };
-            let category_label = translate_interactive_category(&row.category, en);
+            let sev_label = severity_label_i18n(row.max_severity, i18n);
+            let category_label = translate_interactive_category(&row.category, i18n);
             table = table.add_row(vec![
                 category_label,
                 row.affected_urls.to_string(),
                 format!("{pct}%"),
-                sev_label.to_string(),
+                sev_label,
             ]);
         }
         builder = builder.add_component(table);
