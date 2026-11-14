@@ -15,6 +15,8 @@ mod management;
 mod overview;
 mod portfolio;
 mod privacy;
+#[cfg(test)]
+mod section_text_export;
 mod seo;
 #[cfg(test)]
 mod text_export;
