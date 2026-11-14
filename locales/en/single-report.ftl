@@ -125,6 +125,3 @@ single-report-dual-occurrences = WCAG occurrences before cross-viewport consolid
 single-report-dual-explanation = Each viewport accessibility score reflects the severity and variety of automatically detected WCAG findings; 100 means no issue was detected within the automated scope. Lower values mean more remediation pressure. { $occurrence_context }The displayed accessibility overall score is calculated from mobile at 70% and desktop at 30%.
 
 ## AI & Trust chapter
-single-report-trust-title = AI & Trust
-single-report-trust-intro = Technical preparation, AI readability and content visibility — unweighted indicators from technical signals.
-single-report-trust-eyebrow = TRUST

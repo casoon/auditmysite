@@ -186,61 +186,9 @@ impl EvidenceSource {
     }
 }
 
-/// Readable name of an evidence field path. Internal identifiers
-/// (`structured_data.rich_snippets`) map to a name (the
-/// `labels-evidence-field-*` message of `locales/{en,de}/labels.ftl`); schema
-/// types and CSS-like
-/// selectors (`FAQPage`, `html[lang]`) are shown as they are; any other
-/// snake_case identifier has no readable name and returns `None`, so it is
-/// never printed as a value (#902).
-#[cfg(any(feature = "pdf", test))]
-pub(crate) fn evidence_field_label(path: &str, en: bool) -> Option<String> {
-    let key = match path {
-        "heading.h1" => Some("labels-evidence-field-heading-h1"),
-        "meta.title" => Some("labels-evidence-field-meta-title"),
-        "meta.description" => Some("labels-evidence-field-meta-description"),
-        "ssr_content_gap" => Some("labels-evidence-field-ssr-content-gap"),
-        "canonical" => Some("labels-evidence-field-canonical"),
-        "patterns.recognized" => Some("labels-evidence-field-patterns-recognized"),
-        "structured_data.type" => Some("labels-evidence-field-structured-data-type"),
-        "structured_data.rich_snippets" => {
-            Some("labels-evidence-field-structured-data-rich-snippets")
-        }
-        "structured_data" => Some("labels-evidence-field-structured-data"),
-        "headings.h2_plus" => Some("labels-evidence-field-headings-h2-plus"),
-        "internal_links" => Some("labels-evidence-field-internal-links"),
-        "word_count" => Some("labels-evidence-field-word-count"),
-        _ => None,
-    };
-    if let Some(key) = key {
-        return Some(crate::i18n::text(key, en));
-    }
-    let identifier = path
-        .chars()
-        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '.');
-    (!identifier).then(|| path.to_string())
-}
-
 #[cfg(test)]
 mod evidence_label_tests {
     use super::*;
-
-    #[test]
-    fn identifiers_are_named_or_dropped_never_printed() {
-        assert_eq!(
-            evidence_field_label("structured_data.rich_snippets", false).as_deref(),
-            Some("Rich-Snippet-Potenzial")
-        );
-        assert_eq!(evidence_field_label("some_new_internal_key", false), None);
-        assert_eq!(
-            evidence_field_label("FAQPage", false).as_deref(),
-            Some("FAQPage")
-        );
-        assert_eq!(
-            evidence_field_label("html[lang]", true).as_deref(),
-            Some("html[lang]")
-        );
-    }
 
     #[test]
     fn source_labels_have_no_debug_names() {

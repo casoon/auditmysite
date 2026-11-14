@@ -1335,6 +1335,47 @@ mod tests {
         );
     }
 
+    /// The experimental indicators (#916) run only on request and are never part
+    /// of the PDF. `active_report_modules` is the only source of the module keys
+    /// the PDF renders, so as long as it never returns them, no PDF code for
+    /// them is reachable. The report below carries the results of all six.
+    #[test]
+    #[cfg(feature = "pdf")]
+    fn test_experimental_indicators_never_reach_the_pdf_module_sections() {
+        use crate::output::module::active_report_modules;
+
+        let report = all_active_modules_report();
+        assert!(report.ux.is_some() && report.journey.is_some() && report.commerce.is_some());
+        assert!(
+            report.discoverability.source_quality.is_some()
+                && report.discoverability.ai_visibility.is_some()
+                && report.discoverability.content_visibility.is_some()
+        );
+
+        let keys: Vec<&str> = active_report_modules(&report)
+            .into_iter()
+            .map(|module| module.module_key())
+            .collect();
+        for experimental in [
+            "ux",
+            "journey",
+            "commerce",
+            "source_quality",
+            "ai_visibility",
+            "content_visibility",
+        ] {
+            assert!(
+                !keys.contains(&experimental),
+                "{experimental} must not reach the PDF module sections: {keys:?}"
+            );
+        }
+        let pdf_keys = super::module_details::pdf_rendered_modules();
+        assert!(
+            keys.iter().all(|key| pdf_keys.contains(key)),
+            "a PDF module section without an entry in pdf_rendered_modules: {keys:?}"
+        );
+    }
+
     #[test]
     #[cfg(feature = "pdf")]
     fn test_active_modules_have_json_detail_and_pdf_registry_coverage() {

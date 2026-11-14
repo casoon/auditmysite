@@ -103,9 +103,8 @@ In the rendered PDF:
   the combined technical score unless explicitly marked as contributing in the JSON model.
   They carry no letter grade — a grade on a module that feeds nothing claims an authority
   it does not have.
-- An indicator that re-reads another module's result instead of measuring anything new says
-  so in a sentence below its score, and an accessibility penalty applied to it is named with
-  its point value rather than folded in silently.
+- An indicator that re-reads another module's result instead of measuring anything new names
+  the modules it derives from in the JSON model (`derived_from` on its module score).
 - The cover headline is the accessibility score, with its grade. The cover carries no certificate or badge: an automated check covers only part of the criteria and certifies nothing (#911). The weighted
   combined technical score is a separate, labelled card carrying its weight basis, never the
   headline.
@@ -197,9 +196,8 @@ surface that owns its lifecycle:
   priority, effort and execution priority (`audit::prioritization`), role
   (`output::report_model::Role::label`), issue class
   (`taxonomy::IssueClass::label`) and subcategory
-  (`taxonomy::Subcategory::label`), and the evidence labels of content signals
-  (`EvidenceSource::label`, `assessment::evidence_field_label`,
-  `labels-evidence-*`). The enum methods keep the variant-to-message
+  (`taxonomy::Subcategory::label`), and the evidence source labels of content
+  signals (`EvidenceSource::label`, `labels-evidence-source-*`). The enum methods keep the variant-to-message
   mapping. The PDF tables of priority, role and effort use their own
   `report.ftl` messages (`priority-*`, `role-*`, `effort-*`), which word some of
   them differently; the `labels-` prefix keeps the two apart.
@@ -287,9 +285,8 @@ surface that owns its lifecycle:
   captions, the hidden-occurrence note, the structural-cause labels and
   the customer-perspective titles; and of the shared module detail helpers
   (`output::pdf::detail_modules`, `pdf-details-*`): the module customer
-  context, the derived-from and accessibility penalty notes, the score
-  card caption, the Web Vitals rating and the journey category labels. The
-  renderers keep which message applies and the decimal notation of the
+  context, the score card caption, the Web Vitals rating and the journey
+  category labels. The renderers keep which message applies and the decimal notation of the
   contrast ratio; counts are Fluent numbers and the hidden-occurrence
   plural is a Fluent select. The code labels High, Medium and Low reuse
   `severity-*` of `report.ftl`, the journey categories SPA navigation and

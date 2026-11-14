@@ -1,7 +1,7 @@
-//! Module detail renderers (performance, SEO, security, mobile, AI visibility).
+//! Module detail renderers (performance, SEO, security, mobile, privacy, tech stack, best practices).
 
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, Grid, KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
+    Grid, KeyValueList, List, MetricStrip, MetricStripItem, PageBreak,
 };
 use renderreport::components::charts::{Gauge, GaugeThreshold};
 use renderreport::components::text::{Label, TextBlock};
@@ -18,8 +18,6 @@ use super::helpers::{
 };
 
 mod accessibility;
-mod commerce;
-mod experience;
 mod html_conform;
 mod indicators;
 mod overview;
@@ -35,13 +33,8 @@ pub(super) use accessibility::effective_bfsg_verdict;
 pub(super) use accessibility::{
     bfsg_relevant_wcag_findings, render_a11y_journey_findings, render_screen_reader_section,
 };
-pub(super) use commerce::render_commerce;
-pub(super) use experience::{render_journey, render_ux};
 pub(super) use html_conform::render_html_conform;
-pub(super) use indicators::{
-    render_ai_visibility, render_best_practices, render_content_visibility, render_source_quality,
-    render_tech_stack,
-};
+pub(super) use indicators::{render_best_practices, render_tech_stack};
 pub(super) use overview::{render_budget_violations, render_search_experience};
 pub(super) use performance::render_performance;
 pub(super) use platform::{mobile_category_label, render_mobile, render_security};
@@ -114,65 +107,6 @@ fn module_customer_context(
     Label::new(text)
         .with_size("10.5pt")
         .with_color(crate::output::pdf::design::tokens::NEUTRAL)
-}
-
-/// States that an indicator re-reads other modules rather than measuring
-/// anything new (plan 29, D3). `None` for a module that measures its own
-/// subject, so the note only appears where it is true.
-///
-/// Without it, a reader sees SEO, AI Visibility and Source Quality agree and
-/// takes that for three independent assessments. They largely share inputs.
-pub(super) fn derived_from_note(i18n: &I18n, module_name: &str) -> Option<Label> {
-    let sources = crate::taxonomy::module_derived_from(module_name);
-    if sources.is_empty() {
-        return None;
-    }
-    let names: Vec<String> = sources
-        .iter()
-        .map(|key| {
-            let translated = i18n.t(&format!("module-{key}"));
-            if translated == format!("module-{key}") {
-                key.to_string()
-            } else {
-                translated
-            }
-        })
-        .collect();
-    let list = names.join(", ");
-    let text = i18n.t_args("pdf-details-derived-from", &[("list", list)]);
-    Some(
-        Label::new(text)
-            .with_size("10.5pt")
-            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
-    )
-}
-
-/// Names the points the Accessibility result cost this indicator.
-///
-/// The penalty is defensible — for users with disabilities, accessibility
-/// *is* the UX — but it was folded into the score with nothing said, so the
-/// number looked like an independent reading of the page (plan 29, D3).
-pub(super) fn a11y_penalty_note(
-    builder: renderreport::engine::ReportBuilder,
-    penalty: u32,
-    score_before: u32,
-    i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
-    if penalty == 0 {
-        return builder;
-    }
-    let text = i18n.t_args(
-        "pdf-details-a11y-penalty",
-        &[
-            ("penalty", i64::from(penalty)),
-            ("before", i64::from(score_before)),
-        ],
-    );
-    builder.add_component(
-        Label::new(text)
-            .with_size("10.5pt")
-            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
-    )
 }
 
 /// The interpretation, but only where it says more than the chapter opener

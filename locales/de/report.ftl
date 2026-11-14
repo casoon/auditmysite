@@ -309,12 +309,7 @@ section-seo-content-profile = SEO-Inhaltsprofil
 section-security = Sicherheit
 section-html-conform = HTML-Konformität
 section-mobile-usability = Mobile Nutzbarkeit
-section-content-sections = Content-Abschnitte
-section-detected-entities = Erkannte Entitäten
-section-ux = User Experience
-section-journey = User Journey
 section-issue-overview = Problemübersicht
-section-link-suggestions = Verlinkungsvorschläge
 comparison-cover-title = Wettbewerbsvergleich
 comparison-domain-ranking = Domain-Ranking
 comparison-module-comparison = Modul-Vergleich
@@ -338,7 +333,6 @@ diagnosis-col-max-severity = Max. Schweregrad
 batch-panel-module-averages = Modulübersicht (Ø über alle URLs)
 
 # Heuristic indicator (shared by UX, Journey, AI Visibility)
-label-heuristic-indicator = Heuristische Schätzung auf Basis struktureller Signale, nicht extern validiert
 
 # Performance section
 perf-score-card = Performance Score
@@ -365,11 +359,9 @@ seo-maturity = Reifegrad
 
 # UX section
 ux-score-card = UX Score (Indikator)
-ux-dimensions = UX-Dimensionen
 
 # Journey section
 journey-score-card = Journey Score (Indikator)
-journey-page-type-dimensions = Journey-Einordnung & Dimensionen
 
 # Budget section
 budget-callout-exceeded = Budget überschritten
@@ -710,7 +702,6 @@ pdf-robots-crawl-delay-title = Crawl-Delay-Werte
 pdf-robots-crawl-delay-value = { $delay } Sekunden
 pdf-seo-profile-aspect = Aspekt
 pdf-seo-profile-content-profile = Inhaltsprofil
-pdf-seo-profile-structured-data = Strukturierte Daten
 pdf-seo-profile-page-profile = Seitenprofil
 pdf-seo-profile-content-depth = Content-Tiefe
 pdf-seo-profile-structure-quality = Strukturqualität
@@ -790,43 +781,9 @@ pdf-html-conform-rule = Regel
 pdf-html-conform-severity = Schweregrad
 pdf-html-conform-message = Beschreibung
 pdf-html-conform-location = Position
-section-commerce = Commerce
-pdf-commerce-scope-note = Prüft Produkt-Strukturdaten und die Verlinkung von Pflichtseiten auf dieser einen Seite — keine Prüfung von Checkout, Zahlungsabwicklung oder Warenkorb (das Tool hat keinen seitenübergreifenden Sitzungszustand).
 pdf-commerce-overview-title = Übersicht
-pdf-commerce-page-kind = Seitentyp
-pdf-commerce-completeness = Vollständigkeit
-pdf-commerce-product-title = Produkt-Strukturdaten
-pdf-commerce-price = Preis
-pdf-commerce-availability = Verfügbarkeit
-pdf-commerce-shipping = Versandangaben
-pdf-commerce-returns = Rückgaberichtlinie
-pdf-commerce-rating = Bewertung
-pdf-commerce-not-exposed = Nicht ausgewiesen
-pdf-commerce-trust-pages-title = Pflichtseiten-Verlinkung
 pdf-commerce-linked = Verlinkt
-pdf-commerce-not-linked = Nicht verlinkt
-pdf-ux-overview-title = UX — Überblick
-pdf-ux-more-issues =
-    { $count } { $count ->
-        [one] weiterer Befund
-       *[other] weitere Befunde
-    } im detaillierten Anhang.
-pdf-journey-overview-title = Journey — Überblick
-pdf-journey-detected-page-type = Journey-Einordnung
-pdf-journey-more-issues =
-    { $count } { $count ->
-        [one] weiterer Befund
-       *[other] weitere Befunde
-    } im detaillierten Anhang.
-pdf-dm-yes = Ja
 pdf-dm-no = Nein
-pdf-sq-section-title = Technische Aufbereitung für maschinelle Verarbeitung
-pdf-sq-overview-title = Was dieser Indikator misst
-pdf-sq-success = Alle bewerteten Signale der technischen Aufbereitung sind erfüllt.
-pdf-sq-unweighted = Ungewichteter Indikator — fließt nicht in den Gesamtwert ein und bewertet nicht, ob Inhalte zutreffend oder vertrauenswürdig sind.
-pdf-sq-not-checked = Nicht geprüft: Keiner der seiteninternen Vergleiche war anwendbar (Sprache lang/og:locale, Titel, strukturierte Daten gegen sichtbaren Inhalt).
-pdf-sq-cross-page-note = Seitenübergreifende Konsistenz (etwa Firmenname oder Kontaktdaten auf verschiedenen Seiten) ist auf einer einzelnen Seite nicht prüfbar; dafür den Sitemap-Report heranziehen.
-pdf-sq-indicators-intro = Beobachtete Werte ohne Bewertung. Sie beschreiben die Struktur der Seite, nicht, ob der Inhalt substanziell ist.
 pdf-ts-section-title = Tech-Stack
 pdf-ts-technology = Technologie
 pdf-ts-confidence = Konfidenz
@@ -834,48 +791,9 @@ pdf-ts-detected-title = Erkannte Technologien
 pdf-ts-confidence-high = Hoch
 pdf-ts-confidence-medium = Mittel
 pdf-ts-confidence-low = Niedrig
-pdf-ai-indicator-note = Experimentelle Heuristiken — keine standardisierte Metrik. Die Indikatoren sind heuristische Schätzwerte auf Basis messbarer Signale, kein direktes Ranking-Signal. Sie zeigen Optimierungspotenzial, beweisen aber kein konkretes LLM-Verhalten.
-pdf-ai-section-title = AI-Sichtbarkeit (Indikator)
-pdf-ai-overview-title = KI-Sichtbarkeit — Überblick
 pdf-ai-score-title = AI-Sichtbarkeit (Indikator)
 pdf-ai-score-desc-format = Grade: { $grade } — { $quality } · Heuristische Schätzung, kein Messwert
-pdf-ai-success = Alle KI-Sichtbarkeits-Signale sind in Ordnung. Kein Optimierungsbedarf.
-pdf-ai-readability = KI-Lesbarkeit
-pdf-ai-citability = Kompakte Abschnittsstruktur (ungeprüft)
-pdf-ai-tech-readability = Technische KI-Lesbarkeit
-pdf-ai-policy = AI-Policy
-pdf-ai-more-signals =
-    { $count } { $count ->
-        [one] weiteres Signal
-       *[other] weitere Signale
-    } im detaillierten Anhang.
-pdf-ai-sections-title = Abschnitte
-pdf-ai-section-col = Abschnitt
-pdf-ai-words-col = Wörter
-pdf-ai-rec-title = Empfehlung
-pdf-ai-entities-title = Entitäten
-pdf-ai-entity-col = Entität
-pdf-ai-relations-title = Beziehungen
-pdf-ai-subject-col = Subjekt
-pdf-ai-relation-col = Beziehung
-pdf-ai-object-col = Objekt
-pdf-ai-policy-blocks-all-body = Alle Crawler gesperrt (Disallow: *) — auch KI-Suchbots haben keinen Zugang.
-pdf-ai-policy-blocks-all-title = Kein KI-Zugang
-pdf-ai-policy-limited-title = KI-Sichtbarkeit eingeschränkt
-pdf-ai-policy-limited-body = KI-Suchbots blockiert — Inhalte erscheinen nicht in KI-generierten Antworten
-pdf-ai-policy-training-body = KI-Trainingsbots blockiert, KI-Suchbots haben Zugang — empfohlener Standard
-pdf-cv-section-title = Content Visibility & Trust (Indikator)
 pdf-cv-overview-title = Content-Sichtbarkeit — Überblick
-pdf-cv-overview-body = Aggregierter Indikator aus SEO-, Quellenqualitäts- und KI-Sichtbarkeitssignalen. Umfasst organische Indexierbarkeit, E-E-A-T-Autoritätssignale, lokale Geschäftspräsenz, Inhaltstiefe und topische Relevanz-Heuristiken. Heuristischer Schätzwert — kein direkt gemessener Wert.
-pdf-cv-signals-analyzed = { $signals ->
-        [one] { $signals } Signal analysiert
-       *[other] { $signals } Signale analysiert
-    }, { $problems ->
-        [one] { $problems } Hinweis
-       *[other] { $problems } Hinweise
-    } auf Optimierungsbedarf.
-pdf-cv-manual-review-title = Manuell prüfen
-pdf-cv-success = Alle Content-Visibility-Signale sind in Ordnung. Kein Optimierungsbedarf.
 pdf-bp-score-title = Best Practices Score
 pdf-bp-success = Keine Konsolfehler und keine anfälligen Bibliotheken erkannt.
 pdf-bp-console-errors-title = Konsolenfehler
@@ -899,11 +817,6 @@ pdf-perf-dup-title = { $count } { $count ->
         [one] doppelte Asset-Gruppe
        *[other] doppelte Asset-Gruppen
     } erkannt (~{ $wasted } KB verschwendet)
-pdf-cv-area-organic-visibility = Organische Sichtbarkeit
-pdf-cv-area-local-business = Local Business & Vertrauensdaten
-pdf-cv-area-eeat = E-E-A-T-Indizien
-pdf-cv-area-content-depth = Inhaltstiefe & Lokalisierung
-pdf-cv-area-topical-authority = Topical Authority (Heuristik)
 
 batch-top-issues-intro = Die folgenden Problemgruppen treten über mehrere URLs hinweg auf. Durch Behebung dieser Probleme wird die größte Verbesserung erzielt, da sie viele Seiten gleichzeitig betreffen.
 batch-col-affected-urls = Betr. URLs
@@ -1386,7 +1299,6 @@ count-images-scaled-down = { $count ->
        *[other] { $count } Bilder werden
     }
 
-pdf-ai-policy-label = Richtlinie
 pdf-ai-policy-status-label = Status
 
 module-commerce = Shop-Prüfung

@@ -2,7 +2,7 @@
 //! languages, every key defined once, used and resolving without errors, and
 //! no German in the English file.
 
-use super::detail_texts_export::{evidence_sources, EVIDENCE_FIELD_PATHS};
+use super::detail_texts_export::evidence_sources;
 use super::label_texts_export::{
     EFFORTS, EXECUTION_PRIORITIES, ISSUE_CLASSES, PAGE_INTENTS, PRIORITIES, ROLES, SUBCATEGORIES,
 };
@@ -36,7 +36,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 63);
+    assert_eq!(en.len(), 51);
 }
 
 #[test]
@@ -104,10 +104,6 @@ fn no_variant_leaves_a_key_or_a_placeholder_in_a_label() {
         labels.extend(ISSUE_CLASSES.map(|v| (format!("{v:?} display"), v.to_string())));
         labels.extend(SUBCATEGORIES.map(|v| (format!("{v:?}"), v.label(en))));
         labels.extend(evidence_sources().map(|v| (format!("{v:?}"), v.label(en))));
-        labels.extend(EVIDENCE_FIELD_PATHS.into_iter().filter_map(|path| {
-            crate::assessment::evidence_field_label(path, en)
-                .map(|label| (path.to_string(), label.replace("{$var}", "")))
-        }));
         for (variant, label) in labels {
             assert!(!leaks(&label), "{variant} (en={en}): {label}");
         }

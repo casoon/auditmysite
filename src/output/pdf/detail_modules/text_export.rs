@@ -46,14 +46,6 @@ const JOURNEY_CATEGORIES: [&str; 20] = [
     "",
 ];
 
-fn components(builder: renderreport::engine::ReportBuilder) -> Value {
-    Value::Array(builder.build().components)
-}
-
-fn bare() -> renderreport::engine::ReportBuilder {
-    renderreport::engine::ReportBuilder::new("export")
-}
-
 /// Every record of the `detail_modules.rs` part, in both languages.
 pub(in crate::output::pdf) fn records() -> Vec<Value> {
     let mut records: Vec<Value> = Vec::new();
@@ -77,28 +69,6 @@ pub(in crate::output::pdf) fn records() -> Vec<Value> {
                     module_customer_context(&i18n, key, score, "Interpretation.").to_data()
                 ]));
             }
-        }
-        for module in [
-            "UX",
-            "Journey",
-            "AI Visibility",
-            "Source Quality",
-            "Performance",
-        ] {
-            records.push(json!([
-                "derived_from_note",
-                module,
-                lang,
-                derived_from_note(&i18n, module).map(|label| label.to_data())
-            ]));
-        }
-        for (penalty, before) in [(0, 80), (1, 100), (7, 85)] {
-            records.push(json!([
-                "a11y_penalty_note",
-                format!("penalty={penalty} before={before}"),
-                lang,
-                components(a11y_penalty_note(bare(), penalty, before, &i18n))
-            ]));
         }
         records.push(json!([
             "module_score_caption",

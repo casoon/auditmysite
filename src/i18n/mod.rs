@@ -627,25 +627,7 @@ mod tests {
         let en = I18n::new("en").unwrap();
         for (key, singular_de, plural_de, singular_en) in [
             (
-                "pdf-ux-more-issues",
-                "1 weiterer Befund",
-                "2 weitere Befunde",
-                "1 additional issue",
-            ),
-            (
-                "pdf-journey-more-issues",
-                "1 weiterer Befund",
-                "2 weitere Befunde",
-                "1 additional issue",
-            ),
-            (
                 "pdf-seo-more-signals",
-                "1 weiteres Signal",
-                "2 weitere Signale",
-                "1 additional signal",
-            ),
-            (
-                "pdf-ai-more-signals",
                 "1 weiteres Signal",
                 "2 weitere Signale",
                 "1 additional signal",
