@@ -155,7 +155,10 @@ seo-profile-content-type-event = Veranstaltung
 seo-profile-content-type-recipe = Rezept
 seo-profile-content-type-faq = FAQ / Informationsseite
 seo-profile-summary-none = Keine Meta-Informationen gefunden.
-seo-profile-generic-array-entries = [{ $count } Einträge]
+seo-profile-generic-array-entries = [{ $count ->
+        [one] { $count } Eintrag
+       *[other] { $count } Einträge
+    }]
 seo-profile-detail-characters = { $count } Zeichen
 seo-profile-detail-missing = fehlt
 seo-profile-detail-present = vorhanden
@@ -192,7 +195,10 @@ seo-profile-check-twitter-complete = Twitter Card ≥ 75% vollständig
 seo-profile-category-technical = Technisch
 seo-profile-check-lang = Sprache (lang)
 seo-profile-check-hreflang = Hreflang (Mehrsprachigkeit)
-seo-profile-detail-hreflang-languages = { $count } Sprachen
+seo-profile-detail-hreflang-languages = { $count ->
+        [one] { $count } Sprache
+       *[other] { $count } Sprachen
+    }
 seo-profile-detail-no-hreflang = keine Hreflang-Tags (bei einsprachigen Seiten nicht nötig)
 seo-profile-check-robots-indexing = Robots erlaubt Indexierung
 seo-profile-detail-no-robots-meta = kein Robots-Meta-Tag (Standard: index)

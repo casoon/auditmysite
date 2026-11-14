@@ -8,14 +8,23 @@
 ## Keyboard accessibility journey
 a11y-details-journey-title = Tastatur-Journey zur Barrierefreiheit
 a11y-details-journey-overview-critical = { $critical } kritische und { $high } hohe Befunde aus Tastatur- und Zustandswechsel-Tests.
-a11y-details-journey-overview-high = { $count } interaktive Befunde mit hoher Schwere gefunden.
+a11y-details-journey-overview-high = { $count ->
+        [one] { $count } interaktiver Befund mit hoher Schwere gefunden.
+       *[other] { $count } interaktive Befunde mit hoher Schwere gefunden.
+    }
 a11y-details-journey-overview-minor = { $count } { $count ->
         [one] kleinerer interaktiver Befund
        *[other] kleinere interaktive Befunde
     } — keine kritischen oder hohen Barrieren erkannt.
-a11y-details-journey-more = { $count } weitere interaktive Befunde im JSON-Report.
+a11y-details-journey-more = { $count ->
+        [one] { $count } weiterer interaktiver Befund im JSON-Report.
+       *[other] { $count } weitere interaktive Befunde im JSON-Report.
+    }
 a11y-details-journey-sequences = Geprüfte Journey-Sequenzen
-a11y-details-journey-steps = { $count } Schritte
+a11y-details-journey-steps = { $count ->
+        [one] { $count } Schritt
+       *[other] { $count } Schritte
+    }
 a11y-details-journey-disclaimer = Diese Tests prüfen, ob Browser, DOM, Fokus und Accessibility Tree eine robuste Grundlage für Screenreader-Nutzung liefern. Sie simulieren nicht den exakten Output von NVDA, JAWS oder VoiceOver.
 
 ## Journey labels (internal journey ids)

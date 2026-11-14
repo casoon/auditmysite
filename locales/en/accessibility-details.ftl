@@ -8,14 +8,23 @@
 ## Keyboard accessibility journey
 a11y-details-journey-title = Keyboard Accessibility Journey
 a11y-details-journey-overview-critical = { $critical } critical and { $high } high issues detected during keyboard and state-transition tests.
-a11y-details-journey-overview-high = { $count } high-severity interactive issues found.
+a11y-details-journey-overview-high = { $count ->
+        [one] { $count } high-severity interactive issue found.
+       *[other] { $count } high-severity interactive issues found.
+    }
 a11y-details-journey-overview-minor = { $count } minor interactive { $count ->
         [one] issue
        *[other] issues
     } — no critical or high barriers detected.
-a11y-details-journey-more = { $count } additional interactive findings in the JSON report.
+a11y-details-journey-more = { $count ->
+        [one] { $count } additional interactive finding in the JSON report.
+       *[other] { $count } additional interactive findings in the JSON report.
+    }
 a11y-details-journey-sequences = Tested Journey Sequences
-a11y-details-journey-steps = { $count } steps
+a11y-details-journey-steps = { $count ->
+        [one] { $count } step
+       *[other] { $count } steps
+    }
 a11y-details-journey-disclaimer = These tests check whether browser, DOM, focus, and accessibility tree provide a robust foundation for screen reader use. They do not simulate the exact output of NVDA, JAWS, or VoiceOver.
 
 ## Journey labels (internal journey ids)

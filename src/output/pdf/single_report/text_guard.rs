@@ -95,6 +95,7 @@ fn every_key_resolves_in_both_languages_without_errors() {
             "budget",
             "reason",
             "occurrence_context",
+            "list",
         ] {
             args.set(name, FluentValue::from("x"));
         }

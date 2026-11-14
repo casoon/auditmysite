@@ -68,9 +68,13 @@ fn every_key_resolves_in_both_languages_without_errors() {
             "desktop",
             "pct",
             "groups",
+            "groups_n",
             "occurrences",
+            "occurrences_n",
             "rows",
+            "rows_n",
             "all",
+            "all_n",
             "count",
         ] {
             args.set(name, FluentValue::from(2_i64));

@@ -57,7 +57,10 @@ page-health-incorrect-content-type =
        *[other] Ressourcen
     } mit fehlendem oder falschem Content-Type-Header{ $sample }
 page-health-charset-mismatch = Charset-Konflikt: HTTP-Header deklariert "{ $header }", <meta charset> deklariert "{ $declared }"
-page-health-hreflang-invalid = { $count } hreflang-Einträge mit ungültigem Sprachcode
+page-health-hreflang-invalid = { $count ->
+        [one] { $count } hreflang-Eintrag mit ungültigem Sprachcode
+       *[other] { $count } hreflang-Einträge mit ungültigem Sprachcode
+    }
 page-health-jsonld-invalid = { $count } JSON-LD-Blöcke ohne @context oder @type
 page-health-sync-head-scripts =
     { $count } { $count ->
