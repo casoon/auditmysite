@@ -302,6 +302,9 @@ pub(super) fn build_actions_block(
 }
 
 #[cfg(test)]
+mod text_export;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::audit::summary::SiteState;

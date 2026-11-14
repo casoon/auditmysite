@@ -570,6 +570,9 @@ fn register_page_screenshot_assets(
     Ok(builder)
 }
 
+#[cfg(test)]
+mod frame_text_export;
+
 #[cfg(all(test, feature = "pdf_test"))]
 #[path = "tests.rs"]
 mod tests;
