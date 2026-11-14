@@ -177,9 +177,12 @@ surface that owns its lifecycle:
   language-neutral names such as `Description`, `Canonical` and `Favicon` are
   written there), the
   structured-data fit labels (`seo::schema_fit::SchemaPageKind::label`,
-  `SchemaFitAssessment::fit_text`, `seo-schema-fit-*`) and the content-parity
+  `SchemaFitAssessment::fit_text`, `seo-schema-fit-*`), the content-parity
   texts (`seo::schema_parity::ContentParityAssessment::status_text`/
-  `evidence_text`, `seo-schema-parity-*`).
+  `evidence_text`, `seo-schema-parity-*`) and the rich-result rule wording
+  (`seo::schema_rules::status_text`, `manual_review_text` and the breadcrumb
+  name of `feature_label`, `seo-schema-rules-*`; the other feature names are
+  language-neutral and written in Rust).
 - `locales/{de,en}/security-issues.ftl`: the texts of the security findings
   (`security::security_issue_text`, `security-*`), built the same way; the
   function keeps the default values (`unset`, `object-src`). Also the category

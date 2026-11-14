@@ -1500,7 +1500,7 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
                 en,
             )
         } else {
-            crate::seo::schema_rules::status_text(assessment, en).to_string()
+            crate::seo::schema_rules::status_text(assessment, en)
         };
         checks.push(check(
             &format!(

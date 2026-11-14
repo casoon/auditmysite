@@ -6,9 +6,10 @@
 # and their severity stay in Rust. Also the table labels of the structured-data
 # issues (`seo::schema::schema_issue_label`) and of the robots.txt audit (bot
 # classes and policy labels of `seo::robots`), the labels and texts of the SEO
-# content profile (`seo::profile`), the SERP status labels (`seo::serp`) and the
+# content profile (`seo::profile`), the SERP status labels (`seo::serp`), the
 # structured-data fit and content-parity texts (`seo::schema_fit`,
-# `seo::schema_parity`).
+# `seo::schema_parity`) and the rich-result rule wording
+# (`seo::schema_rules`).
 
 seo-technical-no-https = Page is not served over HTTPS
 seo-technical-no-canonical = Missing canonical URL
@@ -296,3 +297,22 @@ seo-schema-parity-status-not-evaluated = Not evaluated
 seo-schema-parity-evidence-match = Schema and visible content agree: { $value }
 seo-schema-parity-evidence-mismatch = Schema: { $schema }; visible: { $visible }
 seo-schema-parity-evidence-not-evaluated = No single unambiguous visible value was found
+
+# Wording of the rich-result rules (`seo::schema_rules`): the feature name
+# that differs by language (`feature_label`; the other feature names are
+# language-neutral and written in Rust), the requirement status
+# (`status_text`) and the manual-review points (`manual_review_text`).
+seo-schema-rules-feature-breadcrumb = Breadcrumb
+seo-schema-rules-status-meets-required = Required properties met
+seo-schema-rules-status-missing-required = Required properties missing
+seo-schema-rules-status-recommendations-only = No required properties
+seo-schema-rules-status-not-evaluated = Context not established
+seo-schema-rules-review-merchant-listing-context = Confirm that this page is a purchasable product detail page before applying merchant-listing requirements.
+seo-schema-rules-review-cancelled-event-keeps-details = Confirm that the cancelled event retains its original startDate and location.
+seo-schema-rules-review-event-is-single-public-event = Confirm that the event is a single bookable public event and all marked-up details are visible on the page.
+seo-schema-rules-review-recipe-cook-and-prep-time = Google recommends using cookTime and prepTime together; verify the missing duration.
+seo-schema-rules-review-recipe-matches-visible-recipe = Confirm that the page describes preparation of one dish and that ingredients and instructions match the visible recipe.
+seo-schema-rules-review-job-posting-is-open-position = Confirm that this is one currently open position with a visible application path; expired jobs must be removed or marked with a past validThrough date.
+seo-schema-rules-review-software-rating-is-genuine = Confirm that the rating or review is visible, genuine, and specifically about this application.
+seo-schema-rules-review-profile-page-subject = Confirm that the page is primarily about one person or organization affiliated with the site.
+seo-schema-rules-review-item-list-canonical-urls = Confirm that each listed URL is unique and points to a canonical detail page represented by the visible list.

@@ -338,6 +338,9 @@ pub(crate) mod label_texts_export;
 pub(crate) mod profile_texts_export;
 
 #[cfg(test)]
+pub(crate) mod schema_rules_texts_export;
+
+#[cfg(test)]
 pub(crate) mod serp_texts_export;
 
 #[cfg(test)]
