@@ -274,76 +274,70 @@ fn consistent_help_status(help: &HelpConsistency) -> &'static str {
 /// Assessment basis for 3.2.6 — the single text source for the JSON
 /// (`en = true`) and the localized batch PDF (#406).
 pub fn consistent_help_basis(help: &HelpConsistency, en: bool) -> String {
+    use crate::i18n::{count_text, text, text_args};
+    use fluent_bundle::FluentValue;
     let affected = help
         .deviations
         .iter()
         .map(HelpDeviation::url)
         .collect::<HashSet<_>>()
         .len();
-    let count =
-        |n: usize, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
-    let mechanisms = if en {
-        count(
-            help.repeated_mechanisms,
-            "recurring help mechanism",
-            "recurring help mechanisms",
-        )
-    } else {
-        count(
-            help.repeated_mechanisms,
-            "wiederkehrender Hilfemechanismus",
-            "wiederkehrende Hilfemechanismen",
-        )
-    };
-    match (consistent_help_status(help), en) {
-        ("manual_review", true) => "No help mechanism (contact or help link, e-mail, phone, known chat widget) recurs outside the main content on two or more audited pages; other forms of help must be checked manually.".to_string(),
-        ("manual_review", false) => "Kein Hilfemechanismus (Kontakt- oder Hilfe-Link, E-Mail, Telefon, bekanntes Chat-Widget) wiederholt sich außerhalb des Hauptinhalts auf mindestens zwei geprüften Seiten; andere Formen von Hilfe sind manuell zu prüfen.".to_string(),
-        ("no_inconsistency_detected", true) => format!(
-            "{mechanisms} compared across the audited pages by landmark region and relative order; no deviation found."
+    let mechanisms = count_text("audit-help-mechanisms", help.repeated_mechanisms, en);
+    match consistent_help_status(help) {
+        "manual_review" => text("audit-help-basis-manual-review", en),
+        "no_inconsistency_detected" => text_args(
+            "audit-help-basis-consistent",
+            &[("mechanisms", FluentValue::from(mechanisms))],
+            en,
         ),
-        ("no_inconsistency_detected", false) => format!(
-            "{mechanisms} über die geprüften Seiten nach Seitenbereich und relativer Reihenfolge verglichen; keine Abweichung gefunden."
-        ),
-        (_, true) => format!(
-            "{mechanisms} compared by landmark region and relative order; {} on {}.",
-            count(help.deviations.len(), "deviation", "deviations"),
-            count(affected, "page", "pages")
-        ),
-        (_, false) => format!(
-            "{mechanisms} nach Seitenbereich und relativer Reihenfolge verglichen; {} auf {}.",
-            count(help.deviations.len(), "Abweichung", "Abweichungen"),
-            count(affected, "Seite", "Seiten")
+        _ => text_args(
+            "audit-help-basis-deviations",
+            &[
+                ("mechanisms", FluentValue::from(mechanisms)),
+                (
+                    "deviations",
+                    FluentValue::from(count_text(
+                        "audit-help-deviations",
+                        help.deviations.len(),
+                        en,
+                    )),
+                ),
+                (
+                    "pages",
+                    FluentValue::from(count_text("audit-help-pages", affected, en)),
+                ),
+            ],
+            en,
         ),
     }
 }
 
 /// Display name of a landmark region — single text source for JSON consumers
 /// and the localized batch PDF (#406).
-pub fn help_region_name(region: HelpRegion, en: bool) -> &'static str {
-    match (region, en) {
-        (HelpRegion::Header, true) => "header",
-        (HelpRegion::Header, false) => "Kopfbereich",
-        (HelpRegion::Navigation, true) => "navigation",
-        (HelpRegion::Navigation, false) => "Navigation",
-        (HelpRegion::Complementary, true) => "sidebar",
-        (HelpRegion::Complementary, false) => "Seitenleiste",
-        (HelpRegion::Footer, true) => "footer",
-        (HelpRegion::Footer, false) => "Fußbereich",
-        (HelpRegion::Floating, true) => "floating overlay",
-        (HelpRegion::Floating, false) => "schwebende Einblendung",
-        (HelpRegion::Other, true) => "page body outside the main content",
-        (HelpRegion::Other, false) => "Seitenkörper außerhalb des Hauptinhalts",
-    }
+pub fn help_region_name(region: HelpRegion, en: bool) -> String {
+    crate::i18n::text(
+        match region {
+            HelpRegion::Header => "audit-help-region-header",
+            HelpRegion::Navigation => "audit-help-region-navigation",
+            HelpRegion::Complementary => "audit-help-region-complementary",
+            HelpRegion::Footer => "audit-help-region-footer",
+            HelpRegion::Floating => "audit-help-region-floating",
+            HelpRegion::Other => "audit-help-region-other",
+        },
+        en,
+    )
 }
 
 /// One-sentence description of a 3.2.6 deviation (#406: pure text function,
 /// the PDF calls it with the run locale).
 pub fn help_deviation_text(deviation: &HelpDeviation, en: bool) -> String {
+    use crate::i18n::{text, text_args};
+    use fluent_bundle::FluentValue;
     let regions = |list: &[HelpRegion]| {
         list.iter()
             .map(|r| help_region_name(*r, en))
             .collect::<Vec<_>>()
-            .join(if en { " and " } else { " und " })
+            .join(&text("audit-join-and", en))
     };
     match deviation {
         HelpDeviation::Region {
@@ -351,39 +345,29 @@ pub fn help_deviation_text(deviation: &HelpDeviation, en: bool) -> String {
             expected,
             found,
             ..
-        } => {
-            if en {
-                format!(
-                    "'{mechanism}' sits in the {} instead of the {} used on most pages.",
-                    regions(found),
-                    regions(expected)
-                )
-            } else {
-                format!(
-                    "„{mechanism}“ steht im Bereich {} statt wie auf den meisten Seiten im Bereich {}.",
-                    regions(found),
-                    regions(expected)
-                )
-            }
-        }
+        } => text_args(
+            "audit-help-deviation-region",
+            &[
+                ("mechanism", FluentValue::from(mechanism.as_str())),
+                ("found", FluentValue::from(regions(found))),
+                ("expected", FluentValue::from(regions(expected))),
+            ],
+            en,
+        ),
         HelpDeviation::Order {
             region,
             first,
             second,
             ..
-        } => {
-            if en {
-                format!(
-                    "In the {}, '{second}' comes before '{first}'; most pages use the reverse order.",
-                    help_region_name(*region, true)
-                )
-            } else {
-                format!(
-                    "Im Bereich {} steht „{second}“ vor „{first}“; die meisten Seiten nutzen die umgekehrte Reihenfolge.",
-                    help_region_name(*region, false)
-                )
-            }
-        }
+        } => text_args(
+            "audit-help-deviation-order",
+            &[
+                ("region", FluentValue::from(help_region_name(*region, en))),
+                ("first", FluentValue::from(first.as_str())),
+                ("second", FluentValue::from(second.as_str())),
+            ],
+            en,
+        ),
     }
 }
 
