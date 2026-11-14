@@ -15,6 +15,10 @@ mod management;
 mod overview;
 mod portfolio;
 mod privacy;
+#[cfg(test)]
+mod section_text_export;
+#[cfg(test)]
+mod section_text_guard;
 mod seo;
 #[cfg(test)]
 mod text_export;
@@ -439,7 +443,7 @@ mod tests {
             }
             // One module name throughout: the module comparison and the
             // cover frame use the localized one.
-            let accessibility = portfolio::localized_module_name("Accessibility", en);
+            let accessibility = portfolio::localized_module_name("Accessibility", &i18n);
             assert!(
                 out.contains(&format!("((\"{accessibility}\", ")),
                 "{locale}"

@@ -22,7 +22,6 @@ pub(super) fn render_batch_module_portfolio(
         return builder;
     }
 
-    let en = is_english(i18n);
     builder = builder.add_component(
         SectionHeaderSplit::new(
             i18n.t("batch-module-portfolio-title"),
@@ -33,7 +32,7 @@ pub(super) fn render_batch_module_portfolio(
 
     let mut grid = Grid::new(4).with_item_min_height("118pt");
     for (name, score) in &pres.portfolio_summary.module_averages {
-        let mut gauge = Gauge::new(localized_module_name(name, en), *score as f64);
+        let mut gauge = Gauge::new(localized_module_name(name, i18n), *score as f64);
         gauge.thresholds = vec![
             GaugeThreshold {
                 value: 0.0,
@@ -84,7 +83,7 @@ pub(super) fn render_batch_module_portfolio(
             None => "—".to_string(),
         };
         table = table.add_row(vec![
-            localized_module_name(name, en).to_string(),
+            localized_module_name(name, i18n),
             format!("{score}/100"),
             spread,
             module_effect_sentence(
@@ -120,24 +119,22 @@ pub(super) fn module_score_spread(
     Some((*scores.iter().min()?, *scores.iter().max()?, scores.len()))
 }
 
-pub(super) fn localized_module_name(name: &str, en: bool) -> &str {
-    match (name, en) {
-        ("Accessibility", false) => "Barrierefreiheit",
-        ("Best Practices", false) => "Best Practices",
-        ("Mobile", false) => "Mobile",
-        ("Performance", false) => "Performance",
-        ("Security", false) => "Sicherheit",
-        ("HTML Conformance", false) => "HTML-Konformität",
-        ("SEO", false) => "SEO",
-        ("UX", false) => "UX",
-        ("Journey", false) => "Journey",
-        ("AI Visibility", false) => "KI-Sichtbarkeit",
-        ("Content Visibility", false) => "Content Visibility",
-        ("Source Quality", false) => "Technische Aufbereitung",
-        ("Source Quality", true) => "Technical preparation",
-        ("Tech Stack", false) => "Tech-Stack",
-        _ => name,
-    }
+pub(super) fn localized_module_name(name: &str, i18n: &I18n) -> String {
+    i18n.t(match name {
+        "Accessibility" => "module-accessibility",
+        "Best Practices" => "module-best-practices",
+        "Mobile" => "module-mobile",
+        "Performance" => "module-performance",
+        "Security" => "module-security",
+        "HTML Conformance" => "batch-report-module-html-conformance",
+        "SEO" => "module-seo",
+        "UX" => "module-ux",
+        "Journey" => "module-journey",
+        "AI Visibility" => "module-ai-visibility",
+        "Source Quality" => "module-source-quality",
+        "Tech Stack" => "module-tech-stack",
+        _ => return name.to_string(),
+    })
 }
 
 /// Open findings of high or critical severity that belong to a module,
@@ -234,7 +231,6 @@ pub(super) fn render_batch_impact_summary(
     reasons: &[crate::audit::verdict::BatchReasonKind],
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
     let dist = &pres.portfolio_summary.severity_distribution;
     let a11y_avg = pres
         .portfolio_summary
@@ -243,49 +239,28 @@ pub(super) fn render_batch_impact_summary(
         .round() as u32;
 
     let user_impact = i18n.t(batch_user_impact_key(a11y_avg, reasons));
-    let business_impact = if dist.critical > 0 {
+    let business_impact = i18n.t(if dist.critical > 0 {
         // About the audited pages: how far beyond the sample the barriers
         // reach is not measured (plan 80).
-        if en {
-            "The audited pages contain critical barriers for certain user groups; how far they reach beyond these pages is not measured."
-        } else {
-            "Die geprüften Seiten enthalten kritische Barrieren für bestimmte Nutzergruppen; wie weit sie über diese Seiten hinausreichen, ist nicht gemessen."
-        }
+        "batch-report-impact-business-critical"
     } else if dist.high > 0 {
-        if en {
-            "Individual functional areas are problematic for users with disabilities."
-        } else {
-            "Einzelne Funktionsbereiche sind für Nutzer mit Einschränkungen problematisch."
-        }
-    } else if en {
-        "Low impact on the audited pages — no critical or high barriers detected automatically."
+        "batch-report-impact-business-high"
     } else {
-        "Geringe Auswirkung auf den geprüften Seiten — automatisiert keine kritischen oder hohen Barrieren erkannt."
-    };
+        "batch-report-impact-business-low"
+    });
     // The legal flags the batch decision fails on, not critical findings
     // alone (#1039).
-    let legal_impact = if legal_flags > 0 {
-        if en {
-            "WCAG Level A/AA violations detected automatically — manual review required for a defensible BFSG classification."
-        } else {
-            "WCAG-Level-A/AA-Verstöße automatisiert erkannt — für belastbare BFSG-Einordnung ist manuelle Prüfung nötig."
-        }
-    } else if en {
-        "No critical violations detected automatically — manual review recommended for full classification."
+    let legal_impact = i18n.t(if legal_flags > 0 {
+        "batch-report-impact-legal-flags"
     } else {
-        "Automatisiert keine kritischen Verstöße erkannt — manuelle Prüfung für vollständige Einordnung empfohlen."
-    };
+        "batch-report-impact-legal-none"
+    });
 
-    let (user_label, business_label, risk_label) = if en {
-        ("User", "Business", "Risk")
-    } else {
-        ("Nutzer", "Business", "Risiko")
-    };
     let mut impact_kv = KeyValueList::new().with_title(i18n.t("narrative-impact-title"));
     impact_kv = impact_kv
-        .add(user_label, user_impact)
-        .add(business_label, business_impact)
-        .add(risk_label, legal_impact);
+        .add(i18n.t("batch-report-impact-user"), user_impact)
+        .add(i18n.t("batch-report-impact-business"), business_impact)
+        .add(i18n.t("batch-report-impact-risk"), legal_impact);
     builder = builder.add_component(impact_kv);
 
     builder

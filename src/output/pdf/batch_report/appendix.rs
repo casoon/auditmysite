@@ -1,4 +1,3 @@
-use crate::output::localized::is_english;
 use renderreport::components::advanced::{
     ChecklistPanel, ChecklistRow, KeyValueList, PageBreak, SectionHeaderSplit,
 };
@@ -204,21 +203,15 @@ pub(super) fn render_batch_appendix(
 
 // ─── Commerce site-wide roll-up ─────────────────────────────────────────────
 
-fn batch_trust_page_label(key: &str, en: bool) -> &'static str {
-    match (key, en) {
-        ("impressum", true) => "Imprint",
-        ("impressum", false) => "Impressum",
-        ("agb", true) => "Terms (AGB)",
-        ("agb", false) => "AGB",
-        ("widerruf", true) => "Right of withdrawal / returns",
-        ("widerruf", false) => "Widerruf / Retoure",
-        ("versand", true) => "Shipping info",
-        ("versand", false) => "Versand / Lieferung",
-        ("zahlungsarten", true) => "Payment methods",
-        ("zahlungsarten", false) => "Zahlungsarten",
-        (_, true) => "Contact",
-        (_, false) => "Kontakt",
-    }
+fn batch_trust_page_label(key: &str, i18n: &I18n) -> String {
+    i18n.t(match key {
+        "impressum" => "batch-report-commerce-trust-impressum",
+        "agb" => "batch-report-commerce-trust-agb",
+        "widerruf" => "batch-report-commerce-trust-widerruf",
+        "versand" => "batch-report-commerce-trust-versand",
+        "zahlungsarten" => "batch-report-commerce-trust-zahlungsarten",
+        _ => "batch-report-commerce-trust-kontakt",
+    })
 }
 
 /// Site-wide commerce roll-up: which mandatory/trust pages are linked
@@ -239,85 +232,54 @@ pub(super) fn render_batch_commerce(
         return builder;
     };
 
-    let en = is_english(i18n);
     builder = builder.add_component(PageBreak::new()).add_component(
-        SectionHeaderSplit::new(
-            "Commerce",
-            if en {
-                "Product structured-data completeness and mandatory-page linking, aggregated across the audited set."
-            } else {
-                "Produkt-Strukturdaten-Vollständigkeit und Pflichtseiten-Verlinkung, aggregiert über das geprüfte Set."
-            },
-        )
-        .with_eyebrow("COMMERCE")
-        .with_level(2),
+        SectionHeaderSplit::new("Commerce", i18n.t("batch-report-commerce-intro"))
+            .with_eyebrow("COMMERCE")
+            .with_level(2),
     );
     builder = builder.add_component(
-        Label::new(if en {
-            "Checks product structured data and mandatory-page linking across the audited pages — not a checkout, payment-processing, or cart audit (this tool has no cross-page session state)."
-        } else {
-            "Prüft Produkt-Strukturdaten und die Verlinkung von Pflichtseiten über die geprüften Seiten hinweg — keine Prüfung von Checkout, Zahlungsabwicklung oder Warenkorb (das Tool hat keinen seitenübergreifenden Sitzungszustand)."
-        })
-        .with_size("10.5pt")
-        .with_color(tokens::NEUTRAL),
+        Label::new(i18n.t("batch-report-commerce-scope-note"))
+            .with_size("10.5pt")
+            .with_color(tokens::NEUTRAL),
     );
 
-    let product_pages_label = if en {
-        format!(
-            "{} product page{} audited",
-            summary.product_pages,
-            if summary.product_pages == 1 { "" } else { "s" }
-        )
-    } else {
-        format!(
-            "{} Produktseite{} geprüft",
-            summary.product_pages,
-            if summary.product_pages == 1 { "" } else { "n" }
-        )
-    };
+    let product_pages_label = i18n.count(
+        "batch-report-commerce-product-pages-audited",
+        summary.product_pages,
+    );
     builder = builder.add_component(
         KeyValueList::new()
-            .with_title(if en { "Overview" } else { "Übersicht" })
+            .with_title(i18n.t("pdf-commerce-overview-title"))
             .add(
-                if en { "Product pages" } else { "Produktseiten" },
+                i18n.t("batch-report-commerce-product-pages"),
                 &product_pages_label,
             ),
     );
 
     let tp = &summary.trust_pages_linked;
-    let rows = [
-        ("impressum", tp.impressum),
-        ("agb", tp.agb),
-        ("widerruf", tp.widerruf),
-        ("versand", tp.versand),
-        ("zahlungsarten", tp.zahlungsarten),
-        ("kontakt", tp.kontakt),
-    ]
-    .into_iter()
-    .map(|(key, linked)| {
-        let status_text = if linked {
-            if en {
-                "Linked"
+    let rows =
+        [
+            ("impressum", tp.impressum),
+            ("agb", tp.agb),
+            ("widerruf", tp.widerruf),
+            ("versand", tp.versand),
+            ("zahlungsarten", tp.zahlungsarten),
+            ("kontakt", tp.kontakt),
+        ]
+        .into_iter()
+        .map(|(key, linked)| {
+            let status_text = i18n.t(if linked {
+                "pdf-commerce-linked"
             } else {
-                "Verlinkt"
-            }
-        } else if en {
-            "Not linked anywhere in the audited set"
-        } else {
-            "Nirgends im geprüften Set verlinkt"
-        };
-        ChecklistRow::new(batch_trust_page_label(key, en), status_text).with_status(if linked {
-            "good"
-        } else {
-            "warn"
+                "batch-report-commerce-not-linked"
+            });
+            ChecklistRow::new(batch_trust_page_label(key, i18n), status_text)
+                .with_status(if linked { "good" } else { "warn" })
         })
-    })
-    .collect::<Vec<_>>();
-    builder = builder.add_component(ChecklistPanel::new(rows).with_title(if en {
-        "Mandatory-page linking (site-wide)"
-    } else {
-        "Pflichtseiten-Verlinkung (site-weit)"
-    }));
+        .collect::<Vec<_>>();
+    builder = builder.add_component(
+        ChecklistPanel::new(rows).with_title(i18n.t("batch-report-commerce-trust-title")),
+    );
 
     builder
 }

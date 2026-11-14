@@ -312,6 +312,22 @@ surface that owns its lifecycle:
   `severity-high` and `severity-low`, and the role, priority, execution
   priority and effort labels are the messages of their own enums. The JSON
   detail builds the block with the locale `en`, so it stays canonical English.
+- `locales/{de,en}/batch-report.ftl`: the texts of the batch PDF's keyboard
+  journey summary (`output::pdf::batch_report::interactive`: intro, table
+  title and headings, the interactive category names), the module name
+  "HTML Conformance", the impact summary (`portfolio`: the user, business
+  and risk rows), the commerce roll-up (`appendix`: intro, scope note,
+  product-page count, mandatory-page labels and status), the cover contents
+  title and the EN 301 549 clause roll-up and overview cards (`overview`:
+  title, intro, column headings, clause statuses, out-of-scope chapter
+  line, card titles), all `batch-report-*`. The renderers keep which
+  message applies, the number formats (word counts, shares), the display
+  mode, rating band and baseline texts of other modules, and the clause
+  titles and disclaimers that `wcag::en301549` owns; the product-page
+  count is a Fluent count with a plural select. The journey title, the
+  severity labels, the module names, "Share", "Overview" and "Linked" reuse
+  `a11y-details-journey-title`, `severity-*`, `module-*`, `batch-col-share`,
+  `pdf-commerce-overview-title` and `pdf-commerce-linked`.
 - `src/output/explanations.rs`: the explanation table itself: which entries
   exist, owner role, effort, and the code examples (canonical English), plus
   `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are

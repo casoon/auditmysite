@@ -43,7 +43,7 @@ const TEXTS: [&str; 4] = [
 ];
 
 /// A page with one high-severity Level AA contrast violation.
-fn contrast_page(url: &str) -> AuditReport {
+pub(super) fn contrast_page(url: &str) -> AuditReport {
     let mut results = WcagResults::new();
     results.add_violation(
         crate::wcag::Violation::new(
@@ -60,7 +60,7 @@ fn contrast_page(url: &str) -> AuditReport {
     AuditReport::new(url.to_string(), WcagLevel::AA, results, 100)
 }
 
-fn batch() -> BatchReport {
+pub(super) fn batch() -> BatchReport {
     BatchReport::from_reports(
         ["a", "b", "c"]
             .iter()
@@ -71,11 +71,11 @@ fn batch() -> BatchReport {
     )
 }
 
-fn components(builder: renderreport::engine::ReportBuilder) -> Value {
+pub(super) fn components(builder: renderreport::engine::ReportBuilder) -> Value {
     Value::Array(builder.build().components)
 }
 
-fn bare() -> renderreport::engine::ReportBuilder {
+pub(super) fn bare() -> renderreport::engine::ReportBuilder {
     renderreport::engine::ReportBuilder::new("export")
 }
 
@@ -372,7 +372,7 @@ fn export_consistency(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
     }
 }
 
-fn compact(url: &str, modules: &[(&str, u32)]) -> CompactUrlSummary {
+pub(super) fn compact(url: &str, modules: &[(&str, u32)]) -> CompactUrlSummary {
     CompactUrlSummary {
         url: url.to_string(),
         score: 80.0,
@@ -402,7 +402,7 @@ fn ranked(url: &str, score: f32) -> UrlSummary {
     }
 }
 
-fn dist(critical: usize, high: usize) -> SeverityDistribution {
+pub(super) fn dist(critical: usize, high: usize) -> SeverityDistribution {
     SeverityDistribution {
         critical,
         high,
