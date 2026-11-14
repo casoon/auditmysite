@@ -279,6 +279,22 @@ surface that owns its lifecycle:
   band), the module lists, the score and weight cells and the formula
   cells; the weight basis is a Fluent number. The module column heading
   reuses `label-module` of `report.ftl`.
+- `locales/{de,en}/pdf-findings.ftl`: the texts of the PDF finding cards
+  (`output::pdf::findings`, `pdf-findings-*`): the severity prefix, the
+  code labels of the metadata strip and rows, the metadata and assessment
+  row keys, the BFSG/EAA label spelled out and abbreviated, the occurrence
+  evidence rows (DOM path, contrast, color scheme), the screenshot
+  captions, the hidden-occurrence note, the structural-cause labels and
+  the customer-perspective titles; and of the shared module detail helpers
+  (`output::pdf::detail_modules`, `pdf-details-*`): the module customer
+  context, the derived-from and accessibility penalty notes, the score
+  card caption, the Web Vitals rating and the journey category labels. The
+  renderers keep which message applies and the decimal notation of the
+  contrast ratio; counts are Fluent numbers and the hidden-occurrence
+  plural is a Fluent select. The code labels High, Medium and Low reuse
+  `severity-*` of `report.ftl`, the journey categories SPA navigation and
+  Quantity stepper the `a11y-details-journey-label-*` messages of
+  `accessibility-details.ftl`.
 - `src/output/explanations.rs`: the explanation table itself: which entries
   exist, owner role, effort, and the code examples (canonical English), plus
   `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are

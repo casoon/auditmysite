@@ -1,6 +1,7 @@
 //! Finding renderers for PDF reports.
 
 use crate::output::localized::is_english;
+use fluent_bundle::FluentValue;
 use renderreport::components::advanced::{
     Divider, FlowGroup, KeyValueList, List, MetricStrip, MetricStripItem, WrongRightBlock,
 };
@@ -15,6 +16,11 @@ use crate::wcag::Evidence;
 use super::helpers::{
     effort_label_i18n, manual_recheck_instruction, priority_label_i18n, role_label_i18n,
 };
+
+#[cfg(test)]
+mod text_export;
+#[cfg(test)]
+mod text_guard;
 
 /// Extract the first sentence from a text (up to first period + space, or full text).
 /// Skips common German abbreviations like "z. B.", "d. h.", "u. a.".
@@ -74,7 +80,7 @@ pub(super) fn first_sentence(text: &str) -> &str {
 }
 
 #[cfg(test)]
-fn customer_perspective_title(group: &FindingGroup, en: bool) -> &'static str {
+fn customer_perspective_title(group: &FindingGroup, en: bool) -> String {
     let rule = group.finding.rule_id.as_str();
     let dimension = group.finding.dimension.as_str();
     let subcategory = group.finding.subcategory.as_str();
@@ -86,7 +92,7 @@ fn customer_perspective_title(group: &FindingGroup, en: bool) -> &'static str {
         group.title.to_lowercase()
     );
 
-    if haystack.contains("name_role")
+    let key = if haystack.contains("name_role")
         || haystack.contains("focus")
         || haystack.contains("keyboard")
         || haystack.contains("button")
@@ -94,11 +100,7 @@ fn customer_perspective_title(group: &FindingGroup, en: bool) -> &'static str {
         || haystack.contains("target")
         || haystack.contains("form")
     {
-        if en {
-            "Operability"
-        } else {
-            "Bedienbarkeit"
-        }
+        "pdf-findings-perspective-operability"
     } else if haystack.contains("structure")
         || haystack.contains("heading")
         || haystack.contains("landmark")
@@ -107,98 +109,58 @@ fn customer_perspective_title(group: &FindingGroup, en: bool) -> &'static str {
         || haystack.contains("parsing")
         || haystack.contains("semant")
     {
-        if en {
-            "Orientation and structure"
-        } else {
-            "Orientierung und Struktur"
-        }
+        "pdf-findings-perspective-structure"
     } else if haystack.contains("contrast")
         || haystack.contains("color")
         || haystack.contains("image")
         || haystack.contains("alt")
         || haystack.contains("visibility")
     {
-        if en {
-            "Perception and readability"
-        } else {
-            "Wahrnehmbarkeit und Lesbarkeit"
-        }
+        "pdf-findings-perspective-perception"
     } else if dimension == "SEO"
         || haystack.contains("seo")
         || haystack.contains("schema")
         || haystack.contains("meta")
         || haystack.contains("ai")
     {
-        if en {
-            "Discoverability and AI understanding"
-        } else {
-            "Auffindbarkeit und KI-Verständnis"
-        }
+        "pdf-findings-perspective-discoverability"
     } else if dimension == "Security" || haystack.contains("security") {
-        if en {
-            "Trust and technical quality"
-        } else {
-            "Vertrauen und technische Qualität"
-        }
+        "pdf-findings-perspective-trust"
     } else if dimension == "Performance" || dimension == "Mobile" {
-        if en {
-            "Loading and mobile experience"
-        } else {
-            "Lade- und Mobile-Erlebnis"
-        }
-    } else if en {
-        "Customer impact"
+        "pdf-findings-perspective-loading"
     } else {
-        "Kundenauswirkung"
-    }
+        "pdf-findings-perspective-customer-impact"
+    };
+    crate::i18n::text(key, en)
 }
 
 /// Label for the "BFSG/EAA relevance" meta row. Both acronyms are spelled out
 /// once, at their first appearance in the report, then abbreviated on every
 /// later card — readers who start at Chapter 02's first finding get the
 /// expansion, later cards stay compact (Rule B, plain-language report plan).
-fn bfsg_eaa_label(i18n: &I18n, acronyms_expanded: &mut bool) -> &'static str {
-    let en = is_english(i18n);
+fn bfsg_eaa_label(i18n: &I18n, acronyms_expanded: &mut bool) -> String {
     if !*acronyms_expanded {
         *acronyms_expanded = true;
-        return if en {
-            "BFSG/EAA relevance (German Accessibility Strengthening Act / European Accessibility Act)"
-        } else {
-            "BFSG-/EAA-Relevanz (Barrierefreiheitsstärkungsgesetz / European Accessibility Act)"
-        };
+        return i18n.t("pdf-findings-bfsg-eaa-expanded");
     }
-    if en {
-        "BFSG/EAA relevance"
-    } else {
-        "BFSG-/EAA-Relevanz"
-    }
+    i18n.t("pdf-findings-bfsg-eaa")
 }
 
-fn report_code_label(value: &str, i18n: &I18n) -> &'static str {
-    let en = is_english(i18n);
-    match (value, en) {
-        ("very_high", true) => "Very high",
-        ("very_high", false) => "Sehr hoch",
-        ("high", true) => "High",
-        ("high", false) => "Hoch",
-        ("medium", true) => "Medium",
-        ("medium", false) => "Mittel",
-        ("low", true) => "Low",
-        ("low", false) => "Niedrig",
-        ("very_low", true) => "Very low",
-        ("very_low", false) => "Sehr niedrig",
-        ("immediate", true) => "Immediate",
-        ("immediate", false) => "Sofort",
-        ("quick_win", true) => "Quick win",
-        ("quick_win", false) => "Schnell umsetzbar",
-        ("normal", true) => "Normal",
-        ("normal", false) => "Normal",
-        ("manual_review_recommended", true) => "Manual review recommended",
-        ("manual_review_recommended", false) => "Manuelle Prüfung empfohlen",
-        ("automatically_confirmed", true) => "Automatically confirmed",
-        ("automatically_confirmed", false) => "Automatisch bestätigt",
-        _ => "n/a",
-    }
+fn report_code_label(value: &str, i18n: &I18n) -> String {
+    let key = match value {
+        "very_high" => "pdf-findings-code-very-high",
+        "high" => "severity-high",
+        "medium" => "severity-medium",
+        "low" => "severity-low",
+        "very_low" => "pdf-findings-code-very-low",
+        "immediate" => "pdf-findings-code-immediate",
+        "quick_win" => "pdf-findings-code-quick-win",
+        "normal" => "pdf-findings-code-normal",
+        "manual_review_recommended" => "pdf-findings-code-manual-review-recommended",
+        "automatically_confirmed" => "pdf-findings-code-automatically-confirmed",
+        _ => return "n/a".to_string(),
+    };
+    i18n.t(key)
 }
 
 /// Small tracked-caps section caption inside a finding card — the same
@@ -242,11 +204,20 @@ fn contrast_measured_text(evidence: &[Evidence], en: bool) -> Option<String> {
     };
     let ratio = as_ratio(evidence_value(evidence, "computed", "contrast_ratio")?);
     let required = evidence_value(evidence, "computed", "required_ratio").map(as_ratio);
-    Some(match (required, en) {
-        (Some(req), true) => format!("Contrast {} (required {})", ratio, req),
-        (Some(req), false) => format!("Kontrast {} (erforderlich {})", ratio, req),
-        (None, true) => format!("Contrast {}", ratio),
-        (None, false) => format!("Kontrast {}", ratio),
+    Some(match required {
+        Some(req) => crate::i18n::text_args(
+            "pdf-findings-contrast-required",
+            &[
+                ("ratio", FluentValue::from(ratio)),
+                ("required", FluentValue::from(req)),
+            ],
+            en,
+        ),
+        None => crate::i18n::text_args(
+            "pdf-findings-contrast",
+            &[("ratio", FluentValue::from(ratio))],
+            en,
+        ),
     })
 }
 
@@ -259,36 +230,15 @@ pub(super) fn render_finding_technical(
     acronyms_expanded: &mut bool,
 ) -> renderreport::engine::ReportBuilder {
     let en = is_english(i18n);
-    let severity_prefix = match group.finding.severity {
-        crate::wcag::Severity::Critical => {
-            if en {
-                "[Critical] "
-            } else {
-                "[Kritisch] "
-            }
-        }
-        crate::wcag::Severity::High => {
-            if en {
-                "[High] "
-            } else {
-                "[Hoch] "
-            }
-        }
-        crate::wcag::Severity::Medium => {
-            if en {
-                "[Medium] "
-            } else {
-                "[Mittel] "
-            }
-        }
-        crate::wcag::Severity::Low => {
-            if en {
-                "[Low] "
-            } else {
-                "[Gering] "
-            }
-        }
-    };
+    let severity_prefix = format!(
+        "{} ",
+        i18n.t(match group.finding.severity {
+            crate::wcag::Severity::Critical => "pdf-findings-severity-critical",
+            crate::wcag::Severity::High => "pdf-findings-severity-high",
+            crate::wcag::Severity::Medium => "pdf-findings-severity-medium",
+            crate::wcag::Severity::Low => "pdf-findings-severity-low",
+        })
+    );
     let color = super::design::severity_color(group.finding.severity);
 
     let header = if !group.finding.wcag_criterion.is_empty() {
@@ -377,11 +327,7 @@ pub(super) fn render_finding_technical(
             )
             .with_accent(super::design::tokens::INK),
             MetricStripItem::new(
-                if is_english(i18n) {
-                    "Implementation priority"
-                } else {
-                    "Umsetzungspriorität"
-                },
+                i18n.t("pdf-findings-implementation-priority"),
                 report_code_label(&group.finding.remediation_priority, i18n),
             )
             .with_accent(super::design::tokens::INK),
@@ -393,26 +339,14 @@ pub(super) fn render_finding_technical(
     // read on every finding — kept compact and visually subordinate (a small
     // caption, not a titled card) rather than continuing the primary strip's
     // weight.
-    builder = builder.add_component(section_caption(if is_english(i18n) {
-        "QA metadata"
-    } else {
-        "Prüfmetadaten"
-    }));
+    builder = builder.add_component(section_caption(&i18n.t("pdf-findings-qa-metadata")));
     let mut meta_kv = KeyValueList::new()
         .add(
-            if is_english(i18n) {
-                "Detection confidence"
-            } else {
-                "Erkennungssicherheit"
-            },
+            i18n.t("pdf-findings-detection-confidence"),
             report_code_label(&group.finding.confidence, i18n),
         )
         .add(
-            if is_english(i18n) {
-                "False-positive risk"
-            } else {
-                "Falschpositiv-Risiko"
-            },
+            i18n.t("pdf-findings-false-positive-risk"),
             report_code_label(&group.finding.false_positive_risk, i18n),
         )
         .add(
@@ -457,53 +391,24 @@ pub(super) fn render_finding_technical(
     };
     if !expected_impact.is_empty() || !complexity_reason.is_empty() || recheck_instruction.is_some()
     {
-        builder = builder.add_component(section_caption(if is_english(i18n) {
-            "Action assessment"
-        } else {
-            "Maßnahmenbewertung"
-        }));
+        builder = builder.add_component(section_caption(&i18n.t("pdf-findings-action-assessment")));
         let mut assessment = KeyValueList::new();
         if !expected_impact.is_empty() {
-            assessment = assessment.add(
-                if is_english(i18n) {
-                    "Expected effect"
-                } else {
-                    "Erwartete Wirkung"
-                },
-                &expected_impact,
-            );
+            assessment = assessment.add(i18n.t("pdf-findings-expected-effect"), &expected_impact);
         }
         if !complexity_reason.is_empty() {
-            assessment = assessment.add(
-                if is_english(i18n) {
-                    "Complexity reason"
-                } else {
-                    "Komplexitätsgrund"
-                },
-                &complexity_reason,
-            );
+            assessment =
+                assessment.add(i18n.t("pdf-findings-complexity-reason"), &complexity_reason);
         }
         if group.finding.verification == "manual_review_recommended" {
             assessment = assessment.add(
-                if is_english(i18n) {
-                    "Verification"
-                } else {
-                    "Prüfung"
-                },
-                if is_english(i18n) {
-                    "Manual review recommended"
-                } else {
-                    "Manuelle Prüfung empfohlen"
-                },
+                i18n.t("pdf-findings-verification"),
+                i18n.t("pdf-findings-code-manual-review-recommended"),
             );
         }
         if let Some(instruction) = recheck_instruction {
             assessment = assessment.add(
-                if is_english(i18n) {
-                    "Self-test"
-                } else {
-                    "Selbsttest"
-                },
+                i18n.t("pdf-findings-self-test"),
                 // The row key already says "self-test".
                 instruction
                     .strip_prefix("Selbsttest: ")
@@ -646,25 +551,18 @@ pub(super) fn render_finding_technical(
             }
 
             if let Some(path) = evidence_value(&occ.evidence, "ax_tree", "dom_path") {
-                snapshot = snapshot.add_item(
-                    if en { "DOM path" } else { "DOM-Pfad" },
-                    compact_html(path, 90),
-                );
+                snapshot =
+                    snapshot.add_item(i18n.t("pdf-findings-dom-path"), compact_html(path, 90));
             }
 
             if let Some(measured) = contrast_measured_text(&occ.evidence, en) {
-                snapshot =
-                    snapshot.add_item(if en { "Measured value" } else { "Messwert" }, measured);
+                snapshot = snapshot.add_item(i18n.t("pdf-findings-measured-value"), measured);
             }
 
             if crate::wcag::types::evidence_is_dark_color_scheme(&occ.evidence) {
                 snapshot = snapshot.add_item(
-                    if en { "Color scheme" } else { "Farbschema" },
-                    if en {
-                        "Dark (prefers-color-scheme: dark)"
-                    } else {
-                        "Dunkel (prefers-color-scheme: dark)"
-                    },
+                    i18n.t("pdf-findings-color-scheme"),
+                    i18n.t("pdf-findings-color-scheme-dark"),
                 );
             }
 
@@ -680,12 +578,10 @@ pub(super) fn render_finding_technical(
                 if std::fs::write(&temp_path, bytes).is_ok() {
                     let asset_name = format!("/auditmysite-evidence-{}.png", evidence_seq);
                     builder = builder.asset(asset_name.clone(), temp_path);
-                    let caption = match (occ.evidence_viewport, en) {
-                        (Some("mobile"), true) => "Element on page (mobile viewport)",
-                        (Some("mobile"), false) => "Element auf der Seite (Mobile-Ansicht)",
-                        (_, true) => "Element on page (desktop viewport)",
-                        (_, false) => "Element auf der Seite (Desktop-Ansicht)",
-                    };
+                    let caption = i18n.t(match occ.evidence_viewport {
+                        Some("mobile") => "pdf-findings-screenshot-mobile",
+                        _ => "pdf-findings-screenshot-desktop",
+                    });
                     builder = builder.add_component(
                         Image::new(asset_name)
                             .with_width("55%")
@@ -708,25 +604,7 @@ pub(super) fn render_finding_technical(
             }
         }
         if hidden > 0 {
-            let msg = if en {
-                format!(
-                    "{hidden} more {} documented in the technical appendix.",
-                    if hidden == 1 {
-                        "occurrence"
-                    } else {
-                        "occurrences"
-                    }
-                )
-            } else {
-                format!(
-                    "{hidden} {} im technischen Anhang dokumentiert.",
-                    if hidden == 1 {
-                        "weiteres Vorkommen"
-                    } else {
-                        "weitere Vorkommen"
-                    }
-                )
-            };
+            let msg = i18n.count("pdf-findings-hidden-occurrences", hidden);
             builder = builder.add_component(Callout::info(&msg));
         }
     }
@@ -756,18 +634,11 @@ pub(super) fn render_finding_technical(
         // hardcoded English "Root Cause", unlocalized even in German
         // reports) and the callout text (`finding-structural-cause-*` in
         // report.ftl) must both read as a likelihood, not a certainty.
-        let en = is_english(i18n);
-        let label = if group.is_component_issue {
-            if en {
-                "Likely root cause"
-            } else {
-                "Wahrscheinliche Ursache"
-            }
-        } else if en {
-            "Structural cause"
+        let label = i18n.t(if group.is_component_issue {
+            "pdf-findings-likely-root-cause"
         } else {
-            "Strukturelle Ursache"
-        };
+            "pdf-findings-structural-cause"
+        });
         let callout = if group.is_component_issue {
             Callout::warning(cause).with_title(label)
         } else {
