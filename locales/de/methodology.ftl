@@ -11,7 +11,10 @@ methodology-score-methodology = Score-Berechnung: Jeder Barrierefreiheits-Viewpo
 
 ## Methodology block
 methodology-scope = Automatisierte Prüfung der Seite { $url } auf Barrierefreiheit nach WCAG 2.2 (Level { $level }). Angeforderte Module: { $modules }.
-methodology-method = Die Prüfung erfolgte über das Chrome DevTools Protocol (CDP) und den nativen Accessibility Tree des Browsers. Über die konfigurierten Viewports wurden { $rules } automatisierte Regelausführungen erfasst.
+methodology-method = Die Prüfung erfolgte über das Chrome DevTools Protocol (CDP) und den nativen Accessibility Tree des Browsers. Über die konfigurierten Viewports { $count ->
+        [one] wurde { $rules } automatisierte Regelausführung
+       *[other] wurden { $rules } automatisierte Regelausführungen
+    } erfasst.
 methodology-limitations = Automatisierte Tests können ca. 30–40% aller Barrierefreiheitsprobleme erkennen. Komplexe Aspekte wie korrekte Tab-Reihenfolge, sinnvolle Alt-Texte oder verständliche Sprache erfordern zusätzlich manuelle Prüfung.
 # Appended to the limitations after a space.
 methodology-limitations-incomplete = Dieser Lauf ist unvollständig: Die Scores beschreiben nur den erfolgreich gemessenen Umfang.
@@ -30,7 +33,13 @@ methodology-combined-score = { $score } / 100 — beitragende Gewichtung: { $wei
 methodology-weight = { $module } { $pct } %
 # Appended to the combined score after a space.
 methodology-indicator-modules = Separat ausgewiesene Indikator-Module: { $modules }.
-methodology-counting = { $groups } unterschiedliche WCAG-Regelgruppen, { $occurrences } WCAG-Vorkommen; { $rows } Befundzeilen und { $all } Vorkommen über alle Kategorien
+methodology-counting = { $groups } { $groups_n ->
+        [one] WCAG-Regelgruppe
+       *[other] unterschiedliche WCAG-Regelgruppen
+    }, { $occurrences } WCAG-Vorkommen; { $rows } { $rows_n ->
+        [one] Befundzeile
+       *[other] Befundzeilen
+    } und { $all } Vorkommen über alle Kategorien
 methodology-failed-modules-none = Keine
 methodology-quality-complete = Vollständig
 methodology-quality-partial = Teilweise

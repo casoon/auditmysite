@@ -215,6 +215,216 @@ mod tests {
         }
     }
 
+    /// The Technical-level appendix lists every violation with its fix, the
+    /// number of affected elements and the selectors. These lines were German
+    /// literals in every language, and the count read "1 Elemente betroffen".
+    #[test]
+    fn test_technical_appendix_follows_the_run_language() {
+        let typ = |locale: &str| {
+            generate_typ(
+                &pdf_fixture_report(),
+                &ReportConfig {
+                    level: ReportLevel::Technical,
+                    locale: locale.to_string(),
+                    ..ReportConfig::default()
+                },
+            )
+            .expect("Typst source should assemble")
+        };
+
+        let en = typ("en");
+        assert!(en.contains("1 element affected"), "EN count line missing");
+        assert!(
+            en.contains("Selectors: img.hero"),
+            "EN selectors line missing"
+        );
+        for leaked in [
+            "Elemente betroffen",
+            "Element betroffen",
+            "Selektoren: img.hero",
+        ] {
+            assert!(
+                !en.contains(leaked),
+                "German {leaked:?} leaked into the EN appendix"
+            );
+        }
+
+        let de = typ("de");
+        assert!(de.contains("1 Element betroffen"), "DE count line missing");
+        assert!(
+            de.contains("Selektoren: img.hero"),
+            "DE selectors line missing"
+        );
+        assert!(
+            !de.contains("1 Elemente betroffen"),
+            "DE singular must not be plural"
+        );
+    }
+
+    /// The SEO meta-issue table printed the German taxonomy label
+    /// ("Kritisch") whatever the run language, and the budget table printed
+    /// the English "Error"/"Warning" in German reports.
+    #[test]
+    fn test_seo_meta_and_budget_severities_follow_the_run_language() {
+        use crate::audit::{BudgetSeverity, BudgetViolation, PerformanceResults};
+        use crate::performance::{PerformanceGrade, PerformanceScore, WebVitals};
+        use crate::seo::meta::MetaValidation;
+
+        let report = |_: ()| {
+            let mut report = pdf_fixture_report()
+                .with_seo(crate::seo::SeoAnalysis {
+                    score: 80,
+                    meta_issues: vec![MetaValidation {
+                        field: "description".to_string(),
+                        message: "Meta description is missing".to_string(),
+                        severity: Severity::Critical,
+                        suggestion: None,
+                        kind: None,
+                        values: Default::default(),
+                    }],
+                    ..Default::default()
+                })
+                .with_performance(PerformanceResults {
+                    vitals: WebVitals::default(),
+                    score: PerformanceScore {
+                        overall: 60,
+                        grade: PerformanceGrade::NeedsImprovement,
+                        lcp_score: None,
+                        fcp_score: None,
+                        cls_score: None,
+                        interactivity_score: None,
+                        si_score: None,
+                        metrics_available: 0,
+                        size_penalty: None,
+                        js_penalty: None,
+                        request_penalty: None,
+                        dom_penalty: None,
+                        is_capped: None,
+                        partial: false,
+                    },
+                    render_blocking: None,
+                    content_weight: None,
+                    third_party: None,
+                    critical_chain: None,
+                    minification: None,
+                    animations: None,
+                    coverage: None,
+                    measurement_warnings: vec![],
+                });
+            report.experience.budget_violations = vec![BudgetViolation {
+                metric: "LCP".to_string(),
+                budget_label: "<= 2500 ms".to_string(),
+                actual_label: "4800 ms".to_string(),
+                budget_value: 2500.0,
+                actual_value: 4800.0,
+                exceeded_by_pct: 92.0,
+                severity: BudgetSeverity::Error,
+            }];
+            report
+        };
+        let typ = |locale: &str| {
+            generate_typ(
+                &report(()),
+                &ReportConfig {
+                    level: ReportLevel::Technical,
+                    locale: locale.to_string(),
+                    ..ReportConfig::default()
+                },
+            )
+            .expect("Typst source should assemble")
+        };
+
+        // Rows are matched whole, as the tuples the table serializes to: the
+        // dump also embeds unrelated templates with their own defaults
+        // (renderreport's `label_critical` default is "Kritisch").
+        let en = typ("en");
+        let de = typ("de");
+        for (typ, locale, severity, budget) in [
+            (&en, "EN", "Critical", "Error"),
+            (&de, "DE", "Kritisch", "Fehler"),
+        ] {
+            let meta_row =
+                format!(r#"("description", "{severity}", "Meta description is missing")"#);
+            assert!(
+                typ.contains(&meta_row),
+                "{locale} meta-issue row missing: {meta_row}"
+            );
+            let budget_row = format!(r#""+92%", "{budget}")"#);
+            assert!(
+                typ.contains(&budget_row),
+                "{locale} budget row missing: {budget_row}"
+            );
+        }
+    }
+
+    /// Fixed row labels and numbers that ignored the run language: the
+    /// storage row read "Browser Storage" in German reports, a detected Zaraz
+    /// without signals read "Detected ()", and the checked-node count had no
+    /// thousands grouping (#952).
+    #[test]
+    fn test_seo_rows_and_node_count_follow_the_run_language() {
+        let typ = |locale: &str| {
+            let mut report = pdf_fixture_report().with_seo(crate::seo::SeoAnalysis {
+                score: 80,
+                technical: crate::seo::technical::TechnicalSeo {
+                    zaraz: crate::seo::technical::ZarazDetection {
+                        detected: true,
+                        signals: vec![],
+                    },
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+            report.accessibility.nodes_analyzed = 12_345;
+            generate_typ(
+                &report,
+                &ReportConfig {
+                    level: ReportLevel::Technical,
+                    locale: locale.to_string(),
+                    ..ReportConfig::default()
+                },
+            )
+            .expect("Typst source should assemble")
+        };
+
+        let en = typ("en");
+        let de = typ("de");
+        // Rows are matched as the pairs they serialize to (the dump also
+        // embeds unrelated templates).
+        assert!(
+            en.contains(r#""Browser Storage""#),
+            "EN storage label missing"
+        );
+        assert!(
+            de.contains(r#""Browser-Speicher""#),
+            "DE storage label missing"
+        );
+        assert!(
+            !de.contains(r#""Browser Storage""#),
+            "English storage label in the DE report"
+        );
+        assert!(
+            en.contains(r#""Zaraz", "Detected")"#),
+            "EN Zaraz row without signals"
+        );
+        assert!(
+            de.contains(r#""Zaraz", "Erkannt")"#),
+            "DE Zaraz row without signals"
+        );
+        assert!(
+            !en.contains("Detected ()") && !de.contains("Erkannt ()"),
+            "empty signal list"
+        );
+        assert!(
+            en.contains(r#""Checked nodes", "12,345")"#),
+            "EN node count not grouped"
+        );
+        assert!(
+            de.contains(r#""Geprüfte Knoten", "12.345")"#),
+            "DE node count not grouped"
+        );
+    }
+
     /// Regression test for the #406-violating fallback in
     /// `render_assessment_and_execution_notes` (`single_report.rs`): a
     /// NotTestable/Warning finding whose `rule_id` has no `explanations.rs`

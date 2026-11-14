@@ -11,7 +11,10 @@ methodology-score-methodology = Score calculation: each accessibility viewport s
 
 ## Methodology block
 methodology-scope = Automated audit of { $url } for accessibility per WCAG 2.2 (level { $level }). Requested modules: { $modules }.
-methodology-method = The audit was performed via the Chrome DevTools Protocol (CDP) and the browser's native accessibility tree. { $rules } automated rule executions were recorded across the configured viewports.
+methodology-method = The audit was performed via the Chrome DevTools Protocol (CDP) and the browser's native accessibility tree. { $rules } automated { $count ->
+        [one] rule execution was
+       *[other] rule executions were
+    } recorded across the configured viewports.
 methodology-limitations = Automated tests can detect about 30–40% of all accessibility issues. Complex aspects such as correct tab order, meaningful alt texts, or understandable language additionally require manual review.
 # Appended to the limitations after a space.
 methodology-limitations-incomplete = This run is incomplete: scores describe only the successfully measured scope.
@@ -30,7 +33,19 @@ methodology-combined-score = { $score } / 100 — contributing weights: { $weigh
 methodology-weight = { $module } { $pct }%
 # Appended to the combined score after a space.
 methodology-indicator-modules = Indicator modules shown separately: { $modules }.
-methodology-counting = { $groups } distinct WCAG finding groups, { $occurrences } WCAG occurrences; { $rows } finding rows and { $all } occurrences across all categories
+methodology-counting = { $groups } { $groups_n ->
+        [one] WCAG finding group
+       *[other] distinct WCAG finding groups
+    }, { $occurrences } WCAG { $occurrences_n ->
+        [one] occurrence
+       *[other] occurrences
+    }; { $rows } { $rows_n ->
+        [one] finding row
+       *[other] finding rows
+    } and { $all } { $all_n ->
+        [one] occurrence
+       *[other] occurrences
+    } across all categories
 methodology-failed-modules-none = None
 methodology-quality-complete = Complete
 methodology-quality-partial = Partial

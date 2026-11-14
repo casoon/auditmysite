@@ -696,7 +696,7 @@ fn tracking_summary_rows(
             },
         ),
         (
-            "Browser Storage".to_string(),
+            i18n.t("seo-details-browser-storage"),
             if s.technical.storage_items.is_empty() {
                 i18n.t("seo-details-no-storage-keys")
             } else {
@@ -757,7 +757,9 @@ fn tracking_summary_rows(
         ),
         (
             "Zaraz".to_string(),
-            if s.technical.zaraz.detected {
+            if s.technical.zaraz.detected && s.technical.zaraz.signals.is_empty() {
+                i18n.t("seo-details-zaraz-detected-no-signals")
+            } else if s.technical.zaraz.detected {
                 i18n.t_args(
                     "seo-details-zaraz-detected",
                     &[("signals", truncate_list(&s.technical.zaraz.signals, 2))],

@@ -14,7 +14,7 @@ use crate::output::report_model::*;
 
 use super::helpers::{
     manual_recheck_instruction, map_severity, score_quality_color, score_quality_label,
-    truncate_with_ellipsis,
+    severity_label_i18n, truncate_with_ellipsis,
 };
 
 mod accessibility;

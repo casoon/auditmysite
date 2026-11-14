@@ -51,6 +51,13 @@ pub(super) fn build_appendix_block_from_normalized(
     }
 }
 
+/// A whole number as a display argument with the language's thousands
+/// grouping (#952). The plural selector of the same message takes the plain
+/// number under another name.
+fn count_arg(value: usize, en: bool) -> FluentValue<'static> {
+    FluentValue::from(crate::i18n::number::integer(value as i64, en))
+}
+
 pub(super) fn build_methodology(
     i18n: &crate::i18n::I18n,
     normalized: &NormalizedReport,
@@ -98,7 +105,13 @@ pub(super) fn build_methodology(
         .count();
     let method = i18n.t_args(
         "methodology-method",
-        &[("rules", FluentValue::from(executed_rules as i64))],
+        &[
+            (
+                "rules",
+                FluentValue::from(crate::i18n::number::integer(executed_rules as i64, en)),
+            ),
+            ("count", FluentValue::from(executed_rules as i64)),
+        ],
     );
     let mut limitations = i18n.t("methodology-limitations");
     if normalized.execution.quality.qualified_results {
@@ -199,16 +212,26 @@ pub(super) fn build_methodology(
     let counting_value = i18n.t_args(
         "methodology-counting",
         &[
+            ("groups", count_arg(normalized.severity_counts.total, en)),
             (
-                "groups",
+                "groups_n",
                 FluentValue::from(normalized.severity_counts.total as i64),
             ),
             (
                 "occurrences",
+                count_arg(normalized.occurrence_counts.total, en),
+            ),
+            (
+                "occurrences_n",
                 FluentValue::from(normalized.occurrence_counts.total as i64),
             ),
-            ("rows", FluentValue::from(normalized.findings.len() as i64)),
-            ("all", FluentValue::from(all_occurrences as i64)),
+            ("rows", count_arg(normalized.findings.len(), en)),
+            (
+                "rows_n",
+                FluentValue::from(normalized.findings.len() as i64),
+            ),
+            ("all", count_arg(all_occurrences, en)),
+            ("all_n", FluentValue::from(all_occurrences as i64)),
         ],
     );
 
@@ -234,7 +257,7 @@ pub(super) fn build_methodology(
         ),
         (
             i18n.t("scope-box-checked-nodes"),
-            normalized.nodes_analyzed.to_string(),
+            crate::i18n::number::integer(normalized.nodes_analyzed as i64, en),
         ),
         (
             i18n.t("scope-box-runtime"),

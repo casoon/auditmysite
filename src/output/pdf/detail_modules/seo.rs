@@ -1,5 +1,4 @@
 use super::*;
-use crate::taxonomy::SeverityExt;
 
 pub(in crate::output::pdf) fn render_seo(
     mut builder: renderreport::engine::ReportBuilder,
@@ -106,7 +105,8 @@ pub(in crate::output::pdf) fn render_seo(
         ])
         .with_title(i18n.t("pdf-seo-meta-issues-title"));
         for (field, sev, msg) in &seo.meta_issues {
-            table = table.add_row(vec![field.as_str(), sev.label(), msg.as_str()]);
+            let severity = severity_label_i18n(*sev, i18n);
+            table = table.add_row(vec![field.as_str(), severity.as_str(), msg.as_str()]);
         }
         builder = builder.add_component(table);
     }

@@ -3,7 +3,7 @@
 # technical score card, the score-driver table, the weight-basis note, the
 # viewport-weighted score derivation, the additional score drivers and the
 # per-module subcategory breakdown. Which message applies (weakest module,
-# corrected band, renormalised basis), the module lists and the formula
+# corrected band, renormalized basis), the module lists and the formula
 # cells stay in Rust. The module column heading is `label-module` of
 # report.ftl.
 
@@ -24,7 +24,7 @@ score-drivers-class-stabilizing = Stabilizes the combined technical score
 
 ## Weight basis
 score-drivers-basis-title = Weight basis
-score-drivers-basis-note = The combined technical score is normalised over the modules that were measured — a weight basis of { $basis } of 100, not the full set.
+score-drivers-basis-note = The combined technical score is normalized over the modules that were measured — a weight basis of { $basis } of 100, not the full set.
 score-drivers-basis-missing = Not included: { $modules }.
 score-drivers-basis-not-comparable = A score from a different module set is not directly comparable.
 

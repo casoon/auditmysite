@@ -16,14 +16,29 @@ seo-details-heading-summary =
     { $h1 ->
         [one] { $h1 } H1-Überschrift
        *[other] { $h1 } H1-Überschriften
-    }, { $total } Überschriften gesamt, { $issues } Probleme
+    }, { $total ->
+        [one] { $total } Überschrift
+       *[other] { $total } Überschriften
+    } gesamt, { $issues ->
+        [one] { $issues } Problem
+       *[other] { $issues } Probleme
+    }
 seo-details-social-summary = Open Graph: { $og }, Twitter Card: { $twitter }, Vollständigkeit: { $completeness }%
 
 ## Schema inventory
-seo-details-schema-questions = { $count } Fragen
+seo-details-schema-questions = { $count ->
+        [one] { $count } Frage
+       *[other] { $count } Fragen
+    }
 seo-details-schema-with-search = { $name } (Suche)
-seo-details-schema-regions = { $base } · { $count } Regionen
-seo-details-schema-levels = { $count } Ebenen
+seo-details-schema-regions = { $base } · { $count ->
+        [one] { $count } Region
+       *[other] { $count } Regionen
+    }
+seo-details-schema-levels = { $count ->
+        [one] { $count } Ebene
+       *[other] { $count } Ebenen
+    }
 
 ## Signal strength ratings
 seo-details-signal-excellent = Sehr gut
@@ -51,7 +66,10 @@ seo-details-dofollow-links = Dofollow-Links
 seo-details-nofollow-links = Nofollow-Links
 seo-details-not-detected = Nicht erkannt
 seo-details-amp-complete = Erkannt, Basis-Signale vollständig
-seo-details-amp-issues = Erkannt, { $count } Basisproblem(e)
+seo-details-amp-issues = Erkannt, { $count ->
+        [one] { $count } Basisproblem
+       *[other] { $count } Basisprobleme
+    }
 
 ## Tracking summary
 seo-details-google-fonts = Google Fonts (extern)
@@ -68,3 +86,5 @@ seo-details-consent-cookies = Consent-Cookies
 seo-details-consent-summary = { $before } vor Interaktion, { $after } nach Interaktion, { $added } neu
 seo-details-not-collected = Nicht erhoben
 seo-details-zaraz-detected = Erkannt ({ $signals })
+seo-details-zaraz-detected-no-signals = Erkannt
+seo-details-browser-storage = Browser-Speicher

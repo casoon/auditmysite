@@ -12,14 +12,32 @@ seo-details-meta-also-accessibility = { $message } — also counted under access
 seo-details-meta-viewport-elsewhere = { $message } — counted under mobile and accessibility, not in the SEO score
 
 ## Headings and social tags
-seo-details-heading-summary = { $h1 } H1 heading(s), { $total } headings total, { $issues } issues
+seo-details-heading-summary = { $h1 ->
+        [one] { $h1 } H1 heading
+       *[other] { $h1 } H1 headings
+    }, { $total ->
+        [one] { $total } heading
+       *[other] { $total } headings
+    } total, { $issues ->
+        [one] { $issues } issue
+       *[other] { $issues } issues
+    }
 seo-details-social-summary = Open Graph: { $og }, Twitter Card: { $twitter }, Completeness: { $completeness }%
 
 ## Schema inventory
-seo-details-schema-questions = { $count } questions
+seo-details-schema-questions = { $count ->
+        [one] { $count } question
+       *[other] { $count } questions
+    }
 seo-details-schema-with-search = { $name } (search)
-seo-details-schema-regions = { $base } · { $count } regions
-seo-details-schema-levels = { $count } levels
+seo-details-schema-regions = { $base } · { $count ->
+        [one] { $count } region
+       *[other] { $count } regions
+    }
+seo-details-schema-levels = { $count ->
+        [one] { $count } level
+       *[other] { $count } levels
+    }
 
 ## Signal strength ratings
 seo-details-signal-excellent = Excellent
@@ -47,7 +65,10 @@ seo-details-dofollow-links = Dofollow links
 seo-details-nofollow-links = Nofollow links
 seo-details-not-detected = Not detected
 seo-details-amp-complete = Detected, basic signals complete
-seo-details-amp-issues = Detected, { $count } basic issue(s)
+seo-details-amp-issues = Detected, { $count ->
+        [one] { $count } basic issue
+       *[other] { $count } basic issues
+    }
 
 ## Tracking summary
 seo-details-google-fonts = Google Fonts (external)
@@ -64,3 +85,5 @@ seo-details-consent-cookies = Consent cookies
 seo-details-consent-summary = { $before } before interaction, { $after } after interaction, { $added } new
 seo-details-not-collected = Not collected
 seo-details-zaraz-detected = Detected ({ $signals })
+seo-details-zaraz-detected-no-signals = Detected
+seo-details-browser-storage = Browser Storage

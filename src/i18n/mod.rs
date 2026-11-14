@@ -399,6 +399,69 @@ mod tests {
             "1 image is",
             "3 images are",
         ),
+        (
+            "a11y-details-journey-steps",
+            "1 Schritt",
+            "3 Schritte",
+            "1 step",
+            "3 steps",
+        ),
+        (
+            "a11y-details-journey-overview-high",
+            "1 interaktiver Befund mit hoher Schwere gefunden.",
+            "3 interaktive Befunde mit hoher Schwere gefunden.",
+            "1 high-severity interactive issue found.",
+            "3 high-severity interactive issues found.",
+        ),
+        (
+            "a11y-details-journey-more",
+            "1 weiterer interaktiver Befund im JSON-Report.",
+            "3 weitere interaktive Befunde im JSON-Report.",
+            "1 additional interactive finding in the JSON report.",
+            "3 additional interactive findings in the JSON report.",
+        ),
+        (
+            "seo-details-schema-questions",
+            "1 Frage",
+            "3 Fragen",
+            "1 question",
+            "3 questions",
+        ),
+        (
+            "seo-details-schema-levels",
+            "1 Ebene",
+            "3 Ebenen",
+            "1 level",
+            "3 levels",
+        ),
+        (
+            "seo-details-amp-issues",
+            "Erkannt, 1 Basisproblem",
+            "Erkannt, 3 Basisprobleme",
+            "Detected, 1 basic issue",
+            "Detected, 3 basic issues",
+        ),
+        (
+            "seo-profile-detail-hreflang-languages",
+            "1 Sprache",
+            "3 Sprachen",
+            "1 language",
+            "3 languages",
+        ),
+        (
+            "seo-profile-generic-array-entries",
+            "[1 Eintrag]",
+            "[3 Einträge]",
+            "[1 entry]",
+            "[3 entries]",
+        ),
+        (
+            "page-health-hreflang-invalid",
+            "1 hreflang-Eintrag mit ungültigem Sprachcode",
+            "3 hreflang-Einträge mit ungültigem Sprachcode",
+            "1 hreflang entry with an invalid language code",
+            "3 hreflang entries with an invalid language code",
+        ),
     ];
 
     #[test]
@@ -411,6 +474,98 @@ mod tests {
             assert_eq!(en.count(key, 1), *en_one, "{key} en 1");
             assert_eq!(en.count(key, 3), *en_many, "{key} en 3");
         }
+    }
+
+    /// Messages with several arguments: the count words agree with their
+    /// own number, and the displayed numbers keep their thousands grouping
+    /// while the selector takes the plain number under another name.
+    #[test]
+    fn multi_argument_messages_agree_with_their_numbers() {
+        use fluent_bundle::FluentValue as V;
+        let de = I18n::new("de").unwrap();
+        let en = I18n::new("en").unwrap();
+        let n = |value: i64| V::from(value);
+        let t = |value: &str| V::from(value.to_string());
+
+        let regions = |i18n: &I18n, count: i64| {
+            i18n.t_args(
+                "seo-details-schema-regions",
+                &[("base", t("Org")), ("count", n(count))],
+            )
+        };
+        assert_eq!(regions(&en, 1), "Org · 1 region");
+        assert_eq!(regions(&en, 3), "Org · 3 regions");
+        assert_eq!(regions(&de, 1), "Org · 1 Region");
+        assert_eq!(regions(&de, 3), "Org · 3 Regionen");
+
+        let headings = |i18n: &I18n, h1: i64, total: i64, issues: i64| {
+            i18n.t_args(
+                "seo-details-heading-summary",
+                &[("h1", n(h1)), ("total", n(total)), ("issues", n(issues))],
+            )
+        };
+        assert_eq!(
+            headings(&en, 1, 1, 1),
+            "1 H1 heading, 1 heading total, 1 issue"
+        );
+        assert_eq!(
+            headings(&en, 0, 12, 3),
+            "0 H1 headings, 12 headings total, 3 issues"
+        );
+        assert_eq!(
+            headings(&de, 1, 1, 1),
+            "1 H1-Überschrift, 1 Überschrift gesamt, 1 Problem"
+        );
+        assert_eq!(
+            headings(&de, 0, 12, 3),
+            "0 H1-Überschriften, 12 Überschriften gesamt, 3 Probleme"
+        );
+
+        let method = |i18n: &I18n, shown: &str, count: i64| {
+            i18n.t_args(
+                "methodology-method",
+                &[("rules", t(shown)), ("count", n(count))],
+            )
+        };
+        assert!(method(&en, "1", 1).contains("1 automated rule execution was recorded"));
+        assert!(
+            method(&en, "1,234", 1234).contains("1,234 automated rule executions were recorded")
+        );
+        assert!(method(&de, "1", 1).contains("wurde 1 automatisierte Regelausführung erfasst"));
+        assert!(method(&de, "1.234", 1234)
+            .contains("wurden 1.234 automatisierte Regelausführungen erfasst"));
+
+        let counting = |i18n: &I18n, shown: [&str; 4], plain: [i64; 4]| {
+            i18n.t_args(
+                "methodology-counting",
+                &[
+                    ("groups", t(shown[0])),
+                    ("groups_n", n(plain[0])),
+                    ("occurrences", t(shown[1])),
+                    ("occurrences_n", n(plain[1])),
+                    ("rows", t(shown[2])),
+                    ("rows_n", n(plain[2])),
+                    ("all", t(shown[3])),
+                    ("all_n", n(plain[3])),
+                ],
+            )
+        };
+        assert_eq!(
+            counting(&en, ["1", "3", "1", "3"], [1, 3, 1, 3]),
+            "1 WCAG finding group, 3 WCAG occurrences; 1 finding row and 3 occurrences across all categories"
+        );
+        assert_eq!(
+            counting(&en, ["2", "1,234", "5", "1,300"], [2, 1234, 5, 1300]),
+            "2 distinct WCAG finding groups, 1,234 WCAG occurrences; 5 finding rows and 1,300 occurrences across all categories"
+        );
+        assert_eq!(
+            counting(&de, ["1", "3", "1", "3"], [1, 3, 1, 3]),
+            "1 WCAG-Regelgruppe, 3 WCAG-Vorkommen; 1 Befundzeile und 3 Vorkommen über alle Kategorien"
+        );
+        assert_eq!(
+            counting(&de, ["2", "1.234", "5", "1.300"], [2, 1234, 5, 1300]),
+            "2 unterschiedliche WCAG-Regelgruppen, 1.234 WCAG-Vorkommen; 5 Befundzeilen und 1.300 Vorkommen über alle Kategorien"
+        );
     }
 
     #[test]

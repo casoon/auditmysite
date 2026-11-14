@@ -1582,9 +1582,10 @@ fn render_appendix_section(
                 if let Some(ref fix) = v.fix_suggestion {
                     desc.push_str(&format!("\n\nFix: {}", fix));
                 }
-                desc.push_str(&format!(
-                    "\n\n{} Elemente betroffen",
-                    v.affected_elements.len()
+                desc.push_str("\n\n");
+                desc.push_str(&i18n.count(
+                    "single-report-appendix-elements-affected",
+                    v.affected_elements.len(),
                 ));
                 let useful_selectors: Vec<&str> = v
                     .affected_elements
@@ -1599,7 +1600,11 @@ fn render_appendix_section(
                     })
                     .collect();
                 if !useful_selectors.is_empty() {
-                    desc.push_str(&format!("\nSelektoren: {}", useful_selectors.join(", ")));
+                    desc.push('\n');
+                    desc.push_str(&i18n.t_args(
+                        "single-report-appendix-selectors",
+                        &[("list", useful_selectors.join(", "))],
+                    ));
                 }
                 builder = builder.add_component(Finding::new(
                     join_label(&v.rule, &v.rule_name),
