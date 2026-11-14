@@ -309,6 +309,18 @@ surface that owns its lifecycle:
   `severity-high` and `severity-low`, and the role, priority, execution
   priority and effort labels are the messages of their own enums. The JSON
   detail builds the block with the locale `en`, so it stays canonical English.
+- `locales/{de,en}/audit-texts.ftl`: the texts of the audit (analysis) layer
+  (`audit-*`): the technical impacts of the SEO heading issues
+  (`audit::normalized::seo_heading_finding_text`; the titles are the
+  `explanation-seo-headings-*` messages of `rules.ftl`), the 3.2.6 assessment
+  basis, the region names and the deviation sentences
+  (`audit::batch_consistency`, which the batch PDF's consistency section
+  calls with the run language) and the management risk dimension names and
+  rationales (`audit::management_risk`, also used by the single PDF). The
+  functions stay pure `*_text(kind, values, en)` functions: the JSON calls
+  them with `en = true` and stays canonical English, the PDF with the run
+  language. Which message applies, the thresholds and the score format
+  (`n/100`) stay in Rust; the plurals are Fluent selects.
 - `locales/{de,en}/batch-report.ftl`: the texts of the batch PDF's keyboard
   journey summary (`output::pdf::batch_report::interactive`: intro, table
   title and headings, the interactive category names), the module name

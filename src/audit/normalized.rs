@@ -1453,39 +1453,44 @@ fn compute_accessibility_subcategory_scores(
 
 /// (title, technical_impact) for an SEO heading-issue type, in the requested
 /// language. Single source of truth: the analysis bakes English (canonical JSON),
-/// the PDF presentation re-derives German at render time (#406).
+/// the PDF presentation re-derives German at render time (#406). The title is
+/// the one of the issue type's `explanation-seo-headings-*` message, the
+/// technical impact an `audit-heading-impact-*` message.
 pub fn seo_heading_finding_text(
     issue_type: &str,
     en: bool,
     fallback_message: &str,
 ) -> (String, String) {
-    let title = match (issue_type, en) {
-        ("long_heading", true) => "Heading too long".to_string(),
-        ("long_heading", false) => "Überschrift zu lang".to_string(),
-        ("missing_h1", true) => "Missing H1 heading".to_string(),
-        ("missing_h1", false) => "Fehlende H1-Überschrift".to_string(),
-        ("multiple_h1", true) => "Multiple H1 headings".to_string(),
-        ("multiple_h1", false) => "Mehrere H1-Überschriften".to_string(),
-        ("skipped_level", true) => "Skipped heading level".to_string(),
-        ("skipped_level", false) => "Übersprungene Überschriftenebene".to_string(),
-        ("empty_heading", true) => "Empty heading".to_string(),
-        ("empty_heading", false) => "Leere Überschrift".to_string(),
-        (other, _) => other.replace('_', " "),
+    let keys = match issue_type {
+        "long_heading" => Some((
+            "explanation-seo-headings-long-heading",
+            "audit-heading-impact-long-heading",
+        )),
+        "missing_h1" => Some((
+            "explanation-seo-headings-missing-h1",
+            "audit-heading-impact-missing-h1",
+        )),
+        "multiple_h1" => Some((
+            "explanation-seo-headings-multiple-h1",
+            "audit-heading-impact-multiple-h1",
+        )),
+        "skipped_level" => Some((
+            "explanation-seo-headings-skipped-level",
+            "audit-heading-impact-skipped-level",
+        )),
+        "empty_heading" => Some((
+            "explanation-seo-headings-empty-heading",
+            "audit-heading-impact-empty-heading",
+        )),
+        _ => None,
     };
-    let technical_impact = match (issue_type, en) {
-        ("skipped_level", true) => "Skipped heading levels break the tree structure for screen readers and SEO crawlers — keep a logical H1→H2→H3 hierarchy.".to_string(),
-        ("skipped_level", false) => "Übersprungene Heading-Ebenen zerstören die Baumstruktur für Screenreader und SEO-Crawler — logische Hierarchie H1→H2→H3 einhalten.".to_string(),
-        ("missing_h1", true) => "Missing H1 heading — page purpose not recognizable for search engines and screen readers.".to_string(),
-        ("missing_h1", false) => "Fehlende H1-Überschrift — Seitenzweck für Suchmaschinen und Screenreader nicht erkennbar.".to_string(),
-        ("multiple_h1", true) => "Multiple H1 headings undermine the content hierarchy; search engines cannot derive a single main focus.".to_string(),
-        ("multiple_h1", false) => "Mehrere H1-Überschriften untergraben die inhaltliche Hierarchie; Suchmaschinen können keinen eindeutigen Hauptfokus ableiten.".to_string(),
-        ("long_heading", true) => "Overly long headings are truncated in SERPs and make quick scanning harder for users.".to_string(),
-        ("long_heading", false) => "Überlange Überschriften werden in SERPs abgeschnitten und erschweren das schnelle Scannen für Nutzer.".to_string(),
-        ("empty_heading", true) => "Empty headings cause navigation problems for screen readers and are treated as a poor signal by SEO crawlers.".to_string(),
-        ("empty_heading", false) => "Leere Überschriften erzeugen Navigationsprobleme für Screenreader und werden von SEO-Crawlern als schlechtes Signal gewertet.".to_string(),
-        _ => fallback_message.to_string(),
-    };
-    (title, technical_impact)
+    match keys {
+        Some((title, technical_impact)) => (
+            crate::i18n::text(title, en),
+            crate::i18n::text(technical_impact, en),
+        ),
+        None => (issue_type.replace('_', " "), fallback_message.to_string()),
+    }
 }
 
 fn filter_aria_hidden_interactive(
