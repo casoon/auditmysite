@@ -13,6 +13,8 @@
 //! `en = true`, der PDF-Builder mit der Lauf-Sprache.
 
 use super::normalized::NormalizedReport;
+use crate::i18n::{count_text, text, text_args};
+use fluent_bundle::FluentValue;
 
 /// Einstufung einer Risiko-Dimension.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -208,58 +210,20 @@ impl ManagementRiskKind {
 
     /// Name der Dimension. Einzige Quelle — JSON ruft mit `en = true`.
     pub fn dimension(&self, en: bool) -> String {
-        match self {
-            ManagementRiskKind::Legal { .. } => {
-                if en {
-                    "Legal / BFSG-EAA"
-                } else {
-                    "Rechtliches / BFSG-EAA"
+        text(
+            match self {
+                ManagementRiskKind::Legal { .. } => "audit-risk-dimension-legal",
+                ManagementRiskKind::AssistiveTechnology { .. } => "audit-risk-dimension-assistive",
+                ManagementRiskKind::Conversion { .. } => "audit-risk-dimension-conversion",
+                ManagementRiskKind::Seo { .. } => "audit-risk-dimension-seo",
+                ManagementRiskKind::PerformanceMobile { .. } => {
+                    "audit-risk-dimension-performance-mobile"
                 }
-            }
-            ManagementRiskKind::AssistiveTechnology { .. } => {
-                if en {
-                    "Assistive technology use"
-                } else {
-                    "Nutzung mit Hilfsmitteln"
-                }
-            }
-            ManagementRiskKind::Conversion { .. } => {
-                if en {
-                    "Conversion / usability"
-                } else {
-                    "Conversion & Nutzbarkeit"
-                }
-            }
-            ManagementRiskKind::Seo { .. } => {
-                if en {
-                    "SEO / visibility"
-                } else {
-                    "SEO & Sichtbarkeit"
-                }
-            }
-            ManagementRiskKind::PerformanceMobile { .. } => {
-                if en {
-                    "Performance & mobile"
-                } else {
-                    "Ladezeit & Mobilfreundlichkeit"
-                }
-            }
-            ManagementRiskKind::Trust { .. } => {
-                if en {
-                    "Trust / brand"
-                } else {
-                    "Markenwirkung (aus Barrierefreiheit abgeleitet)"
-                }
-            }
-            ManagementRiskKind::Project { .. } => {
-                if en {
-                    "Project risk"
-                } else {
-                    "Projektrisiko"
-                }
-            }
-        }
-        .to_string()
+                ManagementRiskKind::Trust { .. } => "audit-risk-dimension-trust",
+                ManagementRiskKind::Project { .. } => "audit-risk-dimension-project",
+            },
+            en,
+        )
     }
 
     /// Begründung. Einzige Quelle — nennt immer die Werte, die die Einstufung
@@ -277,27 +241,28 @@ impl ManagementRiskKind {
                 // One count for "possible legal relevance": the open findings
                 // the finding rows mark Medium/High (never fewer than the
                 // legal flags, which also include screen-reader blockers).
-                let legal_flags = &(*bfsg_relevant).max(*legal_flags);
-                let base = if en {
-                    format!(
-                        "{legal_flags} {} with possible legal relevance, {critical} critical and {high} high WCAG findings detected automatically.",
-                        if *legal_flags == 1 { "finding" } else { "findings" }
-                    )
-                } else {
-                    format!(
-                        "{legal_flags} {} mit möglicher Rechtsrelevanz, {critical} kritische und {high} hohe WCAG-Befunde automatisiert erkannt.",
-                        if *legal_flags == 1 { "Befund" } else { "Befunde" }
-                    )
-                };
+                let legal_flags = (*bfsg_relevant).max(*legal_flags);
+                let base = text_args(
+                    "audit-risk-legal-base",
+                    &[
+                        ("count", number(legal_flags)),
+                        ("critical", number(*critical)),
+                        ("high", number(*high)),
+                    ],
+                    en,
+                );
                 if *blocking_issues == 0 {
                     return base;
                 }
                 let controls = blocking_controls_text(*blocking_issues, *keyboard_blocking, en);
-                if en {
-                    format!("{base} In addition: {controls} (WCAG 4.1.2/2.1.1, also referenced by BFSG/EAA).")
-                } else {
-                    format!("{base} Zusätzlich: {controls} (WCAG 4.1.2/2.1.1, auf die auch BFSG/EAA verweisen).")
-                }
+                text_args(
+                    "audit-risk-legal-controls",
+                    &[
+                        ("base", FluentValue::from(base)),
+                        ("controls", FluentValue::from(controls)),
+                    ],
+                    en,
+                )
             }
             ManagementRiskKind::AssistiveTechnology {
                 critical,
@@ -306,34 +271,31 @@ impl ManagementRiskKind {
                 keyboard_blocking,
             } => {
                 if *critical == 0 && *high == 0 && *blocking_issues == 0 {
-                    return if en {
-                        "No blocking barrier for screen reader or keyboard use detected within the automated scope.".to_string()
-                    } else {
-                        "Im automatisierten Prüfumfang keine blockierende Barriere für Screenreader- oder Tastaturnutzung erkannt.".to_string()
-                    };
+                    return text("audit-risk-assistive-none", en);
                 }
                 // Blockers are counted per occurrence and can be medium
                 // findings, so they are no subset of the critical/high count
                 // ("0 critical and 0 high findings, 3 of them …" on gov.uk).
                 if *blocking_issues == 0 {
-                    return if en {
-                        format!("{critical} critical and {high} high findings.")
-                    } else {
-                        format!("{critical} kritische und {high} hohe Befunde.")
-                    };
+                    return text_args(
+                        "audit-risk-assistive-findings",
+                        &[("critical", number(*critical)), ("high", number(*high))],
+                        en,
+                    );
                 }
                 let controls = blocking_controls_text(*blocking_issues, *keyboard_blocking, en);
                 let consequence =
                     blocking_consequence_text(*blocking_issues, *keyboard_blocking, en);
-                if en {
-                    format!(
-                        "{critical} critical and {high} high findings; {controls}. {consequence}"
-                    )
-                } else {
-                    format!(
-                        "{critical} kritische und {high} hohe Befunde; {controls}. {consequence}"
-                    )
-                }
+                text_args(
+                    "audit-risk-assistive-blocking",
+                    &[
+                        ("critical", number(*critical)),
+                        ("high", number(*high)),
+                        ("controls", FluentValue::from(controls)),
+                        ("consequence", FluentValue::from(consequence)),
+                    ],
+                    en,
+                )
             }
             ManagementRiskKind::Conversion {
                 accessibility,
@@ -342,46 +304,39 @@ impl ManagementRiskKind {
                 blocking_issues,
                 keyboard_blocking,
             } => {
-                let perf = score_or_not_measured(*performance, en);
-                let mob = score_or_not_measured(*mobile, en);
-                let base = if en {
-                    format!("Accessibility {accessibility}/100, performance {perf}, mobile {mob}.")
-                } else {
-                    format!(
-                        "Barrierefreiheit {accessibility}/100, Performance {perf}, Mobile {mob}."
-                    )
-                };
+                let base = text_args(
+                    "audit-risk-conversion-base",
+                    &[
+                        ("accessibility", number(*accessibility)),
+                        (
+                            "performance",
+                            FluentValue::from(score_or_not_measured(*performance, en)),
+                        ),
+                        (
+                            "mobile",
+                            FluentValue::from(score_or_not_measured(*mobile, en)),
+                        ),
+                    ],
+                    en,
+                );
                 if *blocking_issues == 0 {
                     return base;
                 }
                 let controls = blocking_controls_text(*blocking_issues, *keyboard_blocking, en);
                 // A nameless control still works; only a keyboard blocker can
                 // stop a task, and no task was run to completion (plan 99).
-                if en {
-                    format!(
-                        "{base} {controls}: tasks routed through them are harder to complete with assistive technology. Whether a task is fully blocked was not tested."
-                    )
-                } else {
-                    format!(
-                        "{base} {controls}: Abläufe, die darüber führen, sind mit Hilfsmitteln erschwert. Ob ein Ablauf vollständig blockiert ist, wurde nicht geprüft."
-                    )
-                }
+                text_args(
+                    "audit-risk-conversion-blocking",
+                    &[
+                        ("base", FluentValue::from(base)),
+                        ("controls", FluentValue::from(controls)),
+                    ],
+                    en,
+                )
             }
             ManagementRiskKind::Seo { score } => match score {
-                Some(score) => {
-                    if en {
-                        format!("SEO score {score}/100.")
-                    } else {
-                        format!("SEO-Score {score}/100.")
-                    }
-                }
-                None => {
-                    if en {
-                        "SEO module was not run.".to_string()
-                    } else {
-                        "Das SEO-Modul wurde nicht ausgeführt.".to_string()
-                    }
-                }
+                Some(score) => text_args("audit-risk-seo-score", &[("score", number(*score))], en),
+                None => text("audit-risk-seo-not-run", en),
             },
             ManagementRiskKind::PerformanceMobile {
                 performance,
@@ -389,28 +344,28 @@ impl ManagementRiskKind {
                 high_findings,
             } => {
                 if performance.is_none() && mobile.is_none() {
-                    return if en {
-                        "Neither the performance nor the mobile module was run.".to_string()
-                    } else {
-                        "Weder das Performance- noch das Mobile-Modul wurde ausgeführt.".to_string()
-                    };
+                    return text("audit-risk-performance-mobile-none", en);
                 }
-                let perf = score_or_not_measured(*performance, en);
-                let mob = score_or_not_measured(*mobile, en);
-                let base = if en {
-                    format!("Performance {perf}, mobile usability {mob} (lab measurement).")
-                } else {
-                    format!("Performance {perf}, mobile Nutzbarkeit {mob} (Labormessung).")
-                };
-                match (*high_findings, en) {
-                    (0, _) => base,
-                    (n, true) => format!(
-                        "{base} {n} high-severity finding{} in these modules.",
-                        if n == 1 { "" } else { "s" }
-                    ),
-                    (n, false) => format!(
-                        "{base} {n} {} mit hohem Schweregrad in diesen Modulen.",
-                        if n == 1 { "Befund" } else { "Befunde" }
+                let base = text_args(
+                    "audit-risk-performance-mobile-base",
+                    &[
+                        (
+                            "performance",
+                            FluentValue::from(score_or_not_measured(*performance, en)),
+                        ),
+                        (
+                            "mobile",
+                            FluentValue::from(score_or_not_measured(*mobile, en)),
+                        ),
+                    ],
+                    en,
+                );
+                match *high_findings {
+                    0 => base,
+                    n => text_args(
+                        "audit-risk-performance-mobile-high",
+                        &[("base", FluentValue::from(base)), ("count", number(n))],
+                        en,
                     ),
                 }
             }
@@ -418,51 +373,34 @@ impl ManagementRiskKind {
                 accessibility,
                 critical,
                 high,
-            } => {
-                if en {
-                    format!(
-                        "Inferred from accessibility only: score {accessibility}/100 with {critical} critical and {high} high findings. No trust or brand signal is measured directly."
-                    )
-                } else {
-                    format!(
-                        "Nur aus der Barrierefreiheit abgeleitet: Score {accessibility}/100 mit {critical} kritischen und {high} hohen Befunden. Ein Vertrauens- oder Markensignal wird nicht direkt gemessen."
-                    )
-                }
-            }
+            } => text_args(
+                "audit-risk-trust",
+                &[
+                    ("accessibility", number(*accessibility)),
+                    ("critical", number(*critical)),
+                    ("high", number(*high)),
+                ],
+                en,
+            ),
             ManagementRiskKind::Project { count, pages } => match pages {
-                Some(pages) => {
-                    if en {
-                        format!(
-                            "{count} rule{} recur on two or more of the {pages} audited pages — likely component or template issues needing coordinated remediation.",
-                            if *count == 1 { "" } else { "s" }
-                        )
-                    } else {
-                        format!(
-                            "{count} Regel{} treten auf zwei oder mehr der {pages} geprüften Seiten auf — vermutlich Komponenten- oder Template-Fehler, die gebündelt behoben werden sollten.",
-                            if *count == 1 { "" } else { "n" }
-                        )
-                    }
-                }
-                None => {
-                    if en {
-                        format!(
-                            "{count} finding{} {} 10 or more elements on this page or {} a structural fix. A single page cannot show whether a template or component is the cause — audit further pages to confirm.",
-                            if *count == 1 { "" } else { "s" },
-                            if *count == 1 { "affects" } else { "affect" },
-                            if *count == 1 { "needs" } else { "need" }
-                        )
-                    } else {
-                        format!(
-                            "{count} Befund{} {} 10 oder mehr Elemente dieser Seite oder {} eine strukturelle Änderung. Eine einzelne Seite zeigt nicht, ob Template oder Komponente die Ursache sind — dafür weitere Seiten prüfen.",
-                            if *count == 1 { "" } else { "e" },
-                            if *count == 1 { "betrifft" } else { "betreffen" },
-                            if *count == 1 { "erfordert" } else { "erfordern" }
-                        )
-                    }
-                }
+                Some(pages) => text_args(
+                    "audit-risk-project-recurring",
+                    &[("count", number(*count)), ("pages", number(*pages))],
+                    en,
+                ),
+                None => text_args(
+                    "audit-risk-project-single",
+                    &[("count", number(*count))],
+                    en,
+                ),
             },
         }
     }
+}
+
+/// A count or score as a Fluent number, so a plural selector can use it.
+fn number(value: impl TryInto<i64>) -> FluentValue<'static> {
+    FluentValue::from(value.try_into().unwrap_or(i64::MAX))
 }
 
 /// Die blockierenden Bedienelemente, nach Ursache getrennt: ohne Namen oder
@@ -472,69 +410,32 @@ pub(crate) fn blocking_controls_text(total: usize, keyboard: usize, en: bool) ->
     let unnamed = total.saturating_sub(keyboard);
     let mut parts = Vec::with_capacity(2);
     if unnamed > 0 {
-        parts.push(if en {
-            format!(
-                "{unnamed} {} without an accessible name or role",
-                if unnamed == 1 { "control" } else { "controls" }
-            )
-        } else {
-            format!(
-                "{unnamed} {} ohne zugänglichen Namen oder Rolle",
-                if unnamed == 1 {
-                    "Bedienelement"
-                } else {
-                    "Bedienelemente"
-                }
-            )
-        });
+        parts.push(count_text("audit-controls-unnamed", unnamed, en));
     }
     if keyboard > 0 {
-        parts.push(if en {
-            format!(
-                "{keyboard} {} not operable by keyboard",
-                if keyboard == 1 { "control" } else { "controls" }
-            )
-        } else {
-            format!(
-                "{keyboard} {} nicht per Tastatur bedienbar",
-                if keyboard == 1 {
-                    "Bedienelement"
-                } else {
-                    "Bedienelemente"
-                }
-            )
-        });
+        parts.push(count_text("audit-controls-keyboard", keyboard, en));
     }
-    parts.join(if en { " and " } else { " und " })
+    parts.join(&text("audit-join-and", en))
 }
 
 /// Was die blockierenden Bedienelemente für Hilfsmittel bedeuten — je Ursache
 /// nur die Folge, die sie tatsächlich hat.
-fn blocking_consequence_text(total: usize, keyboard: usize, en: bool) -> &'static str {
+fn blocking_consequence_text(total: usize, keyboard: usize, en: bool) -> String {
     let unnamed = total.saturating_sub(keyboard);
-    match (unnamed > 0, keyboard > 0, en) {
-        (true, false, true) => {
-            "Screen readers cannot convey their purpose; no keyboard blocker was detected at those points."
-        }
-        (true, false, false) => {
-            "Screenreader können deren Zweck nicht vermitteln; eine Tastaturblockade wurde an diesen Stellen nicht erkannt."
-        }
-        (false, _, true) => "Keyboard users cannot reach or trigger them.",
-        (false, _, false) => "Tastaturnutzende können sie nicht erreichen oder auslösen.",
-        (true, true, true) => {
-            "Screen readers cannot convey the purpose of the unnamed ones; keyboard users cannot reach or trigger the others."
-        }
-        (true, true, false) => {
-            "Screenreader können den Zweck der namenlosen nicht vermitteln; die übrigen sind per Tastatur nicht erreichbar oder auslösbar."
-        }
-    }
+    text(
+        match (unnamed > 0, keyboard > 0) {
+            (true, false) => "audit-controls-consequence-unnamed",
+            (false, _) => "audit-controls-consequence-keyboard",
+            (true, true) => "audit-controls-consequence-both",
+        },
+        en,
+    )
 }
 
 fn score_or_not_measured(score: Option<u32>, en: bool) -> String {
     match score {
         Some(score) => format!("{score}/100"),
-        None if en => "not measured".to_string(),
-        None => "nicht gemessen".to_string(),
+        None => text("audit-not-measured", en),
     }
 }
 

@@ -79,6 +79,10 @@ pub use normalized::{AuditContext, NormalizedReport};
 pub fn normalize(report: &AuditReport) -> AuditContext<'_> {
     normalized::normalize(report)
 }
+#[cfg(test)]
+pub(crate) mod audit_texts_export;
+#[cfg(test)]
+mod audit_texts_guard;
 pub use baseline::{Baseline, BaselineStatus, BASELINE_CONTRACT, FINDING_ID_SCHEME};
 #[cfg(test)]
 pub(crate) use pipeline::audit_scope_from_config;
