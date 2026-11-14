@@ -53,8 +53,8 @@ fn additional_vitals_table(vitals: &[(String, String, String)], i18n: &I18n) -> 
     }
     let en = is_english(i18n);
     let mut table = AuditTable::new(vec![
-        TableColumn::new(if en { "Metric" } else { "Metrik" }).with_width("34%"),
-        TableColumn::new(if en { "Value" } else { "Wert" }).with_width("33%"),
+        TableColumn::new(i18n.t("col-metric")).with_width("34%"),
+        TableColumn::new(i18n.t("col-value")).with_width("33%"),
         TableColumn::new("Status").with_width("33%"),
     ]);
     for (name, value, rating) in extra {
@@ -66,11 +66,7 @@ fn additional_vitals_table(vitals: &[(String, String, String)], i18n: &I18n) -> 
     }
     // Titled so TBT/TTI/Speed Index are not read as a continuation of the
     // strip above — none of them is a Core Web Vital.
-    Some(table.with_title(if en {
-        "Further lab metrics"
-    } else {
-        "Weitere Lab-Metriken"
-    }))
+    Some(table.with_title(i18n.t("output-perf-further-metrics")))
 }
 
 /// Measured values are stored in canonical notation (`0.000`, `2.5s`); the
@@ -315,19 +311,14 @@ pub(in crate::output::pdf) fn render_performance(
             // flat "Desktop 85 · Mobile 67" strip undersold the headline
             // number this section leads with.
             builder = builder.add_component(
-                Label::new(if is_english(i18n) {
-                    "Performance score per viewport: 0–100, higher is better."
-                } else {
-                    "Performance-Score je Ansicht: 0–100, höher ist besser."
-                })
-                .with_size("9pt")
-                .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+                Label::new(i18n.t("output-perf-score-per-viewport"))
+                    .with_size("9pt")
+                    .with_color(crate::output::pdf::design::tokens::NEUTRAL),
             );
             builder = builder.add_component(score_gauge_grid(desktop.score, mobile.score));
             // The module score is one number; the gauges are two. Say which
             // viewport it is, so "Performance 82" next to a Desktop gauge of
             // 57 is no contradiction (#952-4).
-            let en = is_english(i18n);
             let basis = if perf.score == mobile.score {
                 Some("Mobile")
             } else if perf.score == desktop.score {
@@ -337,30 +328,22 @@ pub(in crate::output::pdf) fn render_performance(
             };
             if let Some(basis) = basis {
                 builder = builder.add_component(
-                    Label::new(if en {
-                        format!(
-                            "The performance score of this report ({}) is the {basis} view; the other view is scored separately.",
-                            perf.score
-                        )
-                    } else {
-                        format!(
-                            "Der Performance-Wert dieses Berichts ({}) ist der Wert der Ansicht {basis}; die andere Ansicht wird getrennt bewertet.",
-                            perf.score
-                        )
-                    })
+                    Label::new(i18n.t_args(
+                        "output-perf-score-basis",
+                        &[
+                            ("score", perf.score.to_string()),
+                            ("basis", basis.to_string()),
+                        ],
+                    ))
                     .with_size("9pt")
                     .with_color(crate::output::pdf::design::tokens::NEUTRAL),
                 );
             }
 
             builder = builder.add_component(
-                Label::new(if is_english(i18n) {
-                    "LCP: largest visible content (good ≤ 2.5 s); FCP: first visible content (good ≤ 1.8 s); CLS: layout stability (good ≤ 0.1); TTFB: server response (good ≤ 0.8 s). Lower is better for time and shift values."
-                } else {
-                    "LCP: größter sichtbarer Inhalt (gut ≤ 2,5 s); FCP: erster sichtbarer Inhalt (gut ≤ 1,8 s); CLS: Layoutstabilität (gut ≤ 0,1); TTFB: Serverantwort (gut ≤ 0,8 s). Bei Zeit- und Verschiebungswerten ist niedriger besser."
-                })
-                .with_size("9pt")
-                .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+                Label::new(i18n.t("output-perf-vitals-legend"))
+                    .with_size("9pt")
+                    .with_color(crate::output::pdf::design::tokens::NEUTRAL),
             );
 
             // Desktop vitals
@@ -368,12 +351,7 @@ pub(in crate::output::pdf) fn render_performance(
                 // Not headed "Core Web Vitals": the strip holds LCP and CLS
                 // (which are) next to FCP and TTFB (which are not).
                 builder = builder.add_component(
-                    Section::new(if is_english(i18n) {
-                        "Desktop — lab metrics"
-                    } else {
-                        "Desktop — Kennzahlen (Labormessung)"
-                    })
-                    .with_level(4),
+                    Section::new(i18n.t("output-perf-desktop-lab-metrics")).with_level(4),
                 );
                 let strip = desktop
                     .vitals
@@ -394,12 +372,7 @@ pub(in crate::output::pdf) fn render_performance(
             // Mobile vitals
             if !mobile.vitals.is_empty() {
                 builder = builder.add_component(
-                    Section::new(if is_english(i18n) {
-                        "Mobile — lab metrics"
-                    } else {
-                        "Mobile — Kennzahlen (Labormessung)"
-                    })
-                    .with_level(4),
+                    Section::new(i18n.t("output-perf-mobile-lab-metrics")).with_level(4),
                 );
                 let strip = mobile
                     .vitals

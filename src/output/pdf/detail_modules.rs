@@ -9,7 +9,7 @@ use renderreport::components::{AuditTable, Finding, ScoreCard, TableColumn};
 use renderreport::prelude::*;
 
 use crate::i18n::I18n;
-use crate::output::localized::{is_english, pick};
+use crate::output::localized::is_english;
 use crate::output::report_model::*;
 
 use super::helpers::{
@@ -20,6 +20,10 @@ use super::helpers::{
 mod accessibility;
 mod html_conform;
 mod indicators;
+#[cfg(test)]
+mod module_text_export;
+#[cfg(test)]
+mod module_text_guard;
 mod overview;
 mod performance;
 mod platform;

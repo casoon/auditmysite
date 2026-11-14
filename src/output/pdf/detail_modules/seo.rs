@@ -54,7 +54,7 @@ pub(in crate::output::pdf) fn render_seo(
             MetricStripItem::new(
                 "Schema.org",
                 if profile.schema_count == 0 {
-                    pick(i18n, "keine", "none").to_string()
+                    i18n.t("output-seo-schema-none")
                 } else {
                     profile.schema_count.to_string()
                 },
@@ -70,13 +70,9 @@ pub(in crate::output::pdf) fn render_seo(
         builder = builder.add_component(MetricStrip::new(seo_strip).compact());
         if seo.profile.is_some() {
             builder = builder.add_component(
-                Label::new(pick(
-                    i18n,
-                    "Schema.org kennzeichnet strukturierte Daten für Suchmaschinen; der Reifegrad zeigt, wie vollständig sie auf der Seite genutzt werden.",
-                    "Schema.org marks up structured data for search engines; the maturity level shows how completely it is used on the page.",
-                ))
-                .with_size("10.5pt")
-                .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+                Label::new(i18n.t("output-seo-schema-explainer"))
+                    .with_size("10.5pt")
+                    .with_color(crate::output::pdf::design::tokens::NEUTRAL),
             );
         }
     }
@@ -696,16 +692,7 @@ pub(in crate::output::pdf) fn render_seo_profile(
             "pdf-seo-profile-structured-data-title",
             &[(
                 "label",
-                format!(
-                    "{} {}",
-                    profile.schema_count,
-                    match (profile.schema_count == 1, is_english(i18n)) {
-                        (true, true) => "schema",
-                        (false, true) => "schemas",
-                        (true, false) => "Schema",
-                        (false, false) => "Schemas",
-                    }
-                ),
+                i18n.count("output-seo-schema-count", profile.schema_count),
             )],
         ));
         for (typ, completeness, details) in &profile.schema_rows {

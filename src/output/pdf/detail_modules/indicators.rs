@@ -11,11 +11,13 @@ pub(in crate::output::pdf) fn render_tech_stack(
     use crate::tech_stack::Confidence;
 
     let ts_title = i18n.t("pdf-ts-section-title");
-    let ts_takeaway = match (ts.detected.is_empty(), is_english(i18n)) {
-        (true, true) => "No common technologies were detected.".to_string(),
-        (true, false) => "Keine gängigen Technologien erkannt.".to_string(),
-        (false, true) => format!("{} technologies detected.", ts.detected.len()),
-        (false, false) => format!("{} Technologien erkannt.", ts.detected.len()),
+    let ts_takeaway = if ts.detected.is_empty() {
+        i18n.t("output-ts-takeaway-none")
+    } else {
+        i18n.t_args(
+            "output-ts-takeaway-count",
+            &[("count", ts.detected.len().to_string())],
+        )
     };
     builder = super::module_chapter_opener(builder, &ts_title, &ts_takeaway, is_first);
     if !ts.detected.is_empty() {
@@ -57,23 +59,18 @@ pub(in crate::output::pdf) fn render_best_practices(
     let collected = bp.console_errors.collected;
     let checked = bp.vulnerable_libraries.checked;
     if bp.is_unmeasured() {
-        let takeaway = if is_english(i18n) {
-            "Not measured."
-        } else {
-            "Nicht gemessen."
-        };
-        builder = super::module_chapter_opener(builder, "Best Practices", takeaway, is_first);
+        let takeaway = i18n.t("output-bp-takeaway-not-measured");
+        builder = super::module_chapter_opener(builder, "Best Practices", &takeaway, is_first);
         return builder.add_component(TextBlock::new(i18n.t("pdf-bp-not-measured")));
     }
     let bp_clean =
         bp.console_errors.error_count == 0 && !bp.vulnerable_libraries.has_vulnerabilities;
-    let bp_takeaway = match (bp_clean, is_english(i18n)) {
-        (true, true) => "No console errors or known-vulnerable libraries detected.",
-        (true, false) => "Keine Konsolenfehler oder bekannten verwundbaren Bibliotheken erkannt.",
-        (false, true) => "Console errors or vulnerable libraries were detected — see below.",
-        (false, false) => "Konsolenfehler oder verwundbare Bibliotheken erkannt — siehe unten.",
-    };
-    builder = super::module_chapter_opener(builder, "Best Practices", bp_takeaway, is_first);
+    let bp_takeaway = i18n.t(if bp_clean {
+        "output-bp-takeaway-clean"
+    } else {
+        "output-bp-takeaway-issues"
+    });
+    builder = super::module_chapter_opener(builder, "Best Practices", &bp_takeaway, is_first);
     builder = builder.add_component(
         ScoreCard::new(super::module_score_caption(i18n), bp.score)
             .with_description(super::score_band_label(bp.score, i18n))

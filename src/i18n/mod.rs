@@ -57,10 +57,14 @@ impl I18n {
         // `output::builder::single::actions_block`) and of the batch PDF's
         // journey, module, impact, commerce, EN 301 549 and overview sections
         // (`batch-report.ftl`, `output::pdf::batch_report::{interactive,
-        // portfolio, appendix, overview}`) and the texts of the audit
+        // portfolio, appendix, overview}`), the texts of the audit
         // (analysis) layer (`audit-texts.ftl`, `audit::normalized`,
-        // `audit::batch_consistency`, `audit::management_risk`) are
-        // twenty-two resources of the one bundle.
+        // `audit::batch_consistency`, `audit::management_risk`) and of the
+        // report builder helpers, the batch builder, the PDF detail modules
+        // for performance, SEO, tech stack and best practices and the display
+        // modes (`output-texts.ftl`, `output::builder::{helpers, batch}`,
+        // `output::pdf::detail_modules::{indicators, seo, performance}`,
+        // `display`) are twenty-three resources of the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -85,6 +89,7 @@ impl I18n {
                 include_str!("../../locales/en/actions-block.ftl"),
                 include_str!("../../locales/en/batch-report.ftl"),
                 include_str!("../../locales/en/audit-texts.ftl"),
+                include_str!("../../locales/en/output-texts.ftl"),
             ],
             _ => [
                 include_str!("../../locales/de/report.ftl"),
@@ -109,6 +114,7 @@ impl I18n {
                 include_str!("../../locales/de/actions-block.ftl"),
                 include_str!("../../locales/de/batch-report.ftl"),
                 include_str!("../../locales/de/audit-texts.ftl"),
+                include_str!("../../locales/de/output-texts.ftl"),
             ],
         };
         for ftl in sources {
