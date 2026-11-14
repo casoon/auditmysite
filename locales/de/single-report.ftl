@@ -80,6 +80,11 @@ single-report-local-optimization-eyebrow = LOKALE OPTIMIERUNG
 ## Appendix
 single-report-appendix-title = Anhang & Methodik
 single-report-appendix-intro = Prüfumfang, Methodik, WCAG-Coverage und die vollständige Liste der Vorkommen.
+single-report-appendix-elements-affected = { $count ->
+        [one] { $count } Element betroffen
+       *[other] { $count } Elemente betroffen
+    }
+single-report-appendix-selectors = Selektoren: { $list }
 single-report-appendix-eyebrow = ANHANG
 single-report-manual-only-title = Strukturell nur manuell prüfbare Kriterien
 single-report-manual-only-focus-order = 2.4.3 · Fokusreihenfolge

@@ -150,7 +150,10 @@ pub(in crate::output::pdf) fn render_budget_violations(
             v.budget_label.clone(),
             v.actual_label.clone(),
             format!("+{:.0}%", v.exceeded_by_pct),
-            v.severity.label().to_string(),
+            match v.severity {
+                crate::audit::budget::BudgetSeverity::Error => i18n.t("severity-error"),
+                crate::audit::budget::BudgetSeverity::Warning => i18n.t("severity-warning"),
+            },
         ]);
     }
 
