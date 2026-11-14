@@ -49,10 +49,13 @@ impl I18n {
         // sections (`accessibility-details.ftl`,
         // `output::pdf::detail_modules::accessibility`), the texts of the
         // management summary's score drivers (`score-drivers.ftl`,
-        // `output::pdf::score_drivers`) and the texts of the PDF finding
+        // `output::pdf::score_drivers`), the texts of the PDF finding
         // cards and shared module detail helpers (`pdf-findings.ftl`,
-        // `output::pdf::findings`, `output::pdf::detail_modules`) are
-        // eighteen resources of the one bundle.
+        // `output::pdf::findings`, `output::pdf::detail_modules`), the texts
+        // of the single PDF's frame (`pdf-frame.ftl`, `output::pdf`) and of
+        // the action plan block (`actions-block.ftl`,
+        // `output::builder::single::actions_block`) are twenty resources of
+        // the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -73,6 +76,8 @@ impl I18n {
                 include_str!("../../locales/en/accessibility-details.ftl"),
                 include_str!("../../locales/en/score-drivers.ftl"),
                 include_str!("../../locales/en/pdf-findings.ftl"),
+                include_str!("../../locales/en/pdf-frame.ftl"),
+                include_str!("../../locales/en/actions-block.ftl"),
             ],
             _ => [
                 include_str!("../../locales/de/report.ftl"),
@@ -93,6 +98,8 @@ impl I18n {
                 include_str!("../../locales/de/accessibility-details.ftl"),
                 include_str!("../../locales/de/score-drivers.ftl"),
                 include_str!("../../locales/de/pdf-findings.ftl"),
+                include_str!("../../locales/de/pdf-frame.ftl"),
+                include_str!("../../locales/de/actions-block.ftl"),
             ],
         };
         for ftl in sources {
