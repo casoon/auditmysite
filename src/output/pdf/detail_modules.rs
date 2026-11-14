@@ -20,6 +20,8 @@ use super::helpers::{
 mod accessibility;
 mod html_conform;
 mod indicators;
+#[cfg(test)]
+mod module_text_export;
 mod overview;
 mod performance;
 mod platform;

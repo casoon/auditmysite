@@ -3,6 +3,9 @@
 use crate::output::localized::is_english;
 use std::collections::HashMap;
 
+#[cfg(test)]
+pub(crate) mod text_export;
+
 use crate::audit::normalized::normalize;
 use crate::audit::{inbound_link_counts, BatchReport, BrokenLinkSeverity, NormalizedReport};
 use crate::i18n::I18n;
