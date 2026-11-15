@@ -15,6 +15,8 @@ pub(crate) mod fixtures;
 pub mod module;
 #[cfg(test)]
 pub(crate) mod text_export;
+#[cfg(test)]
+mod text_guard;
 
 pub use aggregate::{aggregate_privacy, PrivacyBatchAggregate};
 pub use module::PrivacyModule;

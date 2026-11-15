@@ -351,6 +351,15 @@ surface that owns its lifecycle:
   the values that go into a message (counts, the viewport name, the
   cover date notation); "Yes", "No", "Metric" and "Value" reuse the `yes`,
   `no`, `col-metric` and `col-value` messages of `report.ftl`.
+- `locales/{de,en}/privacy-findings.ftl`: the texts of the privacy findings
+  (`privacy-finding-*`): the seven finding messages and the policy document
+  names of `privacy::findings::finding_text`, which the single PDF's privacy
+  chapter and the run-language copy of the findings (`audit::finding_text`)
+  call with the run language. The function
+  stays a pure `finding_text(kind, provider, document, en)`: the analysis
+  stores `en = true` in `PrivacyFinding.message`, so the JSON stays canonical
+  English. Which message applies stays in Rust; the provider name goes in as
+  an argument.
 - `src/output/explanations.rs`: the explanation table itself: which entries
   exist, owner role, effort, and the code examples (canonical English), plus
   `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are
