@@ -118,12 +118,8 @@ fn has_matching_link_text(tree: &AXTree, markers: &[String]) -> bool {
 /// `RecognizedPattern.message` (JSON stays canonical English); the PDF
 /// builder (`output::builder::single::executive::build_positive_signals`)
 /// re-derives it with the run locale.
-pub(crate) fn message_text(en: bool) -> &'static str {
-    if en {
-        "The page offers itself in, or links to, an easy-language (\"Leichte Sprache\") version of its content."
-    } else {
-        "Die Seite bietet sich selbst in Leichter Sprache an oder verlinkt auf eine entsprechende Version."
-    }
+pub(crate) fn message_text(en: bool) -> String {
+    crate::i18n::text("a11y-analysis-pattern-easy-language", en)
 }
 
 /// Detect easy-language availability signals and, if any matched, add a

@@ -321,6 +321,18 @@ surface that owns its lifecycle:
   them with `en = true` and stays canonical English, the PDF with the run
   language. Which message applies, the thresholds and the score format
   (`n/100`) stay in Rust; the plurals are Fluent selects.
+- `locales/{de,en}/a11y-analysis.ftl`: the texts of the accessibility
+  analysis layer (`a11y-analysis-*`): the screen reader issue messages
+  (`screen_reader::analyzer::analyze_reading_sequence`: non-descriptive and
+  duplicated names, link list, announcement deserts, tab stops, heading
+  levels and order, landmarks, icon-font characters, empty elements and
+  form labels) and the recognized-pattern messages
+  (`patterns::pattern_message_text`, with the counted nouns as Fluent plural
+  selects). The functions keep their `en: bool` parameter: the JSON calls
+  them with `en = true` and stays canonical English, the PDF with the run
+  language. The detection language (page-language stopwords of
+  `analyze_reading_sequence`), which issue applies and the thresholds stay
+  in Rust.
 - `locales/{de,en}/batch-report.ftl`: the texts of the batch PDF's keyboard
   journey summary (`output::pdf::batch_report::interactive`: intro, table
   title and headings, the interactive category names), the module name

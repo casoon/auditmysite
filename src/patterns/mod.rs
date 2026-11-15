@@ -216,216 +216,181 @@ pub enum PatternMessage {
 }
 
 /// Text for a recognized pattern — canonical English for the JSON, the run
-/// language for the PDF.
+/// language for the PDF. The texts are the `a11y-analysis-pattern-*` messages
+/// of `a11y-analysis.ftl`; which one applies stays here.
 pub fn pattern_message_text(message: &PatternMessage, en: bool) -> String {
-    fn n(count: usize, one: &str, many: &str) -> String {
-        format!("{count} {}", if count == 1 { one } else { many })
+    use fluent_bundle::FluentValue;
+
+    /// A message with text arguments.
+    fn t(key: &str, args: &[(&str, String)], en: bool) -> String {
+        let args: Vec<(&str, FluentValue<'_>)> = args
+            .iter()
+            .map(|(name, value)| (*name, FluentValue::from(value.clone())))
+            .collect();
+        crate::i18n::text_args(key, &args, en)
+    }
+    /// A counted noun ("1 tab" / "3 tabs").
+    fn n(key: &str, count: usize, en: bool) -> String {
+        crate::i18n::count_text(key, count, en)
+    }
+    /// A name, or the message `fallback` when the pattern has none.
+    fn or(name: &Option<String>, fallback: &str, en: bool) -> String {
+        name.clone()
+            .unwrap_or_else(|| crate::i18n::text(fallback, en))
     }
     match message {
-        PatternMessage::NavigationUnnamed { landmarks, unnamed } => {
-            if en {
-                format!(
-                "{} found, but {unnamed} have no accessible name. Screen reader users cannot distinguish them.",
-                n(*landmarks, "navigation landmark", "navigation landmarks")
-            )
-            } else {
-                format!(
-                "{} gefunden, davon {unnamed} ohne zugänglichen Namen. Screenreader-Nutzende können sie nicht unterscheiden.",
-                n(*landmarks, "Navigationsbereich", "Navigationsbereiche")
-            )
-            }
-        }
-        PatternMessage::NavigationWithoutLinks { landmarks } => {
-            if en {
-                format!(
-                    "{} found, but none contain link children. Pattern is structurally incomplete.",
-                    n(*landmarks, "navigation landmark", "navigation landmarks")
-                )
-            } else {
-                format!(
-                    "{} gefunden, aber keiner enthält Links. Die Struktur ist unvollständig.",
-                    n(*landmarks, "Navigationsbereich", "Navigationsbereiche")
-                )
-            }
-        }
-        PatternMessage::Navigation { landmarks } => {
-            if en {
-                format!(
-                "Semantic main navigation recognized ({} with native links). Good foundation for keyboard and screen reader use.",
-                n(*landmarks, "landmark", "landmarks")
-            )
-            } else {
-                format!(
-                "Semantische Hauptnavigation erkannt ({} mit nativen Links). Gute Grundlage für Tastatur- und Screenreader-Nutzung.",
-                n(*landmarks, "Navigationsbereich", "Navigationsbereiche")
-            )
-            }
-        }
-        PatternMessage::DisclosureNative { native } => {
-            if en {
-                format!(
-                    "{} (<details>/<summary>) — semantics come from the element, no ARIA needed.",
-                    n(
-                        *native,
-                        "native disclosure trigger",
-                        "native disclosure triggers"
-                    )
-                )
-            } else {
-                format!(
-                "{} (<details>/<summary>) – die Semantik kommt aus dem Element, ARIA ist nicht nötig.",
-                n(*native, "natives Aufklappelement", "native Aufklappelemente")
-            )
-            }
-        }
+        PatternMessage::NavigationUnnamed { landmarks, unnamed } => t(
+            "a11y-analysis-pattern-navigation-unnamed",
+            &[
+                (
+                    "landmarks",
+                    n("a11y-analysis-pattern-nav-landmark-count", *landmarks, en),
+                ),
+                ("unnamed", unnamed.to_string()),
+            ],
+            en,
+        ),
+        PatternMessage::NavigationWithoutLinks { landmarks } => t(
+            "a11y-analysis-pattern-navigation-without-links",
+            &[(
+                "landmarks",
+                n("a11y-analysis-pattern-nav-landmark-count", *landmarks, en),
+            )],
+            en,
+        ),
+        PatternMessage::Navigation { landmarks } => t(
+            "a11y-analysis-pattern-navigation",
+            &[(
+                "landmarks",
+                n("a11y-analysis-pattern-landmark-count", *landmarks, en),
+            )],
+            en,
+        ),
+        PatternMessage::DisclosureNative { native } => t(
+            "a11y-analysis-pattern-disclosure-native",
+            &[(
+                "native",
+                n("a11y-analysis-pattern-native-disclosure-count", *native, en),
+            )],
+            en,
+        ),
         PatternMessage::Disclosure {
             triggers,
             with_controls,
             native,
         } => {
-            let mut text = match (en, with_controls == triggers) {
-                (true, true) => format!(
-                    "{} with aria-expanded and aria-controls — well-formed pattern.",
-                    n(*triggers, "disclosure trigger", "disclosure triggers")
-                ),
-                (true, false) => format!(
-                    "{} with aria-expanded ({with_controls} with aria-controls). Controls relationship strengthens screen-reader announcements.",
-                    n(*triggers, "disclosure trigger", "disclosure triggers")
-                ),
-                (false, true) => format!(
-                    "{} mit aria-expanded und aria-controls – vollständig ausgezeichnet.",
-                    n(*triggers, "Aufklapp-Auslöser", "Aufklapp-Auslöser")
-                ),
-                (false, false) => format!(
-                    "{} mit aria-expanded ({with_controls} mit aria-controls). Die Verknüpfung über aria-controls verbessert die Screenreader-Ansage.",
-                    n(*triggers, "Aufklapp-Auslöser", "Aufklapp-Auslöser")
-                ),
+            let key = if with_controls == triggers {
+                "a11y-analysis-pattern-disclosure-complete"
+            } else {
+                "a11y-analysis-pattern-disclosure-partial"
             };
+            let mut text = t(
+                key,
+                &[
+                    (
+                        "triggers",
+                        n("a11y-analysis-pattern-disclosure-count", *triggers, en),
+                    ),
+                    ("controls", with_controls.to_string()),
+                ],
+                en,
+            );
             if *native > 0 {
-                text.push_str(&if en {
-                    format!(
-                        " Plus {} native <details>/<summary> {}.",
-                        native,
-                        if *native == 1 { "trigger" } else { "triggers" }
-                    )
-                } else {
-                    format!(
-                        " Dazu {} mit <details>/<summary>.",
-                        n(*native, "natives Element", "native Elemente")
-                    )
-                });
+                text.push(' ');
+                text.push_str(&n(
+                    "a11y-analysis-pattern-disclosure-native-extra",
+                    *native,
+                    en,
+                ));
             }
             text
         }
         PatternMessage::ModalDialog {
             dialogs,
             well_formed,
-        } => {
-            if en {
-                format!(
-                "{} detected, {well_formed} structurally well-formed (accessible name, aria-modal, focusable descendants).",
-                n(*dialogs, "dialog", "dialogs")
-            )
-            } else {
-                format!(
-                "{} erkannt, davon {well_formed} strukturell vollständig (zugänglicher Name, aria-modal, fokussierbarer Inhalt).",
-                n(*dialogs, "Dialog", "Dialoge")
-            )
-            }
-        }
+        } => t(
+            "a11y-analysis-pattern-modal-dialog",
+            &[
+                (
+                    "dialogs",
+                    n("a11y-analysis-pattern-dialog-count", *dialogs, en),
+                ),
+                ("well_formed", well_formed.to_string()),
+            ],
+            en,
+        ),
         PatternMessage::TabList {
             tablists,
             tabs,
             selected,
             controls,
-        } => {
-            if en {
-                format!(
-                    "{} with {}; {selected} have aria-selected, {controls} declare aria-controls.",
-                    n(*tablists, "tablist", "tablists"),
-                    n(*tabs, "tab", "tabs")
-                )
-            } else {
-                format!(
-                    "{} mit {}; {selected} mit aria-selected, {controls} mit aria-controls.",
-                    n(*tablists, "Tab-Liste", "Tab-Listen"),
-                    n(*tabs, "Tab", "Tabs")
-                )
-            }
-        }
-        PatternMessage::SkipLink { name, first: true } => {
-            if en {
-                format!("Skip link recognized and correctly positioned as first focusable element (\"{name}\").")
-            } else {
-                format!("Sprunglink erkannt und korrekt als erstes fokussierbares Element platziert („{name}“).")
-            }
-        }
-        PatternMessage::SkipLink { name, first: false } => {
-            if en {
-                format!("Skip link detected (\"{name}\") but not the first focusable element — keyboard users may have to tab past other content first.")
-            } else {
-                format!("Sprunglink erkannt („{name}“), aber nicht als erstes fokussierbares Element – Tastaturnutzende müssen eventuell erst an anderen Elementen vorbei.")
-            }
-        }
+        } => t(
+            "a11y-analysis-pattern-tab-list",
+            &[
+                (
+                    "tablists",
+                    n("a11y-analysis-pattern-tablist-count", *tablists, en),
+                ),
+                ("tabs", n("a11y-analysis-pattern-tab-count", *tabs, en)),
+                ("selected", selected.to_string()),
+                ("controls", controls.to_string()),
+            ],
+            en,
+        ),
+        PatternMessage::SkipLink { name, first: true } => t(
+            "a11y-analysis-pattern-skip-link-first",
+            &[("name", name.clone())],
+            en,
+        ),
+        PatternMessage::SkipLink { name, first: false } => t(
+            "a11y-analysis-pattern-skip-link-not-first",
+            &[("name", name.clone())],
+            en,
+        ),
         PatternMessage::Accordion {
             triggers,
             with_controls,
             non_button,
-        } => {
-            if en {
-                format!(
-                    "{}; {with_controls} with aria-controls; {non_button} non-button triggers.",
-                    n(*triggers, "accordion trigger", "accordion triggers")
-                )
-            } else {
-                format!(
-                    "{}; {with_controls} mit aria-controls; {non_button} ohne Button-Rolle.",
-                    n(*triggers, "Accordion-Auslöser", "Accordion-Auslöser")
-                )
-            }
-        }
-        PatternMessage::Form { fields, trigger } => {
-            if en {
-                format!(
-                    "{} detected; submit trigger: {}",
-                    n(*fields, "required field", "required fields"),
-                    trigger.as_deref().unwrap_or("(unnamed button)")
-                )
-            } else {
-                format!(
-                    "{} erkannt; Absenden über: {}",
-                    n(*fields, "Pflichtfeld", "Pflichtfelder"),
-                    trigger.as_deref().unwrap_or("(Button ohne Namen)")
-                )
-            }
-        }
-        PatternMessage::AddToCart { trigger } => {
-            if en {
-                format!(
-                    "Add-to-cart trigger detected: {}",
-                    trigger.as_deref().unwrap_or("(unnamed button)")
-                )
-            } else {
-                format!(
-                    "Warenkorb-Button erkannt: {}",
-                    trigger.as_deref().unwrap_or("(Button ohne Namen)")
-                )
-            }
-        }
-        PatternMessage::QuantityStepper { name } => {
-            if en {
-                format!(
-                    "Spinbutton quantity control detected: {}",
-                    name.as_deref().unwrap_or("(unnamed)")
-                )
-            } else {
-                format!(
-                    "Mengenauswahl (Spinbutton) erkannt: {}",
-                    name.as_deref().unwrap_or("(ohne Namen)")
-                )
-            }
-        }
-        PatternMessage::EasyLanguage => easy_language::message_text(en).to_string(),
+        } => t(
+            "a11y-analysis-pattern-accordion",
+            &[
+                (
+                    "triggers",
+                    n("a11y-analysis-pattern-accordion-count", *triggers, en),
+                ),
+                ("controls", with_controls.to_string()),
+                ("non_button", non_button.to_string()),
+            ],
+            en,
+        ),
+        PatternMessage::Form { fields, trigger } => t(
+            "a11y-analysis-pattern-form",
+            &[
+                (
+                    "fields",
+                    n("a11y-analysis-pattern-field-count", *fields, en),
+                ),
+                (
+                    "trigger",
+                    or(trigger, "a11y-analysis-pattern-unnamed-button", en),
+                ),
+            ],
+            en,
+        ),
+        PatternMessage::AddToCart { trigger } => t(
+            "a11y-analysis-pattern-add-to-cart",
+            &[(
+                "trigger",
+                or(trigger, "a11y-analysis-pattern-unnamed-button", en),
+            )],
+            en,
+        ),
+        PatternMessage::QuantityStepper { name } => t(
+            "a11y-analysis-pattern-quantity-stepper",
+            &[("name", or(name, "a11y-analysis-pattern-unnamed", en))],
+            en,
+        ),
+        PatternMessage::EasyLanguage => easy_language::message_text(en),
     }
 }
 
