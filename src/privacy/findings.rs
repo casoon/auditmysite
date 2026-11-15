@@ -29,6 +29,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use fluent_bundle::FluentValue;
 use serde::{Deserialize, Serialize};
 use web_checks::third_party::{
     classify_host, classify_storage_name, classify_url, Category, Jurisdiction, RULESET_VERSION,
@@ -215,7 +216,9 @@ pub struct PrivacyAnalysis {
 
 /// Text of a finding. `provider` is the provider name (or empty), `document`
 /// the policy document for the link findings. `en` selects English; the
-/// analysis itself always passes `true`.
+/// analysis itself always passes `true`. The texts are the
+/// `privacy-finding-*` messages of `locales/<lang>/privacy-findings.ftl`;
+/// which message applies stays here.
 pub fn finding_text(
     kind: PrivacyFindingKind,
     provider: &str,
@@ -223,58 +226,41 @@ pub fn finding_text(
     en: bool,
 ) -> String {
     use PrivacyFindingKind as K;
-    let doc = match (document, en) {
-        (Some(PolicyDocument::Imprint), true) => "imprint",
-        (Some(PolicyDocument::Imprint), false) => "Impressum",
-        (_, true) => "privacy policy",
-        (_, false) => "Datenschutzerklärung",
+    let provider = FluentValue::from(provider.to_string());
+    let doc = crate::i18n::text(
+        match document {
+            Some(PolicyDocument::Imprint) => "privacy-finding-doc-imprint",
+            _ => "privacy-finding-doc-privacy",
+        },
+        en,
+    );
+    let (key, args) = match kind {
+        K::TrackingRequestBeforeConsent => (
+            "privacy-finding-tracking-request-before-consent",
+            vec![("provider", provider)],
+        ),
+        K::NonEssentialStorageBeforeConsent => (
+            "privacy-finding-non-essential-storage-before-consent",
+            vec![("provider", provider)],
+        ),
+        K::VisitorIpTransfer => (
+            "privacy-finding-visitor-ip-transfer",
+            vec![("provider", provider)],
+        ),
+        K::ThirdCountryProvider => ("privacy-finding-third-country-provider", Vec::new()),
+        K::NoConsentPlatformDetected => {
+            ("privacy-finding-no-consent-platform-detected", Vec::new())
+        }
+        K::PolicyLinkMissing => (
+            "privacy-finding-policy-link-missing",
+            vec![("doc", FluentValue::from(doc))],
+        ),
+        K::PolicyLinkUnusable => (
+            "privacy-finding-policy-link-unusable",
+            vec![("doc", FluentValue::from(doc))],
+        ),
     };
-    match (kind, en) {
-        (K::TrackingRequestBeforeConsent, true) => format!(
-            "{provider} was contacted on the first visit, before any consent choice was possible."
-        ),
-        (K::TrackingRequestBeforeConsent, false) => format!(
-            "{provider} wurde beim ersten Besuch kontaktiert, bevor eine Einwilligungsentscheidung möglich war."
-        ),
-        (K::NonEssentialStorageBeforeConsent, true) => format!(
-            "Cookies or storage entries of {provider} were present after the first visit, before any consent choice."
-        ),
-        (K::NonEssentialStorageBeforeConsent, false) => format!(
-            "Cookies oder Speichereinträge von {provider} waren nach dem ersten Besuch vorhanden, vor jeder Einwilligungsentscheidung."
-        ),
-        (K::VisitorIpTransfer, true) => format!(
-            "{provider} was contacted on the first visit; the request transfers the visitor's IP address to a third party."
-        ),
-        (K::VisitorIpTransfer, false) => format!(
-            "{provider} wurde beim ersten Besuch kontaktiert; die Anfrage übermittelt die IP-Adresse des Besuchers an einen Dritten."
-        ),
-        (K::ThirdCountryProvider, true) => {
-            "Providers contacted on the first visit state a seat outside the EU. This is a hint about the provider, not about the actual data flow."
-                .to_string()
-        }
-        (K::ThirdCountryProvider, false) => {
-            "Beim ersten Besuch kontaktierte Anbieter geben einen Sitz außerhalb der EU an. Das ist ein Hinweis auf den Anbieter, nicht auf den tatsächlichen Datenfluss."
-                .to_string()
-        }
-        (K::NoConsentPlatformDetected, true) => {
-            "Tracking requests were observed, but no consent platform could be detected on the first visit (requests, cookies, storage, document)."
-                .to_string()
-        }
-        (K::NoConsentPlatformDetected, false) => {
-            "Es wurden Tracking-Anfragen beobachtet, aber beim ersten Besuch ließ sich keine Consent-Plattform erkennen (Anfragen, Cookies, Speicher, Dokument)."
-                .to_string()
-        }
-        (K::PolicyLinkMissing, true) => format!("No link to the {doc} was found on the page."),
-        (K::PolicyLinkMissing, false) => {
-            format!("Auf der Seite wurde kein Link zur {doc} gefunden.")
-        }
-        (K::PolicyLinkUnusable, true) => {
-            format!("The link to the {doc} has no usable target (empty, '#' or script).")
-        }
-        (K::PolicyLinkUnusable, false) => {
-            format!("Der Link zur {doc} hat kein nutzbares Ziel (leer, '#' oder Skript).")
-        }
-    }
+    crate::i18n::text_args(key, &args, en)
 }
 
 // ── Classification ─────────────────────────────────────────────────────
