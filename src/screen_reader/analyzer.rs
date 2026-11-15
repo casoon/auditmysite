@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use fluent_bundle::FluentValue;
+
 use crate::i18n::I18n;
 
 use super::navigator::{
@@ -63,6 +65,16 @@ fn is_real_node_id(id: &str) -> bool {
     !id.is_empty() && !id.starts_with('-')
 }
 
+/// A message of `a11y-analysis.ftl` with text arguments, in the message
+/// language (`en`) — never the detection language.
+fn sr_text(key: &str, args: &[(&str, String)], en: bool) -> String {
+    let args: Vec<(&str, FluentValue<'_>)> = args
+        .iter()
+        .map(|(name, value)| (*name, FluentValue::from(value.clone())))
+        .collect();
+    crate::i18n::text_args(key, &args, en)
+}
+
 fn localized_stopwords(locale: &str) -> HashSet<String> {
     I18n::new(locale)
         .or_else(|_| I18n::new("de"))
@@ -124,11 +136,11 @@ fn detect_non_descriptive_interactive_names(
                 wcag_criterion: Some("2.4.4".into()),
                 severity: severity.into(),
                 affected_node_ids: vec![item.node_id.clone()],
-                message: if en {
-                    format!("Interactive name \"{name}\" is not meaningful without context.")
-                } else {
-                    format!("Interaktiver Name \"{name}\" ist ohne Kontext nicht aussagekräftig.")
-                },
+                message: sr_text(
+                    "a11y-analysis-sr-non-descriptive",
+                    &[("name", name.to_string())],
+                    en,
+                ),
             });
         }
     }
@@ -177,17 +189,11 @@ fn detect_duplicated_accessible_name(
             wcag_criterion: Some("2.4.4".into()),
             severity: "medium".into(),
             affected_node_ids: vec![item.node_id.clone()],
-            message: if en {
-                format!(
-                    "Accessible name \"{name}\" repeats \"{half}\" twice in a row. \
-                     A screen reader announces it as \"{name}\", which sounds like a glitch."
-                )
-            } else {
-                format!(
-                    "Zugänglicher Name \"{name}\" wiederholt \"{half}\" zweimal hintereinander. \
-                     Ein Screenreader kündigt ihn als \"{name}\" an, was wie ein Fehler wirkt."
-                )
-            },
+            message: sr_text(
+                "a11y-analysis-sr-duplicated-name",
+                &[("name", name.to_string()), ("half", half)],
+                en,
+            ),
         });
     }
 }
@@ -212,33 +218,23 @@ fn duplicated_half(name: &str) -> Option<String> {
 
 fn detect_duplicate_link_texts(views: &NavigationViews, en: bool, issues: &mut Vec<SrAuditIssue>) {
     for link in views.links.iter().filter(|link| link.count > 1) {
-        let quality = match (link.quality, en) {
-            (LinkQuality::Empty, true) => "Empty link text",
-            (LinkQuality::Empty, false) => "Leerer Linktext",
-            (LinkQuality::NonDescriptive | LinkQuality::ContextDependent, true) => {
-                "Context-dependent link text"
+        let quality = match link.quality {
+            LinkQuality::Empty => crate::i18n::text("a11y-analysis-sr-link-empty", en),
+            LinkQuality::NonDescriptive | LinkQuality::ContextDependent => {
+                crate::i18n::text("a11y-analysis-sr-link-context-dependent", en)
             }
-            (LinkQuality::NonDescriptive | LinkQuality::ContextDependent, false) => {
-                "Kontextabhängiger Linktext"
-            }
-            (LinkQuality::Good, _) => continue,
+            LinkQuality::Good => continue,
         };
         issues.push(SrAuditIssue {
             review: link.quality != LinkQuality::Empty,
             wcag_criterion: Some("2.4.4".into()),
             severity: "low".into(),
             affected_node_ids: link.node_ids.clone(),
-            message: if en {
-                format!(
-                    "{} occurs {} times and clutters the screen reader's link list.",
-                    quality, link.count
-                )
-            } else {
-                format!(
-                    "{} kommt {} mal vor und erschwert die Linkliste im Screenreader.",
-                    quality, link.count
-                )
-            },
+            message: sr_text(
+                "a11y-analysis-sr-duplicate-links",
+                &[("quality", quality), ("count", link.count.to_string())],
+                en,
+            ),
         });
     }
 }
@@ -303,17 +299,14 @@ fn push_desert_issue(
         wcag_criterion: Some("1.3.6".into()),
         severity: "low".into(),
         affected_node_ids: node_ids.to_vec(),
-        message: if en {
-            format!(
-                "Long section from sequence position {} without a landmark, heading or focus target ({} entries).",
-                segment_start, count
-            )
-        } else {
-            format!(
-                "Langer Abschnitt ab Sequenzposition {} ohne Landmark, Überschrift oder Fokusziel ({} Einträge).",
-                segment_start, count
-            )
-        },
+        message: sr_text(
+            "a11y-analysis-sr-desert",
+            &[
+                ("start", segment_start.to_string()),
+                ("entries", count.to_string()),
+            ],
+            en,
+        ),
     });
 }
 
@@ -332,13 +325,10 @@ fn detect_skipped_heading_levels(
         // formatted with `{:?}`. That previously leaked "Some(6)" verbatim
         // into the message (confirmed live in the shop.satower-mosterei.de
         // report, 2026-08-31).
-        let level = heading.level.map(|l| format!("h{l}")).unwrap_or_else(|| {
-            if en {
-                "an unknown level".into()
-            } else {
-                "einer unbekannten Ebene".into()
-            }
-        });
+        let level = heading
+            .level
+            .map(|l| format!("h{l}"))
+            .unwrap_or_else(|| crate::i18n::text("a11y-analysis-sr-heading-level-unknown", en));
         issues.push(SrAuditIssue {
             review: true,
             // WCAG 2.4.6 (Headings and Labels) is about whether heading TEXT
@@ -351,17 +341,11 @@ fn detect_skipped_heading_levels(
             wcag_criterion: Some("1.3.1".into()),
             severity: "medium".into(),
             affected_node_ids: vec![heading.node_id.clone()],
-            message: if en {
-                format!(
-                    "Heading level is skipped: {level} at sequence position {}.",
-                    heading.seq
-                )
-            } else {
-                format!(
-                    "Überschriftenebene wird übersprungen: {level} an Sequenzposition {}.",
-                    heading.seq
-                )
-            },
+            message: sr_text(
+                "a11y-analysis-sr-heading-skipped",
+                &[("level", level), ("seq", heading.seq.to_string())],
+                en,
+            ),
         });
     }
 }
@@ -384,11 +368,7 @@ fn detect_unlabeled_duplicate_landmarks(
             wcag_criterion: Some("1.3.1".into()),
             severity: "medium".into(),
             affected_node_ids: affected,
-            message: if en {
-                "Several landmarks of the same type without a name are indistinguishable in the screen reader's landmark list.".into()
-            } else {
-                "Mehrere gleichartige Landmarken ohne Namen sind in der Screenreader-Landmarkliste nicht unterscheidbar.".into()
-            },
+            message: crate::i18n::text("a11y-analysis-sr-landmarks-unlabeled-duplicate", en),
         });
     }
 
@@ -402,11 +382,7 @@ fn detect_unlabeled_duplicate_landmarks(
             wcag_criterion: Some("1.3.1".into()),
             severity: "medium".into(),
             affected_node_ids: vec![landmark.node_id.clone()],
-            message: if en {
-                "No main landmark detectable in the screen reader's landmark list.".into()
-            } else {
-                "Kein Main-Landmark in der Screenreader-Landmarkliste erkennbar.".into()
-            },
+            message: crate::i18n::text("a11y-analysis-sr-landmark-main-missing", en),
         });
     }
 }
@@ -417,37 +393,16 @@ fn detect_missing_required_landmarks(
     en: bool,
     issues: &mut Vec<SrAuditIssue>,
 ) {
-    const REQUIRED_EN: &[(&str, &str)] = &[
-        (
-            "banner",
-            "No header area (banner landmark) present. Screen reader users cannot reach the page header through landmark navigation; its content stays reachable in reading mode.",
-        ),
-        (
-            "navigation",
-            "No navigation landmark present. Screen reader users cannot jump to the navigation through landmark navigation; the links stay reachable in reading and tab order.",
-        ),
+    const REQUIRED: &[(&str, &str)] = &[
+        ("banner", "a11y-analysis-sr-landmark-missing-banner"),
+        ("navigation", "a11y-analysis-sr-landmark-missing-navigation"),
         (
             "contentinfo",
-            "No footer landmark (contentinfo) present. Screen reader users cannot reach the footer through landmark navigation; its content stays reachable in reading mode.",
-        ),
-    ];
-    const REQUIRED_DE: &[(&str, &str)] = &[
-        (
-            "banner",
-            "Kein Header-Bereich (banner-Landmark) vorhanden. Screenreader-Nutzer erreichen den Seitenkopf nicht über die Landmark-Navigation; im Lesemodus bleibt sein Inhalt erreichbar.",
-        ),
-        (
-            "navigation",
-            "Keine Navigations-Landmark vorhanden. Screenreader-Nutzer können nicht über die Landmark-Navigation zur Navigation springen; im Lesemodus und per Tab bleiben die Links erreichbar.",
-        ),
-        (
-            "contentinfo",
-            "Keine Fußzeilen-Landmark (contentinfo) vorhanden. Screenreader-Nutzer erreichen die Fußzeile nicht über die Landmark-Navigation; im Lesemodus bleibt ihr Inhalt erreichbar.",
+            "a11y-analysis-sr-landmark-missing-contentinfo",
         ),
     ];
 
-    let required = if en { REQUIRED_EN } else { REQUIRED_DE };
-    for (role, message) in required {
+    for (role, key) in REQUIRED {
         let present = views
             .landmarks
             .iter()
@@ -471,24 +426,14 @@ fn detect_missing_required_landmarks(
                 wcag_criterion: Some("1.3.6".into()),
                 severity: "medium".into(),
                 affected_node_ids: vec![],
-                message: message.to_string(),
+                message: crate::i18n::text(key, en),
             });
         }
     }
 }
 
 fn navigation_behind_disclosure_message(en: bool) -> String {
-    if en {
-        "No navigation landmark present in the captured accessibility tree, but a disclosure/menu \
-         trigger was recognized — the navigation is likely collapsed rather than missing. Confirm \
-         it becomes reachable once expanded."
-            .to_string()
-    } else {
-        "Keine Navigations-Landmark im erfassten Accessibility-Tree vorhanden, aber ein Ausklapp-/\
-         Menü-Element wurde erkannt — die Navigation ist vermutlich eingeklappt statt fehlend. \
-         Prüfen, ob sie nach dem Ausklappen erreichbar ist."
-            .to_string()
-    }
+    crate::i18n::text("a11y-analysis-sr-navigation-behind-disclosure", en)
 }
 
 fn detect_icon_font_contamination(items: &[ReadingItem], en: bool, issues: &mut Vec<SrAuditIssue>) {
@@ -507,11 +452,7 @@ fn detect_icon_font_contamination(items: &[ReadingItem], en: bool, issues: &mut 
             wcag_criterion: Some("2.4.4".into()),
             severity: "medium".into(),
             affected_node_ids: affected,
-            message: if en {
-                "Link or button name contains icon-font characters (Unicode Private Use Area). Screen readers read these out as cryptic character codes.".into()
-            } else {
-                "Link- oder Button-Name enthält Icon-Font-Zeichen (Unicode Private Use Area). Screen Reader lesen diese als kryptische Zeichencodes vor.".into()
-            },
+            message: crate::i18n::text("a11y-analysis-sr-icon-font", en),
         });
     }
 }
@@ -533,24 +474,19 @@ fn detect_heading_order_issues(views: &NavigationViews, en: bool, issues: &mut V
     use super::navigator::{heading_order_problems, HeadingOrderProblem};
     for problem in heading_order_problems(&views.headings) {
         let heading = problem.heading();
-        let message = match (problem, en) {
-            (HeadingOrderProblem::FirstNotH1(_), true) => format!(
-                "First heading in the document is H{} instead of H1 (sequence position {}).",
-                heading.level.unwrap_or(0),
-                heading.seq
+        let message = match problem {
+            HeadingOrderProblem::FirstNotH1(_) => sr_text(
+                "a11y-analysis-sr-heading-first-not-h1",
+                &[
+                    ("level", heading.level.unwrap_or(0).to_string()),
+                    ("seq", heading.seq.to_string()),
+                ],
+                en,
             ),
-            (HeadingOrderProblem::FirstNotH1(_), false) => format!(
-                "Erste Überschrift im Dokument ist H{} statt H1 (Sequenzposition {}).",
-                heading.level.unwrap_or(0),
-                heading.seq
-            ),
-            (HeadingOrderProblem::H1AfterSubheading(_), true) => format!(
-                "H1 first appears at sequence position {} — after an H2/H3 heading.",
-                heading.seq
-            ),
-            (HeadingOrderProblem::H1AfterSubheading(_), false) => format!(
-                "H1 erscheint erst an Sequenzposition {} — nach einer H2/H3-Überschrift.",
-                heading.seq
+            HeadingOrderProblem::H1AfterSubheading(_) => sr_text(
+                "a11y-analysis-sr-heading-h1-late",
+                &[("seq", heading.seq.to_string())],
+                en,
             ),
         };
         issues.push(SrAuditIssue {
@@ -587,17 +523,11 @@ fn detect_tab_stop_count(items: &[ReadingItem], en: bool, issues: &mut Vec<SrAud
                 .filter(|item| item.tab_stop)
                 .map(|item| item.node_id.clone())
                 .collect(),
-            message: if en {
-                format!(
-                    "{} tab stops without a detectable skip link hamper keyboard and screen reader navigation.",
-                    tab_stop_count
-                )
-            } else {
-                format!(
-                    "{} Tab-Stops ohne erkennbaren Skip-Link erschweren Tastatur- und Screenreader-Navigation.",
-                    tab_stop_count
-                )
-            },
+            message: sr_text(
+                "a11y-analysis-sr-tab-stops",
+                &[("count", tab_stop_count.to_string())],
+                en,
+            ),
         });
     }
 }
@@ -621,11 +551,7 @@ fn detect_empty_interactive_elements(
             wcag_criterion: Some("4.1.2".into()),
             severity: "high".into(),
             affected_node_ids: affected,
-            message: if en {
-                "Interactive elements without an accessible name are not announced intelligibly by a screen reader.".into()
-            } else {
-                "Interaktive Elemente ohne zugänglichen Namen werden im Screenreader nicht verständlich angekündigt.".into()
-            },
+            message: crate::i18n::text("a11y-analysis-sr-empty-interactive", en),
         });
     }
 }
@@ -644,11 +570,7 @@ fn detect_empty_form_labels(views: &NavigationViews, en: bool, issues: &mut Vec<
             wcag_criterion: Some("3.3.2".into()),
             severity: "high".into(),
             affected_node_ids: affected,
-            message: if en {
-                "Form fields without a label are not intelligible in the screen reader's form list.".into()
-            } else {
-                "Formularfelder ohne Label sind in der Screenreader-Formularliste nicht verständlich.".into()
-            },
+            message: crate::i18n::text("a11y-analysis-sr-empty-form-labels", en),
         });
     }
 }

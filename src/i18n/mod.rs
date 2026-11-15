@@ -64,7 +64,10 @@ impl I18n {
         // for performance, SEO, tech stack and best practices and the display
         // modes (`output-texts.ftl`, `output::builder::{helpers, batch}`,
         // `output::pdf::detail_modules::{indicators, seo, performance}`,
-        // `display`) are twenty-three resources of the one bundle.
+        // `display`) and the texts of the accessibility analysis layer
+        // (`a11y-analysis.ftl`, `screen_reader::analyzer`,
+        // `patterns::pattern_message_text`) are twenty-four resources of the
+        // one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -89,6 +92,7 @@ impl I18n {
                 include_str!("../../locales/en/actions-block.ftl"),
                 include_str!("../../locales/en/batch-report.ftl"),
                 include_str!("../../locales/en/audit-texts.ftl"),
+                include_str!("../../locales/en/a11y-analysis.ftl"),
                 include_str!("../../locales/en/output-texts.ftl"),
             ],
             _ => [
@@ -114,6 +118,7 @@ impl I18n {
                 include_str!("../../locales/de/actions-block.ftl"),
                 include_str!("../../locales/de/batch-report.ftl"),
                 include_str!("../../locales/de/audit-texts.ftl"),
+                include_str!("../../locales/de/a11y-analysis.ftl"),
                 include_str!("../../locales/de/output-texts.ftl"),
             ],
         };

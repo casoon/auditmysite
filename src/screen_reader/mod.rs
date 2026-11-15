@@ -2,6 +2,8 @@
 
 #[cfg(test)]
 pub(crate) mod a11y_analysis_texts_export;
+#[cfg(test)]
+mod a11y_analysis_texts_guard;
 pub mod analyzer;
 pub mod announcer;
 pub mod navigator;
