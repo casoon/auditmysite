@@ -1,5 +1,7 @@
 //! Screen reader audit primitives built from the browser AXTree.
 
+#[cfg(test)]
+pub(crate) mod a11y_analysis_texts_export;
 pub mod analyzer;
 pub mod announcer;
 pub mod navigator;
