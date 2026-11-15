@@ -13,6 +13,8 @@ pub mod first_visit;
 #[cfg(test)]
 pub(crate) mod fixtures;
 pub mod module;
+#[cfg(test)]
+pub(crate) mod text_export;
 
 pub use aggregate::{aggregate_privacy, PrivacyBatchAggregate};
 pub use module::PrivacyModule;
