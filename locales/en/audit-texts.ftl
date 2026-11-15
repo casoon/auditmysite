@@ -95,9 +95,9 @@ audit-risk-performance-mobile-high =
 audit-risk-trust = Inferred from accessibility only: score { $accessibility }/100 with { $critical } critical and { $high } high findings. No trust or brand signal is measured directly.
 audit-risk-project-recurring =
     { $count ->
-        [one] 1 rule
-       *[other] { $count } rules
-    } recur on two or more of the { $pages } audited pages — likely component or template issues needing coordinated remediation.
+        [one] 1 rule recurs
+       *[other] { $count } rules recur
+    } on two or more of the { $pages } audited pages — likely component or template issues needing coordinated remediation.
 audit-risk-project-single =
     { $count ->
         [one] 1 finding affects 10 or more elements on this page or needs a structural fix. A single page cannot show whether a template or component is the cause — audit further pages to confirm.

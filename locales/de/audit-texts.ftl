@@ -96,9 +96,9 @@ audit-risk-performance-mobile-high =
 audit-risk-trust = Nur aus der Barrierefreiheit abgeleitet: Score { $accessibility }/100 mit { $critical } kritischen und { $high } hohen Befunden. Ein Vertrauens- oder Markensignal wird nicht direkt gemessen.
 audit-risk-project-recurring =
     { $count ->
-        [one] 1 Regel
-       *[other] { $count } Regeln
-    } treten auf zwei oder mehr der { $pages } geprüften Seiten auf — vermutlich Komponenten- oder Template-Fehler, die gebündelt behoben werden sollten.
+        [one] 1 Regel tritt
+       *[other] { $count } Regeln treten
+    } auf zwei oder mehr der { $pages } geprüften Seiten auf — vermutlich Komponenten- oder Template-Fehler, die gebündelt behoben werden sollten.
 audit-risk-project-single =
     { $count ->
         [one] 1 Befund betrifft 10 oder mehr Elemente dieser Seite oder erfordert eine strukturelle Änderung. Eine einzelne Seite zeigt nicht, ob Template oder Komponente die Ursache sind — dafür weitere Seiten prüfen.

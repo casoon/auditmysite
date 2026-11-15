@@ -133,6 +133,8 @@ pub(super) fn localized_module_name(name: &str, i18n: &I18n) -> String {
         "AI Visibility" => "module-ai-visibility",
         "Source Quality" => "module-source-quality",
         "Tech Stack" => "module-tech-stack",
+        "Privacy" => "module-privacy",
+        "Commerce" => "module-commerce",
         _ => return name.to_string(),
     })
 }

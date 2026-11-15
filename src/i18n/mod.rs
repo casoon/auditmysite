@@ -430,6 +430,20 @@ mod tests {
             "3 images are",
         ),
         (
+            "output-ts-takeaway-count",
+            "1 Technologie erkannt.",
+            "3 Technologien erkannt.",
+            "1 technology detected.",
+            "3 technologies detected.",
+        ),
+        (
+            "output-batch-cover-urls",
+            "1 URL geprüft",
+            "3 URLs geprüft",
+            "1 URL audited",
+            "3 URLs audited",
+        ),
+        (
             "a11y-details-journey-steps",
             "1 Schritt",
             "3 Schritte",
@@ -592,6 +606,17 @@ mod tests {
             counting(&de, ["1", "3", "1", "3"], [1, 3, 1, 3]),
             "1 WCAG-Regelgruppe, 3 WCAG-Vorkommen; 1 Befundzeile und 3 Vorkommen über alle Kategorien"
         );
+        let recurring = |i18n: &I18n, count: i64| {
+            i18n.t_args(
+                "audit-risk-project-recurring",
+                &[("count", n(count)), ("pages", n(7))],
+            )
+        };
+        assert!(recurring(&en, 1).starts_with("1 rule recurs on two or more of the 7"));
+        assert!(recurring(&en, 3).starts_with("3 rules recur on two or more of the 7"));
+        assert!(recurring(&de, 1).starts_with("1 Regel tritt auf zwei oder mehr der 7"));
+        assert!(recurring(&de, 3).starts_with("3 Regeln treten auf zwei oder mehr der 7"));
+
         assert_eq!(
             counting(&de, ["2", "1.234", "5", "1.300"], [2, 1234, 5, 1300]),
             "2 unterschiedliche WCAG-Regelgruppen, 1.234 WCAG-Vorkommen; 5 Befundzeilen und 1.300 Vorkommen über alle Kategorien"

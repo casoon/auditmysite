@@ -38,7 +38,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 39);
+    assert_eq!(en.len(), 42);
 }
 
 #[test]
@@ -128,6 +128,68 @@ fn no_scenario_leaves_a_key_or_a_placeholder_in_a_text() {
                     && !text.contains("{$")
                     && !text.contains("{ $"),
                 "{record}: {text}"
+            );
+        }
+    }
+}
+
+/// The legacy-script rows of the performance chapter were German literals in
+/// every language ("Legacy-/Polyfill-Skripte", "Signatur").
+#[test]
+fn legacy_script_rows_follow_the_run_language() {
+    for (lang, row, column, leaked) in [
+        (
+            "en",
+            "Legacy / polyfill scripts",
+            "Signature",
+            ["Legacy-/Polyfill-Skripte", "Signatur"],
+        ),
+        (
+            "de",
+            "Legacy-/Polyfill-Skripte",
+            "Signatur",
+            ["Legacy / polyfill scripts", "Signature"],
+        ),
+    ] {
+        let record = records()
+            .into_iter()
+            .find(|r| {
+                r[0] == "render_performance"
+                    && r[1] == "minification and legacy scripts"
+                    && r[2] == lang
+            })
+            .expect("the export has the legacy scenario");
+        let mut texts = Vec::new();
+        strings(&record, &mut texts);
+        assert!(texts.contains(&row), "{lang}: {row} missing");
+        assert!(texts.contains(&column), "{lang}: {column} missing");
+        for leaked in leaked {
+            assert!(
+                !texts.contains(&leaked),
+                "{lang}: {leaked} left in the table"
+            );
+        }
+    }
+}
+
+/// "1 technologies detected." and "1 Technologien erkannt.": the count reaches
+/// the message as a number, so its plural select can choose the singular.
+#[test]
+fn tech_stack_takeaway_agrees_with_the_count() {
+    for (lang, one, three) in [
+        ("en", "1 technology detected.", "3 technologies detected."),
+        ("de", "1 Technologie erkannt.", "3 Technologien erkannt."),
+    ] {
+        for (scenario, expected) in [("one first=true", one), ("three first=true", three)] {
+            let record = records()
+                .into_iter()
+                .find(|r| r[0] == "render_tech_stack" && r[1] == scenario && r[2] == lang)
+                .expect("the export has the scenario");
+            let mut texts = Vec::new();
+            strings(&record, &mut texts);
+            assert!(
+                texts.iter().any(|text| text.contains(expected)),
+                "{lang} {scenario}: {expected} missing in {record}"
             );
         }
     }

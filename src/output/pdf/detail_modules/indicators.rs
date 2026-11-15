@@ -16,7 +16,7 @@ pub(in crate::output::pdf) fn render_tech_stack(
     } else {
         i18n.t_args(
             "output-ts-takeaway-count",
-            &[("count", ts.detected.len().to_string())],
+            &[("count", ts.detected.len() as i64)],
         )
     };
     builder = super::module_chapter_opener(builder, &ts_title, &ts_takeaway, is_first);

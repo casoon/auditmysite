@@ -205,7 +205,7 @@ fn render_minification(
     );
     if min.legacy_count > 0 {
         kv = kv.add(
-            "Legacy-/Polyfill-Skripte",
+            i18n.t("output-perf-legacy-scripts"),
             format!(
                 "{} (~{} KB)",
                 min.legacy_count,
@@ -229,7 +229,7 @@ fn render_minification(
     if !min.legacy_assets.is_empty() {
         let mut table = AuditTable::new(vec![
             TableColumn::new("URL").with_width("62%"),
-            TableColumn::new("Signatur").with_width("16%"),
+            TableColumn::new(i18n.t("output-perf-legacy-signature")).with_width("16%"),
             TableColumn::new("Bytes").with_width("22%"),
         ]);
         for (url, signature, wasted) in &min.legacy_assets {

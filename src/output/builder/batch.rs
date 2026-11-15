@@ -625,7 +625,7 @@ pub fn build_batch_presentation_with_normalized(
                     status: match (link.status_code, link.error.as_deref()) {
                         (Some(code), _) => code.to_string(),
                         (None, Some(err)) => err.to_string(),
-                        (None, None) => "Unbekannt".to_string(),
+                        (None, None) => i18n.t("output-crawl-status-unknown"),
                     },
                     is_external: link.is_external,
                     severity: match link.severity {
@@ -647,7 +647,7 @@ pub fn build_batch_presentation_with_normalized(
                     status: match (link.status_code, link.error.as_deref()) {
                         (Some(code), _) => code.to_string(),
                         (None, Some(err)) => err.to_string(),
-                        (None, None) => "Unbekannt".to_string(),
+                        (None, None) => i18n.t("output-crawl-status-unknown"),
                     },
                     is_external: link.is_external,
                     severity: match link.severity {
@@ -810,7 +810,7 @@ pub fn build_batch_presentation_with_normalized(
             title: i18n.t("output-batch-cover-title"),
             url: i18n.t_args(
                 "output-batch-cover-urls",
-                &[("count", batch.summary.total_urls.to_string())],
+                &[("count", batch.summary.total_urls as i64)],
             ),
             date: if en {
                 chrono::Utc::now().format("%Y-%m-%d").to_string()

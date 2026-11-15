@@ -14,5 +14,11 @@ privacy-finding-non-essential-storage-before-consent = Cookies oder Speichereint
 privacy-finding-visitor-ip-transfer = { $provider } wurde beim ersten Besuch kontaktiert; die Anfrage übermittelt die IP-Adresse des Besuchers an einen Dritten.
 privacy-finding-third-country-provider = Beim ersten Besuch kontaktierte Anbieter geben einen Sitz außerhalb der EU an. Das ist ein Hinweis auf den Anbieter, nicht auf den tatsächlichen Datenfluss.
 privacy-finding-no-consent-platform-detected = Es wurden Tracking-Anfragen beobachtet, aber beim ersten Besuch ließ sich keine Consent-Plattform erkennen (Anfragen, Cookies, Speicher, Dokument).
-privacy-finding-policy-link-missing = Auf der Seite wurde kein Link zur { $doc } gefunden.
-privacy-finding-policy-link-unusable = Der Link zur { $doc } hat kein nutzbares Ziel (leer, '#' oder Skript).
+privacy-finding-policy-link-missing = { $kind ->
+        [imprint] Auf der Seite wurde kein Link zum Impressum gefunden.
+       *[other] Auf der Seite wurde kein Link zur Datenschutzerklärung gefunden.
+    }
+privacy-finding-policy-link-unusable = { $kind ->
+        [imprint] Der Link zum Impressum hat kein nutzbares Ziel (leer, '#' oder Skript).
+       *[other] Der Link zur Datenschutzerklärung hat kein nutzbares Ziel (leer, '#' oder Skript).
+    }
