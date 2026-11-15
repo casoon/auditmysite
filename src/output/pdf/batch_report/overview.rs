@@ -618,7 +618,7 @@ pub(super) fn build_batch_overview_grid(
 
     if let Some(count) = broken_internal_links {
         metrics.push((
-            "Broken Links".to_string(),
+            i18n.t("batch-table-broken-internal"),
             count.to_string(),
             Some(if count > 0 { "#dc2626" } else { "#0f766e" }),
         ));

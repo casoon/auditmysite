@@ -23,7 +23,10 @@ output-batch-distribution-no-editorial = Editoriale Inhaltsseiten fehlen: Wissen
 output-batch-distribution-marketing-dominated = Marketing- und Landingpages dominieren: Mehr strukturierter Tiefeninhalt würde die Domain ausbalancieren.
 output-batch-lever-fallback = Ergebnisse stabil halten
 output-batch-cover-title = Barrierefreiheits-Batch-Audit-Report
-output-batch-cover-urls = { $count } URLs geprüft
+output-batch-cover-urls = { $count ->
+        [one] { $count } URL geprüft
+       *[other] { $count } URLs geprüft
+    }
 output-batch-blocking-pages-analyzed = Seiten analysiert
 output-batch-blocking-pages-blocking = Seiten mit Blocking
 output-batch-blocking-distinct = Verschiedene Blocking-Ressourcen
@@ -40,7 +43,10 @@ output-display-offered = { $modes } (dargestellt: { $active })
 
 ## Tech stack and best practices
 output-ts-takeaway-none = Keine gängigen Technologien erkannt.
-output-ts-takeaway-count = { $count } Technologien erkannt.
+output-ts-takeaway-count = { $count ->
+        [one] { $count } Technologie erkannt.
+       *[other] { $count } Technologien erkannt.
+    }
 output-bp-takeaway-not-measured = Nicht gemessen.
 output-bp-takeaway-clean = Keine Konsolenfehler oder bekannten verwundbaren Bibliotheken erkannt.
 output-bp-takeaway-issues = Konsolenfehler oder verwundbare Bibliotheken erkannt — siehe unten.
@@ -60,3 +66,9 @@ output-perf-score-basis = Der Performance-Wert dieses Berichts ({ $score }) ist 
 output-perf-vitals-legend = LCP: größter sichtbarer Inhalt (gut ≤ 2,5 s); FCP: erster sichtbarer Inhalt (gut ≤ 1,8 s); CLS: Layoutstabilität (gut ≤ 0,1); TTFB: Serverantwort (gut ≤ 0,8 s). Bei Zeit- und Verschiebungswerten ist niedriger besser.
 output-perf-desktop-lab-metrics = Desktop — Kennzahlen (Labormessung)
 output-perf-mobile-lab-metrics = Mobile — Kennzahlen (Labormessung)
+
+# Crawl link status without a code or error, and the legacy-script table of the
+# performance chapter (a wrong-language literal before, #936 follow-up).
+output-crawl-status-unknown = Unbekannt
+output-perf-legacy-scripts = Legacy-/Polyfill-Skripte
+output-perf-legacy-signature = Signatur

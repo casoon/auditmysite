@@ -23,7 +23,10 @@ output-batch-distribution-no-editorial = No editorial content pages: knowledge-b
 output-batch-distribution-marketing-dominated = Marketing and landing pages dominate: more structured in-depth content would balance the domain.
 output-batch-lever-fallback = Maintain results
 output-batch-cover-title = Web Accessibility Batch Audit Report
-output-batch-cover-urls = { $count } URLs audited
+output-batch-cover-urls = { $count ->
+        [one] { $count } URL audited
+       *[other] { $count } URLs audited
+    }
 output-batch-blocking-pages-analyzed = Pages analyzed
 output-batch-blocking-pages-blocking = Pages with blocking
 output-batch-blocking-distinct = Distinct blocking resources
@@ -40,7 +43,10 @@ output-display-offered = { $modes } (rendered: { $active })
 
 ## Tech stack and best practices
 output-ts-takeaway-none = No common technologies were detected.
-output-ts-takeaway-count = { $count } technologies detected.
+output-ts-takeaway-count = { $count ->
+        [one] { $count } technology detected.
+       *[other] { $count } technologies detected.
+    }
 output-bp-takeaway-not-measured = Not measured.
 output-bp-takeaway-clean = No console errors or known-vulnerable libraries detected.
 output-bp-takeaway-issues = Console errors or vulnerable libraries were detected — see below.
@@ -60,3 +66,9 @@ output-perf-score-basis = The performance score of this report ({ $score }) is t
 output-perf-vitals-legend = LCP: largest visible content (good ≤ 2.5 s); FCP: first visible content (good ≤ 1.8 s); CLS: layout stability (good ≤ 0.1); TTFB: server response (good ≤ 0.8 s). Lower is better for time and shift values.
 output-perf-desktop-lab-metrics = Desktop — lab metrics
 output-perf-mobile-lab-metrics = Mobile — lab metrics
+
+# Crawl link status without a code or error, and the legacy-script table of the
+# performance chapter (a wrong-language literal before, #936 follow-up).
+output-crawl-status-unknown = Unknown
+output-perf-legacy-scripts = Legacy / polyfill scripts
+output-perf-legacy-signature = Signature

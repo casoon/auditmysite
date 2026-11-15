@@ -227,13 +227,11 @@ pub fn finding_text(
 ) -> String {
     use PrivacyFindingKind as K;
     let provider = FluentValue::from(provider.to_string());
-    let doc = crate::i18n::text(
-        match document {
-            Some(PolicyDocument::Imprint) => "privacy-finding-doc-imprint",
-            _ => "privacy-finding-doc-privacy",
-        },
-        en,
-    );
+    let (doc_key, doc_kind) = match document {
+        Some(PolicyDocument::Imprint) => ("privacy-finding-doc-imprint", "imprint"),
+        _ => ("privacy-finding-doc-privacy", "privacy"),
+    };
+    let doc = crate::i18n::text(doc_key, en);
     let (key, args) = match kind {
         K::TrackingRequestBeforeConsent => (
             "privacy-finding-tracking-request-before-consent",
@@ -253,11 +251,17 @@ pub fn finding_text(
         }
         K::PolicyLinkMissing => (
             "privacy-finding-policy-link-missing",
-            vec![("doc", FluentValue::from(doc))],
+            vec![
+                ("doc", FluentValue::from(doc)),
+                ("kind", FluentValue::from(doc_kind)),
+            ],
         ),
         K::PolicyLinkUnusable => (
             "privacy-finding-policy-link-unusable",
-            vec![("doc", FluentValue::from(doc))],
+            vec![
+                ("doc", FluentValue::from(doc)),
+                ("kind", FluentValue::from(doc_kind)),
+            ],
         ),
     };
     crate::i18n::text_args(key, &args, en)

@@ -49,7 +49,7 @@ fn every_key_resolves_in_both_languages_without_errors() {
         bundle.set_use_isolating(false);
         bundle.add_resource(resource).expect("no duplicates");
         let mut args = FluentArgs::new();
-        for name in ["provider", "doc"] {
+        for name in ["provider", "doc", "kind"] {
             args.set(name, FluentValue::from("x"));
         }
         for id in ids(EN) {
@@ -102,4 +102,32 @@ fn the_provider_is_inserted_verbatim() {
         let text = finding_text(KINDS[0], "Ünï {$x} Cörp", None, en);
         assert!(text.starts_with("Ünï {$x} Cörp "), "(en={en}): {text}");
     }
+}
+
+/// The German link findings named "die Impressum" ("zur Impressum"): the
+/// preposition follows the document's grammatical gender.
+#[test]
+fn german_link_findings_use_the_right_article_per_document() {
+    use super::findings::{PolicyDocument, PrivacyFindingKind as K};
+    let de = |kind: K, document: Option<PolicyDocument>| finding_text(kind, "", document, false);
+    assert_eq!(
+        de(K::PolicyLinkMissing, Some(PolicyDocument::Imprint)),
+        "Auf der Seite wurde kein Link zum Impressum gefunden."
+    );
+    assert_eq!(
+        de(K::PolicyLinkMissing, None),
+        "Auf der Seite wurde kein Link zur Datenschutzerklärung gefunden."
+    );
+    assert_eq!(
+        de(K::PolicyLinkUnusable, Some(PolicyDocument::Imprint)),
+        "Der Link zum Impressum hat kein nutzbares Ziel (leer, '#' oder Skript)."
+    );
+    assert_eq!(
+        de(K::PolicyLinkUnusable, None),
+        "Der Link zur Datenschutzerklärung hat kein nutzbares Ziel (leer, '#' oder Skript)."
+    );
+    // The English text keeps its single wording for both documents.
+    let en = |document| finding_text(K::PolicyLinkMissing, "", document, true);
+    assert!(en(Some(PolicyDocument::Imprint)).contains("imprint"));
+    assert!(en(None).contains("privacy policy"));
 }

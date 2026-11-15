@@ -128,3 +128,114 @@ fn no_scenario_leaves_a_key_or_a_placeholder_in_a_text() {
         }
     }
 }
+
+fn all_strings(value: &Value) -> Vec<&str> {
+    let mut out = Vec::new();
+    strings(value, &mut out);
+    out
+}
+
+/// Three batch texts that were literals of one language: the overview card of
+/// the broken internal links ("Broken Links" in German reports), the status of
+/// a broken crawl link without code and error ("Unbekannt" in both
+/// languages) and the module names "Privacy" and "Commerce" in the batch
+/// tables.
+#[test]
+fn batch_texts_follow_the_run_language() {
+    use crate::audit::{BrokenLink, BrokenLinkSeverity, CrawlDiagnostics};
+
+    // The card, as the export records it.
+    for (lang, card, leaked) in [
+        ("en", "Broken internal links", None),
+        ("de", "Kaputte interne Links", Some("Broken Links")),
+    ] {
+        let record = records()
+            .into_iter()
+            .find(|r| {
+                r[0] == "build_batch_overview_grid"
+                    && r[2] == lang
+                    && r[1].as_str().is_some_and(|i| i.ends_with("broken=Some(3)"))
+            })
+            .expect("the export has the card");
+        let texts = all_strings(&record);
+        assert!(texts.contains(&card), "{lang}: {card} missing in {record}");
+        if let Some(leaked) = leaked {
+            assert!(
+                !texts.contains(&leaked),
+                "{lang}: {leaked} left in {record}"
+            );
+        }
+    }
+
+    // The status of a link that has neither a code nor an error.
+    let status = |lang: &str| {
+        let i18n = crate::i18n::I18n::new(lang).unwrap();
+        let link = |external: bool| BrokenLink {
+            source_url: "https://example.com/".to_string(),
+            target_url: "https://example.com/x".to_string(),
+            status_code: None,
+            error: None,
+            is_external: external,
+            redirect_hops: 0,
+            severity: BrokenLinkSeverity::Medium,
+        };
+        let batch = super::text_export::batch().with_crawl_diagnostics(CrawlDiagnostics {
+            seed_url: "https://example.com/".to_string(),
+            discovered_urls: 3,
+            checked_internal_links: 1,
+            broken_internal_links: vec![link(false)],
+            checked_external_links: 1,
+            broken_external_links: vec![link(true)],
+            redirect_chains: vec![],
+        });
+        let crawl = crate::output::builder::build_batch_presentation_with_locale(&batch, &i18n)
+            .portfolio_summary
+            .crawl_links
+            .expect("crawl summary");
+        (
+            crawl.broken_internal_links[0].status.clone(),
+            crawl.broken_external_links[0].status.clone(),
+        )
+    };
+    assert_eq!(status("en"), ("Unknown".to_string(), "Unknown".to_string()));
+    assert_eq!(
+        status("de"),
+        ("Unbekannt".to_string(), "Unbekannt".to_string())
+    );
+
+    // The module names of the batch tables.
+    let de = crate::i18n::I18n::new("de").unwrap();
+    assert_eq!(
+        super::portfolio::localized_module_name("Privacy", &de),
+        "Datenschutz"
+    );
+    assert_eq!(
+        super::portfolio::localized_module_name("Commerce", &de),
+        "Shop-Prüfung"
+    );
+}
+
+/// "1 URLs audited" / "1 URLs geprüft": the cover counts its URLs with a
+/// number the message can choose the singular for.
+#[test]
+fn batch_cover_counts_one_url_in_the_singular() {
+    let one = || {
+        crate::audit::BatchReport::from_reports(
+            vec![super::text_export::contrast_page("https://example.com/a")],
+            vec![],
+            100,
+        )
+    };
+    for (lang, expected) in [("en", "1 URL audited"), ("de", "1 URL geprüft")] {
+        let i18n = crate::i18n::I18n::new(lang).unwrap();
+        let cover =
+            crate::output::builder::build_batch_presentation_with_locale(&one(), &i18n).cover;
+        assert_eq!(cover.url, expected, "{lang}");
+    }
+    let i18n = crate::i18n::I18n::new("en").unwrap();
+    let three = crate::output::builder::build_batch_presentation_with_locale(
+        &super::text_export::batch(),
+        &i18n,
+    );
+    assert_eq!(three.cover.url, "3 URLs audited");
+}

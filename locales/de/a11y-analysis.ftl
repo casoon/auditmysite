@@ -9,7 +9,7 @@
 ## Screenreader-Meldungen: interaktive Namen
 a11y-analysis-sr-non-descriptive = Interaktiver Name "{ $name }" ist ohne Kontext nicht aussagekräftig.
 a11y-analysis-sr-duplicated-name = Zugänglicher Name "{ $name }" wiederholt "{ $half }" zweimal hintereinander. Ein Screenreader kündigt ihn als "{ $name }" an, was wie ein Fehler wirkt.
-a11y-analysis-sr-icon-font = Link- oder Button-Name enthält Icon-Font-Zeichen (Unicode Private Use Area). Screen Reader lesen diese als kryptische Zeichencodes vor.
+a11y-analysis-sr-icon-font = Link- oder Button-Name enthält Icon-Font-Zeichen (Unicode Private Use Area). Screenreader lesen diese als kryptische Zeichencodes vor.
 a11y-analysis-sr-empty-interactive = Interaktive Elemente ohne zugänglichen Namen werden im Screenreader nicht verständlich angekündigt.
 a11y-analysis-sr-empty-form-labels = Formularfelder ohne Label sind in der Screenreader-Formularliste nicht verständlich.
 
