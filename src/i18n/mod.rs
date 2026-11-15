@@ -64,7 +64,8 @@ impl I18n {
         // for performance, SEO, tech stack and best practices and the display
         // modes (`output-texts.ftl`, `output::builder::{helpers, batch}`,
         // `output::pdf::detail_modules::{indicators, seo, performance}`,
-        // `display`) are twenty-three resources of the one bundle.
+        // `display`) and of the privacy findings (`privacy-findings.ftl`,
+        // `privacy::findings`) are twenty-four resources of the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -90,6 +91,7 @@ impl I18n {
                 include_str!("../../locales/en/batch-report.ftl"),
                 include_str!("../../locales/en/audit-texts.ftl"),
                 include_str!("../../locales/en/output-texts.ftl"),
+                include_str!("../../locales/en/privacy-findings.ftl"),
             ],
             _ => [
                 include_str!("../../locales/de/report.ftl"),
@@ -115,6 +117,7 @@ impl I18n {
                 include_str!("../../locales/de/batch-report.ftl"),
                 include_str!("../../locales/de/audit-texts.ftl"),
                 include_str!("../../locales/de/output-texts.ftl"),
+                include_str!("../../locales/de/privacy-findings.ftl"),
             ],
         };
         for ftl in sources {
