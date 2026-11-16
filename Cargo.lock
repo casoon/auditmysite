@@ -3600,9 +3600,9 @@ dependencies = [
 
 [[package]]
 name = "renderreport"
-version = "0.7.4"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61888ea3add5fbc8966d7308022b431fc400f6f6f6523d91c4d47ab865df62b2"
+checksum = "457354f199d6423ceef30fc4305128d55e764c85584eb797ae9dbef203c97899"
 dependencies = [
  "anyhow",
  "barcoders",
