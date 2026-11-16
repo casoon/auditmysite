@@ -23,7 +23,7 @@ use crate::audit::normalized::{
 use crate::audit::verdict::Verdict;
 use crate::model::{AnnexKind, WcagLevel};
 use crate::screen_reader::SrAuditIssue;
-use crate::seo::technical::TechnicalIssue;
+use crate::seo::SeoIssue;
 use crate::taxonomy::Severity as TaxonomySeverity;
 use crate::wcag::{NotRun, RuleRun, Severity, WcagResults};
 use serde_json::{json, Value};
@@ -212,8 +212,8 @@ fn interactive(kind: InteractiveFindingKind, count: u32) -> InteractiveFinding {
     )
 }
 
-fn seo_issue(issue_type: &str) -> TechnicalIssue {
-    TechnicalIssue {
+fn seo_issue(issue_type: &str) -> SeoIssue {
+    SeoIssue {
         issue_type: issue_type.into(),
         message: "Fixture message.".into(),
         severity: TaxonomySeverity::Low,
@@ -240,7 +240,7 @@ fn export_bik(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
         findings: Vec<NormalizedFinding>,
         interactive: Vec<InteractiveFinding>,
         sr: Vec<SrAuditIssue>,
-        seo: Vec<TechnicalIssue>,
+        seo: Vec<SeoIssue>,
         easy_language: bool,
         assessments: Vec<AccessibilityAssessment>,
     }

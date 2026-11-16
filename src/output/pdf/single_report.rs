@@ -1053,7 +1053,7 @@ pub(super) fn render_appendix_full(
 
         // BIK-für-Alle guide chapter mapping — opt-in only (see `--annex bik`).
         if config.annex == Some(AnnexKind::Bik) {
-            let seo_technical_issues: Vec<crate::seo::technical::TechnicalIssue> = report
+            let seo_technical_issues: Vec<crate::seo::SeoIssue> = report
                 .discoverability
                 .seo
                 .as_ref()

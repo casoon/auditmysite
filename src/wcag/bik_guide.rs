@@ -15,7 +15,7 @@
 //! source from data that is deliberately *not* folded into
 //! `NormalizedFinding`:
 //! - `og_image_missing_alt`/`twitter_image_missing_alt` are SEO
-//!   `TechnicalIssue`s (`seo::technical::collect_technical_issues`), never
+//!   `SeoIssue`s (`seo::technical::collect_technical_issues`), never
 //!   normalized into `findings[]` either.
 //! - Easy-language ("Leichte Sprache") presence is a *positive* pattern
 //!   signal (`patterns::PatternAnalysis::recognized`), not a violation at
@@ -49,7 +49,7 @@ use crate::audit::normalized::{
     AccessibilityAssessment, InteractiveFinding, InteractiveFindingKind, NormalizedFinding,
 };
 use crate::screen_reader::SrAuditIssue;
-use crate::seo::technical::TechnicalIssue;
+use crate::seo::SeoIssue;
 
 /// Source guide this mapping targets. Not a legal/statutory reference (unlike
 /// EN 301 549) — a widely used editorial checklist.
@@ -149,7 +149,7 @@ const VIDEOS_WCAG_CRITERIA: &[&str] = &["1.2.1", "1.2.2", "1.2.3", "1.2.4", "1.2
 /// `screen_reader::analyzer::detect_skipped_heading_levels`/
 /// `detect_heading_order_issues`/`detect_missing_required_landmarks`.
 const STRUCTURE_SR_CRITERIA: &[&str] = &["1.3.1", "1.3.6"];
-/// SEO `TechnicalIssue::issue_type` values mapped onto "Images & alt text".
+/// SEO `SeoIssue::issue_type` values mapped onto "Images & alt text".
 const IMAGES_SEO_ISSUE_TYPES: &[&str] = &["og_image_missing_alt", "twitter_image_missing_alt"];
 
 fn rollup_from_map(
@@ -186,7 +186,7 @@ pub fn derive_bik_chapters(
     findings: &[NormalizedFinding],
     interactive_findings: &[InteractiveFinding],
     screen_reader_issues: &[SrAuditIssue],
-    seo_technical_issues: &[TechnicalIssue],
+    seo_technical_issues: &[SeoIssue],
     easy_language_detected: bool,
     accessibility_assessments: &[AccessibilityAssessment],
 ) -> Vec<BikChapterRollup> {
@@ -401,8 +401,8 @@ mod tests {
         )
     }
 
-    fn seo_issue(issue_type: &str) -> TechnicalIssue {
-        TechnicalIssue {
+    fn seo_issue(issue_type: &str) -> SeoIssue {
+        SeoIssue {
             issue_type: issue_type.into(),
             message: "test message".into(),
             severity: Severity::Low,

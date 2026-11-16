@@ -15,7 +15,7 @@ use renderreport::components::{AuditTable, TableColumn, TagCloud};
 use crate::audit::normalized::{AccessibilityAssessment, InteractiveFinding, NormalizedFinding};
 use crate::i18n::I18n;
 use crate::screen_reader::SrAuditIssue;
-use crate::seo::technical::TechnicalIssue;
+use crate::seo::SeoIssue;
 use crate::wcag::bik_guide::{derive_bik_chapters, BikChapterStatus, BIK_GUIDE_SOURCE};
 
 /// Render the BIK-für-Alle chapter mapping. Structure: intro -> a findings
@@ -30,7 +30,7 @@ pub(super) fn render_bik_guide_annex(
     findings: &[NormalizedFinding],
     interactive_findings: &[InteractiveFinding],
     screen_reader_issues: &[SrAuditIssue],
-    seo_technical_issues: &[TechnicalIssue],
+    seo_technical_issues: &[SeoIssue],
     easy_language_detected: bool,
     accessibility_assessments: &[AccessibilityAssessment],
     i18n: &I18n,
