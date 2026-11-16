@@ -363,8 +363,10 @@ pub(super) fn render_finding_technical(
         );
     if let Some(url) = group
         .finding
-        .understanding_url
-        .as_deref()
+        .help_url
+        .as_ref()
+        .or(group.finding.understanding_url.as_ref())
+        .map(String::as_str)
         .map(str::trim)
         .filter(|u| !u.is_empty())
     {
