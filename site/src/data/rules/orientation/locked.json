@@ -1,0 +1,42 @@
+{
+  "id": "orientation/locked",
+  "url": "https://casoon.github.io/auditmysite/rules/orientation/locked/",
+  "domain": "wcag",
+  "title": "Element rotated by a quarter turn in one orientation only",
+  "outcome": "automatic",
+  "area": "Accessibility, Structure & Semantics",
+  "criterion": "1.3.4",
+  "level": "AA",
+  "axe_id": "orientation/locked",
+  "severity": "high",
+  "user_impact": "Users with fixed-mount screens (e.g. wheelchair-mounted) see the content sideways and cannot turn the device to read it.",
+  "technical_impact": "rotate or a rotating transform under @media (orientation) differs by 90 degrees from the value in the other orientation.",
+  "checks": [
+    {
+      "contract_id": "orientation/locked",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 1.3.4 Orientation; Media Queries 4 (orientation); CSS Transforms 1 and 2 (transform, rotate); ACT b33eff",
+      "applicability": "Rendered elements that a style rule under @media (orientation: landscape|portrait) gives the rotate property or a transform with rotate(), rotateZ(), rotate3d(), matrix() or matrix3d().",
+      "expectation": "Fails when the element's rotation about the Z axis in landscape differs from\nthe one in portrait by a quarter turn (90 degrees modulo 180): the element\nturns back when the device turns and stays in place, so only one orientation\nshows it upright. Compared is the value that applies in each orientation\n(!important first, then the style attribute, then the last matching rule),\nincluding a rotation without a media query as the base (2.5deg, and 92.5deg\nin landscape, fails). A full turn, 45 degrees or the same quarter turn in\nboth orientations passes. A rotation without an orientation media query\napplies in both and is not applicable, as are translations only, an invalid\norientation value (the query is false) and inline styles set by script.\nFurther media conditions next to the orientation, a selector this check does\nnot decide or a value it cannot evaluate (var()) give a review, not a\nviolation. Elements not rendered (display: none) are out of scope. Whether an\norientation is essential is a human judgement. Reported once per element.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "stylesheets"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "visual_orientation_lock",
+        "file": "tests/fixtures/detection_corpus/visual_orientation_lock.html",
+        "verdict": "violation",
+        "selector": "body",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Page rotated into landscape on portrait screens</title>\n<style>\n  body { color: #111111; background: #ffffff; }\n  /* Classic orientation lock: in portrait (the mobile pass) the whole page\n     is turned sideways so it can only be read in landscape. */\n  @media (orientation: portrait) {\n    body { transform: rotate(90deg); transform-origin: top left; }\n  }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Seat map</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Choose your seat</h1>\n  <p>Rows A to F, seats 1 to 30.</p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "visual_orientation_locked_ok",
+        "file": "tests/fixtures/detection_corpus/visual_orientation_locked_ok.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Rotations that keep both orientations usable</title>\n<style>\n  body { color: #111111; background: #ffffff; }\n  .tile { display: inline-block; width: 120px; height: 120px; margin: 40px; }\n  .hidden { display: none; }\n  @media (orientation: landscape) {\n    /* A full turn leaves no rotation (ACT b33eff, Passed 1). */\n    #wheel { transform: rotateZ(1turn); }\n    /* 45 degrees is no quarter turn. */\n    #badge { transform: rotate(45deg); }\n    #stamp { transform: rotate(90deg); }\n  }\n  @media (orientation: portrait) {\n    /* The same quarter turn in both orientations locks nothing. */\n    #stamp { transform: rotate(90deg); }\n    /* Not rendered: out of scope. */\n    .hidden { transform: rotate(90deg); }\n  }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Badge shop</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Badges</h1>\n  <div id=\"wheel\" class=\"tile\">Wheel</div>\n  <div id=\"badge\" class=\"tile\">Badge</div>\n  <div id=\"stamp\" class=\"tile\">Stamp</div>\n  <div class=\"hidden\">Spare</div>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

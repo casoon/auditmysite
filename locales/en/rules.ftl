@@ -46,18 +46,27 @@ rule-headings-section-without-heading = Missing section headings
     .user-impact = Users cannot jump directly to specific content.
     .technical-impact = Missing sub-headings in long content blocks.
 
-rule-orientation-root-rotated = Page forces a screen orientation by rotating its root
+rule-orientation-root-rotated = Check whether the rotated page root forces a screen orientation
     .user-impact = Users with fixed-mount screens (e.g. wheelchair-mounted) cannot read the page.
     .technical-impact = The computed transform (matrix) or rotate of html or body turns by a quarter turn, measured in the audited viewport.
-    .description = The root element (html or body) is rotated by a quarter turn. The page is then usable in one orientation only, unless a specific orientation is essential.
+    .description = The root element (html or body) is rotated by a quarter turn in the audited viewport. If the rotation applies in one orientation only, the page is usable in one orientation only, unless a specific orientation is essential.
     .explanation-user-impact = People whose device is mounted in a fixed position, for example on a wheelchair, cannot change the orientation and see the page rotated or cut off.
     .typical-cause = A transform: rotate(90deg) or rotate: 90deg on html or body that is meant to imitate landscape in portrait.
     .recommendation = Remove the rotation and make the layout usable in both orientations. Only fix an orientation when it is essential (a piano, a bank cheque).
-    .technical-note = The computed transform matrix and the rotate property of html and body are measured in the audited viewport; a lock that applies in the other orientation only shows in the run of that viewport. Whether an orientation is essential is a human judgement.
+    .technical-note = The computed transform matrix and the rotate property of html and body are measured in the audited viewport, which shows one orientation; a rotation in both orientations locks nothing. orientation/locked compares both orientations from the style rules. Whether an orientation is essential is a human judgement.
 
 rule-orientation-content-hidden = Restricted screen orientation
     .user-impact = Users with fixed-mount screens (e.g. wheelchair-mounted) cannot read the page.
-    .technical-impact = CSS media queries lock the orientation.
+    .technical-impact = CSS media queries hide content depending on the orientation.
+
+rule-orientation-locked = Element rotated by a quarter turn in one orientation only
+    .user-impact = Users with fixed-mount screens (e.g. wheelchair-mounted) see the content sideways and cannot turn the device to read it.
+    .technical-impact = rotate or a rotating transform under @media (orientation) differs by 90 degrees from the value in the other orientation.
+    .description = An element is rotated by a quarter turn in one orientation relative to the other. When the device turns, the element turns back and stays in place, so only one orientation shows it upright.
+    .explanation-user-impact = People whose device is mounted in a fixed position, for example on a wheelchair, cannot change the orientation and see the content sideways.
+    .typical-cause = A transform: rotate(90deg) or rotate: 90deg inside @media (orientation: portrait) or (orientation: landscape), meant to imitate the other orientation.
+    .recommendation = Remove the rotation from the orientation media query and make the layout usable in both orientations. Only fix an orientation when it is essential (a piano, a bank cheque).
+    .technical-note = Compared: rotate and transform (rotate, rotateZ, rotate3d, matrix, matrix3d) of each shown element under @media (orientation: landscape|portrait) against the value in the other orientation (ACT b33eff). Further media conditions, undecided selectors or values that cannot be evaluated give a review. Whether an orientation is essential is a human judgement.
 
 ## Navigation & operation
 

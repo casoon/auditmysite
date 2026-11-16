@@ -5,9 +5,9 @@
       "domain": "wcag",
       "label": "WCAG rules",
       "automatic": 77,
-      "hint_only": 78,
+      "hint_only": 79,
       "manual": 15,
-      "total": 170
+      "total": 171
     },
     {
       "domain": "security",
@@ -34,7 +34,7 @@
       "total": 8
     }
   ],
-  "total": 209,
+  "total": 210,
   "rules": [
     {
       "id": "display/text-hidden",
@@ -365,10 +365,18 @@
       "level": "AA"
     },
     {
-      "id": "orientation/root-rotated",
-      "title": "Page forces a screen orientation by rotating its root",
+      "id": "orientation/locked",
+      "title": "Element rotated by a quarter turn in one orientation only",
       "domain": "wcag",
       "outcome": "automatic",
+      "criterion": "1.3.4",
+      "level": "AA"
+    },
+    {
+      "id": "orientation/root-rotated",
+      "title": "Check whether the rotated page root forces a screen orientation",
+      "domain": "wcag",
+      "outcome": "hint-only",
       "criterion": "1.3.4",
       "level": "AA"
     },

@@ -14,6 +14,10 @@
       "verdict": "errored"
     },
     {
+      "rule_id": "orientation/locked",
+      "verdict": "errored"
+    },
+    {
       "rule_id": "text/justified",
       "verdict": "errored"
     },

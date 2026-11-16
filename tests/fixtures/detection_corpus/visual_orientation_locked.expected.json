@@ -1,0 +1,10 @@
+{
+  "case": "visual_orientation_locked",
+  "expectations": [
+    {"rule_id": "orientation/locked", "verdict": "violation", "selector": "div#board", "occurrences": 1},
+    {"rule_id": "orientation/locked", "verdict": "violation", "selector": "div#clock", "occurrences": 1},
+    {"rule_id": "orientation/locked", "verdict": "needs_review", "selector": "div#ticket"},
+    {"rule_id": "orientation/content-hidden", "verdict": "absent"},
+    {"rule_id": "orientation/root-rotated", "verdict": "pass"}
+  ]
+}

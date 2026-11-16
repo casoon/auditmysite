@@ -157,13 +157,14 @@ async fn a_rotated_root_is_measured_and_reported() {
     );
     let doc = capture.document(&AXTree::new()).expect("document");
     let results = run_shared_rules(&doc, "en");
+    // A review since a11y-rules 0.30.7: one snapshot sees one orientation.
     assert!(
         results
-            .violations
+            .warnings
             .iter()
             .any(|v| v.rule_id.as_deref() == Some("orientation/root-rotated")),
         "{:?}",
-        results.violations
+        results.warnings
     );
 }
 

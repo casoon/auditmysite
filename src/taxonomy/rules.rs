@@ -260,6 +260,22 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_ALL,
     },
+    Rule {
+        id: "orientation/locked",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::StructureSemantics,
+        issue_class: IssueClass::Weak,
+        severity: Severity::High,
+        external_ref: Some("WCAG 1.3.4"),
+        external_level: Some("AA"),
+        axe_id: Some("orientation/locked"),
+        score_impact: ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
     // ── Navigation & Bedienung ────────────────────────────────────────────
     Rule {
         id: "keyboard/interactive-not-focusable",

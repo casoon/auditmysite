@@ -156,6 +156,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     // ── 1.3.4 / 1.4.x / 2.3.3 — Darstellung und Wahrnehmbarkeit ──
     ("orientation/root-rotated", Semantics),
     ("orientation/content-hidden", Semantics),
+    ("orientation/locked", Semantics),
     ("color/link-indistinct", Semantics),
     ("contrast/text-insufficient", Semantics),
     ("contrast/text-undetermined", Semantics),

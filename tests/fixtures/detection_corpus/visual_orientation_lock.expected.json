@@ -1,7 +1,8 @@
 {
   "case": "visual_orientation_lock",
   "expectations": [
-    { "rule_id": "orientation/root-rotated", "selector": "body", "verdict": "violation", "occurrences": 1 },
-    { "rule_id": "orientation/content-hidden", "verdict": "needs_review", "occurrences": 1 }
+    { "rule_id": "orientation/root-rotated", "selector": "body", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "orientation/locked", "selector": "body", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "orientation/content-hidden", "verdict": "absent" }
   ]
 }
