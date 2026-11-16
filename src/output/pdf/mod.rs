@@ -473,6 +473,8 @@ fn register_page_screenshot_assets(
 }
 
 #[cfg(test)]
+mod analysis_text_export;
+#[cfg(test)]
 mod frame_text_export;
 #[cfg(test)]
 mod frame_text_guard;
