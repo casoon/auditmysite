@@ -277,7 +277,7 @@ target for one registry entry; `tests/registry_contract.rs` checks that every
 
 Canonical accessibility score. With dual-viewport data it is 70% mobile and
 30% desktop; otherwise it is the measured single-viewport score. It covers
-automatically evaluated WCAG findings only. In batch reports this is the
+automatically evaluated WCAG findings only. Touch targets of 24-43 px are reported (`mobile.small_targets`, informational 44 px measure) but not scored anywhere: WCAG 2.5.8 fails below 24 px and is the single scored source. In batch reports this is the
 average of the canonical page accessibility scores over the URLs that produced a report (`summary.coverage.succeeded`, equal to `summary.url_count`). A batch in which no URL produced a report has no average: `summary.accessibility_score` and `summary.overall_score` are `null`, never `0`, and the decision is `fail` (`no_url_audited`).
 
 <a id="overall-score"></a>

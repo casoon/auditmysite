@@ -567,7 +567,7 @@ recommendation-security-permissions-permissive = Tighten Permissions-Policy so o
 recommendation-security-sourcemap = Do not serve source maps publicly, or restrict access to them.
 recommendation-security-hsts-preload = Extend the HSTS directive so it meets the preload requirements (max-age >= 1 year, includeSubDomains, preload).
 recommendation-security-default = Core security headers are clean. Next step: review policies regularly and adapt them to new script and integration sources.
-lever-mobile-small = Biggest lever: enlarge touch targets ({ $small_targets } too small)
+lever-mobile-small = For reference: { $small_targets } touch targets below 44 px; they do not change the Mobile score, WCAG 2.5.8 (24 px) is scored under Accessibility
 lever-mobile-crowded = Biggest lever: increase spacing of mobile controls ({ $crowded_targets })
 lever-mobile-default = Biggest lever: keep optimizing mobile readability and touch flows
 context-mobile-proper = Viewport properly set, { $small_targets } too-small touch targets, { $crowded_targets } crowded gaps.
