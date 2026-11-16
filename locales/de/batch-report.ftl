@@ -40,22 +40,6 @@ batch-report-impact-legal-flags = WCAG-Level-A/AA-Verstöße automatisiert erkan
 batch-report-impact-legal-none = Automatisiert keine kritischen Verstöße erkannt — manuelle Prüfung für vollständige Einordnung empfohlen.
 
 ## Commerce roll-up
-batch-report-commerce-intro = Produkt-Strukturdaten-Vollständigkeit und Pflichtseiten-Verlinkung, aggregiert über das geprüfte Set.
-batch-report-commerce-scope-note = Prüft Produkt-Strukturdaten und die Verlinkung von Pflichtseiten über die geprüften Seiten hinweg — keine Prüfung von Checkout, Zahlungsabwicklung oder Warenkorb (das Tool hat keinen seitenübergreifenden Sitzungszustand).
-batch-report-commerce-product-pages = Produktseiten
-batch-report-commerce-product-pages-audited =
-    { $count } { $count ->
-        [one] Produktseite
-       *[other] Produktseiten
-    } geprüft
-batch-report-commerce-trust-title = Pflichtseiten-Verlinkung (site-weit)
-batch-report-commerce-not-linked = Nirgends im geprüften Set verlinkt
-batch-report-commerce-trust-impressum = Impressum
-batch-report-commerce-trust-agb = AGB
-batch-report-commerce-trust-widerruf = Widerruf / Retoure
-batch-report-commerce-trust-versand = Versand / Lieferung
-batch-report-commerce-trust-zahlungsarten = Zahlungsarten
-batch-report-commerce-trust-kontakt = Kontakt
 
 ## Cover
 batch-report-contents = Inhalt

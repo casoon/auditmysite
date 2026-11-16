@@ -45,22 +45,6 @@ batch-report-impact-legal-flags = WCAG Level A/AA violations detected automatica
 batch-report-impact-legal-none = No critical violations detected automatically — manual review recommended for full classification.
 
 ## Commerce roll-up
-batch-report-commerce-intro = Product structured-data completeness and mandatory-page linking, aggregated across the audited set.
-batch-report-commerce-scope-note = Checks product structured data and mandatory-page linking across the audited pages — not a checkout, payment-processing, or cart audit (this tool has no cross-page session state).
-batch-report-commerce-product-pages = Product pages
-batch-report-commerce-product-pages-audited =
-    { $count } { $count ->
-        [one] product page
-       *[other] product pages
-    } audited
-batch-report-commerce-trust-title = Mandatory-page linking (site-wide)
-batch-report-commerce-not-linked = Not linked anywhere in the audited set
-batch-report-commerce-trust-impressum = Imprint
-batch-report-commerce-trust-agb = Terms (AGB)
-batch-report-commerce-trust-widerruf = Right of withdrawal / returns
-batch-report-commerce-trust-versand = Shipping info
-batch-report-commerce-trust-zahlungsarten = Payment methods
-batch-report-commerce-trust-kontakt = Contact
 
 ## Cover
 batch-report-contents = Contents

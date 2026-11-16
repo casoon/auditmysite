@@ -8,7 +8,7 @@
 //! before and after a change of how the texts are stored and compare the two
 //! files byte for byte.
 
-use super::appendix::{render_batch_appendix, render_batch_commerce, render_batch_crawl_links};
+use super::appendix::{render_batch_appendix, render_batch_crawl_links};
 use super::interactive::{render_batch_interactive_summary, translate_interactive_category};
 use super::overview::{
     build_batch_overview_grid, render_batch_cover, render_batch_en301549_rollup,
@@ -18,10 +18,9 @@ use super::portfolio::{
     localized_module_name, render_batch_impact_summary, render_batch_module_portfolio,
     render_batch_tech_url_matrix, render_batch_url_ranking,
 };
-use super::text_export::{bare, batch, compact, components, contrast_page, dist};
+use super::text_export::{bare, batch, compact, components, dist};
 use crate::audit::verdict::BatchReasonKind;
-use crate::audit::{AuditReport, BatchError, BatchReport, SampleMetadata, SitemapDiagnostics};
-use crate::commerce::{CommerceAnalysis, CommercePageKind, ProductCommerce, TrustPages};
+use crate::audit::{BatchError, SampleMetadata, SitemapDiagnostics};
 use crate::i18n::I18n;
 use crate::model::{AnnexKind, ReportLevel};
 use crate::output::builder::build_batch_presentation_with_locale;
@@ -440,79 +439,6 @@ fn export_tables(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
     );
 }
 
-fn commerce_page(url: &str, product: bool, trust: TrustPages) -> AuditReport {
-    let mut report = contrast_page(url);
-    report.commerce = Some(CommerceAnalysis {
-        page_kind: CommercePageKind::Other,
-        product: product.then(|| ProductCommerce {
-            price: None,
-            availability: None,
-            delivery_time: None,
-            shipping: Default::default(),
-            returns: Default::default(),
-            reviews: Default::default(),
-            score: 0,
-        }),
-        trust_pages: trust,
-        identification_function_detected: false,
-        identification_function_bfsg_reference: None,
-        findings: vec![],
-    });
-    report
-}
-
-fn export_commerce(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
-    push(
-        records,
-        "render_batch_commerce",
-        "no commerce data".to_string(),
-        lang,
-        components(render_batch_commerce(bare(), &batch(), i18n)),
-    );
-    let all = TrustPages {
-        impressum: true,
-        agb: true,
-        widerruf: true,
-        versand: true,
-        zahlungsarten: true,
-        kontakt: true,
-    };
-    let some = TrustPages {
-        impressum: true,
-        widerruf: true,
-        kontakt: true,
-        ..TrustPages::default()
-    };
-    for (trust, name) in [
-        (TrustPages::default(), "no trust pages"),
-        (some, "some trust pages"),
-        (all, "all trust pages"),
-    ] {
-        for products in [0, 1, 2, 5] {
-            let pages = (0..products.max(1))
-                .map(|i| {
-                    commerce_page(
-                        &format!("https://shop.example/{i}"),
-                        i < products,
-                        trust.clone(),
-                    )
-                })
-                .collect();
-            push(
-                records,
-                "render_batch_commerce",
-                format!("{name}, {products} product pages"),
-                lang,
-                components(render_batch_commerce(
-                    bare(),
-                    &BatchReport::from_reports(pages, vec![], 100),
-                    i18n,
-                )),
-            );
-        }
-    }
-}
-
 fn sample(source: &str, selection: &str, audited: usize, total: usize) -> SampleMetadata {
     SampleMetadata {
         source: source.to_string(),
@@ -676,7 +602,6 @@ pub(super) fn records() -> Vec<Value> {
         export_portfolio(&mut records, lang, &i18n);
         export_impact_summary(&mut records, lang, &i18n);
         export_tables(&mut records, lang, &i18n);
-        export_commerce(&mut records, lang, &i18n);
         export_cover(&mut records, lang, &i18n);
         export_status(&mut records, lang, &i18n);
     }

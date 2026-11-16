@@ -1,16 +1,12 @@
-use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, KeyValueList, PageBreak, SectionHeaderSplit,
-};
-use renderreport::components::text::{Label, TextBlock};
+use renderreport::components::advanced::SectionHeaderSplit;
+use renderreport::components::text::TextBlock;
 use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
 
-use crate::audit::BatchReport;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
 use crate::util::short_url;
 
-use super::super::design::tokens;
 use super::super::helpers::severity_label_i18n;
 
 pub(super) fn render_batch_crawl_links(
@@ -197,89 +193,6 @@ pub(super) fn render_batch_appendix(
         }
         builder = builder.add_component(table);
     }
-
-    builder
-}
-
-// ─── Commerce site-wide roll-up ─────────────────────────────────────────────
-
-fn batch_trust_page_label(key: &str, i18n: &I18n) -> String {
-    i18n.t(match key {
-        "impressum" => "batch-report-commerce-trust-impressum",
-        "agb" => "batch-report-commerce-trust-agb",
-        "widerruf" => "batch-report-commerce-trust-widerruf",
-        "versand" => "batch-report-commerce-trust-versand",
-        "zahlungsarten" => "batch-report-commerce-trust-zahlungsarten",
-        _ => "batch-report-commerce-trust-kontakt",
-    })
-}
-
-/// Site-wide commerce roll-up: which mandatory/trust pages are linked
-/// *anywhere* in the audited set, and how many product pages were audited.
-/// Only rendered when at least one audited page produced commerce data
-/// (i.e. the site was gated as a shop at all) — `aggregate_site_commerce`
-/// returns `None` otherwise. Deliberately a single-page-scoped signal, not a
-/// checkout/payment/cart audit (this tool has no cross-page session state);
-/// the scope note states this explicitly (product decision, 2026-09-01).
-pub(super) fn render_batch_commerce(
-    mut builder: renderreport::engine::ReportBuilder,
-    batch: &BatchReport,
-    i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
-    let Some(summary) = crate::commerce::aggregate_site_commerce(
-        batch.reports.iter().filter_map(|r| r.commerce.as_ref()),
-    ) else {
-        return builder;
-    };
-
-    builder = builder.add_component(PageBreak::new()).add_component(
-        SectionHeaderSplit::new("Commerce", i18n.t("batch-report-commerce-intro"))
-            .with_eyebrow("COMMERCE")
-            .with_level(2),
-    );
-    builder = builder.add_component(
-        Label::new(i18n.t("batch-report-commerce-scope-note"))
-            .with_size("10.5pt")
-            .with_color(tokens::NEUTRAL),
-    );
-
-    let product_pages_label = i18n.count(
-        "batch-report-commerce-product-pages-audited",
-        summary.product_pages,
-    );
-    builder = builder.add_component(
-        KeyValueList::new()
-            .with_title(i18n.t("pdf-commerce-overview-title"))
-            .add(
-                i18n.t("batch-report-commerce-product-pages"),
-                &product_pages_label,
-            ),
-    );
-
-    let tp = &summary.trust_pages_linked;
-    let rows =
-        [
-            ("impressum", tp.impressum),
-            ("agb", tp.agb),
-            ("widerruf", tp.widerruf),
-            ("versand", tp.versand),
-            ("zahlungsarten", tp.zahlungsarten),
-            ("kontakt", tp.kontakt),
-        ]
-        .into_iter()
-        .map(|(key, linked)| {
-            let status_text = i18n.t(if linked {
-                "pdf-commerce-linked"
-            } else {
-                "batch-report-commerce-not-linked"
-            });
-            ChecklistRow::new(batch_trust_page_label(key, i18n), status_text)
-                .with_status(if linked { "good" } else { "warn" })
-        })
-        .collect::<Vec<_>>();
-    builder = builder.add_component(
-        ChecklistPanel::new(rows).with_title(i18n.t("batch-report-commerce-trust-title")),
-    );
 
     builder
 }

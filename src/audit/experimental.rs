@@ -206,6 +206,47 @@ mod tests {
         }
     }
 
+    /// The audit assembly ends with `take_from` (`audit::pipeline::assembly`),
+    /// so a report from the pipeline carries none of the six results in an
+    /// ordinary field. The PDF reads only ordinary fields, which is why no PDF
+    /// section for these indicators, single or batch, can ever get data (#916).
+    #[test]
+    fn take_from_empties_every_ordinary_field_of_the_six_indicators() {
+        let mut report = AuditReport::new(
+            "https://example.com".to_string(),
+            crate::model::WcagLevel::AA,
+            crate::wcag::WcagResults::new(),
+            0,
+        );
+        report.ux = Some(crate::analyze_ux(&crate::AXTree::new()));
+        report.journey = Some(crate::page_flow::analyze_journey(&crate::AXTree::new()));
+        let source_quality = crate::source_quality::analyze_source_quality(&report);
+        let ai_visibility = crate::ai_visibility::analyze_ai_visibility(&report);
+        report.discoverability.source_quality = Some(source_quality);
+        report.discoverability.ai_visibility = Some(ai_visibility);
+        report.discoverability.content_visibility = Some(
+            crate::content_visibility::analyze_content_visibility(&report),
+        );
+        report.commerce = Some(crate::commerce::CommerceAnalysis {
+            page_kind: crate::commerce::CommercePageKind::Other,
+            product: None,
+            trust_pages: crate::commerce::TrustPages::default(),
+            identification_function_detected: false,
+            identification_function_bfsg_reference: None,
+            findings: vec![],
+        });
+
+        let experimental = ExperimentalIndicators::take_from(&mut report);
+
+        assert!(report.ux.is_none() && report.journey.is_none() && report.commerce.is_none());
+        assert!(
+            report.discoverability.source_quality.is_none()
+                && report.discoverability.ai_visibility.is_none()
+                && report.discoverability.content_visibility.is_none()
+        );
+        assert_eq!(experimental.present(), ExperimentalIndicator::ALL.to_vec());
+    }
+
     #[test]
     fn take_from_moves_the_results_out_of_the_ordinary_fields() {
         let mut report = AuditReport::new(
