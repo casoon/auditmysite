@@ -229,7 +229,69 @@ pub(super) fn render_finding_technical(
     evidence_seq: &mut usize,
     acronyms_expanded: &mut bool,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
+    let color = super::design::severity_color(group.finding.severity);
+
+    builder = add_title_and_lead_in(builder, group, i18n, color);
+    builder = add_priority_strip(builder, group, i18n, color);
+    builder = add_qa_metadata(builder, group, i18n, acronyms_expanded);
+    builder = add_action_assessment(builder, group, i18n);
+
+    // Findings with no real DOM evidence (e.g. SEO heading findings, whose
+    // `OccurrenceDetail` has no selector at all — see `aggregate_seo_findings`)
+    // fall back to using the internal issue-type token as both `node_id` and
+    // `selector`, which is how `build_location_hints`'s fallback resolves it.
+    // Applying DOM-evidence components (element-type extraction, a "location"
+    // table/snapshot, selector-pattern clustering) to that token produces
+    // nonsense like "Element-Typen: 1× multiple" or "Fundstelle: multiple_h1" —
+    // skip all of them when no occurrence actually has real location data.
+    let has_real_location = group
+        .representative_occurrences
+        .iter()
+        .any(|occ| occ.selector != occ.node_id);
+
+    // The validator's "selector" is a source position (`190:12271`) and its
+    // node id the rule key, not an element: the element type comes from the
+    // message when it names one, the position is shown as line and column.
+    let is_html_conform = group.finding.rule_id.starts_with("html_conform.");
+
+    // AffectedElements: element-type summary
+    if has_real_location {
+        builder = add_element_types(builder, group, i18n, is_html_conform);
+    }
+
+    builder = add_recommendation(builder, group, i18n);
+    builder = add_examples(builder, group, i18n);
+    builder = add_affected_urls(builder, group, i18n);
+
+    if has_real_location {
+        builder = add_occurrences(
+            builder,
+            group,
+            i18n,
+            is_html_conform,
+            report_ts,
+            evidence_seq,
+        );
+    }
+
+    if has_real_location && !group.pattern_clusters.is_empty() {
+        builder = add_pattern_clusters(builder, group, i18n);
+    }
+
+    builder = add_structural_cause(builder, group, i18n);
+
+    builder.add_component(Divider {
+        style: "solid".to_string(),
+        thickness: "0pt".to_string(),
+        color: Some("#ffffff".to_string()),
+        spacing_above: "15pt".to_string(),
+        spacing_below: "0pt".to_string(),
+    })
+}
+
+/// "Critical — Title — WCAG 1.1.1 (A)": the severity prefix, the title and the
+/// criterion with its level, or the title / rule id alone without a criterion.
+fn finding_header(group: &FindingGroup, i18n: &I18n) -> String {
     let severity_prefix = format!(
         "{} ",
         i18n.t(match group.finding.severity {
@@ -239,9 +301,8 @@ pub(super) fn render_finding_technical(
             crate::wcag::Severity::Low => "pdf-findings-severity-low",
         })
     );
-    let color = super::design::severity_color(group.finding.severity);
 
-    let header = if !group.finding.wcag_criterion.is_empty() {
+    if !group.finding.wcag_criterion.is_empty() {
         // Flag criteria WCAG 2.2 added (e.g. 2.5.8) inline — they are inside
         // this report's audit-scope ratio and EN 301 549 V4.1.1, but were not
         // part of WCAG 2.1 / EN 301 549 V3.2.1. A finding tagged just "AA"
@@ -268,17 +329,15 @@ pub(super) fn render_finding_technical(
         format!("{}{}", severity_prefix, group.finding.rule_id)
     } else {
         format!("{}{}", severity_prefix, group.title)
-    };
-    let title = Label::new(&header)
-        .bold()
-        .with_size("14pt")
-        .with_color(color);
+    }
+}
 
-    // Plain-language lead-in: what this means and who it affects, in customer
-    // language — shown BEFORE the QA-meta block so every reader sees impact
-    // first, not detection-confidence/false-positive statistics (Rule A/B,
-    // plain-language report plan). `customer_description`/`user_impact` are
-    // already locale-correct here (#406 + the Rule-C fallback fix below).
+/// Plain-language lead-in: what this means and who it affects, in customer
+/// language — shown BEFORE the QA-meta block so every reader sees impact
+/// first, not detection-confidence/false-positive statistics (Rule A/B,
+/// plain-language report plan). `customer_description`/`user_impact` are
+/// already locale-correct here (#406 + the Rule-C fallback fix below).
+fn lead_in_text(group: &FindingGroup) -> String {
     let mut lead_in = String::new();
     if !group.customer_description.is_empty() {
         lead_in.push_str(&group.customer_description);
@@ -292,6 +351,22 @@ pub(super) fn render_finding_technical(
         }
         lead_in.push_str(&group.user_impact);
     }
+    lead_in
+}
+
+fn add_title_and_lead_in(
+    mut builder: renderreport::engine::ReportBuilder,
+    group: &FindingGroup,
+    i18n: &I18n,
+    color: &str,
+) -> renderreport::engine::ReportBuilder {
+    let header = finding_header(group, i18n);
+    let title = Label::new(&header)
+        .bold()
+        .with_size("14pt")
+        .with_color(color);
+
+    let lead_in = lead_in_text(group);
     // Title and lead-in stay together: alone, the title could end a page
     // while its text starts the next (plan 76).
     if lead_in.is_empty() {
@@ -305,11 +380,19 @@ pub(super) fn render_finding_technical(
                 .with_keep_together_if_under("240pt"),
         );
     }
+    builder
+}
 
-    // Primary tier: the four things a developer scans first (who/how urgent/
-    // how much work), as a compact single-row strip instead of stacked
-    // label:value lines — matches the severity-counter strip elsewhere.
-    builder = builder.add_component(
+/// Primary tier: the four things a developer scans first (who/how urgent/
+/// how much work), as a compact single-row strip instead of stacked
+/// label:value lines — matches the severity-counter strip elsewhere.
+fn add_priority_strip(
+    builder: renderreport::engine::ReportBuilder,
+    group: &FindingGroup,
+    i18n: &I18n,
+    color: &str,
+) -> renderreport::engine::ReportBuilder {
+    builder.add_component(
         MetricStrip::new(vec![
             MetricStripItem::new(
                 i18n.t("label-priority"),
@@ -333,12 +416,19 @@ pub(super) fn render_finding_technical(
             .with_accent(super::design::tokens::INK),
         ])
         .compact(),
-    );
+    )
+}
 
-    // Secondary tier: audit-methodology metadata a developer doesn't need to
-    // read on every finding — kept compact and visually subordinate (a small
-    // caption, not a titled card) rather than continuing the primary strip's
-    // weight.
+/// Secondary tier: audit-methodology metadata a developer doesn't need to
+/// read on every finding — kept compact and visually subordinate (a small
+/// caption, not a titled card) rather than continuing the primary strip's
+/// weight.
+fn add_qa_metadata(
+    mut builder: renderreport::engine::ReportBuilder,
+    group: &FindingGroup,
+    i18n: &I18n,
+    acronyms_expanded: &mut bool,
+) -> renderreport::engine::ReportBuilder {
     builder = builder.add_component(section_caption(&i18n.t("pdf-findings-qa-metadata")));
     let mut meta_kv = KeyValueList::new()
         .add(
@@ -372,8 +462,15 @@ pub(super) fn render_finding_technical(
     {
         meta_kv = meta_kv.add(i18n.t("finding-reference"), url);
     }
-    builder = builder.add_component(meta_kv);
+    builder.add_component(meta_kv)
+}
 
+fn add_action_assessment(
+    mut builder: renderreport::engine::ReportBuilder,
+    group: &FindingGroup,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = is_english(i18n);
     // `expected_impact`/`complexity_reason` are re-derived here from the
     // stable `..._kind` in the run language rather than printed from the
     // `FindingGroup` string fields verbatim — those stay canonical English
@@ -420,69 +517,72 @@ pub(super) fn render_finding_technical(
         }
         builder = builder.add_component(assessment);
     }
+    builder
+}
 
-    // Findings with no real DOM evidence (e.g. SEO heading findings, whose
-    // `OccurrenceDetail` has no selector at all — see `aggregate_seo_findings`)
-    // fall back to using the internal issue-type token as both `node_id` and
-    // `selector`, which is how `build_location_hints`'s fallback resolves it.
-    // Applying DOM-evidence components (element-type extraction, a "location"
-    // table/snapshot, selector-pattern clustering) to that token produces
-    // nonsense like "Element-Typen: 1× multiple" or "Fundstelle: multiple_h1" —
-    // skip all of them when no occurrence actually has real location data.
-    let has_real_location = group
-        .representative_occurrences
+/// The selector of an occurrence as a location: line and column for a
+/// validator finding, the compacted selector otherwise.
+fn location_label(selector: &str, is_html_conform: bool, i18n: &I18n) -> String {
+    match is_html_conform
+        .then(|| crate::html_conform::message::parse_location(selector))
+        .flatten()
+    {
+        Some((line, column)) => i18n.t_args(
+            "finding-line-column",
+            &[("line", line as i64), ("column", column as i64)],
+        ),
+        None => compact_html(selector, 48),
+    }
+}
+
+/// Count occurrences per element type.
+fn add_element_types(
+    builder: renderreport::engine::ReportBuilder,
+    group: &FindingGroup,
+    i18n: &I18n,
+    is_html_conform: bool,
+) -> renderreport::engine::ReportBuilder {
+    let mut type_counts: std::collections::BTreeMap<String, usize> =
+        std::collections::BTreeMap::new();
+    for occ in &group.representative_occurrences {
+        let tag = if is_html_conform {
+            crate::html_conform::message::element_name(&occ.message).unwrap_or_default()
+        } else {
+            extract_element_type(&occ.selector).to_string()
+        };
+        if !tag.is_empty() {
+            *type_counts.entry(tag).or_insert(0) += 1;
+        }
+    }
+    if type_counts.is_empty() {
+        return builder;
+    }
+    let summary = type_counts
         .iter()
-        .any(|occ| occ.selector != occ.node_id);
+        .map(|(tag, count)| format!("{}× {}", count, tag))
+        .collect::<Vec<_>>()
+        .join("  ·  ");
+    builder.add_component(KeyValueList::new().add(i18n.t("finding-element-types"), summary))
+}
 
-    // AffectedElements: element-type summary + deduplicated selector list
-    // The validator's "selector" is a source position (`190:12271`) and its
-    // node id the rule key, not an element: the element type comes from the
-    // message when it names one, the position is shown as line and column.
-    let is_html_conform = group.finding.rule_id.starts_with("html_conform.");
-    let location_label = |selector: &str| -> String {
-        match is_html_conform
-            .then(|| crate::html_conform::message::parse_location(selector))
-            .flatten()
-        {
-            Some((line, column)) => i18n.t_args(
-                "finding-line-column",
-                &[("line", line as i64), ("column", column as i64)],
-            ),
-            None => compact_html(selector, 48),
-        }
-    };
-
-    if has_real_location {
-        // Count occurrences per element type
-        let mut type_counts: std::collections::BTreeMap<String, usize> =
-            std::collections::BTreeMap::new();
-        for occ in &group.representative_occurrences {
-            let tag = if is_html_conform {
-                crate::html_conform::message::element_name(&occ.message).unwrap_or_default()
-            } else {
-                extract_element_type(&occ.selector).to_string()
-            };
-            if !tag.is_empty() {
-                *type_counts.entry(tag).or_insert(0) += 1;
-            }
-        }
-        if !type_counts.is_empty() {
-            let summary = type_counts
-                .iter()
-                .map(|(tag, count)| format!("{}× {}", count, tag))
-                .collect::<Vec<_>>()
-                .join("  ·  ");
-            builder = builder
-                .add_component(KeyValueList::new().add(i18n.t("finding-element-types"), summary));
-        }
+fn add_recommendation(
+    builder: renderreport::engine::ReportBuilder,
+    group: &FindingGroup,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    if group.recommendation.is_empty() {
+        return builder;
     }
+    builder.add_component(
+        Callout::success(&group.recommendation).with_title(i18n.t("finding-recommendation")),
+    )
+}
 
-    if !group.recommendation.is_empty() {
-        builder = builder.add_component(
-            Callout::success(&group.recommendation).with_title(i18n.t("finding-recommendation")),
-        );
-    }
-
+fn add_examples(
+    mut builder: renderreport::engine::ReportBuilder,
+    group: &FindingGroup,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
     for example in &group.examples {
         builder = builder.add_component(
             WrongRightBlock::new(&example.bad, &example.good)
@@ -494,170 +594,211 @@ pub(super) fn render_finding_technical(
                 builder.add_component(Callout::info(dec).with_title(i18n.t("label-decorative")));
         }
     }
-
-    if !group.affected_urls.is_empty() && group.affected_urls.len() <= 10 {
-        let mut url_list = List::new().with_title(i18n.t("label-affected-urls"));
-        for url in &group.affected_urls {
-            url_list = url_list.add_item(truncate_url(url, 70));
-        }
-        builder = builder.add_component(url_list);
-    }
-
-    if has_real_location {
-        let mut table = renderreport::components::AuditTable::new(vec![
-            renderreport::components::TableColumn::new(i18n.t("finding-location"))
-                .with_width("26%"),
-            renderreport::components::TableColumn::new(i18n.t("finding-note")).with_width("74%"),
-        ])
-        .with_title(i18n.t("finding-representative-occurrences"));
-
-        for occ in &group.representative_occurrences {
-            table = table.add_row(vec![
-                location_label(&occ.selector),
-                first_sentence(&occ.message).to_string(),
-            ]);
-        }
-        builder = builder.add_component(table);
-
-        let en = is_english(i18n);
-        let hidden = group.representative_occurrences.len().saturating_sub(3);
-        for occ in group.representative_occurrences.iter().take(3) {
-            let mut snapshot = SummaryBox::new(format!(
-                "{}: {}",
-                i18n.t("finding-occurrence"),
-                if is_html_conform {
-                    location_label(&occ.selector)
-                } else {
-                    compact_html(&occ.selector, 60)
-                }
-            ));
-            // The node id is an internal handle (accessibility-tree number,
-            // the rule key of a validator finding, "document"): only a real
-            // identifier is worth a row (#902).
-            let node_id = occ.node_id.trim();
-            let internal_handle = node_id.is_empty()
-                || node_id == "document"
-                || node_id.chars().all(|c| c.is_ascii_digit());
-            if !is_html_conform && !internal_handle {
-                snapshot = snapshot.add_item("Node", truncate_url(&occ.node_id, 75));
-            }
-            snapshot = snapshot.add_item(i18n.t("finding-note"), first_sentence(&occ.message));
-
-            if let Some(html) = occ
-                .html_snippet
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-            {
-                snapshot = snapshot.add_item("HTML", compact_html(html, 110));
-            }
-
-            if let Some(path) = evidence_value(&occ.evidence, "ax_tree", "dom_path") {
-                snapshot =
-                    snapshot.add_item(i18n.t("pdf-findings-dom-path"), compact_html(path, 90));
-            }
-
-            if let Some(measured) = contrast_measured_text(&occ.evidence, en) {
-                snapshot = snapshot.add_item(i18n.t("pdf-findings-measured-value"), measured);
-            }
-
-            if crate::wcag::types::evidence_is_dark_color_scheme(&occ.evidence) {
-                snapshot = snapshot.add_item(
-                    i18n.t("pdf-findings-color-scheme"),
-                    i18n.t("pdf-findings-color-scheme-dark"),
-                );
-            }
-
-            builder = builder.add_component(snapshot);
-
-            // Evidence-grade findings: a cropped, highlighted screenshot of
-            // the element behind this occurrence, if one was captured during
-            // the audit (single-URL PDF only, capped at MAX_ELEMENT_CROPS
-            // report-wide — see `PipelineConfig.capture_element_evidence`).
-            if let Some(bytes) = &occ.evidence_screenshot {
-                let temp_path = std::env::temp_dir()
-                    .join(format!("ams-evidence-{}-{}.png", report_ts, evidence_seq));
-                if std::fs::write(&temp_path, bytes).is_ok() {
-                    let asset_name = format!("/auditmysite-evidence-{}.png", evidence_seq);
-                    builder = builder.asset(asset_name.clone(), temp_path);
-                    let caption = i18n.t(match occ.evidence_viewport {
-                        Some("mobile") => "pdf-findings-screenshot-mobile",
-                        _ => "pdf-findings-screenshot-desktop",
-                    });
-                    builder = builder.add_component(
-                        Image::new(asset_name)
-                            .with_width("55%")
-                            .with_caption(caption),
-                    );
-                }
-                *evidence_seq += 1;
-            }
-
-            if let Some(code) = occ
-                .suggested_code
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-            {
-                builder = builder.add_component(
-                    Callout::info(compact_html(code, 180))
-                        .with_title(i18n.t("finding-suggested-fix")),
-                );
-            }
-        }
-        if hidden > 0 {
-            let msg = i18n.count("pdf-findings-hidden-occurrences", hidden);
-            builder = builder.add_component(Callout::info(&msg));
-        }
-    }
-
-    if has_real_location && !group.pattern_clusters.is_empty() {
-        let mut table = renderreport::components::AuditTable::new(vec![
-            renderreport::components::TableColumn::new(i18n.t("finding-pattern")).with_width("70%"),
-            renderreport::components::TableColumn::new(i18n.t("finding-occurrences"))
-                .with_width("30%"),
-        ])
-        .with_title(i18n.t("finding-frequent-patterns"));
-
-        for cluster in &group.pattern_clusters {
-            table = table.add_row(vec![
-                truncate_url(&cluster.label, 72),
-                cluster.occurrences.to_string(),
-            ]);
-        }
-        builder = builder.add_component(table);
-        builder = builder.add_component(Callout::info(i18n.t("finding-frequent-patterns-note")));
-    }
-
-    if let Some(ref cause) = group.structural_cause {
-        // plan/4-root-cause-confidence-wording.md: a single-URL audit sees
-        // only one page, so a shared-component pattern is at best a strong
-        // probability, never a confirmed fact — the label (previously the
-        // hardcoded English "Root Cause", unlocalized even in German
-        // reports) and the callout text (`finding-structural-cause-*` in
-        // report.ftl) must both read as a likelihood, not a certainty.
-        let label = i18n.t(if group.is_component_issue {
-            "pdf-findings-likely-root-cause"
-        } else {
-            "pdf-findings-structural-cause"
-        });
-        let callout = if group.is_component_issue {
-            Callout::warning(cause).with_title(label)
-        } else {
-            Callout::info(cause).with_title(label)
-        };
-        builder = builder.add_component(callout);
-    }
-
-    builder = builder.add_component(Divider {
-        style: "solid".to_string(),
-        thickness: "0pt".to_string(),
-        color: Some("#ffffff".to_string()),
-        spacing_above: "15pt".to_string(),
-        spacing_below: "0pt".to_string(),
-    });
-
     builder
+}
+
+fn add_affected_urls(
+    builder: renderreport::engine::ReportBuilder,
+    group: &FindingGroup,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    if group.affected_urls.is_empty() || group.affected_urls.len() > 10 {
+        return builder;
+    }
+    let mut url_list = List::new().with_title(i18n.t("label-affected-urls"));
+    for url in &group.affected_urls {
+        url_list = url_list.add_item(truncate_url(url, 70));
+    }
+    builder.add_component(url_list)
+}
+
+/// The occurrence table, then a snapshot (with its evidence screenshot and
+/// suggested fix) for the first three occurrences and a note on the hidden
+/// rest.
+fn add_occurrences(
+    mut builder: renderreport::engine::ReportBuilder,
+    group: &FindingGroup,
+    i18n: &I18n,
+    is_html_conform: bool,
+    report_ts: i64,
+    evidence_seq: &mut usize,
+) -> renderreport::engine::ReportBuilder {
+    let mut table = renderreport::components::AuditTable::new(vec![
+        renderreport::components::TableColumn::new(i18n.t("finding-location")).with_width("26%"),
+        renderreport::components::TableColumn::new(i18n.t("finding-note")).with_width("74%"),
+    ])
+    .with_title(i18n.t("finding-representative-occurrences"));
+
+    for occ in &group.representative_occurrences {
+        table = table.add_row(vec![
+            location_label(&occ.selector, is_html_conform, i18n),
+            first_sentence(&occ.message).to_string(),
+        ]);
+    }
+    builder = builder.add_component(table);
+
+    let hidden = group.representative_occurrences.len().saturating_sub(3);
+    for occ in group.representative_occurrences.iter().take(3) {
+        builder = builder.add_component(occurrence_snapshot(occ, i18n, is_html_conform));
+        builder = add_evidence_screenshot(builder, occ, i18n, report_ts, evidence_seq);
+        builder = add_suggested_fix(builder, occ, i18n);
+    }
+    if hidden > 0 {
+        let msg = i18n.count("pdf-findings-hidden-occurrences", hidden);
+        builder = builder.add_component(Callout::info(&msg));
+    }
+    builder
+}
+
+fn occurrence_snapshot(
+    occ: &RepresentativeOccurrence,
+    i18n: &I18n,
+    is_html_conform: bool,
+) -> SummaryBox {
+    let en = is_english(i18n);
+    let mut snapshot = SummaryBox::new(format!(
+        "{}: {}",
+        i18n.t("finding-occurrence"),
+        if is_html_conform {
+            location_label(&occ.selector, is_html_conform, i18n)
+        } else {
+            compact_html(&occ.selector, 60)
+        }
+    ));
+    // The node id is an internal handle (accessibility-tree number,
+    // the rule key of a validator finding, "document"): only a real
+    // identifier is worth a row (#902).
+    let node_id = occ.node_id.trim();
+    let internal_handle =
+        node_id.is_empty() || node_id == "document" || node_id.chars().all(|c| c.is_ascii_digit());
+    if !is_html_conform && !internal_handle {
+        snapshot = snapshot.add_item("Node", truncate_url(&occ.node_id, 75));
+    }
+    snapshot = snapshot.add_item(i18n.t("finding-note"), first_sentence(&occ.message));
+
+    if let Some(html) = occ
+        .html_snippet
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        snapshot = snapshot.add_item("HTML", compact_html(html, 110));
+    }
+
+    if let Some(path) = evidence_value(&occ.evidence, "ax_tree", "dom_path") {
+        snapshot = snapshot.add_item(i18n.t("pdf-findings-dom-path"), compact_html(path, 90));
+    }
+
+    if let Some(measured) = contrast_measured_text(&occ.evidence, en) {
+        snapshot = snapshot.add_item(i18n.t("pdf-findings-measured-value"), measured);
+    }
+
+    if crate::wcag::types::evidence_is_dark_color_scheme(&occ.evidence) {
+        snapshot = snapshot.add_item(
+            i18n.t("pdf-findings-color-scheme"),
+            i18n.t("pdf-findings-color-scheme-dark"),
+        );
+    }
+    snapshot
+}
+
+/// Evidence-grade findings: a cropped, highlighted screenshot of
+/// the element behind this occurrence, if one was captured during
+/// the audit (single-URL PDF only, capped at MAX_ELEMENT_CROPS
+/// report-wide — see `PipelineConfig.capture_element_evidence`).
+fn add_evidence_screenshot(
+    mut builder: renderreport::engine::ReportBuilder,
+    occ: &RepresentativeOccurrence,
+    i18n: &I18n,
+    report_ts: i64,
+    evidence_seq: &mut usize,
+) -> renderreport::engine::ReportBuilder {
+    if let Some(bytes) = &occ.evidence_screenshot {
+        let temp_path =
+            std::env::temp_dir().join(format!("ams-evidence-{}-{}.png", report_ts, evidence_seq));
+        if std::fs::write(&temp_path, bytes).is_ok() {
+            let asset_name = format!("/auditmysite-evidence-{}.png", evidence_seq);
+            builder = builder.asset(asset_name.clone(), temp_path);
+            let caption = i18n.t(match occ.evidence_viewport {
+                Some("mobile") => "pdf-findings-screenshot-mobile",
+                _ => "pdf-findings-screenshot-desktop",
+            });
+            builder = builder.add_component(
+                Image::new(asset_name)
+                    .with_width("55%")
+                    .with_caption(caption),
+            );
+        }
+        *evidence_seq += 1;
+    }
+    builder
+}
+
+fn add_suggested_fix(
+    builder: renderreport::engine::ReportBuilder,
+    occ: &RepresentativeOccurrence,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    match occ
+        .suggested_code
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        Some(code) => builder.add_component(
+            Callout::info(compact_html(code, 180)).with_title(i18n.t("finding-suggested-fix")),
+        ),
+        None => builder,
+    }
+}
+
+fn add_pattern_clusters(
+    builder: renderreport::engine::ReportBuilder,
+    group: &FindingGroup,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let mut table = renderreport::components::AuditTable::new(vec![
+        renderreport::components::TableColumn::new(i18n.t("finding-pattern")).with_width("70%"),
+        renderreport::components::TableColumn::new(i18n.t("finding-occurrences")).with_width("30%"),
+    ])
+    .with_title(i18n.t("finding-frequent-patterns"));
+
+    for cluster in &group.pattern_clusters {
+        table = table.add_row(vec![
+            truncate_url(&cluster.label, 72),
+            cluster.occurrences.to_string(),
+        ]);
+    }
+    builder
+        .add_component(table)
+        .add_component(Callout::info(i18n.t("finding-frequent-patterns-note")))
+}
+
+fn add_structural_cause(
+    builder: renderreport::engine::ReportBuilder,
+    group: &FindingGroup,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let Some(ref cause) = group.structural_cause else {
+        return builder;
+    };
+    // plan/4-root-cause-confidence-wording.md: a single-URL audit sees
+    // only one page, so a shared-component pattern is at best a strong
+    // probability, never a confirmed fact — the label (previously the
+    // hardcoded English "Root Cause", unlocalized even in German
+    // reports) and the callout text (`finding-structural-cause-*` in
+    // report.ftl) must both read as a likelihood, not a certainty.
+    let label = i18n.t(if group.is_component_issue {
+        "pdf-findings-likely-root-cause"
+    } else {
+        "pdf-findings-structural-cause"
+    });
+    let callout = if group.is_component_issue {
+        Callout::warning(cause).with_title(label)
+    } else {
+        Callout::info(cause).with_title(label)
+    };
+    builder.add_component(callout)
 }
 
 /// Extract the HTML element type from a CSS selector path.
