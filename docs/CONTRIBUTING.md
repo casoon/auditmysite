@@ -428,7 +428,10 @@ run time. For message-bearing structs this means a `kind` enum plus one pure
 depends on the page language follows the page, not the output language.
 
 The wording itself lives in Fluent files under `locales/{de,en}/`, never as paired
-string literals in Rust: the text function holds the decision logic, picks a message
+string literals in Rust (`cargo test --test architecture_test` counts the lines that
+pick a text by the output language, `if en { .. } else { .. }`, per file against
+`tests/fixtures/architecture/language_branches.txt`: a new one fails, and after a file
+loses some `UPDATE_LANGUAGE_BRANCHES=1` lowers the baseline): the text function holds the decision logic, picks a message
 key and passes the values as named arguments (a count as a number, so the plural
 agreement is a Fluent select in the locale file). The page-health issues
 (`seo::page_health::collect_issues`) are the `page-health-*` messages of
