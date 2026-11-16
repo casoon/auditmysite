@@ -10,7 +10,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::audit::normalized::AuditContext;
 use crate::audit::{AuditQualityStatus, ExecutionStatus};
+use crate::i18n::{text, text_args};
 use crate::wcag::coverage::{ClaimLimits, ManualReview};
+use fluent_bundle::FluentValue;
 
 // ── LocalizedText ─────────────────────────────────────────────────────────────
 
@@ -20,6 +22,27 @@ use crate::wcag::coverage::{ClaimLimits, ManualReview};
 pub struct LocalizedText {
     pub de: String,
     pub en: String,
+}
+
+/// A text argument: `value` as the plain text the message prints.
+fn arg(value: impl ToString) -> FluentValue<'static> {
+    FluentValue::from(value.to_string())
+}
+
+/// The message `key` in both languages.
+fn localized(key: &str) -> LocalizedText {
+    LocalizedText {
+        de: text(key, false),
+        en: text(key, true),
+    }
+}
+
+/// The message `key` with the same arguments in both languages.
+fn localized_args(key: &str, args: &[(&str, FluentValue<'_>)]) -> LocalizedText {
+    LocalizedText {
+        de: text_args(key, args, false),
+        en: text_args(key, args, true),
+    }
 }
 
 impl LocalizedText {
@@ -166,50 +189,42 @@ pub fn accessibility_claim_text(
     let all = claim.total_criteria;
     let version = &claim.wcag_version;
     match claim.kind {
-        AccessibilityClaimKind::NotMeasured => {
-            if en {
-                "Accessibility pattern: Not measured — the automated accessibility checks did not run".to_string()
-            } else {
-                "Accessibility-Systematik: Nicht gemessen — die automatisierte Accessibility-Prüfung lief nicht".to_string()
-            }
-        }
-        AccessibilityClaimKind::IncompleteRun => {
-            if en {
-                "Accessibility pattern: No violations found, but the run was incomplete — no evidence either way".to_string()
-            } else {
-                "Accessibility-Systematik: Keine Verstöße gefunden, aber der Lauf war unvollständig — kein Beleg in die eine oder andere Richtung".to_string()
-            }
-        }
-        AccessibilityClaimKind::NoAutomatedViolationsFound => {
-            if en {
-                format!("Accessibility pattern: No violations in the automated checks ({automated} of {all} WCAG {version} A/AA criteria testable) — conformance not determined, manual review needed")
-            } else {
-                format!("Accessibility-Systematik: Keine Verstöße in der automatisierten Prüfung ({automated} von {all} WCAG-{version}-A/AA-Kriterien automatisch prüfbar) — keine Konformitätsaussage, manuelle Prüfung nötig")
-            }
-        }
+        AccessibilityClaimKind::NotMeasured => text("audit-interpretation-claim-not-measured", en),
+        AccessibilityClaimKind::IncompleteRun => text("audit-interpretation-claim-incomplete", en),
+        AccessibilityClaimKind::NoAutomatedViolationsFound => text_args(
+            "audit-interpretation-claim-clean",
+            &[
+                ("automated", arg(automated)),
+                ("all", arg(all)),
+                ("version", arg(version)),
+            ],
+            en,
+        ),
         AccessibilityClaimKind::ViolationsFound => {
             if critical >= 5 && total > 30 {
-                if en {
-                    format!("Accessibility pattern: Systematic patterns ({rule_count} rule types, {total} instances) — process problem, not a one-off")
-                } else {
-                    format!("Accessibility-Systematik: Systematische Muster ({rule_count} Regelgruppen, {total} Vorkommen) — Prozess-Problem, kein Einzelfall")
-                }
+                text_args(
+                    "audit-interpretation-claim-systematic",
+                    &[("rules", arg(rule_count)), ("total", arg(total))],
+                    en,
+                )
             } else if critical >= 3 || (critical >= 2 && rule_count >= 5) {
-                if en {
-                    format!("Accessibility pattern: Multiple critical blockers ({critical} critical, {high} high) — direct screen-reader barriers")
-                } else {
-                    format!("Accessibility-Systematik: Mehrere kritische Blockaden ({critical} kritisch, {high} hoch) — direkte Screenreader-Barrieren")
-                }
+                text_args(
+                    "audit-interpretation-claim-blockers",
+                    &[("critical", arg(critical)), ("high", arg(high))],
+                    en,
+                )
             } else if total > 10 {
-                if en {
-                    format!("Accessibility pattern: Distributed across {rule_count} rule types — no pattern, fixable individually")
-                } else {
-                    format!("Accessibility-Systematik: Verteilt über {rule_count} Regeltypen — kein Muster, einzeln behebbar")
-                }
-            } else if en {
-                format!("Accessibility pattern: {total} violations across {rule_count} areas — focused and fixable")
+                text_args(
+                    "audit-interpretation-claim-distributed",
+                    &[("rules", arg(rule_count))],
+                    en,
+                )
             } else {
-                format!("Accessibility-Systematik: {total} Verstöße in {rule_count} Bereichen — konzentriert und gezielt behebbar")
+                text_args(
+                    "audit-interpretation-claim-focused",
+                    &[("total", arg(total)), ("rules", arg(rule_count))],
+                    en,
+                )
             }
         }
     }
@@ -411,159 +426,49 @@ fn interpret_band_localized(area: InterpretArea, band: ScoreBand) -> LocalizedTe
     use InterpretArea::*;
     use ScoreBand::*;
 
-    let (de, en): (&str, &str) = match (area, band) {
-        (Accessibility, Excellent) => (
-            "Sehr gut — die Barrierefreiheit ist technisch sauber umgesetzt und weist nur geringe Einschränkungen auf.",
-            "Excellent — accessibility is implemented cleanly, with only minor limitations.",
-        ),
-        (Accessibility, Good) => (
-            "Gut — die Barrierefreiheit ist insgesamt stabil und konsistent, kleinere Optimierungen sind sinnvoll.",
-            "Good — accessibility is sound overall; minor improvements are worthwhile.",
-        ),
-        (Accessibility, NeedsImprovement) => (
-            "Verbesserungswürdig — einzelne Barrieren können die Nutzung einschränken.",
-            "Needs improvement — individual barriers can restrict use.",
-        ),
-        (Accessibility, Weak) => (
-            "Ausbaufähig — relevante Barrieren beeinträchtigen Nutzbarkeit und Zugänglichkeit.",
-            "Inadequate — significant barriers impair usability and accessibility.",
-        ),
-        (Accessibility, Critical) => (
-            "Kritisch — wesentliche Anforderungen an die Barrierefreiheit werden nicht erfüllt.",
-            "Critical — essential accessibility requirements are not met.",
-        ),
-
-        (Performance, Excellent) => (
-            "Sehr gut — die Seite reagiert schnell und bietet eine flüssige Nutzererfahrung.",
-            "Excellent — the page responds quickly and feels smooth to use.",
-        ),
-        (Performance, Good) => (
-            "Gut — die Performance ist stabil, vereinzelt bestehen Optimierungsmöglichkeiten.",
-            "Good — performance is stable, with occasional room for optimization.",
-        ),
-        (Performance, NeedsImprovement) => (
-            "Verbesserungswürdig — Ladezeiten und Reaktionsverhalten sind stellenweise uneinheitlich.",
-            "Needs improvement — load times and responsiveness are inconsistent in places.",
-        ),
-        (Performance, Weak) => (
-            "Ausbaufähig — Performance-Probleme können Nutzung und Conversion beeinträchtigen.",
-            "Inadequate — performance issues can impair use and conversion.",
-        ),
-        (Performance, Critical) => (
-            "Kritisch — deutliche Performance-Probleme beeinträchtigen die Nutzererfahrung erheblich.",
-            "Critical — significant performance problems severely impair the user experience.",
-        ),
-
-        (Security, Excellent) => (
-            "Sehr gut — keine wesentlichen Sicherheitsauffälligkeiten im geprüften Umfang erkannt.",
-            "Excellent — no significant security issues found within the scope checked.",
-        ),
-        (Security, Good) => (
-            "Gut — grundlegende Sicherheitsmechanismen sind vorhanden, kleinere Optimierungspotenziale wurden erkannt.",
-            "Good — basic security mechanisms are in place; minor weaknesses were identified.",
-        ),
-        (Security, NeedsImprovement) => (
-            "Verbesserungswürdig — einzelne Sicherheitsaspekte sollten überprüft und abgesichert werden.",
-            "Needs improvement — individual security aspects should be reviewed and hardened.",
-        ),
-        (Security, Weak) => (
-            "Ausbaufähig — relevante Sicherheitsauffälligkeiten oder Fehlkonfigurationen wurden erkannt.",
-            "Inadequate — relevant security issues or misconfigurations were found.",
-        ),
-        (Security, Critical) => (
-            "Kritisch — im geprüften Umfang fehlen grundlegende Schutzmaßnahmen. Das ist kein Nachweis einer ausnutzbaren Lücke, sollte aber vorrangig behoben werden.",
-            "Critical — basic protections are missing within the scope checked. That is no proof of an exploitable flaw, but it should be fixed with priority.",
-        ),
-
-        (HtmlConform, Excellent) => (
-            "Sehr gut — das ausgelieferte HTML ist technisch sauber und spezifikationskonform, Browser und assistive Technologien können es zuverlässig verarbeiten.",
-            "Excellent — the rendered HTML is technically clean and spec-conformant; browsers and assistive technologies can parse it reliably.",
-        ),
-        (HtmlConform, Good) => (
-            "Gut — das HTML ist überwiegend konform, einzelne Abweichungen von der Spezifikation sind vorhanden.",
-            "Good — the HTML is largely conformant, with a few deviations from the specification.",
-        ),
-        (HtmlConform, NeedsImprovement) => (
-            "Verbesserungswürdig — mehrere Spezifikationsverstöße im HTML können die Verarbeitung durch Browser oder assistive Technologien beeinträchtigen.",
-            "Needs improvement — several HTML specification violations can affect processing by browsers or assistive technologies.",
-        ),
-        (HtmlConform, Weak) => (
-            "Ausbaufähig — verbreitete Spezifikationsverstöße erschweren eine zuverlässige Verarbeitung des Markups.",
-            "Inadequate — widespread specification violations make reliable markup processing harder.",
-        ),
-        (HtmlConform, Critical) => (
-            "Kritisch — das HTML weicht erheblich von der Spezifikation ab, Rendering und Barrierefreiheit sind unmittelbar betroffen.",
-            "Critical — the HTML deviates significantly from the specification, directly affecting rendering and accessibility.",
-        ),
-
-        (Mobile, Excellent) => (
-            "Sehr gut — die Nutzung auf Mobilgeräten funktioniert zuverlässig und ohne erkennbare Einschränkungen.",
-            "Excellent — the site works reliably on mobile devices, with no noticeable limitations.",
-        ),
-        (Mobile, Good) => (
-            "Gut — die Nutzung auf Mobilgeräten funktioniert insgesamt zuverlässig.",
-            "Good — the site works reliably on mobile devices overall.",
-        ),
-        (Mobile, NeedsImprovement) => (
-            "Verbesserungswürdig — auf Mobilgeräten treten stellenweise Bedien- und Darstellungsprobleme auf.",
-            "Needs improvement — layout and usability issues appear in places on mobile devices.",
-        ),
-        (Mobile, Weak) => (
-            "Ausbaufähig — Darstellung und Bedienung auf Mobilgeräten sind spürbar eingeschränkt.",
-            "Inadequate — layout and usability on mobile devices are noticeably impaired.",
-        ),
-        (Mobile, Critical) => (
-            "Kritisch — die Seite ist auf Mobilgeräten kaum zuverlässig nutzbar.",
-            "Critical — the site is barely usable on mobile devices.",
-        ),
-
-        (Ux, Excellent) => (
-            "Sehr gut — die strukturellen Signale sprechen für eine klare, gut geführte Bedienung.",
-            "Excellent — the structural signals point to a clear, well-guided interface.",
-        ),
-        (Ux, Good) => (
-            "Gut — die strukturellen Signale sprechen für eine verständliche Nutzerführung; einzelne Stellen lassen sich straffen.",
-            "Good — the structural signals point to clear user guidance; individual spots can be tightened.",
-        ),
-        (Ux, NeedsImprovement) => (
-            "Verbesserungswürdig — die strukturellen Signale deuten stellenweise auf unnötig komplexe Nutzerführung hin.",
-            "Needs improvement — the structural signals suggest needlessly complex user guidance in places.",
-        ),
-        (Ux, Weak) => (
-            "Ausbaufähig — erkannte Reibungspunkte können eine klare Nutzerführung erschweren.",
-            "Inadequate — the detected friction points can get in the way of clear user guidance.",
-        ),
-        (Ux, Critical) => (
-            "Kritisch — die strukturellen Signale deuten auf eine unübersichtliche Bedienung hin, die das Erreichen von Zielen erschweren kann.",
-            "Critical — the structural signals point to a confusing interface that can make it hard to reach goals.",
-        ),
-
-        (Journey, Excellent) => (
-            "Sehr gut — die Seitenstruktur stützt die wichtigsten Nutzerpfade durchgängig und nachvollziehbar.",
-            "Excellent — the page structure supports the key user paths consistently and clearly.",
-        ),
-        (Journey, Good) => (
-            "Gut — die Seitenstruktur stützt die zentralen Nutzerpfade; einzelne Schritte lassen sich verbessern.",
-            "Good — the page structure supports the core user paths; individual steps can be improved.",
-        ),
-        (Journey, NeedsImprovement) => (
-            "Verbesserungswürdig — die Seitenstruktur deutet auf umständliche oder unklare Schritte in der Nutzerführung hin.",
-            "Needs improvement — the page structure suggests cumbersome or unclear steps in the user flow.",
-        ),
-        (Journey, Weak) => (
-            "Ausbaufähig — erkannte Brüche in der Nutzerführung können das Erreichen zentraler Ziele erschweren.",
-            "Inadequate — the detected breaks in the user flow can make it harder to reach key goals.",
-        ),
-        (Journey, Critical) => (
-            "Kritisch — die Seitenstruktur deutet auf unnötig komplizierte oder unterbrochene Schritte der Nutzerführung hin.",
-            "Critical — the page structure points to needlessly complicated or broken steps in the user flow.",
-        ),
-    };
-
-    LocalizedText {
-        de: de.to_string(),
-        en: en.to_string(),
-    }
+    localized(match (area, band) {
+        (Accessibility, Excellent) => "audit-interpretation-score-accessibility-excellent",
+        (Accessibility, Good) => "audit-interpretation-score-accessibility-good",
+        (Accessibility, NeedsImprovement) => {
+            "audit-interpretation-score-accessibility-needs-improvement"
+        }
+        (Accessibility, Weak) => "audit-interpretation-score-accessibility-weak",
+        (Accessibility, Critical) => "audit-interpretation-score-accessibility-critical",
+        (Performance, Excellent) => "audit-interpretation-score-performance-excellent",
+        (Performance, Good) => "audit-interpretation-score-performance-good",
+        (Performance, NeedsImprovement) => {
+            "audit-interpretation-score-performance-needs-improvement"
+        }
+        (Performance, Weak) => "audit-interpretation-score-performance-weak",
+        (Performance, Critical) => "audit-interpretation-score-performance-critical",
+        (Security, Excellent) => "audit-interpretation-score-security-excellent",
+        (Security, Good) => "audit-interpretation-score-security-good",
+        (Security, NeedsImprovement) => "audit-interpretation-score-security-needs-improvement",
+        (Security, Weak) => "audit-interpretation-score-security-weak",
+        (Security, Critical) => "audit-interpretation-score-security-critical",
+        (HtmlConform, Excellent) => "audit-interpretation-score-html-conform-excellent",
+        (HtmlConform, Good) => "audit-interpretation-score-html-conform-good",
+        (HtmlConform, NeedsImprovement) => {
+            "audit-interpretation-score-html-conform-needs-improvement"
+        }
+        (HtmlConform, Weak) => "audit-interpretation-score-html-conform-weak",
+        (HtmlConform, Critical) => "audit-interpretation-score-html-conform-critical",
+        (Mobile, Excellent) => "audit-interpretation-score-mobile-excellent",
+        (Mobile, Good) => "audit-interpretation-score-mobile-good",
+        (Mobile, NeedsImprovement) => "audit-interpretation-score-mobile-needs-improvement",
+        (Mobile, Weak) => "audit-interpretation-score-mobile-weak",
+        (Mobile, Critical) => "audit-interpretation-score-mobile-critical",
+        (Ux, Excellent) => "audit-interpretation-score-ux-excellent",
+        (Ux, Good) => "audit-interpretation-score-ux-good",
+        (Ux, NeedsImprovement) => "audit-interpretation-score-ux-needs-improvement",
+        (Ux, Weak) => "audit-interpretation-score-ux-weak",
+        (Ux, Critical) => "audit-interpretation-score-ux-critical",
+        (Journey, Excellent) => "audit-interpretation-score-journey-excellent",
+        (Journey, Good) => "audit-interpretation-score-journey-good",
+        (Journey, NeedsImprovement) => "audit-interpretation-score-journey-needs-improvement",
+        (Journey, Weak) => "audit-interpretation-score-journey-weak",
+        (Journey, Critical) => "audit-interpretation-score-journey-critical",
+    })
 }
 
 // ── Private builders ──────────────────────────────────────────────────────────
@@ -586,50 +491,18 @@ fn build_technical_overview_localized(
 
     // 2. SEO level
     let seo = if let Some(s) = normalized.raw_seo {
-        if s.score >= 85 {
-            LocalizedText {
-                de: format!(
-                    "SEO-Level: {} Pkt — technische Ranking-Voraussetzungen erfüllt",
-                    s.score
-                ),
-                en: format!(
-                    "SEO level: {} pts — technical ranking prerequisites met",
-                    s.score
-                ),
-            }
+        let key = if s.score >= 85 {
+            "audit-interpretation-overview-seo-excellent"
         } else if s.score >= 65 {
-            LocalizedText {
-                de: format!(
-                    "SEO-Level: {} Pkt — Basis vorhanden, gezielte Optimierungen möglich",
-                    s.score
-                ),
-                en: format!(
-                    "SEO level: {} pts — base in place, targeted optimizations possible",
-                    s.score
-                ),
-            }
+            "audit-interpretation-overview-seo-good"
         } else if s.score >= 45 {
-            LocalizedText {
-                de: format!(
-                    "SEO-Level: {} Pkt — relevante Signale fehlen, Sichtbarkeit eingeschränkt",
-                    s.score
-                ),
-                en: format!(
-                    "SEO level: {} pts — relevant signals missing, visibility limited",
-                    s.score
-                ),
-            }
+            "audit-interpretation-overview-seo-partial"
         } else {
-            LocalizedText {
-                de: format!("SEO-Level: {} Pkt — strukturelle Basis fehlt, Ranking-Potenzial deutlich eingeschränkt", s.score),
-                en: format!("SEO level: {} pts — structural base missing, ranking potential is severely limited", s.score),
-            }
-        }
+            "audit-interpretation-overview-seo-weak"
+        };
+        localized_args(key, &[("score", arg(s.score))])
     } else {
-        LocalizedText {
-            de: "SEO-Level: Nicht geprüft (--full für vollständige Analyse)".to_string(),
-            en: "SEO level: Not audited (use --full for full analysis)".to_string(),
-        }
+        localized("audit-interpretation-overview-seo-none")
     };
     bullets.push(seo);
 
@@ -640,55 +513,32 @@ fn build_technical_overview_localized(
             // "Fully set" is a claim about the headers, so it comes from the
             // headers and open findings, not from the score alone (#902-3).
             if present == total && s.issues.is_empty() {
-                LocalizedText {
-                    de: format!(
-                        "Security-Level: {} Pkt — HTTP-Security-Header vollständig gesetzt",
-                        s.score
-                    ),
-                    en: format!(
-                        "Security level: {} pts — HTTP security headers fully set",
-                        s.score
-                    ),
-                }
+                localized_args(
+                    "audit-interpretation-overview-security-full",
+                    &[("score", arg(s.score))],
+                )
             } else {
-                LocalizedText {
-                    de: format!(
-                        "Security-Level: {} Pkt — {present} von {total} Kern-Headern gesetzt, offene Sicherheitsbefunde bleiben",
-                        s.score
-                    ),
-                    en: format!(
-                        "Security level: {} pts — {present} of {total} core headers set, open security findings remain",
-                        s.score
-                    ),
-                }
-            }
-        } else if s.score >= 55 {
-            LocalizedText {
-                de: format!("Security-Level: {} Pkt — Grundschutz vorhanden, einzelne Header fehlen", s.score),
-                en: format!("Security level: {} pts — basic protection in place, individual headers missing", s.score),
-            }
-        } else if s.score >= 30 {
-            LocalizedText {
-                de: format!(
-                    "Security-Level: {} Pkt — mehrere Basisschutz-Header fehlen",
-                    s.score
-                ),
-                en: format!(
-                    "Security level: {} pts — several baseline security headers missing",
-                    s.score
-                ),
+                localized_args(
+                    "audit-interpretation-overview-security-core",
+                    &[
+                        ("score", arg(s.score)),
+                        ("present", arg(present)),
+                        ("total", arg(total)),
+                    ],
+                )
             }
         } else {
-            LocalizedText {
-                de: format!("Security-Level: {} Pkt — Security-Header fehlen fast vollständig — vorrangig, mit geringem Aufwand behebbar", s.score),
-                en: format!("Security level: {} pts — security headers almost entirely missing — a priority, low effort to fix", s.score),
-            }
+            let key = if s.score >= 55 {
+                "audit-interpretation-overview-security-basic"
+            } else if s.score >= 30 {
+                "audit-interpretation-overview-security-several"
+            } else {
+                "audit-interpretation-overview-security-almost"
+            };
+            localized_args(key, &[("score", arg(s.score))])
         }
     } else {
-        LocalizedText {
-            de: "Security-Level: Nicht geprüft (--full für vollständige Analyse)".to_string(),
-            en: "Security level: Not audited (use --full for full analysis)".to_string(),
-        }
+        localized("audit-interpretation-overview-security-none")
     };
     bullets.push(sec);
 
@@ -712,49 +562,41 @@ fn build_technical_overview_localized(
     // The class follows the figure the sentence prints (#902-6): classifying
     // on `nodes_analyzed` printed "Gering — 7347 DOM-Knoten" for a page the
     // Performance module itself rates as far above its DOM guideline.
+    let with_dom = |key: &str, perf: u32| LocalizedText {
+        de: text_args(key, &[("dom", arg(&dom_de)), ("perf", arg(perf))], false),
+        en: text_args(key, &[("dom", arg(dom_display)), ("perf", arg(perf))], true),
+    };
     let tech = match (dom_display, perf_score) {
-        (d, Some(p)) if d > 2000 && p < 60 => LocalizedText {
-            de: format!("Tech-Komplexität: Hoch — {dom_de} DOM-Knoten, Performance {p} Pkt — Refactoring empfohlen"),
-            en: format!("Tech complexity: High — {dom_display} DOM nodes, performance {p} pts — refactoring recommended"),
-        },
+        (d, Some(p)) if d > 2000 && p < 60 => {
+            with_dom("audit-interpretation-overview-tech-high", p)
+        }
         // p is 60-74 here ("Verbesserungswürdig"/"Needs improvement" band,
         // same < 75 "Good" cutoff `render_score_driver_table` uses to call a
         // module a "Risikotreiber") — calling that "stabil"/"stable" a few
         // lines below a table that labels the same score a risk driver was
         // self-contradictory (feedback 2026-09-07). Only p >= 75 earns
         // "stabil" below.
-        (d, Some(p)) if d > 2000 && p < 75 => LocalizedText {
-            de: format!("Tech-Komplexität: Mittel-hoch — {dom_de} DOM-Knoten belasten eine nur mittelmäßige Performance ({p} Pkt) — Optimierungspotenzial vorhanden"),
-            en: format!("Tech complexity: Medium-high — {dom_display} DOM nodes add strain to only middling performance ({p} pts) — optimization potential"),
-        },
+        (d, Some(p)) if d > 2000 && p < 75 => {
+            with_dom("audit-interpretation-overview-tech-strain", p)
+        }
         // "stabil"/"stable" in parentheses read as reassurance about exactly
         // the thing the action list prioritises ("DOM-Struktur verschlanken")
         // two blocks further up (plan 36 §6). Both facts, neither arguing
         // with the other.
-        (d, Some(p)) if d > 2000 => LocalizedText {
-            de: format!("Tech-Komplexität: Mittel-hoch — {dom_de} DOM-Knoten bei derzeit tragfähiger Performance ({p} Pkt)"),
-            en: format!("Tech complexity: Medium-high — {dom_display} DOM nodes, performance currently holding up ({p} pts)"),
-        },
-        (_d, Some(p)) if p < 60 => LocalizedText {
-            de: format!("Tech-Komplexität: Performance kritisch ({p} Pkt) — {dom_de} DOM-Knoten analysiert"),
-            en: format!("Tech complexity: Performance critical ({p} pts) — {dom_display} DOM nodes analyzed"),
-        },
-        (_d, Some(p)) if p < 80 => LocalizedText {
-            de: format!("Tech-Komplexität: Gering — {dom_de} DOM-Knoten, Performance optimierbar ({p} Pkt)"),
-            en: format!("Tech complexity: Low — {dom_display} DOM nodes, performance can be optimized ({p} pts)"),
-        },
-        (_d, Some(p)) => LocalizedText {
-            de: format!("Tech-Komplexität: Gering — {dom_de} DOM-Knoten, Performance {p} Pkt — technische Basis stabil"),
-            en: format!("Tech complexity: Low — {dom_display} DOM nodes, performance {p} pts — technical baseline stable"),
-        },
-        (d, None) if d > 2000 => LocalizedText {
-            de: format!("Tech-Komplexität: Hoch — {d} geprüfte Knoten (Performance nicht geprüft)"),
-            en: format!("Tech complexity: High — {d} nodes checked (performance not audited)"),
-        },
-        (d, None) => LocalizedText {
-            de: format!("Tech-Komplexität: {d} geprüfte Knoten (Performance nicht geprüft, --full)"),
-            en: format!("Tech complexity: {d} nodes checked (performance not audited, use --full)"),
-        },
+        (d, Some(p)) if d > 2000 => with_dom("audit-interpretation-overview-tech-holding", p),
+        (_d, Some(p)) if p < 60 => with_dom("audit-interpretation-overview-tech-perf-critical", p),
+        (_d, Some(p)) if p < 80 => {
+            with_dom("audit-interpretation-overview-tech-low-optimizable", p)
+        }
+        (_d, Some(p)) => with_dom("audit-interpretation-overview-tech-low-stable", p),
+        (d, None) if d > 2000 => localized_args(
+            "audit-interpretation-overview-tech-unmeasured-high",
+            &[("nodes", arg(d))],
+        ),
+        (d, None) => localized_args(
+            "audit-interpretation-overview-tech-unmeasured",
+            &[("nodes", arg(d))],
+        ),
     };
     bullets.push(tech);
 
@@ -827,125 +669,66 @@ fn build_overall_impact_localized(
     let high = normalized.normalized.severity_counts.high;
     let urgent = critical + high;
 
-    let user_rating = LocalizedText {
-        de: if score >= 90 && urgent == 0 {
-            "Sehr gut — keine relevanten Barrieren".to_string()
-        } else if score >= 75 {
-            "Gut — einzelne Barrieren für Hilfstechnologien".to_string()
-        } else if score >= 50 {
-            "Eingeschränkt — spürbare Barrieren für Screenreader-Nutzer".to_string()
-        } else {
-            "Stark eingeschränkt — wesentliche Inhalte nicht zugänglich".to_string()
-        },
-        en: if score >= 90 && urgent == 0 {
-            "Excellent — no relevant barriers".to_string()
-        } else if score >= 75 {
-            "Good — individual barriers for assistive technologies".to_string()
-        } else if score >= 50 {
-            "Limited — noticeable barriers for screen-reader users".to_string()
-        } else {
-            "Heavily limited — essential content not accessible".to_string()
-        },
-    };
+    let user_rating = localized(if score >= 90 && urgent == 0 {
+        "audit-interpretation-impact-user-excellent"
+    } else if score >= 75 {
+        "audit-interpretation-impact-user-good"
+    } else if score >= 50 {
+        "audit-interpretation-impact-user-limited"
+    } else {
+        "audit-interpretation-impact-user-heavy"
+    });
 
-    let risk_level = LocalizedText {
-        de: if critical >= 2 {
-            "Hoch — BITV/WCAG-Verstoßrisiko akut".to_string()
-        } else if critical >= 1 || urgent >= 3 {
-            "Mittel — kritische Themen vorhanden".to_string()
-        } else if score < 70 {
-            "Mittel — kumulierter Nachholbedarf".to_string()
-        } else {
-            "Niedrig".to_string()
-        },
-        en: if critical >= 2 {
-            "High — acute BITV/WCAG violation risk".to_string()
-        } else if critical >= 1 || urgent >= 3 {
-            "Medium — critical topics present".to_string()
-        } else if score < 70 {
-            "Medium — cumulative backlog".to_string()
-        } else {
-            "Low".to_string()
-        },
-    };
+    let risk_level = localized(if critical >= 2 {
+        "audit-interpretation-impact-risk-high"
+    } else if critical >= 1 || urgent >= 3 {
+        "audit-interpretation-impact-risk-critical-topics"
+    } else if score < 70 {
+        "audit-interpretation-impact-risk-backlog"
+    } else {
+        "audit-interpretation-impact-risk-low"
+    });
 
-    let conversion = LocalizedText {
-        de: if score < 50 {
-            "Hoch wahrscheinlich negativ".to_string()
-        } else if score < 75 {
-            "Möglicherweise negativ (Navigation, Formulare)".to_string()
-        } else {
-            "Gering — gute Nutzbarkeit".to_string()
-        },
-        en: if score < 50 {
-            "Likely negative".to_string()
-        } else if score < 75 {
-            "Possibly negative (navigation, forms)".to_string()
-        } else {
-            "Low — good usability".to_string()
-        },
-    };
+    let conversion = localized(if score < 50 {
+        "audit-interpretation-impact-conversion-negative"
+    } else if score < 75 {
+        "audit-interpretation-impact-conversion-possible"
+    } else {
+        "audit-interpretation-impact-conversion-low"
+    });
 
     vec![
         (
-            LocalizedText {
-                de: "Nutzererlebnis".to_string(),
-                en: "User experience".to_string(),
-            },
+            localized("audit-interpretation-impact-label-user"),
             user_rating,
         ),
         (
-            LocalizedText {
-                de: "Risiko-Level".to_string(),
-                en: "Risk level".to_string(),
-            },
+            localized("audit-interpretation-impact-label-risk"),
             risk_level,
         ),
         (
-            LocalizedText {
-                de: "Conversion-Effekt".to_string(),
-                en: "Conversion effect".to_string(),
-            },
+            localized("audit-interpretation-impact-label-conversion"),
             conversion,
         ),
     ]
 }
 
 fn build_benchmark_context_localized(score: f32) -> LocalizedText {
-    LocalizedText {
-        de: if score >= 95.0 {
-            "Top 5% — Ausnahmeniveau. Kein struktureller Handlungsdruck.".to_string()
-        } else if score >= 90.0 {
-            "Top 15% — Deutlich besser als die Mehrheit. Feinschliff genügt.".to_string()
-        } else if score >= 80.0 {
-            "Oberes Drittel — Guter Stand, einzelne Optimierungen lohnen sich.".to_string()
-        } else if score >= 70.0 {
-            "Mittleres Feld — Verbesserungspotenzial vorhanden, kein akuter Notfall.".to_string()
-        } else if score >= 55.0 {
-            "Unteres Mittelfeld — Deutlicher Rückstand gegenüber vergleichbaren Websites."
-                .to_string()
-        } else if score >= 40.0 {
-            "Unteres Drittel — Erheblicher Rückstand, strukturelle Defizite häufig.".to_string()
-        } else {
-            "Kritisch — Zu den schwächsten geprüften Seiten. Sofortiger Handlungsbedarf."
-                .to_string()
-        },
-        en: if score >= 95.0 {
-            "Top 5% — exceptional level. No structural pressure to act.".to_string()
-        } else if score >= 90.0 {
-            "Top 15% — clearly above the majority. Polish is enough.".to_string()
-        } else if score >= 80.0 {
-            "Upper third — good standing, individual optimizations pay off.".to_string()
-        } else if score >= 70.0 {
-            "Middle pack — improvement potential, no acute emergency.".to_string()
-        } else if score >= 55.0 {
-            "Lower middle — clear gap to comparable websites.".to_string()
-        } else if score >= 40.0 {
-            "Lower third — significant gap, structural deficits common.".to_string()
-        } else {
-            "Critical — among the weakest audited sites. Immediate action required.".to_string()
-        },
-    }
+    localized(if score >= 95.0 {
+        "audit-interpretation-benchmark-top5"
+    } else if score >= 90.0 {
+        "audit-interpretation-benchmark-top15"
+    } else if score >= 80.0 {
+        "audit-interpretation-benchmark-upper-third"
+    } else if score >= 70.0 {
+        "audit-interpretation-benchmark-middle"
+    } else if score >= 55.0 {
+        "audit-interpretation-benchmark-lower-middle"
+    } else if score >= 40.0 {
+        "audit-interpretation-benchmark-lower-third"
+    } else {
+        "audit-interpretation-benchmark-critical"
+    })
 }
 
 fn pick_business_consequence_key(

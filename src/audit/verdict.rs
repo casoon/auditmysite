@@ -21,6 +21,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::audit::normalized::NormalizedReport;
 use crate::audit::report::BatchSummary;
+use crate::i18n::{count_text, text, text_args};
+use fluent_bundle::FluentValue;
 
 /// Version of the decision contract. Bumped whenever a rule below changes
 /// what a profile decides.
@@ -193,53 +195,37 @@ impl VerdictReasonKind {
     /// Reader-facing phrasing. The single source for this text.
     pub fn text(self, en: bool) -> String {
         match self {
-            VerdictReasonKind::LegalFlags(n) => match (en, n) {
-                (true, 1) => "1 finding with possible legal relevance (BFSG/EAA)".to_string(),
-                (true, n) => format!("{n} findings with possible legal relevance (BFSG/EAA)"),
-                (false, 1) => "1 Befund mit möglicher Rechtsrelevanz (BFSG/EAA)".to_string(),
-                (false, n) => format!("{n} Befunde mit möglicher Rechtsrelevanz (BFSG/EAA)"),
-            },
+            VerdictReasonKind::LegalFlags(n) => {
+                count_text("audit-interpretation-verdict-legal-flags", n, en)
+            }
             VerdictReasonKind::BlockingIssues { total, keyboard } => {
                 super::management_risk::blocking_controls_text(total, keyboard, en)
             }
-            VerdictReasonKind::ScoreBelowFailThreshold { score, threshold } => {
-                if en {
-                    format!("score {score} below the fail threshold of {threshold}")
-                } else {
-                    format!("Score {score} unter der Fail-Schwelle von {threshold}")
-                }
-            }
-            VerdictReasonKind::ScoreBelowWarnThreshold { score, threshold } => {
-                if en {
-                    format!("score {score} below the warning threshold of {threshold}")
-                } else {
-                    format!("Score {score} unter der Warnschwelle von {threshold}")
-                }
-            }
+            VerdictReasonKind::ScoreBelowFailThreshold { score, threshold } => text_args(
+                "audit-interpretation-verdict-fail-threshold",
+                &[
+                    ("score", FluentValue::from(score.to_string())),
+                    ("threshold", FluentValue::from(threshold.to_string())),
+                ],
+                en,
+            ),
+            VerdictReasonKind::ScoreBelowWarnThreshold { score, threshold } => text_args(
+                "audit-interpretation-verdict-warn-threshold",
+                &[
+                    ("score", FluentValue::from(score.to_string())),
+                    ("threshold", FluentValue::from(threshold.to_string())),
+                ],
+                en,
+            ),
             VerdictReasonKind::AuditQualityNotComplete => {
-                if en {
-                    "the run did not complete in full".to_string()
-                } else {
-                    "der Lauf ist nicht vollständig durchgelaufen".to_string()
-                }
+                text("audit-interpretation-verdict-incomplete", en)
             }
-            VerdictReasonKind::TechnicalBlockers(n) => match (en, n) {
-                (true, 1) => {
-                    "1 technical blocker (page meant to be indexed carries noindex)".to_string()
-                }
-                (true, n) => format!("{n} technical blockers"),
-                (false, 1) => {
-                    "1 technischer Blocker (Seite soll indexiert werden, trägt aber noindex)"
-                        .to_string()
-                }
-                (false, n) => format!("{n} technische Blocker"),
-            },
-            VerdictReasonKind::FindingsPresent(n) => match (en, n) {
-                (true, 1) => "1 open finding".to_string(),
-                (true, n) => format!("{n} open findings"),
-                (false, 1) => "1 offener Befund".to_string(),
-                (false, n) => format!("{n} offene Befunde"),
-            },
+            VerdictReasonKind::TechnicalBlockers(n) => {
+                count_text("audit-interpretation-verdict-technical-blockers", n, en)
+            }
+            VerdictReasonKind::FindingsPresent(n) => {
+                count_text("audit-interpretation-verdict-findings-present", n, en)
+            }
         }
     }
 }

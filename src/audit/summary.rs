@@ -8,7 +8,9 @@
 use std::collections::HashMap;
 
 use crate::audit::normalized::{NormalizedFinding, NormalizedReport};
+use crate::i18n::{count_text, text, text_args};
 use crate::taxonomy::Severity;
+use fluent_bundle::FluentValue;
 
 // ── Site-state ────────────────────────────────────────────────────────────────
 
@@ -195,38 +197,28 @@ pub fn analyze_with_locale(normalized: &NormalizedReport, locale: &str) -> Audit
         normalized,
     );
 
+    let en = locale == "en";
     let dominant_issue_note = dominant_issue.as_ref().map(|d| {
-        if locale == "en" {
-            let group_label = if d.count == 1 {
-                "1 finding group".to_string()
-            } else {
-                format!("{} finding groups", d.count)
-            };
-            let occurrence_note = if d.occurrence_total > d.count {
-                format!(", {} occurrences", d.occurrence_total)
-            } else {
-                String::new()
-            };
-            format!(
-                "\"{}\" accounts for {:.0}\u{202f}% of critical/high findings ({group_label}{occurrence_note}).",
-                d.title, d.share_pct
+        let groups = count_text("audit-interpretation-summary-groups", d.count, en);
+        let occurrences = if d.occurrence_total > d.count {
+            count_text(
+                "audit-interpretation-summary-occurrences-note",
+                d.occurrence_total,
+                en,
             )
         } else {
-            let group_label = if d.count == 1 {
-                "1 Problemgruppe".to_string()
-            } else {
-                format!("{} Problemgruppen", d.count)
-            };
-            let occurrence_note = if d.occurrence_total > d.count {
-                format!(", {} Vorkommen", d.occurrence_total)
-            } else {
-                String::new()
-            };
-            format!(
-                "\"{}\" macht {:.0}\u{202f}% der kritischen/hohen Findings aus ({group_label}{occurrence_note}).",
-                d.title, d.share_pct
-            )
-        }
+            String::new()
+        };
+        text_args(
+            "audit-interpretation-summary-dominant-note",
+            &[
+                ("title", FluentValue::from(d.title.clone())),
+                ("share", FluentValue::from(format!("{:.0}", d.share_pct))),
+                ("groups", FluentValue::from(groups)),
+                ("occurrences", FluentValue::from(occurrences)),
+            ],
+            en,
+        )
     });
 
     AuditSummary {
@@ -242,6 +234,11 @@ pub fn analyze_with_locale(normalized: &NormalizedReport, locale: &str) -> Audit
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────────
+
+/// A count as a Fluent number, so a plural selector can use it.
+fn number(value: usize) -> FluentValue<'static> {
+    FluentValue::from(value as i64)
+}
 
 /// `urgent_occurrences` is the total occurrence count of all critical/high findings.
 /// Dominance is determined by occurrence share, not group count.
@@ -336,11 +333,7 @@ fn detect_cross_impacts(normalized: &NormalizedReport, locale: &str) -> Vec<Cros
     if has_weak_seo && has_heading_issues {
         impacts.push(CrossImpact {
             dimensions: "Accessibility + SEO".into(),
-            description: if en {
-                "Missing heading structure simultaneously acts as an SEO weakness and an accessibility barrier.".into()
-            } else {
-                "Fehlende Überschriftenstruktur wirkt gleichzeitig als SEO-Schwäche und Accessibility-Barriere.".into()
-            },
+            description: text("audit-interpretation-summary-cross-headings", en),
         });
     }
 
@@ -359,11 +352,7 @@ fn detect_cross_impacts(normalized: &NormalizedReport, locale: &str) -> Vec<Cros
     if has_security_issues && has_mobile_issues {
         impacts.push(CrossImpact {
             dimensions: "Security + Mobile".into(),
-            description: if en {
-                "Security weaknesses and mobile issues appear together — optimization effort spans multiple areas.".into()
-            } else {
-                "Security-Schwächen und Mobile-Probleme treten gemeinsam auf — Optimierungsbedarf zieht sich durch mehrere Bereiche.".into()
-            },
+            description: text("audit-interpretation-summary-cross-security-mobile", en),
         });
     }
 
@@ -376,11 +365,7 @@ fn detect_cross_impacts(normalized: &NormalizedReport, locale: &str) -> Vec<Cros
     if has_perf_issues && has_mobile_issues {
         impacts.push(CrossImpact {
             dimensions: "Performance + Mobile".into(),
-            description: if en {
-                "Poor load times amplify mobile problems — mobile usability is doubly impaired.".into()
-            } else {
-                "Schlechte Ladezeiten verstärken Mobile-Probleme — Mobile-Nutzbarkeit ist doppelt eingeschränkt.".into()
-            },
+            description: text("audit-interpretation-summary-cross-performance-mobile", en),
         });
     }
 
@@ -405,119 +390,80 @@ fn build_verdict_intro(
         .map(|c| format!(" {}", c.description))
         .unwrap_or_default();
     let en = locale == "en";
+    let text_with = |key: &str, args: &[(&str, FluentValue<'_>)]| {
+        let mut all = vec![("cross", FluentValue::from(cross_note.clone()))];
+        all.extend(args.iter().cloned());
+        text_args(key, &all, en)
+    };
 
     // Systematic problems override pattern-specific wording
     if is_systematic {
-        return if en {
-            format!(
-                "No isolated issue — {total} violations across {critical} critical and {high} high topics form a \
-                 systematic pattern. It affects large parts of the site, not individual spots.{cross_note}"
-            )
-        } else {
-            format!(
-                "Kein Einzelproblem — {total} Verstöße über {critical} kritische und {high} hohe Themen sind ein \
-                 systematisches Muster. Betrifft große Teile der Seite, nicht einzelne Stellen.{cross_note}"
-            )
-        };
+        return text_with(
+            "audit-interpretation-summary-intro-systematic",
+            &[
+                ("total", number(total)),
+                ("critical", number(critical)),
+                ("high", number(high)),
+            ],
+        );
     }
 
     // Single dominant issue: language shifts to focus on the one root cause
     if let Some(d) = dominant_issue {
-        if en {
-            let detail = if d.occurrence_total > d.count {
-                format!("{} occurrences", d.occurrence_total)
-            } else {
-                format!("{} hits", d.count)
-            };
-            return format!(
-                "One issue dominates: \"{}\" causes {:.0} % of critical/high findings ({detail}). \
-                 Focus here — one cause, high impact.{cross_note}",
-                d.title, d.share_pct
-            );
-        }
         let detail = if d.occurrence_total > d.count {
-            format!("{} Vorkommen", d.occurrence_total)
+            count_text(
+                "audit-interpretation-summary-detail-occurrences",
+                d.occurrence_total,
+                en,
+            )
         } else {
-            format!("{} Treffer", d.count)
+            count_text("audit-interpretation-summary-detail-hits", d.count, en)
         };
-        return format!(
-            "Ein Problem dominiert: \"{}\" verursacht {:.0} % der kritischen/hohen Findings ({detail}). \
-             Hier konzentrieren -- eine Ursache, hoher Impact.{cross_note}",
-            d.title, d.share_pct
+        return text_with(
+            "audit-interpretation-summary-intro-dominant",
+            &[
+                ("title", FluentValue::from(d.title.clone())),
+                ("share", FluentValue::from(format!("{:.0}", d.share_pct))),
+                ("detail", FluentValue::from(detail)),
+            ],
         );
-    }
-
-    if en {
-        return match (site_state, issue_pattern) {
-            (SiteState::Polished, _) => {
-                if urgent == 0 {
-                    format!("No pressing barriers detected by automation.{cross_note} Maintain the level and re-check regularly.")
-                } else {
-                    let topic_word = if urgent == 1 { "topic" } else { "topics" };
-                    format!("Stable foundation. {urgent} prioritized {topic_word} — fix deliberately before they pile up.{cross_note}")
-                }
-            }
-            (SiteState::NeedsWork, IssuePattern::Clustered) => format!(
-                "Stable foundation, but {urgent} prioritized topics span several independent areas. \
-                 Prioritize systematically — not all at once.{cross_note}"
-            ),
-            (SiteState::NeedsWork, _) => {
-                if urgent == 0 {
-                    format!("Stable foundation without acute risks. {total} improvements possible — easy to prioritize.{cross_note}")
-                } else {
-                    let topic_word = if urgent == 1 { "topic" } else { "topics" };
-                    let needs_word = if urgent == 1 { "needs" } else { "need" };
-                    format!("Good foundation, but {urgent} prioritized {topic_word} {needs_word} immediate attention.{cross_note}")
-                }
-            }
-            (SiteState::Weak, _) => format!(
-                "Relevant barriers present -- {urgent} of them critical or high. \
-                 Prioritize systematically and start phase 1.{cross_note}"
-            ),
-            (SiteState::Critical, _) => format!(
-                "Urgent action required: {critical} critical, {high} high issues. \
-                 The site is hard to use for part of users -- start phase 1 immediately.{cross_note}"
-            ),
-        };
     }
 
     match (site_state, issue_pattern) {
         (SiteState::Polished, _) => {
             if urgent == 0 {
-                format!("Automatisiert unauffällig — keine dringenden Barrieren erkannt.{cross_note} Niveau halten und regelmäßig nachprüfen.")
+                text_with("audit-interpretation-summary-intro-polished-clear", &[])
             } else {
-                format!(
-                    "Tragfähige Basis. {} priorisierte{} Thema{} — gezielt beheben, bevor sie sich häufen.{cross_note}",
-                    urgent,
-                    if urgent == 1 { "s" } else { "" },
-                    if urgent == 1 { "" } else { "n" }
+                text_with(
+                    "audit-interpretation-summary-intro-polished-topics",
+                    &[("urgent", number(urgent))],
                 )
             }
         }
-        (SiteState::NeedsWork, IssuePattern::Clustered) => format!(
-            "Tragfähige Basis, aber {urgent} priorisierte Themen verteilen sich auf mehrere unabhängige Bereiche. \
-             Strukturiert priorisieren — nicht alles auf einmal.{cross_note}"
+        (SiteState::NeedsWork, IssuePattern::Clustered) => text_with(
+            "audit-interpretation-summary-intro-clustered",
+            &[("urgent", number(urgent))],
         ),
         (SiteState::NeedsWork, _) => {
             if urgent == 0 {
-                format!("Tragfähige Basis ohne akute Risiken. {total} Verbesserungen möglich — gut priorisierbar.{cross_note}")
+                text_with(
+                    "audit-interpretation-summary-intro-needs-work-clear",
+                    &[("total", number(total))],
+                )
             } else {
-                format!(
-                    "Gute Basis, aber {} priorisierte{} Thema{} braucht{} sofortige Aufmerksamkeit.{cross_note}",
-                    urgent,
-                    if urgent == 1 { "s" } else { "" },
-                    if urgent == 1 { "" } else { "n" },
-                    if urgent == 1 { "" } else { "n" }
+                text_with(
+                    "audit-interpretation-summary-intro-needs-work-urgent",
+                    &[("urgent", number(urgent))],
                 )
             }
         }
-        (SiteState::Weak, _) => format!(
-            "Relevante Barrieren vorhanden -- {urgent} davon kritisch oder hoch. \
-             Strukturiert priorisieren und Phase 1 starten.{cross_note}"
+        (SiteState::Weak, _) => text_with(
+            "audit-interpretation-summary-intro-weak",
+            &[("urgent", number(urgent))],
         ),
-        (SiteState::Critical, _) => format!(
-            "Akuter Handlungsbedarf: {critical} kritische, {high} hohe Issues. \
-             Die Seite ist für einen Teil der Nutzer schwer nutzbar -- sofort Phase 1 starten.{cross_note}"
+        (SiteState::Critical, _) => text_with(
+            "audit-interpretation-summary-intro-critical",
+            &[("critical", number(critical)), ("high", number(high))],
         ),
     }
 }
@@ -548,58 +494,27 @@ fn build_problem_type_label(
     let en = locale == "en";
 
     match issue_pattern {
-        IssuePattern::Minimal => {
-            if en {
-                "No violations found within the automated audit scope".into()
-            } else {
-                "Keine Verstöße im automatisierten Prüfumfang gefunden".into()
-            }
-        }
+        IssuePattern::Minimal => text("audit-interpretation-summary-problem-minimal", en),
         IssuePattern::SingleDominant => {
             if let Some(d) = dominant_issue {
-                if en {
-                    format!(
-                        "Dominant single issue: \"{}\" — focused and fixable",
-                        d.title
-                    )
-                } else {
-                    format!(
-                        "Dominierendes Einzelproblem: \"{}\" — konzentriert und gezielt behebbar",
-                        d.title
-                    )
-                }
-            } else if en {
-                "Single issue — focused and fixable".into()
+                text_args(
+                    "audit-interpretation-summary-problem-dominant",
+                    &[("title", FluentValue::from(d.title.clone()))],
+                    en,
+                )
             } else {
-                "Einzelproblem — konzentriert und gezielt behebbar".into()
+                text("audit-interpretation-summary-problem-single", en)
             }
         }
         IssuePattern::Clustered if is_structural => {
-            if en {
-                "Structural deficits — pervasive barriers across multiple areas".into()
-            } else {
-                "Strukturelle Defizite — flächendeckende Barrieren in mehreren Bereichen".into()
-            }
+            text("audit-interpretation-summary-problem-structural", en)
         }
-        IssuePattern::Clustered => {
-            if en {
-                "Multiple problem clusters — spread across areas, targetable".into()
-            } else {
-                "Mehrere Problemcluster — über verschiedene Bereiche verteilt, gezielt behebbar"
-                    .into()
-            }
-        }
+        IssuePattern::Clustered => text("audit-interpretation-summary-problem-clusters", en),
         IssuePattern::Scattered => {
             if matches!(site_state, SiteState::Polished | SiteState::NeedsWork) {
-                if en {
-                    "Polish — no structural deficits, last optimization levers".into()
-                } else {
-                    "Feinschliff — keine strukturellen Defizite, letzte Optimierungshebel".into()
-                }
-            } else if en {
-                "Multiple critical isolated issues — focused and fixable".into()
+                text("audit-interpretation-summary-problem-polish", en)
             } else {
-                "Mehrere kritische Einzelprobleme — konzentriert und gezielt behebbar".into()
+                text("audit-interpretation-summary-problem-isolated", en)
             }
         }
     }

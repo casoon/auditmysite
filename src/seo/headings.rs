@@ -6,6 +6,7 @@
 //! instead of evaluated a second time (#724); long headings stay an SEO rule.
 
 use chromiumoxide::Page;
+use fluent_bundle::FluentValue;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
@@ -101,17 +102,15 @@ impl HeadingIssue {
 
 /// The only source of the own heading-issue wording (#406, #898).
 pub fn long_heading_text(values: &LongHeading, en: bool) -> String {
-    if en {
-        format!(
-            "H{} is too long ({} chars): \"{}...\"",
-            values.level, values.length, values.excerpt
-        )
-    } else {
-        format!(
-            "H{} ist zu lang ({} Zeichen): \"{}...\"",
-            values.level, values.length, values.excerpt
-        )
-    }
+    crate::i18n::text_args(
+        "audit-interpretation-long-heading",
+        &[
+            ("level", FluentValue::from(values.level.to_string())),
+            ("length", FluentValue::from(values.length.to_string())),
+            ("excerpt", FluentValue::from(values.excerpt.clone())),
+        ],
+        en,
+    )
 }
 
 /// Heading outline script; the SEO score reads it.

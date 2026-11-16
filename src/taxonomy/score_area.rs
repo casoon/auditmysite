@@ -66,20 +66,20 @@ impl ScoreArea {
 
     /// Label in der Berichtssprache. Nur für die Präsentation; das JSON trägt
     /// immer [`ScoreArea::label`] (#406).
-    pub fn localized_label(self, en: bool) -> &'static str {
-        if en {
-            return self.label();
-        }
-        match self {
-            ScoreArea::Semantics => "Semantik",
-            ScoreArea::Forms => "Formulare",
-            ScoreArea::Keyboard => "Tastatur",
-            ScoreArea::FocusManagement => "Fokusführung",
-            ScoreArea::ImagesAlternativeText => "Bilder / Alternativtexte",
-            ScoreArea::Aria => "ARIA",
-            ScoreArea::HeadingStructure => "Überschriftenstruktur",
-            ScoreArea::Landmarks => "Landmarken / Seitenstruktur",
-        }
+    pub fn localized_label(self, en: bool) -> String {
+        crate::i18n::text(
+            match self {
+                ScoreArea::Semantics => "audit-interpretation-score-area-semantics",
+                ScoreArea::Forms => "audit-interpretation-score-area-forms",
+                ScoreArea::Keyboard => "audit-interpretation-score-area-keyboard",
+                ScoreArea::FocusManagement => "audit-interpretation-score-area-focus",
+                ScoreArea::ImagesAlternativeText => "audit-interpretation-score-area-images",
+                ScoreArea::Aria => "audit-interpretation-score-area-aria",
+                ScoreArea::HeadingStructure => "audit-interpretation-score-area-headings",
+                ScoreArea::Landmarks => "audit-interpretation-score-area-landmarks",
+            },
+            en,
+        )
     }
 }
 

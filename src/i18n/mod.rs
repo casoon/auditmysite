@@ -73,12 +73,16 @@ impl I18n {
         // and of the search experience and the PDF's root cause, problem
         // profile, action plan and WCAG coverage sections (`pdf-analysis.ftl`,
         // `output::search_experience`, `output::pdf::{root_causes,
-        // problem_profile, wcag_coverage}`) and of the single report's
-        // builder helpers (positive signals and aspects, key points, quality
-        // note, overall score explanation, page health, performance, security
-        // and mobile detail rows, and the terminal table's experimental
-        // lines; `report-builder.ftl`, `output::builder::single`,
-        // `output::terminal`) are twenty-eight resources of the one bundle.
+        // problem_profile, wcag_coverage}`), of the single report's builder
+        // helpers (positive signals and aspects, key points, quality note,
+        // overall score explanation, page health, performance, security and
+        // mobile detail rows, and the terminal table's experimental lines;
+        // `report-builder.ftl`, `output::builder::single`, `output::terminal`)
+        // and of the interpretation layer (`audit-interpretation.ftl`,
+        // `seo::interpretation`, `audit::{interpretation,
+        // performance_interpretation, verdict, finding_derive, summary,
+        // baseline}`, `seo::headings`, `taxonomy::score_area`) are
+        // twenty-nine resources of the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -108,6 +112,7 @@ impl I18n {
                 include_str!("../../locales/en/privacy-findings.ftl"),
                 include_str!("../../locales/en/pdf-sections.ftl"),
                 include_str!("../../locales/en/pdf-analysis.ftl"),
+                include_str!("../../locales/en/audit-interpretation.ftl"),
                 include_str!("../../locales/en/report-builder.ftl"),
             ],
             _ => [
@@ -138,6 +143,7 @@ impl I18n {
                 include_str!("../../locales/de/privacy-findings.ftl"),
                 include_str!("../../locales/de/pdf-sections.ftl"),
                 include_str!("../../locales/de/pdf-analysis.ftl"),
+                include_str!("../../locales/de/audit-interpretation.ftl"),
                 include_str!("../../locales/de/report-builder.ftl"),
             ],
         };

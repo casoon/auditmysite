@@ -12,6 +12,8 @@
 //! from `AuditContext`.
 
 use crate::audit::PerformanceResults;
+use crate::i18n::{text, text_args};
+use fluent_bundle::FluentValue;
 
 /// Worst-case throttled LCP (ms) above which the interpretation prose names a
 /// "late LCP under throttling" qualifier. Shared with the throttled-table
@@ -90,63 +92,51 @@ pub fn derive_performance_qualifiers(
 fn critical_qualifier_text(q: PerfCriticalQualifier, en: bool) -> String {
     match q {
         PerfCriticalQualifier::HighDomComplexity(nodes) => {
-            if en {
-                format!("high DOM complexity ({nodes} nodes)")
+            // English prints the plain digits, German groups thousands.
+            let nodes = if en {
+                nodes.to_string()
             } else {
-                format!(
-                    "die hohe DOM-Komplexität ({} Knoten)",
-                    crate::i18n::number::integer(nodes, false)
-                )
-            }
+                crate::i18n::number::integer(nodes, false)
+            };
+            text_args(
+                "audit-interpretation-perf-dom",
+                &[("nodes", FluentValue::from(nodes))],
+                en,
+            )
         }
-        PerfCriticalQualifier::LateThrottledLcp(ms) => {
-            if en {
-                format!("a late largest contentful paint under throttling ({ms:.0} ms)")
-            } else {
-                format!("der spät erscheinende Hauptinhalt unter Drosselung ({ms:.0} ms LCP)")
-            }
-        }
-        PerfCriticalQualifier::RenderBlocking(n) => {
-            if en {
-                format!("{n} render-blocking resources")
-            } else {
-                format!("{n} render-blockierende Ressourcen")
-            }
-        }
-        PerfCriticalQualifier::UnminifiedAssets(kb) => {
-            if en {
-                format!("unminified assets (~{kb:.0} KB savings)")
-            } else {
-                format!("unminifizierte Assets (~{kb:.0} KB Einsparpotenzial)")
-            }
-        }
-        PerfCriticalQualifier::NonCompositedAnimations(n) => {
-            if en {
-                format!("{n} non-composited animations")
-            } else {
-                format!("{n} nicht-composited Animationen")
-            }
-        }
+        PerfCriticalQualifier::LateThrottledLcp(ms) => text_args(
+            "audit-interpretation-perf-lcp",
+            &[("ms", FluentValue::from(format!("{ms:.0}")))],
+            en,
+        ),
+        PerfCriticalQualifier::RenderBlocking(n) => text_args(
+            "audit-interpretation-perf-render-blocking",
+            &[("count", FluentValue::from(n.to_string()))],
+            en,
+        ),
+        PerfCriticalQualifier::UnminifiedAssets(kb) => text_args(
+            "audit-interpretation-perf-unminified",
+            &[("kb", FluentValue::from(format!("{kb:.0}")))],
+            en,
+        ),
+        PerfCriticalQualifier::NonCompositedAnimations(n) => text_args(
+            "audit-interpretation-perf-animations",
+            &[("count", FluentValue::from(n.to_string()))],
+            en,
+        ),
     }
 }
 
-fn positive_qualifier_text(q: PerfPositiveQualifier, en: bool) -> &'static str {
-    match q {
-        PerfPositiveQualifier::LayoutStability => {
-            if en {
-                "layout stability (CLS)"
-            } else {
-                "Layout-Stabilität (CLS)"
+fn positive_qualifier_text(q: PerfPositiveQualifier, en: bool) -> String {
+    text(
+        match q {
+            PerfPositiveQualifier::LayoutStability => "audit-interpretation-perf-positive-layout",
+            PerfPositiveQualifier::MainThreadBlocking => {
+                "audit-interpretation-perf-positive-main-thread"
             }
-        }
-        PerfPositiveQualifier::MainThreadBlocking => {
-            if en {
-                "main-thread blocking (TBT)"
-            } else {
-                "Hauptthread-Blockierung (TBT)"
-            }
-        }
-    }
+        },
+        en,
+    )
 }
 
 /// Joins phrases into a natural list ("a, b and c" / "a, b und c").
@@ -156,12 +146,7 @@ fn join_phrases(items: &[String], en: bool) -> String {
         1 => items[0].clone(),
         _ => {
             let (last, head) = items.split_last().unwrap();
-            format!(
-                "{} {} {}",
-                head.join(", "),
-                if en { "and" } else { "und" },
-                last
-            )
+            format!("{}{}{}", head.join(", "), text("audit-join-and", en), last)
         }
     }
 }
@@ -187,45 +172,34 @@ pub fn append_performance_qualifiers_text(
         .collect();
     let positive_phrases: Vec<String> = positive
         .iter()
-        .map(|q| positive_qualifier_text(*q, en).to_string())
+        .map(|q| positive_qualifier_text(*q, en))
         .collect();
 
     let mut out = base;
     if !out.is_empty() {
         out.push(' ');
     }
-    if en {
-        out.push_str(&format!(
-            "Critical here are {}.",
-            join_phrases(&critical_phrases, en)
+    out.push_str(&text_args(
+        "audit-interpretation-perf-critical-here",
+        &[(
+            "phrases",
+            FluentValue::from(join_phrases(&critical_phrases, en)),
+        )],
+        en,
+    ));
+    if !positive_phrases.is_empty() {
+        out.push(' ');
+        out.push_str(&text_args(
+            "audit-interpretation-perf-contrast",
+            &[
+                ("count", FluentValue::from(positive_phrases.len() as i64)),
+                (
+                    "phrases",
+                    FluentValue::from(join_phrases(&positive_phrases, en)),
+                ),
+            ],
+            en,
         ));
-        if !positive_phrases.is_empty() {
-            let verb = if positive_phrases.len() == 1 {
-                "remains"
-            } else {
-                "remain"
-            };
-            out.push_str(&format!(
-                " In contrast, {} {verb} unobtrusive.",
-                join_phrases(&positive_phrases, en)
-            ));
-        }
-    } else {
-        out.push_str(&format!(
-            "Kritisch sind hier {}.",
-            join_phrases(&critical_phrases, en)
-        ));
-        if !positive_phrases.is_empty() {
-            let verb = if positive_phrases.len() == 1 {
-                "bleibt"
-            } else {
-                "bleiben"
-            };
-            out.push_str(&format!(
-                " Im Kontrast dazu {verb} {} unauffällig.",
-                join_phrases(&positive_phrases, en)
-            ));
-        }
     }
     out
 }
@@ -245,31 +219,24 @@ pub fn performance_gap_text(
     }
     let mut reasons = Vec::new();
     if p.vitals.dom_nodes.is_some_and(|n| n > 1500) {
-        reasons.push(if en { "DOM size" } else { "DOM-Größe" });
+        reasons.push(text("audit-interpretation-perf-reason-dom", en));
     }
     if has_render_blocking {
-        reasons.push(if en {
-            "render-blocking resources"
-        } else {
-            "Render-blockierende Ressourcen"
-        });
+        reasons.push(text("audit-interpretation-perf-reason-render-blocking", en));
     }
     if p.vitals.tbt.as_ref().is_some_and(|v| v.rating != "good") {
-        reasons.push("Total Blocking Time");
+        reasons.push("Total Blocking Time".to_string());
     }
     if reasons.is_empty() {
         base
-    } else if en {
-        format!(
-            "{} Score reduced by {} although Core Web Vitals are in the green.",
-            base,
-            reasons.join(", ")
-        )
     } else {
-        format!(
-            "{} Score durch {} reduziert, obwohl Core Web Vitals im grünen Bereich liegen.",
-            base,
-            reasons.join(", ")
+        text_args(
+            "audit-interpretation-perf-gap",
+            &[
+                ("base", FluentValue::from(base)),
+                ("reasons", FluentValue::from(reasons.join(", "))),
+            ],
+            en,
         )
     }
 }
