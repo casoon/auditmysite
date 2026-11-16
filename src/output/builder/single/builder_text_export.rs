@@ -236,7 +236,7 @@ fn positive_signal_records(records: &mut Vec<Value>) {
             if with_wcag {
                 ctx.raw_wcag = &wcag;
             }
-            let signals: Vec<Value> = build_positive_signals(lang, &ctx)
+            let signals: Vec<Value> = build_positive_signals(&I18n::new(lang).unwrap(), &ctx)
                 .iter()
                 .map(|s| json!([s.title, s.description, s.strong]))
                 .collect();
@@ -362,10 +362,11 @@ fn positive_aspect_records(records: &mut Vec<Value>) {
                     ctx.raw_security = Some(&security);
                     ctx.raw_mobile = Some(&mobile);
                 }
-                let aspects: Vec<Value> = derive_positive_aspects_from_normalized(lang, &ctx)
-                    .iter()
-                    .map(|a| json!([a.area, a.description]))
-                    .collect();
+                let aspects: Vec<Value> =
+                    derive_positive_aspects_from_normalized(&I18n::new(lang).unwrap(), &ctx)
+                        .iter()
+                        .map(|a| json!([a.area, a.description]))
+                        .collect();
                 records.push(json!([
                     "derive_positive_aspects_from_normalized",
                     format!("{a11y} mask={mask}"),

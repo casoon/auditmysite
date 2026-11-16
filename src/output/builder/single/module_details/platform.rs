@@ -1,5 +1,6 @@
 use crate::audit::normalized::AuditContext;
 use crate::i18n::I18n;
+use crate::output::localized::is_english;
 use crate::output::report_model::{MobilePresentation, SecurityPresentation};
 
 use super::super::super::helpers::{security_header_tier_label, security_issue_kind_label, yes_no};
@@ -52,7 +53,7 @@ pub(super) fn build_security_details(
         let mut ssl_info = vec![
             ("HTTPS".to_string(), yes_no(locale, sec.ssl.https)),
             (
-                localized_label(locale, "Gültiges Zertifikat", "Valid certificate"),
+                i18n.t("report-builder-security-valid-certificate"),
                 yes_no(locale, sec.ssl.valid_certificate),
             ),
             ("HSTS".to_string(), yes_no(locale, sec.ssl.has_hsts)),
@@ -64,7 +65,7 @@ pub(super) fn build_security_details(
                     .unwrap_or_else(|| "—".to_string()),
             ),
             (
-                localized_label(locale, "Subdomains", "Subdomains"),
+                "Subdomains".to_string(),
                 yes_no(locale, sec.ssl.hsts_include_subdomains),
             ),
             ("Preload".to_string(), yes_no(locale, sec.ssl.hsts_preload)),
@@ -73,37 +74,41 @@ pub(super) fn build_security_details(
         push_optional_ssl_row(&mut ssl_info, "Cipher", sec.ssl.cipher.as_deref());
         push_optional_ssl_row(
             &mut ssl_info,
-            localized_label(locale, "Zertifikat Subject", "Certificate subject").as_str(),
+            i18n.t("report-builder-security-certificate-subject")
+                .as_str(),
             sec.ssl.certificate_subject.as_deref(),
         );
         push_optional_ssl_row(
             &mut ssl_info,
-            localized_label(locale, "Zertifikat Issuer", "Certificate issuer").as_str(),
+            i18n.t("report-builder-security-certificate-issuer")
+                .as_str(),
             sec.ssl.certificate_issuer.as_deref(),
         );
         if let Some(days) = sec.ssl.certificate_expires_in_days {
-            ssl_info.push(if locale == "en" {
-                ("Expires in".to_string(), format!("{days} days"))
-            } else {
-                ("Läuft ab in".to_string(), format!("{days} Tage"))
-            });
+            ssl_info.push((
+                i18n.t("report-builder-security-expires-in"),
+                i18n.t_args(
+                    "report-builder-security-expires-days",
+                    &[("days", days.to_string())],
+                ),
+            ));
         }
         if let Some(chain_length) = sec.ssl.certificate_chain_length {
             ssl_info.push((
-                localized_label(locale, "Chain-Länge", "Chain length"),
+                i18n.t("report-builder-security-chain-length"),
                 chain_length.to_string(),
             ));
         }
         push_optional_ssl_row(
             &mut ssl_info,
-            localized_label(locale, "Zertifikatsfehler", "Certificate error").as_str(),
+            i18n.t("report-builder-security-certificate-error").as_str(),
             sec.ssl.certificate_error.as_deref(),
         );
 
         let text_band =
             crate::audit::interpretation::security_text_band(security_score as f32, &sec.issues);
         let band_score = text_band.representative_score();
-        let band_note = security_band_note(locale, security_score, text_band, &sec.issues);
+        let band_note = security_band_note(i18n, security_score, text_band, &sec.issues);
         SecurityPresentation {
             score: security_score,
             grade: normalized_module_grade(&normalized.normalized, "Security")
@@ -121,17 +126,20 @@ pub(super) fn build_security_details(
                 .map(|(name, value)| {
                     let (status, val) = match value {
                         Some(v) => (
-                            localized_label(locale, "Vorhanden", "Present"),
+                            i18n.t("report-builder-security-header-present"),
                             truncate_url(v, 50),
                         ),
-                        None => (localized_label(locale, "Fehlt", "Missing"), "—".to_string()),
+                        None => (
+                            i18n.t("report-builder-security-header-missing"),
+                            "—".to_string(),
+                        ),
                     };
                     let tier =
                         security_header_tier_label(locale, crate::security::header_tier(name));
                     (name.to_string(), status, val, tier)
                 })
                 .collect(),
-            score_rows: security_score_rows(locale, sec, security_score),
+            score_rows: security_score_rows(i18n, sec, security_score),
             ssl_info,
             issues: sec
                 .issues
@@ -166,7 +174,7 @@ pub(super) fn build_security_details(
 /// this sentence "95 — Verbesserungswürdig" reads as a contradiction (#896).
 /// `None` when the wording band is the score's own band.
 fn security_band_note(
-    locale: &str,
+    i18n: &I18n,
     score: u32,
     text_band: crate::audit::interpretation::ScoreBand,
     issues: &[crate::security::SecurityIssue],
@@ -175,8 +183,7 @@ fn security_band_note(
     if text_band == ScoreBand::from_score(score as f32) {
         return None;
     }
-    let en = locale == "en";
-    let numeric = crate::registry::FIVE_BAND.label(score as f32, en);
+    let numeric = crate::registry::FIVE_BAND.label(score as f32, is_english(i18n));
     let severe = issues
         .iter()
         .filter(|i| {
@@ -186,34 +193,32 @@ fn security_band_note(
             )
         })
         .count();
-    Some(match (en, severe) {
-        (true, 0) => format!(
-            "The wording rating sits below the band of the number ({score} alone would read \"{numeric}\"): {} open finding(s) are listed below. The score itself is unchanged.",
-            issues.len()
-        ),
-        (true, n) => format!(
-            "The wording rating sits below the band of the number ({score} alone would read \"{numeric}\"): {n} open finding(s) of high severity are listed below. The score itself is unchanged."
-        ),
-        (false, 0) => format!(
-            "Die Einordnung im Text liegt unter dem Band der Zahl ({score} allein hieße „{numeric}“): {} offene Befunde stehen weiter unten. Der Wert selbst bleibt unverändert.",
-            issues.len()
-        ),
-        (false, n) => format!(
-            "Die Einordnung im Text liegt unter dem Band der Zahl ({score} allein hieße „{numeric}“): {n} offene(r) Befund(e) hoher Schwere stehen weiter unten. Der Wert selbst bleibt unverändert."
-        ),
-    })
+    let (key, count) = if severe == 0 {
+        ("report-builder-security-band-note-open", issues.len())
+    } else {
+        ("report-builder-security-band-note-severe", severe)
+    };
+    Some(i18n.t_args(
+        key,
+        &[
+            ("score", score.to_string()),
+            ("numeric", numeric.to_string()),
+            ("count", count.to_string()),
+        ],
+    ))
 }
 
 /// The security score as a sum: 100, one row per issue with the deduction it
 /// carries in the shared contribution list, the HSTS bonus and the
 /// vulnerable-library penalty from Best Practices (plan 72).
 fn security_score_rows(
-    locale: &str,
+    i18n: &I18n,
     sec: &crate::security::SecurityAnalysis,
     security_score: u32,
 ) -> Vec<(String, String, String)> {
+    let locale = i18n.locale();
     let mut rows = vec![(
-        localized_label(locale, "Ausgangswert", "Starting value"),
+        i18n.t("report-builder-security-score-start"),
         String::new(),
         "100".to_string(),
     )];
@@ -228,7 +233,7 @@ fn security_score_rows(
             ),
             security_header_tier_label(locale, issue.tier),
             if issue.score_deduction == 0 {
-                localized_label(locale, "0 (nicht belastet)", "0 (not charged)")
+                i18n.t("report-builder-security-score-not-charged")
             } else {
                 format!("−{}", issue.score_deduction)
             },
@@ -238,7 +243,7 @@ fn security_score_rows(
     let bonus = sec.score.saturating_sub(before_bonus);
     if bonus > 0 {
         rows.push((
-            localized_label(locale, "HSTS-Bonus", "HSTS bonus"),
+            i18n.t("report-builder-security-score-hsts-bonus"),
             String::new(),
             format!("+{bonus}"),
         ));
@@ -246,27 +251,17 @@ fn security_score_rows(
     let vulnerable_libraries = sec.score.saturating_sub(security_score);
     if vulnerable_libraries > 0 {
         rows.push((
-            localized_label(
-                locale,
-                "Bekannt verwundbare Bibliotheken (Best Practices)",
-                "Known-vulnerable libraries (Best Practices)",
-            ),
+            i18n.t("report-builder-security-score-vulnerable-libraries"),
             String::new(),
             format!("−{vulnerable_libraries}"),
         ));
     }
     rows.push((
-        localized_label(locale, "Sicherheitswert", "Security score"),
+        i18n.t("report-builder-security-score-total"),
         String::new(),
         security_score.to_string(),
     ));
     rows
-}
-
-/// A table label in the run language; these tables printed German labels
-/// into English reports.
-fn localized_label(locale: &str, de: &str, en: &str) -> String {
-    if locale == "en" { en } else { de }.to_string()
 }
 
 fn push_optional_ssl_row(rows: &mut Vec<(String, String)>, label: &str, value: Option<&str>) {
@@ -294,11 +289,10 @@ pub(super) fn build_mobile_details(
                 .map(|(ctx, count)| {
                     // The raw key printed "im Bereich other" in German.
                     let area = crate::mobile::mobile_context_label(ctx, en);
-                    if en {
-                        format!("{} in {}", count, area)
-                    } else {
-                        format!("{} im Bereich {}", count, area)
-                    }
+                    i18n.t_args(
+                        "report-builder-mobile-context",
+                        &[("count", count.to_string()), ("area", area.to_string())],
+                    )
                 })
                 .collect();
             format!(" ({})", parts.join(", "))
@@ -309,26 +303,21 @@ pub(super) fn build_mobile_details(
         let mobile_interpretation = if small_targets >= 10 {
             // When context is known (e.g. "footer", "navigation"), qualify as locally scoped
             // so a high overall score paired with a large touch-target count reads correctly.
+            // The scope note follows the context hint, so it starts with a space.
             let scope_note = if !context_hint.is_empty() {
-                if en {
-                    " — locally scoped"
-                } else {
-                    " — lokal begrenzt"
-                }
+                format!(" {}", i18n.t("report-builder-mobile-locally-scoped"))
             } else {
-                ""
+                String::new()
             };
-            if en {
-                format!(
-                    "{} {} touch targets smaller than recommended (44×44 px){}{}.",
-                    base_mobile, small_targets, context_hint, scope_note,
-                )
-            } else {
-                format!(
-                    "{} {} Touch-Targets kleiner als empfohlen (44×44 px){}{}.",
-                    base_mobile, small_targets, context_hint, scope_note,
-                )
-            }
+            i18n.t_args(
+                "report-builder-mobile-small-targets",
+                &[
+                    ("base", base_mobile),
+                    ("count", small_targets.to_string()),
+                    ("context", context_hint),
+                    ("scope", scope_note),
+                ],
+            )
         } else {
             base_mobile
         };
@@ -349,61 +338,61 @@ pub(super) fn build_mobile_details(
                     yes_no(locale, m.viewport.has_initial_scale),
                 ),
                 (
-                    localized_label(locale, "Skalierbar", "Scalable"),
+                    i18n.t("report-builder-mobile-scalable"),
                     yes_no(locale, m.viewport.is_scalable),
                 ),
                 (
-                    localized_label(locale, "Korrekt konfiguriert", "Correctly configured"),
+                    i18n.t("report-builder-mobile-configured"),
                     yes_no(locale, m.viewport.is_properly_configured),
                 ),
             ],
             touch_targets: vec![
                 (
-                    localized_label(locale, "Gesamt", "Total"),
+                    i18n.t("report-builder-mobile-targets-total"),
                     m.touch_targets.total_targets.to_string(),
                 ),
                 (
-                    localized_label(locale, "Ausreichend (≥44px)", "Adequate (≥44px)"),
+                    i18n.t("report-builder-mobile-targets-adequate"),
                     m.touch_targets.adequate_targets.to_string(),
                 ),
                 (
-                    localized_label(locale, "Zu klein", "Too small"),
+                    i18n.t("report-builder-mobile-targets-small"),
                     m.touch_targets.small_targets.to_string(),
                 ),
                 (
-                    localized_label(locale, "Zu eng beieinander", "Too close together"),
+                    i18n.t("report-builder-mobile-targets-crowded"),
                     m.touch_targets.crowded_targets.to_string(),
                 ),
             ],
             font_analysis: vec![
                 (
-                    localized_label(locale, "Basis-Schriftgröße", "Base font size"),
+                    i18n.t("report-builder-mobile-font-base"),
                     format!("{:.0}px", m.font_sizes.base_font_size),
                 ),
                 (
-                    localized_label(locale, "Kleinste Schrift", "Smallest font"),
+                    i18n.t("report-builder-mobile-font-smallest"),
                     format!("{:.0}px", m.font_sizes.smallest_font_size),
                 ),
                 (
-                    localized_label(locale, "Lesbarer Text", "Legible text"),
+                    i18n.t("report-builder-mobile-font-legible"),
                     format!("{:.0}%", m.font_sizes.legible_percentage),
                 ),
                 (
-                    localized_label(locale, "Relative Einheiten", "Relative units"),
+                    i18n.t("report-builder-mobile-font-relative"),
                     yes_no(locale, m.font_sizes.uses_relative_units),
                 ),
             ],
             content_sizing: vec![
                 (
-                    localized_label(locale, "Passt in Viewport", "Fits viewport"),
+                    i18n.t("report-builder-mobile-sizing-fits"),
                     yes_no(locale, m.content_sizing.fits_viewport),
                 ),
                 (
-                    localized_label(locale, "Kein hor. Scrollen", "No horizontal scroll"),
+                    i18n.t("report-builder-mobile-sizing-no-scroll"),
                     yes_no(locale, !m.content_sizing.has_horizontal_scroll),
                 ),
                 (
-                    localized_label(locale, "Responsive Bilder", "Responsive images"),
+                    i18n.t("report-builder-mobile-sizing-responsive-images"),
                     yes_no(locale, m.content_sizing.uses_responsive_images),
                 ),
                 (
@@ -454,9 +443,11 @@ mod tests {
         let issues = vec![issue(Severity::High)];
         let band = security_text_band(95.0, &issues);
         assert_eq!(band, ScoreBand::NeedsImprovement);
-        let de = security_band_note("de", 95, band, &issues).expect("explained");
+        let de =
+            security_band_note(&I18n::new("de").unwrap(), 95, band, &issues).expect("explained");
         assert!(de.contains("95") && de.contains("Sehr gut") && de.contains("hoher Schwere"));
-        let en = security_band_note("en", 95, band, &issues).expect("explained");
+        let en =
+            security_band_note(&I18n::new("en").unwrap(), 95, band, &issues).expect("explained");
         assert!(
             en.contains("Excellent") && en.contains("high severity"),
             "{en}"
@@ -464,13 +455,15 @@ mod tests {
         assert!(!en.contains(['ä', 'ö', 'ü', 'ß', '„']), "{en}");
 
         assert_eq!(
-            security_band_note("de", 95, ScoreBand::Excellent, &[]),
+            security_band_note(&I18n::new("de").unwrap(), 95, ScoreBand::Excellent, &[]),
             None
         );
         let minor = vec![issue(Severity::Low)];
         let band = security_text_band(95.0, &minor);
-        assert!(security_band_note("en", 95, band, &minor)
-            .expect("explained")
-            .contains("1 open finding"));
+        assert!(
+            security_band_note(&I18n::new("en").unwrap(), 95, band, &minor)
+                .expect("explained")
+                .contains("1 open finding")
+        );
     }
 }

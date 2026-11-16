@@ -1,3 +1,5 @@
+use crate::i18n::I18n;
+use crate::output::localized::is_english;
 use crate::output::report_model::{PageHealthPresentation, SerpPresentation};
 use crate::seo::page_health::{
     html_validation_check_text, html_validation_detail_text, html_validator_delegated_text,
@@ -34,10 +36,11 @@ pub(super) fn build_serp_presentation(
 }
 
 pub(super) fn build_page_health_presentation(
-    locale: &str,
+    i18n: &I18n,
     ph: &crate::seo::PageHealthAnalysis,
 ) -> PageHealthPresentation {
-    let en = locale == "en";
+    let locale = i18n.locale();
+    let en = is_english(i18n);
 
     // Re-derive the issue messages in the report locale. `ph.issues` is stored
     // in canonical English (for JSON); the PDF localizes here (#406).
@@ -48,39 +51,28 @@ pub(super) fn build_page_health_presentation(
 
     let mut url_info: Vec<(String, String)> = vec![
         (
-            if en { "URL length" } else { "URL-Länge" }.to_string(),
-            if en {
-                format!("{} characters", ph.url_length)
-            } else {
-                format!("{} Zeichen", ph.url_length)
-            },
+            i18n.t("report-builder-page-health-url-length"),
+            i18n.t_args(
+                "report-builder-page-health-url-length-value",
+                &[("count", ph.url_length.to_string())],
+            ),
         ),
         (
-            if en { "Path depth" } else { "Pfadtiefe" }.to_string(),
+            i18n.t("report-builder-page-health-path-depth"),
             ph.url_path_depth.to_string(),
         ),
         (
-            if en {
-                "Query parameters"
-            } else {
-                "Query-Parameter"
-            }
-            .to_string(),
+            i18n.t("report-builder-page-health-query-parameters"),
             yes_no(locale, ph.url_has_query_params),
         ),
         (
-            if en {
-                "Self-redirect"
-            } else {
-                "Eigene Weiterleitung"
-            }
-            .to_string(),
+            i18n.t("report-builder-page-health-self-redirect"),
             yes_no(locale, ph.own_redirect_detected),
         ),
     ];
     if let Some(ref final_url) = ph.own_final_url {
         url_info.push((
-            if en { "Target URL" } else { "Ziel-URL" }.to_string(),
+            i18n.t("report-builder-page-health-target-url"),
             final_url.clone(),
         ));
     }
@@ -104,8 +96,7 @@ pub(super) fn build_page_health_presentation(
             ("delegated", _) => html_validator_delegated_text(en),
             ("executed", _) => html_validator_executed_text(en),
             (_, Some(detail)) => detail.clone(),
-            (_, None) if en => "No additional information available".to_string(),
-            (_, None) => "Keine Zusatzinformationen verfügbar".to_string(),
+            (_, None) => i18n.t("report-builder-page-health-validator-no-info"),
         },
     ));
 

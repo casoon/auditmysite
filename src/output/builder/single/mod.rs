@@ -3,6 +3,8 @@
 mod actions_block;
 #[cfg(test)]
 mod builder_text_export;
+#[cfg(test)]
+mod builder_text_guard;
 mod diagnosis;
 mod executive;
 mod methodology;
@@ -22,7 +24,6 @@ use self::modules_block::build_modules_block_from_normalized;
 use self::positive::derive_positive_aspects_from_normalized;
 use super::finding_group::finding_group_from_normalized;
 use super::helpers::localized_module_name;
-use crate::output::localized::is_english;
 
 use crate::audit::normalized::AuditContext;
 use crate::audit::summary::analyze_with_locale;
@@ -45,7 +46,7 @@ use super::helpers::{
 /// was dropped but not what (plan 36 §5).
 fn exhausted_stability_measurements(
     stability: &[crate::interaction::stability::StabilityProvenance],
-    en: bool,
+    i18n: &I18n,
 ) -> String {
     use crate::interaction::stability::StabilityStatus;
     let parts: Vec<String> = stability
@@ -56,20 +57,18 @@ fn exhausted_stability_measurements(
             if let Some(first) = view.get_mut(0..1) {
                 first.make_ascii_uppercase();
             }
-            let mut text = if en {
-                format!("{view} view after {} ms", entry.waited_ms)
-            } else {
-                format!("{view}-Ansicht nach {} ms", entry.waited_ms)
-            };
+            let mut text = i18n.t_args(
+                "report-builder-stability-view",
+                &[("view", view), ("ms", entry.waited_ms.to_string())],
+            );
             // Only when it was actually counted: `mutation_count` falls back
             // to 0 when the in-page script does not report one, and "still 0
             // DOM changes" is a default printed as a measurement.
             if entry.mutation_count > 0 {
-                text.push_str(&if en {
-                    format!(", still {} DOM changes", entry.mutation_count)
-                } else {
-                    format!(", noch {} DOM-Änderungen", entry.mutation_count)
-                });
+                text.push_str(&i18n.t_args(
+                    "report-builder-stability-mutations",
+                    &[("count", entry.mutation_count.to_string())],
+                ));
             }
             if let Some(reason) = entry.reason.as_deref().filter(|r| !r.is_empty()) {
                 text.push_str(&format!(" ({reason})"));
@@ -78,11 +77,7 @@ fn exhausted_stability_measurements(
         })
         .collect();
     if parts.is_empty() {
-        return if en {
-            "individual measurements".to_string()
-        } else {
-            "einzelne Messungen".to_string()
-        };
+        return i18n.t("report-builder-stability-individual");
     }
     parts.join(", ")
 }
@@ -164,7 +159,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
     let report_author = extract_domain(&normalized.normalized.url);
     // Same order as `summary.top_actions` in the JSON (plan 58).
     let top_findings: Vec<FindingGroup> = sorted_groups.iter().take(5).cloned().collect();
-    let positive_aspects = derive_positive_aspects_from_normalized(&config.locale, normalized);
+    let positive_aspects = derive_positive_aspects_from_normalized(&i18n, normalized);
     let action_plan = derive_action_plan(&i18n, &sorted_groups);
 
     let mut module_names: Vec<String> = vec![localized_module_name("Accessibility", &i18n)];
@@ -308,7 +303,6 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
             dominant_issue_note: audit_summary.dominant_issue_note.clone(),
             audit_quality_note: {
                 use crate::audit::AuditQualityStatus;
-                let en = is_english(&i18n);
                 match normalized.normalized.execution.quality.status {
                     AuditQualityStatus::Complete => None,
                     // Framed as a normal automated-audit coverage limitation, not
@@ -326,36 +320,18 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                     AuditQualityStatus::Partial => {
                         let exhausted = exhausted_stability_measurements(
                             &normalized.normalized.execution.navigation.stability,
-                            en,
+                            &i18n,
                         );
-                        Some(if en {
-                            format!(
-                                "The automated audit completed successfully. Individual \
-                                 measurements hit a stability/retry budget and are excluded from \
-                                 the reported scores, which describe only the successfully \
-                                 measured scope. Affected: {exhausted}."
-                            )
-                        } else {
-                            format!(
-                                "Der automatisierte Audit wurde erfolgreich durchgeführt. \
-                                 Einzelne Messungen haben ein Stabilitäts-/Wiederholungsbudget \
-                                 erreicht und sind daher nicht in den ausgewiesenen Scores \
-                                 enthalten; diese beschreiben den erfolgreich gemessenen Umfang. \
-                                 Betroffen: {exhausted}."
-                            )
-                        })
+                        Some(
+                            i18n.t_args(
+                                "report-builder-quality-partial",
+                                &[("affected", exhausted)],
+                            ),
+                        )
                     }
-                    AuditQualityStatus::Insufficient => Some(if en {
-                        "This audit run has insufficient data quality: several measurements \
-                         failed. Scores and findings below may be incomplete or unreliable. \
-                         See the methodology appendix for details."
-                            .to_string()
-                    } else {
-                        "Dieser Prüflauf hat unzureichende Datenqualität: mehrere Messungen sind \
-                         fehlgeschlagen. Scores und Befunde können unvollständig oder \
-                         unzuverlässig sein. Details im Methodik-Anhang."
-                            .to_string()
-                    }),
+                    AuditQualityStatus::Insufficient => {
+                        Some(i18n.t("report-builder-quality-insufficient"))
+                    }
                 }
             },
             audit_quality_severe: normalized.normalized.execution.quality.status
@@ -378,11 +354,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                 let label_violations_total = i18n.t("metric-violations-total");
                 let label_critical = i18n.t("metric-critical-high");
                 let label_checked_nodes = i18n.t("metric-checked-nodes");
-                let label_quick_wins: String = if i18n.locale() == "en" {
-                    "Quick wins".into()
-                } else {
-                    "Schnell umsetzbar".into()
-                };
+                let label_quick_wins = i18n.t("report-builder-metric-quick-wins");
                 let label_wcag_level = i18n.t("metric-wcag-level");
                 let label_warnings = i18n.t("metric-warnings");
                 let label_not_testable = i18n.t("metric-not-testable");
@@ -488,7 +460,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         module_details,
         actions,
         appendix: build_appendix_block_from_normalized(&config.locale, &normalized.normalized),
-        positive_signals: build_positive_signals(&config.locale, normalized),
+        positive_signals: build_positive_signals(&i18n, normalized),
         management_risks,
         annotations: None,
     }

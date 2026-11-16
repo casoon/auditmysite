@@ -796,7 +796,6 @@ pub fn build_batch_presentation_with_normalized(
     // Empty when nothing was measured; the PDF refuses such a batch.
     let grade = batch.summary.grade().unwrap_or_default();
 
-    let en = is_english(i18n);
     // From the root causes (finding patterns on two or more pages), most
     // widespread first; open ones keep their own label (2.0 finding model).
     let template_clusters: Vec<TemplateClusterView> = batch
@@ -812,11 +811,9 @@ pub fn build_batch_presentation_with_normalized(
                 "output-batch-cover-urls",
                 &[("count", batch.summary.total_urls as i64)],
             ),
-            date: if en {
-                chrono::Utc::now().format("%Y-%m-%d").to_string()
-            } else {
-                chrono::Utc::now().format("%d.%m.%Y").to_string()
-            },
+            date: chrono::Utc::now()
+                .format(&i18n.t("date-format-str"))
+                .to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
         },
         portfolio_summary: PortfolioSummary {

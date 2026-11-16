@@ -16,6 +16,7 @@ use runemark::{
 use crate::audit::{
     normalize_checked, validate_batch, AuditReport, BatchReport, ReportContractError,
 };
+use crate::i18n::I18n;
 use crate::model::{ColorPolicy, ReportLevel};
 use crate::output::builder::{build_batch_presentation, build_view_model};
 use crate::output::report_model::ReportConfig;
@@ -204,14 +205,13 @@ pub fn render_single_report_for(
         ));
     }
 
-    let lines = experimental_lines(&report.experimental, options.lang != "de");
+    // Any language but "de" prints English, as the baseline note above does.
+    let i18n = I18n::new(if options.lang == "de" { "de" } else { "en" })
+        .expect("the bundled locales load");
+    let lines = experimental_lines(&report.experimental, &i18n);
     if !lines.is_empty() {
         rm_report = rm_report.add_scope_note(runemark::report::ScopeNote::new(
-            if options.lang == "de" {
-                "Experimentelle Indikatoren (nicht validiert, ohne Einfluss auf Score und Urteil)"
-            } else {
-                "Experimental indicators (unvalidated, no effect on score or verdict)"
-            },
+            i18n.t("report-builder-terminal-experimental-title"),
             lines,
         ));
     }
@@ -222,10 +222,10 @@ pub fn render_single_report_for(
 
 /// One line per experimental indicator that ran (`--experimental`, #916); the
 /// table lists them only when they were asked for. The only text source of
-/// these lines: `en` selects the language, the analysis stays English.
+/// these lines: `i18n` selects the language, the analysis stays English.
 fn experimental_lines(
     experimental: &crate::audit::ExperimentalIndicators,
-    en: bool,
+    i18n: &I18n,
 ) -> Vec<String> {
     use crate::audit::ExperimentalIndicator as I;
     use crate::output::module::ReportModule;
@@ -233,8 +233,10 @@ fn experimental_lines(
     let score_of = |value: serde_json::Value| value.get("score").and_then(|s| s.as_u64());
     let scored = |label: &str, score: Option<u64>| match score {
         Some(score) => format!("{label}: {score}/100"),
-        None if en => format!("{label}: no score"),
-        None => format!("{label}: kein Score"),
+        None => i18n.t_args(
+            "report-builder-terminal-no-score",
+            &[("label", label.to_string())],
+        ),
     };
     experimental
         .present()
@@ -270,22 +272,23 @@ fn experimental_lines(
                     .content_visibility
                     .as_ref()
                     .map_or((0, 0), |m| (m.signal_count, m.problem_count));
-                if en {
-                    format!("Content Visibility: {problems} of {signals} signals flagged")
-                } else {
-                    format!("Content Visibility: {problems} von {signals} Signalen auffällig")
-                }
+                i18n.t_args(
+                    "report-builder-terminal-content-visibility",
+                    &[
+                        ("problems", problems.to_string()),
+                        ("signals", signals.to_string()),
+                    ],
+                )
             }
             I::Commerce => {
                 let findings = experimental
                     .commerce
                     .as_ref()
                     .map_or(0, |m| m.findings.len());
-                if en {
-                    format!("Commerce: {findings} finding(s)")
-                } else {
-                    format!("Commerce: {findings} Hinweis(e)")
-                }
+                i18n.t_args(
+                    "report-builder-terminal-commerce",
+                    &[("findings", findings.to_string())],
+                )
             }
         })
         .collect()
@@ -392,7 +395,7 @@ pub fn render_batch_report(
 }
 
 #[cfg(test)]
-mod text_export;
+pub(crate) mod text_export;
 
 #[cfg(test)]
 mod tests {
@@ -460,7 +463,7 @@ mod tests {
         report.experimental.content_visibility = Some(
             crate::content_visibility::analyze_content_visibility(&fixture_report()),
         );
-        let lines = experimental_lines(&report.experimental, true);
+        let lines = experimental_lines(&report.experimental, &I18n::new("en").unwrap());
         assert_eq!(lines.len(), 2);
         for line in &lines {
             assert!(
@@ -469,7 +472,7 @@ mod tests {
             );
             assert!(!line.contains("von ") && !line.contains("kein "), "{line}");
         }
-        let german = experimental_lines(&report.experimental, false);
+        let german = experimental_lines(&report.experimental, &I18n::new("de").unwrap());
         assert!(german.iter().any(|l| l.contains("Signalen")), "{german:?}");
     }
 

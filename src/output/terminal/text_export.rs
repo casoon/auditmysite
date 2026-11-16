@@ -77,11 +77,11 @@ fn scenarios() -> Vec<(String, ExperimentalIndicators)> {
 }
 
 /// Every record of the export, in both languages.
-pub(super) fn records() -> Vec<Value> {
+pub(crate) fn records() -> Vec<Value> {
     let mut records = Vec::new();
     for lang in ["en", "de"] {
         for (name, set) in scenarios() {
-            let lines = experimental_lines(&set, lang != "de");
+            let lines = experimental_lines(&set, &I18n::new(lang).unwrap());
             let options = TerminalOptions {
                 color: ColorPolicy::Never,
                 lang: lang.to_string(),

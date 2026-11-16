@@ -68,7 +68,7 @@ pub(super) fn build_performance_details(
         }
         if let Some(ref cw) = p.content_weight {
             additional.push((
-                if en { "CO2e per view" } else { "CO2e pro View" }.to_string(),
+                i18n.t("report-builder-perf-co2e"),
                 format!(
                     "{} g ({})",
                     if en {
@@ -93,46 +93,26 @@ pub(super) fn build_performance_details(
         let mut resource_ratings = Vec::new();
         if let Some(nodes) = p.vitals.dom_nodes {
             resource_ratings.push((
-                if en { "DOM nodes" } else { "DOM-Knoten" }.to_string(),
+                i18n.t("report-builder-perf-dom-nodes"),
                 localized_integer(nodes, en),
                 rate_threshold(nodes as f64, 800.0, 1500.0).to_string(),
-                if en {
-                    "Guideline: max. 800"
-                } else {
-                    "Richtwert: max. 800"
-                }
-                .to_string(),
+                i18n.t("report-builder-perf-guideline-dom-nodes"),
             ));
         }
         if let Some(load) = p.vitals.load_time {
             resource_ratings.push((
-                if en { "Load time" } else { "Ladezeit" }.to_string(),
+                i18n.t("report-builder-perf-load-time"),
                 format!("{} s", localized_decimal(load / 1000.0, 1, en)),
                 rate_threshold(load, 3000.0, 6000.0).to_string(),
-                if en {
-                    "Guideline: max. 3.0 s"
-                } else {
-                    "Richtwert: max. 3,0 s"
-                }
-                .to_string(),
+                i18n.t("report-builder-perf-guideline-load-time"),
             ));
         }
         if let Some(dcl) = p.vitals.dom_content_loaded {
             resource_ratings.push((
-                if en {
-                    "DOM Content Loaded"
-                } else {
-                    "DOM-Inhalt geladen"
-                }
-                .to_string(),
+                i18n.t("report-builder-perf-dom-content-loaded"),
                 format!("{} s", localized_decimal(dcl / 1000.0, 1, en)),
                 rate_threshold(dcl, 1800.0, 3600.0).to_string(),
-                if en {
-                    "Guideline: max. 1.8 s"
-                } else {
-                    "Richtwert: max. 1,8 s"
-                }
-                .to_string(),
+                i18n.t("report-builder-perf-guideline-dom-content-loaded"),
             ));
         }
 
@@ -146,31 +126,16 @@ pub(super) fn build_performance_details(
             if rb.has_blocking() || rb.third_party_bytes > 100_000 {
                 has_render_blocking = true;
                 render_blocking_metrics.push((
-                    if en {
-                        "Blocking Scripts"
-                    } else {
-                        "Blockierende Skripte"
-                    }
-                    .to_string(),
+                    i18n.t("report-builder-perf-blocking-scripts"),
                     rb.blocking_scripts.len().to_string(),
                 ));
                 render_blocking_metrics.push((
-                    if en {
-                        "Blocking CSS"
-                    } else {
-                        "Blockierendes CSS"
-                    }
-                    .to_string(),
+                    i18n.t("report-builder-perf-blocking-css"),
                     rb.blocking_css.len().to_string(),
                 ));
                 if rb.blocking_transfer_bytes > 0 {
                     render_blocking_metrics.push((
-                        if en {
-                            "Blocking Transfer"
-                        } else {
-                            "Blockierender Transfer"
-                        }
-                        .to_string(),
+                        i18n.t("report-builder-perf-blocking-transfer"),
                         format!(
                             "{} KB",
                             localized_decimal(rb.blocking_transfer_bytes as f64 / 1024.0, 1, en)
@@ -179,7 +144,7 @@ pub(super) fn build_performance_details(
                 }
                 if rb.third_party_bytes > 0 {
                     render_blocking_metrics.push((
-                        if en { "Third-Party" } else { "Drittanbieter" }.to_string(),
+                        i18n.t("report-builder-perf-third-party"),
                         format!(
                             "{} KB ({} Domains)",
                             localized_decimal(rb.third_party_bytes as f64 / 1024.0, 1, en),
@@ -189,12 +154,7 @@ pub(super) fn build_performance_details(
                 }
                 if rb.first_party_bytes > 0 {
                     render_blocking_metrics.push((
-                        if en {
-                            "First-Party"
-                        } else {
-                            "Eigene Ressourcen"
-                        }
-                        .to_string(),
+                        i18n.t("report-builder-perf-first-party"),
                         format!(
                             "{} KB",
                             localized_decimal(rb.first_party_bytes as f64 / 1024.0, 1, en)
@@ -222,15 +182,7 @@ pub(super) fn build_performance_details(
         // they had no measured impact on this run (fast server / warm cache).
         let en = locale == "en";
         if has_render_blocking && cwv_all_good && !render_blocking_suggestions.is_empty() {
-            render_blocking_suggestions.push(if en {
-                "No measurable impact on the measured vitals — still worth fixing preventively, \
-                 since slow connections or cold caches can be affected more severely."
-                    .to_string()
-            } else {
-                "Kein messbarer Einfluss auf die gemessenen Vitals — trotzdem vorbeugend beheben, \
-                 da langsame Verbindungen oder kalte Caches stärker betroffen sein können."
-                    .to_string()
-            });
+            render_blocking_suggestions.push(i18n.t("report-builder-perf-no-measurable-impact"));
         }
         let base_perf = module_interpretation(&normalized.normalized, "performance", locale);
         // Decision + wording live in the domain layer (#406); the builder only

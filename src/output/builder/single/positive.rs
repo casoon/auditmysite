@@ -1,40 +1,28 @@
 use crate::audit::normalized::AuditContext;
+use crate::i18n::I18n;
 use crate::output::report_model::{
     ExampleBlock, FindingGroup, FindingPatternCluster, NarrativeArc, PositiveAspect,
     RepresentativeOccurrence, RoleAssignment,
 };
 
 pub(super) fn derive_positive_aspects_from_normalized(
-    locale: &str,
+    i18n: &I18n,
     normalized: &AuditContext<'_>,
 ) -> Vec<PositiveAspect> {
-    let en = locale == "en";
     let mut positives = Vec::new();
     let a11y_score = normalized.normalized.score as f32;
 
-    let area_a11y: String = if en {
-        "Accessibility".into()
-    } else {
-        "Barrierefreiheit".into()
-    };
+    let area_a11y = i18n.t("module-accessibility");
 
     if normalized.normalized.findings.is_empty() {
         positives.push(PositiveAspect {
             area: area_a11y.clone(),
-            description: if en {
-                "No automatically detectable violations found.".into()
-            } else {
-                "Keine automatisch erkennbaren Verstöße gefunden.".into()
-            },
+            description: i18n.t("report-builder-aspect-no-violations"),
         });
     } else if a11y_score >= 80.0 {
         positives.push(PositiveAspect {
             area: area_a11y,
-            description: if en {
-                "Stable base quality with focused, prioritizable remaining items.".into()
-            } else {
-                "Stabile Grundqualität mit gezielt priorisierbaren Restpunkten.".into()
-            },
+            description: i18n.t("report-builder-aspect-stable-base"),
         });
     }
 
@@ -42,11 +30,7 @@ pub(super) fn derive_positive_aspects_from_normalized(
         if perf.score.overall >= 80 {
             positives.push(PositiveAspect {
                 area: "Performance".into(),
-                description: if en {
-                    "Stable load times and overall responsive page build-up.".into()
-                } else {
-                    "Stabile Ladezeiten und insgesamt reaktionsschneller Seitenaufbau.".into()
-                },
+                description: i18n.t("report-builder-aspect-performance"),
             });
         }
     }
@@ -54,27 +38,15 @@ pub(super) fn derive_positive_aspects_from_normalized(
         if seo.score >= 80 {
             positives.push(PositiveAspect {
                 area: "SEO".into(),
-                description: if en {
-                    "Clean foundation for discoverability, structure and meta data.".into()
-                } else {
-                    "Saubere Basis für Auffindbarkeit, Struktur und Meta-Daten.".into()
-                },
+                description: i18n.t("report-builder-aspect-seo"),
             });
         }
     }
     if let Some(sec) = normalized.raw_security {
         if sec.score >= 80 {
             positives.push(PositiveAspect {
-                area: if en {
-                    "Security".into()
-                } else {
-                    "Sicherheit".into()
-                },
-                description: if en {
-                    "Key security mechanisms are fundamentally in place.".into()
-                } else {
-                    "Wichtige Sicherheitsmechanismen sind grundsätzlich vorhanden.".into()
-                },
+                area: i18n.t("module-security"),
+                description: i18n.t("report-builder-aspect-security"),
             });
         }
     }
@@ -82,27 +54,15 @@ pub(super) fn derive_positive_aspects_from_normalized(
         if mobile.score >= 80 {
             positives.push(PositiveAspect {
                 area: "Mobile".into(),
-                description: if en {
-                    "The site is usable and readable on small displays.".into()
-                } else {
-                    "Die Seite ist auf kleinen Displays gut bedienbar und lesbar.".into()
-                },
+                description: i18n.t("report-builder-aspect-mobile"),
             });
         }
     }
 
     if positives.is_empty() {
         positives.push(PositiveAspect {
-            area: if en {
-                "Base structure".into()
-            } else {
-                "Grundstruktur".into()
-            },
-            description: if en {
-                "The site is fundamentally functional and reachable.".into()
-            } else {
-                "Die Seite ist grundsätzlich funktional und erreichbar.".into()
-            },
+            area: i18n.t("report-builder-aspect-base-area"),
+            description: i18n.t("report-builder-aspect-base"),
         });
     }
     positives
