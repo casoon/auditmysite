@@ -97,7 +97,9 @@ method = "shared"
 source = "WCAG 2.2 SC 1.3.1 Info and Relationships (F2, H48); HTML §4.4.5-4.4.10 list content models; WAI-ARIA 1.2 list/listitem/term/definition"
 capabilities = ["dom", "computed_style"]
 applicability = """
-Every rendered, not aria-hidden list item: <li> or role="listitem" without another explicit role."""
+Every rendered, not aria-hidden <li> without another explicit role. Since
+a11y-rules 0.30.2 an element with role="listitem" outside a list is
+aria/required-parent-missing (WAI-ARIA 1.2 required context role), not this id."""
 expectation = """
 A list item whose nearest list ancestor is missing, or has turned into
 something other than a list by its role (tablist, menu), fails (F2-like: item
@@ -105,13 +107,13 @@ semantics without a list). A list ancestor with role none/presentation passes
 the item's semantics on and is no finding. Located at the item. Known host gap
 until the a11y-rules release that declares this id in Meta::ids: findings
 arrive without a run record (FindingWithoutRun), not to be worked around here."""
-positive = ["content_lists_broken", "landmarks_and_lists"]
+positive = ["content_lists_broken"]
 negative = ["content_lists_ok", "content_lists_responsive_role"]
 not_applicable = ["content_plain_article", "content_lists_trailing_term"]
 
 [rule.variants]
 visibility = { cases = ["content_lists_broken"] }
-native_vs_aria = { cases = ["content_lists_broken", "landmarks_and_lists"] }
+native_vs_aria = { cases = ["content_lists_broken"] }
 alternative_labels = { not_relevant = "Structure check; names and labels play no part in it." }
 frames_shadow_dom = { cases = ["content_lists_ok"] }
 responsive = { not_relevant = "The rule reads markup; a viewport only changes whether content is rendered, which goes through the same visibility layer the visibility cases and the responsive image case exercise." }

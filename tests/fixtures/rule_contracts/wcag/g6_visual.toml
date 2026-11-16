@@ -755,6 +755,137 @@ killed_by = "corpus:visual_text_spacing_override_defeated"
 # --- Display-mode convention (best practice) ---------------------------------------
 
 [[rule]]
+id = "text-spacing/letter-important"
+errored = ["error_dom_too_deep", "error_stylesheets_unreadable"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=text-spacing/letter-important)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.4.12 Text Spacing (letter spacing (tracking) at least 0.12 times the font size); CSS Cascade 4 (author !important in a style attribute); ACT 24afc2"
+capabilities = ["dom", "stylesheets"]
+applicability = "Rendered elements with text whose style attribute sets letter-spacing with !important to a value other than inherit, unset, revert or revert-layer."
+expectation = """
+Fails when that value is below 0.12 times the font size: an author declaration
+with !important in the style attribute wins over every author style sheet,
+including the one a text-spacing bookmarklet or extension injects, so the
+letter spacing (tracking) 1.4.12 requires cannot be set. 0.1em or 2px at a
+20px font fails; exactly 0.12em passes. A later declaration without !important
+does not change the effective value. inherit, unset and revert take over a
+value not fixed here and do not count; a value without !important can be
+overridden and does not apply. When layout decides whether the text is
+affected (the element or an ancestor is positioned absolute/fixed, the font
+size a px value is compared with is not given in px, or for line height a
+horizontally scrolling ancestor), the finding is a review, not a violation.
+Text that is not rendered (display: none) is out of scope. Reported once per
+element."""
+page_level = false
+positive = ["visual_text_spacing_important"]
+negative = ["visual_text_spacing_important_ok"]
+not_applicable = ["visual_text_spacing_important_na"]
+
+[rule.variants]
+visibility = { cases = ["visual_text_spacing_important_na", "visual_text_spacing_important"] }
+native_vs_aria = { not_relevant = "Spacing is presentation, independent of roles or ARIA." }
+alternative_labels = { not_relevant = "No accessible name is involved; the three spacing properties are separate ids." }
+frames_shadow_dom = { not_relevant = "The rule reads the style attributes and stylesheets of the top document; frame documents are not part of this check." }
+responsive = { not_relevant = "A style attribute applies in every viewport; the decision does not depend on the breakpoint." }
+dynamic = { not_relevant = "Style attributes are read from the DOM after scripts ran; one set at load is the static case." }
+thresholds = { cases = ['visual_text_spacing_important', 'visual_text_spacing_important_ok'] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id text-spacing/letter-important)"
+
+[[rule]]
+id = "text-spacing/word-important"
+errored = ["error_dom_too_deep", "error_stylesheets_unreadable"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=text-spacing/word-important)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.4.12 Text Spacing (word spacing at least 0.16 times the font size); CSS Cascade 4 (author !important in a style attribute); ACT 9e45ec"
+capabilities = ["dom", "stylesheets"]
+applicability = "Rendered elements with text whose style attribute sets word-spacing with !important to a value other than inherit, unset, revert or revert-layer."
+expectation = """
+Fails when that value is below 0.16 times the font size: an author declaration
+with !important in the style attribute wins over every author style sheet,
+including the one a text-spacing bookmarklet or extension injects, so the word
+spacing 1.4.12 requires cannot be set. normal (0) fails; exactly 0.16em
+passes. inherit, unset and revert take over a value not fixed here and do not
+count; a value without !important can be overridden and does not apply. When
+layout decides whether the text is affected (the element or an ancestor is
+positioned absolute/fixed, the font size a px value is compared with is not
+given in px, or for line height a horizontally scrolling ancestor), the
+finding is a review, not a violation. Text that is not rendered (display:
+none) is out of scope. Reported once per element."""
+page_level = false
+positive = ["visual_text_spacing_important"]
+negative = ["visual_text_spacing_important_ok"]
+not_applicable = ["visual_text_spacing_important_na"]
+
+[rule.variants]
+visibility = { cases = ["visual_text_spacing_important_na"] }
+native_vs_aria = { not_relevant = "Spacing is presentation, independent of roles or ARIA." }
+alternative_labels = { not_relevant = "No accessible name is involved; the three spacing properties are separate ids." }
+frames_shadow_dom = { not_relevant = "The rule reads the style attributes and stylesheets of the top document; frame documents are not part of this check." }
+responsive = { not_relevant = "A style attribute applies in every viewport; the decision does not depend on the breakpoint." }
+dynamic = { not_relevant = "Style attributes are read from the DOM after scripts ran; one set at load is the static case." }
+thresholds = { cases = ['visual_text_spacing_important_ok'] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id text-spacing/word-important)"
+
+[[rule]]
+id = "text-spacing/line-height-important"
+errored = ["error_dom_too_deep", "error_stylesheets_unreadable"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=text-spacing/line-height-important)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.4.12 Text Spacing (line height (line spacing) at least 1.5 times the font size); CSS Cascade 4 (author !important in a style attribute); ACT 78fd32"
+capabilities = ["dom", "stylesheets"]
+applicability = "Rendered elements with text whose style attribute sets line-height with !important to a value other than inherit, unset, revert or revert-layer."
+expectation = """
+Fails when that value is below 1.5 times the font size: an author declaration
+with !important in the style attribute wins over every author style sheet,
+including the one a text-spacing bookmarklet or extension injects, so the line
+height (line spacing) 1.4.12 requires cannot be set. 120% fails; exactly 1.5
+passes. inherit, unset and revert take over a value not fixed here and do not
+count; a value without !important can be overridden and does not apply. When
+layout decides whether the text is affected (the element or an ancestor is
+positioned absolute/fixed, the font size a px value is compared with is not
+given in px, or for line height a horizontally scrolling ancestor), the
+finding is a review, not a violation. Text that is not rendered (display:
+none) is out of scope. Reported once per element."""
+page_level = false
+positive = ["visual_text_spacing_important"]
+negative = ["visual_text_spacing_important_ok"]
+not_applicable = ["visual_text_spacing_important_na"]
+
+[rule.variants]
+visibility = { not_relevant = "The display: none check is shared by the three spacing properties and proven for letter and word spacing (visual_text_spacing_important_na); a hidden paragraph with a tight line height is left out there because text/line-height-tight reports it although it is not rendered." }
+native_vs_aria = { not_relevant = "Spacing is presentation, independent of roles or ARIA." }
+alternative_labels = { not_relevant = "No accessible name is involved; the three spacing properties are separate ids." }
+frames_shadow_dom = { not_relevant = "The rule reads the style attributes and stylesheets of the top document; frame documents are not part of this check." }
+responsive = { not_relevant = "A style attribute applies in every viewport; the decision does not depend on the breakpoint." }
+dynamic = { not_relevant = "Style attributes are read from the DOM after scripts ran; one set at load is the static case." }
+thresholds = { cases = ['visual_text_spacing_important_ok'] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id text-spacing/line-height-important)"
+
+[[rule]]
 id = "display/toggle-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=display/toggle-missing)"]

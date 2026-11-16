@@ -178,6 +178,14 @@
    "verdict": "errored"
   },
   {
+   "rule_id": "aria/presentation-conflict",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "aria/presentational-children-focusable",
+   "verdict": "errored"
+  },
+  {
    "rule_id": "aria/tab-selected-missing",
    "verdict": "errored"
   },
@@ -406,6 +414,10 @@
    "verdict": "errored"
   },
   {
+   "rule_id": "language/part-invalid",
+   "verdict": "errored"
+  },
+  {
    "rule_id": "language/abbreviation-unexpanded",
    "verdict": "errored"
   },
@@ -563,6 +575,18 @@
   },
   {
    "rule_id": "text-spacing/clipped",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "text-spacing/letter-important",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "text-spacing/word-important",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "text-spacing/line-height-important",
    "verdict": "errored"
   },
   {

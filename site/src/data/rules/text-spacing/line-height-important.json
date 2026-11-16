@@ -1,0 +1,42 @@
+{
+  "id": "text-spacing/line-height-important",
+  "url": "https://casoon.github.io/auditmysite/rules/text-spacing/line-height-important/",
+  "domain": "wcag",
+  "title": "Line height fixed with !important",
+  "outcome": "automatic",
+  "area": "Accessibility, Visual Presentation",
+  "criterion": "1.4.12",
+  "level": "AA",
+  "axe_id": "text-spacing/line-height-important",
+  "severity": "medium",
+  "user_impact": "Users cannot increase line height for readability.",
+  "technical_impact": "line-height below 1.5 set with !important in a style attribute.",
+  "checks": [
+    {
+      "contract_id": "text-spacing/line-height-important",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 1.4.12 Text Spacing (line height (line spacing) at least 1.5 times the font size); CSS Cascade 4 (author !important in a style attribute); ACT 78fd32",
+      "applicability": "Rendered elements with text whose style attribute sets line-height with !important to a value other than inherit, unset, revert or revert-layer.",
+      "expectation": "Fails when that value is below 1.5 times the font size: an author declaration\nwith !important in the style attribute wins over every author style sheet,\nincluding the one a text-spacing bookmarklet or extension injects, so the line\nheight (line spacing) 1.4.12 requires cannot be set. 120% fails; exactly 1.5\npasses. inherit, unset and revert take over a value not fixed here and do not\ncount; a value without !important can be overridden and does not apply. When\nlayout decides whether the text is affected (the element or an ancestor is\npositioned absolute/fixed, the font size a px value is compared with is not\ngiven in px, or for line height a horizontally scrolling ancestor), the\nfinding is a review, not a violation. Text that is not rendered (display:\nnone) is out of scope. Reported once per element.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "stylesheets"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "visual_text_spacing_important",
+        "file": "tests/fixtures/detection_corpus/visual_text_spacing_important.html",
+        "verdict": "violation",
+        "selector": "p#line",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Opening hours - Town library</title>\n<style>\n  body { color: #111111; background: #ffffff; font-size: 16px; }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Town library</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Opening hours</h1>\n  <!-- Fixed below the 1.4.12 values with !important in the style attribute:\n       a user style sheet cannot increase the spacing. -->\n  <p id=\"letter\" style=\"letter-spacing: 0.1em !important\">The library is open Monday to Friday from 9:00 to 18:00.</p>\n  <p id=\"word\" style=\"word-spacing: normal !important\">On Saturday it opens from 10:00 to 14:00.</p>\n  <p id=\"line\" style=\"line-height: 120% !important\">On public holidays the library stays closed.</p>\n  <!-- Positioned out of the flow: without layout it is open whether the\n       text is visible at all. -->\n  <p id=\"letter-positioned\" style=\"position: absolute; top: -999em; letter-spacing: 0.1em !important\">Books can be returned at the drop box.</p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "visual_text_spacing_important_ok",
+        "file": "tests/fixtures/detection_corpus/visual_text_spacing_important_ok.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Opening hours - Town library</title>\n<style>\n  body { color: #111111; background: #ffffff; font-size: 16px; }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Town library</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Opening hours</h1>\n  <!-- Exactly the 1.4.12 values, fixed with !important: a user needs no more. -->\n  <p id=\"letter\" style=\"letter-spacing: 0.12em !important\">The library is open Monday to Friday from 9:00 to 18:00.</p>\n  <p id=\"word\" style=\"word-spacing: 0.16em !important\">On Saturday it opens from 10:00 to 14:00.</p>\n  <p id=\"line\" style=\"line-height: 1.5 !important\">On public holidays the library stays closed.</p>\n  <!-- The later declaration without !important does not win over the first. -->\n  <p id=\"overridden\" style=\"letter-spacing: 0.15em !important; letter-spacing: 0.1em\">Books can be returned at the drop box.</p>\n  <!-- inherit takes over a value that is not fixed here. -->\n  <p style=\"word-spacing: 0.2em\"><span id=\"inherited\" style=\"word-spacing: inherit !important\">The reading room closes thirty minutes earlier.</span></p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

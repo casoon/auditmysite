@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your documents - Example cloud</title>
+<style>
+  body { color: #111111; background: #ffffff; font-size: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Example cloud</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Your documents</h1>
+  <!-- Marked as decorative, but a global ARIA attribute keeps it in the tree
+       (WAI-ARIA 1.2, Presentational Roles Conflict Resolution). -->
+  <div id="toolbar" role="presentation" aria-label="Document actions"><p>Three documents</p></div>
+  <!-- An empty alt maps to role presentation (HTML-AAM); aria-labelledby
+       brings it back. -->
+  <img id="logo" src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==" alt="" aria-labelledby="logo-label" width="40" height="40"><span hidden id="logo-label">Example cloud logo</span>
+  <!-- Focusable: the presentation role does not apply. -->
+  <p><span id="more" role="none" tabindex="0">More documents</span></p>
+  <!-- Children of a button are presentational (Children Presentational: True);
+       the focusable span inside gets no role or name for a screen reader. -->
+  <button id="save" type="button">Save <span role="button" tabindex="0" aria-label="Save options">&#9660;</span></button>
+  <!-- Same with an explicit role: the link inside a checkbox. -->
+  <p><span id="terms" role="checkbox" aria-checked="false" tabindex="0">I accept the <a href="/terms">terms of use</a></span></p>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

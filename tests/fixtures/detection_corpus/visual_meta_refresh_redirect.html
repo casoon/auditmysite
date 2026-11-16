@@ -8,7 +8,8 @@
 <meta id="slow-redirect" HTTP-EQUIV="REFRESH" content=" 71999; url=/news">
 <title>Ticker page with a refresh and a redirect</title>
 <script>
-  // Inserted by a script: the browser still honours it.
+  // Inserted by a script after the first refresh: HTML "will declaratively
+  // refresh" is already set, so the browser ignores it.
   var refresh = document.createElement('meta');
   refresh.id = 'late-refresh';
   refresh.httpEquiv = 'refresh';

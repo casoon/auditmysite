@@ -70,6 +70,12 @@
       "rule_id": "manual/help",
       "selector": "html",
       "verdict": "needs_review"
+    },
+    {
+      "rule_id": "tables/header-without-data",
+      "selector": "th#col-name",
+      "verdict": "violation",
+      "occurrences": 1
     }
   ]
 }

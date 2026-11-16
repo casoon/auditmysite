@@ -10,8 +10,7 @@
     {
       "rule_id": "timing/meta-refresh",
       "selector": "meta#late-refresh",
-      "verdict": "violation",
-      "occurrences": 1
+      "verdict": "pass"
     },
     {
       "rule_id": "meta-refresh",

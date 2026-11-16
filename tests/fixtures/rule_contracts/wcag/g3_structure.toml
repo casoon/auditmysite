@@ -1129,6 +1129,49 @@ change = "1 targeted mutation(s) of the shared rule (disable, invert, shift thre
 killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id language/part-undetermined)"
 
 [[rule]]
+id = "language/part-invalid"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=language/part-invalid)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 3.1.2 Language of Parts; H58; BCP 47 (RFC 5646) primary language subtag; ACT de46e4"
+capabilities = ["dom", "computed_style"]
+applicability = "Elements below html with a non-empty lang attribute whose own text (text nodes or a non-empty img alt not claimed by an inner lang) is rendered."
+expectation = """
+Fails when the lang attribute of such an element is not a valid BCP 47 tag
+(primary subtag not a language: "dutch", "english", "invalid"): the passage
+gets no language, so assistive technology cannot pick the pronunciation 3.1.2
+asks for. Reported once, at the element carrying the attribute. Only the
+primary subtag has to be valid ("en-US-GB" passes). Text inside an inner
+element with its own lang belongs to that lang; an image carries text through
+a non-empty alt. Text hidden from the accessibility tree (aria-hidden) is still
+drawn and counts; text that is not rendered does not. lang="" states that the
+language is unknown and is not a finding; the root element is
+document/lang-invalid, not this id."""
+page_level = false
+ambient = false
+positive = ["language_part_invalid"]
+negative = ["language_part_valid"]
+not_applicable = ["language_part_invalid_na"]
+
+[rule.variants]
+visibility = { cases = ["language_part_invalid", "language_part_invalid_na"] }
+native_vs_aria = { not_relevant = "ARIA has no way to declare a language." }
+alternative_labels = { cases = ["language_part_invalid", "language_part_invalid_na"] }
+frames_shadow_dom = { not_relevant = "Each frame document has its own language; the frame pass runs element rules only." }
+responsive = { not_relevant = "The lang attribute does not change per breakpoint." }
+dynamic = { not_relevant = "Read from the captured DOM after load like markup." }
+thresholds = { cases = ["language_part_valid"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id language/part-invalid)"
+
+[[rule]]
 id = "language/abbreviation-unexpanded"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=language/abbreviation-unexpanded)"]

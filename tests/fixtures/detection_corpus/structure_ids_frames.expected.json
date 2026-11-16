@@ -32,7 +32,8 @@
     {
       "rule_id": "frames/name-missing",
       "selector": "iframe#tracking-frame",
-      "verdict": "pass"
+      "verdict": "violation",
+      "occurrences": 1
     },
     {
       "rule_id": "frames/name-missing",

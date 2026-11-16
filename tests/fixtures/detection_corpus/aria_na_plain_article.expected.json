@@ -8,6 +8,8 @@
     {"rule_id": "aria/attribute-unknown", "verdict": "not_applicable"},
     {"rule_id": "aria/attribute-value-invalid", "verdict": "not_applicable"},
     {"rule_id": "aria/owns-conflict", "verdict": "not_applicable"},
+    {"rule_id": "aria/presentation-conflict", "verdict": "not_applicable"},
+    {"rule_id": "aria/presentational-children-focusable", "verdict": "not_applicable"},
     {"rule_id": "aria/tab-selected-missing", "verdict": "not_applicable"},
     {"rule_id": "aria/tabpanel-missing", "verdict": "not_applicable"},
     {"rule_id": "aria/combobox-popup-missing", "verdict": "not_applicable"},

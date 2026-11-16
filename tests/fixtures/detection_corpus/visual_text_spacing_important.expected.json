@@ -1,0 +1,10 @@
+{
+  "case": "visual_text_spacing_important",
+  "expectations": [
+    {"rule_id": "text-spacing/letter-important", "verdict": "violation", "selector": "p#letter", "occurrences": 1},
+    {"rule_id": "text-spacing/letter-important", "verdict": "needs_review", "selector": "p#letter-positioned"},
+    {"rule_id": "text-spacing/word-important", "verdict": "violation", "selector": "p#word", "occurrences": 1},
+    {"rule_id": "text-spacing/line-height-important", "verdict": "violation", "selector": "p#line", "occurrences": 1},
+    {"rule_id": "text/line-height-tight", "verdict": "needs_review"}
+  ]
+}

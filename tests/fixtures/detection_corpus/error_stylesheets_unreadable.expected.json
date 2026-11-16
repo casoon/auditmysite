@@ -22,6 +22,18 @@
       "verdict": "errored"
     },
     {
+      "rule_id": "text-spacing/letter-important",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "text-spacing/word-important",
+      "verdict": "errored"
+    },
+    {
+      "rule_id": "text-spacing/line-height-important",
+      "verdict": "errored"
+    },
+    {
       "rule_id": "focus/indicator-missing",
       "selector": "a.target",
       "verdict": "needs_review"
