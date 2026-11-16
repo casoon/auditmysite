@@ -1459,7 +1459,7 @@ impl Rendering for RenderedCdpDocument<'_> {
 
     /// Die Leuchtdichten aus `sample_backdrops`: nur für Text ohne
     /// bestimmbaren Hintergrund im sichtbaren Bereich.
-    /// Aus dem Snapshot, siehe [`color_pairs`].
+    /// Aus dem Snapshot, siehe die freie Funktion `color_pairs` in diesem Modul.
     fn color_pairs<'n>(&'n self, node: Self::N<'n>) -> Option<ColorPairs> {
         self.entry(node)?.color_pairs.clone()
     }
