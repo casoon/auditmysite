@@ -347,6 +347,22 @@ surface that owns its lifecycle:
   severity labels, the module names and "Share" reuse
   `a11y-details-journey-title`, `severity-*`, `module-*` and
   `batch-col-share`.
+- `locales/{de,en}/pdf-analysis.ftl`: the texts of the search experience
+  composite (`output::search_experience`: component labels and
+  explanations, warnings, interpretation), the root cause analysis and the
+  action plan (`output::pdf::root_causes`: titles, lead-in, table, the
+  leverage and root cause tags, the other modules' measures), the problem
+  profile (`output::pdf::problem_profile`: kind labels, descriptions,
+  concentration and leverage notes) and the WCAG coverage section
+  (`output::pdf::wcag_coverage`: principle names, audit scope, the legend
+  and the manual test guide), all `pdf-analysis-*`. The structural findings
+  tail and the verb of the profile sentences are Fluent selects. The
+  renderers keep which message applies, the thresholds, the criterion tags
+  and the texts that other modules own (the UX dimension summaries, the
+  German names of the manual review criteria of `wcag::coverage`). The
+  label "Technical SEO" and the table headings "Finding", "Occurrences"
+  and "Share" reuse `seo-score-card`, `single-report-matrix-col-finding`,
+  `batch-col-occurrences` and `batch-col-share`.
 - `locales/{de,en}/output-texts.ftl`: the texts of the report builder helpers
   (`output::builder::helpers`: report title and subtitle, the security
   header tier and issue kind labels), the batch builder

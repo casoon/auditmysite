@@ -9,7 +9,6 @@
 //! from outside `single_report.rs`, so only three functions had to widen from
 //! private to `pub(super)`. No logic changed in the move.
 
-use crate::output::localized::is_english;
 use renderreport::prelude::*;
 
 use crate::i18n::I18n;
@@ -95,30 +94,12 @@ pub(super) enum ProblemProfileKind {
 }
 
 impl ProblemProfileKind {
-    pub(super) fn label(&self, en: bool) -> &'static str {
-        match self {
-            Self::Punktuell => {
-                if en {
-                    "isolated"
-                } else {
-                    "punktuell"
-                }
-            }
-            Self::KonzentriertSystemisch => {
-                if en {
-                    "concentrated & systemic"
-                } else {
-                    "konzentriert & systemisch"
-                }
-            }
-            Self::BreitSystemisch => {
-                if en {
-                    "broad & systemic"
-                } else {
-                    "breit & systemisch"
-                }
-            }
-        }
+    pub(super) fn label(&self, i18n: &I18n) -> String {
+        i18n.t(match self {
+            Self::Punktuell => "pdf-analysis-profile-kind-isolated",
+            Self::KonzentriertSystemisch => "pdf-analysis-profile-kind-concentrated",
+            Self::BreitSystemisch => "pdf-analysis-profile-kind-broad",
+        })
     }
 }
 
@@ -186,7 +167,6 @@ fn format_module_names(
     modules: &[&crate::audit::normalized::ModuleScoreEntry],
     i18n: &I18n,
 ) -> String {
-    let en = is_english(i18n);
     let names: Vec<String> = modules
         .iter()
         .map(|m| {
@@ -203,22 +183,17 @@ fn format_module_names(
     match names.len() {
         0 => String::new(),
         1 => names[0].clone(),
-        2 => {
-            if en {
-                format!("{} and {}", names[0], names[1])
-            } else {
-                format!("{} und {}", names[0], names[1])
-            }
-        }
-        _ => {
-            let last = &names[names.len() - 1];
-            let initial = names[..names.len() - 1].join(", ");
-            if en {
-                format!("{}, and {}", initial, last)
-            } else {
-                format!("{} und {}", initial, last)
-            }
-        }
+        2 => i18n.t_args(
+            "pdf-analysis-profile-names-two",
+            &[("first", names[0].clone()), ("second", names[1].clone())],
+        ),
+        _ => i18n.t_args(
+            "pdf-analysis-profile-names-many",
+            &[
+                ("initial", names[..names.len() - 1].join(", ")),
+                ("last", names[names.len() - 1].clone()),
+            ],
+        ),
     }
 }
 
@@ -241,7 +216,6 @@ fn build_problem_profile_description(
     kind: ProblemProfileKind,
     i18n: &I18n,
 ) -> String {
-    let en = is_english(i18n);
     // Only "Kritisch" (< 40) modules are named as "determining the need for
     // action" — same set `classify_problem_profile` tiers on, so the badge
     // text and the tier it's attached to can't silently diverge (feedback
@@ -261,79 +235,42 @@ fn build_problem_profile_description(
             // The risk list's "project risk" is the one definition of "wide
             // reach or structural fix"; the badge must not claim "no
             // structural problem" while that list names one (#952-4).
-            let structural = structural_finding_count(vm);
-            let tail_en = match structural {
-                0 => "Isolated local optimizations without structural problems.".to_string(),
-                n => format!(
-                    "Isolated local optimizations; {n} finding{} with wide reach or a structural fix {} named under key risks.",
-                    if n == 1 { "" } else { "s" },
-                    if n == 1 { "is" } else { "are" }
-                ),
-            };
-            let tail_de = match structural {
-                0 => "Einzelne lokale Optimierungen ohne strukturelles Problem.".to_string(),
-                n => format!(
-                    "Einzelne lokale Optimierungen; {n} {} mit großer Reichweite oder struktureller Änderung {} unter den wichtigsten Risiken genannt.",
-                    if n == 1 { "Befund" } else { "Befunde" },
-                    if n == 1 { "wird" } else { "werden" }
-                ),
-            };
+            let tail = i18n.count(
+                "pdf-analysis-profile-structural",
+                structural_finding_count(vm),
+            );
             if critical_modules.is_empty() {
-                if en {
-                    format!("Very good technical condition. {tail_en}")
-                } else {
-                    format!("Sehr guter technischer Zustand. {tail_de}")
-                }
+                i18n.t_args("pdf-analysis-profile-isolated-good", &[("tail", tail)])
             } else {
-                let name = format_module_names(&critical_modules, i18n);
-                if en {
-                    format!("{name} determines the primary need for action. {tail_en}")
-                } else {
-                    format!("{name} bestimmt den Handlungsbedarf. {tail_de}")
-                }
+                let names = format_module_names(&critical_modules, i18n);
+                i18n.t_args(
+                    "pdf-analysis-profile-isolated-named",
+                    &[("names", names), ("tail", tail)],
+                )
             }
         }
         ProblemProfileKind::KonzentriertSystemisch => {
             let names = format_module_names(&critical_modules, i18n);
-            let verb_plural = critical_modules.len() > 1;
-            if has_systemic_wcag {
-                if en {
-                    let verb = if verb_plural {
-                        "determine"
-                    } else {
-                        "determines"
-                    };
-                    format!("{names} {verb} the need for action. A large portion of the accessibility findings is concentrated in a few recurring patterns.")
-                } else {
-                    let verb = if verb_plural { "bestimmen" } else { "bestimmt" };
-                    format!("{names} {verb} den Handlungsbedarf. Ein großer Teil der Accessibility-Befunde konzentriert sich auf wenige wiederkehrende Muster.")
-                }
-            } else if en {
-                let verb = if verb_plural {
-                    "determine"
-                } else {
-                    "determines"
-                };
-                format!(
-                    "{names} {verb} the need for action while other technical areas remain stable."
-                )
+            let several = if critical_modules.len() > 1 {
+                "yes"
             } else {
-                let verb = if verb_plural { "bestimmen" } else { "bestimmt" };
-                format!("{names} {verb} den Handlungsbedarf bei ansonsten stabilen technischen Bereichen.")
-            }
+                "no"
+            };
+            i18n.t_args(
+                if has_systemic_wcag {
+                    "pdf-analysis-profile-concentrated-systemic"
+                } else {
+                    "pdf-analysis-profile-concentrated-stable"
+                },
+                &[("names", names), ("several", several.to_string())],
+            )
         }
         ProblemProfileKind::BreitSystemisch => {
             let names = format_module_names(&critical_modules, i18n);
             if names.is_empty() {
-                if en {
-                    "Multiple technical areas are affected simultaneously and require structural corrections.".to_string()
-                } else {
-                    "Mehrere technische Bereiche sind gleichzeitig betroffen und benötigen strukturelle Korrekturen.".to_string()
-                }
-            } else if en {
-                format!("Multiple technical areas are affected simultaneously. In particular, {names} require structural corrections.")
+                i18n.t("pdf-analysis-profile-broad-unnamed")
             } else {
-                format!("Mehrere technische Bereiche sind gleichzeitig betroffen. Besonders {names} benötigen strukturelle Korrekturen.")
+                i18n.t_args("pdf-analysis-profile-broad-named", &[("names", names)])
             }
         }
     }
@@ -344,14 +281,8 @@ pub(super) fn render_problem_profile(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
     let kind = classify_problem_profile(vm);
-    let title_prefix = if en {
-        "Problem profile"
-    } else {
-        "Problemprofil"
-    };
-    let title = format!("{}: {}", title_prefix, kind.label(en));
+    let title = i18n.t_args("pdf-analysis-profile-title", &[("kind", kind.label(i18n))]);
     let desc = build_problem_profile_description(vm, kind, i18n);
 
     let callout = match kind {
@@ -384,32 +315,28 @@ pub(super) fn build_problem_concentration_note(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> Option<String> {
-    let en = is_english(i18n);
     let c = compute_problem_concentration(vm)?;
     if c.total_occurrences <= PROBLEM_CONCENTRATION_MIN_OCCURRENCES {
-        return Some(if en {
-            format!(
-                "{} occurrence(s) were detected — too few to identify a recurring pattern.",
-                c.total_occurrences
-            )
-        } else {
-            format!(
-                "{} — zu wenige, um ein wiederkehrendes Muster abzuleiten.",
-                i18n.count("count-occurrences-found", c.total_occurrences)
-            )
-        });
+        return Some(i18n.t_args(
+            "pdf-analysis-profile-few",
+            &[
+                ("count", c.total_occurrences.to_string()),
+                (
+                    "found",
+                    i18n.count("count-occurrences-found", c.total_occurrences),
+                ),
+            ],
+        ));
     }
-    Some(if en {
-        format!(
-            "{} occurrences were detected. About {}% of them fall on just {} findings. Most affected: {}.",
-            c.total_occurrences, c.concentration_pct, c.top_n, c.top1_title
-        )
-    } else {
-        format!(
-            "{} Vorkommen wurden erkannt. Rund {} % davon entfallen auf nur {} Befunde. Besonders betroffen: {}.",
-            c.total_occurrences, c.concentration_pct, c.top_n, c.top1_title
-        )
-    })
+    Some(i18n.t_args(
+        "pdf-analysis-profile-concentration",
+        &[
+            ("total", c.total_occurrences.to_string()),
+            ("pct", c.concentration_pct.to_string()),
+            ("top", c.top_n.to_string()),
+            ("title", c.top1_title),
+        ],
+    ))
 }
 
 /// Action-Plan-page framing of the same numbers, worded around leverage
@@ -418,7 +345,6 @@ pub(super) fn build_problem_concentration_note(
 /// "Die vier wichtigsten Ursachen erklären ca. 88 % der erkannten
 /// WCAG-Vorkommen").
 pub(super) fn build_overall_leverage_note(vm: &ReportViewModel, i18n: &I18n) -> Option<String> {
-    let en = is_english(i18n);
     let c = compute_problem_concentration(vm)?;
     if c.total_occurrences <= PROBLEM_CONCENTRATION_MIN_OCCURRENCES {
         // Too few occurrences for a "top causes" leverage framing to be
@@ -427,17 +353,14 @@ pub(super) fn build_overall_leverage_note(vm: &ReportViewModel, i18n: &I18n) -> 
         // sentence is simply omitted rather than restated at low counts.
         return None;
     }
-    Some(if en {
-        format!(
-            "The {} most significant causes account for about {}% of the {} occurrences detected — addressing those first has the biggest leverage on the list below.",
-            c.top_n, c.concentration_pct, c.total_occurrences
-        )
-    } else {
-        format!(
-            "Die {} wichtigsten Ursachen erklären rund {} % der {} erkannten Vorkommen — ihre Behebung hat die größte Hebelwirkung auf die folgende Liste.",
-            c.top_n, c.concentration_pct, c.total_occurrences
-        )
-    })
+    Some(i18n.t_args(
+        "pdf-analysis-profile-leverage",
+        &[
+            ("top", c.top_n.to_string()),
+            ("pct", c.concentration_pct.to_string()),
+            ("total", c.total_occurrences.to_string()),
+        ],
+    ))
 }
 
 #[cfg(test)]
@@ -506,8 +429,8 @@ mod tests {
 
         let kind = classify_problem_profile(&vm);
         assert_eq!(kind, ProblemProfileKind::Punktuell);
-        assert_eq!(kind.label(false), "punktuell");
-        assert_eq!(kind.label(true), "isolated");
+        assert_eq!(kind.label(&i18n_de), "punktuell");
+        assert_eq!(kind.label(&i18n_en), "isolated");
 
         let desc_de = build_problem_profile_description(&vm, kind, &i18n_de);
         assert!(desc_de.contains("Sehr guter technischer Zustand"));
@@ -551,8 +474,8 @@ mod tests {
 
         let kind = classify_problem_profile(&vm);
         assert_eq!(kind, ProblemProfileKind::KonzentriertSystemisch);
-        assert_eq!(kind.label(false), "konzentriert & systemisch");
-        assert_eq!(kind.label(true), "concentrated & systemic");
+        assert_eq!(kind.label(&i18n_de), "konzentriert & systemisch");
+        assert_eq!(kind.label(&i18n_en), "concentrated & systemic");
 
         let desc_de = build_problem_profile_description(&vm, kind, &i18n_de);
         assert!(desc_de.contains("Barrierefreiheit und Sicherheit bestimmen den Handlungsbedarf"));
@@ -584,8 +507,8 @@ mod tests {
 
         let kind = classify_problem_profile(&vm);
         assert_eq!(kind, ProblemProfileKind::BreitSystemisch);
-        assert_eq!(kind.label(false), "breit & systemisch");
-        assert_eq!(kind.label(true), "broad & systemic");
+        assert_eq!(kind.label(&i18n_de), "breit & systemisch");
+        assert_eq!(kind.label(&i18n_en), "broad & systemic");
 
         let desc_de = build_problem_profile_description(&vm, kind, &i18n_de);
         assert!(desc_de.contains("Mehrere technische Bereiche sind gleichzeitig betroffen"));
