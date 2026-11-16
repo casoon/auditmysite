@@ -70,23 +70,14 @@ pub(super) fn render_root_cause_analysis(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
-    let title = if en {
-        "Root Cause Analysis"
-    } else {
-        "Ursachenanalyse"
-    };
-    let subtitle = if en {
-        "Many individual findings trace back to a few recurring causes — fixing those has a compounding effect."
-    } else {
-        "Viele Einzelbefunde gehen auf wenige wiederkehrende Ursachen zurück – deren Behebung wirkt gebündelt."
-    };
+    let title = i18n.t("pdf-analysis-causes-title");
+    let subtitle = i18n.t("pdf-analysis-causes-subtitle");
 
     // No leading PageBreak: the preceding part divider ("Befunde nach Ursache")
     // already opened the page — an extra break left that divider page 3/4 empty.
     builder = builder.add_component(
         SectionHeaderSplit::new(title, subtitle)
-            .with_eyebrow(if en { "ROOT CAUSE" } else { "URSACHEN" })
+            .with_eyebrow(i18n.t("pdf-analysis-causes-eyebrow"))
             .with_level(2),
     );
 
@@ -101,22 +92,22 @@ pub(super) fn render_root_cause_analysis(
         // Name the other two evidence classes instead of denying them.
         let evidence = &vm.findings.evidence;
         let msg = if evidence.is_empty() {
-            if en {
-                "No accessibility findings were detected, so no root cause analysis is necessary."
-                    .to_string()
-            } else {
-                "Es wurden keine Barrierefreiheits-Befunde erkannt, daher ist keine Ursachenanalyse erforderlich.".to_string()
-            }
-        } else if en {
-            format!(
-                "No confirmed WCAG violations, so no root cause analysis is necessary. {} accessibility warning(s) and {} manual check(s) remain — they are documented in their own sections and are not scored.",
-                evidence.warnings, evidence.manual_checks
-            )
+            i18n.t("pdf-analysis-causes-none")
         } else {
-            format!(
-                "Keine bestätigten WCAG-Verstöße, daher ist keine Ursachenanalyse erforderlich. Offen bleiben {} und {} — dokumentiert in den eigenen Abschnitten, ohne Einfluss auf den Score.",
-                crate::i18n::count_text("count-a11y-warnings", evidence.warnings as usize, false),
-                crate::i18n::count_text("count-manual-hints", evidence.manual_checks as usize, false)
+            i18n.t_args(
+                "pdf-analysis-causes-none-evidence",
+                &[
+                    ("warnings", evidence.warnings.to_string()),
+                    ("manual", evidence.manual_checks.to_string()),
+                    (
+                        "warnings_text",
+                        i18n.count("count-a11y-warnings", evidence.warnings as usize),
+                    ),
+                    (
+                        "manual_text",
+                        i18n.count("count-manual-hints", evidence.manual_checks as usize),
+                    ),
+                ],
             )
         };
         builder = builder.add_component(if evidence.is_empty() {
@@ -130,11 +121,7 @@ pub(super) fn render_root_cause_analysis(
     // Plain lead-in (Rule A). One page shows where findings concentrate,
     // not that they share a cause — a shared component is a possibility for
     // the developer to check (plan 75).
-    let lead_in = if en {
-        "Where the findings concentrate: if a finding sits in a reused component or template, one fix there resolves all of its occurrences — whether it does cannot be seen from a single page."
-    } else {
-        "Wo sich die Befunde ballen: Liegt ein Befund in einer wiederverwendeten Komponente oder einem Template, behebt ein Fix dort alle seine Vorkommen — ob das so ist, lässt sich an einer einzelnen Seite nicht erkennen."
-    };
+    let lead_in = i18n.t("pdf-analysis-causes-lead-in");
     builder = builder.add_component(Label::new(lead_in).with_size("10.5pt"));
 
     // One table with the full titles. A list, a bar chart and this table
@@ -150,15 +137,11 @@ pub(super) fn render_root_cause_analysis(
         }
     };
     let mut table = AuditTable::new(vec![
-        TableColumn::new(if en { "Finding" } else { "Befund" }).with_width("64%"),
-        TableColumn::new(if en { "Occurrences" } else { "Vorkommen" }).with_width("18%"),
-        TableColumn::new(if en { "Share" } else { "Anteil" }).with_width("18%"),
+        TableColumn::new(i18n.t("single-report-matrix-col-finding")).with_width("64%"),
+        TableColumn::new(i18n.t("batch-col-occurrences")).with_width("18%"),
+        TableColumn::new(i18n.t("batch-col-share")).with_width("18%"),
     ])
-    .with_title(if en {
-        "Where the occurrences concentrate"
-    } else {
-        "Wo sich die Vorkommen ballen"
-    });
+    .with_title(i18n.t("pdf-analysis-causes-table-title"));
     let mut shown_occurrences = 0usize;
     for finding in findings.iter().take(ROOT_CAUSE_SHOWN) {
         shown_occurrences += finding.finding.occurrence_count;
@@ -174,14 +157,16 @@ pub(super) fn render_root_cause_analysis(
         let remaining_findings = findings.len() - ROOT_CAUSE_SHOWN;
         let remaining_occurrences = total_occurrences - shown_occurrences;
         table = table.add_row(vec![
-            if en {
-                format!("Other ({remaining_findings} further findings)")
-            } else {
-                format!(
-                    "Sonstige ({})",
-                    i18n.count("count-more-findings", remaining_findings)
-                )
-            },
+            i18n.t_args(
+                "pdf-analysis-causes-other",
+                &[
+                    ("count", remaining_findings.to_string()),
+                    (
+                        "more",
+                        i18n.count("count-more-findings", remaining_findings),
+                    ),
+                ],
+            ),
             remaining_occurrences.to_string(),
             format!("{} %", share_pct(remaining_occurrences)),
         ]);
@@ -209,12 +194,8 @@ fn render_module_measure_cards(
     }
     builder = builder.add_component(
         SectionHeaderSplit::new(
-            if en { "Other modules" } else { "Weitere Module" },
-            if en {
-                "Recommendations from the security, mobile, performance and SEO modules that the key measures name."
-            } else {
-                "Empfehlungen aus den Modulen Sicherheit, Mobile, Performance und SEO, die in den wichtigsten Maßnahmen genannt sind."
-            },
+            i18n.t("pdf-analysis-roadmap-modules-title"),
+            i18n.t("pdf-analysis-roadmap-modules-subtitle"),
         )
         .with_level(3),
     );
@@ -233,20 +214,15 @@ pub(super) fn render_timeframe_roadmap(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
-    let title = if en { "Action Plan" } else { "Maßnahmenplan" };
+    let title = i18n.t("pdf-analysis-roadmap-title");
     // Disclose the scope mismatch with the root-cause section above: this plan
     // also includes SEO/Optimization-tier actions, which are not part of the
     // WCAG-only root-cause count (#5 fix).
-    let subtitle = if en {
-        "Recommended actions grouped by where the problem lives — including supplementary SEO and quality recommendations without legal relevance."
-    } else {
-        "Empfohlene Maßnahmen, gruppiert nach Ebene des Problems — inklusive ergänzender SEO- und Qualitätsempfehlungen ohne Rechtsbezug."
-    };
+    let subtitle = i18n.t("pdf-analysis-roadmap-subtitle");
 
     builder = builder.add_component(PageBreak::new()).add_component(
         SectionHeaderSplit::new(title, subtitle)
-            .with_eyebrow(if en { "ROADMAP" } else { "MASSNAHMEN" })
+            .with_eyebrow(i18n.t("pdf-analysis-roadmap-eyebrow"))
             .with_level(2),
     );
 
@@ -267,20 +243,18 @@ pub(super) fn render_timeframe_roadmap(
         // instead of claiming there is none.
         let module_measure_count = cross_module_measures(vm, i18n).len();
         let empty_msg = if module_measure_count > 0 {
-            if en {
-                format!(
-                    "No prioritized accessibility actions. {module_measure_count} recommendation(s) from other modules (performance, SEO, security, mobile) are listed in their module sections and in the key measures above."
-                )
-            } else {
-                format!(
-                    "Keine priorisierten Barrierefreiheits-Maßnahmen. Zu anderen Modulen (Performance, SEO, Sicherheit, Mobile): {} — sie stehen in den jeweiligen Modulabschnitten und in den wichtigsten Maßnahmen oben.",
-                    crate::i18n::count_text("count-recommendations", module_measure_count, false)
-                )
-            }
-        } else if en {
-            "No prioritized actions — no findings require remediation.".to_string()
+            i18n.t_args(
+                "pdf-analysis-roadmap-empty-modules",
+                &[
+                    ("count", module_measure_count.to_string()),
+                    (
+                        "recommendations",
+                        i18n.count("count-recommendations", module_measure_count),
+                    ),
+                ],
+            )
         } else {
-            "Keine priorisierten Maßnahmen — keine Befunde mit Handlungsbedarf.".to_string()
+            i18n.t("pdf-analysis-roadmap-empty")
         };
         builder = builder.add_component(Label::new(empty_msg).with_color(design::tokens::NEUTRAL));
         return render_module_measure_cards(builder, vm, i18n);
@@ -318,26 +292,26 @@ pub(super) fn render_timeframe_roadmap(
             // (plan/4-root-cause-confidence-wording.md): occurrence_count is
             // how many elements this rule affects, not a guarantee that one
             // fix resolves every one of them.
-            let leverage_tag = if en {
-                format!(
-                    "Remediation leverage: {} — {} occurrence(s) affected · effort: {}",
-                    item.leverage, item.occurrence_count, item.effort
-                )
-            } else {
-                format!(
-                    "Reparaturhebel: {} — {} Vorkommen betroffen · Aufwand: {}",
-                    item.leverage, item.occurrence_count, item.effort
-                )
-            };
+            let leverage_tag = i18n.t_args(
+                "pdf-analysis-roadmap-leverage",
+                &[
+                    ("leverage", item.leverage.clone()),
+                    ("count", item.occurrence_count.to_string()),
+                    ("effort", item.effort.clone()),
+                ],
+            );
             why = format!("{why}\n\n{leverage_tag}");
             if let Some((letter, occurrence_count, share_pct)) =
                 root_cause_by_rule.get(&item.rule_id)
             {
-                let tag = if en {
-                    format!("→ Root Cause {letter}, {occurrence_count} occurrences ({share_pct}%)")
-                } else {
-                    format!("→ Ursache {letter}, {occurrence_count} Vorkommen ({share_pct} %)")
-                };
+                let tag = i18n.t_args(
+                    "pdf-analysis-roadmap-root-cause",
+                    &[
+                        ("letter", letter.to_string()),
+                        ("count", occurrence_count.to_string()),
+                        ("share", share_pct.to_string()),
+                    ],
+                );
                 why = format!("{why}\n\n{tag}");
             }
             builder = builder.add_component(RecommendationCard::new(item.action.clone(), why));

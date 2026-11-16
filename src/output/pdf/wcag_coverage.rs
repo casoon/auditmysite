@@ -39,14 +39,6 @@ pub(super) fn criterion_tag_status(
     }
 }
 
-fn criterion_legend(en: bool) -> &'static str {
-    if en {
-        "Green: checked and passed on this page. Red: violation found. Amber: not passed or needs review. Grey: nothing to check on this page."
-    } else {
-        "Grün: auf dieser Seite geprüft und bestanden. Rot: Verstoß gefunden. Gelb: nicht bestanden oder prüfbedürftig. Grau: auf dieser Seite nichts zu prüfen."
-    }
-}
-
 /// Render a WCAG coverage section (issue #37).
 ///
 /// Lists the criteria this tool automatically checks, plus the criteria
@@ -64,25 +56,28 @@ pub(super) fn render_wcag_coverage_section(
     // Principle coverage — informative secondary indicator (#99).
     let coverage =
         AccessibilityScorer::calculate_execution_coverage(&report.accessibility.wcag_results);
-    let cov_title = if en {
-        "Principle coverage (executed criteria passed)"
-    } else {
-        "Prinzip-Abdeckung (ausgeführte Kriterien bestanden)"
-    };
+    let cov_title = i18n.t("pdf-analysis-coverage-principles-title");
     let fmt_ratio =
         |r: &CoverageRatio| format!("{}/{} ({:.0} %)", r.passed, r.total, r.ratio * 100.0);
-    let (p_perc, p_op, p_und, p_rob) = if en {
-        ("Perceivable", "Operable", "Understandable", "Robust")
-    } else {
-        ("Wahrnehmbar", "Bedienbar", "Verständlich", "Robust")
-    };
     builder = builder.add_component(
         KeyValueList::new()
             .with_title(cov_title)
-            .add(p_perc, fmt_ratio(&coverage.perceivable))
-            .add(p_op, fmt_ratio(&coverage.operable))
-            .add(p_und, fmt_ratio(&coverage.understandable))
-            .add(p_rob, fmt_ratio(&coverage.robust)),
+            .add(
+                i18n.t("pdf-analysis-coverage-perceivable"),
+                fmt_ratio(&coverage.perceivable),
+            )
+            .add(
+                i18n.t("pdf-analysis-coverage-operable"),
+                fmt_ratio(&coverage.operable),
+            )
+            .add(
+                i18n.t("pdf-analysis-coverage-understandable"),
+                fmt_ratio(&coverage.understandable),
+            )
+            .add(
+                i18n.t("pdf-analysis-coverage-robust"),
+                fmt_ratio(&coverage.robust),
+            ),
     );
     let (automated, total) = coverage_stats();
     // Criteria this tool checks automatically that WCAG 2.2 added (they didn't
@@ -100,30 +95,25 @@ pub(super) fn render_wcag_coverage_section(
         .filter(|(id, level)| *level != "AAA" && crate::wcag::coverage::is_wcag22_only(id))
         .map(|(id, _)| *id)
         .collect();
-    let title = if en { "Audit scope" } else { "Prüfumfang" };
+    let title = i18n.t("pdf-analysis-coverage-scope-title");
     let intro = if wcag22_criteria.is_empty() {
-        if en {
-            format!(
-                "This audit covers {automated} of ~{total} testable WCAG 2.2 AA criteria automatically. The criteria listed below require manual review."
-            )
-        } else {
-            format!(
-                "Dieses Audit prüft {automated} von ca. {total} WCAG-2.2-AA-Kriterien automatisch. Die unten aufgeführten Kriterien benötigen manuelle Prüfung."
-            )
-        }
+        i18n.t_args(
+            "pdf-analysis-coverage-intro",
+            &[
+                ("automated", automated.to_string()),
+                ("total", total.to_string()),
+            ],
+        )
     } else {
-        let wcag22_list = wcag22_criteria.join(", ");
-        if en {
-            format!(
-                "This audit covers {automated} of ~{total} testable WCAG 2.2 AA criteria automatically. {} of them ({wcag22_list}, marked \"WCAG 2.2\" below and on individual findings) were added by WCAG 2.2 and are part of EN 301 549 V4.1.1 but not of V3.2.1. The criteria listed below require manual review.",
-                wcag22_criteria.len()
-            )
-        } else {
-            format!(
-                "Dieses Audit prüft {automated} von ca. {total} WCAG-2.2-AA-Kriterien automatisch. {} davon ({wcag22_list}, unten und bei einzelnen Befunden mit „WCAG 2.2\" gekennzeichnet) sind mit WCAG 2.2 hinzugekommen und Teil von EN 301 549 V4.1.1, aber nicht von V3.2.1. Die unten aufgeführten Kriterien benötigen manuelle Prüfung.",
-                wcag22_criteria.len()
-            )
-        }
+        i18n.t_args(
+            "pdf-analysis-coverage-intro-new",
+            &[
+                ("automated", automated.to_string()),
+                ("total", total.to_string()),
+                ("count", wcag22_criteria.len().to_string()),
+                ("list", wcag22_criteria.join(", ")),
+            ],
+        )
     };
 
     builder = builder.add_component(SectionHeaderSplit::new(title, &intro).with_level(2));
@@ -143,20 +133,18 @@ pub(super) fn render_wcag_coverage_section(
         listed,
         "the two groups must partition the listed criteria"
     );
-    let automated_title = if en {
-        format!("Automatically checked ({listed})")
-    } else {
-        format!("Automatisch geprüft ({listed})")
-    };
-    let listed_note = if en {
-        format!(
-            "{listed} criteria in total: the {automated} WCAG 2.2 A/AA criteria the ratio above is scoped to, plus {aaa_listed} AAA criteria this tool also checks."
-        )
-    } else {
-        format!(
-            "{listed} Kriterien insgesamt: die {automated} WCAG-2.2-A/AA-Kriterien, auf die sich die Quote oben bezieht, dazu {aaa_listed} AAA-Kriterien, die dieses Werkzeug ebenfalls prüft."
-        )
-    };
+    let automated_title = i18n.t_args(
+        "pdf-analysis-coverage-automated-title",
+        &[("listed", listed.to_string())],
+    );
+    let listed_note = i18n.t_args(
+        "pdf-analysis-coverage-listed-note",
+        &[
+            ("listed", listed.to_string()),
+            ("automated", automated.to_string()),
+            ("aaa", aaa_listed.to_string()),
+        ],
+    );
     let mut tag_cloud = TagCloud::new().with_title(&automated_title).with_gap("5pt");
     let states =
         AccessibilityScorer::criterion_execution_states(&report.accessibility.wcag_results);
@@ -170,24 +158,17 @@ pub(super) fn render_wcag_coverage_section(
         tag_cloud = tag_cloud.add(tag, criterion_tag_status(c, &states, &violated));
     }
     builder = builder.add_component(tag_cloud);
-    let listed_note = format!("{listed_note} {}", criterion_legend(en));
+    let listed_note = format!("{listed_note} {}", i18n.t("pdf-analysis-coverage-legend"));
     builder = builder.add_component(
         Label::new(listed_note)
             .with_size("8.8pt")
             .with_color(crate::output::pdf::design::tokens::MUTED),
     );
 
-    let manual_title = if en {
-        format!(
-            "Requires manual review ({})",
-            manual_review_criteria().len()
-        )
-    } else {
-        format!(
-            "Manuelle Prüfung erforderlich ({})",
-            manual_review_criteria().len()
-        )
-    };
+    let manual_title = i18n.t_args(
+        "pdf-analysis-coverage-manual-title",
+        &[("count", manual_review_criteria().len().to_string())],
+    );
     let mut manual_cloud = TagCloud::new().with_title(&manual_title).with_gap("5pt");
     for (c, l, name) in manual_review_criteria().iter() {
         let localized_name = if en {
@@ -200,70 +181,36 @@ pub(super) fn render_wcag_coverage_section(
     builder = builder.add_component(manual_cloud);
 
     // Practical testing guide — how to test the manual criteria above
-    let how_title = if en {
-        "How to test manually"
-    } else {
-        "So testen Sie manuell"
-    };
-    let items: &[(&str, &str)] = if en {
-        &[
-            (
-                "Keyboard navigation",
-                "Tab through the entire page. No focus loss, no keyboard trap, every interactive element reachable.",
-            ),
-            (
-                "Screen reader",
-                "Test with NVDA/JAWS (Windows) or VoiceOver (Mac/iOS) — landmark navigation and form interaction.",
-            ),
-            (
-                "400% zoom",
-                "At 400% browser zoom: page operable without horizontal scrolling, no content lost.",
-            ),
-            (
-                "Reduced motion",
-                "Enable the OS 'reduce motion' setting and verify animations are disabled or significantly diminished.",
-            ),
-            (
-                "Modal / dropdown interaction",
-                "Full keyboard interaction: Tab, Enter, Space, Escape, Arrow keys. Focus returns to the trigger on close.",
-            ),
-            (
-                "Color blindness simulation",
-                "Use a tool like 'Color Oracle' to verify information is conveyed by more than color alone.",
-            ),
-        ]
-    } else {
-        &[
-            (
-                "Tastaturnavigation",
-                "Komplette Seite per Tab navigieren. Kein Fokus verloren, kein Keyboard-Trap, jedes interaktive Element erreichbar.",
-            ),
-            (
-                "Screenreader",
-                "Test mit NVDA/JAWS (Windows) oder VoiceOver (Mac/iOS) — Landmark-Navigation und Formular-Interaktion.",
-            ),
-            (
-                "400% Zoom",
-                "Bei 400% Browser-Zoom: Seite ohne horizontales Scrollen bedienbar, kein Inhalt verloren.",
-            ),
-            (
-                "Reduced Motion",
-                "Betriebssystem-Einstellung „Bewegung reduzieren\" aktivieren und prüfen, ob Animationen deaktiviert oder reduziert werden.",
-            ),
-            (
-                "Modal- / Dropdown-Interaktion",
-                "Vollständige Tastaturbedienung: Tab, Enter, Space, Escape, Pfeiltasten. Fokus kehrt nach Schließen zum Trigger zurück.",
-            ),
-            (
-                "Farbenblindheit",
-                "Mit einem Werkzeug wie „Color Oracle\" prüfen, ob Informationen nicht ausschließlich über Farbe vermittelt werden.",
-            ),
-        ]
-    };
-    let rows: Vec<ChecklistRow> = items
-        .iter()
-        .map(|(t, d)| ChecklistRow::new(*t, *d).with_status("info"))
-        .collect();
+    let how_title = i18n.t("pdf-analysis-coverage-how-title");
+    let rows: Vec<ChecklistRow> = [
+        (
+            "pdf-analysis-coverage-test-keyboard-title",
+            "pdf-analysis-coverage-test-keyboard-text",
+        ),
+        (
+            "pdf-analysis-coverage-test-screen-reader-title",
+            "pdf-analysis-coverage-test-screen-reader-text",
+        ),
+        (
+            "pdf-analysis-coverage-test-zoom-title",
+            "pdf-analysis-coverage-test-zoom-text",
+        ),
+        (
+            "pdf-analysis-coverage-test-motion-title",
+            "pdf-analysis-coverage-test-motion-text",
+        ),
+        (
+            "pdf-analysis-coverage-test-modal-title",
+            "pdf-analysis-coverage-test-modal-text",
+        ),
+        (
+            "pdf-analysis-coverage-test-color-title",
+            "pdf-analysis-coverage-test-color-text",
+        ),
+    ]
+    .iter()
+    .map(|(title, text)| ChecklistRow::new(i18n.t(title), i18n.t(text)).with_status("info"))
+    .collect();
     builder.add_component(ChecklistPanel::new(rows).with_title(how_title))
 }
 

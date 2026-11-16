@@ -40,10 +40,7 @@ src/output/pdf/bik_guide.rs 3
 src/output/pdf/detail_modules/performance.rs 1
 src/output/pdf/en301549.rs 4
 src/output/pdf/findings.rs 1
-src/output/pdf/problem_profile.rs 15
-src/output/pdf/root_causes.rs 20
-src/output/pdf/wcag_coverage.rs 12
-src/output/search_experience.rs 24
+src/output/pdf/wcag_coverage.rs 1
 src/output/terminal.rs 4
 src/page_flow/analysis.rs 83
 src/performance/render_blocking.rs 3

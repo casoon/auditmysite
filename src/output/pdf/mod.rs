@@ -473,6 +473,10 @@ fn register_page_screenshot_assets(
 }
 
 #[cfg(test)]
+mod analysis_text_export;
+#[cfg(test)]
+mod analysis_text_guard;
+#[cfg(test)]
 mod annex_text_export;
 #[cfg(test)]
 mod annex_text_guard;
