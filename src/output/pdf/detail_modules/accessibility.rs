@@ -287,7 +287,7 @@ pub(in crate::output::pdf) fn render_screen_reader_section(
                 .and_then(|c| manual_recheck_instruction(c, en))
             {
                 msg.push(' ');
-                msg.push_str(instruction);
+                msg.push_str(&instruction);
             }
             table = table.add_row(vec![msg, sev_label(&issue.severity)]);
         }
@@ -326,7 +326,8 @@ pub(super) fn journey_label(journey: &str, en: bool) -> String {
         _ => None,
     };
 
-    match (key.map(|key| crate::i18n::text(key, en)), index) {
+    let label = key.map(|key| crate::i18n::text(key, en));
+    match (label, index) {
         (Some(label), Some(index)) => format!("{label} {index}"),
         (Some(label), None) => label,
         (None, _) => journey.to_string(),

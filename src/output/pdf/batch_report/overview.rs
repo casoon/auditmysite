@@ -86,11 +86,7 @@ pub(super) fn render_batch_cover(
             // representative choice (plan 80).
             let pct = if sample.total_discovered > 0 {
                 let pct = sample.audited as f64 * 100.0 / sample.total_discovered as f64;
-                if is_english(i18n) {
-                    format!("{pct:.1}")
-                } else {
-                    format!("{pct:.1}").replace('.', ",")
-                }
+                crate::i18n::number::decimal(pct, 1, is_english(i18n))
             } else {
                 "0".to_string()
             };

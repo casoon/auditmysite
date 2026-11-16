@@ -386,6 +386,26 @@ surface that owns its lifecycle:
   stores `en = true` in `PrivacyFinding.message`, so the JSON stays canonical
   English. Which message applies stays in Rust; the provider name goes in as
   an argument.
+- `locales/{de,en}/pdf-sections.ftl`: the texts of the opt-in annexes of the
+  single PDF (`output::pdf::{en301549, bik_guide}`: titles, intros, the
+  level column, the "no violations" tag cloud title, the footnote on
+  findings outside the standard, the BIK chapter column, tag cloud and
+  note titles), the search experience chapter and the budget violations
+  section (`output::pdf::detail_modules::overview`: title, body, warning
+  list title, column headings, the three translated budget metric names),
+  the four VoiceOver/NVDA self-check instructions (`helpers`:
+  `manual_recheck_instruction`, which takes `en` and returns a `String`),
+  the "Indicator" suffix of a heuristic module name, the cover phrase of a
+  failed run and the "provisional" suffix (`cover`) and the occurrences
+  word of the appendix table (`appendix`), all `pdf-sections-*`. The
+  renderers keep which message applies and the `(n)` count suffixes of
+  the table and tag cloud titles; the clause, chapter and BIK chapter
+  titles and the disclaimers that `wcag::en301549` and `wcag::bik_guide`
+  own stay a Rust choice between their two fields. The column headings
+  Clause, Title and Findings, the status titles (violations found, manual
+  review required, evaluation incomplete), the disclaimer and out-of-scope
+  titles and the chapter line reuse `batch-report-en301549-*` and
+  `diagnosis-col-findings`, the component heading `pdf-sec-score-component`.
 - `src/output/explanations.rs`: the explanation table itself: which entries
   exist, owner role, effort, and the code examples (canonical English), plus
   `RULE_ENTRIES`, the explicit table of which entry each rule id uses. These are

@@ -26,26 +26,20 @@ pub(super) fn cover_band_phrase(
 ) -> String {
     use crate::audit::verdict::Verdict;
     let base = match verdict {
-        Verdict::Fail => {
-            if en {
-                "Not passed in the automated audit scope — action required"
-            } else {
-                "Im automatischen Prüfumfang nicht bestanden — Handlungsbedarf"
-            }
-        }
+        Verdict::Fail => crate::i18n::text("pdf-sections-cover-fail", en),
         // Warn and Pass keep the score-derived phrase: the score band is the
         // more informative statement when nothing blocks.
-        Verdict::Warn | Verdict::Pass => crate::registry::COVER_PHRASE.label(score as f32, en),
+        Verdict::Warn | Verdict::Pass => crate::registry::COVER_PHRASE
+            .label(score as f32, en)
+            .to_string(),
     };
     if partial {
-        let suffix = if en {
-            " · provisional"
-        } else {
-            " · vorläufig"
-        };
-        format!("{base}{suffix}")
+        format!(
+            "{base} · {}",
+            crate::i18n::text("pdf-sections-cover-provisional", en)
+        )
     } else {
-        base.to_string()
+        base
     }
 }
 

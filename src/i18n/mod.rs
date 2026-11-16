@@ -67,11 +67,14 @@ impl I18n {
         // `display`), of the privacy findings (`privacy-findings.ftl`,
         // `privacy::findings`) and of the accessibility analysis layer
         // (`a11y-analysis.ftl`, `screen_reader::analyzer`,
-        // `patterns::pattern_message_text`) and of the search experience and
-        // the PDF's root cause, problem profile, action plan and WCAG
-        // coverage sections (`pdf-analysis.ftl`, `output::search_experience`,
-        // `output::pdf::{root_causes, problem_profile, wcag_coverage}`) are
-        // twenty-six resources of the one bundle.
+        // `patterns::pattern_message_text`), of the PDF annexes and section
+        // helpers (`pdf-sections.ftl`, `output::pdf::{en301549, bik_guide,
+        // cover, helpers, appendix}`, `output::pdf::detail_modules::overview`)
+        // and of the search experience and the PDF's root cause, problem
+        // profile, action plan and WCAG coverage sections (`pdf-analysis.ftl`,
+        // `output::search_experience`, `output::pdf::{root_causes,
+        // problem_profile, wcag_coverage}`) are twenty-seven resources of the
+        // one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -99,6 +102,7 @@ impl I18n {
                 include_str!("../../locales/en/a11y-analysis.ftl"),
                 include_str!("../../locales/en/output-texts.ftl"),
                 include_str!("../../locales/en/privacy-findings.ftl"),
+                include_str!("../../locales/en/pdf-sections.ftl"),
                 include_str!("../../locales/en/pdf-analysis.ftl"),
             ],
             _ => [
@@ -127,6 +131,7 @@ impl I18n {
                 include_str!("../../locales/de/a11y-analysis.ftl"),
                 include_str!("../../locales/de/output-texts.ftl"),
                 include_str!("../../locales/de/privacy-findings.ftl"),
+                include_str!("../../locales/de/pdf-sections.ftl"),
                 include_str!("../../locales/de/pdf-analysis.ftl"),
             ],
         };

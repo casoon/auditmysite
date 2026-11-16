@@ -413,7 +413,7 @@ pub(super) fn render_finding_technical(
                 instruction
                     .strip_prefix("Selbsttest: ")
                     .or_else(|| instruction.strip_prefix("Self-check: "))
-                    .unwrap_or(instruction),
+                    .unwrap_or(&instruction),
             );
         }
         builder = builder.add_component(assessment);

@@ -37,22 +37,16 @@ pub(super) fn render_bik_guide_annex(
 ) -> renderreport::engine::ReportBuilder {
     let en = is_english(i18n);
 
-    let (title, intro) = if en {
-        (
-            "BIK für Alle guide mapping",
-            format!(
-                "Groups this audit's automated findings under the chapter structure of the \"BIK für Alle\" editorial accessibility guide ({BIK_GUIDE_SOURCE}) — the same chapters editorial teams already use: Images & alt text, Link text, Structure, Easy language, PDF documents, Videos. No new checks; this re-groups findings already reported elsewhere in this document."
+    builder = builder.add_component(
+        SectionHeaderSplit::new(
+            i18n.t("pdf-sections-bik-title"),
+            i18n.t_args(
+                "pdf-sections-bik-intro",
+                &[("source", BIK_GUIDE_SOURCE.to_string())],
             ),
         )
-    } else {
-        (
-            "BIK-für-Alle-Leitfadenzuordnung",
-            format!(
-                "Ordnet die automatisch erkannten Befunde dieses Audits der Kapitelstruktur des redaktionellen Leitfadens \"BIK für Alle\" zu ({BIK_GUIDE_SOURCE}) — denselben Kapiteln, die Redaktionsteams bereits kennen: Bilder & Alt-Text, Linktext, Struktur, Leichte Sprache, PDF-Dokumente, Videos. Keine neuen Prüfungen; dies gruppiert an anderer Stelle in diesem Report bereits ausgewiesene Befunde um."
-            ),
-        )
-    };
-    builder = builder.add_component(SectionHeaderSplit::new(title, &intro).with_level(2));
+        .with_level(2),
+    );
 
     let rollups = derive_bik_chapters(
         findings,
@@ -68,14 +62,14 @@ pub(super) fn render_bik_guide_annex(
         .filter(|r| matches!(r.status, BikChapterStatus::FindingsPresent))
         .collect();
     if !with_findings.is_empty() {
-        let table_title = if en {
-            format!("Findings by chapter ({})", with_findings.len())
-        } else {
-            format!("Befunde nach Kapitel ({})", with_findings.len())
-        };
+        let table_title = format!(
+            "{} ({})",
+            i18n.t("pdf-sections-bik-findings-title"),
+            with_findings.len()
+        );
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if en { "Chapter" } else { "Kapitel" }).with_width("28%"),
-            TableColumn::new(if en { "Findings" } else { "Befunde" }).with_width("72%"),
+            TableColumn::new(i18n.t("pdf-sections-bik-col-chapter")).with_width("28%"),
+            TableColumn::new(i18n.t("diagnosis-col-findings")).with_width("72%"),
         ])
         .with_title(table_title);
         for r in &with_findings {
@@ -100,11 +94,11 @@ pub(super) fn render_bik_guide_annex(
         .filter(|r| matches!(r.status, BikChapterStatus::NoFindingsDetected))
         .collect();
     if !clean.is_empty() {
-        let cloud_title = if en {
-            format!("Checked, no findings ({})", clean.len())
-        } else {
-            format!("Geprüft, keine Befunde ({})", clean.len())
-        };
+        let cloud_title = format!(
+            "{} ({})",
+            i18n.t("pdf-sections-bik-clean-title"),
+            clean.len()
+        );
         let mut cloud = TagCloud::new().with_title(cloud_title).with_gap("5pt");
         for r in &clean {
             let chapter_title = if en {
@@ -122,11 +116,6 @@ pub(super) fn render_bik_guide_annex(
         .filter(|r| matches!(r.status, BikChapterStatus::NotChecked))
         .collect();
     if !not_checked.is_empty() {
-        let note_title = if en {
-            "Not automatically checked"
-        } else {
-            "Nicht automatisch geprüft"
-        };
         let chapter_list = not_checked
             .iter()
             .map(|r| {
@@ -138,15 +127,13 @@ pub(super) fn render_bik_guide_annex(
             })
             .collect::<Vec<_>>()
             .join(", ");
-        let note = if en {
-            format!("{chapter_list}: this tool does not currently check this chapter's content automatically. Not represented in the findings table above.")
-        } else {
-            format!("{chapter_list}: dieses Kapitel wird von diesem Tool aktuell nicht automatisch geprüft. Es ist in der Befunde-Tabelle oben nicht enthalten.")
-        };
         builder = builder.add_component(
-            Label::new(format!("{note_title}: {note}"))
-                .with_size("10.5pt")
-                .with_color("#475569"),
+            Label::new(i18n.t_args(
+                "pdf-sections-bik-not-checked",
+                &[("chapters", chapter_list)],
+            ))
+            .with_size("10.5pt")
+            .with_color("#475569"),
         );
     }
 

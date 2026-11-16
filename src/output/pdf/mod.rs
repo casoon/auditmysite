@@ -477,6 +477,10 @@ mod analysis_text_export;
 #[cfg(test)]
 mod analysis_text_guard;
 #[cfg(test)]
+mod annex_text_export;
+#[cfg(test)]
+mod annex_text_guard;
+#[cfg(test)]
 mod frame_text_export;
 #[cfg(test)]
 mod frame_text_guard;

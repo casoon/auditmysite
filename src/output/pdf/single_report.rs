@@ -1201,7 +1201,7 @@ fn render_assessment_and_execution_notes(
                 .unwrap_or_else(|| i18n.t("single-report-manual-review-fallback"));
             if let Some(instruction) = manual_recheck_instruction(&finding.rule, en) {
                 recommendation.push(' ');
-                recommendation.push_str(instruction);
+                recommendation.push_str(&instruction);
             }
             entries.push((
                 format!(
@@ -1222,7 +1222,7 @@ fn render_assessment_and_execution_notes(
                 .unwrap_or_else(|| i18n.t("single-report-warning-fallback"));
             if let Some(instruction) = manual_recheck_instruction(&finding.rule, en) {
                 text.push(' ');
-                text.push_str(instruction);
+                text.push_str(&instruction);
             }
             entries.push((
                 format!("{} · {}", finding.rule, i18n.t("single-report-warning")),
