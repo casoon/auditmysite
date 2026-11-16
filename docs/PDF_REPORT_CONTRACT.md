@@ -337,18 +337,16 @@ surface that owns its lifecycle:
   journey summary (`output::pdf::batch_report::interactive`: intro, table
   title and headings, the interactive category names), the module name
   "HTML Conformance", the impact summary (`portfolio`: the user, business
-  and risk rows), the commerce roll-up (`appendix`: intro, scope note,
-  product-page count, mandatory-page labels and status), the cover contents
-  title and the EN 301 549 clause roll-up and overview cards (`overview`:
+  and risk rows), the cover contents title and the EN 301 549 clause
+  roll-up and overview cards (`overview`:
   title, intro, column headings, clause statuses, out-of-scope chapter
   line, card titles), all `batch-report-*`. The renderers keep which
   message applies, the number formats (word counts, shares), the display
   mode, rating band and baseline texts of other modules, and the clause
-  titles and disclaimers that `wcag::en301549` owns; the product-page
-  count is a Fluent count with a plural select. The journey title, the
-  severity labels, the module names, "Share", "Overview" and "Linked" reuse
-  `a11y-details-journey-title`, `severity-*`, `module-*`, `batch-col-share`,
-  `pdf-commerce-overview-title` and `pdf-commerce-linked`.
+  titles and disclaimers that `wcag::en301549` owns. The journey title, the
+  severity labels, the module names and "Share" reuse
+  `a11y-details-journey-title`, `severity-*`, `module-*` and
+  `batch-col-share`.
 - `locales/{de,en}/output-texts.ftl`: the texts of the report builder helpers
   (`output::builder::helpers`: report title and subtitle, the security
   header tier and issue kind labels), the batch builder

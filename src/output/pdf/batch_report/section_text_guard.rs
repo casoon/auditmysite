@@ -35,7 +35,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 59);
+    assert_eq!(en.len(), 47);
 }
 
 #[test]
@@ -83,21 +83,6 @@ fn english_messages_have_no_german_characters() {
     assert!(!EN.contains(['ä', 'ö', 'ü', 'Ä', 'Ö', 'Ü', 'ß']));
 }
 
-/// The count of product pages agrees with its noun and is not grouped, as
-/// the plain `{}` it replaced.
-#[test]
-fn product_pages_count_selects_singular_and_plural() {
-    let key = "batch-report-commerce-product-pages-audited";
-    let en = crate::i18n::I18n::new("en").unwrap();
-    let de = crate::i18n::I18n::new("de").unwrap();
-    assert_eq!(en.count(key, 1), "1 product page audited");
-    assert_eq!(en.count(key, 0), "0 product pages audited");
-    assert_eq!(en.count(key, 1_234_567), "1234567 product pages audited");
-    assert_eq!(de.count(key, 1), "1 Produktseite geprüft");
-    assert_eq!(de.count(key, 2), "2 Produktseiten geprüft");
-}
-
-/// Every string in a record, component JSON included.
 fn strings<'a>(value: &'a Value, out: &mut Vec<&'a str>) {
     match value {
         Value::String(text) => out.push(text),
@@ -118,7 +103,6 @@ fn no_scenario_leaves_a_key_or_a_placeholder_in_a_text() {
                     && !text.contains("batch-col-")
                     && !text.contains("batch-interactive-")
                     && !text.contains("a11y-details-")
-                    && !text.contains("pdf-commerce-")
                     && !text.contains("severity-")
                     && !text.starts_with("module-")
                     && !text.contains("{$")

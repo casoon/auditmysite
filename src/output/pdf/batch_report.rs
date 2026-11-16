@@ -144,7 +144,6 @@ fn build_batch_report(
     }
 
     builder = render_batch_top_issues(builder, &pres, &i18n);
-    builder = render_batch_commerce(builder, batch, &i18n);
     builder = render_batch_privacy(builder, batch, &i18n);
     builder = render_batch_action_plan_section(builder, &pres, &i18n);
     builder = render_batch_tech_url_matrix(builder, &pres, config, &i18n);
