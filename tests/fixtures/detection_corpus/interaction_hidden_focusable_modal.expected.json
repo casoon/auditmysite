@@ -1,0 +1,10 @@
+{
+  "case": "interaction_hidden_focusable_modal",
+  "expectations": [
+    { "rule_id": "keyboard/hidden-focusable", "selector": "a#hm-behind", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "keyboard/hidden-focusable", "selector": "button#hm-accept", "verdict": "pass" },
+    { "rule_id": "keyboard/hidden-focusable", "selector": "button#hm-inside", "verdict": "violation", "occurrences": 1 },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "absent" },
+    { "rule_id": "navigation/location-missing", "verdict": "absent" }
+  ]
+}

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hidden focusable behind an open modal</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; }
+        a, button { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <header><p>Example Shop</p></header>
+    <nav aria-label="Main"><a href="/products" aria-current="page">Products</a></nav>
+    <main id="main">
+        <!-- needs_review: the page behind an open modal dialog is aria-hidden on purpose -->
+        <div id="page-behind" aria-hidden="true">
+            <a id="hm-behind" href="/prices">Prices</a>
+        </div>
+        <div role="dialog" aria-modal="true" aria-label="Cookie preferences">
+            <h1>Cookie preferences</h1>
+            <button id="hm-accept" type="button">Accept</button>
+            <!-- violation: aria-hidden on a control inside the modal itself -->
+            <button id="hm-inside" type="button" aria-hidden="true">Close</button>
+        </div>
+    </main>
+    <footer><p>Imprint</p></footer>
+</body>
+</html>
