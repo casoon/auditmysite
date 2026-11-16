@@ -392,6 +392,9 @@ pub fn render_batch_report(
 }
 
 #[cfg(test)]
+mod text_export;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::audit::normalized::normalize;

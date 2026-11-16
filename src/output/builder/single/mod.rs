@@ -1,6 +1,8 @@
 //! Single-report ViewModel builder.
 
 mod actions_block;
+#[cfg(test)]
+mod builder_text_export;
 mod diagnosis;
 mod executive;
 mod methodology;
