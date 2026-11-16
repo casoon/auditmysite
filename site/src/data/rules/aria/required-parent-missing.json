@@ -25,11 +25,10 @@
       ],
       "page_level": false,
       "failing": {
-        "case": "aria_naming_roles",
-        "file": "tests/fixtures/detection_corpus/aria_naming_roles.html",
+        "case": "landmarks_and_lists",
+        "file": "tests/fixtures/detection_corpus/landmarks_and_lists.html",
         "verdict": "violation",
-        "selector": "div",
-        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>ARIA role naming corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Widgets with role but no accessible name</h1>\n        <div role=\"menuitem\" tabindex=\"0\"></div>\n        <div role=\"slider\" tabindex=\"0\" aria-valuenow=\"5\" aria-valuemin=\"0\" aria-valuemax=\"10\"></div>\n        <div role=\"meter\" aria-valuenow=\"5\" aria-valuemin=\"0\" aria-valuemax=\"10\"></div>\n        <div role=\"progressbar\" aria-valuenow=\"50\" aria-valuemin=\"0\" aria-valuemax=\"100\"></div>\n        <div role=\"switch\" tabindex=\"0\" aria-checked=\"false\"></div>\n        <div role=\"tree\" aria-label=\"Files\"><div role=\"treeitem\" tabindex=\"0\"></div></div>\n        <div role=\"dialog\"></div>\n    </main>\n</body>\n</html>"
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Landmark nesting and list structure corpus case</title>\n</head>\n<body>\n    <header>Site header</header>\n    <main>\n        <h1>Landmark nesting and list structure</h1>\n\n        <footer role=\"contentinfo\">Nested footer — contentinfo landmark should be top-level, not inside main</footer>\n\n        <div role=\"listitem\">Explicit ARIA listitem with no list ancestor</div>\n\n        <ul aria-label=\"Empty list with no items\"></ul>\n\n        <p>\n            <input type=\"radio\" name=\"orphan-radio-test\" style=\"width: 44px; height: 44px\" aria-label=\"Orphan radio not in a group\">\n        </p>\n    </main>\n</body>\n</html>"
       },
       "passing": {
         "case": "aria_roles_valid",

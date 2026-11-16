@@ -1,0 +1,8 @@
+{
+  "case": "visual_text_spacing_important_na",
+  "expectations": [
+    {"rule_id": "text-spacing/letter-important", "verdict": "not_applicable"},
+    {"rule_id": "text-spacing/word-important", "verdict": "not_applicable"},
+    {"rule_id": "text-spacing/line-height-important", "verdict": "not_applicable"}
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "case": "aria_presentation_valid",
+  "expectations": [
+    {"rule_id": "aria/presentation-conflict", "verdict": "pass"},
+    {"rule_id": "aria/presentational-children-focusable", "verdict": "pass"},
+    {"rule_id": "targets/size", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
+  ]
+}

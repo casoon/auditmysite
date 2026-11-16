@@ -1,0 +1,42 @@
+{
+  "id": "aria/presentation-conflict",
+  "url": "https://casoon.github.io/auditmysite/rules/aria/presentation-conflict/",
+  "domain": "wcag",
+  "title": "Decorative element still exposed to assistive technology",
+  "outcome": "automatic",
+  "area": "Accessibility, Technical Robustness",
+  "criterion": "4.1.2",
+  "level": "A",
+  "axe_id": "aria/presentation-conflict",
+  "severity": "medium",
+  "user_impact": "Screen reader users meet an element the author meant to hide, without a name or purpose.",
+  "technical_impact": "role=none/presentation or <img alt=\"\"> with a global ARIA attribute or focusable, so the role is ignored.",
+  "checks": [
+    {
+      "contract_id": "aria/presentation-conflict",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 4.1.2 Name, Role, Value and SC 1.3.1 Info and Relationships; WAI-ARIA 1.2 §9.3 Presentational Roles Conflict Resolution; HTML-AAM img with alt=\"\"; ACT 46ca7f",
+      "applicability": "Elements in the accessibility tree marked as decorative: role none or presentation, or an img with an empty alt and no role.",
+      "expectation": "Fails when such an element carries a global ARIA attribute (aria-label,\naria-labelledby, aria-describedby, ...) or is focusable: WAI-ARIA 1.2 then\nmakes user agents ignore the presentational role, so what the author meant to\nhide is exposed and announced after all. Reported once, at the element. An\nattribute on a child does not count, and alt is not an ARIA attribute (an img\nwith role presentation and a non-empty alt passes this rule). Elements not in\nthe accessibility tree (hidden) are out of scope.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "ax_tree"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "aria_presentation_conflict",
+        "file": "tests/fixtures/detection_corpus/aria_presentation_conflict.html",
+        "verdict": "violation",
+        "selector": "div#toolbar",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Your documents - Example cloud</title>\n<style>\n  body { color: #111111; background: #ffffff; font-size: 16px; }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Example cloud</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Your documents</h1>\n  <!-- Marked as decorative, but a global ARIA attribute keeps it in the tree\n       (WAI-ARIA 1.2, Presentational Roles Conflict Resolution). -->\n  <div id=\"toolbar\" role=\"presentation\" aria-label=\"Document actions\"><p>Three documents</p></div>\n  <!-- An empty alt maps to role presentation (HTML-AAM); aria-labelledby\n       brings it back. -->\n  <img id=\"logo\" src=\"data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==\" alt=\"\" aria-labelledby=\"logo-label\" width=\"40\" height=\"40\"><span hidden id=\"logo-label\">Example cloud logo</span>\n  <!-- Focusable: the presentation role does not apply. -->\n  <p><span id=\"more\" role=\"none\" tabindex=\"0\">More documents</span></p>\n  <!-- Children of a button are presentational (Children Presentational: True);\n       the focusable span inside gets no role or name for a screen reader. -->\n  <button id=\"save\" type=\"button\">Save <span role=\"button\" tabindex=\"0\" aria-label=\"Save options\">&#9660;</span></button>\n  <!-- Same with an explicit role: the link inside a checkbox. -->\n  <p><span id=\"terms\" role=\"checkbox\" aria-checked=\"false\" tabindex=\"0\">I accept the <a href=\"/terms\">terms of use</a></span></p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "aria_presentation_valid",
+        "file": "tests/fixtures/detection_corpus/aria_presentation_valid.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Your documents - Example cloud</title>\n<style>\n  body { color: #111111; background: #ffffff; font-size: 16px; }\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Example cloud</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Your documents</h1>\n  <!-- Decorative image without any global ARIA attribute. -->\n  <img id=\"divider\" src=\"data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==\" alt=\"\" width=\"200\" height=\"4\">\n  <!-- The ARIA attribute sits on the child, not on the presentational element. -->\n  <div id=\"layout\" role=\"presentation\"><a href=\"/archive\" aria-label=\"Archived documents\">Archive</a></div>\n  <!-- Not in the accessibility tree: nothing to conflict with. -->\n  <img id=\"hidden-logo\" src=\"data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==\" alt=\"\" hidden aria-label=\"Example cloud logo\" width=\"40\" height=\"40\">\n  <!-- Two buttons side by side instead of one inside the other. -->\n  <button id=\"save\" type=\"button\">Save</button>\n  <button id=\"save-options\" type=\"button\" aria-label=\"Save options\">&#9660;</button>\n  <!-- A checkbox whose content is only text. -->\n  <p><span id=\"terms\" role=\"checkbox\" aria-checked=\"false\" tabindex=\"0\">I accept the terms of use</span> <a href=\"/terms\">Read the terms of use</a></p>\n  <!-- Not rendered: no keyboard stop inside. -->\n  <div hidden><span id=\"hidden-terms\" role=\"checkbox\" aria-checked=\"false\" tabindex=\"0\">I accept the <a href=\"/privacy\">privacy policy</a></span></div>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

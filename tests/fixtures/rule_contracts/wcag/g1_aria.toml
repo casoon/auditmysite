@@ -345,7 +345,7 @@ tablist, a menuitem outside menu/menubar/group, a tab under a native <li> of a l
 tablist. A tab inside its tablist, also through a generic wrapper or via aria-owns, passes. A
 listitem's context is lists/item-outside-list, not this id. Hidden subtrees are out of scope."""
 page_level = false
-positive = ["aria_roles_invalid", "aria_attribute_validation", "iframe_widget_rules", "aria_naming_roles"]
+positive = ["aria_roles_invalid", "aria_attribute_validation", "iframe_widget_rules", "aria_naming_roles", "content_lists_broken", "landmarks_and_lists"]
 negative = ["aria_roles_valid"]
 not_applicable = ["aria_na_plain_article"]
 
@@ -548,6 +548,84 @@ status = "killed"
 target = "barrierlab:crates/a11y-rules/tests/mutations/aria.toml"
 change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
 killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id aria/combobox-popup-missing)"
+
+[[rule]]
+id = "aria/presentation-conflict"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/presentation-conflict)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value and SC 1.3.1 Info and Relationships; WAI-ARIA 1.2 §9.3 Presentational Roles Conflict Resolution; HTML-AAM img with alt=\"\"; ACT 46ca7f"
+capabilities = ["dom", "ax_tree"]
+applicability = "Elements in the accessibility tree marked as decorative: role none or presentation, or an img with an empty alt and no role."
+expectation = """
+Fails when such an element carries a global ARIA attribute (aria-label,
+aria-labelledby, aria-describedby, ...) or is focusable: WAI-ARIA 1.2 then
+makes user agents ignore the presentational role, so what the author meant to
+hide is exposed and announced after all. Reported once, at the element. An
+attribute on a child does not count, and alt is not an ARIA attribute (an img
+with role presentation and a non-empty alt passes this rule). Elements not in
+the accessibility tree (hidden) are out of scope."""
+page_level = false
+positive = ["aria_presentation_conflict"]
+negative = ["aria_presentation_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_presentation_valid"] }
+native_vs_aria = { cases = ["aria_presentation_conflict"] }
+alternative_labels = { cases = ["aria_presentation_conflict", "aria_presentation_valid"] }
+frames_shadow_dom = { not_relevant = "Element-level markup check; frames run their own pass." }
+responsive = { not_relevant = "Roles and ARIA attributes do not change per breakpoint." }
+dynamic = { not_relevant = "Read from the captured DOM after load like markup." }
+thresholds = { not_relevant = "The condition is a global ARIA attribute or focusability; nothing to count." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/aria.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id aria/presentation-conflict)"
+
+[[rule]]
+id = "aria/presentational-children-focusable"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=aria/presentational-children-focusable)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value and SC 1.3.1 Info and Relationships; WAI-ARIA 1.2 Children Presentational: True; ACT 307n5z"
+capabilities = ["dom"]
+applicability = "Rendered elements whose role has presentational children (button, checkbox, img, math, menuitemcheckbox, menuitemradio, meter, option, progressbar, radio, scrollbar, separator, slider, switch, tab), explicit or native (button, option, progress, meter)."
+expectation = """
+Fails when such an element contains a focusable descendant (a link with href,
+an enabled form control, any element with a tabindex): its children are
+presentational, so the keyboard stops at the descendant while assistive
+technology gets no role or name for it. Reported once, at the outer element.
+Elements side by side pass; a disabled control is not focusable. Content under
+aria-hidden still takes keyboard focus and counts; content that is not
+rendered does not."""
+page_level = false
+positive = ["aria_presentation_conflict"]
+negative = ["aria_presentation_valid"]
+not_applicable = ["aria_na_plain_article"]
+
+[rule.variants]
+visibility = { cases = ["aria_presentation_valid"] }
+native_vs_aria = { cases = ["aria_presentation_conflict"] }
+alternative_labels = { not_relevant = "No accessible name is involved: the rule judges focusability inside a role, not how an element is labelled." }
+frames_shadow_dom = { not_relevant = "Element-level markup check; frames run their own pass." }
+responsive = { not_relevant = "Roles and focusability do not change per breakpoint." }
+dynamic = { not_relevant = "Read from the captured DOM after load like markup." }
+thresholds = { not_relevant = "Focusable or not is a state; nothing to count." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/aria.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id aria/presentational-children-focusable)"
 
 [[rule]]
 id = "popover/target-missing"

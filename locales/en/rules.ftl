@@ -296,6 +296,10 @@ rule-language-part-undetermined = Check text in another language without lang
     .user-impact = Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.
     .technical-impact = Heuristic language detection per text block; pages that are neither German nor English stay untested.
 
+rule-language-part-invalid = Invalid language code on part of the page
+    .user-impact = Screen readers cannot switch to the right pronunciation for that passage.
+    .technical-impact = lang below <html> that is not a valid BCP 47 tag and sets the language of text.
+
 rule-language-part-unmarked = Check text in another language without lang
     .user-impact = Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.
     .technical-impact = Heuristic language detection per text block; pages that are neither German nor English stay untested.
@@ -356,6 +360,18 @@ rule-contrast-control-undetermined = Insufficient contrast for UI elements
 rule-text-spacing-clipped = Content clipped when text spacing is increased
     .user-impact = Users who increase line/letter/word spacing for readability lose content.
     .technical-impact = Fixed height/width with overflow:hidden on text containers; measured before and after overriding the text spacing, only newly clipped text counts.
+
+rule-text-spacing-letter-important = Letter spacing fixed with !important
+    .user-impact = Users cannot increase letter spacing for readability.
+    .technical-impact = letter-spacing below 0.12em set with !important in a style attribute.
+
+rule-text-spacing-word-important = Word spacing fixed with !important
+    .user-impact = Users cannot increase word spacing for readability.
+    .technical-impact = word-spacing below 0.16em set with !important in a style attribute.
+
+rule-text-spacing-line-height-important = Line height fixed with !important
+    .user-impact = Users cannot increase line height for readability.
+    .technical-impact = line-height below 1.5 set with !important in a style attribute.
 
 rule-color-link-indistinct = Link distinguishable by color only
     .user-impact = Users with color vision deficiency cannot recognize in-text links.
@@ -886,6 +902,14 @@ rule-links-used-as-button = Link used as a button substitute without a matching 
 rule-aria-role-redundant = Redundant ARIA role
     .user-impact = No immediate user harm, but an unnecessary risk of inconsistency in future changes.
     .technical-impact = role attribute duplicates the tag's native implicit role.
+
+rule-aria-presentation-conflict = Decorative element still exposed to assistive technology
+    .user-impact = Screen reader users meet an element the author meant to hide, without a name or purpose.
+    .technical-impact = role=none/presentation or <img alt=""> with a global ARIA attribute or focusable, so the role is ignored.
+
+rule-aria-presentational-children-focusable = Focusable element inside a control with presentational children
+    .user-impact = Keyboard users reach an element that screen readers do not announce.
+    .technical-impact = Focusable descendant of button, checkbox, tab, menu item or another role whose children are presentational.
 
 rule-lists-role-redundant = Redundant ARIA role
     .user-impact = No immediate user harm, but an unnecessary risk of inconsistency in future changes.

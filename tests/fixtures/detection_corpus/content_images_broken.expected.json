@@ -102,6 +102,18 @@
       "rule_id": "targets/size-enhanced",
       "selector": "a",
       "verdict": "needs_review"
+    },
+    {
+      "rule_id": "names/required-missing",
+      "selector": "div#stamp",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "names/required-missing",
+      "selector": "iframe#frame-gallery [frame] div#frame-stamp",
+      "verdict": "violation",
+      "occurrences": 1
     }
   ]
 }

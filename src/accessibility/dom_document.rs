@@ -31,9 +31,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use a11y_dom::{
-    Arena, ArenaNode, Backdrop, BoxTransform, Color, ComputedStyle, Document, FocusCover, Layout,
-    NameSource as SharedNameSource, Node, NodeKind, PasteProbe, Rect, Rendering, Semantics,
-    SpacingClip,
+    Arena, ArenaNode, Backdrop, BoxTransform, Color, ColorPairs, ComputedStyle, Document,
+    FocusCover, Layout, NameSource as SharedNameSource, Node, NodeKind, PasteProbe, Rect,
+    Rendering, Semantics, SpacingClip,
 };
 use chromiumoxide::cdp::browser_protocol::dom::{
     DescribeNodeParams, GetDocumentParams, Node as CdpNode, ShadowRootType,
@@ -265,6 +265,8 @@ struct LayoutStyle {
     /// Die Layout-Angaben aus dem Snapshot, ohne `obscured`; `None` ohne
     /// Layout-Objekt.
     layout: Option<Layout>,
+    /// Siehe [`Rendering::color_pairs`]; aus [`color_pairs`].
+    color_pairs: Option<ColorPairs>,
 }
 
 /// Die berechneten Werte, die der `DOMSnapshot` je Layout-Objekt liefert.
@@ -304,6 +306,7 @@ const SNAPSHOT_STYLES: &[&str] = &[
     "top",
     "scroll-padding-top",
     "pointer-events",
+    "text-shadow",
 ];
 
 /// Die Werte eines Layout-Objekts in der Reihenfolge von [`SNAPSHOT_STYLES`].
@@ -397,6 +400,47 @@ fn backdrop(
     };
     memo[i] = Some(result);
     result
+}
+
+/// Die Farbpaare hinter dem Text von `i`, wenn ein Verlauf, `opacity` oder
+/// ein `text-shadow` im Spiel ist (ACT afw4f7, 09o5cg): die Kette vom Element
+/// nach außen als Schichten, verrechnet von
+/// [`style_cascade::compose_color_pairs`] wie in barrierlab-cli. `None`,
+/// wenn nichts davon im Spiel ist oder ein Hintergrundbild kein reiner
+/// Verlauf ist -- dann gelten Hintergrundfarbe oder Abtastung.
+fn color_pairs(
+    i: usize,
+    values: &[Option<SnapshotValues>],
+    text: Option<&SnapshotValues>,
+    parents: &[i64],
+) -> Option<ColorPairs> {
+    let mut layers = Vec::new();
+    let mut at = Some(i);
+    while let Some(k) = at {
+        if let Some(v) = &values[k] {
+            let gradient = match v.get("background-image") {
+                Some(img) if img != "none" => Some(style_cascade::gradient_stops(img, false)?),
+                _ => None,
+            };
+            let opacity = v
+                .get("opacity")
+                .and_then(|o| o.trim().parse::<f64>().ok())
+                .map_or(1.0, |o| o.clamp(0.0, 1.0));
+            layers.push(style_cascade::PaintLayer {
+                background_color: v.get("background-color").and_then(parse_color),
+                gradient,
+                opacity,
+            });
+        }
+        at = parents.get(k).and_then(|p| usize::try_from(*p).ok());
+    }
+    let color = text.and_then(painted_color);
+    let halo = match (text.and_then(|t| t.get("text-shadow")), color) {
+        (None, _) => Some(Vec::new()),
+        (Some(shadow), Some(c)) => style_cascade::shadow_colors(shadow, c, false),
+        (Some(shadow), None) => (shadow.trim() == "none").then(Vec::new),
+    };
+    style_cascade::compose_color_pairs(color, &layers, Some(WHITE), halo)
 }
 
 /// Ob sich zwei Rechtecke mit Fläche überschneiden; bloßes Berühren zählt
@@ -1016,6 +1060,14 @@ impl LayoutStyles {
                     ),
                     None => computed_style("none".to_string(), None, None),
                 };
+                let pairs = if overlap.covers(i) {
+                    None
+                } else {
+                    let text = element_values[i]
+                        .as_ref()
+                        .or_else(|| first_text[i].and_then(|t| text_values[t].as_ref()));
+                    color_pairs(i, &element_values, text, parents)
+                };
                 let visually_hidden =
                     (style.display.as_deref() != Some("none")).then(|| overlap.visually_hidden(i));
                 let layout = element_values[i].as_ref().map(|v| {
@@ -1034,6 +1086,7 @@ impl LayoutStyles {
                         own_text: document_index == 0 && own_text[i],
                         main_document: document_index == 0,
                         layout,
+                        color_pairs: pairs,
                     },
                 );
             }
@@ -1406,6 +1459,11 @@ impl Rendering for RenderedCdpDocument<'_> {
 
     /// Die Leuchtdichten aus `sample_backdrops`: nur für Text ohne
     /// bestimmbaren Hintergrund im sichtbaren Bereich.
+    /// Aus dem Snapshot, siehe [`color_pairs`].
+    fn color_pairs<'n>(&'n self, node: Self::N<'n>) -> Option<ColorPairs> {
+        self.entry(node)?.color_pairs.clone()
+    }
+
     fn sampled_backdrop<'n>(&'n self, node: Self::N<'n>) -> Option<Backdrop> {
         let backend = self.doc.backend_node_id(node)?;
         self.styles
@@ -2380,6 +2438,7 @@ mod tests {
             own_text: true,
             main_document: true,
             layout: None,
+            color_pairs: None,
         };
         let weiss = Some(Color {
             r: 255,
@@ -2602,6 +2661,78 @@ mod tests {
                 a: 255
             })
         );
+    }
+
+    /// Werte für [`color_pairs`]: nur die gesetzten Eigenschaften.
+    fn farbwerte(props: &[(&str, &str)]) -> Option<SnapshotValues> {
+        let mut v: Vec<Option<String>> = vec![None; SNAPSHOT_STYLES.len()];
+        for (p, wert) in props {
+            v[SNAPSHOT_STYLES.iter().position(|q| q == p).unwrap()] = Some(wert.to_string());
+        }
+        Some(SnapshotValues(v))
+    }
+
+    /// ACT afw4f7 / 09o5cg in Chromes berechneter Schreibweise: `opacity`
+    /// mischt Text und Hintergrund, ein Verlauf ergibt Paare je Stufe, ein
+    /// Schatten kommt als Halo mit; ohne all das gelten die einfachen Farben.
+    #[test]
+    fn farbpaare_aus_verlauf_deckkraft_und_schatten() {
+        let weiss = Color {
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 255,
+        };
+        // <div style="background:#FFF"><p style="color:#000; opacity:.3">
+        let werte = [
+            farbwerte(&[("color", "rgb(0, 0, 0)"), ("opacity", "0.3")]),
+            farbwerte(&[("background-color", "rgb(255, 255, 255)")]),
+        ];
+        let p = color_pairs(0, &werte, werte[0].as_ref(), &[1, -1]).unwrap();
+        assert_eq!(
+            p.pairs,
+            vec![(
+                Color {
+                    r: 179,
+                    g: 179,
+                    b: 179,
+                    a: 255
+                },
+                weiss
+            )]
+        );
+
+        let werte = [farbwerte(&[
+            ("color", "rgb(51, 51, 51)"),
+            (
+                "background-image",
+                "linear-gradient(to right, rgb(255, 255, 255), rgb(0, 0, 255))",
+            ),
+        ])];
+        let p = color_pairs(0, &werte, werte[0].as_ref(), &[-1]).unwrap();
+        assert_eq!(p.pairs.len(), 3);
+
+        let werte = [farbwerte(&[
+            ("color", "rgb(0, 0, 0)"),
+            ("background-color", "rgb(115, 115, 115)"),
+            ("text-shadow", "rgb(255, 255, 255) 0px 0px 3px"),
+        ])];
+        let p = color_pairs(0, &werte, werte[0].as_ref(), &[-1]).unwrap();
+        assert_eq!(p.halo, vec![weiss]);
+
+        let werte = [farbwerte(&[
+            ("color", "rgb(0, 0, 0)"),
+            ("background-color", "rgb(255, 255, 255)"),
+            ("text-shadow", "none"),
+        ])];
+        assert_eq!(color_pairs(0, &werte, werte[0].as_ref(), &[-1]), None);
+
+        // Ein Bild ist kein Verlauf: Abtastung statt Paaren.
+        let werte = [farbwerte(&[
+            ("color", "rgb(0, 0, 0)"),
+            ("background-image", "url(\"a.png\")"),
+        ])];
+        assert_eq!(color_pairs(0, &werte, werte[0].as_ref(), &[-1]), None);
     }
 
     /// Ein Kasten von 30px Höhe mit 152px Inhalt: Überhang 122px bei

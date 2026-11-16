@@ -2,7 +2,7 @@
   "case": "landmarks_and_lists",
   "expectations": [
     {"rule_id": "landmarks/not-top-level", "verdict": "needs_review"},
-    {"rule_id": "lists/item-outside-list", "verdict": "violation"},
+    {"rule_id": "aria/required-parent-missing", "verdict": "violation"},
     {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"},
     {"rule_id": "forms/group-missing", "verdict": "needs_review"},
     {"rule_id": "zoom/viewport-missing", "verdict": "needs_review"},
