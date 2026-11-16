@@ -37,30 +37,22 @@ pub(super) fn render_en301549_annex(
 ) -> renderreport::engine::ReportBuilder {
     let en = is_english(i18n);
 
-    let (title, intro) = if en {
-        (
-            "EN 301 549 clause mapping",
-            "Maps this audit's automated WCAG 2.2 A/AA findings onto EN 301 549 V4.1.1 (2026-09), chapter 9 (Web) clause numbers, with a per-clause status: violations found, no violations found in the automated scope, or manual review required.".to_string(),
+    builder = builder.add_component(
+        SectionHeaderSplit::new(
+            i18n.t("pdf-sections-en301549-title"),
+            i18n.t("pdf-sections-en301549-intro"),
         )
-    } else {
-        (
-            "EN-301-549-Klauselzuordnung",
-            "Ordnet die automatisch erkannten WCAG-2.2-A/AA-Befunde dieses Audits den Klauselnummern von EN 301 549 V4.1.1 (2026-09), Kapitel 9 (Web) zu, mit einem Status je Klausel: Verstöße gefunden, keine Verstöße im automatisch geprüften Umfang, oder manuelle Prüfung erforderlich.".to_string(),
-        )
-    };
-    builder = builder.add_component(SectionHeaderSplit::new(title, &intro).with_level(2));
+        .with_level(2),
+    );
 
-    let disclaimer_title = if en {
-        "Not an accessibility statement"
-    } else {
-        "Keine Barrierefreiheitserklärung"
-    };
     let disclaimer = if en {
         EN301549_DISCLAIMER_EN
     } else {
         EN301549_DISCLAIMER_DE
     };
-    builder = builder.add_component(Callout::warning(disclaimer).with_title(disclaimer_title));
+    builder = builder.add_component(
+        Callout::warning(disclaimer).with_title(i18n.t("batch-report-en301549-disclaimer-title")),
+    );
 
     let rollups = derive_annex(findings);
     let violations: Vec<_> = rollups
@@ -75,16 +67,16 @@ pub(super) fn render_en301549_annex(
                 .with_color(crate::output::pdf::design::tokens::NEUTRAL),
         );
     } else {
-        let table_title = if en {
-            format!("Violations found ({})", violations.len())
-        } else {
-            format!("Verstöße gefunden ({})", violations.len())
-        };
+        let table_title = format!(
+            "{} ({})",
+            i18n.t("batch-report-en301549-status-violations"),
+            violations.len()
+        );
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if en { "Clause" } else { "Klausel" }).with_width("14%"),
-            TableColumn::new(if en { "Title" } else { "Titel" }).with_width("34%"),
-            TableColumn::new(if en { "Level" } else { "Stufe" }).with_width("10%"),
-            TableColumn::new(if en { "Findings" } else { "Befunde" }).with_width("42%"),
+            TableColumn::new(i18n.t("batch-report-en301549-col-clause")).with_width("14%"),
+            TableColumn::new(i18n.t("batch-report-en301549-col-title")).with_width("34%"),
+            TableColumn::new(i18n.t("pdf-sections-en301549-col-level")).with_width("10%"),
+            TableColumn::new(i18n.t("diagnosis-col-findings")).with_width("42%"),
         ])
         .with_title(table_title);
         for r in &violations {
@@ -123,14 +115,11 @@ pub(super) fn render_en301549_annex(
         .collect();
     if !incomplete.is_empty() {
         let mut cloud = TagCloud::new()
-            .with_title(if en {
-                format!("Automated evaluation incomplete ({})", incomplete.len())
-            } else {
-                format!(
-                    "Automatisierte Prüfung unvollständig ({})",
-                    incomplete.len()
-                )
-            })
+            .with_title(format!(
+                "{} ({})",
+                i18n.t("batch-report-en301549-incomplete"),
+                incomplete.len()
+            ))
             .with_gap("5pt");
         for rollup in &incomplete {
             cloud = cloud.add(
@@ -149,14 +138,11 @@ pub(super) fn render_en301549_annex(
         })
         .collect();
     if !no_violations.is_empty() {
-        let cloud_title = if en {
-            format!("No violations in automated scope ({})", no_violations.len())
-        } else {
-            format!(
-                "Keine Verstöße im automatisch geprüften Umfang ({})",
-                no_violations.len()
-            )
-        };
+        let cloud_title = format!(
+            "{} ({})",
+            i18n.t("pdf-sections-en301549-no-violations"),
+            no_violations.len()
+        );
         let mut cloud = TagCloud::new().with_title(cloud_title).with_gap("5pt");
         for r in &no_violations {
             cloud = cloud.add(
@@ -172,11 +158,11 @@ pub(super) fn render_en301549_annex(
         .filter(|r| matches!(r.status, ClauseStatus::ManualReviewRequired))
         .collect();
     if !manual.is_empty() {
-        let cloud_title = if en {
-            format!("Manual review required ({})", manual.len())
-        } else {
-            format!("Manuelle Prüfung erforderlich ({})", manual.len())
-        };
+        let cloud_title = format!(
+            "{} ({})",
+            i18n.t("batch-report-en301549-status-manual"),
+            manual.len()
+        );
         let mut cloud = TagCloud::new().with_title(cloud_title).with_gap("5pt");
         for r in &manual {
             let clause_title = if en {
@@ -195,43 +181,30 @@ pub(super) fn render_en301549_annex(
         builder = builder.add_component(cloud);
     }
 
-    let out_of_scope_title = if en {
-        "Outside this audit's scope"
-    } else {
-        "Außerhalb dieses Prüfumfangs"
-    };
-    let mut out_of_scope_list = List::new().with_title(out_of_scope_title);
+    let mut out_of_scope_list =
+        List::new().with_title(i18n.t("batch-report-en301549-out-of-scope-title"));
     for chapter in OUT_OF_SCOPE_CHAPTERS {
         let chapter_title = if en {
             chapter.title_en
         } else {
             chapter.title_de
         };
-        out_of_scope_list = out_of_scope_list.add_item(if en {
-            format!(
-                "Chapter {} \u{2013} {} (not assessed)",
-                chapter.chapter, chapter_title
-            )
-        } else {
-            format!(
-                "Kapitel {} \u{2013} {} (nicht bewertet)",
-                chapter.chapter, chapter_title
-            )
-        });
+        out_of_scope_list = out_of_scope_list.add_item(i18n.t_args(
+            "batch-report-en301549-chapter",
+            &[
+                ("chapter", chapter.chapter.to_string()),
+                ("title", chapter_title.to_string()),
+            ],
+        ));
     }
     builder = builder.add_component(out_of_scope_list);
 
     let out_of_standard = out_of_standard_finding_count(findings);
     if out_of_standard > 0 {
-        let note = if en {
-            format!(
-                "{out_of_standard} additional WCAG finding(s) outside WCAG 2.2 A/AA (Level AAA criteria) have no normative clause in EN 301 549 V4.1.1 and are not represented in the clause table above."
-            )
-        } else {
-            format!(
-                "{out_of_standard} weitere(r) WCAG-Befund(e) außerhalb von WCAG 2.2 A/AA (Kriterien der Stufe AAA) haben in EN 301 549 V4.1.1 keine normative Klausel und werden in der Klausel-Tabelle oben nicht ausgewiesen."
-            )
-        };
+        let note = i18n.t_args(
+            "pdf-sections-en301549-out-of-standard",
+            &[("count", out_of_standard.to_string())],
+        );
         builder =
             builder.add_component(Label::new(&note).with_size("10.5pt").with_color("#475569"));
     }

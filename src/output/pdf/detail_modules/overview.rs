@@ -6,20 +6,11 @@ pub(in crate::output::pdf) fn render_search_experience(
     is_first: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
-    let title = if en {
-        "Search Experience"
-    } else {
-        "Sichtbarkeit & Nutzerverständnis"
-    };
-    let body = if en {
-        "This composite combines classic technical SEO with content clarity, trust signals, AI readability, semantic structure and mobile readability. Classic SEO remains visible in the next detail section."
-    } else {
-        "Dieser Gesamtwert verbindet klassisches technisches SEO mit Inhaltsverständlichkeit, Vertrauenssignalen, KI-Lesbarkeit, semantischer Struktur und mobiler Lesbarkeit. Das klassische SEO bleibt im nächsten Detailkapitel sichtbar."
-    };
+    let title = i18n.t("pdf-sections-search-title");
+    let body = i18n.t("pdf-sections-search-body");
 
     let sx_takeaway = super::first_sentence(&sx.interpretation);
-    builder = super::module_chapter_opener(builder, title, &sx_takeaway, is_first);
+    builder = super::module_chapter_opener(builder, &title, &sx_takeaway, is_first);
 
     builder = builder
         .add_component(
@@ -28,7 +19,7 @@ pub(in crate::output::pdf) fn render_search_experience(
                 .with_thresholds(75, 40),
         )
         .add_component(
-            Label::new(body)
+            Label::new(&body)
                 .with_size("10.5pt")
                 .with_color(crate::output::pdf::design::tokens::NEUTRAL),
         );
@@ -47,11 +38,7 @@ pub(in crate::output::pdf) fn render_search_experience(
     // and a methodology table later. The breakdown table still follows as the
     // full supporting detail, not as the reader's only path to the "why".
     if !sx.warnings.is_empty() {
-        let mut list = List::new().with_title(if en {
-            "What still goes wrong"
-        } else {
-            "Was noch schief läuft"
-        });
+        let mut list = List::new().with_title(i18n.t("pdf-sections-search-warnings"));
         for warning in &sx.warnings {
             list = list.add_item(warning);
         }
@@ -60,16 +47,12 @@ pub(in crate::output::pdf) fn render_search_experience(
 
     if !sx.components.is_empty() {
         let mut table = AuditTable::new(vec![
-            TableColumn::new(if en { "Component" } else { "Bestandteil" }).with_width("28%"),
-            TableColumn::new(if en { "Weight" } else { "Gewicht" }).with_width("14%"),
+            TableColumn::new(i18n.t("pdf-sec-score-component")).with_width("28%"),
+            TableColumn::new(i18n.t("pdf-sections-search-col-weight")).with_width("14%"),
             TableColumn::new("Score").with_width("14%"),
-            TableColumn::new(if en { "Meaning" } else { "Einordnung" }).with_width("44%"),
+            TableColumn::new(i18n.t("pdf-sections-search-col-meaning")).with_width("44%"),
         ])
-        .with_title(if en {
-            "How the score is composed"
-        } else {
-            "Wie sich der Wert zusammensetzt"
-        });
+        .with_title(i18n.t("pdf-sections-search-table-title"));
         for component in &sx.components {
             table = table.add_row(vec![
                 component.label.clone(),
@@ -133,13 +116,10 @@ pub(in crate::output::pdf) fn render_budget_violations(
     // Metric names are stored in canonical English; re-localize the few
     // translatable ones for the PDF (#406). Acronyms (LCP, TBT, …) pass through.
     let localize_metric = |metric: &str| -> String {
-        if is_english(i18n) {
-            return metric.to_string();
-        }
         match metric {
-            "JS size" => "JS-Größe".to_string(),
-            "CSS size" => "CSS-Größe".to_string(),
-            "Page size" => "Seitengröße".to_string(),
+            "JS size" => i18n.t("pdf-sections-budget-js-size"),
+            "CSS size" => i18n.t("pdf-sections-budget-css-size"),
+            "Page size" => i18n.t("pdf-sections-budget-page-size"),
             other => other.to_string(),
         }
     };

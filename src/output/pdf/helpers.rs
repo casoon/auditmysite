@@ -14,46 +14,15 @@ use crate::output::report_model::*;
 /// the surrounding explanation is translated. Returns `None` for criteria
 /// with no documented self-test (most of them — this is deliberately not a
 /// general-purpose annotation).
-pub(super) fn manual_recheck_instruction(wcag_criterion: &str, en: bool) -> Option<&'static str> {
-    match wcag_criterion {
-        "1.3.6" => Some(if en {
-            "Self-check: open VoiceOver's Rotor (VO+U, macOS) or NVDA's Elements List \
-             (Insert+F7) and switch to \"Landmarks\" — listen whether the areas you'd expect \
-             (header, navigation, footer) are actually announced."
-        } else {
-            "Selbsttest: VoiceOver-Rotor (VO+U, macOS) oder NVDA-Elementliste (Einfg+F7) öffnen \
-             und auf „Landmarken\" umschalten — anhören, ob die erwarteten Bereiche (Header, \
-             Navigation, Footer) tatsächlich angekündigt werden."
-        }),
-        "1.3.1" => Some(if en {
-            "Self-check: use VoiceOver's Rotor (VO+U) or NVDA's Elements List (Insert+F7) and \
-             check both the \"Headings\" and \"Landmarks\" views — confirm the order/uniqueness \
-             you hear matches what this finding describes."
-        } else {
-            "Selbsttest: VoiceOver-Rotor (VO+U) oder NVDA-Elementliste (Einfg+F7) nutzen und \
-             sowohl „Überschriften\" als auch „Landmarken\" prüfen — abgleichen, ob \
-             Reihenfolge/Eindeutigkeit dem hier beschriebenen Befund entspricht."
-        }),
-        "3.3.2" => Some(if en {
-            "Self-check: tab into the form with VoiceOver (VO+Cmd+J jumps between form \
-             controls) or NVDA (F jumps between fields) and listen whether every field \
-             announces a name — not just a generic \"edit text\"."
-        } else {
-            "Selbsttest: mit VoiceOver (VO+Cmd+J springt zwischen Formularfeldern) oder NVDA \
-             (F springt zwischen Feldern) durch das Formular tabben und hören, ob jedes Feld \
-             einen Namen ansagt — nicht nur ein generisches „Textfeld\"."
-        }),
-        "4.1.3" => Some(if en {
-            "Self-check: trigger the message (e.g. submit the form with an invalid value) \
-             while VoiceOver or NVDA is running and confirm it is announced automatically, \
-             without moving keyboard focus to it."
-        } else {
-            "Selbsttest: die Meldung auslösen (z. B. Formular mit ungültigem Wert absenden), \
-             während VoiceOver oder NVDA läuft, und prüfen, ob sie automatisch angesagt wird, \
-             ohne dass der Tastaturfokus dorthin springt."
-        }),
-        _ => None,
-    }
+pub(super) fn manual_recheck_instruction(wcag_criterion: &str, en: bool) -> Option<String> {
+    let key = match wcag_criterion {
+        "1.3.6" => "pdf-sections-recheck-landmarks",
+        "1.3.1" => "pdf-sections-recheck-headings-landmarks",
+        "3.3.2" => "pdf-sections-recheck-form-names",
+        "4.1.3" => "pdf-sections-recheck-status-messages",
+        _ => return None,
+    };
+    Some(crate::i18n::text(key, en))
 }
 
 const SECTION_HEADER_SPLIT_TEMPLATE: &str = include_str!("templates/section_header_split.typ");
@@ -238,9 +207,7 @@ pub(super) fn module_name_with_taxonomy_suffix(
     if !class.needs_suffix_qualifier() {
         return name.to_string();
     }
-    let en = is_english(i18n);
-    let suffix = if en { "Indicator" } else { "Indikator" };
-    format!("{name} ({suffix})")
+    format!("{name} ({})", i18n.t("pdf-sections-indicator-suffix"))
 }
 
 #[cfg(test)]
