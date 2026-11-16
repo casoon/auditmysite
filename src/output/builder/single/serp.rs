@@ -46,7 +46,13 @@ pub(super) fn build_page_health_presentation(
     // in canonical English (for JSON); the PDF localizes here (#406).
     let issues: Vec<(String, String, String)> = crate::seo::page_health::collect_issues(ph, en)
         .iter()
-        .map(|i| (i.issue_type.clone(), i.message.clone(), i.severity.clone()))
+        .map(|i| {
+            (
+                i.issue_type.clone(),
+                i.message.clone(),
+                i.severity.as_str().to_string(),
+            )
+        })
         .collect();
 
     let mut url_info: Vec<(String, String)> = vec![

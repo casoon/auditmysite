@@ -164,7 +164,7 @@ fn bik_chapter_id_str(id: crate::wcag::bik_guide::BikChapterId) -> &'static str 
 /// batch) pass empty slices / `false`, see `wcag::bik_guide` module doc.
 pub(super) fn build_bik_guide_annex(
     normalized: &NormalizedReport,
-    seo_technical_issues: &[crate::seo::technical::TechnicalIssue],
+    seo_technical_issues: &[crate::seo::SeoIssue],
     easy_language_detected: bool,
 ) -> crate::output::json::BikGuideAnnex {
     use crate::output::json::{BikChapterEntry, BikFindingRefEntry, BikGuideAnnex};

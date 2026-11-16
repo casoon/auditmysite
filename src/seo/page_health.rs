@@ -4,6 +4,7 @@
 //! module: soft-404 detection, meta-refresh, frames, URL structure,
 //! redirect detection, www/non-www consolidation, and basic HTML validation.
 
+use super::issue::SeoIssue;
 use chromiumoxide::Page;
 use fluent_bundle::FluentValue;
 use serde::{Deserialize, Serialize};
@@ -212,7 +213,7 @@ pub struct PageHealthAnalysis {
     pub generic_link_text_samples: Vec<String>,
 
     /// Aggregated issue list for report rendering
-    pub issues: Vec<PageHealthIssue>,
+    pub issues: Vec<SeoIssue>,
 }
 
 /// A single hop in the HTTP redirect chain
@@ -520,14 +521,6 @@ where
             d
         }
     }))
-}
-
-/// A resolved page health issue
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PageHealthIssue {
-    pub issue_type: String,
-    pub message: String,
-    pub severity: String,
 }
 
 /// Analyse page health: runs DOM inspection, URL analysis, and HTTP probes.

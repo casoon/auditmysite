@@ -2,7 +2,9 @@
 
 use fluent_bundle::FluentValue;
 
-use super::{PageHealthAnalysis, PageHealthIssue};
+use super::PageHealthAnalysis;
+use crate::seo::SeoIssue;
+use crate::taxonomy::Severity;
 
 /// A count or number as a Fluent argument (plural selectors need a number).
 fn num(n: u32) -> FluentValue<'static> {
@@ -15,11 +17,11 @@ fn txt(s: &str) -> FluentValue<'static> {
 }
 
 /// `medium` from five findings on, `low` below.
-fn medium_from_five(n: u32) -> &'static str {
+fn medium_from_five(n: u32) -> Severity {
     if n >= 5 {
-        "medium"
+        Severity::Medium
     } else {
-        "low"
+        Severity::Low
     }
 }
 
@@ -55,20 +57,21 @@ fn examples_text(samples: &[String], en: bool) -> String {
 /// presentation builder (#406). The texts are the `page-health-*` messages of
 /// `locales/{en,de}/page-health.ftl`; this function decides which issues
 /// exist, their severity and the arguments of their messages.
-pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> {
+pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<SeoIssue> {
     let mut issues = Vec::new();
-    let mut add = |issue_type: &str, severity: &str, key: &str, args: &[(&str, FluentValue)]| {
-        issues.push(PageHealthIssue {
-            issue_type: issue_type.to_string(),
-            message: crate::i18n::text_args(key, args, en),
-            severity: severity.to_string(),
-        });
-    };
+    let mut add =
+        |issue_type: &str, severity: Severity, key: &str, args: &[(&str, FluentValue)]| {
+            issues.push(SeoIssue {
+                issue_type: issue_type.to_string(),
+                message: crate::i18n::text_args(key, args, en),
+                severity,
+            });
+        };
 
     if !a.has_doctype && a.dom_node_count > 0 {
         add(
             "missing_doctype",
-            "high",
+            Severity::High,
             "page-health-missing-doctype",
             &[],
         );
@@ -77,7 +80,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.document_write_count > 0 {
         add(
             "document_write",
-            "medium",
+            Severity::Medium,
             "page-health-document-write",
             &[("count", num(a.document_write_count))],
         );
@@ -86,7 +89,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.dom_node_count >= 1500 {
         add(
             "excessive_dom",
-            "high",
+            Severity::High,
             "page-health-excessive-dom",
             &[
                 ("nodes", num(a.dom_node_count)),
@@ -96,7 +99,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     } else if a.dom_node_count >= 800 {
         add(
             "large_dom",
-            "medium",
+            Severity::Medium,
             "page-health-large-dom",
             &[
                 ("nodes", num(a.dom_node_count)),
@@ -108,7 +111,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.images_without_dimensions > 0 {
         add(
             "images_without_dimensions",
-            "medium",
+            Severity::Medium,
             "page-health-images-without-dimensions",
             &[("count", num(a.images_without_dimensions))],
         );
@@ -117,7 +120,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.paste_blocking_password_fields > 0 {
         add(
             "paste_blocked_password",
-            "medium",
+            Severity::Medium,
             "page-health-paste-blocked-password",
             &[("count", num(a.paste_blocking_password_fields))],
         );
@@ -144,7 +147,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.missing_preconnect_count > 0 {
         add(
             "missing_preconnect",
-            "low",
+            Severity::Low,
             "page-health-missing-preconnect",
             &[
                 ("count", num(a.missing_preconnect_count)),
@@ -177,7 +180,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.oversized_images > 0 {
         add(
             "oversized_images",
-            "medium",
+            Severity::Medium,
             "page-health-oversized-images",
             &[("count", num(a.oversized_images))],
         );
@@ -186,7 +189,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.gif_images > 0 {
         add(
             "gif_images",
-            "low",
+            Severity::Low,
             "page-health-gif-images",
             &[("count", num(a.gif_images))],
         );
@@ -195,7 +198,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.font_display_issues > 0 {
         add(
             "font_display_missing",
-            "medium",
+            Severity::Medium,
             "page-health-font-display-missing",
             &[("count", num(a.font_display_issues))],
         );
@@ -204,7 +207,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.fonts_without_preload_count > 0 {
         add(
             "fonts_not_preloaded",
-            "low",
+            Severity::Low,
             "page-health-fonts-not-preloaded",
             &[
                 ("count", num(a.fonts_without_preload_count)),
@@ -216,7 +219,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.orphaned_preload_count > 0 {
         add(
             "orphaned_preload",
-            "low",
+            Severity::Low,
             "page-health-orphaned-preload",
             &[("count", num(a.orphaned_preload_count))],
         );
@@ -225,7 +228,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.lcp_image_lazy_loaded {
         add(
             "lcp_image_lazy_loaded",
-            "high",
+            Severity::High,
             "page-health-lcp-image-lazy-loaded",
             &[],
         );
@@ -239,7 +242,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
             .unwrap_or_default();
         add(
             "lcp_image_without_preload",
-            "medium",
+            Severity::Medium,
             "page-health-lcp-image-without-preload",
             &[("url", txt(&url_hint))],
         );
@@ -248,7 +251,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.lcp_image_without_fetchpriority && !a.lcp_image_lazy_loaded {
         add(
             "lcp_image_without_fetchpriority",
-            "low",
+            Severity::Low,
             "page-health-lcp-image-without-fetchpriority",
             &[],
         );
@@ -257,20 +260,25 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.deprecated_api_count > 0 {
         add(
             "deprecated_apis",
-            "medium",
+            Severity::Medium,
             "page-health-deprecated-apis",
             &[("count", num(a.deprecated_api_count))],
         );
     }
 
     if a.uses_http2 == Some(false) {
-        add("http1_only", "medium", "page-health-http1-only", &[]);
+        add(
+            "http1_only",
+            Severity::Medium,
+            "page-health-http1-only",
+            &[],
+        );
     }
 
     if a.has_compression == Some(false) {
         add(
             "missing_compression",
-            "high",
+            Severity::High,
             "page-health-missing-compression",
             &[],
         );
@@ -279,7 +287,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if !a.has_efficient_cache && a.cache_control.is_some() {
         add(
             "inefficient_cache",
-            "medium",
+            Severity::Medium,
             "page-health-inefficient-cache",
             &[("value", txt(a.cache_control.as_deref().unwrap_or("")))],
         );
@@ -336,7 +344,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
             .unwrap_or_default();
         add(
             "incorrect_content_type",
-            "medium",
+            Severity::Medium,
             "page-health-incorrect-content-type",
             &[
                 (
@@ -358,7 +366,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
         if header != &declared_normalized {
             add(
                 "charset_mismatch",
-                "medium",
+                Severity::Medium,
                 "page-health-charset-mismatch",
                 &[("header", txt(header)), ("declared", txt(declared))],
             );
@@ -368,7 +376,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.hreflang_invalid_count > 0 {
         add(
             "hreflang_invalid",
-            "medium",
+            Severity::Medium,
             "page-health-hreflang-invalid",
             &[("count", num(a.hreflang_invalid_count))],
         );
@@ -377,7 +385,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.jsonld_invalid_count > 0 {
         add(
             "jsonld_invalid",
-            "medium",
+            Severity::Medium,
             "page-health-jsonld-invalid",
             &[("count", num(a.jsonld_invalid_count))],
         );
@@ -386,7 +394,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.sync_head_scripts > 0 {
         add(
             "sync_head_scripts",
-            "medium",
+            Severity::Medium,
             "page-health-sync-head-scripts",
             &[("count", num(a.sync_head_scripts))],
         );
@@ -396,7 +404,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if sri_total > 0 {
         add(
             "missing_sri",
-            "medium",
+            Severity::Medium,
             "page-health-missing-sri",
             &[("count", num(sri_total))],
         );
@@ -405,7 +413,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.broken_fragment_links > 0 {
         add(
             "broken_fragment_links",
-            "low",
+            Severity::Low,
             "page-health-broken-fragment-links",
             &[
                 ("count", num(a.broken_fragment_links)),
@@ -420,7 +428,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.generic_link_text_count > 0 {
         add(
             "generic_link_text",
-            "low",
+            Severity::Low,
             "page-health-generic-link-text",
             &[("count", num(a.generic_link_text_count))],
         );
@@ -429,7 +437,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.is_soft_404 {
         add(
             "soft_404",
-            "high",
+            Severity::High,
             "page-health-soft-404",
             &[("status", num(u32::from(a.soft_404_status.unwrap_or(200))))],
         );
@@ -439,14 +447,14 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
         if !custom_404.proper_status {
             add(
                 "custom_404_invalid_status",
-                "high",
+                Severity::High,
                 "page-health-custom-404-invalid-status",
                 &[("status", num(u32::from(custom_404.status)))],
             );
         } else if !custom_404.custom_page {
             add(
                 "generic_404_page",
-                "low",
+                Severity::Low,
                 "page-health-generic-404-page",
                 &[],
             );
@@ -463,14 +471,14 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
         if delay == 0 {
             add(
                 "meta_refresh",
-                "high",
+                Severity::High,
                 "page-health-meta-refresh-immediate",
                 &[],
             );
         } else {
             add(
                 "meta_refresh",
-                "medium",
+                Severity::Medium,
                 "page-health-meta-refresh-delayed",
                 &[("delay", num(delay))],
             );
@@ -480,7 +488,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.frame_count > 0 {
         add(
             "frames",
-            "high",
+            Severity::High,
             "page-health-frames",
             &[("count", num(a.frame_count))],
         );
@@ -489,7 +497,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.url_is_too_long {
         add(
             "url_too_long",
-            "low",
+            Severity::Low,
             "page-health-url-too-long",
             &[("length", FluentValue::from(a.url_length as i64))],
         );
@@ -498,23 +506,23 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
     if a.url_is_too_deep {
         add(
             "url_too_deep",
-            "low",
+            Severity::Low,
             "page-health-url-too-deep",
             &[("depth", FluentValue::from(a.url_path_depth as i64))],
         );
     }
 
     if a.url_has_query_params {
-        add("dynamic_url", "low", "page-health-dynamic-url", &[]);
+        add("dynamic_url", Severity::Low, "page-health-dynamic-url", &[]);
     }
 
     if a.redirect_count >= 2 {
         add(
             "multiple_redirects",
             if a.redirect_count >= 3 {
-                "high"
+                Severity::High
             } else {
-                "medium"
+                Severity::Medium
             },
             "page-health-multiple-redirects",
             &[("count", num(a.redirect_count))],
@@ -526,7 +534,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
             .unwrap_or_else(|| crate::i18n::text("page-health-unknown-url", en));
         add(
             "redirect",
-            "medium",
+            Severity::Medium,
             "page-health-redirect",
             &[("url", txt(&target))],
         );
@@ -536,7 +544,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
         if !www.is_consolidated {
             add(
                 "www_not_consolidated",
-                "medium",
+                Severity::Medium,
                 "page-health-www-not-consolidated",
                 &[],
             );
@@ -547,7 +555,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
         if canon.trailing_slash_inconsistent == Some(true) {
             add(
                 "trailing_slash_inconsistent",
-                "medium",
+                Severity::Medium,
                 "page-health-trailing-slash-inconsistent",
                 &[],
             );
@@ -559,7 +567,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<PageHealthIssue> 
                 .unwrap_or_else(|| crate::i18n::text("page-health-unreachable", en));
             add(
                 "http_not_redirected_to_https",
-                "high",
+                Severity::High,
                 "page-health-http-not-redirected-to-https",
                 &[("status", txt(&status_text))],
             );

@@ -2,6 +2,7 @@
 //!
 //! Checks HTTPS, canonical URLs, language, sitemap, robots.txt.
 
+use super::issue::SeoIssue;
 use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
 use chromiumoxide::Page;
 use fluent_bundle::FluentValue;
@@ -112,7 +113,7 @@ pub struct TechnicalSeo {
     /// twitter:image is present without a twitter:image:alt description.
     pub twitter_image_missing_alt: bool,
     /// Issues found
-    pub issues: Vec<TechnicalIssue>,
+    pub issues: Vec<SeoIssue>,
 }
 
 /// Result of the www ↔ non-www redirect check
@@ -240,14 +241,6 @@ pub struct FormSecurityAnalysis {
     pub insecure_transport_forms: u32,
     pub get_sensitive_forms: u32,
     pub password_autocomplete_issues: u32,
-}
-
-/// Technical SEO issue
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TechnicalIssue {
-    pub issue_type: String,
-    pub message: String,
-    pub severity: Severity,
 }
 
 const fn technical_collector(
@@ -522,14 +515,14 @@ fn txt(s: &str) -> FluentValue<'static> {
 /// Add the technical issue `issue_type`: its message is `key` of
 /// `locales/{en,de}/seo-issues.ftl` with `args`.
 fn push_issue(
-    issues: &mut Vec<TechnicalIssue>,
+    issues: &mut Vec<SeoIssue>,
     issue_type: &str,
     severity: Severity,
     key: &str,
     args: &[(&str, FluentValue)],
     en: bool,
 ) {
-    issues.push(TechnicalIssue {
+    issues.push(SeoIssue {
         issue_type: issue_type.to_string(),
         message: crate::i18n::text_args(key, args, en),
         severity,
@@ -542,7 +535,7 @@ fn push_issue(
 /// (canonical, for JSON) and re-called with the report locale by the PDF
 /// presentation builder (#406). It decides which issues exist, their severity
 /// and the arguments of their `seo-technical-*` messages.
-pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<TechnicalIssue> {
+pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<SeoIssue> {
     let mut issues = Vec::new();
 
     if !t.https {
@@ -1187,7 +1180,7 @@ async fn read_service_worker_registration_count(
     }
 }
 
-fn collect_pwa_issues(pwa: &PwaAnalysis, en: bool, issues: &mut Vec<TechnicalIssue>) {
+fn collect_pwa_issues(pwa: &PwaAnalysis, en: bool, issues: &mut Vec<SeoIssue>) {
     if pwa.manifest_url.is_none() {
         push_issue(
             issues,
@@ -1217,7 +1210,7 @@ fn collect_pwa_issues(pwa: &PwaAnalysis, en: bool, issues: &mut Vec<TechnicalIss
     // PWA. `PwaAnalysis.service_worker_*` stays in the JSON as information.
 }
 
-fn collect_amp_issues(amp: &AmpAnalysis, en: bool, issues: &mut Vec<TechnicalIssue>) {
+fn collect_amp_issues(amp: &AmpAnalysis, en: bool, issues: &mut Vec<SeoIssue>) {
     if !amp.detected || amp.issues.is_empty() {
         return;
     }
@@ -1247,7 +1240,7 @@ fn collect_amp_issues(amp: &AmpAnalysis, en: bool, issues: &mut Vec<TechnicalIss
 fn collect_form_security_issues(
     form_security: &FormSecurityAnalysis,
     en: bool,
-    issues: &mut Vec<TechnicalIssue>,
+    issues: &mut Vec<SeoIssue>,
 ) {
     if form_security.insecure_transport_forms > 0 {
         push_issue(
@@ -1464,7 +1457,7 @@ fn collect_pagination_issues(
     next: Option<&str>,
     url: Option<&str>,
     en: bool,
-    issues: &mut Vec<TechnicalIssue>,
+    issues: &mut Vec<SeoIssue>,
 ) {
     if !pagination_detected {
         return;
