@@ -354,11 +354,16 @@ fn check_of(
     corpus: &BTreeMap<String, ExpectedCase>,
 ) -> Check {
     let outcome = outcome_of(contract);
-    let (failing_verdict, passing_verdicts): (Verdict, &[Verdict]) = match outcome {
-        Outcome::Automatic => (Verdict::Violation, &[Verdict::Pass, Verdict::Absent]),
-        Outcome::HintOnly => (Verdict::NeedsReview, &[Verdict::Pass, Verdict::Absent]),
+    let (failing_verdicts, passing_verdicts): (&[Verdict], &[Verdict]) = match outcome {
+        // A check that has no violation state (a missing recommended
+        // property, a missing opt-in header) shows its review case instead.
+        Outcome::Automatic => (
+            &[Verdict::Violation, Verdict::NeedsReview],
+            &[Verdict::Pass, Verdict::Absent],
+        ),
+        Outcome::HintOnly => (&[Verdict::NeedsReview], &[Verdict::Pass, Verdict::Absent]),
         // A manual check proves its review flag, never a pass.
-        Outcome::Manual => (Verdict::NeedsReview, &[]),
+        Outcome::Manual => (&[Verdict::NeedsReview], &[]),
     };
     Check {
         contract_id: contract.id.clone(),
@@ -371,7 +376,7 @@ fn check_of(
         capabilities: contract.capabilities.clone(),
         page_level: contract.page_level,
         manual_reason: contract.manual_reason.clone(),
-        failing: example(&contract.id, &contract.positive, corpus, &[failing_verdict]),
+        failing: example(&contract.id, &contract.positive, corpus, failing_verdicts),
         passing: example(&contract.id, &contract.negative, corpus, passing_verdicts),
     }
 }

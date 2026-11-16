@@ -60,6 +60,11 @@
         "network"
       ],
       "page_level": true,
+      "failing": {
+        "case": "no_headers_at_all",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/no_headers_at_all.expected.json",
+        "verdict": "needs_review"
+      },
       "passing": {
         "case": "security_https_complete",
         "file": "tests/fixtures/detection_corpus_nonwcag/security/security_https_complete.expected.json",
@@ -88,6 +93,11 @@
         "network"
       ],
       "page_level": true,
+      "failing": {
+        "case": "no_headers_at_all",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/no_headers_at_all.expected.json",
+        "verdict": "needs_review"
+      },
       "passing": {
         "case": "security_https_complete",
         "file": "tests/fixtures/detection_corpus_nonwcag/security/security_https_complete.expected.json",
