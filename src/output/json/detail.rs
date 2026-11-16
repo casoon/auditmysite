@@ -355,7 +355,7 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
             .map(|m| with_normalized_score(m.to_json(), normalized, "Best Practices")),
     };
 
-    let seo_technical_issues: Vec<crate::seo::technical::TechnicalIssue> = ctx
+    let seo_technical_issues: Vec<crate::seo::SeoIssue> = ctx
         .raw_seo
         .map(|m| crate::seo::collect_technical_issues(&m.technical, true))
         .unwrap_or_default();

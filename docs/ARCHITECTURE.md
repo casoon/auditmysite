@@ -317,6 +317,7 @@ src/
 │
 ├── seo/                 # Meta, headings, schema, social, technical SEO
 │   ├── mod.rs, module.rs
+│   ├── issue.rs         # `SeoIssue`, the one issue type of the technical and page-health collectors (#939)
 │   ├── meta.rs          # Meta tags (the finding texts: `seo-meta-*` in `locales/<lang>/seo-issues.ftl`)
 │   ├── headings.rs      # Heading structure
 │   ├── profile.rs       # SEO content profile (maturity and page-type labels, content type, page attributes and signal-check texts: `seo-profile-*` in `locales/<lang>/seo-issues.ftl`, #936; `profile_texts_export.rs` beside it is the ignored text-export test of these texts)

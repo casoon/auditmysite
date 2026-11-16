@@ -30,6 +30,7 @@ and verification for each change is in the
 
 ### Changed
 
+- **Library:** `seo::technical::TechnicalIssue` and `seo::PageHealthIssue` are replaced by one `seo::SeoIssue` (same JSON; the page-health severity is now the `Severity` enum instead of a string, #939).
 - **Rules:** `orientation/root-rotated` reports a rotated `html` or `body` as a review instead of a violation: one snapshot sees one orientation, and a rotation in both orientations locks nothing; `orientation/locked` compares both. `orientation/content-hidden` reports only content hidden per orientation, no longer rotation (barrierlab `a11y-rules` 0.30.7).
 - **PDF:** renderreport 0.8: the batch report's ranking table no longer carries its own "Website-Ranking" title above the table (the section heading before it stays), and its column headers in English reports are English ("No.", "Crit.") instead of German. Single reports and German batch reports render as before.
 - **Pages:** the project site uses the current shared theme (0.12.14).
