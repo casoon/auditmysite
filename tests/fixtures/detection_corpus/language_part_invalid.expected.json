@@ -1,0 +1,8 @@
+{
+  "case": "language_part_invalid",
+  "expectations": [
+    {"rule_id": "language/part-invalid", "verdict": "violation", "selector": "p#quote-dutch", "occurrences": 1},
+    {"rule_id": "language/part-invalid", "verdict": "violation", "selector": "div#quote-hidden", "occurrences": 1},
+    {"rule_id": "language/part-invalid", "verdict": "violation", "selector": "div#photo", "occurrences": 1}
+  ]
+}

@@ -296,6 +296,10 @@ rule-language-part-undetermined = Anderssprachiger Textteil ohne lang prüfen
     .user-impact = Screenreader lesen den Abschnitt mit der Aussprache der Seitensprache vor; er wird schwer verständlich.
     .technical-impact = Heuristische Spracherkennung je Textblock; Seiten, die weder Deutsch noch Englisch sind, bleiben ungeprüft.
 
+rule-language-part-invalid = Ungültiger Sprachcode an einem Textteil
+    .user-impact = Screenreader können für diesen Abschnitt nicht auf die richtige Aussprache wechseln.
+    .technical-impact = lang unterhalb von <html>, das kein gültiges BCP-47-Kürzel ist und die Sprache von Text bestimmt.
+
 rule-language-part-unmarked = Anderssprachiger Textteil ohne lang prüfen
     .user-impact = Screenreader lesen den Abschnitt mit der Aussprache der Seitensprache vor; er wird schwer verständlich.
     .technical-impact = Heuristische Spracherkennung je Textblock; Seiten, die weder Deutsch noch Englisch sind, bleiben ungeprüft.
@@ -356,6 +360,18 @@ rule-contrast-control-undetermined = Unzureichender Kontrast bei UI-Elementen
 rule-text-spacing-clipped = Inhalt bei erhöhtem Zeilen-/Wortabstand abgeschnitten
     .user-impact = Nutzer, die Zeilen-/Wortabstand für bessere Lesbarkeit anpassen, verlieren Inhalte.
     .technical-impact = Fixe Höhe/Breite mit overflow:hidden auf Textcontainern; gemessen vor und nach dem Überschreiben des Textabstands, nur neu abgeschnittener Text zählt.
+
+rule-text-spacing-letter-important = Zeichenabstand mit !important festgesetzt
+    .user-impact = Nutzer können den Zeichenabstand zum Lesen nicht vergrößern.
+    .technical-impact = letter-spacing unter 0,12em mit !important im style-Attribut.
+
+rule-text-spacing-word-important = Wortabstand mit !important festgesetzt
+    .user-impact = Nutzer können den Wortabstand zum Lesen nicht vergrößern.
+    .technical-impact = word-spacing unter 0,16em mit !important im style-Attribut.
+
+rule-text-spacing-line-height-important = Zeilenhöhe mit !important festgesetzt
+    .user-impact = Nutzer können die Zeilenhöhe zum Lesen nicht vergrößern.
+    .technical-impact = line-height unter 1,5 mit !important im style-Attribut.
 
 rule-color-link-indistinct = Link nur durch Farbe unterscheidbar
     .user-impact = Nutzer mit Farbsehschwäche können Links im Text nicht erkennen.
@@ -886,6 +902,14 @@ rule-links-used-as-button = Link als Button-Ersatz ohne Tastenrolle
 rule-aria-role-redundant = Redundante ARIA-Rolle
     .user-impact = Kein unmittelbarer Nutzerschaden, aber unnötiges Risiko für Inkonsistenzen bei zukünftigen Änderungen.
     .technical-impact = role-Attribut dupliziert die native implizite Rolle des Tags.
+
+rule-aria-presentation-conflict = Schmückendes Element bleibt für Hilfstechnik sichtbar
+    .user-impact = Screenreader-Nutzer treffen auf ein Element, das ausgeblendet sein sollte, ohne Namen oder Zweck.
+    .technical-impact = role=none/presentation oder <img alt=""> mit globalem ARIA-Attribut oder fokussierbar, sodass die Rolle nicht greift.
+
+rule-aria-presentational-children-focusable = Fokussierbares Element in einem Bedienelement mit präsentationalen Kindern
+    .user-impact = Tastaturnutzer erreichen ein Element, das Screenreader nicht ansagen.
+    .technical-impact = Fokussierbarer Nachfahre von Button, Checkbox, Tab, Menüpunkt oder einer anderen Rolle mit präsentationalen Kindern.
 
 rule-lists-role-redundant = Redundante ARIA-Rolle
     .user-impact = Kein unmittelbarer Nutzerschaden, aber unnötiges Risiko für Inkonsistenzen bei zukünftigen Änderungen.

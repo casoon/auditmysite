@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Opening hours - Town library</title>
+<style>
+  body { color: #111111; background: #ffffff; font-size: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Town library</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Opening hours</h1>
+  <!-- Small spacing without !important: a user style sheet can override it. -->
+  <p id="letter" style="letter-spacing: 0.05em">The library is open Monday to Friday from 9:00 to 18:00.</p>
+  <p id="word" style="word-spacing: 0">On Saturday it opens from 10:00 to 14:00.</p>
+  <!-- Not rendered (on itself or through an ancestor): no text a user could
+       need to space out. -->
+  <p id="not-rendered" style="display: none; letter-spacing: 0.1em !important; word-spacing: 0 !important">On public holidays the library stays closed.</p>
+  <div style="display: none"><p id="ancestor-not-rendered" style="word-spacing: 0 !important">Books can be returned at the drop box.</p></div>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

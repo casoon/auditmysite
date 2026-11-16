@@ -4,10 +4,10 @@
     {
       "domain": "wcag",
       "label": "WCAG rules",
-      "automatic": 71,
+      "automatic": 77,
       "hint_only": 78,
       "manual": 15,
-      "total": 164
+      "total": 170
     },
     {
       "domain": "security",
@@ -34,7 +34,7 @@
       "total": 8
     }
   ],
-  "total": 203,
+  "total": 209,
   "rules": [
     {
       "id": "display/text-hidden",
@@ -509,6 +509,30 @@
       "level": "AA"
     },
     {
+      "id": "text-spacing/letter-important",
+      "title": "Letter spacing fixed with !important",
+      "domain": "wcag",
+      "outcome": "automatic",
+      "criterion": "1.4.12",
+      "level": "AA"
+    },
+    {
+      "id": "text-spacing/line-height-important",
+      "title": "Line height fixed with !important",
+      "domain": "wcag",
+      "outcome": "automatic",
+      "criterion": "1.4.12",
+      "level": "AA"
+    },
+    {
+      "id": "text-spacing/word-important",
+      "title": "Word spacing fixed with !important",
+      "domain": "wcag",
+      "outcome": "automatic",
+      "criterion": "1.4.12",
+      "level": "AA"
+    },
+    {
       "id": "patterns/tooltip-unreferenced",
       "title": "Inaccessible hover or focus content (tooltips)",
       "domain": "wcag",
@@ -909,6 +933,14 @@
       "level": "A"
     },
     {
+      "id": "language/part-invalid",
+      "title": "Invalid language code on part of the page",
+      "domain": "wcag",
+      "outcome": "automatic",
+      "criterion": "3.1.2",
+      "level": "AA"
+    },
+    {
       "id": "language/part-undetermined",
       "title": "Check text in another language without lang",
       "domain": "wcag",
@@ -1103,6 +1135,22 @@
     {
       "id": "aria/owns-conflict",
       "title": "Element owned by several elements via aria-owns",
+      "domain": "wcag",
+      "outcome": "automatic",
+      "criterion": "4.1.2",
+      "level": "A"
+    },
+    {
+      "id": "aria/presentation-conflict",
+      "title": "Decorative element still exposed to assistive technology",
+      "domain": "wcag",
+      "outcome": "automatic",
+      "criterion": "4.1.2",
+      "level": "A"
+    },
+    {
+      "id": "aria/presentational-children-focusable",
+      "title": "Focusable element inside a control with presentational children",
       "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",

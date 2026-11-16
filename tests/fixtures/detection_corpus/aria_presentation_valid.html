@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your documents - Example cloud</title>
+<style>
+  body { color: #111111; background: #ffffff; font-size: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Example cloud</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Your documents</h1>
+  <!-- Decorative image without any global ARIA attribute. -->
+  <img id="divider" src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==" alt="" width="200" height="4">
+  <!-- The ARIA attribute sits on the child, not on the presentational element. -->
+  <div id="layout" role="presentation"><a href="/archive" aria-label="Archived documents">Archive</a></div>
+  <!-- Not in the accessibility tree: nothing to conflict with. -->
+  <img id="hidden-logo" src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==" alt="" hidden aria-label="Example cloud logo" width="40" height="40">
+  <!-- Two buttons side by side instead of one inside the other. -->
+  <button id="save" type="button">Save</button>
+  <button id="save-options" type="button" aria-label="Save options">&#9660;</button>
+  <!-- A checkbox whose content is only text. -->
+  <p><span id="terms" role="checkbox" aria-checked="false" tabindex="0">I accept the terms of use</span> <a href="/terms">Read the terms of use</a></p>
+  <!-- Not rendered: no keyboard stop inside. -->
+  <div hidden><span id="hidden-terms" role="checkbox" aria-checked="false" tabindex="0">I accept the <a href="/privacy">privacy policy</a></span></div>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

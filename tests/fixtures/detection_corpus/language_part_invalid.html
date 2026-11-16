@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quotes from the trip - Travel journal</title>
+<style>
+  body { color: #111111; background: #ffffff; font-size: 16px; }
+
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Travel journal</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Quotes from the trip</h1>
+  <!-- "dutch" is not a BCP 47 primary language subtag (WCAG 3.1.2, H58). -->
+  <p id="quote-dutch" lang="dutch">Zij liepen een vreemde Tiki bar binnen.</p>
+  <!-- The text is still drawn although it is hidden from the accessibility
+       tree; its language is still undetermined. -->
+  <div id="quote-hidden" lang="english"><p aria-hidden="true">They wandered into a strange Tiki bar.</p></div>
+  <!-- An image carries text through its alt; the alt gets no language. -->
+  <div id="photo" lang="invalid"><img src="data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==" alt="Fireworks over the harbour" width="200" height="100"></div>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

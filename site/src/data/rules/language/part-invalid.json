@@ -1,0 +1,42 @@
+{
+  "id": "language/part-invalid",
+  "url": "https://casoon.github.io/auditmysite/rules/language/part-invalid/",
+  "domain": "wcag",
+  "title": "Invalid language code on part of the page",
+  "outcome": "automatic",
+  "area": "Accessibility, Language & Clarity",
+  "criterion": "3.1.2",
+  "level": "AA",
+  "axe_id": "language/part-invalid",
+  "severity": "medium",
+  "user_impact": "Screen readers cannot switch to the right pronunciation for that passage.",
+  "technical_impact": "lang below <html> that is not a valid BCP 47 tag and sets the language of text.",
+  "checks": [
+    {
+      "contract_id": "language/part-invalid",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 3.1.2 Language of Parts; H58; BCP 47 (RFC 5646) primary language subtag; ACT de46e4",
+      "applicability": "Elements below html with a non-empty lang attribute whose own text (text nodes or a non-empty img alt not claimed by an inner lang) is rendered.",
+      "expectation": "Fails when the lang attribute of such an element is not a valid BCP 47 tag\n(primary subtag not a language: \"dutch\", \"english\", \"invalid\"): the passage\ngets no language, so assistive technology cannot pick the pronunciation 3.1.2\nasks for. Reported once, at the element carrying the attribute. Only the\nprimary subtag has to be valid (\"en-US-GB\" passes). Text inside an inner\nelement with its own lang belongs to that lang; an image carries text through\na non-empty alt. Text hidden from the accessibility tree (aria-hidden) is still\ndrawn and counts; text that is not rendered does not. lang=\"\" states that the\nlanguage is unknown and is not a finding; the root element is\ndocument/lang-invalid, not this id.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "computed_style"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "language_part_invalid",
+        "file": "tests/fixtures/detection_corpus/language_part_invalid.html",
+        "verdict": "violation",
+        "selector": "p#quote-dutch",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Quotes from the trip - Travel journal</title>\n<style>\n  body { color: #111111; background: #ffffff; font-size: 16px; }\n\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Travel journal</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Quotes from the trip</h1>\n  <!-- \"dutch\" is not a BCP 47 primary language subtag (WCAG 3.1.2, H58). -->\n  <p id=\"quote-dutch\" lang=\"dutch\">Zij liepen een vreemde Tiki bar binnen.</p>\n  <!-- The text is still drawn although it is hidden from the accessibility\n       tree; its language is still undetermined. -->\n  <div id=\"quote-hidden\" lang=\"english\"><p aria-hidden=\"true\">They wandered into a strange Tiki bar.</p></div>\n  <!-- An image carries text through its alt; the alt gets no language. -->\n  <div id=\"photo\" lang=\"invalid\"><img src=\"data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==\" alt=\"Fireworks over the harbour\" width=\"200\" height=\"100\"></div>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "language_part_valid",
+        "file": "tests/fixtures/detection_corpus/language_part_valid.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Quotes from the trip - Travel journal</title>\n<style>\n  body { color: #111111; background: #ffffff; font-size: 16px; }\n\n</style>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Travel journal</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Quotes from the trip</h1>\n  <!-- Only the primary subtag has to be a known language (BCP 47). -->\n  <p id=\"quote-region\" lang=\"en-US-GB\">They wandered into a strange Tiki bar.</p>\n  <p id=\"quote-de\" lang=\"de\">Sie betraten eine seltsame Tiki-Bar und bestellten zwei Getränke.</p>\n  <!-- The invalid code determines no text: the inner lang takes it. -->\n  <div id=\"nested\" lang=\"invalid\"><p lang=\"en\">They ordered two drinks and sat down by the window.</p></div>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

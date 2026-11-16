@@ -1,0 +1,6 @@
+{
+  "case": "language_part_valid",
+  "expectations": [
+    {"rule_id": "language/part-invalid", "verdict": "pass"}
+  ]
+}

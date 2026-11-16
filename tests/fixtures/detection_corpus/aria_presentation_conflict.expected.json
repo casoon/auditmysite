@@ -1,0 +1,14 @@
+{
+  "case": "aria_presentation_conflict",
+  "expectations": [
+    {"rule_id": "aria/presentation-conflict", "verdict": "violation", "selector": "div#toolbar", "occurrences": 1},
+    {"rule_id": "aria/presentation-conflict", "verdict": "violation", "selector": "img#logo", "occurrences": 1},
+    {"rule_id": "aria/presentation-conflict", "verdict": "violation", "selector": "span#more", "occurrences": 1},
+    {"rule_id": "aria/presentational-children-focusable", "verdict": "violation", "selector": "button#save", "occurrences": 1},
+    {"rule_id": "aria/presentational-children-focusable", "verdict": "violation", "selector": "span#terms", "occurrences": 1},
+    {"rule_id": "aria/attribute-prohibited", "verdict": "violation", "selector": "div#toolbar", "occurrences": 1},
+    {"rule_id": "keyboard/focusable-no-role", "verdict": "needs_review", "selector": "span#more"},
+    {"rule_id": "targets/size", "verdict": "needs_review"},
+    {"rule_id": "targets/size-enhanced", "verdict": "needs_review"}
+  ]
+}

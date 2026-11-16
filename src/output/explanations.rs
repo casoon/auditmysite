@@ -350,6 +350,12 @@ static RULE_ENTRIES: &[(&str, &str)] = &[
     ("contrast/control-insufficient", "1.4.11"),
     ("contrast/control-undetermined", "1.4.11"),
     ("text-spacing/clipped", "1.4.12"),
+    ("text-spacing/letter-important", "1.4.12"),
+    ("text-spacing/word-important", "1.4.12"),
+    ("text-spacing/line-height-important", "1.4.12"),
+    ("aria/presentation-conflict", "4.1.2"),
+    ("aria/presentational-children-focusable", "4.1.2"),
+    ("language/part-invalid", "document/lang-invalid"),
     ("color/link-indistinct", "1.4.1"),
     ("patterns/tooltip-unreferenced", "1.4.13"),
     ("focus/indicator-missing", "2.4.7"),
@@ -2259,8 +2265,8 @@ mod tests {
                 None => none += 1,
             }
         }
-        assert_eq!((own, other, none), (61, 78, 25));
-        assert_eq!(RULE_ENTRIES.len(), 61 + 78);
+        assert_eq!((own, other, none), (61, 84, 25));
+        assert_eq!(RULE_ENTRIES.len(), 61 + 84);
     }
 
     /// The lookup the reports use resolves for every entry: a missing message

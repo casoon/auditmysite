@@ -1333,6 +1333,15 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Language of Parts",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-parts.html",
     },
+    // Neu aus a11y-rules 0.30.3, keine abgelöste Regel: `lang` unterhalb von
+    // `<html>`, das kein gültiges BCP-47-Kürzel ist (ACT de46e4).
+    SharedRule {
+        id: "language/part-invalid",
+        criterion: "3.1.2",
+        level: WcagLevel::AA,
+        name: "Language of Parts (Invalid Code)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-parts.html",
+    },
     // Ersetzt `wcag::rules::abbreviations`. Gewollt anders: `REVIEW` statt
     // Verstoß, ein leeres `title` zählt als fehlend.
     SharedRule {
@@ -1371,6 +1380,23 @@ pub const SHARED_RULES: &[SharedRule] = &[
         criterion: "4.1.2",
         level: WcagLevel::A,
         name: "Name, Role, Value",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    // Neu aus a11y-rules 0.30.3, keine abgelösten Regeln: schmückend
+    // ausgezeichnet, aber doch im Accessibility-Tree (ACT 46ca7f), und
+    // Fokussierbares in präsentationalen Kindern (ACT 307n5z).
+    SharedRule {
+        id: "aria/presentation-conflict",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Presentational Conflict)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
+    SharedRule {
+        id: "aria/presentational-children-focusable",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Name, Role, Value (Focusable Presentational Child)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
     // Ersetzen `title-only-description` und `content-on-hover-focus` aus
@@ -1751,6 +1777,30 @@ pub const SHARED_RULES: &[SharedRule] = &[
         criterion: "1.4.12",
         level: WcagLevel::AA,
         name: "Text Spacing",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/text-spacing.html",
+    },
+    // Neu aus a11y-rules 0.30.3: Abstände, die ein `style`-Attribut mit
+    // `!important` unter den Werten aus 1.4.12 festsetzt (ACT 24afc2, 9e45ec,
+    // 78fd32). Statisch aus dem Markup, ohne Messung.
+    SharedRule {
+        id: "text-spacing/letter-important",
+        criterion: "1.4.12",
+        level: WcagLevel::AA,
+        name: "Text Spacing (Letter Spacing !important)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/text-spacing.html",
+    },
+    SharedRule {
+        id: "text-spacing/word-important",
+        criterion: "1.4.12",
+        level: WcagLevel::AA,
+        name: "Text Spacing (Word Spacing !important)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/text-spacing.html",
+    },
+    SharedRule {
+        id: "text-spacing/line-height-important",
+        criterion: "1.4.12",
+        level: WcagLevel::AA,
+        name: "Text Spacing (Line Height !important)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/text-spacing.html",
     },
     // Ersetzen `focus-not-obscured-minimum` und `-enhanced`. Gewollt anders:

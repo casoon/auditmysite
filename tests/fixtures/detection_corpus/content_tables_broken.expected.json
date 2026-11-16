@@ -20,6 +20,8 @@
     {"rule_id": "tables/headers-attr-invalid", "selector": "td#cell-to-cell", "verdict": "violation", "occurrences": 1},
     {"rule_id": "tables/headers-attr-invalid", "selector": "td#cell-other-table", "verdict": "violation", "occurrences": 1},
     {"rule_id": "tables/headers-attr-invalid", "selector": "td#hidden-cell", "verdict": "pass"},
-    {"rule_id": "tables/data-undetermined", "verdict": "pass"}
+    {"rule_id": "tables/data-undetermined", "verdict": "pass"},
+    {"rule_id": "tables/header-without-data", "selector": "th#budget-item", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "tables/header-without-data", "selector": "th#budget-cost", "verdict": "violation", "occurrences": 1}
   ]
 }

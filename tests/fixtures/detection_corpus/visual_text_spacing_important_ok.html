@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Opening hours - Town library</title>
+<style>
+  body { color: #111111; background: #ffffff; font-size: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Town library</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Opening hours</h1>
+  <!-- Exactly the 1.4.12 values, fixed with !important: a user needs no more. -->
+  <p id="letter" style="letter-spacing: 0.12em !important">The library is open Monday to Friday from 9:00 to 18:00.</p>
+  <p id="word" style="word-spacing: 0.16em !important">On Saturday it opens from 10:00 to 14:00.</p>
+  <p id="line" style="line-height: 1.5 !important">On public holidays the library stays closed.</p>
+  <!-- The later declaration without !important does not win over the first. -->
+  <p id="overridden" style="letter-spacing: 0.15em !important; letter-spacing: 0.1em">Books can be returned at the drop box.</p>
+  <!-- inherit takes over a value that is not fixed here. -->
+  <p style="word-spacing: 0.2em"><span id="inherited" style="word-spacing: inherit !important">The reading room closes thirty minutes earlier.</span></p>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

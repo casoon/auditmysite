@@ -3,6 +3,7 @@
   "expectations": [
     {"rule_id": "aria/attribute-unknown", "verdict": "violation"},
     {"rule_id": "aria/attribute-prohibited", "verdict": "violation"},
+    {"rule_id": "aria/presentation-conflict", "verdict": "violation"},
     {"rule_id": "aria/attribute-not-allowed", "verdict": "violation"},
     {"rule_id": "aria/role-invalid", "verdict": "violation"},
     {"rule_id": "aria/reference-missing", "verdict": "violation"},
