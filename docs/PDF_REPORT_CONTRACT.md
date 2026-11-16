@@ -363,6 +363,25 @@ surface that owns its lifecycle:
   label "Technical SEO" and the table headings "Finding", "Occurrences"
   and "Share" reuse `seo-score-card`, `single-report-matrix-col-finding`,
   `batch-col-occurrences` and `batch-col-share`.
+- `locales/{de,en}/report-builder.ftl`: the texts of the single report's
+  builder, all `report-builder-*`: the positive signals (pattern titles, the
+  WCAG signal) and aspects (`output::builder::single::{executive,
+  positive}`), the executive key points and the score driver note, the audit
+  quality note with the stability measurements it names and the quick-win
+  metric label (`output::builder::single`), the overall score explanation
+  (`modules_block`), the page health rows (`serp`) and the performance,
+  security and mobile detail rows (`module_details::{performance,
+  platform}`: labels, guideline texts, the security score rows and band note,
+  the touch-target sentence). The terminal table's experimental indicator
+  lines (`output::terminal`) are `report-builder-terminal-*` messages of the
+  same file and follow `--lang`. The builders keep which message applies, the
+  thresholds, the counts and the number formats (the decimal comma and the
+  CO2e notation); the sentence-leading space of the indicator note and the
+  scope note stays in Rust because Fluent trims leading blanks. "Accessibility"
+  and "Security" reuse `module-accessibility` and `module-security`; the batch
+  cover date takes its format from `date-format-str`. The JSON stays canonical
+  English: `output/json/detail.rs` builds the same view model with the locale
+  `en`.
 - `locales/{de,en}/output-texts.ftl`: the texts of the report builder helpers
   (`output::builder::helpers`: report title and subtitle, the security
   header tier and issue kind labels), the batch builder
@@ -374,8 +393,9 @@ surface that owns its lifecycle:
   performance}`: chapter takeaways, the schema count with its plural select,
   the viewport score notes and legend, the lab metric headings), all
   `output-*`. The code keeps which message applies, the number formats and
-  the values that go into a message (counts, the viewport name, the
-  cover date notation); "Yes", "No", "Metric" and "Value" reuse the `yes`,
+  the values that go into a message (counts, the viewport name; the cover
+  date takes its format from `date-format-str`); "Yes", "No", "Metric" and
+  "Value" reuse the `yes`,
   `no`, `col-metric` and `col-value` messages of `report.ftl`.
 - `locales/{de,en}/privacy-findings.ftl`: the texts of the privacy findings
   (`privacy-finding-*`): the seven finding messages and the policy document

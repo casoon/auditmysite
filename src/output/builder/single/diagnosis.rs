@@ -177,7 +177,7 @@ pub(super) fn category_name(dimension: &str, en: bool) -> String {
     if en {
         return dimension.to_string();
     }
-    match crate::i18n::I18n::new(if en { "en" } else { "de" }) {
+    match crate::i18n::I18n::new("de") {
         Ok(i18n) => crate::output::builder::helpers::localized_module_name(dimension, &i18n),
         Err(_) => dimension.to_string(),
     }

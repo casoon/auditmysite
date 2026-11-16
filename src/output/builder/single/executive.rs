@@ -1,5 +1,6 @@
 use crate::audit::normalized::{AuditContext, NormalizedReport};
 use crate::i18n::I18n;
+use crate::output::localized::is_english;
 use crate::output::report_model::{
     ExecutiveNarrativeBlock, FindingGroup, PositiveSignal, SeverityBlock,
 };
@@ -7,38 +8,28 @@ use crate::output::report_model::{
 /// Translates pattern names into localized titles; the message stays as the
 /// description (already human-readable from the detector).
 pub(super) fn build_positive_signals(
-    locale: &str,
+    i18n: &I18n,
     normalized: &AuditContext<'_>,
 ) -> Vec<PositiveSignal> {
-    let en = locale == "en";
+    let en = is_english(i18n);
     let mut items: Vec<PositiveSignal> = normalized
         .raw_patterns
         .map(|p| {
             p.recognized
                 .iter()
                 .map(|r| {
-                    let title = match (en, r.pattern.as_str()) {
-                        (true, "MainNavigation") => "Semantic main navigation",
-                        (false, "MainNavigation") => "Semantische Hauptnavigation",
-                        (true, "DisclosureMenu") => "Disclosure menu",
-                        (false, "DisclosureMenu") => "Disclosure-Menü",
-                        (true, "ModalDialog") => "Modal dialog",
-                        (false, "ModalDialog") => "Modaler Dialog",
-                        (true, "TabList") => "Tab list",
-                        (false, "TabList") => "Tab-Liste",
-                        (true, "SkipLink") => "Skip link",
-                        (false, "SkipLink") => "Skip-Link",
-                        (true, "Accordion") => "Accordion",
-                        (false, "Accordion") => "Accordion",
-                        (true, "EasyLanguage") => "Easy-language version",
-                        (false, "EasyLanguage") => "Leichte-Sprache-Version",
-                        (true, "Form") => "Form",
-                        (false, "Form") => "Formular",
-                        (true, "AddToCart") => "Add to cart",
-                        (false, "AddToCart") => "Warenkorb-Button",
-                        (true, "QuantityStepper") => "Quantity stepper",
-                        (false, "QuantityStepper") => "Mengenauswahl",
-                        (_, other) => other,
+                    let title = match r.pattern.as_str() {
+                        "MainNavigation" => i18n.t("report-builder-pattern-main-navigation"),
+                        "DisclosureMenu" => i18n.t("report-builder-pattern-disclosure-menu"),
+                        "ModalDialog" => i18n.t("report-builder-pattern-modal-dialog"),
+                        "TabList" => i18n.t("report-builder-pattern-tab-list"),
+                        "SkipLink" => i18n.t("report-builder-pattern-skip-link"),
+                        "Accordion" => i18n.t("report-builder-pattern-accordion"),
+                        "EasyLanguage" => i18n.t("report-builder-pattern-easy-language"),
+                        "Form" => i18n.t("report-builder-pattern-form"),
+                        "AddToCart" => i18n.t("report-builder-pattern-add-to-cart"),
+                        "QuantityStepper" => i18n.t("report-builder-pattern-quantity-stepper"),
+                        other => other.to_string(),
                     };
                     // #406: der Text wird in der Lauf-Sprache neu abgeleitet;
                     // ohne Rohwerte (Muster von außen gebaut) bleibt `message`.
@@ -47,7 +38,7 @@ pub(super) fn build_positive_signals(
                         None => r.message.clone(),
                     };
                     PositiveSignal {
-                        title: title.to_string(),
+                        title,
                         description,
                         strong: matches!(r.confidence, crate::patterns::PatternConfidence::Strong),
                     }
@@ -57,9 +48,8 @@ pub(super) fn build_positive_signals(
         .unwrap_or_default();
 
     for pos in &normalized.raw_wcag.positives {
-        let title = if en { "WCAG signal" } else { "WCAG-Signal" };
         items.push(PositiveSignal {
-            title: title.to_string(),
+            title: i18n.t("report-builder-wcag-signal"),
             description: pos.message.clone(),
             strong: false,
         });
@@ -79,13 +69,8 @@ pub(super) fn build_executive_narrative(
         .dominant_issue
         .as_ref()
         .map(|d| d.share_pct.round() as usize);
-    let key_points = build_single_key_points_text(
-        i18n.locale(),
-        severity,
-        top_findings,
-        normalized,
-        dominant_share,
-    );
+    let key_points =
+        build_single_key_points_text(i18n, severity, top_findings, normalized, dominant_share);
 
     ExecutiveNarrativeBlock {
         cover_eyebrow: i18n.t("narrative-cover-eyebrow"),
@@ -96,26 +81,17 @@ pub(super) fn build_executive_narrative(
 }
 
 fn build_single_key_points_text(
-    locale: &str,
+    i18n: &I18n,
     severity: &SeverityBlock,
     top_findings: &[FindingGroup],
     normalized: &NormalizedReport,
     dominant_share: Option<usize>,
 ) -> Vec<String> {
-    let en = locale == "en";
     let mut points = Vec::with_capacity(3);
     if severity.critical > 0 {
-        if en {
-            points.push("Multiple critical WCAG barriers block assistive technology users — screen readers and keyboard navigation are affected.".to_string());
-        } else {
-            points.push("Mehrere kritische WCAG-Barrieren blockieren Nutzer von Hilfstechnologien — Screenreader und Tastaturnavigation sind betroffen.".to_string());
-        }
+        points.push(i18n.t("report-builder-key-critical"));
     } else if severity.high > 0 {
-        if en {
-            points.push("Significant accessibility gaps reduce usability for users with disabilities — no complete access barriers, but relevant friction points.".to_string());
-        } else {
-            points.push("Deutliche Barrierefreiheitslücken erschweren die Nutzung für Menschen mit Behinderungen — keine vollständigen Zugangssperren, aber relevante Reibungspunkte.".to_string());
-        }
+        points.push(i18n.t("report-builder-key-high"));
     }
 
     if let Some(top) = top_findings.first() {
@@ -128,82 +104,44 @@ fn build_single_key_points_text(
                 .unwrap_or(0)
         });
         if share >= 30 {
-            if en {
-                points.push(format!(
-                    "Main issue: {} ({}% of all critical/high findings)",
-                    top.title,
-                    share.min(99)
-                ));
-            } else {
-                points.push(format!(
-                    "Hauptproblem: {} ({}% aller kritischen/hohen Befunde)",
-                    top.title,
-                    share.min(99)
-                ));
-            }
-        } else if en {
-            points.push(format!("Most frequent issue: {}", top.title));
+            points.push(i18n.t_args(
+                "report-builder-key-main-issue",
+                &[
+                    ("title", top.title.clone()),
+                    ("share", share.min(99).to_string()),
+                ],
+            ));
         } else {
-            points.push(format!("Häufigstes Problem: {}", top.title));
+            points.push(i18n.t_args(
+                "report-builder-key-most-frequent",
+                &[("title", top.title.clone())],
+            ));
         }
     }
 
-    let score_driver_note = build_score_driver_note(locale, normalized);
+    let score_driver_note = build_score_driver_note(i18n, normalized);
     if !score_driver_note.is_empty() {
         points.push(score_driver_note);
     }
 
     if normalized.risk.legal_flags > 0 {
-        if en {
-            points.push(
-                "High or critical WCAG Level A/AA findings detected automatically — manual review needed for a defensible BFSG classification".to_string(),
-            );
-        } else {
-            points.push(
-                "Hohe oder kritische WCAG-Level-A/AA-Befunde automatisiert erkannt — manuelle Prüfung für belastbare BFSG-Einordnung nötig".to_string(),
-            );
-        }
+        points.push(i18n.t("report-builder-key-legal"));
     } else if severity.high > 0 {
-        if en {
-            points.push("No Level A/AA violations, but structural weaknesses".to_string());
-        } else {
-            points.push(
-                "Keine Level-A/AA-Verstöße, aber strukturelle Optimierungspotenziale".to_string(),
-            );
-        }
+        points.push(i18n.t("report-builder-key-no-level-violations"));
     } else if !normalized.audit_flags.is_empty() {
-        if en {
-            points.push(
-                "Audit notes present — individual signals should be verified manually.".to_string(),
-            );
-        } else {
-            points.push(
-                "Audit-Hinweise vorhanden — einzelne Signale sollten fachlich gegengeprüft werden."
-                    .to_string(),
-            );
-        }
-    } else if en {
-        points.push(
-            "No automatically detectable critical barriers — manual review recommended."
-                .to_string(),
-        );
+        points.push(i18n.t("report-builder-key-audit-notes"));
     } else {
-        points.push(
-            "Keine automatisiert erkennbaren kritischen Barrieren — manuelle Prüfung empfohlen."
-                .to_string(),
-        );
+        points.push(i18n.t("report-builder-key-no-barriers"));
     }
 
     let (automated, total) = crate::wcag::coverage::coverage_stats();
-    if en {
-        points.push(format!(
-            "WCAG scope: {automated} of about {total} WCAG 2.2 AA criteria are checked automatically; manual review remains required for context-dependent criteria."
-        ));
-    } else {
-        points.push(format!(
-            "WCAG-Prüfumfang: {automated} von ca. {total} WCAG-2.2-AA-Kriterien werden automatisch geprüft; kontextabhängige Kriterien bleiben manuell zu prüfen."
-        ));
-    }
+    points.push(i18n.t_args(
+        "report-builder-key-scope",
+        &[
+            ("automated", automated.to_string()),
+            ("total", total.to_string()),
+        ],
+    ));
 
     if let Some(flag) = normalized
         .audit_flags
@@ -216,8 +154,7 @@ fn build_single_key_points_text(
     points
 }
 
-fn build_score_driver_note(locale: &str, normalized: &NormalizedReport) -> String {
-    let en = locale == "en";
+fn build_score_driver_note(i18n: &I18n, normalized: &NormalizedReport) -> String {
     let mut drivers: std::collections::BTreeMap<&'static str, u32> =
         std::collections::BTreeMap::new();
     for finding in &normalized.findings {
@@ -236,22 +173,11 @@ fn build_score_driver_note(locale: &str, normalized: &NormalizedReport) -> Strin
     drivers.sort_by_key(|(_, loss)| std::cmp::Reverse(*loss));
     let labels: Vec<_> = drivers.into_iter().take(3).map(|(area, _)| area).collect();
     if labels.is_empty() {
-        if en {
-            "Score matrix: no negative driver detected in the weighted accessibility topics."
-                .to_string()
-        } else {
-            "Score-Matrix: kein negativer Haupttreiber in den gewichteten Accessibility-Themen erkannt."
-                .to_string()
-        }
-    } else if en {
-        format!(
-            "Score matrix: strongest negative drivers are {}; weighting includes semantics, forms, keyboard, focus, images, ARIA, headings and landmarks.",
-            labels.join(", ")
-        )
+        i18n.t("report-builder-driver-none")
     } else {
-        format!(
-            "Score-Matrix: stärkste negative Treiber sind {}; gewichtet werden Semantik, Formulare, Tastatur, Fokus, Bilder, ARIA, Überschriften und Landmarks.",
-            labels.join(", ")
+        i18n.t_args(
+            "report-builder-driver-areas",
+            &[("areas", labels.join(", "))],
         )
     }
 }
