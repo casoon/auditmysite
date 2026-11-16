@@ -94,8 +94,14 @@ report-builder-security-chain-length = Chain length
 report-builder-security-certificate-error = Certificate error
 report-builder-security-header-present = Present
 report-builder-security-header-missing = Missing
-report-builder-security-band-note-open = The wording rating sits below the band of the number ({ $score } alone would read "{ $numeric }"): { $count } open finding(s) are listed below. The score itself is unchanged.
-report-builder-security-band-note-severe = The wording rating sits below the band of the number ({ $score } alone would read "{ $numeric }"): { $count } open finding(s) of high severity are listed below. The score itself is unchanged.
+report-builder-security-band-note-open = The wording rating sits below the band of the number ({ $score } alone would read "{ $numeric }"): { $count ->
+        [one] 1 open finding is
+       *[other] { $count } open findings are
+    } listed below. The score itself is unchanged.
+report-builder-security-band-note-severe = The wording rating sits below the band of the number ({ $score } alone would read "{ $numeric }"): { $count ->
+        [one] 1 open finding of high severity is
+       *[other] { $count } open findings of high severity are
+    } listed below. The score itself is unchanged.
 report-builder-security-score-start = Starting value
 report-builder-security-score-not-charged = 0 (not charged)
 report-builder-security-score-hsts-bonus = HSTS bonus
@@ -124,4 +130,8 @@ report-builder-mobile-small-targets = { $base } { $count } touch targets smaller
 report-builder-terminal-experimental-title = Experimental indicators (unvalidated, no effect on score or verdict)
 report-builder-terminal-no-score = { $label }: no score
 report-builder-terminal-content-visibility = Content Visibility: { $problems } of { $signals } signals flagged
-report-builder-terminal-commerce = Commerce: { $findings } finding(s)
+report-builder-terminal-commerce =
+    Commerce: { $findings ->
+        [one] 1 finding
+       *[other] { $findings } findings
+    }

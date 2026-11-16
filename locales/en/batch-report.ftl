@@ -60,7 +60,7 @@ batch-report-en301549-incomplete = Automated evaluation incomplete
 batch-report-en301549-col-clause = Clause
 batch-report-en301549-col-title = Title
 batch-report-en301549-col-pages = Pages affected
-batch-report-en301549-table-title = Clause roll-up (all 50 WCAG 2.1 A/AA clauses)
+batch-report-en301549-table-title = Clause roll-up (all { $count } WCAG 2.2 A/AA clauses)
 batch-report-en301549-out-of-scope-title = Outside this audit's scope
 batch-report-en301549-chapter = Chapter { $chapter } – { $title } (not assessed)
 

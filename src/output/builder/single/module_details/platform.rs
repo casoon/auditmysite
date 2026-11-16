@@ -7,6 +7,7 @@ use super::super::super::helpers::{security_header_tier_label, security_issue_ki
 use super::super::super::modules::derive_security_recommendations;
 use super::{module_interpretation, normalized_module_grade, normalized_module_score};
 use crate::util::truncate_url;
+use fluent_bundle::FluentValue;
 
 pub(super) fn build_security_details(
     normalized: &AuditContext<'_>,
@@ -201,9 +202,9 @@ fn security_band_note(
     Some(i18n.t_args(
         key,
         &[
-            ("score", score.to_string()),
-            ("numeric", numeric.to_string()),
-            ("count", count.to_string()),
+            ("score", FluentValue::from(score.to_string())),
+            ("numeric", FluentValue::from(numeric.to_string())),
+            ("count", FluentValue::from(count as i64)),
         ],
     ))
 }

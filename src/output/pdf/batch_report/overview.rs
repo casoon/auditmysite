@@ -538,7 +538,15 @@ pub(super) fn render_batch_en301549_rollup(
         TableColumn::new("Status").with_width("28%"),
         TableColumn::new(i18n.t("batch-report-en301549-col-pages")).with_width("18%"),
     ])
-    .with_title(i18n.t("batch-report-en301549-table-title"));
+    .with_title(i18n.t_args(
+        "batch-report-en301549-table-title",
+        &[(
+            "count",
+            fluent_bundle::FluentValue::from(
+                crate::wcag::en301549::EN301549_WEB_CLAUSES.len() as i64
+            ),
+        )],
+    ));
     for r in rollup {
         let clause_title = if en {
             r.clause.title_en

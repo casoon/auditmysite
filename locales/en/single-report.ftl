@@ -18,7 +18,7 @@ single-report-management-intro = Overall status, key risks, prioritized actions,
 single-report-management-eyebrow = MANAGEMENT SUMMARY
 single-report-wcag-occurrences = WCAG occurrences
 single-report-occurrences-definition = Occurrences = individual affected elements, not the number of distinct rules — see the appendix for the full breakdown.
-single-report-evidence-note = Counted here are confirmed WCAG violations only. In addition: { $warnings } heuristic accessibility warning(s) and { $manual } point(s) on this page to confirm by hand — documented, but not scored. A further { $manual_only } WCAG criteria can only be checked manually (appendix).
+single-report-evidence-note = Counted here are confirmed WCAG violations only. In addition: { $warnings_text } and { $manual_text } on this page to confirm by hand — documented, but not scored. A further { $manual_only } WCAG criteria can only be checked manually (appendix).
 single-report-overall-verdict = Overall Verdict
 single-report-audit-quality = Audit Quality
 single-report-coverage = Coverage

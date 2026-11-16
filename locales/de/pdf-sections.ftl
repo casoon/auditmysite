@@ -12,7 +12,14 @@ pdf-sections-en301549-title = EN-301-549-Klauselzuordnung
 pdf-sections-en301549-intro = Ordnet die automatisch erkannten WCAG-2.2-A/AA-Befunde dieses Audits den Klauselnummern von EN 301 549 V4.1.1 (2026-09), Kapitel 9 (Web) zu, mit einem Status je Klausel: Verstöße gefunden, keine Verstöße im automatisch geprüften Umfang, oder manuelle Prüfung erforderlich.
 pdf-sections-en301549-col-level = Stufe
 pdf-sections-en301549-no-violations = Keine Verstöße im automatisch geprüften Umfang
-pdf-sections-en301549-out-of-standard = { $count } weitere(r) WCAG-Befund(e) außerhalb von WCAG 2.2 A/AA (Kriterien der Stufe AAA) haben in EN 301 549 V4.1.1 keine normative Klausel und werden in der Klausel-Tabelle oben nicht ausgewiesen.
+pdf-sections-en301549-out-of-standard =
+    { $count ->
+        [one] 1 weiterer WCAG-Befund außerhalb von WCAG 2.2 A/AA (Kriterien der Stufe AAA) hat
+       *[other] { $count } weitere WCAG-Befunde außerhalb von WCAG 2.2 A/AA (Kriterien der Stufe AAA) haben
+    } in EN 301 549 V4.1.1 keine normative Klausel und { $count ->
+        [one] wird
+       *[other] werden
+    } in der Klausel-Tabelle oben nicht ausgewiesen.
 pdf-sections-bik-title = BIK-für-Alle-Leitfadenzuordnung
 pdf-sections-bik-intro = Ordnet die automatisch erkannten Befunde dieses Audits der Kapitelstruktur des redaktionellen Leitfadens "BIK für Alle" zu ({ $source }) — denselben Kapiteln, die Redaktionsteams bereits kennen: Bilder & Alt-Text, Linktext, Struktur, Leichte Sprache, PDF-Dokumente, Videos. Keine neuen Prüfungen; dies gruppiert an anderer Stelle in diesem Report bereits ausgewiesene Befunde um.
 pdf-sections-bik-col-chapter = Kapitel
@@ -28,9 +35,9 @@ pdf-sections-search-table-title = Wie sich der Wert zusammensetzt
 pdf-sections-budget-js-size = JS-Größe
 pdf-sections-budget-css-size = CSS-Größe
 pdf-sections-budget-page-size = Seitengröße
-pdf-sections-recheck-landmarks = Selbsttest: VoiceOver-Rotor (VO+U, macOS) oder NVDA-Elementliste (Einfg+F7) öffnen und auf „Landmarken" umschalten — anhören, ob die erwarteten Bereiche (Header, Navigation, Footer) tatsächlich angekündigt werden.
-pdf-sections-recheck-headings-landmarks = Selbsttest: VoiceOver-Rotor (VO+U) oder NVDA-Elementliste (Einfg+F7) nutzen und sowohl „Überschriften" als auch „Landmarken" prüfen — abgleichen, ob Reihenfolge/Eindeutigkeit dem hier beschriebenen Befund entspricht.
-pdf-sections-recheck-form-names = Selbsttest: mit VoiceOver (VO+Cmd+J springt zwischen Formularfeldern) oder NVDA (F springt zwischen Feldern) durch das Formular tabben und hören, ob jedes Feld einen Namen ansagt — nicht nur ein generisches „Textfeld".
+pdf-sections-recheck-landmarks = Selbsttest: VoiceOver-Rotor (VO+U, macOS) oder NVDA-Elementliste (Einfg+F7) öffnen und auf „Landmarken“ umschalten — anhören, ob die erwarteten Bereiche (Header, Navigation, Footer) tatsächlich angekündigt werden.
+pdf-sections-recheck-headings-landmarks = Selbsttest: VoiceOver-Rotor (VO+U) oder NVDA-Elementliste (Einfg+F7) nutzen und sowohl „Überschriften“ als auch „Landmarken“ prüfen — abgleichen, ob Reihenfolge/Eindeutigkeit dem hier beschriebenen Befund entspricht.
+pdf-sections-recheck-form-names = Selbsttest: mit VoiceOver (VO+Cmd+J springt zwischen Formularfeldern) oder NVDA (F springt zwischen Feldern) durch das Formular tabben und hören, ob jedes Feld einen Namen ansagt — nicht nur ein generisches „Textfeld“.
 pdf-sections-recheck-status-messages = Selbsttest: die Meldung auslösen (z. B. Formular mit ungültigem Wert absenden), während VoiceOver oder NVDA läuft, und prüfen, ob sie automatisch angesagt wird, ohne dass der Tastaturfokus dorthin springt.
 pdf-sections-indicator-suffix = Indikator
 pdf-sections-cover-fail = Im automatischen Prüfumfang nicht bestanden — Handlungsbedarf

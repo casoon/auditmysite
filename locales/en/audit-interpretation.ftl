@@ -37,7 +37,11 @@ audit-interpretation-seo-note-fine = The page fits its page type well overall. T
 ## Performance interpretation (`audit::performance_interpretation`)
 audit-interpretation-perf-dom = high DOM complexity ({ $nodes } nodes)
 audit-interpretation-perf-lcp = a late largest contentful paint under throttling ({ $ms } ms)
-audit-interpretation-perf-render-blocking = { $count } render-blocking resources
+audit-interpretation-perf-render-blocking =
+    { $count ->
+        [one] 1 render-blocking resource
+       *[other] { $count } render-blocking resources
+    }
 audit-interpretation-perf-unminified = unminified assets (~{ $kb } KB savings)
 audit-interpretation-perf-animations = { $count } non-composited animations
 audit-interpretation-perf-positive-layout = layout stability (CLS)
@@ -201,9 +205,9 @@ audit-interpretation-summary-intro-dominant = One issue dominates: "{ $title }" 
 audit-interpretation-summary-intro-polished-clear = No pressing barriers detected by automation.{ $cross } Maintain the level and re-check regularly.
 audit-interpretation-summary-intro-polished-topics =
     Stable foundation. { $urgent ->
-        [one] 1 prioritized topic
-       *[other] { $urgent } prioritized topics
-    } — fix deliberately before they pile up.{ $cross }
+        [one] 1 prioritized topic — fix it deliberately before it piles up.
+       *[other] { $urgent } prioritized topics — fix them deliberately before they pile up.
+    }{ $cross }
 audit-interpretation-summary-intro-clustered = Stable foundation, but { $urgent } prioritized topics span several independent areas. Prioritize systematically — not all at once.{ $cross }
 audit-interpretation-summary-intro-needs-work-clear = Stable foundation without acute risks. { $total } improvements possible — easy to prioritize.{ $cross }
 audit-interpretation-summary-intro-needs-work-urgent =
@@ -211,8 +215,8 @@ audit-interpretation-summary-intro-needs-work-urgent =
         [one] 1 prioritized topic needs
        *[other] { $urgent } prioritized topics need
     } immediate attention.{ $cross }
-audit-interpretation-summary-intro-weak = Relevant barriers present -- { $urgent } of them critical or high. Prioritize systematically and start phase 1.{ $cross }
-audit-interpretation-summary-intro-critical = Urgent action required: { $critical } critical, { $high } high issues. The site is hard to use for part of users -- start phase 1 immediately.{ $cross }
+audit-interpretation-summary-intro-weak = Relevant barriers present — { $urgent } of them critical or high. Prioritize systematically and start phase 1.{ $cross }
+audit-interpretation-summary-intro-critical = Urgent action required: { $critical } critical, { $high } high issues. The site is hard to use for part of users — start phase 1 immediately.{ $cross }
 audit-interpretation-summary-problem-minimal = No violations found within the automated audit scope
 audit-interpretation-summary-problem-dominant = Dominant single issue: "{ $title }" — focused and fixable
 audit-interpretation-summary-problem-single = Single issue — focused and fixable

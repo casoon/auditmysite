@@ -338,7 +338,7 @@ batch-panel-module-averages = Modulübersicht (Ø über alle URLs)
 perf-score-card = Performance Score
 perf-technical-indicators = Begleitende Messwerte
 perf-lab-data-note = Lab-Daten
-perf-lab-data-body = LCP, CLS und TBT werden lokal in Headless-Chrome unter einer realen Slow-4G-Drosselung gemessen (CDP: 1,6 Mbps, 150 ms Latenz, vierfache CPU-Drosselung). Diese Werte können von Google PageSpeed / Lighthouse abweichen: PageSpeed misst ungedrosselt und simuliert die Drosselung rechnerisch (Lantern-Modell), während wir real drosseln — die reale Messung fällt häufig optimistischer aus, besonders beim LCP. Maßgeblich für die tatsächliche Nutzererfahrung sind allein Felddaten (CrUX/Real-User-Monitoring); die Tabelle „Performance unter gedrosselten Bedingungen" weiter unten zeigt die Bandbreite über mehrere Netzprofile. Von diesen Kennzahlen sind LCP und CLS Core Web Vitals; TBT ist eine reine Lab-Metrik und dient hier als Näherung für Interaktivitätsprobleme, weil das dritte Core Web Vital (INP) ohne Nutzereingaben nicht messbar ist. Mit „Lab-Schätzung" markierte Kennzahlen (INP, TTI, Speed Index) sind abgeleitete Näherungen, keine direkten Messwerte.
+perf-lab-data-body = LCP, CLS und TBT werden lokal in Headless-Chrome unter einer realen Slow-4G-Drosselung gemessen (CDP: 1,6 Mbps, 150 ms Latenz, vierfache CPU-Drosselung). Diese Werte können von Google PageSpeed / Lighthouse abweichen: PageSpeed misst ungedrosselt und simuliert die Drosselung rechnerisch (Lantern-Modell), während wir real drosseln — die reale Messung fällt häufig optimistischer aus, besonders beim LCP. Maßgeblich für die tatsächliche Nutzererfahrung sind allein Felddaten (CrUX/Real-User-Monitoring); die Tabelle „Performance unter gedrosselten Bedingungen“ weiter unten zeigt die Bandbreite über mehrere Netzprofile. Von diesen Kennzahlen sind LCP und CLS Core Web Vitals; TBT ist eine reine Lab-Metrik und dient hier als Näherung für Interaktivitätsprobleme, weil das dritte Core Web Vital (INP) ohne Nutzereingaben nicht messbar ist. Mit „Lab-Schätzung“ markierte Kennzahlen (INP, TTI, Speed Index) sind abgeleitete Näherungen, keine direkten Messwerte.
 perf-render-blocking-analysis = Render-Blocking Analyse
 perf-measurement-warnings-title = Messtechnische Einschränkungen
 perf-warning-lcp-missing = LCP nicht erfasst: Der PerformanceObserver hat keinen LCP-Eintrag geliefert (typisch bei starker Netzwerkdrosselung) — LCP-Score fehlt in der Bewertung.
@@ -350,7 +350,7 @@ perf-capped-size = Der Performance-Score wurde aufgrund einer sehr großen Daten
 perf-capped-js = Der Performance-Score wurde aufgrund einer kritischen JavaScript-Größe ({ $size } MB) auf { $cap } gedeckelt.
 perf-capped-requests = Der Performance-Score wurde aufgrund einer hohen Anzahl an Anfragen ({ $count }) auf { $cap } gedeckelt.
 perf-capped-dom = Der Performance-Score wurde aufgrund einer hohen DOM-Komplexität ({ $nodes } Knoten) auf { $cap } gedeckelt.
-perf-worst-case-xref = ({ $profile }-Profil, siehe Tabelle „{ pdf-perf-throttled-title }" unten)
+perf-worst-case-xref = ({ $profile }-Profil, siehe Tabelle „{ pdf-perf-throttled-title }“ unten)
 
 # SEO section
 seo-score-card = Technisches SEO
@@ -766,7 +766,7 @@ pdf-sec-https-yes = Ja
 pdf-sec-https-unclear = Unklar
 pdf-sec-protection-title = Schutzinfrastruktur
 pdf-sec-header-tier-column = Kategorie
-pdf-sec-header-tier-note = Kategorien: Header mit „Basisschutz" gelten für praktisch jede Seite; architektur- und kontextabhängige Header sind gute Praxis, aber nur für bestimmte Konstellationen relevant — das jeweilige Finding nennt das konkrete Szenario. Header mit „Remote nicht bewertbar" lassen sich per automatisiertem Check gar nicht sinnvoll als vorhanden/fehlend beurteilen.
+pdf-sec-header-tier-note = Kategorien: Header mit „Basisschutz“ gelten für praktisch jede Seite; architektur- und kontextabhängige Header sind gute Praxis, aber nur für bestimmte Konstellationen relevant — das jeweilige Finding nennt das konkrete Szenario. Header mit „Remote nicht bewertbar“ lassen sich per automatisiertem Check gar nicht sinnvoll als vorhanden/fehlend beurteilen.
 pdf-sec-score-title = Wie der Sicherheitswert entsteht
 pdf-sec-score-component = Bestandteil
 pdf-sec-score-points = Punkte

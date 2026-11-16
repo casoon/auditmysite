@@ -21,7 +21,7 @@ pdf-analysis-search-mobile-explanation = Mobile Nutzbarkeit, lesbarer Text und g
 pdf-analysis-search-warning-seo = Technisches SEO liegt bei { $score } / 100, aber Content-, Trust- oder KI-Signale senken die kundennahe Sichtbarkeit.
 pdf-analysis-search-warning-images = { $words } Wörter bei { $images } Bildern: wichtige Aussagen können eher im Bild als im lesbaren HTML liegen.
 pdf-analysis-search-warning-media = Das Seitenprofil ist medienlastig; Bildtext sollte durch lesbaren HTML-Text abgesichert werden.
-pdf-analysis-search-warning-local = LocalBusiness- oder lokale Vertrauensdaten sind unvollstaendig oder nicht maschinenlesbar.
+pdf-analysis-search-warning-local = LocalBusiness- oder lokale Vertrauensdaten sind unvollständig oder nicht maschinenlesbar.
 pdf-analysis-search-interpretation-gap = Technisch auffindbar, aber für Nutzer und KI-Systeme nicht gleich stark verständlich. Schwächere Bestandteile: { $names }.
 pdf-analysis-search-interpretation-strong = Starke Sichtbarkeit und Nutzerverständnis: technische Auffindbarkeit, Inhaltsverständlichkeit und Vertrauen passen zusammen.
 pdf-analysis-search-interpretation-solid = Solide Basis mit sichtbaren Lücken bei Inhalt, Vertrauen oder maschineller Lesbarkeit.
@@ -73,7 +73,10 @@ pdf-analysis-roadmap-modules-title = Weitere Module
 pdf-analysis-roadmap-modules-subtitle = Empfehlungen aus den Modulen Sicherheit, Mobile, Performance und SEO, die in den wichtigsten Maßnahmen genannt sind.
 pdf-analysis-roadmap-empty-modules = Keine priorisierten Barrierefreiheits-Maßnahmen. Zu anderen Modulen (Performance, SEO, Sicherheit, Mobile): { $recommendations } — sie stehen in den jeweiligen Modulabschnitten und in den wichtigsten Maßnahmen oben.
 pdf-analysis-roadmap-empty = Keine priorisierten Maßnahmen — keine Befunde mit Handlungsbedarf.
-pdf-analysis-roadmap-leverage = Reparaturhebel: { $leverage } — { $count } Vorkommen betroffen · Aufwand: { $effort }
+pdf-analysis-roadmap-leverage = Reparaturhebel: { $leverage } — { $count ->
+        [one] 1 Vorkommen
+       *[other] { $count } Vorkommen
+    } betroffen · Aufwand: { $effort }
 pdf-analysis-roadmap-root-cause = → Ursache { $letter }, { $count } Vorkommen ({ $share } %)
 
 ## WCAG coverage
@@ -85,7 +88,7 @@ pdf-analysis-coverage-understandable = Verständlich
 pdf-analysis-coverage-robust = Robust
 pdf-analysis-coverage-scope-title = Prüfumfang
 pdf-analysis-coverage-intro = Dieses Audit prüft { $automated } von ca. { $total } WCAG-2.2-AA-Kriterien automatisch. Die unten aufgeführten Kriterien benötigen manuelle Prüfung.
-pdf-analysis-coverage-intro-new = Dieses Audit prüft { $automated } von ca. { $total } WCAG-2.2-AA-Kriterien automatisch. { $count } davon ({ $list }, unten und bei einzelnen Befunden mit „WCAG 2.2" gekennzeichnet) sind mit WCAG 2.2 hinzugekommen und Teil von EN 301 549 V4.1.1, aber nicht von V3.2.1. Die unten aufgeführten Kriterien benötigen manuelle Prüfung.
+pdf-analysis-coverage-intro-new = Dieses Audit prüft { $automated } von ca. { $total } WCAG-2.2-AA-Kriterien automatisch. { $count } davon ({ $list }, unten und bei einzelnen Befunden mit „WCAG 2.2“ gekennzeichnet) sind mit WCAG 2.2 hinzugekommen und Teil von EN 301 549 V4.1.1, aber nicht von V3.2.1. Die unten aufgeführten Kriterien benötigen manuelle Prüfung.
 pdf-analysis-coverage-automated-title = Automatisch geprüft ({ $listed })
 pdf-analysis-coverage-listed-note = { $listed } Kriterien insgesamt: die { $automated } WCAG-2.2-A/AA-Kriterien, auf die sich die Quote oben bezieht, dazu { $aaa } AAA-Kriterien, die dieses Werkzeug ebenfalls prüft.
 pdf-analysis-coverage-manual-title = Manuelle Prüfung erforderlich ({ $count })
@@ -97,8 +100,8 @@ pdf-analysis-coverage-test-screen-reader-text = Test mit NVDA/JAWS (Windows) ode
 pdf-analysis-coverage-test-zoom-title = 400% Zoom
 pdf-analysis-coverage-test-zoom-text = Bei 400% Browser-Zoom: Seite ohne horizontales Scrollen bedienbar, kein Inhalt verloren.
 pdf-analysis-coverage-test-motion-title = Reduced Motion
-pdf-analysis-coverage-test-motion-text = Betriebssystem-Einstellung „Bewegung reduzieren" aktivieren und prüfen, ob Animationen deaktiviert oder reduziert werden.
+pdf-analysis-coverage-test-motion-text = Betriebssystem-Einstellung „Bewegung reduzieren“ aktivieren und prüfen, ob Animationen deaktiviert oder reduziert werden.
 pdf-analysis-coverage-test-modal-title = Modal- / Dropdown-Interaktion
 pdf-analysis-coverage-test-modal-text = Vollständige Tastaturbedienung: Tab, Enter, Space, Escape, Pfeiltasten. Fokus kehrt nach Schließen zum Trigger zurück.
 pdf-analysis-coverage-test-color-title = Farbenblindheit
-pdf-analysis-coverage-test-color-text = Mit einem Werkzeug wie „Color Oracle" prüfen, ob Informationen nicht ausschließlich über Farbe vermittelt werden.
+pdf-analysis-coverage-test-color-text = Mit einem Werkzeug wie „Color Oracle“ prüfen, ob Informationen nicht ausschließlich über Farbe vermittelt werden.
