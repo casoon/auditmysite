@@ -7,8 +7,10 @@
 //! uses the run locale), so both surfaces share one source instead of the
 //! builder carrying hardcoded de/en branches.
 
+use crate::i18n::{text, text_args};
 use crate::seo::profile::SeoContentProfile;
 use crate::seo::SeoAnalysis;
+use fluent_bundle::FluentValue;
 
 /// SEO score band used to pick the lead interpretation sentence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,44 +32,15 @@ pub fn classify_seo_score(score: u32) -> SeoScoreBand {
     }
 }
 
-fn seo_score_lead(band: SeoScoreBand, en: bool) -> &'static str {
-    match band {
-        SeoScoreBand::Excellent => {
-            if en {
-                "The technical SEO foundations are largely in place and support visibility in search engines."
-            } else {
-                "Die technischen SEO-Grundlagen sind weitgehend erfüllt und unterstützen die Sichtbarkeit in Suchmaschinen."
-            }
-        }
-        SeoScoreBand::Good => {
-            if en {
-                "Good SEO base with targeted potential to improve visibility."
-            } else {
-                "Gute SEO-Grundlage mit gezieltem Optimierungspotenzial für mehr Sichtbarkeit."
-            }
-        }
-        SeoScoreBand::Partial => {
-            if en {
-                "Some important SEO foundations are missing, which can limit visibility in search engines."
-            } else {
-                "Wichtige SEO-Grundlagen fehlen teilweise, wodurch die Sichtbarkeit in Suchmaschinen eingeschränkt sein kann."
-            }
-        }
-        SeoScoreBand::Insufficient => {
-            if en {
-                "SEO insufficient — essential foundations are missing and noticeably limit discoverability."
-            } else {
-                "SEO unzureichend — wesentliche Grundlagen fehlen und begrenzen die Auffindbarkeit deutlich."
-            }
-        }
-        SeoScoreBand::Critical => {
-            if en {
-                "SEO critical — fundamental prerequisites are missing; indexing and discoverability are at risk."
-            } else {
-                "SEO kritisch — grundlegende Voraussetzungen fehlen; Indexierung und Auffindbarkeit sind gefährdet."
-            }
-        }
-    }
+fn seo_score_lead(band: SeoScoreBand, en: bool) -> String {
+    let key = match band {
+        SeoScoreBand::Excellent => "audit-interpretation-seo-lead-excellent",
+        SeoScoreBand::Good => "audit-interpretation-seo-lead-good",
+        SeoScoreBand::Partial => "audit-interpretation-seo-lead-partial",
+        SeoScoreBand::Insufficient => "audit-interpretation-seo-lead-insufficient",
+        SeoScoreBand::Critical => "audit-interpretation-seo-lead-critical",
+    };
+    text(key, en)
 }
 
 /// Full SEO interpretation: lead sentence, optional page-type context and a
@@ -76,7 +49,7 @@ pub fn seo_interpretation_text(seo: &SeoAnalysis, en: bool) -> String {
     let lead = seo_score_lead(classify_seo_score(seo.score), en);
 
     let Some(profile) = &seo.content_profile else {
-        return lead.to_string();
+        return lead;
     };
 
     let page_type = profile.page_classification.primary_type.label(en);
@@ -94,105 +67,70 @@ pub fn seo_interpretation_text(seo: &SeoAnalysis, en: bool) -> String {
     // `intent_fit_score` itself is kept — as a quality reading it is sound and
     // is still shown as the "Intent-Fit" metric and used by the
     // `intent_fit_score < 65` advice gate below.
-    let context = if en {
-        format!("Classified as \u{201C}{page_type}\u{201D}.")
-    } else {
-        format!("Seitentyp: \u{201E}{page_type}\u{201C}.")
-    };
+    let context = text_args(
+        "audit-interpretation-seo-page-type",
+        &[("page_type", FluentValue::from(page_type))],
+        en,
+    );
 
     // When technical SEO is strong but content depth is weak, make the gap
     // explicit so readers don't interpret a high SEO score as endorsing content.
-    let depth_note = if seo.score >= 80 && content_depth < 55 {
-        if en {
-            format!(
-                " Technical SEO complete — content depth ({content_depth}/100) still has room to grow."
-            )
-        } else {
-            format!(
-                " Technisches SEO vollständig — inhaltliche Tiefe ({content_depth}/100) noch ausbaufähig."
-            )
-        }
-    } else {
-        String::new()
-    };
-
-    format!("{lead} {context}{depth_note}")
+    let mut interpretation = format!("{lead} {context}");
+    if seo.score >= 80 && content_depth < 55 {
+        interpretation.push(' ');
+        interpretation.push_str(&text_args(
+            "audit-interpretation-seo-depth-note",
+            &[("depth", FluentValue::from(content_depth.to_string()))],
+            en,
+        ));
+    }
+    interpretation
 }
 
 /// Reader-facing summary of a page's content profile (type + structural quality).
 pub fn page_profile_summary_text(profile: &SeoContentProfile, en: bool) -> String {
     let classification = &profile.page_classification;
     let avg = crate::seo::average_page_semantic_score(classification);
-    let quality = if en {
+    let quality = text(
         match avg {
-            85..=100 => "very coherently structured",
-            70..=84 => "technically and structurally well supported",
-            50..=69 => "only partly clearly structured",
-            _ => "currently weak in content and structure",
-        }
-    } else {
-        match avg {
-            85..=100 => "sehr stimmig aufgebaut",
-            70..=84 => "technisch und strukturell gut gestützt",
-            50..=69 => "nur teilweise klar strukturiert",
-            _ => "aktuell inhaltlich und strukturell schwach ausgeprägt",
-        }
-    };
+            85..=100 => "audit-interpretation-seo-quality-coherent",
+            70..=84 => "audit-interpretation-seo-quality-supported",
+            50..=69 => "audit-interpretation-seo-quality-partial",
+            _ => "audit-interpretation-seo-quality-weak",
+        },
+        en,
+    );
 
     let mut traits = classification.attributes.clone();
     if traits.is_empty() {
-        traits.push(
-            if en {
-                "no clear extra attributes"
-            } else {
-                "ohne klare Zusatzmerkmale"
-            }
-            .to_string(),
-        );
+        traits.push(text("audit-interpretation-seo-no-attributes", en));
     }
 
-    if en {
-        format!(
-            "The page reads as \u{201C}{}\u{201D} and is {}. Notable: {}.",
-            classification.primary_type.label(true),
-            quality,
-            traits.join(", ")
-        )
-    } else {
-        format!(
-            "Die Seite wirkt wie \u{201E}{}\u{201C} und ist {}. Auffällig sind {}.",
-            classification.primary_type.label(false),
-            quality,
-            traits.join(", ")
-        )
-    }
+    text_args(
+        "audit-interpretation-seo-profile-summary",
+        &[
+            (
+                "page_type",
+                FluentValue::from(classification.primary_type.label(en)),
+            ),
+            ("quality", FluentValue::from(quality)),
+            ("traits", FluentValue::from(traits.join(", "))),
+        ],
+        en,
+    )
 }
 
 /// The single biggest content-optimization lever for a page profile.
 pub fn page_profile_optimization_note_text(profile: &SeoContentProfile, en: bool) -> String {
     let classification = &profile.page_classification;
     if classification.content_depth_score < 45 {
-        return if en {
-            "More content depth and clearly structured sections would raise utility.".to_string()
-        } else {
-            "Mehr inhaltliche Tiefe und klar gegliederte Abschnitte würden den Nutzwert erhöhen."
-                .to_string()
-        };
+        return text("audit-interpretation-seo-note-depth", en);
     }
     if classification.structural_richness_score < 55 {
-        return if en {
-            "More subheadings and a clearer content structure would make the page easier to scan."
-                .to_string()
-        } else {
-            "Mehr Zwischenüberschriften und eine klarere Inhaltsstruktur würden die Seite besser scannbar machen.".to_string()
-        };
+        return text("audit-interpretation-seo-note-structure", en);
     }
     if classification.media_text_balance_score < 55 {
-        return if en {
-            "The page is heavily visual. More explanatory text and clearer context would improve utility and orientation.".to_string()
-        } else {
-            "Die Seite wirkt stark visuell. Mehr erklärender Text und klarer Kontext würden Nutzen und Orientierung verbessern.".to_string()
-        };
+        return text("audit-interpretation-seo-note-media", en);
     }
     // Only when the intent-fit value actually read a measured signal. For
     // MediaHeavy, Utility and ThinContent it is a constant keyed on the page
@@ -204,17 +142,9 @@ pub fn page_profile_optimization_note_text(profile: &SeoContentProfile, en: bool
     if crate::seo::profile::intent_fit_is_signal_derived(&classification.primary_type)
         && classification.intent_fit_score < 65
     {
-        return if en {
-            "The page does not yet serve its page type cleanly; structure and content should align more strongly with the actual user goal.".to_string()
-        } else {
-            "Die Seite bedient ihren Seitentyp noch nicht sauber; Aufbau und Inhalte sollten stärker auf das eigentliche Nutzerziel einzahlen.".to_string()
-        };
+        return text("audit-interpretation-seo-note-intent", en);
     }
-    if en {
-        "The page fits its page type well overall. The biggest lever is further sharpening content rather than fundamental rebuilds.".to_string()
-    } else {
-        "Die Seite passt insgesamt gut zu ihrem Seitentyp. Der größte Hebel liegt in weiterer inhaltlicher Schärfung statt in Grundsatzumbauten.".to_string()
-    }
+    text("audit-interpretation-seo-note-fine", en)
 }
 
 #[cfg(test)]
@@ -389,10 +319,10 @@ mod tests {
             SeoScoreBand::Insufficient,
             SeoScoreBand::Critical,
         ] {
-            let text = seo_score_lead(band, true);
+            let lead = seo_score_lead(band, true);
             assert!(
-                !text.chars().any(|c| "äöüÄÖÜß".contains(c)),
-                "EN lead contains German umlaut: {text}"
+                !lead.chars().any(|c| "äöüÄÖÜß".contains(c)),
+                "EN lead contains German umlaut: {lead}"
             );
         }
     }

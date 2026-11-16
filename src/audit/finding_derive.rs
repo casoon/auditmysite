@@ -7,7 +7,9 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::{count_text, text, text_args};
 use crate::taxonomy::{RuleLookup, Severity};
+use fluent_bundle::FluentValue;
 
 pub(super) fn calculate_priority_score(
     severity: Severity,
@@ -225,47 +227,15 @@ impl ComplexityKind {
 pub fn complexity_text(kind: ComplexityKind, en: bool) -> String {
     match kind {
         ComplexityKind::HighOccurrence { occurrence_count } => {
-            if en {
-                format!(
-                    "{} occurrence{} indicate a component- or template-level issue.",
-                    occurrence_count,
-                    if occurrence_count == 1 { "" } else { "s" }
-                )
-            } else {
-                format!(
-                    "{} Vorkommen deuten auf ein Komponenten- oder Template-Problem hin.",
-                    occurrence_count
-                )
-            }
+            count_text("audit-interpretation-complexity-high", occurrence_count, en)
         }
-        ComplexityKind::TechnicalPattern => {
-            if en {
-                "The fix is technical but affects a limited number of patterns.".to_string()
-            } else {
-                "Die Behebung ist technisch, betrifft aber nur wenige Muster.".to_string()
-            }
-        }
-        ComplexityKind::ModerateOccurrence { occurrence_count } => {
-            if en {
-                format!(
-                    "{} occurrence{} require consistent updates across content or templates.",
-                    occurrence_count,
-                    if occurrence_count == 1 { "" } else { "s" }
-                )
-            } else {
-                format!(
-                    "{} Vorkommen erfordern einheitliche Anpassungen in Inhalten oder Templates.",
-                    occurrence_count
-                )
-            }
-        }
-        ComplexityKind::LowScope => {
-            if en {
-                "Few occurrences and a clearly scoped fix.".to_string()
-            } else {
-                "Wenige Vorkommen und ein klar abgegrenzter Fix.".to_string()
-            }
-        }
+        ComplexityKind::TechnicalPattern => text("audit-interpretation-complexity-technical", en),
+        ComplexityKind::ModerateOccurrence { occurrence_count } => count_text(
+            "audit-interpretation-complexity-moderate",
+            occurrence_count,
+            en,
+        ),
+        ComplexityKind::LowScope => text("audit-interpretation-complexity-low", en),
     }
 }
 
@@ -384,39 +354,21 @@ pub fn expected_impact_text(kind: &ExpectedImpactKind, en: bool) -> String {
             occurrence_count,
             wcag_level,
             ..
-        } => {
-            let n = *occurrence_count;
-            if en {
-                format!(
-                    "Addresses {} occurrence{}; WCAG level: {}. Score effect not quantified.",
-                    n,
-                    if n == 1 { "" } else { "s" },
-                    wcag_level
-                )
-            } else {
-                format!(
-                    "Betrifft {} Vorkommen; WCAG-Level: {}. Wirkung auf den Score nicht beziffert.",
-                    n, wcag_level
-                )
-            }
-        }
+        } => text_args(
+            "audit-interpretation-expected-impact-wcag",
+            &[
+                ("count", FluentValue::from(*occurrence_count as i64)),
+                ("level", FluentValue::from(wcag_level.clone())),
+            ],
+            en,
+        ),
         ExpectedImpactKind::Other {
             occurrence_count, ..
-        } => {
-            let n = *occurrence_count;
-            if en {
-                format!(
-                    "Addresses {} occurrence{}; affects visibility/structure. Score effect not quantified.",
-                    n,
-                    if n == 1 { "" } else { "s" }
-                )
-            } else {
-                format!(
-                    "Betrifft {} Vorkommen; wirkt auf Sichtbarkeit/Struktur. Wirkung auf den Score nicht beziffert.",
-                    n
-                )
-            }
-        }
+        } => count_text(
+            "audit-interpretation-expected-impact-other",
+            *occurrence_count,
+            en,
+        ),
     }
 }
 

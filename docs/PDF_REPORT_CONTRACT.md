@@ -321,6 +321,24 @@ surface that owns its lifecycle:
   them with `en = true` and stays canonical English, the PDF with the run
   language. Which message applies, the thresholds and the score format
   (`n/100`) stay in Rust; the plurals are Fluent selects.
+- `locales/{de,en}/audit-interpretation.ftl`: the texts of the
+  interpretation layer (`audit-interpretation-*`): the SEO interpretation
+  lead, page-type context, profile summary and optimization note
+  (`seo::interpretation`), the performance qualifiers and gap sentence
+  (`audit::performance_interpretation`), the score interpretation per
+  module and band, the accessibility claim bullet, the technical overview
+  bullets, the overall impact table and the benchmark sentence
+  (`audit::interpretation`), the verdict reasons (`audit::verdict`), the
+  complexity and expected-impact sentences of a finding
+  (`audit::finding_derive`), the audit summary narrative (`audit::summary`),
+  the long-heading message (`seo::headings`), the baseline line
+  (`audit::baseline`) and the score area labels (`taxonomy::score_area`).
+  The functions stay pure `*_text(kind, values, en)` functions: the JSON
+  calls them with `en = true` and stays canonical English, the PDF with the
+  run language. Which message applies, the thresholds and the number
+  notation (the DOM node count of the performance qualifier) stay in Rust;
+  the plurals are Fluent selects; the word "and" of the phrase lists is
+  `audit-join-and`.
 - `locales/{de,en}/a11y-analysis.ftl`: the texts of the accessibility
   analysis layer (`a11y-analysis-*`): the screen reader issue messages
   (`screen_reader::analyzer::analyze_reading_sequence`: non-descriptive and

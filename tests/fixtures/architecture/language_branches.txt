@@ -8,14 +8,10 @@ src/ai_visibility/citation.rs 24
 src/ai_visibility/knowledge_graph.rs 11
 src/ai_visibility/mod.rs 18
 src/ai_visibility/readability.rs 27
-src/audit/baseline.rs 1
 src/audit/finding_contract.rs 1
-src/audit/finding_derive.rs 6
-src/audit/interpretation.rs 8
+src/audit/interpretation.rs 1
 src/audit/normalized.rs 1
-src/audit/performance_interpretation.rs 12
-src/audit/summary.rs 14
-src/audit/verdict.rs 6
+src/audit/performance_interpretation.rs 1
 src/commerce/mod.rs 1
 src/content_visibility/mod.rs 1
 src/html_conform/message.rs 2
@@ -45,10 +41,7 @@ src/output/terminal.rs 4
 src/page_flow/analysis.rs 83
 src/performance/render_blocking.rs 3
 src/registry/bands.rs 1
-src/seo/headings.rs 1
-src/seo/interpretation.rs 15
 src/seo/robots.rs 1
 src/source_quality/mod.rs 51
-src/taxonomy/score_area.rs 1
 src/ux/analysis.rs 62
 src/wcag/shared.rs 1

@@ -39,6 +39,9 @@ use serde_json::{json, Value};
 
 const LANGS: [&str; 2] = ["en", "de"];
 
+/// A finding of the summary fixtures: rule id, title, severity, occurrences.
+type FindingSpec = (String, String, Severity, usize);
+
 fn push(records: &mut Vec<Value>, name: &str, input: String, lang: &str, output: Value) {
     records.push(json!([name, input, lang, output]));
 }
@@ -843,12 +846,12 @@ fn summary_texts(records: &mut Vec<Value>) {
     let template = context.normalized.findings[0].clone();
     let module_template = context.normalized.module_scores[0].clone();
 
-    let many = |severity: Severity, rules: usize| -> Vec<(String, String, Severity, usize)> {
+    let many = |severity: Severity, rules: usize| -> Vec<FindingSpec> {
         (0..rules)
             .map(|i| (format!("rule-{i:02}"), format!("Title {i}"), severity, 1))
             .collect()
     };
-    let mut finding_sets: Vec<(String, Vec<(String, String, Severity, usize)>)> = vec![
+    let mut finding_sets: Vec<(String, Vec<FindingSpec>)> = vec![
         ("none".into(), vec![]),
         (
             "one high".into(),

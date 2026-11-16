@@ -23,6 +23,8 @@ use sha2::{Digest, Sha256};
 use crate::audit::normalized::{NormalizedFinding, NormalizedReport};
 use crate::audit::report::{AuditReport, BatchReport};
 use crate::error::{AuditError, Result};
+use crate::i18n::text_args;
+use fluent_bundle::FluentValue;
 
 /// Contract of the baseline file.
 pub const BASELINE_CONTRACT: &str = "auditmysite.baseline/1";
@@ -150,25 +152,25 @@ pub fn summary_text(
     en: bool,
 ) -> String {
     let unmatched = unmatched_pages.filter(|n| *n > 0);
-    if en {
-        let mut text = format!(
-            "Baseline: {known} known, {new} new, {fixed} fixed findings; known findings do not affect the verdict."
-        );
-        if let Some(n) = unmatched {
-            text.push_str(&format!(" {n} baseline pages were not part of this run."));
-        }
-        text
-    } else {
-        let mut text = format!(
-            "Baseline: {known} bekannte, {new} neue, {fixed} behobene Befunde; bekannte Befunde beeinflussen das Urteil nicht."
-        );
-        if let Some(n) = unmatched {
-            text.push_str(&format!(
-                " {n} Baseline-Seiten waren nicht Teil dieses Laufs."
-            ));
-        }
-        text
+    let number = |n: usize| FluentValue::from(n.to_string());
+    let mut text = text_args(
+        "audit-interpretation-baseline-summary",
+        &[
+            ("known", number(known)),
+            ("new", number(new)),
+            ("fixed", number(fixed)),
+        ],
+        en,
+    );
+    if let Some(n) = unmatched {
+        text.push(' ');
+        text.push_str(&text_args(
+            "audit-interpretation-baseline-unmatched",
+            &[("count", number(n))],
+            en,
+        ));
     }
+    text
 }
 
 fn bad(message: impl std::fmt::Display) -> AuditError {
