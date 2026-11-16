@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Button role without focus</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        [role="button"] { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Order your delivery</h1>
+        <!-- needs_review: role button that no key can reach -->
+        <span id="inf-button" role="button">Save for later</span>
+    </main>
+</body>
+</html>

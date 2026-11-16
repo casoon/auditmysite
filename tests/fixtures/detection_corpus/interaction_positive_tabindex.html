@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Positive tabindex</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        button { min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Order your delivery</h1>
+        <!-- needs_review: a positive tabindex moves the control ahead of the natural order -->
+        <button id="pt-native" type="button" tabindex="2">Choose date</button>
+    </main>
+</body>
+</html>

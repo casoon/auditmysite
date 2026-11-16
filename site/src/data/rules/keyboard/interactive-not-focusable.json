@@ -25,6 +25,13 @@
         "computed_style"
       ],
       "page_level": false,
+      "failing": {
+        "case": "interaction_role_button_no_focus",
+        "file": "tests/fixtures/detection_corpus/interaction_role_button_no_focus.html",
+        "verdict": "needs_review",
+        "selector": "span#inf-button",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Button role without focus</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        [role=\"button\"] { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Order your delivery</h1>\n        <!-- needs_review: role button that no key can reach -->\n        <span id=\"inf-button\" role=\"button\">Save for later</span>\n    </main>\n</body>\n</html>"
+      },
       "passing": {
         "case": "interaction_click_anchor",
         "file": "tests/fixtures/detection_corpus/interaction_click_anchor.html",

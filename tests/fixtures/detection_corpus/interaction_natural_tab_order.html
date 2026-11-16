@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Natural tab order</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        button { min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Order your delivery</h1>
+        <!-- absent: tabindex 0 and -1 keep the natural order (the boundary is 1) -->
+        <button id="pt-zero" type="button" tabindex="0">Edit address</button>
+        <button id="pt-minus" type="button" tabindex="-1">Skipped by Tab</button>
+    </main>
+</body>
+</html>

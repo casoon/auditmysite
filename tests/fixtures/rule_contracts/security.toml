@@ -355,6 +355,7 @@ killed_by = "test:security_detection_corpus_test"
 [[rule]]
 id = "Cross-Origin-Opener-Policy:missing_header"
 automation = "automated"
+review_only = true
 method = "analyze_security"
 source = "HTML Standard, 'Cross-origin opener policies'; auditmysite #578 header tiers"
 capabilities = ["network"]
@@ -390,6 +391,7 @@ killed_by = "test:security_detection_corpus_test"
 [[rule]]
 id = "Cross-Origin-Resource-Policy:missing_header"
 automation = "automated"
+review_only = true
 method = "analyze_security"
 source = "Fetch Standard, 'Cross-Origin-Resource-Policy header'; auditmysite #578 header tiers"
 capabilities = ["network"]

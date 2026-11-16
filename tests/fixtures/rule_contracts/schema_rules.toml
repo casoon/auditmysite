@@ -87,6 +87,7 @@ killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
 [[rule]]
 id = "article"
 automation = "automated"
+review_only = true
 method = "detect_structured_data"
 source = "https://developers.google.com/search/docs/appearance/structured-data/article (no required properties; recommended: author, dateModified, datePublished, headline, image; NewsArticle also publisher)"
 capabilities = ["dom"]
@@ -161,6 +162,7 @@ killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
 [[rule]]
 id = "organization"
 automation = "automated"
+review_only = true
 method = "detect_structured_data"
 source = "https://developers.google.com/search/docs/appearance/structured-data/organization (no required properties; recommended: name, url, logo, address, telephone, sameAs, among others)"
 capabilities = ["dom"]
@@ -531,6 +533,7 @@ killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
 [[rule]]
 id = "web_page"
 automation = "automated"
+review_only = true
 method = "detect_structured_data"
 source = "https://schema.org/WebPage (no Google rich result; profile recommends name, url, description, inLanguage, isPartOf)"
 capabilities = ["dom"]
@@ -568,6 +571,7 @@ killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
 [[rule]]
 id = "web_site"
 automation = "automated"
+review_only = true
 method = "detect_structured_data"
 source = "https://schema.org/WebSite; https://developers.google.com/search/docs/appearance/structured-data/site-names (no required properties in this profile; recommended: name, url, inLanguage, publisher, potentialAction)"
 capabilities = ["dom"]
@@ -605,6 +609,7 @@ killed_by = "barrierlab:crates/web-checks/src/structured_data/rules.rs::tests"
 [[rule]]
 id = "person"
 automation = "automated"
+review_only = true
 method = "detect_structured_data"
 source = "https://schema.org/Person (no Google rich result; profile recommends name, url, image, jobTitle, worksFor, sameAs)"
 capabilities = ["dom"]

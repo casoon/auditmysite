@@ -1,0 +1,10 @@
+{
+  "case": "interaction_natural_tab_order",
+  "expectations": [
+    { "rule_id": "keyboard/positive-tabindex", "selector": "button#pt-zero", "verdict": "absent" },
+    { "rule_id": "keyboard/positive-tabindex", "selector": "button#pt-minus", "verdict": "absent" },
+    { "rule_id": "landmarks/banner-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "landmarks/navigation-missing", "verdict": "needs_review", "occurrences": 1 }
+  ]
+}

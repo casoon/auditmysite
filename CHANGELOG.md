@@ -30,6 +30,8 @@ and verification for each change is in the
 
 ### Changed
 
+- **PDF:** the "Reference" row of a finding in the single report now links the rule's page on the project site (`help_url`) instead of the W3C Understanding page; a finding without a rule page keeps the W3C link. JSON, SARIF and AI output are unchanged (Refs #1013).
+- **Rules:** the rule pages of the structured-data features `article`, `organization`, `web_site`, `web_page` and `person` and of the security checks `Cross-Origin-Opener-Policy` and `Cross-Origin-Resource-Policy` are marked hint only, as their contracts always said (no violation state, review only), and show a failing example; the four keyboard rules `keyboard/positive-tabindex`, `keyboard/interactive-not-focusable`, `keyboard/hidden-focusable` and `keyboard/focusable-no-role` get minimal detection-corpus pages, so their pages show an example as well (Refs #1013).
 - **Rules:** `orientation/root-rotated` reports a rotated `html` or `body` as a review instead of a violation: one snapshot sees one orientation, and a rotation in both orientations locks nothing; `orientation/locked` compares both. `orientation/content-hidden` reports only content hidden per orientation, no longer rotation (barrierlab `a11y-rules` 0.30.7).
 - **PDF:** renderreport 0.8: the batch report's ranking table no longer carries its own "Website-Ranking" title above the table (the section heading before it stays), and its column headers in English reports are English ("No.", "Crit.") instead of German. Single reports and German batch reports render as before.
 - **Pages:** the project site uses the current shared theme (0.12.14).

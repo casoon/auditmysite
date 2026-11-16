@@ -20,8 +20,8 @@
     {
       "domain": "schema",
       "label": "Structured data",
-      "automatic": 17,
-      "hint_only": 0,
+      "automatic": 12,
+      "hint_only": 5,
       "manual": 0,
       "total": 17
     },
@@ -1490,7 +1490,7 @@
       "id": "seo.schema.schema_rule_missing_article",
       "title": "Article: missing required properties",
       "domain": "schema",
-      "outcome": "automatic"
+      "outcome": "hint-only"
     },
     {
       "id": "seo.schema.schema_rule_missing_breadcrumb",
@@ -1538,13 +1538,13 @@
       "id": "seo.schema.schema_rule_missing_organization",
       "title": "Organization: missing required properties",
       "domain": "schema",
-      "outcome": "automatic"
+      "outcome": "hint-only"
     },
     {
       "id": "seo.schema.schema_rule_missing_person",
       "title": "Person: missing required properties",
       "domain": "schema",
-      "outcome": "automatic"
+      "outcome": "hint-only"
     },
     {
       "id": "seo.schema.schema_rule_missing_product_snippet",
@@ -1580,13 +1580,13 @@
       "id": "seo.schema.schema_rule_missing_web_page",
       "title": "WebPage: missing required properties",
       "domain": "schema",
-      "outcome": "automatic"
+      "outcome": "hint-only"
     },
     {
       "id": "seo.schema.schema_rule_missing_web_site",
       "title": "WebSite: missing required properties",
       "domain": "schema",
-      "outcome": "automatic"
+      "outcome": "hint-only"
     },
     {
       "id": "best_practices.vulnerable_libraries.angularjs",

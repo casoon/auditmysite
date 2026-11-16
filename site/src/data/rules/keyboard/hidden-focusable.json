@@ -23,7 +23,21 @@
         "dom",
         "computed_style"
       ],
-      "page_level": false
+      "page_level": false,
+      "failing": {
+        "case": "interaction_hidden_focusable",
+        "file": "tests/fixtures/detection_corpus/interaction_hidden_focusable.html",
+        "verdict": "violation",
+        "selector": "a#hf-link",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Focusable under aria-hidden</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Order your delivery</h1>\n        <!-- violation: a link inside an aria-hidden container is reachable by Tab -->\n        <div aria-hidden=\"true\">\n            <a id=\"hf-link\" href=\"/help\">Delivery help</a>\n        </div>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "interaction_hidden_taken_out",
+        "file": "tests/fixtures/detection_corpus/interaction_hidden_taken_out.html",
+        "verdict": "pass",
+        "selector": "a#hf-minus",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Hidden and out of the tab order</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        a { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Order your delivery</h1>\n        <!-- pass: tabindex -1 takes the hidden link out of the tab order -->\n        <div aria-hidden=\"true\">\n            <a id=\"hf-minus\" href=\"/faq\" tabindex=\"-1\">FAQ</a>\n        </div>\n    </main>\n</body>\n</html>"
+      }
     }
   ]
 }

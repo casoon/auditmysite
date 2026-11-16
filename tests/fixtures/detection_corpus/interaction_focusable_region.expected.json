@@ -1,0 +1,9 @@
+{
+  "case": "interaction_focusable_region",
+  "expectations": [
+    { "rule_id": "keyboard/focusable-no-role", "selector": "div#fnr-region", "verdict": "absent" },
+    { "rule_id": "landmarks/banner-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "landmarks/navigation-missing", "verdict": "needs_review", "occurrences": 1 }
+  ]
+}

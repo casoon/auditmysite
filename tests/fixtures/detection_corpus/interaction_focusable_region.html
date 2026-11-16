@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Focusable named region</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        [tabindex] { min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Order your delivery</h1>
+        <!-- absent: a named region in the tab order is the scrollable-region pattern -->
+        <div id="fnr-region" role="region" aria-label="Delivery terms" tabindex="0">Delivery terms.</div>
+    </main>
+</body>
+</html>

@@ -51,7 +51,7 @@
     {
       "contract_id": "Cross-Origin-Opener-Policy:missing_header",
       "label": "Cross-Origin-Opener-Policy",
-      "outcome": "automatic",
+      "outcome": "hint-only",
       "source": "HTML Standard, 'Cross-origin opener policies'; auditmysite #578 header tiers",
       "applicability": "Applies to every successfully fetched top-level document response. Always applicable: the check judges the response itself (its transport or one of its headers), and every successfully fetched response has a scheme and a header set, so no page lies outside its scope.",
       "expectation": "Reports a review (needs_review), never a confirmed violation, when the response sets no Cross-Origin-Opener-Policy: COOP is an opt-in isolation mechanism whose need depends on deployment context (SharedArrayBuffer, cross-origin popups) that a single fetch cannot observe, so the finding asks a human to verify. A present header passes.",
@@ -60,6 +60,11 @@
         "network"
       ],
       "page_level": true,
+      "failing": {
+        "case": "no_headers_at_all",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/no_headers_at_all.expected.json",
+        "verdict": "needs_review"
+      },
       "passing": {
         "case": "security_https_complete",
         "file": "tests/fixtures/detection_corpus_nonwcag/security/security_https_complete.expected.json",
@@ -79,7 +84,7 @@
     {
       "contract_id": "Cross-Origin-Resource-Policy:missing_header",
       "label": "Cross-Origin-Resource-Policy",
-      "outcome": "automatic",
+      "outcome": "hint-only",
       "source": "Fetch Standard, 'Cross-Origin-Resource-Policy header'; auditmysite #578 header tiers",
       "applicability": "Applies to every successfully fetched response. Always applicable: the check judges the response itself (its transport or one of its headers), and every successfully fetched response has a scheme and a header set, so no page lies outside its scope.",
       "expectation": "Reports a review (needs_review), never a confirmed violation, when the response sets no Cross-Origin-Resource-Policy: whether other origins may embed the resource is a deployment decision a single fetch cannot observe. A present header passes.",
@@ -88,6 +93,11 @@
         "network"
       ],
       "page_level": true,
+      "failing": {
+        "case": "no_headers_at_all",
+        "file": "tests/fixtures/detection_corpus_nonwcag/security/no_headers_at_all.expected.json",
+        "verdict": "needs_review"
+      },
       "passing": {
         "case": "security_https_complete",
         "file": "tests/fixtures/detection_corpus_nonwcag/security/security_https_complete.expected.json",

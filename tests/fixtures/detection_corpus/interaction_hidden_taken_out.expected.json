@@ -1,0 +1,10 @@
+{
+  "case": "interaction_hidden_taken_out",
+  "expectations": [
+    { "rule_id": "keyboard/hidden-focusable", "selector": "a#hf-minus", "verdict": "pass" },
+    { "rule_id": "focus-visible", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "landmarks/banner-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "landmarks/navigation-missing", "verdict": "needs_review", "occurrences": 1 }
+  ]
+}

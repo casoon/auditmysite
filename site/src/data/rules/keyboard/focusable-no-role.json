@@ -30,6 +30,13 @@
         "file": "tests/fixtures/detection_corpus/keyboard_and_targets.html",
         "verdict": "needs_review",
         "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <title>Keyboard and target size corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Keyboard access and target size issues</h1>\n        <div tabindex=\"0\">Focusable div without an interactive role</div>\n        <div onclick=\"console.log('clicked')\">Clickable div with no keyboard handler</div>\n        <!-- target-size-minimum violation: two 16 px targets side by side — their 24 px circles overlap -->\n        <p><button id=\"tight-a\" style=\"width:16px;height:16px;padding:0;min-width:0;min-height:0;border:none;margin:0;\">X</button><button id=\"tight-b\" style=\"width:16px;height:16px;padding:0;min-width:0;min-height:0;border:none;margin:0;\">Y</button></p>\n        <!-- target-size-minimum pass: a lone 16 px target, spaced (2.5.8 spacing exception) -->\n        <p style=\"margin:48px 0;\"><button id=\"lone\" style=\"width:16px;height:16px;padding:0;min-width:0;min-height:0;border:none;\">Z</button></p>\n        <!-- pass for both target-size rules: a link in running text (inline exception) -->\n        <p>Read the <a id=\"inline\" href=\"/terms\">terms of use</a> before you continue.</p>\n        <form>\n            <label for=\"q\">Search</label>\n            <input type=\"text\" id=\"q\" name=\"q\">\n        </form>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "interaction_focusable_region",
+        "file": "tests/fixtures/detection_corpus/interaction_focusable_region.html",
+        "verdict": "absent",
+        "selector": "div#fnr-region",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Focusable named region</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        [tabindex] { min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Order your delivery</h1>\n        <!-- absent: a named region in the tab order is the scrollable-region pattern -->\n        <div id=\"fnr-region\" role=\"region\" aria-label=\"Delivery terms\" tabindex=\"0\">Delivery terms.</div>\n    </main>\n</body>\n</html>"
       }
     }
   ]

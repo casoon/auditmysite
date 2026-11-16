@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hidden and out of the tab order</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        a { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Order your delivery</h1>
+        <!-- pass: tabindex -1 takes the hidden link out of the tab order -->
+        <div aria-hidden="true">
+            <a id="hf-minus" href="/faq" tabindex="-1">FAQ</a>
+        </div>
+    </main>
+</body>
+</html>

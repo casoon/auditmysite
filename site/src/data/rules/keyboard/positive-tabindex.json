@@ -23,7 +23,21 @@
         "dom",
         "computed_style"
       ],
-      "page_level": false
+      "page_level": false,
+      "failing": {
+        "case": "interaction_positive_tabindex",
+        "file": "tests/fixtures/detection_corpus/interaction_positive_tabindex.html",
+        "verdict": "needs_review",
+        "selector": "button#pt-native",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Positive tabindex</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        button { min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Order your delivery</h1>\n        <!-- needs_review: a positive tabindex moves the control ahead of the natural order -->\n        <button id=\"pt-native\" type=\"button\" tabindex=\"2\">Choose date</button>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "interaction_natural_tab_order",
+        "file": "tests/fixtures/detection_corpus/interaction_natural_tab_order.html",
+        "verdict": "absent",
+        "selector": "button#pt-zero",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Natural tab order</title>\n    <style>\n        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }\n        button { min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }\n    </style>\n</head>\n<body>\n    <main>\n        <h1>Order your delivery</h1>\n        <!-- absent: tabindex 0 and -1 keep the natural order (the boundary is 1) -->\n        <button id=\"pt-zero\" type=\"button\" tabindex=\"0\">Edit address</button>\n        <button id=\"pt-minus\" type=\"button\" tabindex=\"-1\">Skipped by Tab</button>\n    </main>\n</body>\n</html>"
+      }
     }
   ]
 }
