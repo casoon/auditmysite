@@ -264,67 +264,53 @@ pub(super) fn build_modules_block_from_normalized(
 }
 
 fn build_overall_score_explanation(i18n: &I18n, normalized: &NormalizedReport) -> String {
-    let locale = i18n.locale();
-    let en = locale == "en";
     let indicator_names: Vec<String> = normalized
         .module_scores
         .iter()
         .filter(|m| !m.contributes_to_overall || m.measurement_type == "heuristic")
         .map(|m| localized_module_name(&m.name, i18n))
         .collect();
+    // The note starts with a space: it follows the sentence it belongs to.
     let indicator_note = if indicator_names.is_empty() {
         String::new()
-    } else if en {
-        format!(
-            " Indicator modules ({}) are shown separately and do not change the combined technical score.",
-            indicator_names.join(", ")
-        )
     } else {
         format!(
-            " Indikator-Module ({}) werden separat ausgewiesen und verändern den kombinierten technischen Wert nicht.",
-            indicator_names.join(", ")
+            " {}",
+            i18n.t_args(
+                "report-builder-overall-indicators",
+                &[("modules", indicator_names.join(", "))],
+            )
         )
     };
 
     if normalized.viewport_scores.is_some() {
-        if en {
-            format!(
-                "The combined technical score uses the dual-viewport result: 70% mobile and 30% desktop. \
-                 Security contributes 10% when active.{indicator_note}"
-            )
-        } else {
-            format!(
-                "Der kombinierte technische Wert nutzt das Dual-Viewport-Ergebnis: 70% Mobile und 30% Desktop. \
-                 Sicherheit fließt mit 10% ein, wenn aktiv.{indicator_note}"
-            )
-        }
+        i18n.t_args(
+            "report-builder-overall-dual",
+            &[("indicators", indicator_note)],
+        )
     } else {
         let contributing: Vec<String> = normalized
             .module_scores
             .iter()
             .filter(|m| m.contributes_to_overall)
             .map(|m| {
-                let name = localized_module_name(&m.name, i18n);
-                if en {
-                    format!("{name} {}%", m.weight_pct)
-                } else {
-                    format!("{name} {} %", m.weight_pct)
-                }
+                i18n.t_args(
+                    "report-builder-overall-weight",
+                    &[
+                        ("name", localized_module_name(&m.name, i18n)),
+                        ("pct", m.weight_pct.to_string()),
+                    ],
+                )
             })
             .collect();
         let weights = if contributing.is_empty() {
-            if en {
-                "Accessibility 100%".to_string()
-            } else {
-                "Barrierefreiheit 100 %".to_string()
-            }
+            i18n.t("report-builder-overall-weight-default")
         } else {
             contributing.join(", ")
         };
-        if en {
-            format!("The overall rating is the weighted result of the assessed areas: {weights}.{indicator_note}")
-        } else {
-            format!("Die Gesamtbewertung ergibt sich aus den gewichteten Einzelmodulen: {weights}.{indicator_note}")
-        }
+        i18n.t_args(
+            "report-builder-overall-weighted",
+            &[("weights", weights), ("indicators", indicator_note)],
+        )
     }
 }

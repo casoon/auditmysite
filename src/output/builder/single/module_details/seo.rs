@@ -522,7 +522,7 @@ pub(super) fn build_seo_details(
             page_health: s
                 .page_health
                 .as_ref()
-                .map(|p| build_page_health_presentation(locale, p)),
+                .map(|p| build_page_health_presentation(i18n, p)),
             // Re-derive SERP signals in the report locale; `s.serp` is canonical
             // English for JSON, the PDF localizes here (#406).
             serp: s.serp.as_ref().map(|_| {
