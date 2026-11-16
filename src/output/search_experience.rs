@@ -28,19 +28,10 @@ pub fn build_search_experience(
     let mut components = Vec::new();
 
     components.push(SearchExperienceComponent {
-        label: if en {
-            "Technical SEO".into()
-        } else {
-            "Technisches SEO".into()
-        },
+        label: i18n.t("seo-score-card"),
         score: seo.score,
         weight_pct: W_TECHNICAL_SEO,
-        explanation: if en {
-            "Title, description, canonical, sitemap, structured data and crawlable links."
-        } else {
-            "Title, Description, Canonical, Sitemap, strukturierte Daten und crawlbare Links."
-        }
-        .into(),
+        explanation: i18n.t("pdf-analysis-search-technical-seo-explanation"),
     });
 
     if let Some(ux) = normalized.raw_ux {
@@ -48,11 +39,7 @@ pub fn build_search_experience(
             ux.issues.iter().any(|issue| issue.kind.dimension() == kind)
         };
         components.push(SearchExperienceComponent {
-            label: if en {
-                "Content clarity".into()
-            } else {
-                "Inhaltsverständlichkeit".into()
-            },
+            label: i18n.t("pdf-analysis-search-content-clarity"),
             score: ux.content_clarity.score,
             weight_pct: W_CONTENT,
             // Re-derive in the run locale; the stored summary is canonical
@@ -65,11 +52,7 @@ pub fn build_search_experience(
             ),
         });
         components.push(SearchExperienceComponent {
-            label: if en {
-                "Trust signals".into()
-            } else {
-                "Vertrauenssignale".into()
-            },
+            label: i18n.t("pdf-analysis-search-trust"),
             score: trust_score(normalized, ux.trust_signals.score),
             weight_pct: W_TRUST,
             explanation: crate::ux::ux_dimension_summary(
@@ -80,11 +63,7 @@ pub fn build_search_experience(
             ),
         });
         components.push(SearchExperienceComponent {
-            label: if en {
-                "Structure and semantics".into()
-            } else {
-                "Struktur und Semantik".into()
-            },
+            label: i18n.t("pdf-analysis-search-structure"),
             score: structure_score(normalized, ux.visual_hierarchy.score),
             weight_pct: W_STRUCTURE,
             explanation: crate::ux::ux_dimension_summary(
@@ -96,34 +75,16 @@ pub fn build_search_experience(
         });
     } else if let Some(profile) = seo.content_profile.as_ref() {
         components.push(SearchExperienceComponent {
-            label: if en {
-                "Content clarity".into()
-            } else {
-                "Inhaltsverständlichkeit".into()
-            },
+            label: i18n.t("pdf-analysis-search-content-clarity"),
             score: profile.page_classification.content_depth_score,
             weight_pct: W_CONTENT,
-            explanation: if en {
-                "Estimated from page type and content-depth signals."
-            } else {
-                "Aus Seitentyp und Content-Tiefe abgeleitet."
-            }
-            .into(),
+            explanation: i18n.t("pdf-analysis-search-content-estimated"),
         });
         components.push(SearchExperienceComponent {
-            label: if en {
-                "Structure and semantics".into()
-            } else {
-                "Struktur und Semantik".into()
-            },
+            label: i18n.t("pdf-analysis-search-structure"),
             score: profile.signal_strength.overall_pct,
             weight_pct: W_STRUCTURE,
-            explanation: if en {
-                "Estimated from headings, structured data and page profile signals."
-            } else {
-                "Aus Überschriften, strukturierten Daten und Seitenprofil abgeleitet."
-            }
-            .into(),
+            explanation: i18n.t("pdf-analysis-search-structure-estimated"),
         });
     }
 
@@ -134,52 +95,30 @@ pub fn build_search_experience(
             (ai.chunks.dimension.score, 30),
         ]);
         components.push(SearchExperienceComponent {
-            label: if en {
-                "AI readability".into()
-            } else {
-                "KI-Lesbarkeit".into()
-            },
+            label: i18n.t("pdf-analysis-search-ai"),
             score: ai_score,
             weight_pct: W_AI,
-            explanation: if en {
-                "Readability, chunk quality and compact section structure for AI-assisted systems (unvalidated heuristic)."
-            } else {
-                "Lesbarkeit, Abschnittsqualität und kompakte Abschnittsstruktur für KI-gestützte Systeme (ungeprüfte Heuristik)."
-            }
-            .into(),
+            explanation: i18n.t("pdf-analysis-search-ai-explanation"),
         });
     }
 
     if let Some(mobile) = normalized.raw_mobile {
         components.push(SearchExperienceComponent {
-            label: if en {
-                "Mobile readability".into()
-            } else {
-                "Mobile Lesbarkeit".into()
-            },
+            label: i18n.t("pdf-analysis-search-mobile"),
             score: mobile.score,
             weight_pct: W_MOBILE,
-            explanation: if en {
-                "Mobile usability, readable text and tappable controls."
-            } else {
-                "Mobile Nutzbarkeit, lesbarer Text und gut antippbare Bedienelemente."
-            }
-            .into(),
+            explanation: i18n.t("pdf-analysis-search-mobile-explanation"),
         });
     }
 
     let score = composite_score(&components);
-    let mut warnings = build_warnings(normalized, score, en);
+    let mut warnings = build_warnings(normalized, score, i18n);
     warnings.truncate(5);
 
     Some(SearchExperiencePresentation {
         score,
-        label: if en {
-            "Search Experience".into()
-        } else {
-            "Sichtbarkeit & Nutzerverständnis".into()
-        },
-        interpretation: interpretation(score, seo.score, &components, en),
+        label: i18n.t("pdf-analysis-search-label"),
+        interpretation: interpretation(score, seo.score, &components, i18n),
         components,
         warnings,
     })
@@ -250,21 +189,15 @@ fn category_score(profile: &crate::seo::profile::SeoContentProfile, name: &str) 
         .map(|c| c.pct())
 }
 
-fn build_warnings(normalized: &AuditContext<'_>, score: u32, en: bool) -> Vec<String> {
+fn build_warnings(normalized: &AuditContext<'_>, score: u32, i18n: &I18n) -> Vec<String> {
+    let en = is_english(i18n);
     let mut warnings = Vec::new();
     if let Some(seo) = normalized.raw_seo {
         if seo.score >= 75 && score + 10 < seo.score {
-            warnings.push(if en {
-                format!(
-                    "Technical SEO is {} / 100, but content, trust or AI signals reduce the customer-facing visibility score.",
-                    seo.score
-                )
-            } else {
-                format!(
-                    "Technisches SEO liegt bei {} / 100, aber Content-, Trust- oder KI-Signale senken die kundennahe Sichtbarkeit.",
-                    seo.score
-                )
-            });
+            warnings.push(i18n.t_args(
+                "pdf-analysis-search-warning-seo",
+                &[("score", seo.score.to_string())],
+            ));
         }
         if seo.technical.word_count < 900
             && seo
@@ -272,32 +205,29 @@ fn build_warnings(normalized: &AuditContext<'_>, score: u32, en: bool) -> Vec<St
                 .as_ref()
                 .is_some_and(|ie| ie.total_images >= 30)
         {
-            warnings.push(if en {
-                format!(
-                    "{} words with {} images: important messages may be image-led rather than readable HTML.",
-                    seo.technical.word_count,
-                    seo.image_efficiency.as_ref().map(|ie| ie.total_images).unwrap_or(0)
-                )
-            } else {
-                format!(
-                    "{} Wörter bei {} Bildern: wichtige Aussagen können eher im Bild als im lesbaren HTML liegen.",
-                    seo.technical.word_count,
-                    seo.image_efficiency.as_ref().map(|ie| ie.total_images).unwrap_or(0)
-                )
-            });
+            warnings.push(
+                i18n.t_args(
+                    "pdf-analysis-search-warning-images",
+                    &[
+                        ("words", seo.technical.word_count.to_string()),
+                        (
+                            "images",
+                            seo.image_efficiency
+                                .as_ref()
+                                .map(|ie| ie.total_images)
+                                .unwrap_or(0)
+                                .to_string(),
+                        ),
+                    ],
+                ),
+            );
         }
         if seo
             .content_profile
             .as_ref()
             .is_some_and(|p| p.page_classification.primary_type == PageType::MediaHeavy)
         {
-            warnings.push(if en {
-                "The page profile is media-heavy; image text should be backed by readable HTML copy."
-                    .into()
-            } else {
-                "Das Seitenprofil ist medienlastig; Bildtext sollte durch lesbaren HTML-Text abgesichert werden."
-                    .into()
-            });
+            warnings.push(i18n.t("pdf-analysis-search-warning-media"));
         }
     }
 
@@ -305,11 +235,7 @@ fn build_warnings(normalized: &AuditContext<'_>, score: u32, en: bool) -> Vec<St
         if ux.content_clarity.score < 70 {
             warnings.push(format!(
                 "{}: {} / 100 — {}",
-                if en {
-                    "Content clarity"
-                } else {
-                    "Inhaltsverständlichkeit"
-                },
+                i18n.t("pdf-analysis-search-content-clarity"),
                 ux.content_clarity.score,
                 // Re-derive in the run locale; the stored summary is canonical
                 // English and would otherwise leak into the German PDF (#406).
@@ -324,11 +250,7 @@ fn build_warnings(normalized: &AuditContext<'_>, score: u32, en: bool) -> Vec<St
         if ux.trust_signals.score < 70 {
             warnings.push(format!(
                 "{}: {} / 100 — {}",
-                if en {
-                    "Trust signals"
-                } else {
-                    "Vertrauenssignale"
-                },
+                i18n.t("pdf-analysis-search-trust"),
                 ux.trust_signals.score,
                 crate::ux::ux_dimension_summary(
                     ux.trust_signals.kind,
@@ -342,13 +264,7 @@ fn build_warnings(normalized: &AuditContext<'_>, score: u32, en: bool) -> Vec<St
 
     if let Some(cv) = normalized.raw_content_visibility {
         if cv.local_business.iter().any(|s| s.level.is_problem()) {
-            warnings.push(if en {
-                "LocalBusiness or local trust data is incomplete or not machine-readable."
-                    .into()
-            } else {
-                "LocalBusiness- oder lokale Vertrauensdaten sind unvollstaendig oder nicht maschinenlesbar."
-                    .into()
-            });
+            warnings.push(i18n.t("pdf-analysis-search-warning-local"));
         }
     }
 
@@ -359,7 +275,7 @@ fn interpretation(
     score: u32,
     technical_seo: u32,
     components: &[SearchExperienceComponent],
-    en: bool,
+    i18n: &I18n,
 ) -> String {
     let weak: Vec<&SearchExperienceComponent> =
         components.iter().filter(|c| c.score < 70).collect();
@@ -369,36 +285,16 @@ fn interpretation(
             .map(|c| c.label.as_str())
             .collect::<Vec<_>>()
             .join(", ");
-        if en {
-            format!(
-                "Technically findable, but not equally strong for users and AI systems. Weak parts: {names}."
-            )
-        } else {
-            format!(
-                "Technisch auffindbar, aber für Nutzer und KI-Systeme nicht gleich stark verständlich. Schwächere Bestandteile: {names}."
-            )
-        }
+        i18n.t_args(
+            "pdf-analysis-search-interpretation-gap",
+            &[("names", names)],
+        )
     } else if score >= 80 {
-        if en {
-            "Strong search experience: technical visibility, content clarity and trust signals align."
-        } else {
-            "Starke Sichtbarkeit und Nutzerverständnis: technische Auffindbarkeit, Inhaltsverständlichkeit und Vertrauen passen zusammen."
-        }
-        .into()
+        i18n.t("pdf-analysis-search-interpretation-strong")
     } else if score >= 60 {
-        if en {
-            "Solid base with visible gaps in content, trust or machine readability."
-        } else {
-            "Solide Basis mit sichtbaren Lücken bei Inhalt, Vertrauen oder maschineller Lesbarkeit."
-        }
-        .into()
+        i18n.t("pdf-analysis-search-interpretation-solid")
     } else {
-        if en {
-            "Limited search experience: the page is not sufficiently understandable, trustworthy or extractable."
-        } else {
-            "Eingeschränkte Sichtbarkeit und Nutzerverständnis: Die Seite ist nicht ausreichend verständlich, vertrauensstark oder extrahierbar."
-        }
-        .into()
+        i18n.t("pdf-analysis-search-interpretation-limited")
     }
 }
 
@@ -443,7 +339,7 @@ mod tests {
             },
         ];
 
-        let text = interpretation(68, 82, &components, false);
+        let text = interpretation(68, 82, &components, &I18n::new("de").unwrap());
         assert!(text.contains("Technisch auffindbar"));
         assert!(text.contains("Trust"));
     }
