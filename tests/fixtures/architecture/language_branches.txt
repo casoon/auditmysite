@@ -3,6 +3,28 @@
 # The texts belong in `locales/<lang>/*.ftl`, one message per text; Rust decides which applies.
 # The baseline may only shrink: lower a count when a file loses branches, drop the line at zero.
 # `UPDATE_LANGUAGE_BRANCHES=1 cargo test --test architecture_test` rewrites it downwards.
+#
+# What the remaining lines are (state at the close of #936). Only the ratchet is binding; this
+# list explains why a line is still here, so nobody has to rediscover it.
+#
+# 1. Experimental indicators (src/ai_visibility, src/page_flow, src/source_quality, src/ux,
+#    src/commerce, src/content_visibility, output/builder/single/module_details/commerce.rs):
+#    parked until the calibration decision #891 (#916); moved text by text once they stay.
+# 2. Texts owned by a data table of another module, which carries one title per language
+#    (`wcag::en301549`, `wcag::bik_guide`, `wcag::coverage`): output/pdf/en301549.rs, bik_guide.rs,
+#    wcag_coverage.rs, batch_report/overview.rs, batch_report/consistency.rs. The table has to
+#    become Fluent first; the branch only picks the field.
+# 3. Barrierlab boundary (CLAUDE.md "Boundary to barrierlab"), fixed there, not here:
+#    wcag/shared.rs, html_conform/message.rs, seo/robots.rs, performance/render_blocking.rs.
+# 4. Number notation, not text (EN "4,200" / "0.5", DE "4.200" / "0,5"): i18n/number.rs,
+#    output/pdf/findings.rs, output/pdf/detail_modules/performance.rs,
+#    module_details/performance.rs, audit/performance_interpretation.rs.
+# 5. Choosing between two texts that already exist (stored canonical English or re-derived,
+#    `LocalizedText::for_locale`, `Severity::label`/`label_en`, the band table in
+#    registry/bands.rs) or binding the locale flag once and passing it on: audit/interpretation.rs,
+#    audit/finding_contract.rs, audit/normalized.rs, output/builder/{actions,batch,modules}.rs,
+#    builder/single/{mod,diagnosis}.rs, module_details/{experience,seo}.rs, output/terminal.rs,
+#    registry/bands.rs. `registry/bands.rs` is a public table and needs its own slice.
 src/ai_visibility/chunks.rs 20
 src/ai_visibility/citation.rs 24
 src/ai_visibility/knowledge_graph.rs 11
