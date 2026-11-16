@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rotations that keep both orientations usable</title>
+<style>
+  body { color: #111111; background: #ffffff; }
+  .tile { display: inline-block; width: 120px; height: 120px; margin: 40px; }
+  .hidden { display: none; }
+  @media (orientation: landscape) {
+    /* A full turn leaves no rotation (ACT b33eff, Passed 1). */
+    #wheel { transform: rotateZ(1turn); }
+    /* 45 degrees is no quarter turn. */
+    #badge { transform: rotate(45deg); }
+    #stamp { transform: rotate(90deg); }
+  }
+  @media (orientation: portrait) {
+    /* The same quarter turn in both orientations locks nothing. */
+    #stamp { transform: rotate(90deg); }
+    /* Not rendered: out of scope. */
+    .hidden { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <p>Badge shop</p>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Overview</a></nav>
+</header>
+<main id="main">
+  <h1>Badges</h1>
+  <div id="wheel" class="tile">Wheel</div>
+  <div id="badge" class="tile">Badge</div>
+  <div id="stamp" class="tile">Stamp</div>
+  <div class="hidden">Spare</div>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

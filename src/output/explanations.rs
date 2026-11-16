@@ -169,6 +169,7 @@ static RULE_ENTRIES: &[(&str, &str)] = &[
     // attributes of the rule's message in `rules.ftl`.
     ("images/alt-suspicious", "images/alt-suspicious"),
     ("orientation/root-rotated", "orientation/root-rotated"),
+    ("orientation/locked", "orientation/locked"),
     ("keyboard-trap", "keyboard-trap"),
     ("focus/obscured", "focus/obscured"),
     ("focus/obscured-enhanced", "focus/obscured-enhanced"),
@@ -1467,6 +1468,17 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
+        "orientation/locked",
+        RuleExplanation {
+            key: "orientation/locked",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Medium,
+            example_bad: Some("@media (orientation: landscape) { .board { transform: rotate(90deg); } }"),
+            example_good: Some("/* the same rotation in both orientations, or none; the layout adapts */"),
+            example_decorative: None,
+        },
+    ),
+    (
         "auth/paste-blocked",
         RuleExplanation {
             key: "auth/paste-blocked",
@@ -2265,8 +2277,8 @@ mod tests {
                 None => none += 1,
             }
         }
-        assert_eq!((own, other, none), (61, 84, 25));
-        assert_eq!(RULE_ENTRIES.len(), 61 + 84);
+        assert_eq!((own, other, none), (62, 84, 25));
+        assert_eq!(RULE_ENTRIES.len(), 62 + 84);
     }
 
     /// The lookup the reports use resolves for every entry: a missing message

@@ -1521,14 +1521,24 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // Ersetzt den Stylesheet-Teil von `wcag::rules::orientation`
     // (`css-orientation-lock`). Gewollt anders: `REVIEW` statt Verstoß, nur
     // Selektoren, die ein Element der Seite treffen, ohne Pseudo-Elemente
-    // (Breakpoint-Marker `body:before` auf bundesregierung.de). Der
-    // berechnete `transform: rotate` an `body`/`html` bleibt in
-    // `orientation`.
+    // (Breakpoint-Marker `body:before` auf bundesregierung.de). Seit
+    // a11y-rules 0.30.7 nur noch Ausblenden; Drehen prüft
+    // `orientation/locked`.
     SharedRule {
         id: "orientation/content-hidden",
         criterion: "1.3.4",
         level: WcagLevel::AA,
         name: "Orientation",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/orientation.html",
+    },
+    // Neu aus a11y-rules 0.30.7, keine abgelöste Regel: Drehung eines
+    // Elements unter `@media (orientation: …)` in beiden Ausrichtungen
+    // verglichen, eine Vierteldrehung Unterschied sperrt eine (ACT b33eff).
+    SharedRule {
+        id: "orientation/locked",
+        criterion: "1.3.4",
+        level: WcagLevel::AA,
+        name: "Orientation (Locked by Rotation)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/orientation.html",
     },
     // Ersetzen Blocksatz und Zeilenabstand aus
@@ -1758,8 +1768,10 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Frame Not Tested)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `css-orientation-lock` (Drehung von `html` und `body`; der
-    // Stylesheet-Teil läuft als `orientation/content-hidden`).
+    // Ersetzt `css-orientation-lock` (Drehung von `html` und `body`, wie sie
+    // der eine Viewport des Laufs misst). Seit a11y-rules 0.30.7 `REVIEW`
+    // statt Verstoß: Ein Schnappschuss sieht nur eine Ausrichtung; den
+    // Vergleich beider aus den Stilregeln macht `orientation/locked`.
     SharedRule {
         id: "orientation/root-rotated",
         criterion: "1.3.4",

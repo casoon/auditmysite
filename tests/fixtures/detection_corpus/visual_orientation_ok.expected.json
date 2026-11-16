@@ -2,6 +2,7 @@
   "case": "visual_orientation_ok",
   "expectations": [
     { "rule_id": "orientation/content-hidden", "verdict": "absent" },
-    { "rule_id": "orientation/root-rotated", "verdict": "pass" }
+    { "rule_id": "orientation/root-rotated", "verdict": "pass" },
+    { "rule_id": "orientation/locked", "verdict": "not_applicable" }
   ]
 }

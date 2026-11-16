@@ -70,8 +70,8 @@ One id per rule: the detector id (`contrast/text-insufficient`) is also the `rul
 
 | Coverage | ACT rules |
 | --- | ---: |
-| `full` | 22 |
-| `partial` | 22 |
+| `full` | 23 |
+| `partial` | 21 |
 | `unclear` | 5 |
 | `none` | 45 |
 
@@ -101,6 +101,7 @@ One id per rule: the detector id (`contrast/text-insufficient`) is also the `rul
 | `afw4f7` | Text has minimum contrast | `contrast/text-insufficient` | Same thresholds (4.5:1, 3:1 for large text, no rounding); undetermined cases are review, not pass. |
 | `09o5cg` | Text has enhanced contrast | `contrast/text-enhanced` | Same thresholds (7:1, 4.5:1 for large text). |
 | `2ee8b8` | Visible label is part of accessible name | `label-in-name/mismatch` | Both require the visible label to be contained in the accessible name; internal rule adds review for ambiguous composite labels. |
+| `b33eff` | Orientation of the page is not restricted using CSS transforms | `orientation/locked` | Same applicability and expectation: rotation under an orientation media query compared in both orientations; review where the media query, selector or value cannot be decided. |
 
 ## Partial coverage
 
@@ -112,7 +113,6 @@ One id per rule: the detector id (`contrast/text-insufficient`) is also the `rul
 | `6a7281` | ARIA state or property has valid value | `aria/attribute-value-invalid` | Internal rule covers enumerated, integer and number types; ID reference types are a separate rule. |
 | `80f0bf` | Audio or video element avoids automatically playing audio | `media/audio-autoplay` | Internal rule covers audio only and ends in review; ACT also covers video and is a composite of two sub-rules. |
 | `cf77f2` | Bypass Blocks of Repeated Content | `headings/none` | Composite rule. Internal rule accepts headings, a main landmark or a skip link as bypass mechanism and reports review without a repeated block; no collapsible-block check. |
-| `b33eff` | Orientation of the page is not restricted using CSS transforms | `orientation/root-rotated` | Internal rule checks rotation of html/body in the audited viewport; ACT checks any element with a conditional orientation media query. |
 | `c4a8a4` | HTML page title is descriptive | `document-title` | Internal rule only flags known placeholder titles (F25); descriptiveness is a human judgement. Heuristic: not reported as ACT result. |
 | `3ea0c8` | Id attribute value is unique (deprecated) | `ids/duplicate` | Internal rule only reviews duplicate ids that are referenced; ACT applies to every id. The ACT rule is deprecated (SC 4.1.1 removed in WCAG 2.2). |
 | `cae760` | Iframe element has non-empty accessible name | `frames/name-missing` | ACT excludes iframes with negative tabindex; internal rule judges every iframe in the accessibility tree. |

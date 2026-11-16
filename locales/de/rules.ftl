@@ -46,18 +46,27 @@ rule-headings-section-without-heading = Fehlende Abschnittsüberschriften
     .user-impact = Nutzer können Inhalte nicht gezielt ansteuern.
     .technical-impact = Fehlende Sub-Headings in langen Inhaltsblöcken.
 
-rule-orientation-root-rotated = Seite erzwingt eine Bildschirmausrichtung durch Drehung der Wurzel
+rule-orientation-root-rotated = Prüfen, ob die gedrehte Wurzel eine Bildschirmausrichtung erzwingt
     .user-impact = Nutzer mit fest montierten Bildschirmen (z. B. am Rollstuhl) können die Seite nicht lesen.
     .technical-impact = Berechnetes transform (Matrix) oder rotate an html oder body dreht um eine Vierteldrehung, gemessen im geprüften Viewport.
-    .description = Das Wurzelelement (html oder body) ist um eine Vierteldrehung gedreht. Damit lässt sich die Seite nur in einer Ausrichtung nutzen, außer die Ausrichtung ist wesentlich.
+    .description = Das Wurzelelement (html oder body) ist im geprüften Viewport um eine Vierteldrehung gedreht. Gilt die Drehung nur in einer Ausrichtung, lässt sich die Seite nur in dieser nutzen, außer die Ausrichtung ist wesentlich.
     .explanation-user-impact = Menschen, deren Gerät fest montiert ist, etwa am Rollstuhl, können die Ausrichtung nicht wechseln und sehen die Seite gedreht oder abgeschnitten.
     .typical-cause = Ein transform: rotate(90deg) oder rotate: 90deg auf html oder body, das im Hochformat das Querformat nachbilden soll.
     .recommendation = Die Drehung entfernen und das Layout in beiden Ausrichtungen nutzbar machen. Nur wenn eine Ausrichtung wesentlich ist (Klavier, Bankscheck), darf sie festgelegt werden.
-    .technical-note = Gemessen wird die berechnete transform-Matrix und die Eigenschaft rotate von html und body im geprüften Viewport; eine Sperre nur in der anderen Ausrichtung zeigt der Lauf im jeweils anderen Viewport. Ob eine Ausrichtung wesentlich ist, entscheidet ein Mensch.
+    .technical-note = Gemessen wird die berechnete transform-Matrix und die Eigenschaft rotate von html und body im geprüften Viewport, der eine Ausrichtung zeigt; eine Drehung in beiden Ausrichtungen sperrt keine. orientation/locked vergleicht beide Ausrichtungen aus den Stilregeln. Ob eine Ausrichtung wesentlich ist, entscheidet ein Mensch.
 
 rule-orientation-content-hidden = Eingeschränkte Bildschirmausrichtung
     .user-impact = Nutzer mit fest montierten Bildschirmen (z. B. am Rollstuhl) können die Seite nicht lesen.
-    .technical-impact = CSS-Medienabfragen blockieren die Ausrichtung.
+    .technical-impact = CSS-Medienabfragen blenden je nach Ausrichtung Inhalt aus.
+
+rule-orientation-locked = Element nur in einer Ausrichtung um eine Vierteldrehung gedreht
+    .user-impact = Nutzer mit fest montierten Bildschirmen (z. B. am Rollstuhl) sehen den Inhalt quer und können das Gerät nicht drehen, um ihn zu lesen.
+    .technical-impact = rotate oder ein drehendes transform unter @media (orientation) weicht um 90 Grad vom Wert in der anderen Ausrichtung ab.
+    .description = Ein Element ist in einer Ausrichtung um eine Vierteldrehung anders gedreht als in der anderen. Dreht man das Gerät, dreht es sich zurück und bleibt stehen; aufrecht zeigt es nur eine Ausrichtung.
+    .explanation-user-impact = Menschen, deren Gerät fest montiert ist, etwa am Rollstuhl, können die Ausrichtung nicht wechseln und sehen den Inhalt quer.
+    .typical-cause = Ein transform: rotate(90deg) oder rotate: 90deg in @media (orientation: portrait) oder (orientation: landscape), das die andere Ausrichtung nachbilden soll.
+    .recommendation = Die Drehung aus der Ausrichtungsabfrage entfernen und das Layout in beiden Ausrichtungen nutzbar machen. Nur wenn eine Ausrichtung wesentlich ist (Klavier, Bankscheck), darf sie festgelegt werden.
+    .technical-note = Verglichen werden rotate und transform (rotate, rotateZ, rotate3d, matrix, matrix3d) jedes dargestellten Elements unter @media (orientation: landscape|portrait) mit dem Wert in der anderen Ausrichtung (ACT b33eff). Weitere Media-Bedingungen, nicht entschiedene Selektoren oder nicht auswertbare Werte ergeben eine Prüfung. Ob eine Ausrichtung wesentlich ist, entscheidet ein Mensch.
 
 ## Navigation & operation
 

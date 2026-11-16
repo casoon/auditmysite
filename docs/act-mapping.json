@@ -288,14 +288,15 @@
       "wcag_sc": [
         "1.3.4"
       ],
-      "coverage": "partial",
+      "coverage": "full",
       "internal_rules": [
-        "orientation/root-rotated"
+        "orientation/locked"
       ],
       "related_rules": [
+        "orientation/root-rotated",
         "orientation/content-hidden"
       ],
-      "note": "Internal rule checks rotation of html/body in the audited viewport; ACT checks any element with a conditional orientation media query."
+      "note": "Compares the rotation of each visible element under an orientation media query in both orientations; a review where the media query, selector or value cannot be decided."
     },
     {
       "act_id": "c249d5",

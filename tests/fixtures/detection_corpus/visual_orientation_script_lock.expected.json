@@ -1,7 +1,8 @@
 {
   "case": "visual_orientation_script_lock",
   "expectations": [
-    { "rule_id": "orientation/root-rotated", "selector": "html", "verdict": "violation", "occurrences": 1 },
-    { "rule_id": "orientation/content-hidden", "verdict": "not_applicable" }
+    { "rule_id": "orientation/root-rotated", "selector": "html", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "orientation/content-hidden", "verdict": "not_applicable" },
+    { "rule_id": "orientation/locked", "verdict": "not_applicable" }
   ]
 }
