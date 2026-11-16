@@ -16,6 +16,7 @@ use super::problem_profile::build_overall_leverage_note;
 use super::single_report::{cross_module_measures, top_measures};
 use crate::i18n::I18n;
 use crate::output::report_model::*;
+use fluent_bundle::FluentValue;
 
 /// Max number of root causes assigned a letter (A, B, C…) in the root-cause
 /// analysis section. Shared with `render_timeframe_roadmap` so both sections
@@ -295,9 +296,9 @@ pub(super) fn render_timeframe_roadmap(
             let leverage_tag = i18n.t_args(
                 "pdf-analysis-roadmap-leverage",
                 &[
-                    ("leverage", item.leverage.clone()),
-                    ("count", item.occurrence_count.to_string()),
-                    ("effort", item.effort.clone()),
+                    ("leverage", FluentValue::from(item.leverage.clone())),
+                    ("count", FluentValue::from(item.occurrence_count as i64)),
+                    ("effort", FluentValue::from(item.effort.clone())),
                 ],
             );
             why = format!("{why}\n\n{leverage_tag}");

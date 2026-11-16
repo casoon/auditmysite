@@ -287,7 +287,7 @@ fn experimental_lines(
                     .map_or(0, |m| m.findings.len());
                 i18n.t_args(
                     "report-builder-terminal-commerce",
-                    &[("findings", findings.to_string())],
+                    &[("findings", findings as i64)],
                 )
             }
         })

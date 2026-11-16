@@ -22,6 +22,7 @@ use crate::wcag::en301549::{
     derive_annex, out_of_standard_finding_count, ClauseStatus, EN301549_DISCLAIMER_DE,
     EN301549_DISCLAIMER_EN, OUT_OF_SCOPE_CHAPTERS,
 };
+use fluent_bundle::FluentValue;
 
 /// Render the EN 301 549 clause annex. Structure: intro -> disclaimer
 /// callout -> violations table (or a clean confirmation line) -> "no
@@ -203,7 +204,7 @@ pub(super) fn render_en301549_annex(
     if out_of_standard > 0 {
         let note = i18n.t_args(
             "pdf-sections-en301549-out-of-standard",
-            &[("count", out_of_standard.to_string())],
+            &[("count", FluentValue::from(out_of_standard as i64))],
         );
         builder =
             builder.add_component(Label::new(&note).with_size("10.5pt").with_color("#475569"));

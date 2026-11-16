@@ -56,7 +56,7 @@ pdf-analysis-profile-concentrated-stable = { $names } { $several ->
     } the need for action while other technical areas remain stable.
 pdf-analysis-profile-broad-unnamed = Multiple technical areas are affected simultaneously and require structural corrections.
 pdf-analysis-profile-broad-named = Multiple technical areas are affected simultaneously. In particular, { $names } require structural corrections.
-pdf-analysis-profile-few = { $count } occurrence(s) were detected — too few to identify a recurring pattern.
+pdf-analysis-profile-few = { $found } — too few to identify a recurring pattern.
 pdf-analysis-profile-concentration = { $total } occurrences were detected. About { $pct }% of them fall on just { $top } findings. Most affected: { $title }.
 pdf-analysis-profile-leverage = The { $top } most significant causes account for about { $pct }% of the { $total } occurrences detected — addressing those first has the biggest leverage on the list below.
 
@@ -65,7 +65,7 @@ pdf-analysis-causes-eyebrow = ROOT CAUSE
 pdf-analysis-causes-title = Root Cause Analysis
 pdf-analysis-causes-subtitle = Many individual findings trace back to a few recurring causes — fixing those has a compounding effect.
 pdf-analysis-causes-none = No accessibility findings were detected, so no root cause analysis is necessary.
-pdf-analysis-causes-none-evidence = No confirmed WCAG violations, so no root cause analysis is necessary. { $warnings } accessibility warning(s) and { $manual } manual check(s) remain — they are documented in their own sections and are not scored.
+pdf-analysis-causes-none-evidence = No confirmed WCAG violations, so no root cause analysis is necessary. { $warnings_text } and { $manual_text } remain open — they are documented in their own sections and are not scored.
 pdf-analysis-causes-lead-in = Where the findings concentrate: if a finding sits in a reused component or template, one fix there resolves all of its occurrences — whether it does cannot be seen from a single page.
 pdf-analysis-causes-table-title = Where the occurrences concentrate
 pdf-analysis-causes-other = Other ({ $count } further findings)
@@ -76,9 +76,12 @@ pdf-analysis-roadmap-title = Action Plan
 pdf-analysis-roadmap-subtitle = Recommended actions grouped by where the problem lives — including supplementary SEO and quality recommendations without legal relevance.
 pdf-analysis-roadmap-modules-title = Other modules
 pdf-analysis-roadmap-modules-subtitle = Recommendations from the security, mobile, performance and SEO modules that the key measures name.
-pdf-analysis-roadmap-empty-modules = No prioritized accessibility actions. { $count } recommendation(s) from other modules (performance, SEO, security, mobile) are listed in their module sections and in the key measures above.
+pdf-analysis-roadmap-empty-modules = No prioritized accessibility actions. Other modules (performance, SEO, security, mobile): { $recommendations } — listed in their module sections and in the key measures above.
 pdf-analysis-roadmap-empty = No prioritized actions — no findings require remediation.
-pdf-analysis-roadmap-leverage = Remediation leverage: { $leverage } — { $count } occurrence(s) affected · effort: { $effort }
+pdf-analysis-roadmap-leverage = Remediation leverage: { $leverage } — { $count ->
+        [one] 1 occurrence
+       *[other] { $count } occurrences
+    } affected · effort: { $effort }
 pdf-analysis-roadmap-root-cause = → Root Cause { $letter }, { $count } occurrences ({ $share }%)
 
 ## WCAG coverage

@@ -37,7 +37,11 @@ audit-interpretation-seo-note-fine = Die Seite passt insgesamt gut zu ihrem Seit
 ## Performance interpretation (`audit::performance_interpretation`)
 audit-interpretation-perf-dom = die hohe DOM-Komplexität ({ $nodes } Knoten)
 audit-interpretation-perf-lcp = der spät erscheinende Hauptinhalt unter Drosselung ({ $ms } ms LCP)
-audit-interpretation-perf-render-blocking = { $count } render-blockierende Ressourcen
+audit-interpretation-perf-render-blocking =
+    { $count ->
+        [one] 1 render-blockierende Ressource
+       *[other] { $count } render-blockierende Ressourcen
+    }
 audit-interpretation-perf-unminified = unminifizierte Assets (~{ $kb } KB Einsparpotenzial)
 audit-interpretation-perf-animations = { $count } nicht-composited Animationen
 audit-interpretation-perf-positive-layout = Layout-Stabilität (CLS)
@@ -181,22 +185,22 @@ audit-interpretation-summary-dominant-note = "{ $title }" macht { $share }{ "\u2
 audit-interpretation-summary-detail-occurrences = { $count } Vorkommen
 audit-interpretation-summary-detail-hits = { $count } Treffer
 audit-interpretation-summary-intro-systematic = Kein Einzelproblem — { $total } Verstöße über { $critical } kritische und { $high } hohe Themen sind ein systematisches Muster. Betrifft große Teile der Seite, nicht einzelne Stellen.{ $cross }
-audit-interpretation-summary-intro-dominant = Ein Problem dominiert: "{ $title }" verursacht { $share } % der kritischen/hohen Findings ({ $detail }). Hier konzentrieren -- eine Ursache, hoher Impact.{ $cross }
+audit-interpretation-summary-intro-dominant = Ein Problem dominiert: "{ $title }" verursacht { $share } % der kritischen/hohen Findings ({ $detail }). Hier konzentrieren — eine Ursache, hoher Impact.{ $cross }
 audit-interpretation-summary-intro-polished-clear = Automatisiert unauffällig — keine dringenden Barrieren erkannt.{ $cross } Niveau halten und regelmäßig nachprüfen.
 audit-interpretation-summary-intro-polished-topics =
     Tragfähige Basis. { $urgent ->
         [one] 1 priorisiertes Thema
-       *[other] { $urgent } priorisierte Theman
+       *[other] { $urgent } priorisierte Themen
     } — gezielt beheben, bevor sie sich häufen.{ $cross }
 audit-interpretation-summary-intro-clustered = Tragfähige Basis, aber { $urgent } priorisierte Themen verteilen sich auf mehrere unabhängige Bereiche. Strukturiert priorisieren — nicht alles auf einmal.{ $cross }
 audit-interpretation-summary-intro-needs-work-clear = Tragfähige Basis ohne akute Risiken. { $total } Verbesserungen möglich — gut priorisierbar.{ $cross }
 audit-interpretation-summary-intro-needs-work-urgent =
     Gute Basis, aber { $urgent ->
         [one] 1 priorisiertes Thema braucht
-       *[other] { $urgent } priorisierte Theman brauchtn
+       *[other] { $urgent } priorisierte Themen brauchen
     } sofortige Aufmerksamkeit.{ $cross }
-audit-interpretation-summary-intro-weak = Relevante Barrieren vorhanden -- { $urgent } davon kritisch oder hoch. Strukturiert priorisieren und Phase 1 starten.{ $cross }
-audit-interpretation-summary-intro-critical = Akuter Handlungsbedarf: { $critical } kritische, { $high } hohe Issues. Die Seite ist für einen Teil der Nutzer schwer nutzbar -- sofort Phase 1 starten.{ $cross }
+audit-interpretation-summary-intro-weak = Relevante Barrieren vorhanden — { $urgent } davon kritisch oder hoch. Strukturiert priorisieren und Phase 1 starten.{ $cross }
+audit-interpretation-summary-intro-critical = Akuter Handlungsbedarf: { $critical } kritische, { $high } hohe Issues. Die Seite ist für einen Teil der Nutzer schwer nutzbar — sofort Phase 1 starten.{ $cross }
 audit-interpretation-summary-problem-minimal = Keine Verstöße im automatisierten Prüfumfang gefunden
 audit-interpretation-summary-problem-dominant = Dominierendes Einzelproblem: "{ $title }" — konzentriert und gezielt behebbar
 audit-interpretation-summary-problem-single = Einzelproblem — konzentriert und gezielt behebbar

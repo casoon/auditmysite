@@ -55,7 +55,7 @@ batch-report-en301549-incomplete = Automatisierte Prüfung unvollständig
 batch-report-en301549-col-clause = Klausel
 batch-report-en301549-col-title = Titel
 batch-report-en301549-col-pages = Betroffene Seiten
-batch-report-en301549-table-title = Klausel-Übersicht (alle 50 WCAG-2.1-A/AA-Klauseln)
+batch-report-en301549-table-title = Klausel-Übersicht (alle { $count } WCAG-2.2-A/AA-Klauseln)
 batch-report-en301549-out-of-scope-title = Außerhalb dieses Prüfumfangs
 batch-report-en301549-chapter = Kapitel { $chapter } – { $title } (nicht bewertet)
 

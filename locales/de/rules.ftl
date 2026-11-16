@@ -22,7 +22,7 @@ rule-images-alt-missing = Fehlende Alternativtexte bei Bildern
 rule-images-alt-suspicious = Vermutlich nichtssagender Alternativtext
     .user-impact = Screenreader-Nutzer hören einen Text, der den Bildinhalt nicht vermittelt.
     .technical-impact = alt-Attribut vorhanden, aber ohne beschreibenden Inhalt.
-    .description = Ein Bild hat einen Alternativtext, der den Inhalt vermutlich nicht beschreibt: einen Dateinamen, ein Füllwort wie „Bild" oder „Logo" oder nur ein, zwei Zeichen.
+    .description = Ein Bild hat einen Alternativtext, der den Inhalt vermutlich nicht beschreibt: einen Dateinamen, ein Füllwort wie „Bild“ oder „Logo“ oder nur ein, zwei Zeichen.
     .explanation-user-impact = Screenreader-Nutzer hören einen Text, der ihnen den Bildinhalt nicht vermittelt.
     .typical-cause = Das CMS übernimmt den Dateinamen als Alternativtext, oder das Pflichtfeld wurde mit einem Platzhalter gefüllt.
     .recommendation = Prüfen, ob der Text das Bild beschreibt; sonst durch eine Beschreibung ersetzen, bei dekorativen Bildern durch alt="".
@@ -431,8 +431,8 @@ rule-status-live-overridden = Statusmeldungen nicht programmatisch bestimmbar
     .technical-impact = Konflikt zwischen role (alert/status/log/timer) und aria-live-Wert.
 
 rule-aria-required-attribute-missing = Pflicht-ARIA-Attribut fehlt
-    .user-impact = Assistive Technologien koennen Zustand oder Wert des Elements nicht verlaesslich vermitteln.
-    .technical-impact = Rolle und ARIA-Attributsatz sind unvollstaendig.
+    .user-impact = Assistive Technologien können Zustand oder Wert des Elements nicht verlässlich vermitteln.
+    .technical-impact = Rolle und ARIA-Attributsatz sind unvollständig.
     .description = Ein Element trägt eine Rolle, die einen Zustand ansagt (etwa checkbox oder slider), aber nicht das Attribut, das diesen Zustand trägt.
     .explanation-user-impact = Screenreader-Nutzer erfahren nicht, ob ein Schalter an ist oder welchen Wert ein Regler hat.
     .typical-cause = Selbst gebaute Bedienelemente setzen die Rolle, pflegen den Zustand aber nur visuell.
@@ -443,7 +443,7 @@ rule-aria-required-parent-missing = Element außerhalb des erforderlichen Eltern
     .user-impact = Assistive Technologien können die Beziehung des Elements zu seiner Gruppe (z. B. Tab zu Tableiste) nicht vermitteln.
     .technical-impact = Fehlender struktureller Eltern-Kontext für die verwendete ARIA-Rolle.
     .description = Ein Element mit einer Rolle wie tab, option oder listitem steht nicht in einem Element mit der dafür erforderlichen Rolle.
-    .explanation-user-impact = Screenreader können das Element keinem Widget zuordnen; Position und Anzahl („Tab 2 von 3") werden nicht angesagt.
+    .explanation-user-impact = Screenreader können das Element keinem Widget zuordnen; Position und Anzahl („Tab 2 von 3“) werden nicht angesagt.
     .typical-cause = Ein Element mit eigener Rolle dazwischen, etwa ein <li> zwischen role="tablist" und role="tab".
     .recommendation = Das Element direkt in den erforderlichen Behälter setzen oder die Zwischenelemente mit role="presentation" neutralisieren.
     .technical-note = Geprüft wird am DOM. Ein <li> in einer Liste, die per role etwas anderes geworden ist, bleibt ein listitem, auch wenn der Browser es im Accessibility-Tree glättet.
@@ -879,7 +879,7 @@ rule-description-duplicates-name = Beschreibung wiederholt den Namen
     .technical-impact = aria-describedby oder title liefert denselben Text wie der Name.
     .description = Zugänglicher Name und zugängliche Beschreibung eines Elements sind identisch. Das Element hat einen Namen; die doppelte Ansage ist Best Practice, kein fehlender Name.
     .explanation-user-impact = Screenreader sagen denselben Text zweimal an, ohne zusätzliche Information.
-    .typical-cause = title oder aria-describedby wiederholt den sichtbaren Text oder das aria-label, etwa title="Schließen" an einem Button „Schließen".
+    .typical-cause = title oder aria-describedby wiederholt den sichtbaren Text oder das aria-label, etwa title="Schließen" an einem Button „Schließen“.
     .recommendation = Die Beschreibung entfernen oder mit einer Information füllen, die über den Namen hinausgeht.
     .technical-note = Best Practice, verankert an WCAG 4.1.2. Verglichen werden Name und Beschreibung aus dem Accessibility-Baum des Browsers.
 

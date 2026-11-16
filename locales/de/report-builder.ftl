@@ -95,8 +95,14 @@ report-builder-security-chain-length = Chain-Länge
 report-builder-security-certificate-error = Zertifikatsfehler
 report-builder-security-header-present = Vorhanden
 report-builder-security-header-missing = Fehlt
-report-builder-security-band-note-open = Die Einordnung im Text liegt unter dem Band der Zahl ({ $score } allein hieße „{ $numeric }“): { $count } offene Befunde stehen weiter unten. Der Wert selbst bleibt unverändert.
-report-builder-security-band-note-severe = Die Einordnung im Text liegt unter dem Band der Zahl ({ $score } allein hieße „{ $numeric }“): { $count } offene(r) Befund(e) hoher Schwere stehen weiter unten. Der Wert selbst bleibt unverändert.
+report-builder-security-band-note-open = Die Einordnung im Text liegt unter dem Band der Zahl ({ $score } allein hieße „{ $numeric }“): { $count ->
+        [one] 1 offener Befund steht
+       *[other] { $count } offene Befunde stehen
+    } weiter unten. Der Wert selbst bleibt unverändert.
+report-builder-security-band-note-severe = Die Einordnung im Text liegt unter dem Band der Zahl ({ $score } allein hieße „{ $numeric }“): { $count ->
+        [one] 1 offener Befund hoher Schwere steht
+       *[other] { $count } offene Befunde hoher Schwere stehen
+    } weiter unten. Der Wert selbst bleibt unverändert.
 report-builder-security-score-start = Ausgangswert
 report-builder-security-score-not-charged = 0 (nicht belastet)
 report-builder-security-score-hsts-bonus = HSTS-Bonus
@@ -125,4 +131,8 @@ report-builder-mobile-small-targets = { $base } { $count } Touch-Targets kleiner
 report-builder-terminal-experimental-title = Experimentelle Indikatoren (nicht validiert, ohne Einfluss auf Score und Urteil)
 report-builder-terminal-no-score = { $label }: kein Score
 report-builder-terminal-content-visibility = Content Visibility: { $problems } von { $signals } Signalen auffällig
-report-builder-terminal-commerce = Commerce: { $findings } Hinweis(e)
+report-builder-terminal-commerce =
+    Commerce: { $findings ->
+        [one] 1 Hinweis
+       *[other] { $findings } Hinweise
+    }

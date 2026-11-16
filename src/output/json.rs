@@ -254,7 +254,7 @@ pub struct UnifiedSummary {
     /// all pages plus the affected-page count (batch only; always empty on
     /// single reports, which carry the full per-page annex under
     /// `pages[0].detail.en301549_annex` instead). Never empty for a batch
-    /// report with ≥1 page — all 50 clauses are always represented.
+    /// report with ≥1 page — every clause of the EN 301 549 table is always represented.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub en301549_rollup: Vec<En301549BatchClauseRollup>,
     #[serde(skip_serializing_if = "Option::is_none")]

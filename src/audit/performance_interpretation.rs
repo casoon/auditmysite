@@ -111,7 +111,7 @@ fn critical_qualifier_text(q: PerfCriticalQualifier, en: bool) -> String {
         ),
         PerfCriticalQualifier::RenderBlocking(n) => text_args(
             "audit-interpretation-perf-render-blocking",
-            &[("count", FluentValue::from(n.to_string()))],
+            &[("count", FluentValue::from(n as i64))],
             en,
         ),
         PerfCriticalQualifier::UnminifiedAssets(kb) => text_args(

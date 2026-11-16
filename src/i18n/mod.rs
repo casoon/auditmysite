@@ -722,4 +722,180 @@ mod tests {
         let dup = de.count_with("pdf-perf-dup-title", 1, &[("wasted", "3,0".into())]);
         assert!(dup.starts_with("1 doppelte Asset-Gruppe erkannt"), "{dup}");
     }
+    /// Wording round 3: messages whose count words, verbs and pronouns must
+    /// follow their number, and the clause count of the roll-up title. Each
+    /// assertion fails on the text it replaced.
+    #[test]
+    fn wording_round_3_messages_agree_with_their_numbers() {
+        use fluent_bundle::FluentValue as V;
+        let de = I18n::new("de").unwrap();
+        let en = I18n::new("en").unwrap();
+        let n = |value: i64| V::from(value);
+        let t = |value: &str| V::from(value.to_string());
+
+        let intro = |i18n: &I18n, key: &str, urgent: i64| {
+            i18n.t_args(key, &[("urgent", n(urgent)), ("cross", t(""))])
+        };
+        let polished = "audit-interpretation-summary-intro-polished-topics";
+        assert!(intro(&de, polished, 1).contains("1 priorisiertes Thema — gezielt"));
+        assert!(intro(&de, polished, 3).contains("3 priorisierte Themen — gezielt"));
+        assert!(intro(&en, polished, 1)
+            .contains("1 prioritized topic — fix it deliberately before it piles up."));
+        assert!(intro(&en, polished, 3)
+            .contains("3 prioritized topics — fix them deliberately before they pile up."));
+        let urgent = "audit-interpretation-summary-intro-needs-work-urgent";
+        assert!(intro(&de, urgent, 1).contains("1 priorisiertes Thema braucht sofortige"));
+        assert!(intro(&de, urgent, 3).contains("3 priorisierte Themen brauchen sofortige"));
+
+        let blocking = |i18n: &I18n, count: i64| {
+            i18n.t_args(
+                "audit-interpretation-perf-render-blocking",
+                &[("count", n(count))],
+            )
+        };
+        assert_eq!(blocking(&de, 1), "1 render-blockierende Ressource");
+        assert_eq!(blocking(&de, 4), "4 render-blockierende Ressourcen");
+        assert_eq!(blocking(&en, 1), "1 render-blocking resource");
+        assert_eq!(blocking(&en, 4), "4 render-blocking resources");
+
+        let band = |i18n: &I18n, key: &str, count: i64| {
+            i18n.t_args(
+                key,
+                &[
+                    ("score", t("62")),
+                    ("numeric", t("Mittel")),
+                    ("count", n(count)),
+                ],
+            )
+        };
+        let open = "report-builder-security-band-note-open";
+        let severe = "report-builder-security-band-note-severe";
+        assert!(band(&de, open, 1).contains("1 offener Befund steht weiter unten"));
+        assert!(band(&de, open, 2).contains("2 offene Befunde stehen weiter unten"));
+        assert!(band(&de, severe, 1).contains("1 offener Befund hoher Schwere steht weiter unten"));
+        assert!(band(&en, open, 1).contains("1 open finding is listed below"));
+        assert!(band(&en, severe, 2).contains("2 open findings of high severity are listed below"));
+
+        let outside = |i18n: &I18n, count: i64| {
+            i18n.t_args(
+                "pdf-sections-en301549-out-of-standard",
+                &[("count", n(count))],
+            )
+        };
+        assert!(outside(&de, 1).starts_with("1 weiterer WCAG-Befund"));
+        assert!(
+            outside(&de, 1).contains("hat in EN 301 549 V4.1.1 keine normative Klausel und wird")
+        );
+        assert!(outside(&de, 2).starts_with("2 weitere WCAG-Befunde"));
+        assert!(outside(&en, 1).starts_with("1 additional WCAG finding outside"));
+        assert!(outside(&en, 1).contains("has no normative clause in EN 301 549 V4.1.1 and is not"));
+        assert!(outside(&en, 2).starts_with("2 additional WCAG findings"));
+
+        let leverage = |i18n: &I18n, count: i64| {
+            i18n.t_args(
+                "pdf-analysis-roadmap-leverage",
+                &[
+                    ("leverage", t("high")),
+                    ("count", n(count)),
+                    ("effort", t("low")),
+                ],
+            )
+        };
+        assert!(leverage(&en, 1).contains("1 occurrence affected"));
+        assert!(leverage(&en, 3).contains("3 occurrences affected"));
+        assert!(leverage(&de, 1).contains("1 Vorkommen betroffen"));
+
+        // The EN texts take the count words the German ones already used.
+        let evidence = en.t_args(
+            "pdf-analysis-causes-none-evidence",
+            &[
+                ("warnings_text", t("1 accessibility warning")),
+                ("manual_text", t("1 manual check")),
+            ],
+        );
+        assert!(evidence.contains("1 accessibility warning and 1 manual check remain open"));
+        let few = en.t_args(
+            "pdf-analysis-profile-few",
+            &[("found", t("1 occurrence was found"))],
+        );
+        assert!(few.starts_with("1 occurrence was found — too few"));
+        let modules = en.t_args(
+            "pdf-analysis-roadmap-empty-modules",
+            &[("recommendations", t("1 recommendation"))],
+        );
+        assert!(modules.contains("(performance, SEO, security, mobile): 1 recommendation —"));
+        let note = en.t_args(
+            "single-report-evidence-note",
+            &[
+                ("warnings_text", t("1 heuristic accessibility warning")),
+                ("manual_text", t("1 point")),
+                ("manual_only", n(12)),
+            ],
+        );
+        assert!(note
+            .contains("In addition: 1 heuristic accessibility warning and 1 point on this page"));
+
+        // The roll-up title names the real clause count (WCAG 2.2: 55 A/AA clauses).
+        let title =
+            |i18n: &I18n| i18n.t_args("batch-report-en301549-table-title", &[("count", n(55))]);
+        assert_eq!(
+            title(&de),
+            "Klausel-Übersicht (alle 55 WCAG-2.2-A/AA-Klauseln)"
+        );
+        assert_eq!(title(&en), "Clause roll-up (all 55 WCAG 2.2 A/AA clauses)");
+    }
+
+    /// Typography and spelling that one rendered string cannot show: every
+    /// locale file is scanned for plural suffixes, German quotation marks
+    /// closed by ASCII, transliterated umlauts and double hyphens.
+    #[test]
+    fn locale_files_keep_quotes_dashes_and_umlauts_consistent() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("locales");
+        let transliterated = [
+            "unvollstaendig",
+            "verlaesslich",
+            "koennen",
+            "Theman",
+            "brauchtn",
+        ];
+        for locale in ["de", "en"] {
+            for entry in std::fs::read_dir(root.join(locale)).unwrap() {
+                let path = entry.unwrap().path();
+                if path.extension().is_none_or(|e| e != "ftl") {
+                    continue;
+                }
+                let text = std::fs::read_to_string(&path).unwrap();
+                for (number, line) in text.lines().enumerate() {
+                    if line.trim_start().starts_with('#') {
+                        continue;
+                    }
+                    let at = format!("{}:{}", path.display(), number + 1);
+                    // A count word is chosen by a plural select, never by a "(s)" suffix.
+                    for hack in ["(s)", "(e)", "(r)", "(n)"] {
+                        assert!(!line.contains(hack), "{at}: plural suffix {hack}");
+                    }
+                    if locale == "de" {
+                        // „ opens a German quotation; it closes with “, not with ASCII ".
+                        let mut rest = line;
+                        while let Some(open) = rest.find('„') {
+                            let after = &rest[open + '„'.len_utf8()..];
+                            let close = after.find(['“', '"']).unwrap_or(after.len());
+                            assert_eq!(
+                                after[close..].chars().next(),
+                                Some('“'),
+                                "{at}: „ is not closed by “"
+                            );
+                            rest = &after[close..];
+                        }
+                        for word in transliterated {
+                            assert!(!line.contains(word), "{at}: {word}");
+                        }
+                    }
+                    if line.starts_with("audit-interpretation-summary-intro") {
+                        assert!(!line.contains(" -- "), "{at}: double hyphen instead of —");
+                    }
+                }
+            }
+        }
+    }
 }

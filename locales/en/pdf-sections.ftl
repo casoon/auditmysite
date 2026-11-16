@@ -12,7 +12,14 @@ pdf-sections-en301549-title = EN 301 549 clause mapping
 pdf-sections-en301549-intro = Maps this audit's automated WCAG 2.2 A/AA findings onto EN 301 549 V4.1.1 (2026-09), chapter 9 (Web) clause numbers, with a per-clause status: violations found, no violations found in the automated scope, or manual review required.
 pdf-sections-en301549-col-level = Level
 pdf-sections-en301549-no-violations = No violations in automated scope
-pdf-sections-en301549-out-of-standard = { $count } additional WCAG finding(s) outside WCAG 2.2 A/AA (Level AAA criteria) have no normative clause in EN 301 549 V4.1.1 and are not represented in the clause table above.
+pdf-sections-en301549-out-of-standard =
+    { $count ->
+        [one] 1 additional WCAG finding outside WCAG 2.2 A/AA (Level AAA criteria) has
+       *[other] { $count } additional WCAG findings outside WCAG 2.2 A/AA (Level AAA criteria) have
+    } no normative clause in EN 301 549 V4.1.1 and { $count ->
+        [one] is
+       *[other] are
+    } not represented in the clause table above.
 pdf-sections-bik-title = BIK für Alle guide mapping
 pdf-sections-bik-intro = Groups this audit's automated findings under the chapter structure of the "BIK für Alle" editorial accessibility guide ({ $source }) — the same chapters editorial teams already use: Images & alt text, Link text, Structure, Easy language, PDF documents, Videos. No new checks; this re-groups findings already reported elsewhere in this document.
 pdf-sections-bik-col-chapter = Chapter
