@@ -392,15 +392,29 @@ impl Reasons {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum BatchReasonKind {
-    NoUrlAudited { attempted: usize },
+    NoUrlAudited {
+        attempted: usize,
+    },
     LegalFlags(usize),
     BlockingIssues(usize),
     TechnicalBlockers(usize),
-    AverageBelowFailThreshold { score: u32, threshold: u32 },
-    IncompleteScope { audited: usize, requested: usize },
+    AverageBelowFailThreshold {
+        score: u32,
+        threshold: u32,
+    },
+    IncompleteScope {
+        audited: usize,
+        requested: usize,
+    },
     AuditQualityNotComplete,
-    AverageBelowWarnThreshold { score: u32, threshold: u32 },
+    AverageBelowWarnThreshold {
+        score: u32,
+        threshold: u32,
+    },
+    /// URLs whose own decision is `fail`.
     FailedUrls(usize),
+    /// URLs whose own decision is `warn`.
+    WarnedUrls(usize),
     ViolationsFound(usize),
 }
 
@@ -540,14 +554,33 @@ fn decide_batch(
             },
         ));
     } else if summary.failed > 0 {
-        warn.push((
-            format!(
-                "{} {} failed quality threshold",
-                summary.failed,
-                if summary.failed == 1 { "URL" } else { "URLs" }
-            ),
-            BatchReasonKind::FailedUrls(summary.failed),
-        ));
+        // Fail and warn are named separately: "not pass" is not "failed" (#899).
+        let urls = |n: usize| if n == 1 { "URL" } else { "URLs" };
+        if summary.fail_urls > 0 {
+            warn.push((
+                format!(
+                    "{} {} failed {} own check",
+                    summary.fail_urls,
+                    urls(summary.fail_urls),
+                    if summary.fail_urls == 1 {
+                        "its"
+                    } else {
+                        "their"
+                    }
+                ),
+                BatchReasonKind::FailedUrls(summary.fail_urls),
+            ));
+        }
+        if summary.warn_urls > 0 {
+            warn.push((
+                format!(
+                    "{} {} with a warning",
+                    summary.warn_urls,
+                    urls(summary.warn_urls)
+                ),
+                BatchReasonKind::WarnedUrls(summary.warn_urls),
+            ));
+        }
     } else if open_violations > 0 {
         warn.push((
             format!(
@@ -676,6 +709,8 @@ mod tests {
             coverage: Default::default(),
             passed: 1,
             failed: 0,
+            fail_urls: 0,
+            warn_urls: 0,
             average_score: Some(100.0),
             average_over: 1,
             total_violations: 0,
@@ -848,6 +883,103 @@ mod tests {
             .reason_kinds
             .iter()
             .any(|k| matches!(k, VerdictReasonKind::LegalFlags(_))));
+    }
+
+    /// One Low finding on a Level-AA criterion: the page is measured cleanly
+    /// and the verdict is `warn` (#899).
+    fn low_finding_report() -> AuditReport {
+        let mut results = WcagResults::new();
+        results.add_violation(
+            Violation::new(
+                "1.4.3",
+                "Contrast (Minimum)",
+                crate::model::WcagLevel::AA,
+                crate::taxonomy::Severity::Low,
+                "Contrast is slightly low",
+                "n1",
+            )
+            .with_rule_id("contrast/text-insufficient")
+            .with_selector("p.note"),
+        );
+        AuditReport::new(
+            "https://example.com/warn".to_string(),
+            crate::model::WcagLevel::AA,
+            results,
+            100,
+        )
+    }
+
+    /// #899: the batch counts name `fail` and `warn` apart; `failed` keeps
+    /// its alias meaning "not pass".
+    #[test]
+    fn batch_counts_name_fail_and_warn_separately() {
+        let clean = AuditReport::new(
+            "https://example.com/pass".to_string(),
+            crate::model::WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        let warn = low_finding_report();
+        let fail = high_level_a_report();
+        let verdicts: Vec<Verdict> = [&clean, &warn, &fail]
+            .iter()
+            .map(|r| normalize(r).normalized.decision.verdict)
+            .collect();
+        assert_eq!(verdicts, [Verdict::Pass, Verdict::Warn, Verdict::Fail]);
+
+        let batch = BatchReport::from_reports(vec![clean, warn, fail], Vec::new(), 1);
+        crate::audit::validation::validate_batch(&batch).unwrap();
+        let s = &batch.summary;
+        assert_eq!((s.passed, s.fail_urls, s.warn_urls, s.failed), (1, 1, 1, 2));
+
+        let json: serde_json::Value = serde_json::from_str(
+            &crate::output::UnifiedReport::batch(&batch)
+                .to_json(true)
+                .unwrap(),
+        )
+        .unwrap();
+        let summary = &json["summary"];
+        assert_eq!(summary["passed_url_count"], 1);
+        assert_eq!(summary["fail_url_count"], 1);
+        assert_eq!(summary["warn_url_count"], 1);
+        assert_eq!(summary["failed_url_count"], 2, "alias: warn or fail");
+    }
+
+    /// #899: the batch reasons say "failed" only for fail and "warning" only
+    /// for warn, and name nothing that has a count of zero.
+    #[test]
+    fn batch_verdict_reasons_name_fail_and_warn_separately() {
+        let clean = AuditReport::new(
+            "https://example.com".to_string(),
+            crate::model::WcagLevel::AA,
+            WcagResults::new(),
+            100,
+        );
+        let mut batch = BatchReport::from_reports(vec![clean], Vec::new(), 1);
+        let profile = DecisionProfile::default();
+        let mut reasons = |fail_urls: usize, warn_urls: usize| {
+            batch.summary.fail_urls = fail_urls;
+            batch.summary.warn_urls = warn_urls;
+            batch.summary.failed = fail_urls + warn_urls;
+            compute_batch_verdict(&batch.summary, &profile).reasons
+        };
+        assert_eq!(
+            reasons(1, 2),
+            ["1 URL failed its own check", "2 URLs with a warning"]
+        );
+        assert_eq!(reasons(2, 0), ["2 URLs failed their own check"]);
+        assert_eq!(reasons(0, 1), ["1 URL with a warning"]);
+        for text in reasons(3, 0).iter().chain(&reasons(0, 3)) {
+            assert!(!text.contains("quality threshold"), "{text}");
+        }
+        assert!(
+            !reasons(2, 0).iter().any(|t| t.contains("warn")),
+            "no warn count, no mention of warn"
+        );
+        assert!(
+            !reasons(0, 2).iter().any(|t| t.contains("failed")),
+            "no fail count, no mention of failed"
+        );
     }
 
     /// A custom profile is stored with the report; every output follows it.

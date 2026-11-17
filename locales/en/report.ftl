@@ -1383,8 +1383,12 @@ batch-reason-incomplete-scope = { $audited } of { $requested } requested URLs au
 batch-reason-audit-quality = the run did not complete in full
 batch-reason-average-below-warn = average accessibility score { $score } below the warning threshold of { $threshold }
 batch-reason-failed-urls = { $count ->
-        [one] 1 URL did not pass its own check
-       *[other] { $count } URLs did not pass their own check
+        [one] 1 URL failed its own check
+       *[other] { $count } URLs failed their own check
+    }
+batch-reason-warned-urls = { $count ->
+        [one] 1 URL with a warning
+       *[other] { $count } URLs with a warning
     }
 batch-reason-violations-found = { $count ->
         [one] 1 WCAG occurrence found

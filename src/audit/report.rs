@@ -1349,10 +1349,18 @@ pub struct BatchSummary {
     /// URL lifecycle counters, including failed and blocked URLs.
     #[serde(default)]
     pub coverage: BatchCoverage,
-    /// URLs that passed
+    /// URLs whose own decision is `pass`.
     pub passed: usize,
-    /// URLs that failed
+    /// URLs whose own decision is not `pass` (`warn` or `fail`): the value
+    /// of the JSON alias `failed_url_count`. `fail_urls` and `warn_urls`
+    /// hold the precise counts (#899).
     pub failed: usize,
+    /// URLs whose own decision is `fail`.
+    #[serde(default)]
+    pub fail_urls: usize,
+    /// URLs whose own decision is `warn`.
+    #[serde(default)]
+    pub warn_urls: usize,
     /// Average score over the URLs that produced a report. `None` when no
     /// URL did: nothing was measured, which is not a score of 0 (#768).
     pub average_score: Option<f64>,
@@ -1696,6 +1704,11 @@ impl BatchReport {
             .map(|r| r.run_context.decision_profile.clone())
             .unwrap_or_default();
         let failed = total_urls - passed;
+        let fail_urls = normalized_reports
+            .iter()
+            .filter(|r| r.decision.verdict == super::Verdict::Fail)
+            .count();
+        let warn_urls = failed - fail_urls;
 
         let average_score = (total_urls > 0).then(|| {
             normalized_reports
@@ -1784,6 +1797,8 @@ impl BatchReport {
                 coverage,
                 passed,
                 failed,
+                fail_urls,
+                warn_urls,
                 average_score,
                 average_over: total_urls,
                 total_violations,

@@ -51,6 +51,9 @@ finding-fix-seo-page-health-www-not-consolidated = Eine Host-Variante (mit oder 
 finding-fix-seo-page-health-trailing-slash-inconsistent = Eine URL-Form festlegen, mit oder ohne abschließenden Schrägstrich, und die andere per 301 weiterleiten.
 finding-fix-seo-page-health-http-not-redirected-to-https = Jede http://-Anfrage per 301 auf dieselbe https://-URL weiterleiten.
 
+## SEO: technical
+finding-fix-seo-technical-www-alternate-unanswered = DNS-Eintrag und TLS-Zertifikat für die Host-Variante anlegen, die nicht antwortet (mit oder ohne www), und sie per 301 auf die genutzte Variante weiterleiten oder die Links und Einträge entfernen, die noch auf sie zeigen.
+
 ## Mobile
 finding-fix-mobile-missing-viewport = <meta name="viewport" content="width=device-width, initial-scale=1"> im head ergänzen.
 finding-fix-mobile-improper-viewport = Den Viewport auf width=device-width, initial-scale=1 setzen statt auf eine feste Breite.

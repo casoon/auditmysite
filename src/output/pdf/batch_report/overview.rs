@@ -362,6 +362,7 @@ pub(super) fn batch_reason_text(
             &[("score", s(score)), ("threshold", s(threshold))],
         ),
         K::FailedUrls(count) => i18n.count("batch-reason-failed-urls", count),
+        K::WarnedUrls(count) => i18n.count("batch-reason-warned-urls", count),
         K::ViolationsFound(count) => i18n.count("batch-reason-violations-found", count),
     }
 }

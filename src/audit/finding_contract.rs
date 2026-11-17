@@ -1867,6 +1867,53 @@ mod tests {
     }
 
     /// A published SEO score above the blocker cap contradicts the gate.
+    /// #899, option B: an other host variant that was probed and gave no
+    /// answer is a Medium SEO finding with its written fix, and changes no
+    /// score, no severity count and no decision.
+    #[test]
+    fn unanswered_host_variant_is_a_score_neutral_finding() {
+        let clean = normalize(&page(false, Default::default())).normalized;
+
+        let mut report = page(false, Default::default());
+        let seo = report.discoverability.seo.as_mut().unwrap();
+        seo.technical.www_alternate_unanswered =
+            Some(crate::seo::technical::WwwAlternateUnanswered {
+                primary: "https://example.com/".into(),
+                alternative: "https://www.example.com/".into(),
+            });
+        seo.technical.issues =
+            crate::seo::technical::collect_technical_issues(&seo.technical, true);
+        crate::seo::rescore(seo, Default::default());
+        let n = normalize(&report).normalized;
+        n.validate().unwrap();
+
+        let finding = n
+            .findings
+            .iter()
+            .find(|f| f.rule_id == "seo.technical.www_alternate_unanswered")
+            .expect("the unanswered variant is a finding");
+        assert_eq!(finding.contract.domain, FindingDomain::Seo);
+        assert_eq!(finding.severity, Severity::Medium);
+        assert_eq!(finding.contract.scoring.effect, ScoringEffect::None);
+        assert_eq!(finding.title, "Other host variant does not answer");
+        assert!(finding.description.contains("https://www.example.com/"));
+        assert!(finding.description.contains("https://example.com/"));
+        assert!(crate::audit::finding_titles::finding_fix(&finding.rule_id, true).is_some());
+
+        assert_eq!(n.score, clean.score);
+        assert_eq!(n.site_quality_score, clean.site_quality_score);
+        let scores = |n: &NormalizedReport| {
+            n.module_scores
+                .iter()
+                .map(|m| (m.name.clone(), m.score))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(scores(&n), scores(&clean));
+        assert_eq!(n.severity_counts.total, clean.severity_counts.total);
+        assert_eq!(n.decision.verdict, clean.decision.verdict);
+        assert_eq!(n.decision.reasons, clean.decision.reasons);
+    }
+
     #[test]
     fn gate_above_its_cap_is_a_contract_violation() {
         let mut n = normalize(&page(true, IndexabilityExpectation::declared(true))).normalized;
