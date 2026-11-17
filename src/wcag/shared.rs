@@ -2666,6 +2666,87 @@ mod tests {
         }
     }
 
+    /// #919: every finding that carries the `best-practice` keyword has a row
+    /// in the decision table, and the row's outcome is what the finding
+    /// reports. `names/title-only` is the one row without the keyword.
+    #[test]
+    fn best_practice_decision_rows_match_the_findings_they_describe() {
+        use crate::taxonomy::{best_practice_decision, OutcomeClass};
+        let r = lauf_ueber(vec![
+            knoten(4, "ul", &[], vec![]),
+            knoten(5, "h2", &[], vec![text(6, "Eins")]),
+            knoten(7, "h4", &[], vec![text(8, "Vier")]),
+            knoten(9, "nav", &["role", "navigation"], vec![]),
+            knoten(10, "main", &[], vec![text(11, "A")]),
+            knoten(12, "main", &[], vec![text(13, "B")]),
+            knoten(14, "p", &[], vec![text(15, "außerhalb")]),
+            knoten(16, "figure", &["data-viz", "chart"], vec![]),
+            knoten(17, "figure", &["data-viz", "3d"], vec![]),
+            knoten(
+                18,
+                "button",
+                &["title", "Suche"],
+                vec![knoten(19, "span", &[], vec![])],
+            ),
+        ]);
+        let mut seen = std::collections::BTreeSet::new();
+        for (list, outcome) in [
+            (&r.violations, Outcome::Fail),
+            (&r.warnings, Outcome::Review),
+        ] {
+            for v in list.iter() {
+                let id = v.rule_id.as_deref().unwrap();
+                let tagged = v.tags.iter().any(|t| t == "best-practice");
+                let Some(row) = best_practice_decision(id) else {
+                    assert!(!tagged, "{id} carries best-practice without a decision row");
+                    continue;
+                };
+                assert_eq!(row.keyword, tagged, "{id}: keyword column");
+                assert_eq!(v.kind, outcome, "{id}");
+                let expected = match outcome {
+                    Outcome::Fail => OutcomeClass::Fail,
+                    _ => OutcomeClass::Review,
+                };
+                assert!(
+                    row.outcome == expected || row.outcome == OutcomeClass::FailAndReview,
+                    "{id}: row says {}, finding is {outcome:?}",
+                    row.outcome.label()
+                );
+                seen.insert(id.to_string());
+            }
+        }
+        for id in [
+            "viz/text-missing",
+            "viz/caption-missing",
+            "viz/static-missing",
+            "viz/table-missing",
+            "display/toggle-missing",
+            "names/title-only",
+            "headings/h1-missing",
+            "lists/empty",
+        ] {
+            assert!(seen.contains(id), "{id} did not fire: {seen:?}");
+        }
+    }
+
+    /// #919: the library's own best-practice list is a review hint in every
+    /// row, with the library's reason.
+    #[test]
+    fn library_best_practice_rules_are_review_rows_with_the_library_reason() {
+        use crate::taxonomy::{best_practice_decision, OutcomeClass, Source};
+        for rule in a11y_rules::BEST_PRACTICE_RULES {
+            let row = best_practice_decision(rule.id)
+                .unwrap_or_else(|| panic!("{} has no decision row", rule.id));
+            assert_eq!(row.outcome, OutcomeClass::Review, "{}", rule.id);
+            assert_eq!(row.source, Source::Barrierlab, "{}", rule.id);
+            assert!(
+                row.reason.is_none(),
+                "{}: the library holds the reason",
+                rule.id
+            );
+        }
+    }
+
     /// #779 am echten Lauf: jede Empfehlung der Bibliothek, die auf dieser
     /// Seite anschlägt, erscheint als Hinweis und nie als Verstoß.
     #[test]

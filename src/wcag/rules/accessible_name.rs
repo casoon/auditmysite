@@ -167,5 +167,12 @@ mod tests {
         );
         assert!(redundant[0].tags.iter().any(|t| t == "best-practice"));
         assert_eq!(results.violations.len(), 1);
+        // #919: the decision table states the class the rule reports.
+        assert_eq!(
+            crate::taxonomy::best_practice_decision("description-duplicates-name")
+                .unwrap()
+                .outcome,
+            crate::taxonomy::OutcomeClass::Fail
+        );
     }
 }

@@ -107,6 +107,7 @@ src/
 ├── taxonomy/            # Rule taxonomy & classification
 │   ├── mod.rs
 │   ├── rules.rs         # Canonical rule list (RULES) with metadata; a rule's texts come from `locales/<lang>/rules.ftl` via `Rule::title`/`user_impact`/`technical_impact(en)`, key = `rule_text_key(id)`: one message per rule id, which also carries the explanation texts of a rule that has an explanation entry under its own id (#935)
+│   ├── best_practice.rs # BEST_PRACTICE_DECISIONS: one row per best-practice rule (outcome class, source, convention flag, reason); `is_convention_rule` reads it; generates docs/reference/best-practice-rules.md (#919)
 │   ├── rule_docs.rs     # rule_doc_url(): rule id → page on the project site (help_url, #929)
 │   ├── criteria.rs      # WCAG success-criterion definitions
 │   ├── dimensions.rs    # Dimension enum (Barrierefreiheit, Usability, ...); subcategory labels: `labels-subcategory-*` in `locales/<lang>/labels.ftl` (#936)

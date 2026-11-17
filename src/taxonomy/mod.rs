@@ -3,6 +3,7 @@
 //! Zentrales Ordnungssystem für Dimensionen, Issue-Klassen, Severity-Stufen,
 //! Score-Logik und Regelobjekte. Single Source of Truth für alle Module.
 
+pub mod best_practice;
 pub mod criteria;
 pub mod dimensions;
 pub mod issue_class;
@@ -12,6 +13,9 @@ pub mod score;
 pub mod score_area;
 pub mod severity;
 
+pub use best_practice::{
+    best_practice_decision, BestPracticeDecision, OutcomeClass, Source, BEST_PRACTICE_DECISIONS,
+};
 pub use criteria::{criterion_for_rule, principle_for_criterion, WcagPrinciple};
 pub use dimensions::{Dimension, Subcategory};
 pub use issue_class::IssueClass;
@@ -48,27 +52,14 @@ pub fn is_missing_name_or_role(rule_id: &str) -> bool {
     MISSING_NAME_OR_ROLE_RULES.contains(&rule_id)
 }
 
-/// Best-practice rules outside the display convention that are likewise only
-/// anchored to a criterion: the `title` attribute as only description (#711)
-/// and a description that repeats the name (#713). Both were split off rules
-/// that do test their criterion (1.4.13, 4.1.2 `aria-label`).
-const BEST_PRACTICE_RULES: &[&str] = &[
-    "names/title-only",
-    "description-duplicates-name",
-    // `zoom/viewport-scale-limited`: a zoom limit between 200 % and 500 %
-    // meets 1.4.4; a11y-rules 0.24.1 reports it as best practice.
-    "zoom/viewport-scale-limited",
-];
-
-/// Whether a rule id checks the BarrierLab display-mode convention
-/// (`display/*`, `viz/*`, #653) or is one of the `BEST_PRACTICE_RULES`, rather
-/// than a WCAG requirement. Such a rule is only anchored to a criterion, so it
-/// must neither count as BFSG-relevant nor raise a legal flag (#704): the
-/// page's own conformance to that criterion decides that. Scoped to these
-/// rules on purpose — the other `best-practice`-tagged rules (`region`,
-/// `link-as-button`, `redundant-role`, …) keep their current classification.
+/// Whether a rule id is a convention rule: a best-practice rule whose decision
+/// row (`BEST_PRACTICE_DECISIONS`, #919) marks it so (the BarrierLab
+/// display-mode convention `display/*`, `viz/*` (#653) and the rules split off
+/// a criterion they do not test: #711, #713, `zoom/viewport-scale-limited`).
+/// Such a rule is only anchored to a criterion, so it must neither count as
+/// BFSG-relevant nor raise a legal flag (#704): the page's own conformance to
+/// that criterion decides that. The other best-practice rules (`region`,
+/// `redundant-role`, ...) keep their current classification.
 pub fn is_convention_rule(rule_id: &str) -> bool {
-    rule_id.starts_with("display/")
-        || rule_id.starts_with("viz/")
-        || BEST_PRACTICE_RULES.contains(&rule_id)
+    best_practice_decision(rule_id).is_some_and(|d| d.convention)
 }
