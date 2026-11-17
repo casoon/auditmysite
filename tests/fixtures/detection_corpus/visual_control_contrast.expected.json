@@ -51,16 +51,15 @@
       "occurrences": 1
     },
     {
-      "rule_id": "timeouts",
-      "verdict": "needs_review",
-      "occurrences": 1
-    },
-    {
       "rule_id": "manual/help",
       "verdict": "needs_review"
     },
     {
       "rule_id": "manual/no-timing",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/timing",
       "verdict": "needs_review"
     }
   ]

@@ -2,13 +2,16 @@
 //!
 //! Every check that has the shape `async fn(&Page) -> Vec<Violation>` lives
 //! here as a [`PageRuleEntry`]. `pipeline::run_rules` iterates this table
-//! instead of hand-listing each call. Two checks remain inline because they
-//! don't fit the table shape:
+//! instead of hand-listing each call. Everything else that decides a WCAG
+//! criterion runs elsewhere:
 //!
-//! - **3.1.1 lang** — verifying subtraction over an existing violation;
-//!   reads `html[lang]` from the DOM and removes the violation if present.
-//! - **1.4.3 contrast** — needs the AX tree, the configured WCAG level,
-//!   and the captured screenshot in addition to the page.
+//! - **Shared rules** (`wcag::shared`, `a11y-rules`) run against the captured
+//!   DOM, not the page: `document/lang-missing` (3.1.1), `contrast/text-*`
+//!   (1.4.3, #698) and the `manual/*` checklist items.
+//! - **html-content-model** needs the raw HTML and the html-conform findings
+//!   in addition to the page and runs inline in `run_rules` (#579).
+//! - **Reflow (1.4.10)** resizes the viewport and is run by the pipeline after
+//!   `run_rules`, not from this table.
 //!
 //! Order is significant: it matches the previous hand-written order in
 //! `run_rules` so finding-vector layout stays identical. Each rule's
@@ -27,9 +30,7 @@ use crate::wcag::WcagLevel;
 use super::{
     check_display_modes_with_page, check_media_alternative_with_page,
     check_modern_attributes_with_page, check_on_input_with_page, check_page_titled_with_page,
-    check_pointer_cancellation_with_page, check_same_origin_iframes_with_page,
-    check_timeouts_with_page, check_timing_with_page, check_video_caption_tracks_with_page,
-    check_visual_presentation_with_page,
+    check_same_origin_iframes_with_page, check_video_caption_tracks_with_page,
 };
 
 /// One row of the page-rule catalog.
@@ -74,15 +75,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_page_titled_with_page(p)),
     },
-    // Only the page-wide note on script-driven time limits since #697;
-    // `<meta http-equiv="refresh">` runs as `timing/meta-refresh`.
-    PageRuleEntry {
-        rule_id: "2.2.1/timing-adjustable",
-        outcome_ids: &["meta-refresh"],
-        name: "timing-adjustable note",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_timing_with_page(p)),
-    },
     PageRuleEntry {
         rule_id: "4.1.2/modern-attributes",
         outcome_ids: &["modern-attribute-misuse"],
@@ -112,16 +104,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         min_level: WcagLevel::A,
         check_fn: |p| Box::pin(check_display_modes_with_page(p)),
     },
-    // 2.5.1-2.5.4 are official WCAG 2.1 Level A criteria (only 2.5.5/2.5.6 are
-    // AAA) — previously misclassified as AAA here and in each rule's own
-    // RULE_META, which meant they silently never ran at the default AA level.
-    PageRuleEntry {
-        rule_id: "2.5.2/pointer-cancellation",
-        outcome_ids: &["pointer-cancellation"],
-        name: "pointer-cancellation",
-        min_level: WcagLevel::A,
-        check_fn: |p| Box::pin(check_pointer_cancellation_with_page(p)),
-    },
     // ── Level AA and above ────────────────────────────────────────────────────
     // ── Level AAA only ────────────────────────────────────────────────────────
     PageRuleEntry {
@@ -130,20 +112,6 @@ pub const PAGE_RULES: &[PageRuleEntry] = &[
         name: "media-alternative",
         min_level: WcagLevel::AAA,
         check_fn: |p| Box::pin(check_media_alternative_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "1.4.8/visual-presentation",
-        outcome_ids: &["visual-presentation"],
-        name: "visual-presentation",
-        min_level: WcagLevel::AAA,
-        check_fn: |p| Box::pin(check_visual_presentation_with_page(p)),
-    },
-    PageRuleEntry {
-        rule_id: "2.2.6/timeouts",
-        outcome_ids: &["timeouts"],
-        name: "timeouts",
-        min_level: WcagLevel::AAA,
-        check_fn: |p| Box::pin(check_timeouts_with_page(p)),
     },
 ];
 
@@ -240,7 +208,10 @@ mod tests {
         //   geteilten Bestand (#722) = 9
         // - frame-tested: laeuft als `frames/cross-origin` im geteilten
         //   Bestand (#1002) = 8
-        assert_eq!(count, 8);
+        // - pointer-cancellation und timing-adjustable: ersetzt durch
+        //   `manual/pointer-cancellation` und `manual/timing` im geteilten
+        //   Bestand (#1114) = 6
+        assert_eq!(count, 6);
     }
 
     #[test]
@@ -310,7 +281,10 @@ mod tests {
         //   `frames/cross-origin`, `auth/paste-blocked`,
         //   `orientation/root-rotated`, `text-spacing/clipped` und
         //   `focus/obscured` im geteilten Bestand (#1002-#1006) = 8.
-        assert_eq!(count, 8);
+        // - pointer-cancellation und timing-adjustable (Level A): ersetzt durch
+        //   `manual/pointer-cancellation` und `manual/timing` im geteilten
+        //   Bestand (#1114) = 6.
+        assert_eq!(count, 6);
     }
 
     #[test]

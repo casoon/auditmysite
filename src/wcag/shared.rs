@@ -1178,12 +1178,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // statt Verstoß -- 2.4.8 lässt sich auch mit Titel, Überschriften oder
     // einer Sitemap erfüllen. AAA: läuft wie bisher nur mit `--level aaa`
     // ([`retain_up_to_level`]).
-    //
-    // `wcag::rules::pointer_cancellation` (2.5.2) ist nicht abgelöst:
-    // `a11y-rules` hat den statischen Teil (`onmousedown`/`ontouchstart`)
-    // mangels Beleg nicht übernommen, er ist hier gelöscht. Der seitenweite
-    // `UNTESTED`-Vermerk bleibt im Host, bis die manuelle Checkliste
-    // (casoon/barrierlab#39) einen Punkt für 2.5.2 hat.
     SharedRule {
         id: "navigation/location-missing",
         criterion: "2.4.8",
@@ -1290,10 +1284,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // `section_headings` die Gliederungslücken (meldet
     // `headings/skip-level`) und „mehr als 10 Absätze, weniger als 3
     // Überschriften" (kein Beleg).
-    //
-    // Im Host bleiben: aus `timing_adjustable` die seitenweiten
-    // `UNTESTED`-Vermerke für Skript-Fristen (2.2.1) und `timeouts` (2.2.6),
-    // die `a11y-rules` der manuellen Checkliste zuweist.
 
     // Ersetzt `th-has-data-cells` aus `wcag::rules::table_extended` samt
     // #638, #654 und #659. Ein noch nicht dargestellter Zeilenvorrat ist
@@ -1569,8 +1559,7 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // `wcag::rules::visual_presentation` (`visual-presentation`). Gewollt
     // anders: gemessen an den `<p>` der Seite statt an Selektoren, die mit
     // `body`, `p`, `div` … beginnen (sonst meldete normalize.css jede
-    // Seite); `REVIEW` statt Verstoß. Der `UNTESTED`-Vermerk zu Farbwahl und
-    // Spaltenbreite bleibt in `visual_presentation`. AAA.
+    // Seite); `REVIEW` statt Verstoß. AAA.
     SharedRule {
         id: "text/justified",
         criterion: "1.4.8",
@@ -1709,6 +1698,29 @@ pub const SHARED_RULES: &[SharedRule] = &[
         level: WcagLevel::A,
         name: "Pointer Gestures",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/pointer-gestures.html",
+    },
+    // Ersetzen die unbedingten Vermerke `pointer-cancellation` (2.5.2) und
+    // `meta-refresh` (2.2.1, #1114) aus `wcag::rules`. Gewollt anders: nur
+    // noch, wenn die Seite etwas enthält, für das das Kriterium gilt --
+    // `manual/pointer-cancellation` bei `onmousedown`/`onpointerdown`/
+    // `ontouchstart` im Markup (nicht mehr bei jedem `<script>`),
+    // `manual/timing` bei Formularfeldern oder einem Auto-Refresh (nicht mehr
+    // auf jeder Seite). 2.2.6 (`timeouts`) und 1.4.8 (`visual-presentation`,
+    // Farbwahl und Spaltenbreite) hatten gar keinen Messanteil und sind ohne
+    // Ersatz gelöscht, bis `a11y-rules` Checklistenpunkte dafür hat.
+    SharedRule {
+        id: "manual/pointer-cancellation",
+        criterion: "2.5.2",
+        level: WcagLevel::A,
+        name: "Pointer Cancellation",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/pointer-cancellation.html",
+    },
+    SharedRule {
+        id: "manual/timing",
+        criterion: "2.2.1",
+        level: WcagLevel::A,
+        name: "Timing Adjustable",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/timing-adjustable.html",
     },
     SharedRule {
         id: "manual/motion-actuation",
@@ -1914,8 +1926,7 @@ pub fn retain_up_to_level(results: &mut WcagResults, level: WcagLevel) {
 /// (`--disable-rule`, `enabled_only`) die geteilte Regel weiter trifft — wer
 /// `color-contrast` abschaltete, schaltet auch `contrast/text-*` ab. Nur
 /// vollständig abgelöste Regeln: Läuft unter der alten Kennung noch ein
-/// lokaler Teil (`css-orientation-lock`, `visual-presentation`), steht sie
-/// nicht hier.
+/// lokaler Teil (`css-orientation-lock`), steht sie nicht hier.
 pub const LEGACY_RULE_IDS: &[(&str, &str)] = &[
     ("contrast/text-insufficient", "color-contrast"),
     ("contrast/text-undetermined", "color-contrast"),
@@ -1929,6 +1940,8 @@ pub const LEGACY_RULE_IDS: &[(&str, &str)] = &[
     ("targets/size", "target-size-minimum"),
     ("manual/pointer-gestures", "pointer-gestures"),
     ("manual/motion-actuation", "motion-actuation"),
+    ("manual/pointer-cancellation", "pointer-cancellation"),
+    ("manual/timing", "meta-refresh"),
     ("manual/no-timing", "no-timing"),
     ("manual/interruptions", "no-interruptions"),
     ("manual/re-authenticating", "re-authenticate"),

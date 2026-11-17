@@ -570,6 +570,77 @@ change = "2 targeted mutation(s) of the shared rule (disable, invert, shift thre
 killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id manual/pointer-gestures)"
 
 [[rule]]
+id = "manual/pointer-cancellation"
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=manual/pointer-cancellation)"]
+automation = "manual"
+manual_reason = "Whether an action fires on the down event alone, or can be aborted or undone, only shows under a real pointer; the markup shows at most that a down handler exists."
+method = "shared"
+source = "WCAG 2.2 SC 2.5.2 Pointer Cancellation"
+capabilities = ["dom"]
+applicability = "Pages with an element that carries an onmousedown, onpointerdown or ontouchstart handler attribute."
+expectation = """
+One needs_review (UNTESTED) note per page, at the root, when an element has
+a down-event handler attribute; never pass or violation. A click handler
+alone is not a signal, and handlers attached by script are invisible to a
+document check. Pages without such an attribute get no note."""
+page_level = true
+positive = ["interaction_manual_checklist"]
+not_applicable = ["interaction_static_text", "interaction_no_text", "no_focus_targets"]
+
+[rule.variants]
+visibility = { not_relevant = "A checklist note for the page; it does not judge elements." }
+native_vs_aria = { not_relevant = "The note keys on a handler attribute, which native controls and widget roles carry alike." }
+alternative_labels = { not_relevant = "A checklist note for the page; naming plays no part." }
+frames_shadow_dom = { not_relevant = "Each document gets its own checklist." }
+responsive = { not_relevant = "The note keys on markup, which does not change with the viewport." }
+dynamic = { not_relevant = "The note keys on the captured markup after load; it decides nothing that a script change could turn." }
+thresholds = { not_relevant = "Presence of a signal; no threshold." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/checkliste.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id manual/pointer-cancellation)"
+
+[[rule]]
+id = "manual/timing"
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=manual/timing)"]
+automation = "manual"
+manual_reason = "Script-driven time limits (setTimeout, setInterval, session expiry) and whether users can turn them off, adjust or extend them are not visible in the markup; the document only shows that fields or an automatic refresh make a time limit conceivable."
+method = "shared"
+source = "WCAG 2.2 SC 2.2.1 Timing Adjustable"
+capabilities = ["dom"]
+applicability = "Pages with form fields (input other than hidden/submit/button/reset, select, textarea) or a meta refresh."
+expectation = """
+One needs_review (UNTESTED) note per page, at the root, when the page has
+form fields or a meta refresh; never pass or violation. The meta refresh
+itself is judged by timing/meta-refresh. Pages without either get no note.
+The checklist reads rendered elements only, so with layout styles a meta
+refresh in the head alone (no fields) does not raise the note."""
+page_level = true
+positive = ["interaction_manual_checklist"]
+not_applicable = ["interaction_static_text"]
+
+[rule.variants]
+visibility = { not_relevant = "A checklist note for the page; it does not judge elements." }
+native_vs_aria = { not_relevant = "The note keys on native fields; it does not judge them." }
+alternative_labels = { not_relevant = "A checklist note for the page; naming plays no part." }
+frames_shadow_dom = { not_relevant = "Each document gets its own checklist." }
+responsive = { not_relevant = "The note keys on markup, which does not change with the viewport." }
+dynamic = { not_relevant = "The note keys on the captured markup after load; it decides nothing that a script change could turn." }
+thresholds = { not_relevant = "Presence of a signal; no threshold." }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/checkliste.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id manual/timing)"
+
+[[rule]]
 id = "manual/motion-actuation"
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=manual/motion-actuation)"]
 automation = "manual"
@@ -1028,39 +1099,3 @@ find = "  for (let i = 4; i < a.length; i++) if (a[i] !== b[i]) return true;"
 replace = ""
 killed_by = "corpus:interaction_focus_indicator"
 
-[[rule]]
-id = "pointer-cancellation"
-automation = "manual"
-manual_reason = "Whether an action fires on the down-event, or can be aborted or undone, only shows under a real pointer; handlers added by script are invisible in the markup."
-method = "page"
-source = "WCAG 2.2 SC 2.5.2 Pointer Cancellation"
-capabilities = ["dom"]
-applicability = "Pages with functionality a single pointer can operate: links, controls, widget roles, tab stops, pointer handler attributes, draggable or editable content, embedded documents, or any script (which can attach listeners unseen)."
-expectation = """
-One page-wide UNTESTED note (needs_review) on every page with single-pointer
-functionality; never pass or violation. A static page without any control,
-handler, embedded document or script is not applicable: no note. A page
-whose DOM query API fails records the rule as not run."""
-page_level = true
-ambient = true
-positive = ["interaction_click_pointer"]
-not_applicable = ["interaction_static_text", "interaction_no_text", "no_focus_targets"]
-
-[rule.variants]
-visibility = { not_relevant = "A page-wide note; it does not judge elements." }
-native_vs_aria = { not_relevant = "Native controls and widget roles are both signals of the same page-wide note." }
-alternative_labels = { not_relevant = "Naming plays no part." }
-frames_shadow_dom = { not_relevant = "An iframe counts as possible functionality of the page; its own content is audited as its own document." }
-responsive = { not_relevant = "The signals are markup, which does not change with the viewport." }
-dynamic = { not_relevant = "Any script already makes the note apply, whatever it adds later." }
-thresholds = { not_relevant = "Presence of a signal; no threshold." }
-
-[rule.test_strength]
-status = "killed"
-
-[[rule.test_strength.mutations]]
-target = "src/wcag/rules/pointer_cancellation.rs"
-change = "invert the applicability gate"
-find = "    if !applies {"
-replace = "    if applies {"
-killed_by = "corpus:interaction_click_pointer"

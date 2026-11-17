@@ -6,8 +6,8 @@
       "label": "WCAG rules",
       "automatic": 79,
       "hint_only": 79,
-      "manual": 15,
-      "total": 173
+      "manual": 13,
+      "total": 171
     },
     {
       "domain": "security",
@@ -34,7 +34,7 @@
       "total": 8
     }
   ],
-  "total": 212,
+  "total": 210,
   "rules": [
     {
       "id": "display/text-hidden",
@@ -485,14 +485,6 @@
       "level": "AAA"
     },
     {
-      "id": "visual-presentation",
-      "title": "Limited visual presentation of text (AAA)",
-      "domain": "wcag",
-      "outcome": "manual",
-      "criterion": "1.4.8",
-      "level": "AAA"
-    },
-    {
       "id": "css-overflow-hidden",
       "title": "No reflow at 320 CSS pixels",
       "domain": "wcag",
@@ -605,8 +597,8 @@
       "level": "A"
     },
     {
-      "id": "meta-refresh",
-      "title": "Non-adjustable time limit",
+      "id": "manual/timing",
+      "title": "Time limit possibly not adjustable",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.2.1",
@@ -690,14 +682,6 @@
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.2.5",
-      "level": "AAA"
-    },
-    {
-      "id": "timeouts",
-      "title": "No warning before inactivity timeout (AAA)",
-      "domain": "wcag",
-      "outcome": "manual",
-      "criterion": "2.2.6",
       "level": "AAA"
     },
     {
@@ -885,8 +869,8 @@
       "level": "A"
     },
     {
-      "id": "pointer-cancellation",
-      "title": "Action triggered on pointer down",
+      "id": "manual/pointer-cancellation",
+      "title": "Action possibly triggered on pointer down",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.5.2",

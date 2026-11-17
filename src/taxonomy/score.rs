@@ -268,14 +268,6 @@ static CRITERION_IMPACT: &[(&str, ScoreImpact)] = &[
         },
     ),
     (
-        "2.2.6",
-        ScoreImpact {
-            base_penalty: 0.5,
-            max_penalty: 1.5,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-    ),
-    (
         "2.3.3",
         ScoreImpact {
             base_penalty: 1.0,

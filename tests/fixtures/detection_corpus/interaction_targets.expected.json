@@ -35,6 +35,7 @@
     { "rule_id": "targets/size", "selector": "button#dyn-a", "verdict": "needs_review", "occurrences": 1 },
     { "rule_id": "targets/size", "selector": "button#dyn-b", "verdict": "needs_review", "occurrences": 1 },
     { "rule_id": "manual/no-timing", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "manual/timing", "verdict": "needs_review", "occurrences": 1 },
     { "rule_id": "manual/help", "verdict": "needs_review", "occurrences": 1 },
     { "rule_id": "keyboard/skip-link-missing", "verdict": "absent" },
     { "rule_id": "navigation/location-missing", "verdict": "absent" }

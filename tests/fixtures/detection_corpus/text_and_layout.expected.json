@@ -6,10 +6,6 @@
       "verdict": "needs_review"
     },
     {
-      "rule_id": "visual-presentation",
-      "verdict": "needs_review"
-    },
-    {
       "rule_id": "text/justified",
       "verdict": "needs_review"
     },

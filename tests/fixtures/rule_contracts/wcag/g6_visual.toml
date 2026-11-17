@@ -324,37 +324,6 @@ target = "barrierlab:crates/a11y-rules/tests/mutations/regressionen.toml"
 change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
 killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id text/line-height-tight)"
 
-[[rule]]
-id = "visual-presentation"
-automation = "manual"
-manual_reason = "1.4.8 also requires that users can select foreground and background colours and that text blocks stay within 80 characters; whether a mechanism exists and how wide a block renders for the user's chosen font cannot be decided from markup or style."
-method = "page"
-source = "WCAG 2.2 SC 1.4.8 Visual Presentation (Level AAA), bullets 1, 2 and 5"
-capabilities = ["dom"]
-applicability = "Every page in an AAA audit (a fixed page-wide UNTESTED note; justified text and line height are the automated text/* ids)."
-expectation = """
-Emits one page-wide UNTESTED note in every AAA audit, never a pass and never
-a violation. Strictly, 1.4.8 applies only to blocks of text, so a page
-without any (visual_no_text) should not get the note; the note is
-unconditional today, which is why no not-applicable case exists."""
-page_level = true
-ambient = true
-positive = ["text_and_layout", "visual_text_presentation"]
-not_applicable = []
-
-[rule.variants]
-visibility = { not_relevant = "Fixed note, no element is inspected." }
-native_vs_aria = { not_relevant = "Fixed note, no element is inspected." }
-alternative_labels = { not_relevant = "Fixed note, no element is inspected." }
-frames_shadow_dom = { not_relevant = "Fixed note, no element is inspected." }
-responsive = { not_relevant = "Fixed note, the same in every viewport." }
-dynamic = { not_relevant = "Fixed note, independent of page state." }
-thresholds = { not_relevant = "Fixed note, no measurement." }
-
-[rule.test_strength]
-status = "not_mutable"
-reason = "check_visual_presentation_with_page returns a constant UNTESTED note; there is no decision to mutate."
-
 # --- Motion -------------------------------------------------------------------
 
 [[rule]]
@@ -1207,64 +1176,3 @@ target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
 change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
 killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id timing/meta-refresh-enhanced)"
 
-[[rule]]
-id = "meta-refresh"
-automation = "manual"
-manual_reason = "Script-driven time limits (setTimeout/setInterval, session expiry) and whether users can turn them off, adjust or extend them are not visible in the DOM. The id is historical: it names the 2.2.1 page note for script time limits, while the actual meta refresh detection is timing/meta-refresh."
-method = "page"
-source = "WCAG 2.2 SC 2.2.1 Timing Adjustable"
-capabilities = ["dom"]
-applicability = "Every page (a fixed page-wide UNTESTED note)."
-expectation = """
-Emits one page-wide UNTESTED note on every page, never a pass and never a
-violation. Strictly, 2.2.1 applies only where content sets a time limit, so
-a page without scripts or forms would be out of scope; the note is
-unconditional today, which is why no not-applicable case exists."""
-page_level = true
-ambient = true
-positive = ["visual_meta_refresh_redirect"]
-not_applicable = []
-
-[rule.variants]
-visibility = { not_relevant = "Fixed note, no element is inspected." }
-native_vs_aria = { not_relevant = "Fixed note, no element is inspected." }
-alternative_labels = { not_relevant = "Fixed note, no element is inspected." }
-frames_shadow_dom = { not_relevant = "Fixed note, no element is inspected." }
-responsive = { not_relevant = "Fixed note, the same in every viewport." }
-dynamic = { not_relevant = "Fixed note, independent of page state." }
-thresholds = { not_relevant = "Fixed note, no measurement." }
-
-[rule.test_strength]
-status = "not_mutable"
-reason = "check_timing_with_page returns a constant UNTESTED note; there is no decision to mutate."
-
-[[rule]]
-id = "timeouts"
-automation = "manual"
-manual_reason = "Whether an inactivity timeout exists, can lose data and is announced to users depends on server and session behaviour that a single page load cannot observe."
-method = "page"
-source = "WCAG 2.2 SC 2.2.6 Timeouts (Level AAA)"
-capabilities = ["dom"]
-applicability = "Every page in an AAA audit (a fixed page-wide UNTESTED note)."
-expectation = """
-Emits one page-wide UNTESTED note in every AAA audit, never a pass and never
-a violation. Strictly, 2.2.6 concerns data loss through inactivity, so a page
-without any data entry would be out of scope; the note is unconditional
-today, which is why no not-applicable case exists."""
-page_level = true
-ambient = true
-positive = ["visual_control_contrast"]
-not_applicable = []
-
-[rule.variants]
-visibility = { not_relevant = "Fixed note, no element is inspected." }
-native_vs_aria = { not_relevant = "Fixed note, no element is inspected." }
-alternative_labels = { not_relevant = "Fixed note, no element is inspected." }
-frames_shadow_dom = { not_relevant = "Fixed note, no element is inspected." }
-responsive = { not_relevant = "Fixed note, the same in every viewport." }
-dynamic = { not_relevant = "Fixed note, independent of page state." }
-thresholds = { not_relevant = "Fixed note, no measurement." }
-
-[rule.test_strength]
-status = "not_mutable"
-reason = "check_timeouts_with_page returns a constant UNTESTED note; there is no decision to mutate."

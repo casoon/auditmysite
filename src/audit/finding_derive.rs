@@ -120,7 +120,6 @@ pub(crate) const PATTERN_RULES: &[&str] = &[
     // CSS styling heuristics for line spacing and justified text.
     "text/justified",
     "text/line-height-tight",
-    "visual-presentation",
 ];
 
 /// Detection method of a WCAG finding: violations reaching the findings are

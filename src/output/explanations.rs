@@ -2307,7 +2307,7 @@ mod tests {
                 None => none += 1,
             }
         }
-        assert_eq!((own, other, none), (64, 84, 25));
+        assert_eq!((own, other, none), (64, 84, 23));
         assert_eq!(RULE_ENTRIES.len(), 64 + 84);
     }
 

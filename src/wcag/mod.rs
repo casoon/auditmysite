@@ -17,9 +17,7 @@ pub mod types;
 
 pub use crate::model::WcagLevel;
 pub use engine::{
-    check_all, check_all_excluding, check_all_with_config, check_pointer_cancellation_with_page,
-    check_reflow_with_page, check_timeouts_with_page, check_timing_with_page,
-    check_visual_presentation_with_page, RuleFilterConfig,
+    check_all, check_all_excluding, check_all_with_config, check_reflow_with_page, RuleFilterConfig,
 };
 pub use types::{
     rule_run_errored, rule_run_skipped, rule_run_unmeasured, technical_failure_reason,

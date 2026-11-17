@@ -54,6 +54,10 @@
     {
       "rule_id": "manual/no-timing",
       "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/timing",
+      "verdict": "needs_review"
     }
   ]
 }
