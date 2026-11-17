@@ -4,9 +4,9 @@ version = 4
 
 [[package]]
 name = "a11y-dom"
-version = "0.30.11"
+version = "0.30.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68d9b9c1b93ec01519f1fbd56231cefe44d6cbec16cbd6819445eef0c4d839b9"
+checksum = "95fa5d0258620ca496a2783746ab035e48719db43d5f355bc32f0edccbcce66d"
 
 [[package]]
 name = "a11y-perception"
@@ -19,18 +19,18 @@ dependencies = [
 
 [[package]]
 name = "a11y-report"
-version = "0.30.11"
+version = "0.30.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5cb64f7ac7d672517a5fcb92e4e70c68b30536f1744b7308ebb3f1a1e9736434"
+checksum = "703e7ca7d85c54d59331cb08c1233b2d3d7b6c8f7de9fc4789bfa5df724ba53e"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "a11y-rules"
-version = "0.30.11"
+version = "0.30.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30d99a29290680491c221928e3565707ca619c9555d0bb4c07375bbb8f8bfc49"
+checksum = "e3380e7614131188c0b92e50158e232aa420f0e4da95983d8323dde8b21da850"
 dependencies = [
  "a11y-dom",
  "a11y-report",
@@ -40,9 +40,9 @@ dependencies = [
 
 [[package]]
 name = "accname"
-version = "0.30.11"
+version = "0.30.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcaa1b2e2b6c8683381e256d7bffb5a6e574e9c5dc3aca0deda58577d76121a1"
+checksum = "550cfa865a3dac16e59b1ae727eac1e1db7a5802da51195f5440f2fdc3e723ec"
 dependencies = [
  "a11y-dom",
 ]
@@ -4222,9 +4222,9 @@ dependencies = [
 
 [[package]]
 name = "style-cascade"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "431b35db89e6c7b05d1ce0da5d4a8b5b8f1a87d814238a273e4b8bc7aec99bbb"
+checksum = "8c1c44908ca9acb38960cce1347580069397d19861c1c8eb45bb5200999e86cb"
 dependencies = [
  "a11y-dom",
  "media-query-parse",

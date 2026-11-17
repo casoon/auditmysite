@@ -67,11 +67,11 @@
     {
       "url": "https://www.basf.com/",
       "expected": {
-        "min": 15,
-        "max": 50
+        "min": 40,
+        "max": 60
       },
       "reviewed": "2026-09-27",
-      "notes": "55 focusable elements hidden from AT, 49 contrast failures, empty links, no skip link, no statement. 2.0 (reference run 2026-11-01, 1.8.0 gave 23, now 38): 405 content-model findings were Angular `_ngcontent-*` attributes inside a `<ul>` (false positive, fixed), landmark advice is no longer a failure (#779). Still critical risk: 46 focusable elements under aria-hidden, 32 contrast failures, 4 ARIA failures. Band 15-50. Independent check 2026-11-01 (axe-core 4.10.2, same setup): 29 colour-contrast violations (tool: 32) confirmed; the tool's 46 aria-hidden-focus reports (teaser articles/links) and 4 ARIA failures are NOT confirmed - axe lists them only as 'needs review' (9 aria-hidden-focus, 6 prohibited attr, 3 attr value). The upper end of this band is therefore tool-derived and the page needs a manual re-review; `reviewed` stays at the last manual review date."
+      "notes": "55 focusable elements hidden from AT, 49 contrast failures, empty links, no skip link, no statement. 2.0 (reference run 2026-11-01, 1.8.0 gave 23, now 38): 405 content-model findings were Angular `_ngcontent-*` attributes inside a `<ul>` (false positive, fixed), landmark advice is no longer a failure (#779). Still critical risk: 46 focusable elements under aria-hidden, 32 contrast failures, 4 ARIA failures. Band 15-50. Independent check 2026-11-01 (axe-core 4.10.2, same setup): 29 colour-contrast violations (tool: 32) confirmed; the tool's 46 aria-hidden-focus reports (teaser articles/links) and 4 ARIA failures are NOT confirmed - axe lists them only as 'needs review' (9 aria-hidden-focus, 6 prohibited attr, 3 attr value). The upper end of this band is therefore tool-derived and the page needs a manual re-review; `reviewed` stays at the last manual review date. Band moved 15-50 to 40-60 on 2026-11-17 (#920): the reference run with a11y-rules 0.30.12 gives 54, identical to 0.30.11 and with the same cause. On a first visit the OneTrust consent dialog is genuinely open, so the page is measured behind an open modal and `keyboard/hidden-focusable` reports 44 (desktop) / 42 (mobile) elements as REVIEW, not as failures, which matches axe's `needs review`. The closed 0x0 dialog of barrierlab#252 does not occur on this page. The band is a measurement of the first-visit state, not of the page without the dialog."
     }
   ]
 }
