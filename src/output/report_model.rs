@@ -1380,7 +1380,12 @@ pub struct RedirectChainIssue {
 pub struct PortfolioSummary {
     pub total_urls: usize,
     pub passed: usize,
+    /// URLs whose own decision is not `pass` (`warn` or `fail`).
     pub failed: usize,
+    /// URLs whose own decision is `fail`.
+    pub fail_urls: usize,
+    /// URLs whose own decision is `warn`.
+    pub warn_urls: usize,
     /// `None` when no URL was measured; the presentation never invents a 0.
     pub average_score: Option<f64>,
     /// Weighted overall score across all active modules (averaged over URLs)

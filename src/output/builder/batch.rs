@@ -820,6 +820,8 @@ pub fn build_batch_presentation_with_normalized(
             total_urls: batch.summary.total_urls,
             passed: batch.summary.passed,
             failed: batch.summary.failed,
+            fail_urls: batch.summary.fail_urls,
+            warn_urls: batch.summary.warn_urls,
             average_score: batch.summary.average_score,
             average_overall_score,
             total_violations: batch.summary.total_violations,

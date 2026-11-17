@@ -874,6 +874,7 @@ pub fn validate_batch(batch: &BatchReport) -> Result<(), ReportContractError> {
     let mut violations = Vec::new();
     let mut total = 0u64;
     let mut passed = 0usize;
+    let mut failing = 0usize;
     let mut pages = Vec::with_capacity(batch.reports.len());
     for (index, report) in batch.reports.iter().enumerate() {
         let context = super::normalized::normalize(report);
@@ -886,6 +887,7 @@ pub fn validate_batch(batch: &BatchReport) -> Result<(), ReportContractError> {
         }
         total += u64::from(context.normalized.score);
         passed += usize::from(context.normalized.decision.verdict == super::Verdict::Pass);
+        failing += usize::from(context.normalized.decision.verdict == super::Verdict::Fail);
         if &context.normalized.decision.profile != summary_profile(batch) {
             violations.push(ContractViolation {
                 code: "decision_profile",
@@ -929,9 +931,12 @@ pub fn validate_batch(batch: &BatchReport) -> Result<(), ReportContractError> {
             "successful URL count must match measured pages",
         ),
         (
-            summary.passed == passed && summary.failed == count - passed,
+            summary.passed == passed
+                && summary.failed == count - passed
+                && summary.fail_urls == failing
+                && summary.warn_urls == count - passed - failing,
             "passed",
-            "pass/fail counts must follow the canonical verdict",
+            "pass/fail/warn counts must follow the canonical verdict",
         ),
         (
             summary.decision.contract == super::DECISION_CONTRACT

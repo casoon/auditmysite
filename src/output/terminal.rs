@@ -323,7 +323,8 @@ pub fn render_batch_report(
         .with_details_hint(Some(DETAILS_HINT.to_string()))
         .add_metric(Metric::new("URLs", p.total_urls.to_string()))
         .add_metric(Metric::new("Passed", p.passed.to_string()))
-        .add_metric(Metric::new("Failed", p.failed.to_string()))
+        .add_metric(Metric::new("Failed", p.fail_urls.to_string()))
+        .add_metric(Metric::new("Warned", p.warn_urls.to_string()))
         .add_metric(Metric::new(
             "Avg. score",
             batch_report
