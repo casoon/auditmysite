@@ -103,6 +103,10 @@ pub struct TechnicalSeo {
     /// www / non-www redirect check result
     #[serde(skip_serializing_if = "Option::is_none")]
     pub www_redirect: Option<WwwRedirectCheck>,
+    /// The other host variant did not answer the probe (#899); `None` when it
+    /// answered or the probe did not run.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub www_alternate_unanswered: Option<WwwAlternateUnanswered>,
     /// og:image is present without an og:image:alt description.
     pub og_image_missing_alt: bool,
     /// twitter:image is present without a twitter:image:alt description.
@@ -124,6 +128,18 @@ pub struct WwwRedirectCheck {
     pub redirects_to_primary: bool,
     /// Does the page canonical point to the primary domain? None if no canonical.
     pub canonical_matches_primary: Option<bool>,
+}
+
+/// The other host variant (www ↔ non-www) was probed and gave no answer
+/// (#899): no HTTP response, connection or TLS error, or no response within
+/// the probe timeout. Recorded only for that measured outcome, never when the
+/// probe itself could not run.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WwwAlternateUnanswered {
+    /// The URL variant that was audited (primary)
+    pub primary: String,
+    /// The alternative variant that did not answer
+    pub alternative: String,
 }
 
 /// Tracking cookie detected on the page.
@@ -438,12 +454,9 @@ pub async fn analyze_technical_seo(
     );
 
     // www / non-www redirect check
-    let www_redirect = log
-        .record(
-            &WWW_REDIRECT,
-            check_www_redirect(url, canonical_url.as_deref()).await,
-        )
-        .into_value();
+    let (www_probe, www_alternate_unanswered) =
+        check_www_redirect(url, canonical_url.as_deref()).await;
+    let www_redirect = log.record(&WWW_REDIRECT, www_probe).into_value();
 
     let mut technical = TechnicalSeo {
         https,
@@ -483,6 +496,7 @@ pub async fn analyze_technical_seo(
         zaraz,
         has_favicon,
         www_redirect,
+        www_alternate_unanswered,
         og_image_missing_alt: has_og_image && !has_og_image_alt,
         twitter_image_missing_alt: has_twitter_image && !has_twitter_image_alt,
         issues: Vec::new(),
@@ -727,6 +741,20 @@ pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<TechnicalIssu
     collect_amp_issues(&t.amp, en, &mut issues);
     collect_form_security_issues(&t.form_security, en, &mut issues);
 
+    if let Some(ref unanswered) = t.www_alternate_unanswered {
+        push_issue(
+            &mut issues,
+            "www_alternate_unanswered",
+            Severity::Medium,
+            "seo-technical-www-alternate-unanswered",
+            &[
+                ("primary", txt(&unanswered.primary)),
+                ("alternative", txt(&unanswered.alternative)),
+            ],
+            en,
+        );
+    }
+
     if let Some(ref check) = t.www_redirect {
         if !check.redirects_to_primary && check.alternative_status == 200 {
             let canonical_note = match check.canonical_matches_primary {
@@ -762,44 +790,49 @@ pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<TechnicalIssu
     issues
 }
 
+const NOT_APEX_OR_WWW: &str = "host_is_not_apex_or_www";
+
+/// The audited URL and its www ↔ non-www counterpart. `None` for hosts that
+/// have no such variant: IPs, localhost and subdomains other than `www.`.
+fn alternate_host(url: &str) -> Option<(String, String)> {
+    let parsed = url::Url::parse(url).ok()?;
+    let host = parsed.host_str()?;
+    let alt_host = match host.strip_prefix("www.") {
+        Some(stripped) => stripped.to_string(),
+        None => format!("www.{host}"),
+    };
+    // Only makes sense for plain domains; skip IPs, localhost, and subdomains
+    if host.parse::<std::net::IpAddr>().is_ok() || host == "localhost" {
+        return None;
+    }
+    let bare_host = host.strip_prefix("www.").unwrap_or(host);
+    if bare_host.split('.').count() > 2 {
+        return None;
+    }
+    let mut alt_url = parsed.clone();
+    alt_url.set_host(Some(&alt_host)).ok()?;
+    Some((url.to_string(), alt_url.as_str().to_string()))
+}
+
 /// Check whether the www ↔ non-www counterpart of `url` redirects to `url`
-/// or serves its own content (duplicate).
+/// or serves its own content (duplicate). The second value is set only when
+/// the probe ran and the variant gave no answer (#899): a probe that could
+/// not run stays a gap of the collection, never a finding.
 async fn check_www_redirect(
     url: &str,
     canonical: Option<&str>,
-) -> crate::audit::collection::Collected<WwwRedirectCheck> {
+) -> (
+    crate::audit::collection::Collected<WwwRedirectCheck>,
+    Option<WwwAlternateUnanswered>,
+) {
     use crate::audit::collection::{reason, Collected};
-    const NOT_APEX_OR_WWW: &str = "host_is_not_apex_or_www";
-    // Build the alternative URL variant
-    let Ok(parsed) = url::Url::parse(url) else {
-        return Collected::NotApplicable(NOT_APEX_OR_WWW);
+    let Some((primary, alternative)) = alternate_host(url) else {
+        return (Collected::NotApplicable(NOT_APEX_OR_WWW), None);
     };
-    let Some(host) = parsed.host_str() else {
-        return Collected::NotApplicable(NOT_APEX_OR_WWW);
-    };
-
-    let (primary_host, alt_host) = if let Some(stripped) = host.strip_prefix("www.") {
-        (host.to_string(), stripped.to_string())
-    } else {
-        (host.to_string(), format!("www.{}", host))
-    };
-
-    // Only makes sense for plain domains; skip IPs, localhost, and subdomains
-    if primary_host.parse::<std::net::IpAddr>().is_ok() || primary_host == "localhost" {
-        return Collected::NotApplicable(NOT_APEX_OR_WWW);
-    }
-    // Determine the bare host (without www prefix) and skip if it's a subdomain
-    let bare_host = host.strip_prefix("www.").unwrap_or(host);
-    if bare_host.split('.').count() > 2 {
-        return Collected::NotApplicable(NOT_APEX_OR_WWW);
-    }
-
-    let mut alt_url = parsed.clone();
-    if alt_url.set_host(Some(&alt_host)).is_err() {
-        return Collected::NotApplicable(NOT_APEX_OR_WWW);
-    }
-    let alternative = alt_url.as_str().to_string();
-    let primary = url.to_string();
+    let primary_host = url::Url::parse(&primary)
+        .ok()
+        .and_then(|parsed| parsed.host_str().map(str::to_string))
+        .unwrap_or_default();
 
     let Ok(client) = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(8))
@@ -807,7 +840,7 @@ async fn check_www_redirect(
         .user_agent("Mozilla/5.0 (compatible; AuditMySite/1.0)")
         .build()
     else {
-        return Collected::Failed(reason::HTTP_REQUEST_FAILED);
+        return (Collected::Failed(reason::HTTP_REQUEST_FAILED), None);
     };
 
     let response = match client.head(&alternative).send().await {
@@ -815,7 +848,13 @@ async fn check_www_redirect(
         Err(e) => {
             // The alternative host not answering is no measured status.
             tracing::debug!("www-redirect check failed for {}: {}", alternative, e);
-            return Collected::Failed(reason::ALTERNATE_HOST_UNREACHABLE);
+            return (
+                Collected::Failed(reason::ALTERNATE_HOST_UNREACHABLE),
+                Some(WwwAlternateUnanswered {
+                    primary,
+                    alternative,
+                }),
+            );
         }
     };
 
@@ -839,13 +878,16 @@ async fn check_www_redirect(
         false
     };
 
-    Collected::Measured(WwwRedirectCheck {
-        primary,
-        alternative,
-        alternative_status: status,
-        redirects_to_primary,
-        canonical_matches_primary: canonical_matches(&primary_host, canonical),
-    })
+    (
+        Collected::Measured(WwwRedirectCheck {
+            primary,
+            alternative,
+            alternative_status: status,
+            redirects_to_primary,
+            canonical_matches_primary: canonical_matches(&primary_host, canonical),
+        }),
+        None,
+    )
 }
 
 /// Returns Some(true) if canonical points to primary_host, Some(false) if it points elsewhere,
@@ -2101,11 +2143,93 @@ pub(crate) mod counter_cases {
             "https://api.example.com/",
         ] {
             assert_eq!(
-                block_on(check_www_redirect(url, None)).state(),
+                block_on(check_www_redirect(url, None)).0.state(),
                 CollectionState::NotApplicable,
                 "{url}"
             );
         }
+    }
+
+    /// #899: the other host variant is derived for an apex or a `www.` host
+    /// and for nothing else.
+    pub(crate) fn alternate_host_variants() {
+        let variant = |url: &str| alternate_host(url).map(|(_, alternative)| alternative);
+        assert_eq!(
+            variant("https://example.com/page"),
+            Some("https://www.example.com/page".to_string())
+        );
+        assert_eq!(
+            variant("https://www.example.com/page"),
+            Some("https://example.com/page".to_string())
+        );
+        for url in [
+            "http://localhost/",
+            "https://127.0.0.1/",
+            "https://shop.example.com/",
+            "not a url",
+        ] {
+            assert_eq!(variant(url), None, "{url}");
+        }
+    }
+
+    /// #899: a host variant that does not resolve is a probe that ran and got
+    /// no answer (`.invalid` never resolves, RFC 6761), the one failure reason
+    /// the finding is built from.
+    pub(crate) fn unanswered_alternate_host() {
+        let (probe, unanswered) = block_on(check_www_redirect("https://example.invalid/", None));
+        assert!(
+            matches!(probe, Collected::Failed(reason::ALTERNATE_HOST_UNREACHABLE)),
+            "{:?}",
+            probe.state()
+        );
+        assert_eq!(
+            unanswered,
+            Some(WwwAlternateUnanswered {
+                primary: "https://example.invalid/".to_string(),
+                alternative: "https://www.example.invalid/".to_string(),
+            })
+        );
+        // Nothing to probe, nothing unanswered.
+        assert_eq!(
+            block_on(check_www_redirect("https://127.0.0.1/", None)).1,
+            None
+        );
+    }
+
+    /// The finding exists exactly for a recorded unanswered variant.
+    pub(crate) fn unanswered_issue_follows_the_record() {
+        let mut technical = TechnicalSeo::default();
+        let types = |t: &TechnicalSeo| {
+            collect_technical_issues(t, true)
+                .into_iter()
+                .filter(|i| i.issue_type == "www_alternate_unanswered")
+                .map(|i| (i.severity, i.message))
+                .collect::<Vec<_>>()
+        };
+        assert!(types(&technical).is_empty());
+        technical.www_alternate_unanswered = Some(WwwAlternateUnanswered {
+            primary: "https://example.com/".to_string(),
+            alternative: "https://www.example.com/".to_string(),
+        });
+        let issues = types(&technical);
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].0, Severity::Medium);
+        assert!(
+            issues[0].1.contains("https://www.example.com/"),
+            "{}",
+            issues[0].1
+        );
+        assert!(!issues[0].1.contains("HTTP 200"));
+        // An answering variant (measured, redirecting) never raises it.
+        technical.www_alternate_unanswered = None;
+        technical.www_redirect = Some(WwwRedirectCheck {
+            primary: "https://example.com/".to_string(),
+            alternative: "https://www.example.com/".to_string(),
+            alternative_status: 301,
+            redirects_to_primary: true,
+            canonical_matches_primary: None,
+        });
+        assert!(types(&technical).is_empty());
     }
 
     /// Unread browser state stays unset instead of reading "none".
@@ -2133,6 +2257,9 @@ pub(crate) mod counter_cases {
         web_manifest();
         broken_links();
         www_redirect();
+        alternate_host_variants();
+        unanswered_alternate_host();
+        unanswered_issue_follows_the_record();
         browser_state();
     }
 }

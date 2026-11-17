@@ -41,6 +41,7 @@ finding-title-seo-technical-pwa-missing-manifest = Web app manifest missing
 finding-title-seo-technical-remote-google-fonts = Google Fonts from an external server
 finding-title-seo-technical-thin-content = Little text content
 finding-title-seo-technical-twitter-image-missing-alt = twitter:image without alternative text
+finding-title-seo-technical-www-alternate-unanswered = Other host variant does not answer
 finding-title-seo-technical-www-no-redirect = www variant without redirect
 finding-title-seo-technical-amp-missing-html-amp-attribute = AMP: html element without amp attribute
 finding-title-seo-technical-amp-missing-canonical = AMP: canonical link missing

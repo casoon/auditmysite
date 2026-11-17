@@ -65,6 +65,7 @@ seo-technical-www-no-redirect = Both { $primary } and { $alternative } serve con
 seo-technical-www-note-canonical-ok = {" "}Canonical tag is set correctly, but a 301 is still recommended — canonicals are hints, not directives.
 seo-technical-www-note-canonical-other = {" "}Additionally, canonical does not point to the primary domain.
 seo-technical-www-note-canonical-none = {" "}No canonical tag found.
+seo-technical-www-alternate-unanswered = The other host variant { $alternative } did not answer the request (no response, connection or TLS error, or no answer within 8 seconds), while { $primary } was measured. Visitors, links and bookmarks that use the other variant end on an error page. Add the missing DNS record and certificate for that host and redirect it with 301 to { $primary }.
 seo-technical-canonical-domain-mismatch = Canonical URL points to a different domain variant than the audited URL ({ $primary } vs canonical).
 
 seo-meta-missing-title = Missing page title
