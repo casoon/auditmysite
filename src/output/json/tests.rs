@@ -18,13 +18,13 @@ fn test_single_envelope_shape() {
     let normalized = normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);
 
-    assert_eq!(unified.schema_version, "2.1");
+    assert_eq!(unified.schema_version, "2.2");
     assert_eq!(unified.report_type, "single");
     assert_eq!(unified.pages.len(), 1);
     assert_eq!(unified.summary.url_count, 1);
 
     let output = unified.to_json(true).unwrap();
-    assert!(output.contains("\"schema_version\": \"2.1\""));
+    assert!(output.contains("\"schema_version\": \"2.2\""));
     assert!(output.contains("\"report_type\": \"single\""));
     assert!(output.contains("\"metric_context\""));
     assert!(output.contains("\"higher_is_better\": true"));
@@ -505,7 +505,7 @@ fn test_batch_envelope_shape() {
 
     let output = unified.to_json(true).unwrap();
     assert!(output.contains("\"report_type\": \"batch\""));
-    assert!(output.contains("\"schema_version\": \"2.1\""));
+    assert!(output.contains("\"schema_version\": \"2.2\""));
     // No sample metadata attached → the block is omitted.
     assert!(!output.contains("\"sample\""));
 }
@@ -805,9 +805,10 @@ fn test_search_experience_serialized_in_single_detail_modules() {
     );
 }
 
-/// #581: the subcategory breakdown the PDF shows must also be in the canonical
-/// single-report JSON (canonical English names, 0-100 scores), while batch
-/// page details stay compact and omit it.
+/// #581: the Security category breakdown the PDF shows must also be in the
+/// canonical single-report JSON (canonical English names, 0-100 scores), while
+/// batch page details stay compact and omit it. The accessibility score has no
+/// per-subcategory score set (#902).
 #[test]
 fn test_subcategory_scores_serialized_in_single_detail_only() {
     let report = all_active_modules_report();
@@ -817,19 +818,12 @@ fn test_subcategory_scores_serialized_in_single_detail_only() {
         serde_json::from_str(&unified.to_json(true).unwrap()).unwrap();
     let detail = &json_value["pages"][0]["detail"];
 
-    let accessibility = detail["accessibility_subcategory_scores"]
-        .as_array()
-        .expect("accessibility_subcategory_scores must be serialized in single detail");
-    assert_eq!(
-        accessibility.len(),
-        7,
-        "all 7 subcategories are always present"
-    );
+    assert!(detail.get("accessibility_subcategory_scores").is_none());
     let security = detail["security_category_scores"]
         .as_array()
         .expect("security_category_scores must be serialized when Security ran");
     assert!(!security.is_empty());
-    for entry in accessibility.iter().chain(security) {
+    for entry in security {
         let name = entry["name"].as_str().expect("entry name");
         assert!(
             name.is_ascii(),
@@ -844,9 +838,6 @@ fn test_subcategory_scores_serialized_in_single_detail_only() {
     let batch_json: serde_json::Value =
         serde_json::from_str(&UnifiedReport::batch(&batch).to_json(true).unwrap()).unwrap();
     let batch_detail = &batch_json["pages"][0]["detail"];
-    assert!(batch_detail
-        .get("accessibility_subcategory_scores")
-        .is_none());
     assert!(batch_detail.get("security_category_scores").is_none());
 }
 
@@ -1173,7 +1164,7 @@ fn test_collection_errors_absent_when_empty() {
 #[test]
 fn test_collection_errors_serialized_when_present() {
     let mut unified = UnifiedReport {
-        schema_version: "2.1",
+        schema_version: "2.2",
         report_type: "batch",
         tool_version: env!("CARGO_PKG_VERSION"),
         build_id: env!("AUDITMYSITE_BUILD_SHA"),

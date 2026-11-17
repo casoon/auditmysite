@@ -90,14 +90,11 @@ pub struct NormalizedReport {
     /// Gewichteter Gesamtscore über alle aktiven Module
     pub site_quality_score: u32,
 
-    /// Per-subcategory Accessibility score breakdown (plan/5-module-
-    /// accessibility-security-driver-detail.md) — explains what specifically
-    /// drives the single Accessibility module score.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub accessibility_subcategory_scores: Vec<SubcategoryScoreEntry>,
-    /// Per-category Security score breakdown, same purpose as
-    /// `accessibility_subcategory_scores` for the Security module. Empty
-    /// when the Security module didn't run.
+    /// Per-category Security score breakdown — explains what specifically
+    /// drives the Security module score. Empty when the Security module
+    /// didn't run. (The Accessibility score has no per-subcategory score
+    /// set: its components are the lost points of
+    /// `summary.accessibility_score_breakdown`, #902.)
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub security_category_scores: Vec<SecurityCategoryScoreEntry>,
 
@@ -832,25 +829,9 @@ impl ModuleScoreEntry {
     }
 }
 
-/// Per-subcategory Accessibility score (plan/5-module-accessibility-
-/// security-driver-detail.md): explains *why* the Accessibility score is
-/// what it is at a finer grain than the single module number — e.g. a low
-/// site-quality score driven specifically by broken ARIA/landmark structure
-/// while forms and images are fine. `name` is the canonical English
-/// `taxonomy::Subcategory` label (#406); `subcategory_kind` is the PDF-only
-/// re-derivation key, not serialized.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
-pub struct SubcategoryScoreEntry {
-    pub name: String,
-    #[serde(skip)]
-    pub subcategory_kind: crate::taxonomy::Subcategory,
-    pub score: u32,
-}
-
-/// Per-category Security score, same purpose as `SubcategoryScoreEntry`
-/// but for `security::SecurityCategory` (Security has no per-check taxonomy
-/// registry like WCAG's `Subcategory`, see that type's doc comment).
+/// Per-category Security score (plan/5-module-accessibility-security-driver-
+/// detail.md) for `security::SecurityCategory`: explains *why* the Security
+/// score is what it is at a finer grain than the single module number.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct SecurityCategoryScoreEntry {
@@ -1406,57 +1387,6 @@ pub(crate) fn wcag_group_key(violation: &crate::wcag::Violation) -> &str {
         .unwrap_or(violation.rule.as_str())
 }
 
-/// Per-`taxonomy::Subcategory` Accessibility score (plan/5-module-
-/// accessibility-security-driver-detail.md): partitions the same raw
-/// `Violation`s the overall Accessibility score is computed from by their
-/// resolved subcategory (same `wcag_group_key` resolution the rest of
-/// normalization uses, so this never disagrees with how findings are
-/// grouped elsewhere), then re-runs the exact same
-/// `AccessibilityScorer::calculate_score` on each subcategory's slice. This
-/// deliberately reuses the real scorer rather than inventing a new
-/// penalty formula — a subcategory's score means the same thing the module
-/// score does, just scoped down. All 7 Accessibility subcategories are
-/// always returned, in the taxonomy's declaration order; a subcategory
-/// with zero violations scores 100 (the scorer's own empty-input result).
-fn compute_accessibility_subcategory_scores(
-    violations: &[crate::wcag::Violation],
-) -> Vec<SubcategoryScoreEntry> {
-    use crate::taxonomy::Subcategory;
-
-    const ACCESSIBILITY_SUBCATEGORIES: [Subcategory; 7] = [
-        Subcategory::ContentAlternatives,
-        Subcategory::StructureSemantics,
-        Subcategory::NavigationInteraction,
-        Subcategory::FormsInteraction,
-        Subcategory::LanguageClarity,
-        Subcategory::TechnicalRobustness,
-        Subcategory::VisualPresentation,
-    ];
-
-    let subcategory_for = |v: &crate::wcag::Violation| -> Subcategory {
-        RuleLookup::by_id(wcag_group_key(v))
-            .map(|r| r.subcategory)
-            .unwrap_or_default()
-    };
-
-    ACCESSIBILITY_SUBCATEGORIES
-        .into_iter()
-        .map(|subcategory| {
-            let subset: Vec<crate::wcag::Violation> = violations
-                .iter()
-                .filter(|v| subcategory_for(v) == subcategory)
-                .cloned()
-                .collect();
-            let score = AccessibilityScorer::calculate_score(&subset).round() as u32;
-            SubcategoryScoreEntry {
-                name: subcategory.label(true).to_string(),
-                subcategory_kind: subcategory,
-                score,
-            }
-        })
-        .collect()
-}
-
 /// (title, technical_impact) for an SEO heading-issue type, in the requested
 /// language. Single source of truth: the analysis bakes English (canonical JSON),
 /// the PDF presentation re-derives German at render time (#406). The title is
@@ -1939,7 +1869,6 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         )
     });
 
-    let accessibility_subcategory_scores = compute_accessibility_subcategory_scores(violations);
     let security_category_scores = report
         .security
         .as_ref()
@@ -1974,7 +1903,6 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         execution: report.accessibility.execution.clone(),
         module_scores,
         site_quality_score,
-        accessibility_subcategory_scores,
         security_category_scores,
         risk,
         principle_coverage: AccessibilityScorer::calculate_execution_coverage(

@@ -17,7 +17,7 @@ use crate::output::module::ReportModule as _;
 use crate::output::report_model::{ReportConfig, UrlMatrixRow};
 
 /// Current envelope schema version.
-const SCHEMA_VERSION: &str = "2.1";
+const SCHEMA_VERSION: &str = "2.2";
 
 mod detail;
 pub(crate) mod helpers;
@@ -495,7 +495,6 @@ pub struct BikFindingRefEntry {
 #[derive(Debug, Serialize)]
 pub struct AccessibilityScoreComponent {
     pub area: String,
-    pub score: u32,
     pub weight_pct: u32,
     pub estimated_lost_points: u32,
     pub main_driver: String,
@@ -687,11 +686,6 @@ pub struct PageDetail {
     /// "BIK für Alle" editorial accessibility guide chapter mapping — always
     /// present. See `BikGuideAnnex` doc comment.
     pub bik_guide: BikGuideAnnex,
-    /// Accessibility score per subcategory — the module's own scorer re-run on
-    /// each subcategory's violations, explaining what drives the Accessibility
-    /// module score (#581). Single reports only.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub accessibility_subcategory_scores: Vec<crate::audit::normalized::SubcategoryScoreEntry>,
     /// Security score per category; empty when the Security module didn't run
     /// (#581). Single reports only.
     #[serde(skip_serializing_if = "Vec::is_empty")]

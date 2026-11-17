@@ -291,9 +291,8 @@ pub struct ModulesBlock {
     pub module_scores: Vec<crate::audit::normalized::ModuleScoreEntry>,
     /// Per-area Accessibility score breakdown — the same derivation as the
     /// JSON `summary.accessibility_score_breakdown`
-    /// (`build_accessibility_score_breakdown`), so the PDF sub-scores and the
-    /// JSON agree (#902 item 10). The 7-subcategory scores stay JSON-only in
-    /// `detail.accessibility_subcategory_scores`.
+    /// (`build_accessibility_score_breakdown`), so the PDF and the JSON carry
+    /// the same lost points per area (#902 item 10).
     pub accessibility_score_areas: Vec<crate::output::json::AccessibilityScoreComponent>,
     /// Per-category Security score breakdown, same purpose as above for
     /// Security. Empty when the Security module didn't run.

@@ -106,7 +106,6 @@ pub use report::{
     SubcheckRun, ThrottledPerfResult, ViewportAuditData, ViewportDefinition, ViewportMetaRefresh,
     ViewportScoreSet, ViewportScores, ViewportScreenshot, MEASUREMENT_PROFILE_VERSION,
 };
-pub(crate) use scoring::score_from_penalties;
 pub use scoring::{AccessibilityScorer, CoverageRatio, PrincipleCoverage, ViolationStatistics};
 pub use template_dedup::{detect_root_causes, RootCause};
 pub use validation::{

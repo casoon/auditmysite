@@ -569,7 +569,7 @@ mod tests {
         assert_eq!(urgent_metric.value, "1");
     }
 
-    /// #902 item 10: the PDF sub-score callout and the JSON
+    /// #902 item 10: the PDF callout and the JSON
     /// `summary.accessibility_score_breakdown` must carry the same numbers.
     #[test]
     fn view_model_accessibility_areas_match_the_json_breakdown() {
@@ -604,7 +604,7 @@ mod tests {
             .map(|c| {
                 (
                     c["area"].as_str().unwrap().to_string(),
-                    c["score"].as_u64().unwrap(),
+                    c["estimated_lost_points"].as_u64().unwrap(),
                 )
             })
             .collect();
@@ -612,10 +612,10 @@ mod tests {
             .modules
             .accessibility_score_areas
             .iter()
-            .map(|c| (c.area.clone(), c.score as u64))
+            .map(|c| (c.area.clone(), c.estimated_lost_points as u64))
             .collect();
         assert_eq!(from_vm, from_json);
-        assert!(from_vm.iter().any(|(_, s)| *s < 100));
+        assert!(from_vm.iter().any(|(_, lost)| *lost > 0));
     }
 
     #[test]
@@ -1542,5 +1542,97 @@ mod tests {
                 "REPORT_AREAS PDF/ViewModel coverage missing for {area}"
             );
         }
+    }
+}
+
+/// #902 item 10: the accessibility score has ONE set of components, the points
+/// each area cost, and they reconcile to the headline.
+#[cfg(test)]
+mod one_score_axis_tests {
+    use super::*;
+    use crate::audit::normalized::normalize;
+    use crate::audit::AuditReport;
+    use crate::wcag::{Severity, Violation, WcagLevel, WcagResults};
+
+    #[test]
+    fn components_are_the_same_in_json_and_view_model_and_add_up_to_the_headline() {
+        let mut results = WcagResults::new();
+        let mk = |c: &str, n: &str, s: Severity, id: &str| {
+            Violation::new(c, n, WcagLevel::A, s, "msg", "node-1").with_rule_id(id)
+        };
+        for _ in 0..3 {
+            results.add_violation(mk(
+                "1.1.1",
+                "Non-text",
+                Severity::High,
+                "images/alt-missing",
+            ));
+            results.add_violation(mk("1.3.1", "Info", Severity::Medium, "headings/skipped"));
+            results.add_violation(mk("3.3.2", "Labels", Severity::High, "forms/label-missing"));
+        }
+        results.add_violation(mk(
+            "1.3.1",
+            "Info",
+            Severity::Medium,
+            "landmarks/main-missing",
+        ));
+        results.add_violation(mk(
+            "1.4.3",
+            "Contrast",
+            Severity::High,
+            "contrast/text-insufficient",
+        ));
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1500);
+        let normalized = normalize(&report);
+        let vm = build_view_model(&normalized, &ReportConfig::default());
+        let json = serde_json::to_value(
+            crate::output::json::UnifiedReport::single_from_normalized(&normalized.normalized),
+        )
+        .unwrap();
+        let headline = json["summary"]["accessibility_score"].as_u64().unwrap();
+        assert!(headline < 100, "the fixture must lose points");
+        assert_eq!(headline, json["pages"][0]["accessibility_score"]);
+        assert_eq!(headline, vm.summary.score as u64);
+
+        let from_json: Vec<(String, u64, u64)> = json["summary"]["accessibility_score_breakdown"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| {
+                assert!(
+                    c.get("score").is_none(),
+                    "no second per-area 0-100 scale: {c}"
+                );
+                (
+                    c["area"].as_str().unwrap().to_string(),
+                    c["estimated_lost_points"].as_u64().unwrap(),
+                    c["weight_pct"].as_u64().unwrap(),
+                )
+            })
+            .collect();
+        let from_vm: Vec<(String, u64, u64)> = vm
+            .modules
+            .accessibility_score_areas
+            .iter()
+            .map(|c| {
+                (
+                    c.area.clone(),
+                    c.estimated_lost_points as u64,
+                    c.weight_pct as u64,
+                )
+            })
+            .collect();
+        assert_eq!(from_vm, from_json);
+
+        let lost: u64 = from_json.iter().map(|(_, l, _)| l).sum();
+        assert_eq!(100 - lost, headline, "100 - sum(lost points) = headline");
+        let share: u64 = from_json.iter().map(|(_, _, s)| s).sum();
+        assert_eq!(share, 100, "weight_pct is the share of the loss");
+        assert!(
+            json["pages"][0]["detail"]
+                .get("accessibility_subcategory_scores")
+                .is_none(),
+            "no second component set in the page detail"
+        );
     }
 }

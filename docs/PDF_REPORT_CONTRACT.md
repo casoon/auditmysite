@@ -272,7 +272,7 @@ surface that owns its lifecycle:
   table (title per calculation method, column headings, the assessment per
   module), the weight-basis note, the viewport-weighted score derivation
   (title, column headings, step and input labels, note), the additional
-  score drivers title and the subcategory breakdown lines. The renderer
+  score drivers title, the accessibility lost-points lines and the subcategory breakdown lines. The renderer
   keeps which assessment applies (weakest module, risk driver, corrected
   band), the module lists, the score and weight cells and the formula
   cells; the weight basis is a Fluent number. The module column heading

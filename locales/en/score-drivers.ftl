@@ -50,3 +50,7 @@ score-drivers-subcategory-weak = Critical weaknesses: { $items }
 score-drivers-subcategory-partial = Other sub-areas within { $title }: { $items }
 score-drivers-subcategory-clean = No findings assigned (100): { $items }. That says nothing was counted there, not that the area was checked and found free of defects.
 score-drivers-subcategory-critical = Critical findings and the sub-area they count in: { $items }
+
+## Accessibility score components (points lost by area)
+score-drivers-loss-lost = Points lost by area, { $lost } in total (100 − { $lost } = { $score }): { $items }
+score-drivers-loss-clean = No points lost: { $items }. That says nothing was counted there, not that the area was checked and found free of defects.

@@ -220,20 +220,18 @@ pub(super) fn build_wcag_coverage_for_level(level: &str) -> WcagCoverageSummary 
 /// Break the accessibility score down by area, using the scorer's own
 /// per-rule penalties as the single source of truth.
 ///
-/// The previous implementation was a second, independent scoring model: flat
-/// severity weights (20/14/8/4) that existed nowhere else, a per-area cap at
-/// 90, and fixed "importance" weights (15/15/15/10/15/15/8/7) that the scorer
-/// knows nothing about. On a real report the two disagreed by a factor of ~3 —
-/// inros-lackner-de 2026-09-19 broke a reported accessibility score of 20 into
-/// areas whose weighted average was 57 (plan 37).
-///
-/// The scorer's global steps — `diversity_factor`, the square-root compression
-/// above `COMPRESSION_KNEE`, `apply_soft_floor` and the critical/high score cap
-/// — are all non-linear and depend on the finding set as a whole, so no fixed
-/// weighting of per-area sub-scores can reproduce the headline number. Rather
-/// than invent a decomposition that cannot exist, this distributes the loss the
-/// score *actually* took (`100 - accessibility_score`) across the areas in
-/// proportion to each area's share of the raw per-rule penalty.
+/// The headline `accessibility_score` is the authority; the areas reconcile to
+/// it and carry no scale of their own. The scorer's global steps —
+/// `diversity_factor`, the square-root compression above `COMPRESSION_KNEE`,
+/// `apply_soft_floor` and the critical/high score cap — are non-linear and
+/// depend on the finding set as a whole, so no per-area 0-100 sub-score can add
+/// up to the headline number. A breakdown that carried one next to the lost
+/// points disagreed with them (an area "89" beside 7 lost points, #902 item
+/// 10), and the model before that was a second scoring model of its own
+/// (inros-lackner-de 2026-09-19: areas averaging 57 under a score of 20, plan
+/// 37). So this distributes the loss the score *actually* took
+/// (`100 - accessibility_score`) across the areas in proportion to each area's
+/// share of the raw per-rule penalty.
 ///
 /// That makes one identity exact and checkable, which `lint` enforces:
 ///
@@ -261,10 +259,6 @@ pub(crate) fn build_accessibility_score_breakdown(
     // Raw penalty per area, from the `ScoreImpact` of each finding's rule.
     let mut raw_penalty = [0f64; AREAS.len()];
     let mut drivers: [Option<(&str, usize)>; AREAS.len()] = Default::default();
-    let mut criteria: [std::collections::HashSet<&str>; AREAS.len()] = Default::default();
-    let mut critical_occ = [0usize; AREAS.len()];
-    let mut urgent_occ = [0usize; AREAS.len()];
-    let mut level_a_urgent_occ = [0usize; AREAS.len()];
 
     for finding in reports.iter().flat_map(|report| report.findings.iter()) {
         let Some(area) = score_area_for_finding(finding) else {
@@ -280,25 +274,6 @@ pub(crate) fn build_accessibility_score_breakdown(
         raw_penalty[idx] += rule
             .score_impact
             .calculate_penalty(finding.occurrence_count.max(1)) as f64;
-        criteria[idx].insert(finding.wcag_criterion.as_str());
-
-        let occ = finding.occurrence_count.max(1);
-        match finding.severity {
-            crate::taxonomy::Severity::Critical => {
-                critical_occ[idx] += occ;
-                urgent_occ[idx] += occ;
-            }
-            crate::taxonomy::Severity::High => urgent_occ[idx] += occ,
-            _ => {}
-        }
-        if finding.wcag_level == "A"
-            && matches!(
-                finding.severity,
-                crate::taxonomy::Severity::High | crate::taxonomy::Severity::Critical
-            )
-        {
-            level_a_urgent_occ[idx] += occ;
-        }
 
         if drivers[idx]
             .map(|(_, count)| finding.occurrence_count > count)
@@ -325,19 +300,6 @@ pub(crate) fn build_accessibility_score_breakdown(
         .enumerate()
         .map(|(idx, area)| AccessibilityScoreComponent {
             area: (*area).to_string(),
-            // The area scored on its own terms, through the scorer's real
-            // pipeline — "what would this page score if this area were its
-            // only problem". Deliberately NOT `100 - estimated_lost_points`:
-            // that would make the field a restatement of the apportionment
-            // rather than a statement about the area.
-            score: crate::audit::score_from_penalties(
-                raw_penalty[idx] as f32,
-                criteria[idx].len(),
-                critical_occ[idx],
-                urgent_occ[idx],
-                level_a_urgent_occ[idx],
-            )
-            .round() as u32,
             weight_pct: share_pct[idx],
             estimated_lost_points: lost_points[idx],
             main_driver: drivers[idx]
@@ -836,10 +798,13 @@ mod tests {
                 100 - score,
                 "score {score}: lost points must sum to the actual loss",
             );
-            // `score` is the area on its own terms and is explicitly NOT
-            // `100 - estimated_lost_points`; only its range is guaranteed.
+            // No area may lose more than the page did.
             for area in &breakdown {
-                assert!(area.score <= 100, "{}: score out of range", area.area);
+                assert!(
+                    area.estimated_lost_points <= 100 - score,
+                    "{}: lost more than the page",
+                    area.area
+                );
             }
         }
     }
@@ -853,10 +818,8 @@ mod tests {
 
         assert_eq!(breakdown.len(), 8);
         for area in &breakdown {
-            assert_eq!(area.score, 100, "{}", area.area);
             assert_eq!(area.weight_pct, 0, "{}", area.area);
             assert_eq!(area.estimated_lost_points, 0, "{}", area.area);
-            assert_eq!(area.weight_pct, 0, "{}", area.area);
             assert_eq!(area.main_driver, "No detected driver", "{}", area.area);
         }
     }

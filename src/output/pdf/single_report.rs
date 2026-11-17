@@ -17,7 +17,8 @@ use renderreport::prelude::*;
 use super::design;
 use super::problem_profile::{build_problem_concentration_note, render_problem_profile};
 use super::score_drivers::{
-    render_additional_score_drivers, render_score_driver_table, render_subcategory_breakdown,
+    render_accessibility_loss_breakdown, render_additional_score_drivers,
+    render_score_driver_table, render_subcategory_breakdown,
 };
 
 use super::appendix::build_cli_snapshot_table;
@@ -869,15 +870,19 @@ pub(super) fn render_management_page(
     // score explained at a finer grain than one number (plan/5-module-
     // accessibility-security-driver-detail.md).
     let en_label = i18n.t("module-accessibility");
-    // Same areas and numbers as the JSON `accessibility_score_breakdown`
-    // (#902 item 10).
+    // Same areas and numbers as the JSON `accessibility_score_breakdown`: the
+    // points each area cost, adding up to `100 - accessibility score` (#902
+    // item 10).
     let accessibility_entries: Vec<(String, u32)> = vm
         .modules
         .accessibility_score_areas
         .iter()
         .filter_map(|c| {
             let area = crate::taxonomy::ScoreArea::from_label(&c.area)?;
-            Some((area.localized_label(en).to_string(), c.score))
+            Some((
+                area.localized_label(en).to_string(),
+                c.estimated_lost_points,
+            ))
         })
         .collect();
     // Where each critical accessibility finding counts, from the findings'
@@ -892,9 +897,10 @@ pub(super) fn render_management_page(
             Some((f.title.clone(), area.localized_label(en).to_string()))
         })
         .collect();
-    builder = render_subcategory_breakdown(
+    builder = render_accessibility_loss_breakdown(
         builder,
         &en_label,
+        vm.summary.score,
         &accessibility_entries,
         &accessibility_critical,
         i18n,
@@ -2394,5 +2400,104 @@ pub(super) mod risk_and_strength_tests {
         let r3 = render_part_divider(b3, 3, "T3", "I3", "Z3", "B3", &i18n).build();
         let json = serde_json::to_string(&r3.components).unwrap();
         assert!(json.contains("TECHNICAL APPENDIX"));
+    }
+}
+
+/// #902 item 10: the management page prints the same component numbers as the
+/// JSON, and they add up to the headline accessibility score.
+#[cfg(test)]
+mod one_score_axis_tests {
+    use super::*;
+    use crate::audit::normalized::normalize;
+    use crate::audit::AuditReport;
+    use crate::model::WcagLevel;
+    use crate::output::builder::build_view_model;
+    use crate::wcag::{Severity, Violation, WcagResults};
+
+    #[test]
+    fn pdf_prints_the_json_lost_points_and_the_headline_they_add_up_to() {
+        let mut results = WcagResults::new();
+        let mk = |c: &str, n: &str, s: Severity, id: &str| {
+            Violation::new(c, n, WcagLevel::A, s, "msg", "node-1").with_rule_id(id)
+        };
+        for _ in 0..3 {
+            results.add_violation(mk(
+                "1.1.1",
+                "Non-text",
+                Severity::High,
+                "images/alt-missing",
+            ));
+            results.add_violation(mk("3.3.2", "Labels", Severity::High, "forms/label-missing"));
+        }
+        results.add_violation(mk(
+            "1.3.1",
+            "Info",
+            Severity::Medium,
+            "landmarks/main-missing",
+        ));
+        results.add_violation(mk(
+            "1.4.3",
+            "Contrast",
+            Severity::High,
+            "contrast/text-insufficient",
+        ));
+        let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1500);
+        let normalized = normalize(&report);
+        let json = serde_json::to_value(
+            crate::output::json::UnifiedReport::single_from_normalized(&normalized.normalized),
+        )
+        .unwrap();
+        let headline = json["summary"]["accessibility_score"].as_u64().unwrap();
+        let components = json["summary"]["accessibility_score_breakdown"]
+            .as_array()
+            .unwrap();
+        let lost_total: u64 = components
+            .iter()
+            .map(|c| c["estimated_lost_points"].as_u64().unwrap())
+            .sum();
+        assert_eq!(100 - lost_total, headline);
+
+        for lang in ["en", "de"] {
+            let en = lang == "en";
+            let vm = build_view_model(
+                &normalized,
+                &crate::output::report_model::ReportConfig {
+                    locale: lang.to_string(),
+                    ..Default::default()
+                },
+            );
+            let i18n = I18n::new(lang).unwrap();
+            let text = serde_json::to_string(
+                &render_management_page(
+                    renderreport::engine::ReportBuilder::new("single"),
+                    &vm,
+                    &i18n,
+                )
+                .build()
+                .components,
+            )
+            .unwrap();
+            assert!(
+                text.contains(&format!("100 − {lost_total} = {headline}")),
+                "{lang}: the callout states the arithmetic"
+            );
+            for c in components {
+                let lost = c["estimated_lost_points"].as_u64().unwrap();
+                let area =
+                    crate::taxonomy::ScoreArea::from_label(c["area"].as_str().unwrap()).unwrap();
+                let label = area.localized_label(en);
+                if lost > 0 {
+                    assert!(
+                        text.contains(&format!("{label} −{lost}")),
+                        "{lang}: {label} −{lost} missing from the PDF text"
+                    );
+                } else {
+                    assert!(
+                        !text.contains(&format!("{label} −")),
+                        "{lang}: {label} lost nothing"
+                    );
+                }
+            }
+        }
     }
 }
