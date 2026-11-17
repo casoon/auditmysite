@@ -10,7 +10,7 @@
   "axe_id": "video-caption",
   "severity": "high",
   "user_impact": "Deaf or hard-of-hearing users cannot perceive spoken content.",
-  "technical_impact": "Missing track element for captions.",
+  "technical_impact": "A <video> has no <track kind=\"captions\"> or <track kind=\"subtitles\"> child, so the media element carries no timed text and spoken content has no text equivalent.",
   "checks": [
     {
       "contract_id": "video-caption",

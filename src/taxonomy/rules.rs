@@ -3073,6 +3073,31 @@ mod tests {
         }
     }
 
+    /// A technical impact says what is wrong in the markup and what follows
+    /// for assistive technology (#1013): never a terse stub, and never the
+    /// same sentence for two rules, since each rule detects something else.
+    #[test]
+    fn technical_impacts_are_specific_to_their_rule() {
+        const MIN_CHARS: usize = 40;
+        for en in [false, true] {
+            let mut rule_by_text = std::collections::BTreeMap::new();
+            for rule in RULES {
+                let text = rule.technical_impact(en);
+                assert!(
+                    text.chars().count() >= MIN_CHARS,
+                    "{} (en = {en}): technical impact under {MIN_CHARS} chars: {text:?}",
+                    rule.id
+                );
+                if let Some(other) = rule_by_text.insert(text.clone(), rule.id) {
+                    panic!(
+                        "rules {other} and {} (en = {en}) share the technical impact {text:?}",
+                        rule.id
+                    );
+                }
+            }
+        }
+    }
+
     /// Export every rule text of the catalogue into one data file for review:
     /// one record per rule id, language and field, sorted.
     ///

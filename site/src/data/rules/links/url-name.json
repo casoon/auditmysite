@@ -10,7 +10,7 @@
   "axe_id": "link-name",
   "severity": "medium",
   "user_impact": "Screen reader link lists show meaningless text.",
-  "technical_impact": "Generic link text without context.",
+  "technical_impact": "The accessible name of an <a> is the raw URL, which a screen reader spells out character by character and which says nothing about the content of the target.",
   "checks": [
     {
       "contract_id": "links/url-name",

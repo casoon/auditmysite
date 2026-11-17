@@ -10,7 +10,7 @@
   "axe_id": "color-contrast",
   "severity": "high",
   "user_impact": "Text is hard to read for people with low vision or under poor lighting conditions.",
-  "technical_impact": "Contrast ratio below 4.5:1 for normal text.",
+  "technical_impact": "The contrast of this text could not be computed because its background is an image, a gradient or overlapping layers, so the 4.5:1 ratio stays unmeasured and needs a manual check.",
   "checks": [
     {
       "contract_id": "contrast/text-undetermined",

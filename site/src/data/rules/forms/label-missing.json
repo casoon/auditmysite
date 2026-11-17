@@ -10,7 +10,7 @@
   "axe_id": "label",
   "severity": "high",
   "user_impact": "Users do not know what input is expected.",
-  "technical_impact": "Missing <label> elements.",
+  "technical_impact": "A form control has no programmatically associated label (<label for>, wrapping <label>, aria-label, aria-labelledby or title), so its accessible name is empty and a screen reader announces only the control type.",
   "checks": [
     {
       "contract_id": "forms/label-missing",

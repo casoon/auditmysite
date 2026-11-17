@@ -10,7 +10,7 @@
   "axe_id": "autocomplete-valid",
   "severity": "medium",
   "user_impact": "No autofill possible, data entry more error-prone.",
-  "technical_impact": "Missing autocomplete attributes.",
+  "technical_impact": "An input has an autocomplete attribute whose value is not valid in the HTML token grammar, so the browser ignores it, offers no autofill and exposes no input purpose to assistive technology.",
   "checks": [
     {
       "contract_id": "forms/autocomplete-invalid",

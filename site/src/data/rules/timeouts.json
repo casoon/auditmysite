@@ -10,7 +10,7 @@
   "axe_id": "timeouts",
   "severity": "medium",
   "user_impact": "Users lose unsaved data without warning.",
-  "technical_impact": "Missing timeout warning system.",
+  "technical_impact": "A script ends the session or reloads the page after inactivity without a dialog or live-region warning beforehand, so assistive technology announces nothing and the session cannot be extended in time; the timer is not visible in the markup.",
   "checks": [
     {
       "contract_id": "timeouts",

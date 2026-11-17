@@ -10,7 +10,7 @@
   "axe_id": "redundant-role",
   "severity": "low",
   "user_impact": "No immediate user harm, but an unnecessary risk of inconsistency in future changes.",
-  "technical_impact": "role attribute duplicates the tag's native implicit role.",
+  "technical_impact": "A <ul> or <ol> carries role=\"list\" although its list-style-type is not none, so the role duplicates the native list semantics and changes nothing in the accessibility tree.",
   "checks": [
     {
       "contract_id": "lists/role-redundant",

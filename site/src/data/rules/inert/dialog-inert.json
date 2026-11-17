@@ -10,7 +10,7 @@
   "axe_id": "modern-attribute-misuse",
   "severity": "high",
   "user_impact": "Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.",
-  "technical_impact": "Broken popovertarget references, unnamed surfaces, or active focus inside inert regions.",
+  "technical_impact": "An open <dialog> or one of its ancestors carries the inert attribute, which removes the dialog from the accessibility tree and focus order while it is visible, so keyboard and screen reader users cannot reach it.",
   "checks": [
     {
       "contract_id": "inert/dialog-inert",

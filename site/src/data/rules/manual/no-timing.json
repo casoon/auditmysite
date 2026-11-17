@@ -10,7 +10,7 @@
   "axe_id": "no-timing",
   "severity": "medium",
   "user_impact": "Users cannot complete tasks at their own pace.",
-  "technical_impact": "Active time limits on the page.",
+  "technical_impact": "The page applies time limits such as timeouts, timed redirects or auto-advancing content, and a script cannot tell whether users may turn them off, so this stays a manual check and users who need more time are cut off.",
   "checks": [
     {
       "contract_id": "manual/no-timing",

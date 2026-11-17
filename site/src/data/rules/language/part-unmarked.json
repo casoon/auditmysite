@@ -10,7 +10,7 @@
   "axe_id": "language/part-unmarked",
   "severity": "medium",
   "user_impact": "Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.",
-  "technical_impact": "Heuristic language detection per text block; pages that are neither German nor English stay untested.",
+  "technical_impact": "A text block is detected as being in another language than <html lang> but sits in an element without its own lang attribute, so a screen reader reads it with the pronunciation of the page language.",
   "checks": [
     {
       "contract_id": "language/part-unmarked",

@@ -10,7 +10,7 @@
   "axe_id": "abbreviations",
   "severity": "low",
   "user_impact": "Users do not understand the content if they do not know the abbreviation.",
-  "technical_impact": "Missing abbr tag with title attribute.",
+  "technical_impact": "An abbreviation appears as plain text without <abbr title> or an expansion on first use, so a screen reader spells out the letters or guesses and nothing in the DOM supplies the long form.",
   "checks": [
     {
       "contract_id": "language/abbreviation-unexpanded",

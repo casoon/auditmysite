@@ -10,7 +10,7 @@
   "axe_id": "color-contrast",
   "severity": "high",
   "user_impact": "Text is hard to read for people with low vision or under poor lighting conditions.",
-  "technical_impact": "Contrast ratio below 4.5:1 for normal text.",
+  "technical_impact": "The computed text color against its resolved background has a contrast ratio below 4.5:1 (3:1 for large text), measured from rendered styles; assistive technology cannot compensate for it.",
   "checks": [
     {
       "contract_id": "contrast/text-insufficient",

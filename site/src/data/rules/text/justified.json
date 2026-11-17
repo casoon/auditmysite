@@ -10,7 +10,7 @@
   "axe_id": "visual-presentation",
   "severity": "low",
   "user_impact": "Users with visual impairments or dyslexia have difficulty reading.",
-  "technical_impact": "Insufficient CSS styling for line spacing or justified-text formatting.",
+  "technical_impact": "A text block uses text-align: justify, which produces uneven word spacing and rivers of white space that readers with dyslexia or low vision cannot adjust, as the style is fixed in CSS.",
   "checks": [
     {
       "contract_id": "text/justified",

@@ -10,7 +10,7 @@
   "axe_id": "document/lang-missing",
   "severity": "high",
   "user_impact": "Screen readers read aloud with incorrect pronunciation.",
-  "technical_impact": "Missing lang attribute.",
+  "technical_impact": "The root <html> element carries no valid lang attribute, so browsers cannot choose spell checking, hyphenation and quotation rules and a screen reader reads with its default voice.",
   "checks": [
     {
       "contract_id": "html-has-lang",

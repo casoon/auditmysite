@@ -10,7 +10,7 @@
   "axe_id": "lists/term-without-definition",
   "severity": "medium",
   "user_impact": "Screen reader users cannot recognize the term and its definition as belonging together.",
-  "technical_impact": "<dt> without a following <dd> inside the <dl>.",
+  "technical_impact": "A <dt> inside a <dl> is not followed by a <dd>, so the term has no definition and a screen reader announces a description list whose entries are incomplete.",
   "checks": [
     {
       "contract_id": "lists/term-without-definition",

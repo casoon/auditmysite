@@ -10,7 +10,7 @@
   "axe_id": "re-authenticate",
   "severity": "low",
   "user_impact": "Users must re-enter all form data.",
-  "technical_impact": "Missing session data preservation.",
+  "technical_impact": "After a session expires and the user signs in again, entered form values are not restored because the DOM state is discarded with the reload; the markup cannot show whether data is kept, so this stays a manual check.",
   "checks": [
     {
       "contract_id": "manual/re-authenticating",

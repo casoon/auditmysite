@@ -10,7 +10,7 @@
   "axe_id": "click-events-have-key-events",
   "severity": "high",
   "user_impact": "Keyboard users cannot trigger the function.",
-  "technical_impact": "onclick on a <div>/<span> without onkeydown/onkeyup, tabindex, or a matching role.",
+  "technical_impact": "A non-interactive element has a click listener but no key handler (onkeydown or onkeyup) and no interactive role, so its function can only be triggered with a pointer and it is exposed as plain text.",
   "checks": [
     {
       "contract_id": "keyboard/pointer-only",

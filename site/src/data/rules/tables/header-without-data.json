@@ -10,7 +10,7 @@
   "axe_id": "th-has-data-cells",
   "severity": "high",
   "user_impact": "Screen readers announce a header that structures no data.",
-  "technical_impact": "Header cell with no associated data cells in the table.",
+  "technical_impact": "A <th> has no data cell in its row or column that it could label, so a screen reader announces a header that structures no data.",
   "checks": [
     {
       "contract_id": "tables/header-without-data",

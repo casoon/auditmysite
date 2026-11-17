@@ -10,7 +10,7 @@
   "axe_id": "label",
   "severity": "high",
   "user_impact": "Users do not know what input is expected.",
-  "technical_impact": "Missing <label> elements.",
+  "technical_impact": "An input that expects a specific format (date, phone number, pattern) has no instruction in its <label>, in aria-describedby or in adjacent text, so a screen reader announces the field name but not the expected format.",
   "checks": [
     {
       "contract_id": "forms/instructions-missing",

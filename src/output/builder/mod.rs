@@ -947,7 +947,9 @@ mod tests {
         assert_eq!(group.affected_urls.len(), 2);
         assert_eq!(
             group.customer_description,
-            "Fehlendes Refresh- oder Timeout-Handling im Script/Markup."
+            crate::taxonomy::rules::RuleLookup::by_id("timing/meta-refresh")
+                .expect("rule is in the catalogue")
+                .technical_impact(false)
         );
         assert_eq!(
             group.effort,

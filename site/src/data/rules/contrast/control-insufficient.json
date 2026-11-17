@@ -10,7 +10,7 @@
   "axe_id": "non-text-contrast",
   "severity": "medium",
   "user_impact": "Interactive elements are hard to recognize.",
-  "technical_impact": "Contrast ratio of UI elements below 3:1.",
+  "technical_impact": "The border, icon or state indicator of an interactive control has a contrast ratio below 3:1 against its adjacent colors, measured from computed styles, so the control boundary is hard to perceive.",
   "checks": [
     {
       "contract_id": "contrast/control-insufficient",

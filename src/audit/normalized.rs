@@ -2584,7 +2584,11 @@ mod tests {
             finding.user_impact,
             "Screen reader users receive no image information."
         );
-        assert_eq!(finding.technical_impact, "Non-conformant image markup.");
+        assert!(
+            finding.technical_impact.contains("no alt attribute"),
+            "{}",
+            finding.technical_impact
+        );
         // Guard: no German diacritics leak into the canonical-English JSON.
         for field in [
             &finding.title,

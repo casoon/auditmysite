@@ -10,7 +10,7 @@
   "axe_id": "headings/h1-multiple",
   "severity": "low",
   "user_impact": "Screen reader users find it harder to tell the actual page title from the rest.",
-  "technical_impact": "Several <h1> elements in the document.",
+  "technical_impact": "The document contains more than one <h1>, so the heading outline has several top-level entries and a screen reader user cannot tell which one names the page.",
   "checks": [
     {
       "contract_id": "headings/h1-multiple",

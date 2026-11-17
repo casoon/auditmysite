@@ -10,7 +10,7 @@
   "axe_id": "th-has-data-cells",
   "severity": "high",
   "user_impact": "Screen readers announce a header that structures no data.",
-  "technical_impact": "Header cell with no associated data cells in the table.",
+  "technical_impact": "A <th> could not be matched to data cells because the table rows were not rendered at test time (lazy or scripted content), so the header and data association stays unverified.",
   "checks": [
     {
       "contract_id": "tables/data-undetermined",

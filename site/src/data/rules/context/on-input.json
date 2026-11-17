@@ -10,7 +10,7 @@
   "axe_id": "input-no-context-change",
   "severity": "medium",
   "user_impact": "Confusing changes while filling out forms.",
-  "technical_impact": "Auto-submit on onchange.",
+  "technical_impact": "A form control has an onchange or oninput handler that submits the form or navigates without a submit button, so picking an option with the keyboard changes the context unannounced.",
   "checks": [
     {
       "contract_id": "context/on-input",

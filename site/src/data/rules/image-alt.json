@@ -10,7 +10,7 @@
   "axe_id": "image-alt",
   "severity": "high",
   "user_impact": "Screen reader users receive no image information.",
-  "technical_impact": "Non-conformant image markup.",
+  "technical_impact": "An <img> element has no alt attribute, so the accessibility tree gives it no name and a screen reader reads out the file name or skips the image.",
   "checks": [
     {
       "contract_id": "image-alt",

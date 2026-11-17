@@ -10,7 +10,7 @@
   "axe_id": "click-events-have-key-events",
   "severity": "high",
   "user_impact": "Keyboard users cannot trigger the function.",
-  "technical_impact": "onclick on a <div>/<span> without onkeydown/onkeyup, tabindex, or a matching role.",
+  "technical_impact": "A <div> or <span> has an onclick handler but no tabindex and no interactive role, so keyboard and switch users cannot reach it and the accessibility tree exposes no action.",
   "checks": [
     {
       "contract_id": "keyboard/click-handler-not-focusable",

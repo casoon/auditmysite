@@ -10,7 +10,7 @@
   "axe_id": "document/lang-missing",
   "severity": "high",
   "user_impact": "Screen readers read aloud with incorrect pronunciation.",
-  "technical_impact": "Missing lang attribute.",
+  "technical_impact": "The <html> element has no lang attribute or an empty one, so the document language is undefined and a screen reader falls back to its default voice and mispronounces the text.",
   "checks": [
     {
       "contract_id": "document/lang-missing",

@@ -10,7 +10,7 @@
   "axe_id": "keyboard/positive-tabindex",
   "severity": "high",
   "user_impact": "Keyboard users reach elements in an order that does not match the page layout.",
-  "technical_impact": "tabindex value greater than 0.",
+  "technical_impact": "An element has a tabindex above 0, so it moves ahead of all elements with tabindex 0 or none in the tab order regardless of its DOM position, and focus order and reading order diverge.",
   "checks": [
     {
       "contract_id": "keyboard/positive-tabindex",

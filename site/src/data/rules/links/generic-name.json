@@ -10,7 +10,7 @@
   "axe_id": "link-name",
   "severity": "medium",
   "user_impact": "Screen reader link lists show meaningless text.",
-  "technical_impact": "Generic link text without context.",
+  "technical_impact": "The accessible name of an <a> is a generic phrase such as \"click here\" or \"read more\" that names no purpose without its surroundings, so in a screen reader link list all such links sound identical.",
   "checks": [
     {
       "contract_id": "links/generic-name",

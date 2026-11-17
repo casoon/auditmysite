@@ -10,7 +10,7 @@
   "axe_id": "focus-visible",
   "severity": "high",
   "user_impact": "Keyboard users cannot see which element is focused.",
-  "technical_impact": "CSS outline:none without an alternative.",
+  "technical_impact": "A CSS rule sets outline: none (or outline: 0) on a focusable element without a replacement style such as box-shadow or border, so keyboard users see no focus indicator.",
   "checks": [
     {
       "contract_id": "focus-visible",

@@ -10,7 +10,7 @@
   "axe_id": "modern-attribute-misuse",
   "severity": "high",
   "user_impact": "Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.",
-  "technical_impact": "Broken popovertarget references, unnamed surfaces, or active focus inside inert regions.",
+  "technical_impact": "A popovertarget attribute points to an element that exists but has no popover attribute, so the invoking button does nothing and the target is not exposed as a popover.",
   "checks": [
     {
       "contract_id": "popover/target-invalid",

@@ -10,7 +10,7 @@
   "axe_id": "display/text-not-visible",
   "severity": "high",
   "user_impact": "In text mode the statement of the visualisation is lost.",
-  "technical_impact": "[data-viz-text] missing, empty or not visible with html[data-display=text].",
+  "technical_impact": "A figure[data-viz] visualisation has no [data-viz-text] element or only an empty one, so no text layer exists in any display mode and assistive technology sees only the graphic.",
   "checks": [
     {
       "contract_id": "viz/text-missing",

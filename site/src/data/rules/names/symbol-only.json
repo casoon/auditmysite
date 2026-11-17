@@ -10,7 +10,7 @@
   "axe_id": "aria-label",
   "severity": "high",
   "user_impact": "Screen reader users are not told what the element does.",
-  "technical_impact": "Missing or purely symbolic aria-label/aria-labelledby/text content.",
+  "technical_impact": "The accessible name comes from an attribute such as aria-label and consists only of symbols like \"×\" or \"☰\", so a screen reader reads a symbol name or nothing and the name does not describe the function.",
   "checks": [
     {
       "contract_id": "names/symbol-only",
