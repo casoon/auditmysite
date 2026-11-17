@@ -26,7 +26,7 @@ The output directory holds:
 
 - one `<site>-<path>-<date>-single-report.json` per audited page — the regular single-page JSON,
 - `index.json` — every attempted URL in input order with `file` (or `null`), `status` (`ok`,
-  `blocked` for bot walls and access denials, `failed`), `reason`, `overall_score`,
+  `blocked` for bot walls and access denials, `failed`), `reason`, `site_quality_score`,
   `accessibility_score`, `finding_count`, `occurrence_count` and `audit_quality`,
 - `findings.jsonl` — one line per finding occurrence across all pages: `url`, `source` (`wcag`,
   `journey`, `seo`, `html_conform`), `rule_id`, `wcag_criterion`, `level`, `severity`,

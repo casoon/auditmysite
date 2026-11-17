@@ -100,14 +100,14 @@ In the rendered PDF:
 - Heuristic score cards carry the description "Heuristic estimate based on structural
   signals" in the subtitle.
 - Indicator modules may be displayed in the module dashboard, but do not contribute to
-  the combined technical score unless explicitly marked as contributing in the JSON model.
+  the site-quality score unless explicitly marked as contributing in the JSON model.
   They carry no letter grade — a grade on a module that feeds nothing claims an authority
   it does not have.
 - An indicator that re-reads another module's result instead of measuring anything new names
   the modules it derives from in the JSON model (`derived_from` on its module score).
 - The cover headline is the accessibility score, with its grade. The cover carries no certificate or badge: an automated check covers only part of the criteria and certifies nothing (#911). The weighted
-  combined technical score is a separate, labelled card carrying its weight basis, never the
-  headline.
+  site-quality score (optional modules) is a separate, labelled card carrying its weight basis, never the
+  headline. The batch cover follows the same rule: the score card and the grade are the accessibility average, and the mean site-quality score is the labelled note beneath the row (`batch-cover-site-quality-score-note`). The gauge strip of the single cover is titled "modules in the site-quality score".
 - No visual distinction between measured and heuristic modules in the module overview strip —
   the indicator suffix is the only differentiator.
 
@@ -219,12 +219,12 @@ surface that owns its lifecycle:
   translates it.
 - `locales/{de,en}/single-report.ftl`: the texts of the single PDF's page
   sections (`output::pdf::single_report`, `single-report-*`): the part
-  dividers, the management summary (scope line, evidence note, overall
-  rating, risks and strengths, key measures), the findings classification and
+  dividers, the management summary (scope line, evidence note,
+  accessibility rating, risks and strengths, key measures), the findings classification and
   matrix, the appendix with its manual-review notes, the recognized structural
   patterns and the dual viewport summary. The render functions keep the
   thresholds, which message applies and how lists are joined; the severity
-  labels, the overall rating title, verdict words and reasons, the module
+  labels, the accessibility rating title, verdict words and reasons, the module
   names and the matrix column headers are reused `report.ftl` messages.
 - `locales/{de,en}/methodology.ftl`: the texts of the single report's
   methodology section (`output::builder::single::methodology::build_methodology`:
@@ -268,7 +268,7 @@ surface that owns its lifecycle:
   `report.ftl`.
 - `locales/{de,en}/score-drivers.ftl`: the texts of the single PDF's score
   drivers in the management summary (`output::pdf::score_drivers`,
-  `score-drivers-*`): the combined technical score card, the score-driver
+  `score-drivers-*`): the site-quality score card, the score-driver
   table (title per calculation method, column headings, the assessment per
   module), the weight-basis note, the viewport-weighted score derivation
   (title, column headings, step and input labels, note), the additional
@@ -386,7 +386,7 @@ surface that owns its lifecycle:
   WCAG signal) and aspects (`output::builder::single::{executive,
   positive}`), the executive key points and the score driver note, the audit
   quality note with the stability measurements it names and the quick-win
-  metric label (`output::builder::single`), the overall score explanation
+  metric label (`output::builder::single`), the site-quality score explanation
   (`modules_block`), the page health rows (`serp`) and the performance,
   security and mobile detail rows (`module_details::{performance,
   platform}`: labels, guideline texts, the security score rows and band note,

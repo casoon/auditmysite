@@ -1,7 +1,7 @@
 //! Modul-Scores des normalisierten Reports.
 //!
 //! Baut aus dem rohen `AuditReport` die `ModuleScoreEntry`-Liste, aus der
-//! `normalize` den gewichteten `overall_score` ableitet. Die Gewichte selbst
+//! `normalize` den gewichteten `site_quality_score` ableitet. Die Gewichte selbst
 //! stehen in `taxonomy::module_weight` und werden von
 //! `ModuleScoreEntry::new` nachgeschlagen. Die Accessibility-Abzüge auf die
 //! UX- und Journey-Indikatoren liegen hier, weil sie nur beim Aufbau der
@@ -19,7 +19,7 @@ pub(super) fn build_module_scores(
     let mut module_scores = Vec::new();
     // A scoring collection that failed leaves the module score built from
     // fewer measurements than it names (#777): it is shown as partial and
-    // does not feed the overall score.
+    // does not feed the site-quality score.
     let scoring_gap = |module: &str| {
         report
             .accessibility
@@ -48,7 +48,7 @@ pub(super) fn build_module_scores(
     if let Some(ref perf) = report.performance {
         // No Core Web Vitals could be measured (e.g. collection failed) — a
         // score of 0 here means "not measured", not "unusably slow". Exclude
-        // it from the weighted overall score rather than tanking it (#QA-023).
+        // it from the weighted site-quality score rather than tanking it (#QA-023).
         let measured = perf.score.has_core_metrics() && !scoring_gap("performance");
         module_scores.push(ModuleScoreEntry::new(
             "Performance",
@@ -155,7 +155,7 @@ pub(super) fn build_module_scores(
         ));
     }
 
-    // Indicator modules that compute a 0–100 score but do not feed the overall
+    // Indicator modules that compute a 0–100 score but do not feed the site-quality
     // score. Previously their score was serialized raw with no grade and no
     // entry here, so the report showed a bare number with no relation to the
     // rest (#447). They appear here consistently as non-contributing

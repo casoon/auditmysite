@@ -528,14 +528,14 @@ pub(super) fn average_accessibility_score(reports: &[NormalizedReport]) -> u32 {
     }
 }
 
-/// Sum of the module weights that actually fed `overall_score`.
+/// Sum of the module weights that actually fed `site_quality_score`.
 ///
 /// The score is divided by the weight of the *contributing* modules, so a
 /// module that did not run — or that ran but could not measure, as Performance
 /// does when no Core Web Vital came back (#QA-023) — silently changes the
 /// denominator rather than the result. Publishing the basis lets a consumer
 /// see that two runs are not comparable (plan 41).
-pub(super) fn overall_score_weight_basis(reports: &[NormalizedReport]) -> u32 {
+pub(super) fn site_quality_score_weight_basis(reports: &[NormalizedReport]) -> u32 {
     // Batch: the lowest basis across the audited pages, so the published value
     // never overstates how much of the model backs the average. When the pages
     // disagree, `weight_basis_is_uniform` is what says the average mixes
@@ -544,7 +544,7 @@ pub(super) fn overall_score_weight_basis(reports: &[NormalizedReport]) -> u32 {
 }
 
 /// Whether every audited page contributed the same weight basis. `false` means
-/// `overall_score` values were averaged across different module sets and are
+/// `site_quality_score` values were averaged across different module sets and are
 /// not directly comparable.
 pub(super) fn weight_basis_is_uniform(reports: &[NormalizedReport]) -> bool {
     let bases = page_weight_bases(reports);
@@ -558,7 +558,7 @@ fn page_weight_bases(reports: &[NormalizedReport]) -> Vec<u32> {
             report
                 .module_scores
                 .iter()
-                .filter(|m| m.contributes_to_overall)
+                .filter(|m| m.contributes_to_site_quality_score)
                 .map(|m| m.weight_pct)
                 .sum()
         })
@@ -888,31 +888,31 @@ mod tests {
     fn weight_basis_drops_when_a_weighted_module_does_not_contribute() {
         let mut report = make_report(vec![]);
         assert_eq!(
-            overall_score_weight_basis(std::slice::from_ref(&report)),
+            site_quality_score_weight_basis(std::slice::from_ref(&report)),
             report
                 .module_scores
                 .iter()
-                .filter(|m| m.contributes_to_overall)
+                .filter(|m| m.contributes_to_site_quality_score)
                 .map(|m| m.weight_pct)
                 .sum::<u32>(),
         );
 
-        let full = overall_score_weight_basis(std::slice::from_ref(&report));
+        let full = site_quality_score_weight_basis(std::slice::from_ref(&report));
         if let Some(entry) = report
             .module_scores
             .iter_mut()
-            .find(|m| m.contributes_to_overall && m.weight_pct > 0)
+            .find(|m| m.contributes_to_site_quality_score && m.weight_pct > 0)
         {
             let dropped = entry.weight_pct;
-            entry.contributes_to_overall = false;
+            entry.contributes_to_site_quality_score = false;
             assert_eq!(
-                overall_score_weight_basis(std::slice::from_ref(&report)),
+                site_quality_score_weight_basis(std::slice::from_ref(&report)),
                 full - dropped,
             );
         }
     }
 
-    /// Plan 41, batch: averaging `overall_score` across pages with different
+    /// Plan 41, batch: averaging `site_quality_score` across pages with different
     /// module sets mixes incomparable numbers. The published basis must not
     /// overstate the backing, and the uniformity flag must say when they
     /// disagreed.
@@ -923,18 +923,18 @@ mod tests {
         let dropped = reduced
             .module_scores
             .iter_mut()
-            .find(|m| m.contributes_to_overall && m.weight_pct > 0)
+            .find(|m| m.contributes_to_site_quality_score && m.weight_pct > 0)
             .map(|m| {
-                m.contributes_to_overall = false;
+                m.contributes_to_site_quality_score = false;
                 m.weight_pct
             })
             .expect("a weighted module to drop");
 
-        let full_basis = overall_score_weight_basis(std::slice::from_ref(&full));
+        let full_basis = site_quality_score_weight_basis(std::slice::from_ref(&full));
 
         assert!(weight_basis_is_uniform(&[full.clone(), full.clone()]));
         assert_eq!(
-            overall_score_weight_basis(&[full.clone(), full.clone()]),
+            site_quality_score_weight_basis(&[full.clone(), full.clone()]),
             full_basis,
         );
 
@@ -944,7 +944,7 @@ mod tests {
             "differing module sets must not read as uniform",
         );
         assert_eq!(
-            overall_score_weight_basis(&mixed),
+            site_quality_score_weight_basis(&mixed),
             full_basis - dropped,
             "the published basis must be the lowest, not the first page's",
         );

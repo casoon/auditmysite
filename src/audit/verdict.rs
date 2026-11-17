@@ -10,7 +10,7 @@
 //!
 //! Score basis: thresholds compare the **accessibility score**
 //! (`NormalizedReport.score`), the subject of the report. The grade is a band
-//! of the same score. `overall_score` is the module-weighted technical value;
+//! of the same score. `site_quality_score` is the module-weighted technical value;
 //! it carries no grade and never decides the verdict.
 //!
 //! `decision/3` removed the certificate (#911): an automated tool that
@@ -1030,7 +1030,7 @@ mod tests {
             100,
         );
         let mut n = normalize(&clean).normalized;
-        n.overall_score = 100;
+        n.site_quality_score = 100;
         let profile = DecisionProfile::resolve(None, None, None, Some(50), Some(70));
         for (score, expected) in [
             (70, Verdict::Pass),
@@ -1045,9 +1045,9 @@ mod tests {
                 "score {score}"
             );
         }
-        // The overall score never decides.
+        // The site-quality score never decides.
         n.score = 100;
-        n.overall_score = 10;
+        n.site_quality_score = 10;
         assert_eq!(compute_verdict(&n, &profile).verdict, Verdict::Pass);
     }
 
@@ -1144,7 +1144,7 @@ mod tests {
 
     /// Compact feed with diverging scores: one grade basis (accessibility),
     /// both scores named, no unqualified `score`. Before, `score` was the
-    /// overall value and `grade` was banded from it while the report's grade
+    /// site-quality score and `grade` was banded from it while the report's grade
     /// described accessibility.
     #[test]
     fn compact_summary_names_both_scores_and_one_grade_basis() {
@@ -1160,16 +1160,16 @@ mod tests {
         });
         let n = normalize(&report).normalized;
         assert!(
-            n.overall_score + 10 < n.score,
+            n.site_quality_score + 10 < n.score,
             "{} vs {}",
-            n.overall_score,
+            n.site_quality_score,
             n.score
         );
         let summary: serde_json::Value =
             serde_json::from_str(&crate::output::summary::format_summary(&n).unwrap()).unwrap();
         assert!(summary.get("score").is_none());
         assert_eq!(summary["accessibilityScore"], n.score);
-        assert_eq!(summary["overallScore"], n.overall_score);
+        assert_eq!(summary["siteQualityScore"], n.site_quality_score);
         assert_eq!(summary["grade"], n.grade.as_str());
         assert_eq!(
             summary["label"],
@@ -1212,14 +1212,14 @@ mod tests {
             desktop: ViewportScoreSet {
                 accessibility: 100,
                 performance: None,
-                overall: 100,
+                site_quality: 100,
             },
             mobile: ViewportScoreSet {
                 accessibility: 40,
                 performance: None,
-                overall: 40,
+                site_quality: 40,
             },
-            weighted_overall: 58,
+            weighted_site_quality: 58,
         });
         // 0.7 * 40 + 0.3 * 100 = 58 -> grade F/D band, below warn 70.
         let n = normalize(&report).normalized;

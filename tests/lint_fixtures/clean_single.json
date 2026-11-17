@@ -1,9 +1,9 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "report_type": "single",
   "summary": {
     "accessibility_score": 82,
-    "overall_score": 82,
+    "site_quality_score": 82,
     "grade": "B",
     "severity_counts": {
       "critical": 1,
@@ -25,7 +25,7 @@
   "pages": [
     {
       "accessibility_score": 82,
-      "overall_score": 82,
+      "site_quality_score": 82,
       "grade": "B",
       "severity_counts": {
         "critical": 1,

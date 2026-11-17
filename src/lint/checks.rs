@@ -29,7 +29,7 @@ const CHECK_UNMEASURED_MODULES: &str = "unmeasured_module_carries_no_result";
 const SCORED_RUNS: &[(&str, &str)] = &[("best_practices", "Best Practices")];
 
 /// A module that measured nothing must not show up as a result (plan 69): a
-/// `not_measured` entry never feeds the overall score, and a run that failed
+/// `not_measured` entry never feeds the site-quality score, and a run that failed
 /// outright never has a score entry claiming `measured`.
 fn check_unmeasured_modules_carry_no_result(report: &Value, findings: &mut Vec<LintFinding>) {
     let Some(pages) = report.get("pages").and_then(Value::as_array) else {
@@ -45,7 +45,7 @@ fn check_unmeasured_modules_carry_no_result(report: &Value, findings: &mut Vec<L
             let unmeasured =
                 entry.get("measurement_type").and_then(Value::as_str) == Some("not_measured");
             let contributes = entry
-                .get("contributes_to_overall")
+                .get("contributes_to_site_quality_score")
                 .and_then(Value::as_bool)
                 .unwrap_or(false);
             if unmeasured && contributes {
@@ -55,8 +55,9 @@ fn check_unmeasured_modules_carry_no_result(report: &Value, findings: &mut Vec<L
                         "pages[{i}].module_scores[{}]",
                         field_str(entry, "name")
                     ),
-                    expected: "contributes_to_overall = false for not_measured".to_string(),
-                    actual: "contributes_to_overall = true".to_string(),
+                    expected: "contributes_to_site_quality_score = false for not_measured"
+                        .to_string(),
+                    actual: "contributes_to_site_quality_score = true".to_string(),
                     severity: Severity::High,
                 });
             }
@@ -97,7 +98,7 @@ fn check_unmeasured_modules_carry_no_result(report: &Value, findings: &mut Vec<L
 
 const CHECK_INDICATOR_WEIGHT: &str = "indicator_carries_no_weight";
 
-/// A module either feeds the overall score — with a weight above 0 — or it
+/// A module either feeds the site-quality score — with a weight above 0 — or it
 /// is an indicator: weight 0 and no letter grade (OUTPUT_CONTRACT). Anything
 /// in between would let a derived value count twice or look like a graded
 /// module without counting.
@@ -113,13 +114,13 @@ fn check_indicators_carry_no_weight(report: &Value, findings: &mut Vec<LintFindi
             .unwrap_or_default();
         for entry in scores {
             let contributes = entry
-                .get("contributes_to_overall")
+                .get("contributes_to_site_quality_score")
                 .and_then(Value::as_bool)
                 .unwrap_or(false);
             let weight = entry.get("weight_pct").and_then(Value::as_u64).unwrap_or(0);
             let graded = entry.get("grade").is_some_and(|g| !g.is_null());
             let actual = match (contributes, weight > 0, graded) {
-                (true, false, _) => "contributes_to_overall with weight_pct 0",
+                (true, false, _) => "contributes_to_site_quality_score with weight_pct 0",
                 (false, true, _) => "weight_pct above 0 without contributing",
                 (false, false, true) => "a letter grade on an unweighted indicator",
                 _ => continue,
@@ -207,7 +208,7 @@ fn check_accessibility_breakdown_reconciles(report: &Value, findings: &mut Vec<L
 const CHECK_SCORE_ALIAS: &str = "score_alias_removed";
 const CHECK_SINGLE_SUMMARY_MATCHES_PAGE: &str = "single_summary_matches_page";
 
-/// Schema 2.0 has no `summary.score`: it read as the overall score next to an
+/// Schema 2.0 has no `summary.score`: it read as the site-quality score next to an
 /// accessibility grade (#781). A report that still carries it mixes score
 /// semantics and is flagged; for single-page reports the summary must equal
 /// the (sole) page's own scores — the shape of the historical "18/100 vs
@@ -221,7 +222,7 @@ fn check_score_consistency(report: &Value, findings: &mut Vec<LintFinding>) {
         findings.push(LintFinding {
             check_id: CHECK_SCORE_ALIAS,
             evidence_path: "summary.score".to_string(),
-            expected: "absent (use overall_score or accessibility_score)".to_string(),
+            expected: "absent (use site_quality_score or accessibility_score)".to_string(),
             actual: alias.to_string(),
             severity: Severity::High,
         });
@@ -242,7 +243,7 @@ fn check_score_consistency(report: &Value, findings: &mut Vec<LintFinding>) {
         return;
     };
 
-    for field in ["accessibility_score", "overall_score"] {
+    for field in ["accessibility_score", "site_quality_score"] {
         if let (Some(summary_val), Some(page_val)) = (
             summary.get(field).and_then(Value::as_i64),
             page.get(field).and_then(Value::as_i64),
@@ -262,16 +263,16 @@ fn check_score_consistency(report: &Value, findings: &mut Vec<LintFinding>) {
 
 // ─── Grade consistency ────────────────────────────────────────
 
-// Named after what they check. The basis moved from `overall_score` to
+// Named after what they check. The basis moved from `site_quality_score` to
 // `accessibility_score` with plan 29, D1, so the old
-// `*_matches_overall_score` ids would now name the wrong field.
+// `*_matches_site_quality_score` ids would now name the wrong field.
 const CHECK_GRADE_MATCHES_SCORE: &str = "grade_matches_accessibility_score";
 
 /// `grade` must be derivable from `accessibility_score` via the same shared
 /// `BandSet` the production code uses (`calculate_grade`) — catches a grade
 /// computed from a different (e.g. stale or pre-normalization) score base.
 fn check_grade(node: &Value, evidence_prefix: &str, findings: &mut Vec<LintFinding>) {
-    // Accessibility, not the weighted overall: the grade describes the
+    // Accessibility, not the weighted site-quality score: the grade describes the
     // subject of the report (plan 29, D1).
     let Some(basis) = node.get("accessibility_score").and_then(Value::as_i64) else {
         return;
@@ -731,12 +732,12 @@ mod tests {
 
     fn clean_single_report() -> Value {
         json!({
-            "schema_version": "2.0",
+            "schema_version": "2.1",
             "report_type": "single",
             "metric_context": registry_metric_context_json("single"),
             "summary": {
                 "accessibility_score": 82,
-                "overall_score": 82,
+                "site_quality_score": 82,
                 "grade": "B",
                 "severity_counts": {"critical": 1, "high": 2, "medium": 0, "low": 0, "total": 3},
                 "violated_rule_count": 3,
@@ -746,7 +747,7 @@ mod tests {
             "pages": [
                 {
                     "accessibility_score": 82,
-                    "overall_score": 82,
+                    "site_quality_score": 82,
                     "grade": "B",
                             "severity_counts": {"critical": 1, "high": 2, "medium": 0, "low": 0, "total": 3},
                     "violated_rule_count": 3,
@@ -778,7 +779,7 @@ mod tests {
         // The historical "18/100 vs 20/100" shape: summary and the sole page
         // disagree on the same canonical score.
         let mut report = clean_single_report();
-        report["pages"][0]["overall_score"] = json!(80);
+        report["pages"][0]["site_quality_score"] = json!(80);
         report["pages"][0]["grade"] = json!("B");
         let mut findings = Vec::new();
         run_all_checks(&report, &mut findings);
@@ -822,11 +823,11 @@ mod tests {
 
     fn clean_batch_report() -> Value {
         json!({
-            "schema_version": "2.0",
+            "schema_version": "2.1",
             "report_type": "batch",
             "summary": {
                 "accessibility_score": 82,
-                "overall_score": 82,
+                "site_quality_score": 82,
                 "grade": "B",
                 // 3 distinct rules across the whole batch (global count), but
                 // severity_counts.total sums per-page distinct-rule rows, so
@@ -839,7 +840,7 @@ mod tests {
             "pages": [
                 {
                     "accessibility_score": 82,
-                    "overall_score": 82,
+                    "site_quality_score": 82,
                     "grade": "B",
                             "severity_counts": {"critical": 0, "high": 1, "medium": 1, "low": 0, "total": 2},
                     "violated_rule_count": 2,
@@ -903,7 +904,7 @@ mod tests {
     fn missing_optional_fields_do_not_panic_or_false_positive() {
         let report = json!({
             "report_type": "single",
-            "summary": {"overall_score": 50}
+            "summary": {"site_quality_score": 50}
         });
         let mut findings = Vec::new();
         run_all_checks(&report, &mut findings);
@@ -1038,12 +1039,12 @@ mod tests {
     }
 
     #[test]
-    fn pdf_score_traceability_follows_the_accessibility_score_not_overall() {
+    fn pdf_score_traceability_follows_the_accessibility_score_not_site_quality() {
         // dm.de, 2026-09-28: accessibility 25, overall 43. The PDF prints the
         // accessibility score (plan 63).
         let mut report = clean_single_report();
         report["summary"]["accessibility_score"] = json!(25);
-        report["summary"]["overall_score"] = json!(43);
+        report["summary"]["site_quality_score"] = json!(43);
         let typst_source = "... 25/100 ...";
         let mut findings = Vec::new();
         check_pdf_score_traceability(&report, typst_source, &mut findings);
@@ -1080,7 +1081,7 @@ mod measurement_status_tests {
         let not_measured = |contributes: bool| {
             serde_json::json!({ "module_scores": [{
                 "name": "Performance", "score": 0,
-                "measurement_type": "not_measured", "contributes_to_overall": contributes
+                "measurement_type": "not_measured", "contributes_to_site_quality_score": contributes
             }]})
         };
         assert!(lint(not_measured(false)).is_empty());
@@ -1091,7 +1092,7 @@ mod measurement_status_tests {
                 "module_runs": [{"module": "best_practices", "status": "failed"}],
                 "module_scores": [{
                     "name": "Best Practices", "score": 100,
-                    "measurement_type": measurement, "contributes_to_overall": false
+                    "measurement_type": measurement, "contributes_to_site_quality_score": false
                 }]
             })
         };
@@ -1111,10 +1112,10 @@ mod measurement_status_tests {
         };
         let weighted = serde_json::json!({
             "name": "SEO", "score": 65, "grade": "D", "weight_pct": 15,
-            "contributes_to_overall": true
+            "contributes_to_site_quality_score": true
         });
         let indicator = serde_json::json!({
-            "name": "UX", "score": 68, "weight_pct": 0, "contributes_to_overall": false
+            "name": "UX", "score": 68, "weight_pct": 0, "contributes_to_site_quality_score": false
         });
         assert!(check(weighted).is_empty());
         assert!(check(indicator.clone()).is_empty());

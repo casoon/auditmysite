@@ -173,8 +173,8 @@ pub enum ScoringEffect {
     Deduction,
     /// A technical blocker: caps the owner's score and is a decision reason.
     Gate,
-    /// Charged only in an unweighted indicator (`contributes_to_overall`
-    /// false); never in the overall score or the verdict.
+    /// Charged only in an unweighted indicator (`contributes_to_site_quality_score`
+    /// false); never in the site-quality score or the verdict.
     Indicator,
     /// Feeds the risk assessment (risk level, legal flags, blocking issues),
     /// not a score.
@@ -1901,7 +1901,7 @@ mod tests {
         assert!(crate::audit::finding_titles::finding_fix(&finding.rule_id, true).is_some());
 
         assert_eq!(n.score, clean.score);
-        assert_eq!(n.overall_score, clean.overall_score);
+        assert_eq!(n.site_quality_score, clean.site_quality_score);
         let scores = |n: &NormalizedReport| {
             n.module_scores
                 .iter()

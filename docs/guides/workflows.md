@@ -95,7 +95,7 @@ The output directory then holds:
 
 - one `<site>-<path>-<date>-single-report.json` per audited page (the regular single-page JSON),
 - `index.json`: every attempted URL in input order with `file` (or `null`), `status`
-  (`ok`, `blocked` for bot walls/access denials, `failed`), `reason`, `overall_score`,
+  (`ok`, `blocked` for bot walls/access denials, `failed`), `reason`, `site_quality_score`,
   `accessibility_score`, `finding_count`, `occurrence_count` and `audit_quality`
   (schema: [`docs/technician-index.schema.json`](https://github.com/casoon/auditmysite/blob/main/docs/technician-index.schema.json)),
 - `findings.jsonl`: one line per finding occurrence across all pages — `url`, `source`

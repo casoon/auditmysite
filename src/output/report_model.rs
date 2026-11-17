@@ -184,8 +184,8 @@ pub struct CoverBlock {
 pub struct SummaryBlock {
     /// Accessibility-only score (corrected after suppressions).
     pub score: u32,
-    /// Module-weighted overall score across all active modules.
-    pub overall_score: u32,
+    /// Module-weighted site-quality score across all active modules.
+    pub site_quality_score: u32,
     pub grade: String,
     /// 4-level maturity classification: "Kritisch" / "Instabil" / "Solide Basis" / "Stark"
     pub maturity_label: String,
@@ -212,7 +212,7 @@ pub struct SummaryBlock {
     pub verdict: String,
     pub score_note: Option<String>,
     /// CI verdict for this run (pass/warn/fail) and the reasons that drove it
-    /// away from pass. Rendered as the "Gesamteinstufung" block; the narrative
+    /// away from pass. Rendered as the "Einstufung Barrierefreiheit" block; the narrative
     /// `verdict` field above is a prose sentence, not this (plan 34).
     pub ci_verdict: crate::audit::verdict::Verdict,
     pub ci_verdict_reasons: Vec<crate::audit::verdict::VerdictReasonKind>,
@@ -223,11 +223,11 @@ pub struct SummaryBlock {
     /// provisional at the front of the report instead of only in the
     /// methodology appendix (plan 44).
     pub run_is_partial: bool,
-    /// How `overall_score` was actually computed. In `viewport_weighted` mode
+    /// How `site_quality_score` was actually computed. In `viewport_weighted` mode
     /// the per-module weighting is NOT the computation path, so the score
     /// driver table must not present itself as the derivation (plan 34).
     pub score_calculation_method: String,
-    /// The viewport/security blend that produced `overall_score`, present only
+    /// The viewport/security blend that produced `site_quality_score`, present only
     /// in `viewport_weighted` mode.
     pub score_breakdown: Option<crate::audit::normalized::ScoreBreakdown>,
     pub metrics: Vec<MetricItem>,
@@ -278,10 +278,10 @@ pub struct MethodologyBlock {
 /// Module scores for dashboard and comparison
 pub struct ModulesBlock {
     pub dashboard: Vec<ModuleScore>,
-    pub overall_score: Option<u32>,
-    pub overall_interpretation: Option<String>,
+    pub site_quality_score: Option<u32>,
+    pub site_quality_interpretation: Option<String>,
     /// The canonical per-module score/weight breakdown that actually feeds
-    /// the weighted `overall_score` (`audit::module_scores::build_module_scores`
+    /// the weighted `site_quality_score` (`audit::module_scores::build_module_scores`
     /// verbatim) — distinct from `dashboard` above, whose cards are reshaped
     /// for narrative presentation (e.g. the "Search Experience" card blends
     /// SEO with heuristic AI-visibility/content-visibility signals into one
@@ -993,7 +993,7 @@ pub struct SeoProfilePresentation {
     // Signal Strength: (category, "met / checked", rating_label)
     pub signal_rows: Vec<(String, String, String)>,
     /// Signals met and signals checked across all categories. Replaces the
-    /// weighted overall percentage in the report: a percentage of pass rates,
+    /// weighted site-quality percentage in the report: a percentage of pass rates,
     /// weighted by six invented factors, is further from the evidence than
     /// the counts are (plan 29, D4).
     pub signal_passed: u32,
@@ -1388,8 +1388,8 @@ pub struct PortfolioSummary {
     pub warn_urls: usize,
     /// `None` when no URL was measured; the presentation never invents a 0.
     pub average_score: Option<f64>,
-    /// Weighted overall score across all active modules (averaged over URLs)
-    pub average_overall_score: u32,
+    /// Weighted site-quality score across all active modules (averaged over URLs)
+    pub average_site_quality_score: u32,
     pub total_violations: usize,
     pub duration_ms: u64,
     pub verdict_text: String,
@@ -1412,7 +1412,7 @@ pub struct PortfolioSummary {
     pub active_modules: Vec<String>,
     /// Domain name (extracted from first URL)
     pub domain: String,
-    /// Grade based on the averaged overall score
+    /// Grade based on the averaged site-quality score
     pub grade: String,
     pub page_type_distribution: Vec<(String, usize, u32)>,
     /// Audited pages grouped by detected page type, with group averages and
@@ -1514,8 +1514,8 @@ pub struct IssueFrequency {
 pub struct UrlSummary {
     pub url: String,
     pub score: f32,
-    /// Weighted overall score across all active modules
-    pub overall_score: u32,
+    /// Weighted site-quality score across all active modules
+    pub site_quality_score: u32,
     pub grade: String,
     pub critical_violations: usize,
     pub total_violations: usize,

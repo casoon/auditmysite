@@ -29,7 +29,7 @@ pub struct HtmlConformAnalysis {
     pub score: u32,
     /// Whether the check actually ran (HTML extraction + `html_conform::check`
     /// both succeeded). `false` means "not measured" — excluded from the
-    /// weighted overall score, not counted as a score of 0.
+    /// weighted site-quality score, not counted as a score of 0.
     pub checked: bool,
     pub error_count: u32,
     pub warning_count: u32,

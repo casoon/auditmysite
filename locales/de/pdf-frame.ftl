@@ -12,10 +12,10 @@
 ## Cover
 pdf-frame-cover-score-label = BARRIEREFREIHEIT · AUTOMATISIERTER PRÜFUMFANG
 pdf-frame-cover-findings-label = WCAG-VORKOMMEN
-pdf-frame-cover-modules-label = MODULE IM GESAMTWERT · 0–100 IM AUTOMATISIERTEN PRÜFUMFANG · HÖHER IST BESSER
+pdf-frame-cover-modules-label = MODULE IN DER WEBSITE-QUALITÄT · 0–100 IM AUTOMATISIERTEN PRÜFUMFANG · HÖHER IST BESSER
 pdf-frame-cover-critical-label = kritisch/hoch
 pdf-frame-cover-no-critical = 0 kritisch/hoch
-pdf-frame-cover-indicators-label = ABGELEITETE INDIKATOREN · NICHT IM GESAMTWERT
+pdf-frame-cover-indicators-label = ABGELEITETE INDIKATOREN · NICHT IN DER WEBSITE-QUALITÄT
 
 ## Table of contents
 pdf-frame-toc-title = Inhalt

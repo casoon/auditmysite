@@ -22,7 +22,7 @@ methodology-disclaimer = Dieser Report stellt eine automatisierte technische Ana
 
 ## Audit facts
 methodology-fact-accessibility-score = Barrierefreiheitswert
-methodology-fact-combined-score = Kombinierter technischer Wert
+methodology-fact-combined-score = Website-Qualität (optionale Module)
 methodology-fact-counting = Zählweise
 methodology-fact-page-display-modes = Darstellungsmodi der Seite
 methodology-fact-failed-modules = Fehlgeschlagene Module

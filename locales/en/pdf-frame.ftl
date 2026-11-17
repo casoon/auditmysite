@@ -12,10 +12,10 @@
 ## Cover
 pdf-frame-cover-score-label = ACCESSIBILITY · AUTOMATED SCOPE
 pdf-frame-cover-findings-label = WCAG OCCURRENCES
-pdf-frame-cover-modules-label = MODULES IN THE OVERALL SCORE · 0–100 WITHIN THE AUTOMATED SCOPE · HIGHER IS BETTER
+pdf-frame-cover-modules-label = MODULES IN THE SITE-QUALITY SCORE · 0–100 WITHIN THE AUTOMATED SCOPE · HIGHER IS BETTER
 pdf-frame-cover-critical-label = critical/high
 pdf-frame-cover-no-critical = 0 critical/high
-pdf-frame-cover-indicators-label = DERIVED INDICATORS · NOT PART OF THE OVERALL SCORE
+pdf-frame-cover-indicators-label = DERIVED INDICATORS · NOT PART OF THE SITE-QUALITY SCORE
 
 ## Table of contents
 pdf-frame-toc-title = Contents

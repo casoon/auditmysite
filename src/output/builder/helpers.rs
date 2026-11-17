@@ -229,7 +229,7 @@ pub(crate) fn extract_domain(url: &str) -> String {
     host.trim_start_matches("www.").to_string()
 }
 
-/// German display name for a module identifier used in prose (overall-score
+/// German display name for a module identifier used in prose (site-quality-score
 /// weights, indicator notes). English keeps the canonical identifier.
 pub(crate) fn localized_module_name(name: &str, i18n: &I18n) -> String {
     // Fluent keys cannot contain spaces, so multi-word module names like

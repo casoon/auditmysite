@@ -706,7 +706,7 @@ mod tests {
     ///   * `interpret_score` — every module area × all 5 grade bands × {de,en}
     ///   * `seo_interpretation_text` — 5 score bands × {de,en}
     ///   * the real `build_view_model` path — dashboard module interpretations +
-    ///     the overall-score explanation (de + en)
+    ///     the site-quality-score explanation (de + en)
     ///
     /// and writes them to `reports/interpretations.json`. The trailing
     /// `source_map` lists the remaining fixture-dependent generators with their
@@ -760,9 +760,9 @@ mod tests {
             }
         }
 
-        // 3. Real builder path — overall-score explanation + dashboard module
+        // 3. Real builder path — site-quality-score explanation + dashboard module
         //    interpretations exactly as rendered (Performance + SEO present so
-        //    the overall explanation and >1 module are produced).
+        //    the site-quality explanation and >1 module are produced).
         for locale in ["de", "en"] {
             let mut wcag = WcagResults::new();
             wcag.add_violation(Violation::new(
@@ -808,10 +808,10 @@ mod tests {
                 ..ReportConfig::default()
             };
             let vm = build_view_model(&normalized, &config);
-            if let Some(text) = &vm.modules.overall_interpretation {
+            if let Some(text) = &vm.modules.site_quality_interpretation {
                 records.push(serde_json::json!({
-                    "source": "overall_interpretation",
-                    "module": "overall",
+                    "source": "site_quality_interpretation",
+                    "module": "site_quality",
                     "area_locale": locale,
                     "text": text,
                 }));

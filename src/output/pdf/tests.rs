@@ -1550,7 +1550,7 @@ mod tests {
 
     #[test]
     fn test_pdf_score_present_in_extracted_text() {
-        // The overall score computed by normalize() must appear as a number in the rendered PDF.
+        // The site-quality score computed by normalize() must appear as a number in the rendered PDF.
         let Some(pdftotext) = find_executable("pdftotext") else {
             return;
         };
@@ -2498,14 +2498,14 @@ mod tests {
             desktop: ViewportScoreSet {
                 accessibility: 20,
                 performance: None,
-                overall: 20,
+                site_quality: 20,
             },
             mobile: ViewportScoreSet {
                 accessibility: 20,
                 performance: None,
-                overall: 20,
+                site_quality: 20,
             },
-            weighted_overall: 20,
+            weighted_site_quality: 20,
         });
 
         let ts = report.timestamp.timestamp_nanos_opt().unwrap_or(0);
@@ -2540,7 +2540,7 @@ mod tests {
     // (the way the figure is represented, e.g. `73` / `73/100`), NOT the visual
     // formatting (fonts, colors, spacing) — those are not part of the contract.
     //
-    //   Teil 1 (Executive)      → overall score (headline aggregate)
+    //   Teil 1 (Executive)      → site-quality score (headline aggregate)
     //   Teil 2 (Accessibility)  → accessibility score + every module score
     //                             (the aggregated module overview lives here)
     //   Teil 3 (Tech & Quality) → every non-accessibility module score (detail)
@@ -2611,7 +2611,9 @@ mod tests {
             serde_json::from_str(&unified.to_json(true).expect("json")).expect("parse json");
         let page = &json["pages"][0];
 
-        let overall = page["overall_score"].as_u64().expect("overall_score") as u32;
+        let overall = page["site_quality_score"]
+            .as_u64()
+            .expect("site_quality_score") as u32;
         let a11y = page["accessibility_score"]
             .as_u64()
             .expect("accessibility_score") as u32;
@@ -2635,7 +2637,7 @@ mod tests {
         let (p1, p2, p3) = split_parts(&typ);
 
         // Teil 1 — Executive: the accessibility score is the headline (plan
-        // 29, D1). The weighted overall value is a secondary figure and is
+        // 29, D1). The weighted site-quality score is a secondary figure and is
         // derived further in, so it is only required to appear somewhere.
         assert!(
             part_has_value(&p1, a11y),
@@ -2643,7 +2645,7 @@ mod tests {
         );
         assert!(
             part_has_value(&typ, overall),
-            "overall score {overall} (JSON) must still appear in the report"
+            "site-quality score {overall} (JSON) must still appear in the report"
         );
 
         // Teil 2 — Accessibility: a11y score + every module score (overview).
@@ -2682,14 +2684,14 @@ mod tests {
             desktop: ViewportScoreSet {
                 accessibility: 80,
                 performance: None,
-                overall: 80,
+                site_quality: 80,
             },
             mobile: ViewportScoreSet {
                 accessibility: 20,
                 performance: None,
-                overall: 20,
+                site_quality: 20,
             },
-            weighted_overall: 38,
+            weighted_site_quality: 38,
         });
 
         let normalized = crate::audit::normalized::normalize(&report);

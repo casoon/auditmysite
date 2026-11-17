@@ -553,7 +553,7 @@ pub struct ViewportScoreSet {
     pub accessibility: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub performance: Option<u32>,
-    pub overall: u32,
+    pub site_quality: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -562,7 +562,7 @@ pub struct ViewportScores {
     pub desktop: ViewportScoreSet,
     pub mobile: ViewportScoreSet,
     /// 70 % mobile + 30 % desktop (before security adjustment)
-    pub weighted_overall: u32,
+    pub weighted_site_quality: u32,
 }
 
 impl ViewportScores {
@@ -587,7 +587,7 @@ pub struct ExperienceSection {
     pub mobile: Option<MobileFriendliness>,
     /// Pre-consent privacy findings of a first visit (#871, optional). Phase
     /// A only, technical observations with a confidence class; never affects
-    /// accessibility/overall score or grade.
+    /// accessibility/site-quality score or grade.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub privacy: Option<crate::privacy::PrivacyAnalysis>,
     /// Budget violations detected for this page
@@ -969,9 +969,9 @@ impl AuditReport {
     }
 }
 
-// The weighted overall score is computed canonically in `audit::normalized`
-// (see `NormalizedReport.overall_score` and `build_module_scores`). A second,
-// divergent `AuditReport::overall_score()` previously lived here but was only
+// The weighted site-quality score is computed canonically in `audit::normalized`
+// (see `NormalizedReport.site_quality_score` and `build_module_scores`). A second,
+// divergent `AuditReport::site_quality_score()` previously lived here but was only
 // reachable from tests; it was removed to keep a single source of truth (#447).
 
 /// Batch audit report for multiple URLs
@@ -1570,7 +1570,7 @@ impl SelectionProfile {
 
 impl BatchSummary {
     /// Grade of the batch, by the single-report rule: it describes the
-    /// average accessibility score, not the weighted overall (plan 29, D1).
+    /// average accessibility score, not the weighted site-quality score (plan 29, D1).
     /// `None` when no URL was measured: a grade computed from a stand-in 0 would be an F for a site
     /// nobody looked at (#768).
     pub fn grade(&self) -> Option<String> {

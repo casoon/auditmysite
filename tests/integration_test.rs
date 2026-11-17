@@ -678,13 +678,13 @@ async fn test_full_audit_with_all_modules() {
         "Mobile results should be present"
     );
 
-    // Overall score should be calculated
+    // Site-quality score should be calculated
     let overall = auditmysite::audit::normalize(&report)
         .normalized
-        .overall_score;
+        .site_quality_score;
     assert!(
         overall > 0 && overall <= 100,
-        "Overall score {} out of range",
+        "Site-quality score {} out of range",
         overall
     );
 }
@@ -714,8 +714,8 @@ async fn test_output_formats() {
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("Invalid JSON output");
     assert_eq!(
         parsed.get("schema_version").and_then(|v| v.as_str()),
-        Some("2.0"),
-        "JSON should contain schema_version 2.0"
+        Some("2.1"),
+        "JSON should contain schema_version 2.1"
     );
     let pages = parsed
         .get("pages")
@@ -1245,8 +1245,8 @@ async fn test_catalog_audit_json_envelope_v2() {
 
     assert_eq!(
         parsed["schema_version"].as_str(),
-        Some("2.0"),
-        "schema_version must be 2.0"
+        Some("2.1"),
+        "schema_version must be 2.1"
     );
     assert_eq!(
         parsed["report_type"].as_str(),

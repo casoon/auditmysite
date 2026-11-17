@@ -752,7 +752,7 @@ mod tests {
     }
 
     #[test]
-    fn module_weight_is_zero_for_modules_outside_the_overall_score() {
+    fn module_weight_is_zero_for_modules_outside_the_site_quality_score() {
         assert_eq!(module_weight("Accessibility"), 40);
         assert_eq!(module_weight("HTML Conformance"), 5);
         // Indicator modules carry no weight.

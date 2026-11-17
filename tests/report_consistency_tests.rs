@@ -2,7 +2,7 @@
 //!
 //! Ensures that:
 //! - All active modules appear in module_scores and have corresponding detail data
-//! - Overall score = weighted average of module scores
+//! - Site-quality score = weighted average of module scores
 //! - Severity counts match finding occurrences
 //! - fix_guidance entries match findings
 //! - Score/grade are consistent
@@ -36,12 +36,14 @@ fn foundation_compact_export_grade_describes_its_score() {
     let normalized = normalize(&make_full_report()).normalized;
     assert_ne!(
         normalized.grade,
-        auditmysite::audit::AccessibilityScorer::calculate_grade(normalized.overall_score as f32)
+        auditmysite::audit::AccessibilityScorer::calculate_grade(
+            normalized.site_quality_score as f32
+        )
     );
     let json: serde_json::Value =
         serde_json::from_str(&auditmysite::output::format_summary(&normalized).unwrap()).unwrap();
     assert!(json.get("score").is_none());
-    assert_eq!(json["overallScore"], normalized.overall_score);
+    assert_eq!(json["siteQualityScore"], normalized.site_quality_score);
     assert_eq!(json["accessibilityScore"], normalized.score);
     assert_eq!(
         json["grade"],
@@ -150,7 +152,7 @@ fn foundation_unmeasured_html_never_contributes_to_a_score() {
         .find(|m| m.name == "HTML Conformance")
         .unwrap();
     assert_eq!(entry.measurement_type, "not_measured");
-    assert!(!entry.contributes_to_overall);
+    assert!(!entry.contributes_to_site_quality_score);
     assert_eq!(entry.weight_pct, 0);
     // The final score must be the weighted mean over the other modules: the
     // same report without the HTML module, and the unchecked entry's own
@@ -158,15 +160,15 @@ fn foundation_unmeasured_html_never_contributes_to_a_score() {
     let mut without_html = make_full_report();
     without_html.html_conform = None;
     assert_eq!(
-        normalized.overall_score,
-        normalize(&without_html).normalized.overall_score
+        normalized.site_quality_score,
+        normalize(&without_html).normalized.site_quality_score
     );
-    // Control: the same 0, measured, does lower the overall score.
+    // Control: the same 0, measured, does lower the site-quality score.
     let mut measured = make_full_report();
     let hc = measured.html_conform.as_mut().unwrap();
     hc.checked = true;
     hc.score = 0;
-    assert!(normalize(&measured).normalized.overall_score < normalized.overall_score);
+    assert!(normalize(&measured).normalized.site_quality_score < normalized.site_quality_score);
     let json = serde_json::to_value(UnifiedReport::single(&normalize(&report), &report)).unwrap();
     let entry = json["pages"][0]["module_scores"]
         .as_array()
@@ -174,7 +176,7 @@ fn foundation_unmeasured_html_never_contributes_to_a_score() {
         .iter()
         .find(|m| m["name"] == "HTML Conformance")
         .unwrap();
-    assert_eq!(entry["contributes_to_overall"], false);
+    assert_eq!(entry["contributes_to_site_quality_score"], false);
 }
 
 #[test]
@@ -246,9 +248,9 @@ fn foundation_viewport_blending_cannot_hide_critical_barriers() {
     let mut report = make_full_report();
     for (desktop, mobile) in [(49, 100), (100, 49)] {
         report.viewport_scores = Some(from_json(serde_json::json!({
-            "desktop": { "accessibility": desktop, "overall": desktop },
-            "mobile": { "accessibility": mobile, "overall": mobile },
-            "weighted_overall": ((desktop as f64 * 0.3) + mobile as f64 * 0.7).round() as u32,
+            "desktop": { "accessibility": desktop, "site_quality": desktop },
+            "mobile": { "accessibility": mobile, "site_quality": mobile },
+            "weighted_site_quality": ((desktop as f64 * 0.3) + mobile as f64 * 0.7).round() as u32,
         })));
         let normalized = normalize(&report).normalized;
         assert!(
@@ -273,9 +275,9 @@ fn foundation_published_weights_reconstruct_scores_for_every_module_subset() {
             report.accessibility.wcag_results = WcagResults::new();
             report.accessibility.score = a11y as f32;
             report.viewport_scores = Some(from_json(serde_json::json!({
-                "desktop": { "accessibility": a11y, "performance": 0, "overall": 0 },
-                "mobile": { "accessibility": a11y, "performance": 100, "overall": 100 },
-                "weighted_overall": 70,
+                "desktop": { "accessibility": a11y, "performance": 0, "site_quality": 0 },
+                "mobile": { "accessibility": a11y, "performance": 100, "site_quality": 100 },
+                "weighted_site_quality": 70,
             })));
             if mask & 1 == 0 {
                 report.performance = None;
@@ -307,7 +309,7 @@ fn foundation_published_weights_reconstruct_scores_for_every_module_subset() {
             let expected = (sum as f64 / denominator as f64).round() as u32;
             let normalized = normalize(&report).normalized;
             assert_eq!(
-                normalized.overall_score, expected,
+                normalized.site_quality_score, expected,
                 "subset {mask}, a11y {a11y}"
             );
         }
@@ -319,10 +321,10 @@ fn foundation_lint_rejects_consistent_looking_but_false_reports() {
     let report = make_full_report();
     let base = serde_json::to_value(UnifiedReport::single(&normalize(&report), &report)).unwrap();
     let mut wrong_score = base.clone();
-    for value in ["score", "overall_score"] {
+    for value in ["score", "site_quality_score"] {
         wrong_score["summary"][value] = 99.into();
     }
-    wrong_score["pages"][0]["overall_score"] = 99.into();
+    wrong_score["pages"][0]["site_quality_score"] = 99.into();
     let mut lost_rule = base.clone();
     lost_rule["pages"][0]["rule_outcomes"] = serde_json::json!([
         {"rule_id":"aria/role-invalid","wcag":["4.1.2"],"findings":1,"viewport":"desktop"}
@@ -334,7 +336,7 @@ fn foundation_lint_rejects_consistent_looking_but_false_reports() {
     failed_page["errors"] =
         serde_json::json!([{"url":"https://example.com/failed","error":"timeout"}]);
     for (json, expected) in [
-        (wrong_score, "overall_score_matches_module_weights"),
+        (wrong_score, "site_quality_score_matches_module_weights"),
         (lost_rule, "rule_findings_preserved"),
         (missing_check, "requested_module_has_outcome"),
         (failed_page, "audit_completeness_matches_execution"),
@@ -593,35 +595,35 @@ fn test_missing_modules_not_in_scores() {
     assert_eq!(normalized.normalized.module_scores[0].name, "Accessibility");
 }
 
-// ─── Overall Score Consistency ─────────────────────────────────────
+// ─── Site-Quality Score Consistency ─────────────────────────────────────
 
 #[test]
-fn test_overall_score_equals_weighted_average() {
+fn test_site_quality_score_equals_weighted_average() {
     let report = make_full_report();
     let normalized = normalize(&report);
 
-    // Calculate expected weighted average from modules that contribute to overall_score.
+    // Calculate expected weighted average from modules that contribute to site_quality_score.
     let weighted_sum: f64 = normalized
         .normalized
         .module_scores
         .iter()
-        .filter(|m| m.contributes_to_overall)
+        .filter(|m| m.contributes_to_site_quality_score)
         .map(|m| m.score as f64 * m.weight_pct as f64)
         .sum();
     let total_weight: f64 = normalized
         .normalized
         .module_scores
         .iter()
-        .filter(|m| m.contributes_to_overall)
+        .filter(|m| m.contributes_to_site_quality_score)
         .map(|m| m.weight_pct as f64)
         .sum();
     let expected = (weighted_sum / total_weight).round() as u32;
 
     assert_eq!(
-        normalized.normalized.overall_score,
+        normalized.normalized.site_quality_score,
         expected,
-        "overall_score ({}) != weighted average of module_scores ({}). Modules: {:?}",
-        normalized.normalized.overall_score,
+        "site_quality_score ({}) != weighted average of module_scores ({}). Modules: {:?}",
+        normalized.normalized.site_quality_score,
         expected,
         normalized
             .normalized
@@ -630,7 +632,7 @@ fn test_overall_score_equals_weighted_average() {
             .map(|m| {
                 format!(
                     "{}={} ({}%, contributes={})",
-                    m.name, m.score, m.weight_pct, m.contributes_to_overall
+                    m.name, m.score, m.weight_pct, m.contributes_to_site_quality_score
                 )
             })
             .collect::<Vec<_>>()
@@ -638,7 +640,7 @@ fn test_overall_score_equals_weighted_average() {
 }
 
 #[test]
-fn test_overall_score_accessibility_only() {
+fn test_site_quality_score_accessibility_only() {
     let report = AuditReport::new(
         "https://example.com".to_string(),
         WcagLevel::AA,
@@ -647,10 +649,10 @@ fn test_overall_score_accessibility_only() {
     );
     let normalized = normalize(&report);
 
-    // With only Accessibility, overall_score == accessibility score
+    // With only Accessibility, site_quality_score == accessibility score
     assert_eq!(
-        normalized.normalized.overall_score, normalized.normalized.score,
-        "With only Accessibility module, overall should equal accessibility score"
+        normalized.normalized.site_quality_score, normalized.normalized.score,
+        "With only Accessibility module, site quality should equal accessibility score"
     );
 }
 
@@ -978,7 +980,7 @@ fn test_module_weights_sum_to_expected() {
         .normalized
         .module_scores
         .iter()
-        .filter(|m| m.contributes_to_overall)
+        .filter(|m| m.contributes_to_site_quality_score)
         .map(|m| m.weight_pct)
         .sum();
     assert_eq!(
@@ -998,13 +1000,13 @@ fn test_module_weights_correct() {
             "Accessibility" => 40,
             "Performance" => 20,
             // SEO gave up 5 points to HTML Conformance when that module
-            // rejoined the overall score (2026-09-16): the two answer the same
+            // rejoined the site-quality score (2026-09-16): the two answer the same
             // question, whether a crawler can parse the document reliably.
             "SEO" => 15,
             "HTML Conformance" => 5,
             "Security" => 10,
             "Mobile" => 10,
-            // Indicator modules do not contribute to the overall score, so their
+            // Indicator modules do not contribute to the site-quality score, so their
             // displayed weight is 0 (#447).
             "UX" | "Journey" | "Best Practices" | "AI Visibility" | "Source Quality"
             | "Tech Stack" => 0,
@@ -1335,17 +1337,17 @@ fn test_ai_json_scores_match_normalized_scores() {
         "AI JSON score must use NormalizedReport.score as primary WCAG score"
     );
     assert_eq!(
-        parsed["overall_score"].as_u64(),
-        Some(normalized.normalized.overall_score as u64),
-        "AI JSON overall_score must use NormalizedReport.overall_score as secondary weighted score"
+        parsed["site_quality_score"].as_u64(),
+        Some(normalized.normalized.site_quality_score as u64),
+        "AI JSON site_quality_score must use NormalizedReport.site_quality_score as secondary weighted score"
     );
 }
 
 #[test]
-fn test_batch_json_average_score_is_accessibility_with_overall_separate() {
+fn test_batch_json_average_score_is_accessibility_with_site_quality_separate() {
     let reports = vec![make_full_report()];
     let normalized = normalize(&reports[0]);
-    let expected_overall = normalized.normalized.overall_score as u64;
+    let expected_site_quality = normalized.normalized.site_quality_score as u64;
     let batch = BatchReport::from_reports(reports, vec![], 100);
     let expected_score = batch.summary.average_score.unwrap().round() as u64;
     let parsed: serde_json::Value =
@@ -1358,8 +1360,8 @@ fn test_batch_json_average_score_is_accessibility_with_overall_separate() {
         "Batch accessibility_score must be the WCAG/accessibility average"
     );
     assert_eq!(
-        parsed["summary"]["overall_score"].as_u64(),
-        Some(expected_overall)
+        parsed["summary"]["site_quality_score"].as_u64(),
+        Some(expected_site_quality)
     );
 }
 
@@ -1664,7 +1666,7 @@ fn test_json_report_includes_report_artifact_fields() {
 }
 
 #[test]
-fn test_contributes_to_overall_flags_correct() {
+fn test_contributes_to_site_quality_score_flags_correct() {
     let report = make_full_report();
     let normalized = normalize(&report);
 
@@ -1681,14 +1683,14 @@ fn test_contributes_to_overall_flags_correct() {
     for m in &normalized.normalized.module_scores {
         if core.contains(&m.name.as_str()) {
             assert!(
-                m.contributes_to_overall,
-                "{} should have contributes_to_overall=true",
+                m.contributes_to_site_quality_score,
+                "{} should have contributes_to_site_quality_score=true",
                 m.name
             );
         } else if supplemental.contains(&m.name.as_str()) {
             assert!(
-                !m.contributes_to_overall,
-                "{} should have contributes_to_overall=false",
+                !m.contributes_to_site_quality_score,
+                "{} should have contributes_to_site_quality_score=false",
                 m.name
             );
         }
@@ -1704,17 +1706,17 @@ fn test_contributes_to_overall_flags_correct() {
         }
     }
 
-    // Core weights must sum to exactly 100 so overall_score is a proper percentage
+    // Core weights must sum to exactly 100 so site_quality_score is a proper percentage
     let core_weight: u32 = normalized
         .normalized
         .module_scores
         .iter()
-        .filter(|m| m.contributes_to_overall)
+        .filter(|m| m.contributes_to_site_quality_score)
         .map(|m| m.weight_pct)
         .sum();
     assert_eq!(
         core_weight, 100,
-        "contributes_to_overall=true modules must sum to 100 weight_pct, got {}",
+        "contributes_to_site_quality_score=true modules must sum to 100 weight_pct, got {}",
         core_weight
     );
 }
@@ -1940,8 +1942,8 @@ fn domain_contract_rejects_mutated_facts_before_presentation() {
         .expect("fixture must satisfy the domain contract");
     let mut cases: Vec<(&str, auditmysite::audit::NormalizedReport)> = Vec::new();
     let mut changed = valid.clone();
-    changed.overall_score = (changed.overall_score + 1) % 101;
-    cases.push(("overall_score", changed));
+    changed.site_quality_score = (changed.site_quality_score + 1) % 101;
+    cases.push(("site_quality_score", changed));
     let mut changed = valid.clone();
     changed.grade = "A".into();
     if changed.grade == valid.grade {
@@ -1996,7 +1998,7 @@ fn domain_contract_collects_errors_and_covers_batch_aggregation() {
     use auditmysite::audit::validate_batch;
     let mut report = normalize(&make_full_report()).normalized;
     report.grade = "INVALID".into();
-    report.overall_score = 999;
+    report.site_quality_score = 999;
     let error = report.validate().unwrap_err();
     assert!(error.violations.len() >= 2);
 
@@ -2060,7 +2062,7 @@ fn domain_contract_accepts_honest_partial_results_and_rejects_false_completeness
 #[test]
 fn domain_contract_blocks_alternative_exports_of_invalid_cached_data() {
     let mut normalized = normalize(&make_full_report()).normalized;
-    normalized.overall_score = 101;
+    normalized.site_quality_score = 101;
     assert!(auditmysite::output::format_summary(&normalized).is_err());
     assert!(auditmysite::output::format_sarif(&[&normalized]).is_err());
     assert!(auditmysite::output::format_json_cached(&normalized, false).is_err());
@@ -2260,7 +2262,7 @@ mod replay {
         assert_eq!(without_volatile(&fresh), without_volatile(&replayed));
         // Named explicitly: the facts a consumer decides on.
         assert_eq!(fresh.score, replayed.score);
-        assert_eq!(fresh.overall_score, replayed.overall_score);
+        assert_eq!(fresh.site_quality_score, replayed.site_quality_score);
         assert_eq!(fresh.findings.len(), replayed.findings.len());
         assert_eq!(fresh.decision.verdict, replayed.decision.verdict);
         assert_eq!(

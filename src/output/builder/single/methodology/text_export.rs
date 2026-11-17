@@ -45,7 +45,7 @@ fn module(
         grade: None,
         band: String::new(),
         weight_pct,
-        contributes_to_overall: contributes,
+        contributes_to_site_quality_score: contributes,
         derived_from: Vec::new(),
         measurement_type: measurement_type.to_string(),
     }
@@ -73,14 +73,14 @@ fn viewport_scores() -> ViewportScores {
         desktop: ViewportScoreSet {
             accessibility: 91,
             performance: None,
-            overall: 90,
+            site_quality: 90,
         },
         mobile: ViewportScoreSet {
             accessibility: 77,
             performance: None,
-            overall: 76,
+            site_quality: 76,
         },
-        weighted_overall: 81,
+        weighted_site_quality: 81,
     }
 }
 
@@ -175,7 +175,7 @@ fn scenarios() -> Vec<(String, NormalizedReport)> {
     push("counts=large", &|r| {
         r.severity_counts.total = 1_234_567;
         r.occurrence_counts.total = 7_654_321;
-        r.overall_score = 100;
+        r.site_quality_score = 100;
         r.score = 0;
         r.duration_ms = 9_876_543;
     });

@@ -31,9 +31,9 @@ use tracing::{debug, info, warn};
 pub(crate) use self::assembly::audit_scope_from_config;
 pub(crate) use self::assembly::with_shared_page_rule_violations;
 use self::assembly::{
-    aggregate_report, compute_viewport_overall, consolidate_module_runs,
+    aggregate_report, compute_viewport_site_quality, consolidate_module_runs,
     drop_single_viewport_redundant_roles, ensure_requested_module_runs, merge_wcag_violations,
-    update_audit_quality, viewport_weighted_overall,
+    update_audit_quality, viewport_weighted_site_quality,
 };
 use self::throttled::{
     apply_canonical_perf, attach_throttled_profile_subchecks, collect_throttled_performance,
@@ -583,7 +583,8 @@ impl PipelineConfig {
         // 31 for the engine rule id as the finding `rule_id` (#918).
         // 32 for the experimental indicators moving into `experimental` (#916).
         // 33 for `help_url` as the rule page and the new `understanding_url` (#929).
-        const CACHE_FMT: u8 = 33;
+        // 34 for `viewport_scores.{desktop,mobile}.overall` becoming `site_quality` (#909).
+        const CACHE_FMT: u8 = 34;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
@@ -1135,7 +1136,7 @@ pub async fn audit_page(
     let desktop_perf_score = desktop_snap.performance.as_ref().map(|p| p.score.overall);
     let mobile_perf_score = mobile_snap.performance.as_ref().map(|p| p.score.overall);
     // No Web Vitals measured: a 0 here is no result (#QA-023) — drop it from
-    // the blend as `module_scores` drops it from the overall (plan 73).
+    // the blend as `module_scores` drops it from the site-quality score (plan 73).
     // A module that lost a scoring collection is partial and drops out the
     // same way (#777).
     let measured = |p: &crate::audit::PerformanceResults| p.score.has_core_metrics();
@@ -1161,9 +1162,9 @@ pub async fn audit_page(
         .map(|m| m.score);
     let mobile_hc_score = measured_html_conform_score(mobile_snap.html_conform.as_ref());
 
-    let desktop_overall =
-        compute_viewport_overall(desktop_acc, &[("Performance", desktop_perf_input)]);
-    let mobile_overall = compute_viewport_overall(
+    let desktop_site_quality =
+        compute_viewport_site_quality(desktop_acc, &[("Performance", desktop_perf_input)]);
+    let mobile_site_quality = compute_viewport_site_quality(
         mobile_acc,
         &[
             ("Performance", mobile_perf_input),
@@ -1172,20 +1173,21 @@ pub async fn audit_page(
             ("HTML Conformance", mobile_hc_score),
         ],
     );
-    let weighted_overall = viewport_weighted_overall(mobile_overall, desktop_overall);
+    let weighted_site_quality =
+        viewport_weighted_site_quality(mobile_site_quality, desktop_site_quality);
 
     let viewport_scores = ViewportScores {
         desktop: ViewportScoreSet {
             accessibility: desktop_acc.round().max(1.0) as u32,
             performance: desktop_perf_score,
-            overall: desktop_overall,
+            site_quality: desktop_site_quality,
         },
         mobile: ViewportScoreSet {
             accessibility: mobile_acc.round().max(1.0) as u32,
             performance: mobile_perf_score,
-            overall: mobile_overall,
+            site_quality: mobile_site_quality,
         },
-        weighted_overall,
+        weighted_site_quality,
     };
     let weighted_accessibility = viewport_scores.weighted_accessibility();
 
@@ -2448,7 +2450,7 @@ mod tests {
         assert_eq!(
             PipelineConfig::default().audit_signature(),
             format!(
-                "v={version};fmt=33;level=AA;perf=1;seo=1;sec=1;mobile=1;html_conform=1;\
+                "v={version};fmt=34;level=AA;perf=1;seo=1;sec=1;mobile=1;html_conform=1;\
                  privacy=0;isolate_tp_impact=0;perf_runs=1;ssr_content=0;stack=1;experimental=;\
                  consent=0;interactive=Full;state_changes=0;journey_budget_ms=15000;\
                  session=isolated;state_id=;state=;lang=en;disabled=;enabled_only=;\
@@ -2465,7 +2467,7 @@ mod tests {
         assert_eq!(
             narrowed.audit_signature(),
             format!(
-                "v={version};fmt=33;level=AAA;perf=0;seo=1;sec=0;mobile=0;html_conform=0;\
+                "v={version};fmt=34;level=AAA;perf=0;seo=1;sec=0;mobile=0;html_conform=0;\
                  privacy=1;isolate_tp_impact=0;perf_runs=1;ssr_content=0;stack=0;experimental=;\
                  consent=0;interactive=Off;state_changes=0;journey_budget_ms=15000;\
                  session=isolated;state_id=;state=;lang=de;disabled=;enabled_only=;\
@@ -2959,7 +2961,7 @@ mod tests {
             raw_html: None,
         };
         let blend = |hc: Option<&crate::html_conform::HtmlConformAnalysis>| {
-            compute_viewport_overall(
+            compute_viewport_site_quality(
                 60.0,
                 &[("HTML Conformance", measured_html_conform_score(hc))],
             )
@@ -2973,14 +2975,14 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_viewport_overall_acc_only() {
-        assert_eq!(compute_viewport_overall(80.0, &[]), 80);
+    fn test_compute_viewport_site_quality_acc_only() {
+        assert_eq!(compute_viewport_site_quality(80.0, &[]), 80);
     }
 
     #[test]
-    fn test_compute_viewport_overall_with_perf() {
+    fn test_compute_viewport_site_quality_with_perf() {
         // acc=80 (40%) + perf=60 (20%) → (80*40 + 60*20) / 60 = 4400/60 ≈ 73
-        let result = compute_viewport_overall(80.0, &[("Performance", Some(60))]);
+        let result = compute_viewport_site_quality(80.0, &[("Performance", Some(60))]);
         assert_eq!(result, 73);
     }
 
@@ -2991,9 +2993,9 @@ mod tests {
     /// The old path (SEO 20, no HTML conformance) gave 62.2; asymmetric
     /// scores show the difference.
     #[test]
-    fn viewport_overall_uses_the_published_module_weights() {
+    fn viewport_site_quality_uses_the_published_module_weights() {
         let modules = |seo: u32, hc: u32| {
-            compute_viewport_overall(
+            compute_viewport_site_quality(
                 49.0,
                 &[
                     ("Performance", Some(77)),
@@ -3008,7 +3010,10 @@ mod tests {
         // gave 70.
         assert_eq!(modules(100, 0), 64);
         // Unmeasured performance drops out instead of counting as 0.
-        assert_eq!(compute_viewport_overall(80.0, &[("Performance", None)]), 80);
+        assert_eq!(
+            compute_viewport_site_quality(80.0, &[("Performance", None)]),
+            80
+        );
     }
 
     /// #771: the raw viewport path against an independent weight table, for
@@ -3017,27 +3022,27 @@ mod tests {
     /// 20, SEO 15, Mobile 10, HTML 5; Security joins after the blend), not
     /// read from `taxonomy`, so a drifting weight fails.
     #[test]
-    fn weighted_overall_is_the_viewport_blend_and_not_a_module_weight() {
+    fn weighted_site_quality_is_the_viewport_blend_and_not_a_module_weight() {
         // 70 % mobile, 30 % desktop, rounded.
-        assert_eq!(viewport_weighted_overall(100, 0), 70);
-        assert_eq!(viewport_weighted_overall(0, 100), 30);
-        assert_eq!(viewport_weighted_overall(80, 60), 74);
+        assert_eq!(viewport_weighted_site_quality(100, 0), 70);
+        assert_eq!(viewport_weighted_site_quality(0, 100), 30);
+        assert_eq!(viewport_weighted_site_quality(80, 60), 74);
         // Equal passes blend to themselves: no module weight sneaks in.
         for v in [0, 1, 49, 100] {
-            assert_eq!(viewport_weighted_overall(v, v), v);
+            assert_eq!(viewport_weighted_site_quality(v, v), v);
         }
         // Mobile: accessibility 100 (weight 40) with performance 0 (weight 20)
         // gives 67; the blend is 0.7 * 67 + 0.3 * 100 = 77, whatever the
         // module weights are: it stays a labelled viewport blend.
-        let mobile = compute_viewport_overall(100.0, &[("Performance", Some(0))]);
-        let desktop = compute_viewport_overall(100.0, &[]);
+        let mobile = compute_viewport_site_quality(100.0, &[("Performance", Some(0))]);
+        let desktop = compute_viewport_site_quality(100.0, &[]);
         assert_eq!(desktop, 100);
         assert_eq!(mobile, 67);
-        assert_eq!(viewport_weighted_overall(mobile, desktop), 77);
+        assert_eq!(viewport_weighted_site_quality(mobile, desktop), 77);
     }
 
     #[test]
-    fn viewport_overall_matches_the_published_weights_for_every_subset() {
+    fn viewport_site_quality_matches_the_published_weights_for_every_subset() {
         let table = [
             ("Performance", 20.0, 35u32),
             ("SEO", 15.0, 80),
@@ -3059,7 +3064,7 @@ mod tests {
                     }
                 }
                 assert_eq!(
-                    compute_viewport_overall(acc as f32, &modules),
+                    compute_viewport_site_quality(acc as f32, &modules),
                     (sum / weight).round() as u32,
                     "subset {mask:04b}, accessibility {acc}"
                 );
@@ -3231,7 +3236,7 @@ mod tests {
             .normalized
             .module_scores
             .iter()
-            .all(|m| m.name != "HTML Conformance" || !m.contributes_to_overall));
+            .all(|m| m.name != "HTML Conformance" || !m.contributes_to_site_quality_score));
     }
 
     #[test]

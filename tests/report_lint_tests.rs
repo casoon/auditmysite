@@ -59,13 +59,13 @@ fn broken_grade_mismatch_fails_by_default() {
 }
 
 /// Plan 29, D1: the grade is derived from `accessibility_score`,
-/// not from the weighted overall. This fixture is clean under the old rule and
+/// not from the weighted site-quality score. This fixture is clean under the old rule and
 /// broken under the new one — the two scores agree in every other fixture, so
 /// nothing else can tell the change apart.
 #[test]
-fn grade_derived_from_the_overall_score_is_rejected() {
+fn grade_derived_from_the_site_quality_score_is_rejected() {
     let (code, output) =
-        run_report_lint_fixture("broken_grade_from_overall_not_accessibility.json", &[]);
+        run_report_lint_fixture("broken_grade_from_site_quality_not_accessibility.json", &[]);
     assert_eq!(code, 3, "output: {output}");
     assert!(
         output.contains("grade_matches_accessibility_score"),

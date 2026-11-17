@@ -1,4 +1,4 @@
-//! "Why is the overall score X": the score-driver table, the weight-basis
+//! "Why is the site-quality score X": the score-driver table, the weight-basis
 //! note, the `viewport_weighted` derivation, the additional score drivers and
 //! the per-module subcategory breakdown of the Management Summary.
 //!
@@ -21,12 +21,12 @@ mod text_export;
 #[cfg(test)]
 mod text_guard;
 
-/// "Why is the overall score X" — one compact row per module that actually
-/// feeds the weighted `overall_score`, showing its score, its weight, and a
-/// plain-language classification of whether it drags the overall score down
+/// "Why is the site-quality score X" — one compact row per module that actually
+/// feeds the weighted `site_quality_score`, showing its score, its weight, and a
+/// plain-language classification of whether it drags the site-quality score down
 /// or stabilizes it (plan/2-score-driver-breakdown.md). Deliberately reads
 /// `vm.modules.module_scores` (the canonical `ModuleScoreEntry` list, same
-/// numbers `overall_score` is computed from) rather than
+/// numbers `site_quality_score` is computed from) rather than
 /// `vm.modules.dashboard` — the dashboard's cards are reshaped for
 /// narrative presentation (e.g. "Search Experience" blends SEO with
 /// heuristic AI-visibility signals into a composite score that is *not*
@@ -40,21 +40,24 @@ pub(super) fn render_score_driver_table(
         .modules
         .module_scores
         .iter()
-        .filter(|m| m.contributes_to_overall)
+        .filter(|m| m.contributes_to_site_quality_score)
         .collect();
-    // The combined technical value, named as what it is. It is no longer the
+    // The site-quality score, named as what it is. It is no longer the
     // headline — that is the accessibility score (plan 29, D1) — so the
     // report has to say once what this second number averages, otherwise a
     // reader meets it in the derivation table with no introduction.
     let basis: u32 = contributing.iter().map(|m| m.weight_pct).sum();
     builder = builder
         .add_component(
-            ScoreCard::new(i18n.t("score-drivers-card-title"), vm.summary.overall_score)
-                .with_description(i18n.t_args(
-                    "score-drivers-card-description",
-                    &[("basis", i64::from(basis))],
-                ))
-                .with_thresholds(75, 40),
+            ScoreCard::new(
+                i18n.t("score-drivers-card-title"),
+                vm.summary.site_quality_score,
+            )
+            .with_description(i18n.t_args(
+                "score-drivers-card-description",
+                &[("basis", i64::from(basis))],
+            ))
+            .with_thresholds(75, 40),
         )
         .add_component(
             Label::new(i18n.t("score-drivers-card-note"))
@@ -66,17 +69,17 @@ pub(super) fn render_score_driver_table(
         return builder;
     }
 
-    // The "biggest weak point" is the module that pulls the overall score
+    // The "biggest weak point" is the module that pulls the site-quality score
     // down the hardest — that's a function of *both* how far below "Good"
     // it scores and how much weight it carries, not score alone. A 40%-
-    // weighted module at 40/100 drags the overall score down far more than
+    // weighted module at 40/100 drags the site-quality score down far more than
     // a 10%-weighted module at 30/100, even though the latter's raw score
     // looks worse in isolation (the exact case this table exists to make
     // legible, see plan/2-score-driver-breakdown.md's "Accessibility 20 /
     // Security 30" example). Every other module scoring below the "Good"
     // band (>=75, reusing the shared FIVE_BAND cutoffs — no new threshold
     // logic) is a lesser but still real drag; everything at/above 75
-    // stabilizes the overall score.
+    // stabilizes the site-quality score.
     let weakest_name = contributing
         .iter()
         .filter(|m| m.score < 75)
@@ -99,12 +102,12 @@ pub(super) fn render_score_driver_table(
         };
 
     // In `viewport_weighted` mode the per-module weighting is NOT how
-    // `overall_score` was computed — the score comes from a desktop/mobile
+    // `site_quality_score` was computed — the score comes from a desktop/mobile
     // blend mixed with security (`score_breakdown`). Titling this table "why
-    // the overall score is what it is" then invited arithmetic that does not
+    // the site-quality score is what it is" then invited arithmetic that does not
     // come out: on casoon.de the rows averaged 90.05 against a reported 92,
     // on inros-lackner 47.05 against 45 (plan 34). The real derivation is
-    // rendered separately by `render_overall_score_derivation` below.
+    // rendered separately by `render_site_quality_score_derivation` below.
     let is_derivation = vm.summary.score_calculation_method != "viewport_weighted";
     let mut table = AuditTable::new(vec![
         TableColumn::new(i18n.t("label-module")).with_width("28%"),
@@ -147,10 +150,10 @@ pub(super) fn render_score_driver_table(
 
     builder = builder.add_component(table);
     builder = render_weight_basis_note(builder, vm, i18n);
-    render_overall_score_derivation(builder, vm, i18n)
+    render_site_quality_score_derivation(builder, vm, i18n)
 }
 
-/// States the weight basis when the overall score was renormalised.
+/// States the weight basis when the site-quality score was renormalised.
 ///
 /// The score is divided by the weight of the *contributing* modules, so a
 /// module that did not run, or that ran without being able to measure,
@@ -167,7 +170,7 @@ fn render_weight_basis_note(
         .modules
         .module_scores
         .iter()
-        .filter(|m| m.contributes_to_overall)
+        .filter(|m| m.contributes_to_site_quality_score)
         .map(|m| m.weight_pct)
         .sum();
     if basis >= 100 {
@@ -182,7 +185,7 @@ fn render_weight_basis_note(
         .modules
         .module_scores
         .iter()
-        .filter(|m| m.contributes_to_overall)
+        .filter(|m| m.contributes_to_site_quality_score)
         .map(|m| m.name.as_str())
         .collect();
     let missing: Vec<String> = crate::taxonomy::MODULE_WEIGHTS
@@ -207,14 +210,14 @@ fn render_weight_basis_note(
     builder
 }
 
-/// How `overall_score` was actually reached, in `viewport_weighted` mode.
+/// How `site_quality_score` was actually reached, in `viewport_weighted` mode.
 ///
 /// The numbers come from `score_breakdown`, so the block reproduces the
 /// headline value exactly — the same contract the Search Experience section's
 /// "Wie sich der Wert zusammensetzt" table already honours. Without it the
 /// report showed a weighting that does not add up to the number beside it and
 /// no other explanation anywhere (plan 34).
-fn render_overall_score_derivation(
+fn render_site_quality_score_derivation(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
     i18n: &I18n,
@@ -235,20 +238,23 @@ fn render_overall_score_derivation(
     table = table.add_row(vec![
         i18n.t("score-drivers-derivation-desktop"),
         i18n.t("score-drivers-derivation-desktop-input"),
-        sb.desktop_overall.to_string(),
+        sb.desktop_site_quality.to_string(),
     ]);
     table = table.add_row(vec![
         i18n.t("score-drivers-derivation-mobile"),
         i18n.t("score-drivers-derivation-mobile-input"),
-        sb.mobile_overall.to_string(),
+        sb.mobile_site_quality.to_string(),
     ]);
     table = table.add_row(vec![
         i18n.t("score-drivers-derivation-blend"),
         format!(
             "Desktop {} x {} % + Mobile {} x {} %",
-            sb.desktop_overall, sb.desktop_weight_pct, sb.mobile_overall, sb.mobile_weight_pct
+            sb.desktop_site_quality,
+            sb.desktop_weight_pct,
+            sb.mobile_site_quality,
+            sb.mobile_weight_pct
         ),
-        sb.viewport_blended_overall.to_string(),
+        sb.viewport_blended_site_quality.to_string(),
     ]);
 
     match (sb.security_score, sb.security_weight_pct) {
@@ -257,19 +263,19 @@ fn render_overall_score_derivation(
                 i18n.t("score-drivers-derivation-security"),
                 format!(
                     "{} x {} % + {} x {} %",
-                    sb.viewport_blended_overall,
+                    sb.viewport_blended_site_quality,
                     sb.viewport_blend_weight_pct,
                     security,
                     security_weight
                 ),
-                vm.summary.overall_score.to_string(),
+                vm.summary.site_quality_score.to_string(),
             ]);
         }
         _ => {
             table = table.add_row(vec![
                 i18n.t("score-drivers-derivation-no-security"),
-                format!("{} x 100 %", sb.viewport_blended_overall),
-                vm.summary.overall_score.to_string(),
+                format!("{} x 100 %", sb.viewport_blended_site_quality),
+                vm.summary.site_quality_score.to_string(),
             ]);
         }
     }
@@ -397,7 +403,7 @@ mod tests {
     /// module rows averaged 90.05 against a reported 92, inros-lackner's
     /// 47.05 against 45.
     #[test]
-    fn score_derivation_reproduces_the_overall_score() {
+    fn score_derivation_reproduces_the_site_quality_score() {
         for (desktop, mobile, security, expected) in [
             (94u32, 91u32, Some(95u32), 92u32),
             (41, 49, Some(30), 45),

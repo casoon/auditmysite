@@ -85,7 +85,7 @@ fn build_batch_report(
     let pres = build_batch_presentation_with_locale(batch, &i18n);
 
     let domain = &pres.portfolio_summary.domain;
-    let score = pres.portfolio_summary.average_overall_score;
+    let score = pres.portfolio_summary.average_site_quality_score;
 
     let mut builder = engine
         .report("wcag-batch-audit")
@@ -416,12 +416,12 @@ mod tests {
             assert!(!out.contains("title: \"Website-Ranking\""), "{locale}");
             assert!(out.contains(&format!("label: \"{}\"", i18n.t("batch-ranking-col-seo"))));
             assert!(!en || !out.contains("label: \"Konf.\""));
-            // The fixed ranking columns too: the overall score and the count
+            // The fixed ranking columns too: the site-quality score and the count
             // of critical and high findings, in the run language.
             for (field, key) in [
                 ("label_rank", "batch-ranking-col-rank"),
                 ("label_domain", "batch-ranking-col-page"),
-                ("label_score", "batch-ranking-col-overall"),
+                ("label_score", "batch-ranking-col-site-quality"),
                 ("label_accessibility", "batch-ranking-col-accessibility"),
                 ("label_critical_issues", "batch-ranking-col-critical-high"),
             ] {
@@ -685,7 +685,7 @@ mod tests {
             for key in [
                 "batch-ranking-col-accessibility",
                 "batch-ranking-col-critical-high",
-                "batch-ranking-col-overall",
+                "batch-ranking-col-site-quality",
             ] {
                 assert!(portfolio::ranking_intro(&i18n).contains(&i18n.t(key)));
             }
@@ -984,14 +984,14 @@ mod tests {
             desktop: ViewportScoreSet {
                 accessibility: 95,
                 performance: None,
-                overall: 95,
+                site_quality: 95,
             },
             mobile: ViewportScoreSet {
                 accessibility: 60,
                 performance: None,
-                overall: 60,
+                site_quality: 60,
             },
-            weighted_overall: 71,
+            weighted_site_quality: 71,
         });
 
         let mut second = report("https://example.com/b");

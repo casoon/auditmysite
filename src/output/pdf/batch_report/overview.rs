@@ -196,9 +196,18 @@ pub(super) fn render_batch_cover(
         builder = builder.add_component(cover_meta);
     }
 
+    // The cover's headline number is the accessibility average, the figure
+    // the grade card beside it is banded from. The site-quality average (the
+    // mixed score over the optional modules) is the labelled secondary note
+    // below the row.
+    let accessibility_average = pres
+        .portfolio_summary
+        .average_score
+        .expect(super::UNMEASURED_REFUSED)
+        .round() as u32;
     builder = builder
         .add_component(build_batch_cover_score_row(
-            score,
+            accessibility_average,
             &pres.portfolio_summary.grade,
             batch.summary.decision.verdict,
             batch.summary.audit_quality.qualified_results,
@@ -207,10 +216,9 @@ pub(super) fn render_batch_cover(
             i18n,
         )?)
         .add_component(
-            Label::new(format!(
-                "{}: {}",
-                i18n.t("cover-card-average"),
-                i18n.t("batch-cover-overall-score-note")
+            Label::new(i18n.t_args(
+                "batch-cover-site-quality-score-note",
+                &[("score", score as i64)],
             ))
             .with_size("8.5pt")
             .with_color(crate::output::pdf::design::tokens::MUTED),
@@ -273,10 +281,10 @@ fn batch_scope_callout(has_appendix: bool, i18n: &I18n) -> Callout {
 }
 
 /// The batch decision and its reasons, as the single report states its own
-/// (`render_overall_rating`). The decision appeared nowhere in the batch PDF,
+/// (`render_rating`). The decision appeared nowhere in the batch PDF,
 /// next to "a very good result" on a batch that failed on legal flags
 /// (#1039).
-fn render_batch_overall_rating(
+fn render_batch_rating(
     builder: renderreport::engine::ReportBuilder,
     batch: &BatchReport,
     score: u32,
@@ -440,7 +448,7 @@ pub(super) fn render_batch_status_section(
         .expect(super::UNMEASURED_REFUSED)
         .round() as u32;
     builder = builder.add_component(Section::new(i18n.t("batch-section-status")).with_level(1));
-    builder = render_batch_overall_rating(builder, batch, score, i18n);
+    builder = render_batch_rating(builder, batch, score, i18n);
     builder = builder.add_component(callout);
     builder = render_batch_unaudited_urls(builder, batch, i18n);
 

@@ -5,7 +5,7 @@
   "description": "Data contract between auditmysite (CLI/library) and auditmysite_studio (GUI). Types defined in src/studio/mod.rs.",
   "type": "object",
   "required": [
-    "url", "timestamp", "accessibility_score", "overall_score", "grade",
+    "url", "timestamp", "accessibility_score", "site_quality_score", "grade",
     "decision", "risk_level", "risk_summary", "legal_flags", "blocking_issues",
     "critical_issues", "high_issues", "medium_issues", "low_issues", "total_issues",
     "module_scores", "findings", "nodes_analyzed", "execution_time_ms",
@@ -16,7 +16,7 @@
     "url": { "type": "string" },
     "timestamp": { "type": "string", "format": "date-time" },
     "accessibility_score": { "type": "integer", "minimum": 0, "maximum": 100 },
-    "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "site_quality_score": { "type": "integer", "minimum": 0, "maximum": 100 },
     "grade": { "type": "string", "enum": ["A", "B", "C", "D", "F"] },
     "decision": {
       "description": "The audit's stored decision: the same verdict as the terminal, the JSON report and the exit code.",
@@ -56,7 +56,7 @@
   "$defs": {
     "moduleScore": {
       "type": "object",
-      "required": ["name", "score", "band", "weight_pct", "contributes_to_overall"],
+      "required": ["name", "score", "band", "weight_pct", "contributes_to_site_quality_score"],
       "additionalProperties": false,
       "properties": {
         "name": { "type": "string" },
@@ -64,9 +64,9 @@
         "grade": { "type": "string", "description": "Letter grade. Present only for modules with weight_pct > 0 (plan 29, D2)." },
         "band": { "type": "string", "description": "Canonical English qualitative band for score. The only qualitative label a module of weight 0 carries." },
         "weight_pct": { "type": "integer", "minimum": 0 },
-        "contributes_to_overall": {
+        "contributes_to_site_quality_score": {
           "type": "boolean",
-          "description": "True when this module feeds into overall_score. False for supplemental dimensions (e.g. Best Practices); the experimental indicators are not part of the response."
+          "description": "True when this module feeds into site_quality_score. False for supplemental dimensions (e.g. Best Practices); the experimental indicators are not part of the response."
         }
       }
     },
@@ -137,7 +137,7 @@
     "historyEntry": {
       "type": "object",
       "required": [
-        "id", "url", "timestamp", "accessibility_score", "overall_score",
+        "id", "url", "timestamp", "accessibility_score", "site_quality_score",
         "grade", "risk_level", "total_issues", "critical_issues",
         "high_issues", "execution_time_ms", "module_scores", "artifacts"
       ],
@@ -147,7 +147,7 @@
         "url": { "type": "string" },
         "timestamp": { "type": "string", "format": "date-time" },
         "accessibility_score": { "type": "integer", "minimum": 0, "maximum": 100 },
-        "overall_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "site_quality_score": { "type": "integer", "minimum": 0, "maximum": 100 },
         "grade": { "type": "string" },
         "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
         "total_issues": { "type": "integer", "minimum": 0 },

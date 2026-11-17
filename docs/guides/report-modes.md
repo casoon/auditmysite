@@ -7,8 +7,8 @@ order: 9
 Single-page reports and sitemap/batch reports are intentionally different.
 
 **Single-page report** is a product-grade PDF organized as a top-down narrative:
-- Cover: a composed dashboard — dominant overall score with a score-band label (no A–F grade, no "/100"), a module gauge strip, and the WCAG findings scope.
-- Management view: severity counters, a "quality profile" spider radar, a score-driver table (which weighted module pulls the overall score down most), Accessibility and Security subcategory breakdowns, a one-line problem profile (isolated, concentrated in a few systemic patterns, or broad and systemic), and strengths / optimization cards.
+- Cover: a composed dashboard — dominant accessibility score with a score-band label (no A–F grade, no "/100"), a module gauge strip, and the WCAG findings scope.
+- Management view: severity counters, a "quality profile" spider radar, a score-driver table (which weighted module pulls the site-quality score down most), Accessibility and Security subcategory breakdowns, a one-line problem profile (isolated, concentrated in a few systemic patterns, or broad and systemic), and strengths / optimization cards.
 - Findings overview: a compact, priority-sorted findings matrix precedes the detailed finding cards.
 - Manual review: a fixed list of WCAG criteria that are structurally outside automated testing, and concrete VoiceOver/NVDA self-test steps where a quick manual check is realistic.
 - Accessible output: PDFs are tagged and PDF/UA-1 conformant (structure tree, document language, title, bookmarks); rendering fails with a diagnostic instead of silently producing a non-conformant PDF.

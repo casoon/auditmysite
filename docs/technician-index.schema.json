@@ -7,7 +7,7 @@
   "required": ["schema_version", "tool_version", "totals", "pages"],
   "additionalProperties": false,
   "properties": {
-    "schema_version": { "type": "string", "const": "1.0" },
+    "schema_version": { "type": "string", "const": "1.1" },
     "tool_version": { "type": "string" },
     "totals": {
       "type": "object",
@@ -42,7 +42,7 @@
         "file",
         "status",
         "reason",
-        "overall_score",
+        "site_quality_score",
         "accessibility_score",
         "finding_count",
         "occurrence_count",
@@ -64,7 +64,7 @@
           "type": ["string", "null"],
           "description": "Why the page is blocked or failed; null for ok."
         },
-        "overall_score": {
+        "site_quality_score": {
           "type": ["integer", "null"],
           "minimum": 0,
           "maximum": 100,

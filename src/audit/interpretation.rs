@@ -279,7 +279,7 @@ impl Interpretation {
         let overall_score_band = ScoreBand::from_score(ctx.normalized.score as f32);
         let overall_impact = build_overall_impact_localized(ctx);
         let benchmark_context =
-            build_benchmark_context_localized(ctx.normalized.overall_score as f32);
+            build_benchmark_context_localized(ctx.normalized.site_quality_score as f32);
         let business_consequence_key = pick_business_consequence_key(ctx, &accessibility_claim);
         let consequence_key = pick_consequence_key(ctx);
         // The sentence names the accessibility score, so that score picks the

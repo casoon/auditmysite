@@ -88,7 +88,7 @@ pub struct NormalizedReport {
     /// Modul-Scores
     pub module_scores: Vec<ModuleScoreEntry>,
     /// Gewichteter Gesamtscore über alle aktiven Module
-    pub overall_score: u32,
+    pub site_quality_score: u32,
 
     /// Per-subcategory Accessibility score breakdown (plan/5-module-
     /// accessibility-security-driver-detail.md) — explains what specifically
@@ -119,11 +119,11 @@ pub struct NormalizedReport {
     /// Per-viewport scores from dual-pass audit (70 % mobile / 30 % desktop).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub viewport_scores: Option<ViewportScores>,
-    /// How `overall_score` was computed: `"module_weighted"`, including
+    /// How `site_quality_score` was computed: `"module_weighted"`, including
     /// dual-pass audits. Viewport scores are diagnostic inputs, not a second
     /// weighting model. Older reports may contain `"viewport_weighted"`.
     pub score_calculation_method: String,
-    /// Exact inputs used to produce `overall_score`.
+    /// Exact inputs used to produce `site_quality_score`.
     /// Legacy viewport breakdown, retained for reading older reports. Current
     /// reports expose exact inputs through contributing `module_scores`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -761,7 +761,7 @@ pub struct OccurrenceDetail {
 pub struct ModuleScoreEntry {
     pub name: String,
     pub score: u32,
-    /// Letter grade — **only** for modules that carry weight in the overall
+    /// Letter grade — **only** for modules that carry weight in the site-quality
     /// score (plan 29, D2). A zero-weight indicator feeds nothing, so grading
     /// it on the same A–F scale as Accessibility gave it the same visual
     /// authority as a result that does count: "Dark Mode: F" sat next to an F
@@ -774,10 +774,10 @@ pub struct ModuleScoreEntry {
     /// PDF re-derives the localised label from `score`.
     pub band: String,
     pub weight_pct: u32,
-    /// True when this module's score feeds directly into overall_score.
+    /// True when this module's score feeds directly into site_quality_score.
     /// False for supplemental dimensions (UX, Journey) that are displayed
     /// but not part of the core weighted average.
-    pub contributes_to_overall: bool,
+    pub contributes_to_site_quality_score: bool,
     /// Modules this one re-reads instead of measuring anything new (plan 29,
     /// D3). Empty for a module that measures its own subject. A reader who
     /// sees Source Quality agree with SEO and Accessibility is not looking at
@@ -795,7 +795,7 @@ pub struct ModuleScoreEntry {
 
 impl ModuleScoreEntry {
     /// The weight decides the qualitative label (plan 29, D2): a module that
-    /// carries weight in the overall score gets a letter grade, an indicator
+    /// carries weight in the site-quality score gets a letter grade, an indicator
     /// that feeds nothing gets the band word only. The weight is looked up
     /// from the single table rather than passed in, so the two can never
     /// disagree.
@@ -803,9 +803,9 @@ impl ModuleScoreEntry {
         name: &str,
         score: u32,
         measurement_type: &str,
-        contributes_to_overall: bool,
+        contributes_to_site_quality_score: bool,
     ) -> Self {
-        let weight_pct = if contributes_to_overall {
+        let weight_pct = if contributes_to_site_quality_score {
             crate::taxonomy::module_weight(name)
         } else {
             0
@@ -826,7 +826,7 @@ impl ModuleScoreEntry {
                 .map(|m| m.to_string())
                 .collect(),
             weight_pct,
-            contributes_to_overall,
+            contributes_to_site_quality_score,
             measurement_type: measurement_type.to_string(),
         }
     }
@@ -835,7 +835,7 @@ impl ModuleScoreEntry {
 /// Per-subcategory Accessibility score (plan/5-module-accessibility-
 /// security-driver-detail.md): explains *why* the Accessibility score is
 /// what it is at a finer grain than the single module number — e.g. a low
-/// overall score driven specifically by broken ARIA/landmark structure
+/// site-quality score driven specifically by broken ARIA/landmark structure
 /// while forms and images are fine. `name` is the canonical English
 /// `taxonomy::Subcategory` label (#406); `subcategory_kind` is the PDF-only
 /// re-derivation key, not serialized.
@@ -994,13 +994,13 @@ impl RiskAssessment {
     }
 }
 
-/// Transparent breakdown of how `overall_score` was computed in viewport_weighted mode.
+/// Transparent breakdown of how `site_quality_score` was computed in viewport_weighted mode.
 /// Allows consumers to reproduce the exact score from its inputs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct ScoreBreakdown {
-    /// Human-readable note clarifying that `viewport_scores.weighted_overall`
-    /// is pre-security while `overall_score` is the canonical final score.
+    /// Human-readable note clarifying that `viewport_scores.weighted_site_quality`
+    /// is pre-security while `site_quality_score` is the canonical final score.
     pub calculation_note: String,
     /// Blending weights for the two viewport passes
     pub desktop_weight_pct: u32,
@@ -1010,11 +1010,11 @@ pub struct ScoreBreakdown {
     pub mobile_accessibility: u32,
     /// Canonical accessibility score (mobile 70% + desktop 30%).
     pub viewport_blended_accessibility: u32,
-    /// Raw overall scores from each viewport pass
-    pub desktop_overall: u32,
-    pub mobile_overall: u32,
+    /// Raw site-quality scores from each viewport pass
+    pub desktop_site_quality: u32,
+    pub mobile_site_quality: u32,
     /// Blended result before security is mixed in (mobile*70% + desktop*30%)
-    pub viewport_blended_overall: u32,
+    pub viewport_blended_site_quality: u32,
     /// Weight given to the viewport blend in the final formula (always 90 when security present)
     pub viewport_blend_weight_pct: u32,
     /// Security score after vulnerable-library penalty
@@ -1731,26 +1731,26 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     // separately normalized viewport averages changed those effective weights.
     let (weighted_sum, total_weight) = module_scores
         .iter()
-        .filter(|module| module.contributes_to_overall)
+        .filter(|module| module.contributes_to_site_quality_score)
         .fold((0u64, 0u64), |(sum, total), module| {
             (
                 sum + module.score as u64 * module.weight_pct as u64,
                 total + module.weight_pct as u64,
             )
         });
-    let overall_score = (weighted_sum as f64 / total_weight as f64).round() as u32;
+    let site_quality_score = (weighted_sum as f64 / total_weight as f64).round() as u32;
     let score_calculation_method = "module_weighted".to_string();
     let score_breakdown = None;
 
     // The grade describes the subject of the report: accessibility.
     //
-    // It used to hang off `overall_score` (#233). That moved the headline away
+    // It used to hang off `site_quality_score` (#233). That moved the headline away
     // from what the tool is for: an accessibility score of 20 appeared on the
-    // cover as an overall 39, because Performance 45, Mobile 80 and SEO 65
+    // cover as a site-quality 39, because Performance 45, Mobile 80 and SEO 65
     // pulled it up. It now reads the accessibility score, the number the
     // report is about (plan 29, D1).
     //
-    // The weighted `overall_score` remains in the report as a labelled
+    // The weighted `site_quality_score` remains in the report as a labelled
     // secondary value, with the weight basis it was computed over.
     let grade = AccessibilityScorer::calculate_grade(score as f32).to_string();
 
@@ -1905,7 +1905,7 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         &interactive_findings,
         screen_reader.as_ref(),
         score,
-        overall_score,
+        site_quality_score,
     );
 
     // The findings baseline (#930) marks the known findings; the verdict
@@ -1927,7 +1927,7 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
                     &interactive_findings,
                     screen_reader.as_ref(),
                     score,
-                    overall_score,
+                    site_quality_score,
                 );
                 (
                     open_risk.legal_flags,
@@ -1973,7 +1973,7 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         rule_outcomes: report.accessibility.wcag_results.rule_outcomes.clone(),
         execution: report.accessibility.execution.clone(),
         module_scores,
-        overall_score,
+        site_quality_score,
         accessibility_subcategory_scores,
         security_category_scores,
         risk,
@@ -2976,7 +2976,7 @@ mod tests {
         );
         let entry = bp_entry.unwrap();
         assert_eq!(entry.score, 90);
-        assert!(!entry.contributes_to_overall);
+        assert!(!entry.contributes_to_site_quality_score);
 
         assert!(
             norm.raw_best_practices.is_some(),
@@ -3215,7 +3215,7 @@ mod tests {
     #[test]
     fn failed_scoring_collection_makes_the_module_partial_and_non_contributing() {
         // #777: SEO computed without its image inventory is no measured
-        // score. It stays visible as partial but leaves the overall score,
+        // score. It stays visible as partial but leaves the site-quality score,
         // and the contract rejects any report that still counts it.
         let seo = crate::seo::SeoAnalysis {
             score: 40,
@@ -3256,16 +3256,16 @@ mod tests {
             .find(|m| m.name == "SEO")
             .expect("SEO entry");
         assert_eq!(seo.measurement_type, "partial");
-        assert!(!seo.contributes_to_overall);
+        assert!(!seo.contributes_to_site_quality_score);
         assert_eq!(
-            norm.overall_score, 100,
-            "SEO 40 must not pull the overall down"
+            norm.site_quality_score, 100,
+            "SEO 40 must not pull the site-quality score down"
         );
 
         let mut counted = norm.clone();
         if let Some(m) = counted.module_scores.iter_mut().find(|m| m.name == "SEO") {
             m.measurement_type = "measured".into();
-            m.contributes_to_overall = true;
+            m.contributes_to_site_quality_score = true;
         }
         let errors = counted.validate().unwrap_err();
         assert!(
@@ -3284,7 +3284,7 @@ mod tests {
         );
         assert!(subcheck.is_scoring_gap());
         let renormalized = normalize(&replayed).normalized;
-        assert_eq!(renormalized.overall_score, norm.overall_score);
+        assert_eq!(renormalized.site_quality_score, norm.site_quality_score);
     }
 
     /// #777: the score validation covers every scored module, not only SEO,
@@ -3376,7 +3376,7 @@ mod tests {
                 .find(|m| m.name == score_name)
                 .unwrap_or_else(|| panic!("{score_name} entry"));
             assert_ne!(entry.measurement_type, "measured", "{score_name}");
-            assert!(!entry.contributes_to_overall, "{score_name}");
+            assert!(!entry.contributes_to_site_quality_score, "{score_name}");
 
             let mut counted = norm.clone();
             let m = counted
@@ -3385,7 +3385,7 @@ mod tests {
                 .find(|m| m.name == score_name)
                 .unwrap();
             m.measurement_type = "measured".into();
-            m.contributes_to_overall = true;
+            m.contributes_to_site_quality_score = true;
             let errors = counted.validate().unwrap_err();
             assert!(
                 errors.to_string().contains("collection_gap_scored"),
@@ -3396,7 +3396,7 @@ mod tests {
 
     /// #777: every scoring collector in the inventory, run through
     /// `normalize`: a lost measurement never leaves a measured score that
-    /// feeds the overall score, whichever module owns it. The module list is
+    /// feeds the site-quality score, whichever module owns it. The module list is
     /// closed — a scoring collector of a module this test cannot build fails
     /// it, so a new scored module has to bring its score assertion here.
     #[test]
@@ -3521,7 +3521,7 @@ mod tests {
         for spec in COLLECTORS.iter().filter(|spec| spec.scoring) {
             let (report, score_name) = with_module(spec.module);
             let mut report = Box::new(report);
-            let overall_without_gap = normalize(&report).normalized.overall_score;
+            let site_quality_without_gap = normalize(&report).normalized.site_quality_score;
             report
                 .accessibility
                 .execution
@@ -3551,7 +3551,7 @@ mod tests {
                         .find(|m| m.name == name)
                         .unwrap_or_else(|| panic!("{}: {name} entry", spec.id));
                     assert_ne!(entry.measurement_type, "measured", "{}", spec.id);
-                    assert!(!entry.contributes_to_overall, "{}", spec.id);
+                    assert!(!entry.contributes_to_site_quality_score, "{}", spec.id);
                     // Forcing the claim back is rejected by the validator.
                     let mut counted = norm.clone();
                     let m = counted
@@ -3560,7 +3560,7 @@ mod tests {
                         .find(|m| m.name == name)
                         .unwrap();
                     m.measurement_type = "measured".into();
-                    m.contributes_to_overall = true;
+                    m.contributes_to_site_quality_score = true;
                     let errors = counted.validate().unwrap_err();
                     assert!(
                         errors.to_string().contains("collection_gap_scored"),
@@ -3575,7 +3575,11 @@ mod tests {
                         "{}: only Accessibility is scored",
                         spec.id
                     );
-                    assert_eq!(norm.overall_score, overall_without_gap, "{}", spec.id);
+                    assert_eq!(
+                        norm.site_quality_score, site_quality_without_gap,
+                        "{}",
+                        spec.id
+                    );
                 }
             }
             checked.insert(spec.module);
@@ -3657,11 +3661,11 @@ mod tests {
     }
 
     #[test]
-    fn test_unmeasured_performance_excluded_from_overall_score() {
+    fn test_unmeasured_performance_excluded_from_site_quality_score() {
         // QA-023: a performance module that ran but collected zero Core Web
-        // Vitals must not drag the overall score down as if it scored 0 — it
+        // Vitals must not drag the site-quality score down as if it scored 0 — it
         // should be excluded from the weighted sum (measurement_type
-        // "not_measured"), so a clean a11y page keeps its overall score.
+        // "not_measured"), so a clean a11y page keeps its site-quality score.
         use crate::performance::{PerformanceGrade, PerformanceScore, WebVitals};
 
         let report = AuditReport::new(
@@ -3705,12 +3709,12 @@ mod tests {
             .iter()
             .find(|m| m.name == "Performance")
             .expect("performance module entry must be present");
-        assert!(!perf_entry.contributes_to_overall);
+        assert!(!perf_entry.contributes_to_site_quality_score);
         assert_eq!(perf_entry.measurement_type, "not_measured");
 
-        // Overall score must match the accessibility-only score, not be
+        // Site-quality score must match the accessibility-only score, not be
         // dragged down by an unmeasured 0-scored performance module.
-        assert_eq!(norm.overall_score, norm.score);
+        assert_eq!(norm.site_quality_score, norm.score);
     }
 
     #[test]
@@ -3727,14 +3731,14 @@ mod tests {
             desktop: ViewportScoreSet {
                 accessibility: 80,
                 performance: None,
-                overall: 80,
+                site_quality: 80,
             },
             mobile: ViewportScoreSet {
                 accessibility: 20,
                 performance: None,
-                overall: 20,
+                site_quality: 20,
             },
-            weighted_overall: 38,
+            weighted_site_quality: 38,
         });
         let norm = normalize(&report);
         assert_eq!(norm.normalized.score, 38);
@@ -3752,7 +3756,7 @@ mod tests {
             .normalized
             .module_scores
             .iter()
-            .filter(|m| m.contributes_to_overall)
+            .filter(|m| m.contributes_to_site_quality_score)
             .map(|m| m.name.as_str())
             .collect();
         assert!(

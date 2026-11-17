@@ -13,22 +13,25 @@ use crate::wcag::{self, Violation, WcagResults};
 
 // ── Score helpers ─────────────────────────────────────────────────────────────
 
-/// `viewport_scores.weighted_overall`: the two per-viewport overalls blended
+/// `viewport_scores.weighted_site_quality`: the two per-viewport site-quality scores blended
 /// 70 % mobile, 30 % desktop. This is a viewport-pass figure, **not** a
-/// published module weight: it is not the report's `overall_score` (which
+/// published module weight: it is not the report's `site_quality_score` (which
 /// weights modules, and adds Security afterwards) and is labelled so in
 /// `docs/OUTPUT_CONTRACT.md` (#771).
-pub(super) fn viewport_weighted_overall(mobile_overall: u32, desktop_overall: u32) -> u32 {
-    (mobile_overall as f64 * 0.7 + desktop_overall as f64 * 0.3).round() as u32
+pub(super) fn viewport_weighted_site_quality(
+    mobile_site_quality: u32,
+    desktop_site_quality: u32,
+) -> u32 {
+    (mobile_site_quality as f64 * 0.7 + desktop_site_quality as f64 * 0.3).round() as u32
 }
 
-/// Weighted overall of one viewport over the modules measured there, with
+/// Weighted site-quality score of one viewport over the modules measured there, with
 /// the weights `module_scores` publishes (`taxonomy::module_weight`), so the
 /// shown weights are the formula: before plan 73 this path weighted SEO 20
 /// instead of 15 and left HTML conformance out. Security joins after the
 /// viewport blend with its own 10 %. `None` modules (not run, or no Web
 /// Vitals measured) drop out and the rest is renormalized.
-pub(super) fn compute_viewport_overall(acc: f32, modules: &[(&str, Option<u32>)]) -> u32 {
+pub(super) fn compute_viewport_site_quality(acc: f32, modules: &[(&str, Option<u32>)]) -> u32 {
     let accessibility = crate::taxonomy::module_weight("Accessibility") as f64;
     let mut weighted = acc as f64 * accessibility;
     let mut total = accessibility;

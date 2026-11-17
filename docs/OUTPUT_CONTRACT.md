@@ -8,13 +8,13 @@
 - Batch JSON is generated from normalized reports plus batch `summary`, optional `errors`, and deterministic `metadata`.
 - Timestamps are data-derived, not generated at serialization time.
 - New top-level fields may be added in a backward-compatible way.
-- Existing required fields should not be removed or renamed without a versioned contract change.
+- Existing required fields should not be removed or renamed without a versioned contract change: a rename that is not additive raises the minor part of `schema_version` (see "Site quality score (optional modules)" below for the 2.1 step).
 
 ## Module Classification
 
 - Every `report.module_scores[]` entry includes `measurement_type` and `band`.
 - `band` is the canonical English qualitative label for `score`; it is present on every entry.
-- `grade` (a letter) is present **only** for modules with `weight_pct > 0`. A module that does not feed `overall_score` carries `band` alone: grading an indicator on the same A–F scale as a weighted module gave it an authority it does not have.
+- `grade` (a letter) is present **only** for modules with `weight_pct > 0`. A module that does not feed `site_quality_score` carries `band` alone: grading an indicator on the same A–F scale as a weighted module gave it an authority it does not have.
 - `derived_from` lists the modules an entry re-reads instead of measuring anything new; it is absent when the module measures its own subject. `UX` and `Journey` are charged an explicit accessibility penalty, `AI Visibility` re-reads SEO signals, and `Source Quality` re-reads SEO, Security and UX. Agreement between such a module and its sources is not independent confirmation.
 - The same rule applies to the heuristic module payloads in the `experimental` block: `source_quality` and `ai_visibility` carry `band`, not `grade`.
 - `measurement_type = "measured"` means the score is based on direct audit data such as WCAG checks, CDP metrics, HTTP headers, or mobile viewport measurements.
@@ -30,11 +30,11 @@
 - In a dual-viewport audit, `accessibility_score` is always the rounded blend of 70% mobile and 30% desktop accessibility. The same canonical value is used in the summary, page entry, Accessibility module, score breakdown, and PDF.
 - The merged cross-viewport finding list is evidence for prioritization and remediation. Its size does not create a third accessibility score.
 - `grade` describes `accessibility_score`, the subject of the report, and is the headline classification wherever one is shown (cover, batch cover, terminal). There is no certificate: an automated check covering part of the criteria issues none, so the JSON carries no `certificate` field anywhere (removed from `decision` in `auditmysite.decision/3`).
-- `overall_score` is a secondary, explicitly labelled figure: the weighted result across the active contributing modules, reported together with `overall_score_weight_basis`. It is not the headline and carries no classification of its own.
+- `site_quality_score` is the **site quality (optional modules)** figure: a secondary, explicitly labelled score, the weighted result across the active contributing modules (accessibility 40, performance 20, SEO 15, security 10, mobile 10, HTML conformance 5 by default), reported together with `site_quality_score_weight_basis`. It is not the headline and carries no classification of its own. Until schema 2.1 it was called `overall_score`; "overall" suggested the one number that sums the report up, which is the accessibility score.
 - `violation_count` and `occurrence_counts` count WCAG occurrences: affected elements or instances, not distinct rules.
 - `violated_rule_count` and `severity_counts` count distinct grouped WCAG findings.
 - `finding_count` and `finding_occurrence_count` include findings from all reported domains (WCAG, SEO, security, mobile, …).
-- There is no unqualified `score` in the summary: a score is either `accessibility_score` or `overall_score`.
+- There is no unqualified `score` in the summary: a score is either `accessibility_score` or `site_quality_score`.
 
 ## Finding Contract
 
@@ -107,7 +107,7 @@ Migration from `auditmysite.decision/2`: `decision.certificate` (`very_good` …
 
 - **Fail** when the profile enables it and there are legal flags of High or Critical severity (`severe_legal_flags`; the reason names `legal_flags`), blocking issues, technical blockers (`fail_on_technical_blockers`, default off) or the accessibility score is below `fail_below_score`.
 - **Warn** for an incomplete run, technical blockers, an accessibility score below `warn_below_score` (default 70), or, above it, any WCAG finding. `warn_below_score` is a policy threshold of the verdict, independent of the score bands (90/75/60/40) that name the tiers; no report text derives a tier name from it.
-- Thresholds compare `accessibility_score`. `overall_score` never decides.
+- Thresholds compare `accessibility_score`. `site_quality_score` never decides.
 - A stored decision that its own profile does not reproduce is a contract violation (`decision`), reported with every other violation found.
 
 Every path that publishes a decision reads the stored one and validates before writing:
@@ -202,12 +202,35 @@ Not measured: user interaction (INP stays an estimate and is only set when inter
 - A batch lists every distinct browser provenance of its pages in `summary.measurement_browsers` (`browser`, `pages`; `browser: null` counts pages whose browser was not recorded). Two or more entries mean the batch mixes browsers (cache replays of another run, merged files); it is never averaged away, and a stored list that differs from the pages fails as `batch_aggregation`. The top-level `audit_scope` of a batch shows the first page's profile only.
 - A result measured under another profile is another measurement. Validation rejects a profile whose `read_only` or journey list contradicts `interactive_mode`.
 
+## Site quality score (optional modules)
+
+The mixed score is named **site quality (optional modules)**: the accessibility module is always part of it, the other modules (performance, SEO, security, mobile, HTML conformance) are optional and enter with their weight when they ran and measured. The accessibility score stays the headline everywhere (terminal, JSON `summary` ordering, both PDF covers); the site-quality figure is a labelled secondary number (batch cover: the note under the score row; single cover: the strip "MODULES IN THE SITE-QUALITY SCORE").
+
+Naming rule: every key, label and id that names this figure says `site_quality`, nothing else changed. Identifiers named `overall` that mean something else keep their name: `performance.score.overall` (the Performance module's own score), `signal_strength.overall_pct` (SEO content profile), `overall_impact` (the three-row impact table of the interpretation) and the `single-report-overall-verdict` / `single-report-dual-overall` labels (the verdict; the blended accessibility score).
+
+`schema_version` is `2.1` (was `2.0`; the technician index is `1.1`, was `1.0`). The 2.0 release changed the JSON without moving the envelope version, which stayed at the `2.0` it got in 0.17; this rename is the first non-additive change after that and the contract above asks for a versioned change, so the minor part moves. The major part stays `2`: the envelope is the same generation. There is no alias, the old keys are gone in every output (JSON, summary feed, technician index, Studio contract). Cached snapshots and cache entries from before are misses (`SNAPSHOT_SCHEMA_VERSION` 3, cache `fmt` 34); `EVALUATION_VERSION` is unchanged because no score, finding or verdict moves.
+
+| Old key | New key | Where |
+| --- | --- | --- |
+| `overall_score` | `site_quality_score` | `summary`, `pages[]` (single and batch JSON), Studio contract, technician index, AI report |
+| `overall_score_weight_basis` | `site_quality_score_weight_basis` | `summary` |
+| `overall_score_weight_basis_uniform` | `site_quality_score_weight_basis_uniform` | batch `summary` |
+| `module_scores[].contributes_to_overall` | `module_scores[].contributes_to_site_quality_score` | JSON, Studio contract |
+| `detail.viewport_scores.desktop.overall`, `.mobile.overall` | `.desktop.site_quality`, `.mobile.site_quality` | dual-viewport runs |
+| `detail.viewport_scores.weighted_overall` | `detail.viewport_scores.weighted_site_quality` | dual-viewport runs |
+| `score_breakdown.desktop_overall`, `mobile_overall`, `viewport_blended_overall` | `desktop_site_quality`, `mobile_site_quality`, `viewport_blended_site_quality` | `pages[].score_breakdown` |
+| `overallScore` | `siteQualityScore` | compact summary feed (`--format summary`) |
+| validation code `overall_score` | `site_quality_score` | `ReportContractError.violations[].code` |
+| `metric_context` id `overall_score` | `site_quality_score` | `metric_context` block |
+
+PDF and table labels follow the name (`Site quality (optional modules)` / `Website-Qualität (optionale Module)`); the JSON stays English.
+
 ## Validation codes
 
 A report that contradicts itself is rejected with machine-readable codes (`ReportContractError.violations[].code`, `audit::CONTRACT_CODES`). The codes, by area:
 
 - Baseline: `baseline`.
-- Scores and decision: `score_range`, `grade`, `overall_score`, `average_score`, `score_method`, `module_grade`, `module_weight`, `module_identity`, `weighted_measurement`, `viewport_score`, `semantic_score_cap`, `gate_score_cap`, `passed`, `decision`, `decision_contract`, `decision_profile`, `cause_charged_twice`.
+- Scores and decision: `score_range`, `grade`, `site_quality_score`, `average_score`, `score_method`, `module_grade`, `module_weight`, `module_identity`, `weighted_measurement`, `viewport_score`, `semantic_score_cap`, `gate_score_cap`, `passed`, `decision`, `decision_contract`, `decision_profile`, `cause_charged_twice`.
 - Findings and counts: `finding_identity`, `finding_inventory`, `finding_occurrences`, `occurrence_counts`, `severity_counts`, `rule_findings_preserved`.
 - Execution scope: `requested_execution`, `requested_rule_outcome`, `rule_outcome_duplicate`, `rule_outcome_above_level`, `rule_outcome_filtered`, `requested_subcheck_outcome`, `frame_rule_outcome_missing`, `frame_rule_outcome_duplicate`, `frame_rule_outcome_unexpected`, `frame_rule_outcome_above_level`, `measurement_profile_read_only`, `measurement_profile_journeys`, `browser_provenance`.
 - Quality and collections: `accessibility_module`, `audit_quality`, `execution_completeness`, `quality_qualification`, `failed_rule_checks`, `collector_unknown`, `collection_state_unexplained`, `collection_gap_completed`, `collection_gap_scored`.
@@ -280,15 +303,16 @@ target for one registry entry; `tests/registry_contract.rs` checks that every
 Canonical accessibility score. With dual-viewport data it is 70% mobile and
 30% desktop; otherwise it is the measured single-viewport score. It covers
 automatically evaluated WCAG findings only. In batch reports this is the
-average of the canonical page accessibility scores over the URLs that produced a report (`summary.coverage.succeeded`, equal to `summary.url_count`). A batch in which no URL produced a report has no average: `summary.accessibility_score` and `summary.overall_score` are `null`, never `0`, and the decision is `fail` (`no_url_audited`).
+average of the canonical page accessibility scores over the URLs that produced a report (`summary.coverage.succeeded`, equal to `summary.url_count`). A batch in which no URL produced a report has no average: `summary.accessibility_score` and `summary.site_quality_score` are `null`, never `0`, and the decision is `fail` (`no_url_audited`).
 
-<a id="overall-score"></a>
-### overall_score — `summary.overall_score`
+<a id="site-quality-score"></a>
+### site_quality_score — `summary.site_quality_score`
 
-Weighted score across contributing measured modules. In a dual-viewport
+Site quality (optional modules): weighted score across contributing measured
+modules, secondary to `accessibility_score`. In a dual-viewport
 audit, viewport module results are blended first and Security contributes
 10% when available. In batch reports this is the average of the page-level
-overall scores across the audited URLs.
+site-quality scores across the audited URLs.
 
 <a id="grade"></a>
 ### grade — `summary.grade`
@@ -312,11 +336,12 @@ heuristic.
 <a id="viewport-scores"></a>
 ### viewport_scores — `pages[].detail.viewport_scores`
 
-Desktop and mobile accessibility/overall scores on the 0-100 scale.
-`weighted_overall` is the 70% mobile and 30% desktop module blend before the
+Desktop and mobile accessibility/site-quality scores on the 0-100 scale
+(`desktop.site_quality`, `mobile.site_quality`).
+`weighted_site_quality` is the 70% mobile and 30% desktop module blend before the
 optional Security contribution. It is a viewport-pass figure, not a published
-module weight and not the report's `overall_score` (modules weighted per the
-published weights, Security added afterwards); read `overall_score` for the
+module weight and not the report's `site_quality_score` (modules weighted per the
+published weights, Security added afterwards); read `site_quality_score` for the
 score of the page.
 
 <a id="subcategory-scores"></a>
@@ -335,10 +360,10 @@ reports only; batch page details omit both fields.
 Named module score on the 0-100 scale; higher is better. Throttled and
 Lighthouse performance scores are lab results, not field/RUM data.
 
-<a id="overall-score-weight-basis"></a>
-### overall_score_weight_basis — `summary.overall_score_weight_basis`
+<a id="site-quality-score-weight-basis"></a>
+### site_quality_score_weight_basis — `summary.site_quality_score_weight_basis`
 
-Sum of the module weights that actually fed `overall_score`, out of 100.
+Sum of the module weights that actually fed `site_quality_score`, out of 100.
 Below 100 the score was renormalised over the modules that ran and measured
 successfully — a module that did not run, or that ran without being able to
 measure, changes the denominator rather than the result. A score computed on a
@@ -346,8 +371,8 @@ different weight basis is not directly comparable.
 
 In a batch report the value is the **lowest** basis across the audited pages,
 so it never overstates how much of the model backs the average, and
-`overall_score_weight_basis_uniform` says whether the pages agreed. `false`
-means `overall_score` values from different module sets were averaged.
+`site_quality_score_weight_basis_uniform` says whether the pages agreed. `false`
+means `site_quality_score` values from different module sets were averaged.
 
 <a id="accessibility-score-breakdown"></a>
 ### accessibility_score_breakdown — `summary.accessibility_score_breakdown[]`

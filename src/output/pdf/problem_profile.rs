@@ -103,7 +103,7 @@ impl ProblemProfileKind {
     }
 }
 
-/// Modules that contribute to the weighted overall score and fall below the "Good" band (< 75).
+/// Modules that contribute to the weighted site-quality score and fall below the "Good" band (< 75).
 /// Sorted by drag impact descending ((100 - score) * weight). Supplementary context only (e.g.
 /// deciding success-vs-info styling for an otherwise "isolated" profile) — NOT the breadth count
 /// for the Problem-Profile tier itself, see `critical_contributing_modules`.
@@ -114,13 +114,13 @@ fn weak_contributing_modules(
         .modules
         .module_scores
         .iter()
-        .filter(|m| m.contributes_to_overall && m.score < 75)
+        .filter(|m| m.contributes_to_site_quality_score && m.score < 75)
         .collect();
     weak.sort_by_key(|m| std::cmp::Reverse((100 - m.score) * m.weight_pct));
     weak
 }
 
-/// Modules that contribute to the weighted overall score and are "Kritisch" (< 40 — same
+/// Modules that contribute to the weighted site-quality score and are "Kritisch" (< 40 — same
 /// FIVE_BAND cutoff used elsewhere in the report, e.g. `score_band_label`). This, not the
 /// broader < 75 "Good" band, decides how many modules "determine the need for action" for the
 /// Problem-Profile breadth tiering (feedback 2026-09-07: the < 75 threshold pulled in merely
@@ -135,7 +135,7 @@ fn critical_contributing_modules(
         .modules
         .module_scores
         .iter()
-        .filter(|m| m.contributes_to_overall && m.score < 40)
+        .filter(|m| m.contributes_to_site_quality_score && m.score < 40)
         .collect();
     critical.sort_by_key(|m| std::cmp::Reverse((100 - m.score) * m.weight_pct));
     critical

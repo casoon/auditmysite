@@ -643,7 +643,7 @@ fn score_texts(records: &mut Vec<Value>) {
             let mut context = super::validation::normalize_checked(&report)
                 .expect("fixture report passes the report contract");
             context.normalized.score = score;
-            context.normalized.overall_score = score;
+            context.normalized.site_quality_score = score;
             context.normalized.severity_counts.critical = critical;
             context.normalized.severity_counts.high = high;
             context.normalized.severity_counts.total = critical + high;
@@ -777,7 +777,7 @@ fn summary_report(
         .expect("fixture report passes the report contract")
         .normalized;
     report.score = score;
-    report.overall_score = score;
+    report.site_quality_score = score;
     report.findings = findings
         .iter()
         .map(|(rule_id, title, severity, count)| {

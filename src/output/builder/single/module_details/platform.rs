@@ -303,7 +303,7 @@ pub(super) fn build_mobile_details(
         let base_mobile = module_interpretation(&normalized.normalized, "mobile", locale);
         let mobile_interpretation = if small_targets >= 10 {
             // When context is known (e.g. "footer", "navigation"), qualify as locally scoped
-            // so a high overall score paired with a large touch-target count reads correctly.
+            // so a high site-quality score paired with a large touch-target count reads correctly.
             // The scope note follows the context hint, so it starts with a space.
             let scope_note = if !context_hint.is_empty() {
                 format!(" {}", i18n.t("report-builder-mobile-locally-scoped"))

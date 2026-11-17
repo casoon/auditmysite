@@ -52,7 +52,7 @@ cover-fact-scope-batch = Sitemap / Batch
 cover-fact-scope-comparison = Competitive comparison
 cover-fact-modules = Modules
 cover-fact-date = Audit date
-metric-score = Overall score
+metric-score = Site quality (optional modules)
 metric-issues-detected = Issues detected
 metric-critical-high = Critical / High
 metric-risk = Risk
@@ -110,7 +110,7 @@ verdict-tier-solid = { $url } reaches { $score }/100 within the automated access
 verdict-tier-stable = { $url } reaches { $score }/100 within the automated accessibility scope. The foundation is stable but not free of barriers — several improvement levers should be planned.
 verdict-tier-deficient = { $url } reaches { $score }/100 within the automated accessibility scope. There are significant barriers — not isolated details but structural backlog.
 verdict-tier-critical = { $url } only reaches { $score }/100 within the automated accessibility scope. Urgent action needed: essential content and functions are not accessible for a part of users.
-score-note-high-with-critical = The score weighs frequency and severity. Individual critical topics can persist despite a high overall score.
+score-note-high-with-critical = The score weighs frequency and severity. Individual critical topics can persist despite a high accessibility score.
 score-note-perfect-automated-scope = No confirmed accessibility violations were found within the automatically tested scope. Context-dependent WCAG criteria still require manual review.
 
 # Verdict (batch audit)
@@ -160,8 +160,8 @@ cover-card-grade = Grade
 cover-card-accessibility = Accessibility
 cover-card-issues = Issues
 cover-card-critical-high-suffix = critical/high
-cover-card-average = Avg. technical score
-batch-cover-overall-score-note = Mean technical score per URL (0–100, higher is better).
+cover-card-average = Avg. accessibility score
+batch-cover-site-quality-score-note = Secondary figure: site quality (optional modules), mean per URL: { $score } (0–100, higher is better). The headline score and the grade above describe accessibility.
 cover-card-urls = URLs
 cover-card-wcag-occurrences = { $count ->
         [one] { $count } WCAG occurrence
@@ -252,7 +252,7 @@ batch-section-redirect-chains = Redirect chains
 batch-redirect-chains-title = Redirect chains (> 1 hop)
 batch-col-target = Target
 batch-url-ranking-title = URL ranking
-batch-url-ranking-intro = Sorted by accessibility (column "{ $accessibility }"), lowest first; ties put more critical/high WCAG findings (column "{ $critical }") first. "{ $overall }" is the combined technical score. A low value shows where most is lost — single critical functional findings can affect pages with a good score too.
+batch-url-ranking-intro = Sorted by accessibility (column "{ $accessibility }"), lowest first; ties put more critical/high WCAG findings (column "{ $critical }") first. "{ $site_quality }" is the site-quality score (optional modules). A low value shows where most is lost — single critical functional findings can affect pages with a good score too.
 batch-render-blocking-section = Render blocking & assets
 batch-render-blocking-kv-title = Render-blocking overview (domain-wide)
 batch-render-blocking-intro = Render-blocking resources and third-party traffic, aggregated across all audited pages.
@@ -966,7 +966,7 @@ metric-checked-nodes = Checked{"\u00A0"}nodes
 metric-wcag-level = WCAG level
 metric-warnings = Heuristic{"\u00A0"}warnings
 metric-not-testable = Manual{"\u00A0"}testing{"\u00A0"}required
-metric-overall-score = Overall{"\u00A0"}score
+metric-site-quality-score = Site{"\u00A0"}quality
 metric-accessibility-score = Accessibility{"\u00A0"}score
 date-format-str = %Y-%m-%d
 trend-significantly-improved = Significantly improved
@@ -1355,7 +1355,7 @@ annotations-reason-no-reading-flow = page has no screen-reader audit
 annotations-warnings-title = Notes on the annotation file
 
 # Batch decision, risk and portfolio texts (#1039)
-batch-rating-title = Overall rating
+batch-rating-title = Accessibility rating
 batch-rating-body = { $rating } — automated check { $verdict }: { $passed } of { $total ->
         [one] { $total } audited URL
        *[other] { $total } audited URLs
@@ -1417,7 +1417,7 @@ batch-user-impact-critical = Critical — on the audited pages, barriers severel
 batch-user-impact-limited = Limited — structural issues impede users with assistive technologies
 batch-user-impact-good = Good — individual barriers for assistive technologies on several pages
 batch-user-impact-very-good = Very good — assistive technologies are largely supported
-batch-user-impact-barriers-fail = Usable with barriers — a high average, but barriers on the audited pages fail the automated check (see the overall rating)
+batch-user-impact-barriers-fail = Usable with barriers — a high average, but barriers on the audited pages fail the automated check (see the accessibility rating)
 batch-effect-open-high = { $count ->
         [one] Good average, but 1 high-severity finding of this module is still open on the audited pages.
        *[other] Good average, but { $count } high-severity findings of this module are still open on the audited pages.
@@ -1441,7 +1441,7 @@ batch-effect-other-recurring = The module shows recurring weaknesses across the 
 batch-effect-other-structural = The module needs structural attention across multiple pages.
 batch-ranking-col-rank = No.
 batch-ranking-col-page = Page
-batch-ranking-col-overall = Overall
+batch-ranking-col-site-quality = Site quality
 batch-ranking-col-accessibility = A11y
 batch-ranking-col-critical-high = WCAG crit./high
 batch-ranking-col-seo = SEO

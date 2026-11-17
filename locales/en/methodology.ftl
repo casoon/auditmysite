@@ -22,7 +22,7 @@ methodology-disclaimer = This report represents an automated technical analysis.
 
 ## Audit facts
 methodology-fact-accessibility-score = Accessibility score
-methodology-fact-combined-score = Combined technical score
+methodology-fact-combined-score = Site quality (optional modules)
 methodology-fact-counting = Counting method
 methodology-fact-page-display-modes = Page display modes
 methodology-fact-failed-modules = Failed modules

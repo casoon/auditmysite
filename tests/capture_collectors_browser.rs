@@ -152,7 +152,7 @@ async fn a_selector_the_browser_rejects_is_published_as_invalid_not_as_unmatched
 
 /// Real probe failure for a scored module: a page that makes the timing and
 /// observer probes throw leaves Performance without a measured score, and
-/// the overall score does not carry a number the probes never produced.
+/// the site-quality score does not carry a number the probes never produced.
 #[tokio::test]
 #[ignore = "needs real Chrome; run with `cargo test --test capture_collectors_browser -- --ignored`"]
 async fn broken_performance_probes_leave_no_measured_performance_score() {
@@ -170,7 +170,7 @@ async fn broken_performance_probes_leave_no_measured_performance_score() {
         .find(|m| m.name == "Performance")
         .expect("Performance entry");
     assert_ne!(perf.measurement_type, "measured", "{perf:?}");
-    assert!(!perf.contributes_to_overall, "{perf:?}");
+    assert!(!perf.contributes_to_site_quality_score, "{perf:?}");
 }
 
 /// #778 on a real page: an audited iframe reports each rule the scope names,
