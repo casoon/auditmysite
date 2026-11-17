@@ -132,7 +132,7 @@ pub struct DocumentIdentity {
 /// Version of the snapshot's shape. Bump it whenever a change to
 /// `AuditReport` (or what it embeds) would let an old snapshot deserialize
 /// without error yet mean something else.
-pub const SNAPSHOT_SCHEMA_VERSION: u32 = 2;
+pub const SNAPSHOT_SCHEMA_VERSION: u32 = 3;
 
 /// Version of the evaluation applied to collected data: normalization,
 /// scoring weights, taxonomy and decision derivation. Bump it with any change

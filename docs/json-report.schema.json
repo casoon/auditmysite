@@ -16,7 +16,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "2.0"
+      "const": "2.1"
     },
     "report_type": {
       "type": "string",
@@ -691,7 +691,7 @@
       "required": [
         "url_count",
         "accessibility_score",
-        "overall_score",
+        "site_quality_score",
         "grade",
         "risk_level",
         "violation_count",
@@ -715,11 +715,11 @@
           "maximum": 100,
           "description": "null for a batch in which no URL produced a report: nothing was measured."
         },
-        "overall_score": {
+        "site_quality_score": {
+          "description": "Site quality (optional modules): the weighted mixed score (accessibility 40, performance 20, SEO 15, security 10, mobile 10, HTML 5 by default). A secondary figure next to accessibility_score; it never decides the verdict. Named overall_score before schema_version 2.1. null for a batch in which no URL produced a report: nothing was measured.",
           "type": ["integer", "null"],
           "minimum": 0,
-          "maximum": 100,
-          "description": "null for a batch in which no URL produced a report: nothing was measured."
+          "maximum": 100
         },
         "attempted_url_count": {
           "type": "integer",
@@ -837,7 +837,7 @@
         "wcag_coverage": {
           "$ref": "#/$defs/wcagCoverageSummary"
         },
-        "overall_score_weight_basis": {
+        "site_quality_score_weight_basis": {
           "type": "integer",
           "minimum": 0,
           "maximum": 100
@@ -1019,7 +1019,7 @@
       "required": [
         "url",
         "accessibility_score",
-        "overall_score",
+        "site_quality_score",
         "grade",
         "violation_count",
         "finding_count",
@@ -1046,7 +1046,8 @@
           "minimum": 0,
           "maximum": 100
         },
-        "overall_score": {
+        "site_quality_score": {
+          "description": "Site quality (optional modules): the weighted mixed score (accessibility 40, performance 20, SEO 15, security 10, mobile 10, HTML 5 by default). A secondary figure next to accessibility_score; it never decides the verdict. Named overall_score before schema_version 2.1.",
           "type": "integer",
           "minimum": 0,
           "maximum": 100
@@ -1525,7 +1526,7 @@
         "score",
         "band",
         "weight_pct",
-        "contributes_to_overall",
+        "contributes_to_site_quality_score",
         "measurement_type"
       ],
       "additionalProperties": false,
@@ -1558,7 +1559,7 @@
           "minimum": 0,
           "maximum": 100
         },
-        "contributes_to_overall": {
+        "contributes_to_site_quality_score": {
           "type": "boolean"
         },
         "measurement_type": {

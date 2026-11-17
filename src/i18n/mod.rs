@@ -75,7 +75,7 @@ impl I18n {
         // `output::search_experience`, `output::pdf::{root_causes,
         // problem_profile, wcag_coverage}`), of the single report's builder
         // helpers (positive signals and aspects, key points, quality note,
-        // overall score explanation, page health, performance, security and
+        // site-quality score explanation, page health, performance, security and
         // mobile detail rows, and the terminal table's experimental lines;
         // `report-builder.ftl`, `output::builder::single`, `output::terminal`)
         // and of the interpretation layer (`audit-interpretation.ftl`,

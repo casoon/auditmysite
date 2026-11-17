@@ -89,7 +89,7 @@ fn test_json_report_generation() {
     let parsed: serde_json::Value =
         serde_json::from_str(&json_str).expect("Failed to parse generated JSON");
 
-    assert_eq!(parsed["schema_version"], "2.0");
+    assert_eq!(parsed["schema_version"], "2.1");
     assert_eq!(parsed["report_type"], "single");
     assert_eq!(parsed["pages"][0]["url"], "https://example.com");
     assert_eq!(parsed["metadata"]["wcag_level"], "AA");
@@ -399,7 +399,7 @@ fn test_studio_history_entry_roundtrip() {
         "url",
         "timestamp",
         "accessibility_score",
-        "overall_score",
+        "site_quality_score",
         "grade",
         "decision",
         "risk_level",
@@ -427,7 +427,7 @@ fn test_studio_response_has_all_expected_fields() {
         "url",
         "timestamp",
         "accessibility_score",
-        "overall_score",
+        "site_quality_score",
         "grade",
         "decision",
         "risk_level",

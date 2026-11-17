@@ -1,6 +1,6 @@
 # Texts of the single report's builder, #936: positive signals and aspects,
 # the executive key points and score driver note, the audit quality note, the
-# overall score explanation, the page health rows and the performance,
+# site-quality score explanation, the page health rows and the performance,
 # security and mobile detail rows (`output::builder::single::{executive,
 # positive, serp, modules_block, module_details::{performance, platform}}`
 # and the view model builder in `output::builder::single`), and the
@@ -53,12 +53,12 @@ report-builder-quality-partial = The automated audit completed successfully. Ind
 report-builder-quality-insufficient = This audit run has insufficient data quality: several measurements failed. Scores and findings below may be incomplete or unreliable. See the methodology appendix for details.
 report-builder-metric-quick-wins = Quick wins
 
-## Overall score explanation
-report-builder-overall-indicators = Indicator modules ({ $modules }) are shown separately and do not change the combined technical score.
-report-builder-overall-dual = The combined technical score uses the dual-viewport result: 70% mobile and 30% desktop. Security contributes 10% when active.{ $indicators }
-report-builder-overall-weighted = The overall rating is the weighted result of the assessed areas: { $weights }.{ $indicators }
-report-builder-overall-weight = { $name } { $pct }%
-report-builder-overall-weight-default = Accessibility 100%
+## Site-quality score explanation
+report-builder-site-quality-indicators = Indicator modules ({ $modules }) are shown separately and do not change the site-quality score.
+report-builder-site-quality-dual = The site-quality score uses the dual-viewport result: 70% mobile and 30% desktop. Security contributes 10% when active.{ $indicators }
+report-builder-site-quality-weighted = The site-quality score is the weighted result of the assessed areas: { $weights }.{ $indicators }
+report-builder-site-quality-weight = { $name } { $pct }%
+report-builder-site-quality-weight-default = Accessibility 100%
 
 ## Page health rows
 report-builder-page-health-url-length = URL length

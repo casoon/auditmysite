@@ -86,12 +86,12 @@ if rg -n -P --glob 'src/**/*.rs' --glob 'Cargo.toml' --glob 'CLAUDE.md' \
   exit 1
 fi
 
-# The HTML5-conformance module contributes to the overall score
-# (`contributes_to_overall: true`, `weight_pct: 5` in
+# The HTML5-conformance module contributes to the site-quality score
+# (`contributes_to_site_quality_score: true`, `weight_pct: 5` in
 # `audit::normalized::build_module_scores`) since the per-distinct-defect
 # scoring fix (2026-09-16) — README must not still call it score-neutral.
 if rg -n 'HTML5 conformance' README.md | rg -q 'score-neutral'; then
-  echo "README still calls HTML5 conformance score-neutral, but it contributes to the overall score"
+  echo "README still calls HTML5 conformance score-neutral, but it contributes to the site-quality score"
   exit 1
 fi
 

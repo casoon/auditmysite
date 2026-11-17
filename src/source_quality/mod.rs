@@ -49,7 +49,7 @@ pub struct SourceQualityAnalysis {
     /// Overall source quality score (0–100)
     pub score: u32,
     /// Qualitative band for `score`, canonical English (#406). This module
-    /// carries no weight in the overall score, so it gets a band word rather
+    /// carries no weight in the site-quality score, so it gets a band word rather
     /// than a letter grade (plan 29, D2).
     pub band: String,
     /// Substance dimension

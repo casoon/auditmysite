@@ -46,7 +46,7 @@ pub(super) fn check(report: &Value, findings: &mut Vec<LintFinding>) {
             let mut weighted = 0u64;
             let mut total = 0u64;
             for module in array(page, "module_scores") {
-                if module["contributes_to_overall"] == true {
+                if module["contributes_to_site_quality_score"] == true {
                     if let (Some(score), Some(weight)) =
                         (module["score"].as_u64(), module["weight_pct"].as_u64())
                     {
@@ -57,13 +57,13 @@ pub(super) fn check(report: &Value, findings: &mut Vec<LintFinding>) {
             }
             if total > 0 {
                 let expected = (weighted as f64 / total as f64).round() as u64;
-                if page["overall_score"].as_u64() != Some(expected) {
+                if page["site_quality_score"].as_u64() != Some(expected) {
                     failure(
                         findings,
-                        "overall_score_matches_module_weights",
-                        format!("{prefix}.overall_score"),
+                        "site_quality_score_matches_module_weights",
+                        format!("{prefix}.site_quality_score"),
                         expected.to_string(),
-                        page["overall_score"].to_string(),
+                        page["site_quality_score"].to_string(),
                     );
                 }
             }

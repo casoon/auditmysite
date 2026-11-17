@@ -638,7 +638,7 @@ mod tests {
             nodes_analyzed: 100,
             score,
             grade: "B".into(),
-            overall_score: score,
+            site_quality_score: score,
             findings,
             severity_counts: SeverityCounts {
                 critical,

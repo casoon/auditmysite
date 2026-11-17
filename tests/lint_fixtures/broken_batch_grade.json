@@ -1,23 +1,23 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "2.1",
   "report_type": "batch",
   "summary": {
     "url_count": 2,
     "accessibility_score": 65,
-    "overall_score": 65,
+    "site_quality_score": 65,
     "grade": "A"
   },
   "pages": [
     {
       "url": "https://example.com/a",
       "accessibility_score": 70,
-      "overall_score": 70,
+      "site_quality_score": 70,
       "grade": "C"
     },
     {
       "url": "https://example.com/b",
       "accessibility_score": 60,
-      "overall_score": 60,
+      "site_quality_score": 60,
       "grade": "D"
     }
   ]

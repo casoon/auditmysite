@@ -293,7 +293,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         },
         summary: SummaryBlock {
             score,
-            overall_score: normalized.normalized.overall_score,
+            site_quality_score: normalized.normalized.site_quality_score,
             grade: grade.clone(),
             maturity_label: maturity_label.clone(),
             problem_type: problem_type.clone(),
@@ -1046,14 +1046,14 @@ mod tests {
             desktop: crate::audit::ViewportScoreSet {
                 accessibility: 95,
                 performance: Some(90),
-                overall: 92,
+                site_quality: 92,
             },
             mobile: crate::audit::ViewportScoreSet {
                 accessibility: 65,
                 performance: Some(75),
-                overall: 70,
+                site_quality: 70,
             },
-            weighted_overall: 77,
+            weighted_site_quality: 77,
         });
         report.consent_banner_detected = true;
         report.consent_banner_cmp = Some("FixtureCMP".to_string());

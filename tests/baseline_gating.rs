@@ -238,7 +238,7 @@ fn known_findings_do_not_affect_the_verdict_but_new_ones_do() {
 
     // A baseline is a gating filter: score and findings are unchanged.
     assert_eq!(with.score, without.score);
-    assert_eq!(with.overall_score, without.overall_score);
+    assert_eq!(with.site_quality_score, without.site_quality_score);
     assert_eq!(with.findings.len(), without.findings.len());
     assert_eq!(
         with.occurrence_counts.total,

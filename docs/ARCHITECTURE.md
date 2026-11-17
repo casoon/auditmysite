@@ -189,7 +189,7 @@ src/
 │   │   └── single/      # Single-report builder (findings, etc.)
 │   │       ├── mod.rs, executive.rs, positive.rs, serp.rs, modules_block.rs,
 │   │       │   module_details/{performance,platform}.rs # texts (positive signals and aspects, key
-│   │       │                    # points, audit quality note, overall score explanation, page health
+│   │       │                    # points, audit quality note, site-quality score explanation, page health
 │   │       │                    # rows, performance/security/mobile detail rows): `report-builder-*`
 │   │       │                    # in `locales/<lang>/report-builder.ftl` (#936),
 │   │       │                    # builder_text_export.rs (ignored test: exports them in both
@@ -502,7 +502,7 @@ Central data layer between raw `AuditReport` and output formats:
 - Single source of truth for JSON, PDF, and CLI output — ensures consistent scores
 - `NormalizedFinding` is built in `audit/` only (`normalized.rs`, `finding_contract.rs`). `output/` reads it and derives its view models (`report_model::FindingGroup`) from it, in one builder (`output/builder/finding_group.rs`) for the single and the batch report; a `FindingGroup` holds the finding in its field `finding` and adds only presentation (localized texts, effort, occurrence samples, narrative), it copies no finding field. A batch finding is the cross-page aggregate of `audit::normalized::aggregate_batch_findings`, a `NormalizedFinding` paired with the pages it occurs on. `FindingContract` is the `contract` field of every finding (`findings[].contract` in the JSON), not a separate representation; `output_never_constructs_a_normalized_finding` in `tests/architecture_test.rs` fails on any struct literal under `src/output/` outside `#[cfg(test)]` items, and `output_never_takes_a_normalized_finding_by_mutable_reference` on any `&mut` to one. The run-language copy of a report for the German PDF is made in `audit/finding_text.rs`; `output/` only reads it (#937)
 
-The overall score is reconstructed from contributing `module_scores` and their
+The site-quality score (optional modules) is reconstructed from contributing `module_scores` and their
 published weights, for single- and dual-viewport runs. Unchecked HTML conformance
 and incomplete performance measurements carry no weight. Accessibility caps are
 applied after viewport aggregation as well as during individual scoring.
@@ -512,7 +512,7 @@ normalizer and validates the resulting `NormalizedReport` independently of any
 output format. `NormalizedReport::validate` collects all detected contradictions
 as serializable `ContractViolation` entries (stable code, path, explanation).
 It checks score limits, canonical grades, finding and occurrence
-counts, module identity/weights/measurement state, the reconstructed overall
+counts, module identity/weights/measurement state, the reconstructed site-quality
 score, requested module outcomes and execution completeness. `validate_batch`
 also verifies the measured-page denominator, accessibility average and canonical
 pass/fail counts. These checks validate consistency; they do not certify that a

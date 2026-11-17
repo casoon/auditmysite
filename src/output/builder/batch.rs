@@ -184,7 +184,7 @@ pub fn build_batch_presentation_with_normalized(
             UrlSummary {
                 url: r.url.clone(),
                 score: nr.score as f32,
-                overall_score: nr.overall_score,
+                site_quality_score: nr.site_quality_score,
                 grade: nr.grade.clone(),
                 critical_violations: critical_count,
                 total_violations: nr.severity_counts.total,
@@ -194,13 +194,13 @@ pub fn build_batch_presentation_with_normalized(
         })
         .collect();
     // Accessibility ascending — the report's main score (plan 83). Ties go
-    // to more critical/high findings first, then the lower overall score,
+    // to more critical/high findings first, then the lower site-quality score,
     // then the URL, so the order never depends on audit completion order.
     url_ranking.sort_by(|a, b| {
         a.score
             .total_cmp(&b.score)
             .then_with(|| b.critical_violations.cmp(&a.critical_violations))
-            .then_with(|| a.overall_score.cmp(&b.overall_score))
+            .then_with(|| a.site_quality_score.cmp(&b.site_quality_score))
             .then_with(|| a.url.cmp(&b.url))
     });
 
@@ -672,11 +672,14 @@ pub fn build_batch_presentation_with_normalized(
                 .collect(),
         });
 
-    // ── Aggregated module scores, overall score, risk ──────────────
-    let average_overall_score = if normalized_reports.is_empty() {
+    // ── Aggregated module scores, site-quality score, risk ──────────────
+    let average_site_quality_score = if normalized_reports.is_empty() {
         0
     } else {
-        let sum: u32 = normalized_reports.iter().map(|n| n.overall_score).sum();
+        let sum: u32 = normalized_reports
+            .iter()
+            .map(|n| n.site_quality_score)
+            .sum();
         (sum as f64 / normalized_reports.len() as f64).round() as u32
     };
 
@@ -787,7 +790,7 @@ pub fn build_batch_presentation_with_normalized(
 
     // Same contract as the single report: the grade describes the
     // subject of the report, which is accessibility (plan 29, D1). The
-    // weighted `average_overall_score` stays visible as its own figure.
+    // weighted `average_site_quality_score` stays visible as its own figure.
     //
     // They also go through the same two functions the single report uses.
     // The literal band tables that used to stand here were a third and fourth
@@ -821,7 +824,7 @@ pub fn build_batch_presentation_with_normalized(
             passed: batch.summary.passed,
             failed: batch.summary.failed,
             average_score: batch.summary.average_score,
-            average_overall_score,
+            average_site_quality_score,
             total_violations: batch.summary.total_violations,
             duration_ms: batch.total_duration_ms,
             verdict_text,

@@ -81,7 +81,6 @@ pub const CONTRACT_CODES: &[&str] = &[
     "module_identity",
     "module_weight",
     "occurrence_counts",
-    "overall_score",
     "passed",
     "quality_qualification",
     "requested_execution",
@@ -96,6 +95,7 @@ pub const CONTRACT_CODES: &[&str] = &[
     "score_range",
     "semantic_score_cap",
     "severity_counts",
+    "site_quality_score",
     "total_urls",
     "viewport_score",
     "weighted_measurement",
@@ -168,7 +168,7 @@ impl NormalizedReport {
             }
         };
         check(
-            self.score <= 100 && self.overall_score <= 100,
+            self.score <= 100 && self.site_quality_score <= 100,
             "score_range",
             "scores".into(),
             "scores must be between 0 and 100".into(),
@@ -259,27 +259,28 @@ impl NormalizedReport {
                 path.clone(),
                 "module score must be between 0 and 100".into(),
             );
-            let expected = if module.contributes_to_overall {
+            let expected = if module.contributes_to_site_quality_score {
                 crate::taxonomy::module_weight(&module.name)
             } else {
                 0
             };
             check(
-                module.weight_pct == expected && (!module.contributes_to_overall || expected > 0),
+                module.weight_pct == expected
+                    && (!module.contributes_to_site_quality_score || expected > 0),
                 "module_weight",
                 path.clone(),
                 "weight must match the canonical contributing-module policy".into(),
             );
             check(
-                !module.contributes_to_overall || module.measurement_type == "measured",
+                !module.contributes_to_site_quality_score || module.measurement_type == "measured",
                 "weighted_measurement",
                 path.clone(),
-                "only measured modules may contribute to the overall score".into(),
+                "only measured modules may contribute to the site-quality score".into(),
             );
             check(
                 module.grade.as_deref()
                     == module
-                        .contributes_to_overall
+                        .contributes_to_site_quality_score
                         .then(|| AccessibilityScorer::calculate_grade(module.score as f32)),
                 "module_grade",
                 path,
@@ -287,13 +288,13 @@ impl NormalizedReport {
             );
             if module.name == "Accessibility" {
                 check(
-                    module.score == self.score && module.contributes_to_overall,
+                    module.score == self.score && module.contributes_to_site_quality_score,
                     "accessibility_module",
                     "module_scores[Accessibility]".into(),
                     "accessibility module must match the primary score".into(),
                 );
             }
-            if module.contributes_to_overall {
+            if module.contributes_to_site_quality_score {
                 weighted =
                     weighted.saturating_add(u64::from(module.score) * u64::from(module.weight_pct));
                 weight = weight.saturating_add(u64::from(module.weight_pct));
@@ -314,12 +315,12 @@ impl NormalizedReport {
         if weight > 0 {
             let expected = (weighted as f64 / weight as f64).round() as u32;
             check(
-                self.overall_score == expected,
-                "overall_score",
-                "overall_score".into(),
+                self.site_quality_score == expected,
+                "site_quality_score",
+                "site_quality_score".into(),
                 format!(
                     "published module weights reconstruct {expected}, not {}",
-                    self.overall_score
+                    self.site_quality_score
                 ),
             );
         }
@@ -552,7 +553,7 @@ impl NormalizedReport {
         }
         // A module that lost a scoring collection was not fully measured: its
         // run is not `Completed` and its score neither claims a measurement
-        // nor feeds the overall score (#777).
+        // nor feeds the site-quality score (#777).
         for run in &self.execution.module_runs {
             // Every collection a run reports is one the inventory knows, and
             // a state without data explains itself in machine-readable form.
@@ -607,7 +608,8 @@ impl NormalizedReport {
             };
             if let Some(module) = self.module_scores.iter().find(|m| m.name == score_name) {
                 check(
-                    !module.contributes_to_overall && module.measurement_type != "measured",
+                    !module.contributes_to_site_quality_score
+                        && module.measurement_type != "measured",
                     "collection_gap_scored",
                     path,
                     format!(

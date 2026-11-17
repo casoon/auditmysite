@@ -5,7 +5,9 @@
 use chromiumoxide::Page;
 use tracing::{info, warn};
 
-use super::assembly::{compute_viewport_overall, update_audit_quality, viewport_weighted_overall};
+use super::assembly::{
+    compute_viewport_site_quality, update_audit_quality, viewport_weighted_site_quality,
+};
 use super::{set_viewport, PipelineConfig};
 use crate::audit::module::Viewport;
 use crate::audit::report::{AuditReport, PerformanceResults};
@@ -359,7 +361,7 @@ pub(super) fn apply_canonical_perf(
     let mobile_hc = super::measured_html_conform_score(report.html_conform.as_ref());
     if let Some(ref mut vps) = report.viewport_scores {
         vps.mobile.performance = new_perf;
-        let mobile_overall = compute_viewport_overall(
+        let mobile_site_quality = compute_viewport_site_quality(
             vps.mobile.accessibility as f32,
             &[
                 ("Performance", perf_input),
@@ -368,9 +370,10 @@ pub(super) fn apply_canonical_perf(
                 ("HTML Conformance", mobile_hc),
             ],
         );
-        let desktop_overall = vps.desktop.overall;
-        vps.mobile.overall = mobile_overall;
-        vps.weighted_overall = viewport_weighted_overall(mobile_overall, desktop_overall);
+        let desktop_site_quality = vps.desktop.site_quality;
+        vps.mobile.site_quality = mobile_site_quality;
+        vps.weighted_site_quality =
+            viewport_weighted_site_quality(mobile_site_quality, desktop_site_quality);
     }
 }
 

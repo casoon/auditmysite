@@ -129,9 +129,9 @@ fn breakdowns() -> Vec<(&'static str, Option<ScoreBreakdown>)> {
         desktop_accessibility: 94,
         mobile_accessibility: 91,
         viewport_blended_accessibility: 92,
-        desktop_overall: 94,
-        mobile_overall: 91,
-        viewport_blended_overall: 92,
+        desktop_site_quality: 94,
+        mobile_site_quality: 91,
+        viewport_blended_site_quality: 92,
         viewport_blend_weight_pct: 90,
         security_score: security,
         security_weight_pct: security.map(|_| 10),
@@ -160,7 +160,7 @@ fn export_score_driver_table(records: &mut Vec<Value>, lang: &str, i18n: &I18n) 
             for method in ["weighted", "viewport_weighted"] {
                 for (breakdown_input, breakdown) in breakdowns() {
                     let mut vm = view_model(lang);
-                    vm.summary.overall_score = 72;
+                    vm.summary.site_quality_score = 72;
                     vm.modules.module_scores = set.clone();
                     vm.summary.score_calculation_method = method.to_string();
                     vm.summary.score_breakdown = breakdown;

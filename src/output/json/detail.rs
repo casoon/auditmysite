@@ -28,7 +28,7 @@ pub(super) fn build_page(
     PageEntry {
         url: normalized.url.clone(),
         accessibility_score: normalized.score,
-        overall_score: normalized.overall_score,
+        site_quality_score: normalized.site_quality_score,
         grade: normalized.grade.clone(),
         violation_count: normalized.occurrence_counts.total,
         finding_count: normalized.findings.len(),

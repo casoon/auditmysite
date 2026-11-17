@@ -257,7 +257,7 @@ fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
         ]));
     }
 
-    // Overall rating: every verdict, with and without reasons, baseline and
+    // Accessibility rating: every verdict, with and without reasons, baseline and
     // a partial run.
     let mut vm = view_model(&report, ReportLevel::Standard, lang);
     for verdict in [Verdict::Pass, Verdict::Warn, Verdict::Fail] {
@@ -284,13 +284,13 @@ fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
                         gate: BaselineGate::default(),
                     });
                     records.push(json!([
-                        "render_overall_rating",
+                        "render_rating",
                         format!(
                             "verdict={verdict:?} reasons={} partial={partial} baseline={baseline}",
                             reasons.len()
                         ),
                         lang,
-                        components(render_overall_rating(bare(), &vm, i18n))
+                        components(render_rating(bare(), &vm, i18n))
                     ]));
                 }
             }

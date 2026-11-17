@@ -174,7 +174,7 @@ fn snapshot_normalized_report_fields() {
 
     let value = serde_json::json!({
         "url": normalized.normalized.url,
-        "overall_score": normalized.normalized.overall_score,
+        "site_quality_score": normalized.normalized.site_quality_score,
         "score": normalized.normalized.score,
         "grade": normalized.normalized.grade,
         "severity_counts": {

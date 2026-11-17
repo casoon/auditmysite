@@ -40,7 +40,7 @@ pub(super) fn build_modules_block_from_normalized(
     }];
 
     // No Web Vitals measured: no gauge or card — a 0 there would read as
-    // "unusably slow" (plan 69, #QA-023 for the overall score).
+    // "unusably slow" (plan 69, #QA-023 for the site-quality score).
     let performance_measured = normalized
         .normalized
         .module_scores
@@ -64,7 +64,7 @@ pub(super) fn build_modules_block_from_normalized(
     }
     // SEO is one of the six weighted modules; the "Sichtbarkeit &
     // Nutzerverständnis" composite used to stand in its place, so the cover
-    // showed 71 where the overall score counted 65 (plan 105). The composite
+    // showed 71 where the site-quality score counted 65 (plan 105). The composite
     // follows below with the indicators.
     if let Some((seo, score)) = normalized.raw_seo.and_then(|seo| {
         normalized_module_score(&normalized.normalized, "SEO").map(|score| (seo, score))
@@ -241,18 +241,18 @@ pub(super) fn build_modules_block_from_normalized(
     }
 
     let has_multiple = dashboard.len() > 1;
-    let overall_score = if has_multiple {
-        Some(normalized.normalized.overall_score)
+    let site_quality_score = if has_multiple {
+        Some(normalized.normalized.site_quality_score)
     } else {
         None
     };
-    let overall_interpretation =
-        overall_score.map(|_| build_overall_score_explanation(i18n, &normalized.normalized));
+    let site_quality_interpretation = site_quality_score
+        .map(|_| build_site_quality_score_explanation(i18n, &normalized.normalized));
 
     ModulesBlock {
         dashboard,
-        overall_score,
-        overall_interpretation,
+        site_quality_score,
+        site_quality_interpretation,
         module_scores: normalized.normalized.module_scores.clone(),
         accessibility_score_areas:
             crate::output::json::helpers::build_accessibility_score_breakdown(
@@ -263,11 +263,11 @@ pub(super) fn build_modules_block_from_normalized(
     }
 }
 
-fn build_overall_score_explanation(i18n: &I18n, normalized: &NormalizedReport) -> String {
+fn build_site_quality_score_explanation(i18n: &I18n, normalized: &NormalizedReport) -> String {
     let indicator_names: Vec<String> = normalized
         .module_scores
         .iter()
-        .filter(|m| !m.contributes_to_overall || m.measurement_type == "heuristic")
+        .filter(|m| !m.contributes_to_site_quality_score || m.measurement_type == "heuristic")
         .map(|m| localized_module_name(&m.name, i18n))
         .collect();
     // The note starts with a space: it follows the sentence it belongs to.
@@ -277,7 +277,7 @@ fn build_overall_score_explanation(i18n: &I18n, normalized: &NormalizedReport) -
         format!(
             " {}",
             i18n.t_args(
-                "report-builder-overall-indicators",
+                "report-builder-site-quality-indicators",
                 &[("modules", indicator_names.join(", "))],
             )
         )
@@ -285,17 +285,17 @@ fn build_overall_score_explanation(i18n: &I18n, normalized: &NormalizedReport) -
 
     if normalized.viewport_scores.is_some() {
         i18n.t_args(
-            "report-builder-overall-dual",
+            "report-builder-site-quality-dual",
             &[("indicators", indicator_note)],
         )
     } else {
         let contributing: Vec<String> = normalized
             .module_scores
             .iter()
-            .filter(|m| m.contributes_to_overall)
+            .filter(|m| m.contributes_to_site_quality_score)
             .map(|m| {
                 i18n.t_args(
-                    "report-builder-overall-weight",
+                    "report-builder-site-quality-weight",
                     &[
                         ("name", localized_module_name(&m.name, i18n)),
                         ("pct", m.weight_pct.to_string()),
@@ -304,12 +304,12 @@ fn build_overall_score_explanation(i18n: &I18n, normalized: &NormalizedReport) -
             })
             .collect();
         let weights = if contributing.is_empty() {
-            i18n.t("report-builder-overall-weight-default")
+            i18n.t("report-builder-site-quality-weight-default")
         } else {
             contributing.join(", ")
         };
         i18n.t_args(
-            "report-builder-overall-weighted",
+            "report-builder-site-quality-weighted",
             &[("weights", weights), ("indicators", indicator_note)],
         )
     }

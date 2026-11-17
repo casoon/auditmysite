@@ -9,7 +9,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// One score semantic (#781): `grade`, `label` and `medalColor` are bands of
 /// `accessibilityScore`, the score the report is about and the verdict
-/// thresholds compare. `overallScore` is the module-weighted technical value
+/// thresholds compare. `siteQualityScore` is the module-weighted site-quality score (optional modules)
 /// and carries no band. There is no unqualified `score`.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,7 +17,7 @@ pub struct SummaryReport {
     pub url: String,
     pub date: String,
     pub accessibility_score: u32,
-    pub overall_score: u32,
+    pub site_quality_score: u32,
     pub grade: String,
     pub label: String,
     pub medal_color: String,
@@ -87,7 +87,7 @@ pub fn format_summary(normalized: &NormalizedReport) -> anyhow::Result<String> {
         url: normalized.url.clone(),
         date: normalized.timestamp.format("%Y-%m-%d").to_string(),
         accessibility_score: normalized.score,
-        overall_score: normalized.overall_score,
+        site_quality_score: normalized.site_quality_score,
         grade: normalized.grade.clone(),
         label: label.to_string(),
         medal_color: medal_color.to_string(),

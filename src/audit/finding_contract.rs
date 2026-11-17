@@ -173,8 +173,8 @@ pub enum ScoringEffect {
     Deduction,
     /// A technical blocker: caps the owner's score and is a decision reason.
     Gate,
-    /// Charged only in an unweighted indicator (`contributes_to_overall`
-    /// false); never in the overall score or the verdict.
+    /// Charged only in an unweighted indicator (`contributes_to_site_quality_score`
+    /// false); never in the site-quality score or the verdict.
     Indicator,
     /// Feeds the risk assessment (risk level, legal flags, blocking issues),
     /// not a score.

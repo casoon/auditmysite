@@ -18,13 +18,13 @@ fn test_single_envelope_shape() {
     let normalized = normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);
 
-    assert_eq!(unified.schema_version, "2.0");
+    assert_eq!(unified.schema_version, "2.1");
     assert_eq!(unified.report_type, "single");
     assert_eq!(unified.pages.len(), 1);
     assert_eq!(unified.summary.url_count, 1);
 
     let output = unified.to_json(true).unwrap();
-    assert!(output.contains("\"schema_version\": \"2.0\""));
+    assert!(output.contains("\"schema_version\": \"2.1\""));
     assert!(output.contains("\"report_type\": \"single\""));
     assert!(output.contains("\"metric_context\""));
     assert!(output.contains("\"higher_is_better\": true"));
@@ -126,8 +126,8 @@ fn test_single_summary_fields_present() {
         Some(normalized.normalized.score)
     );
     assert_eq!(
-        unified.summary.overall_score,
-        Some(normalized.normalized.overall_score)
+        unified.summary.site_quality_score,
+        Some(normalized.normalized.site_quality_score)
     );
     assert_eq!(unified.summary.violation_count, 0);
     assert_eq!(unified.summary.finding_count, 0);
@@ -505,7 +505,7 @@ fn test_batch_envelope_shape() {
 
     let output = unified.to_json(true).unwrap();
     assert!(output.contains("\"report_type\": \"batch\""));
-    assert!(output.contains("\"schema_version\": \"2.0\""));
+    assert!(output.contains("\"schema_version\": \"2.1\""));
     // No sample metadata attached → the block is omitted.
     assert!(!output.contains("\"sample\""));
 }
@@ -910,14 +910,14 @@ fn test_viewport_data_keeps_the_published_module_weight_derivation() {
         desktop: ViewportScoreSet {
             accessibility: 80,
             performance: None,
-            overall: 80,
+            site_quality: 80,
         },
         mobile: ViewportScoreSet {
             accessibility: 100,
             performance: None,
-            overall: 100,
+            site_quality: 100,
         },
-        weighted_overall: 94,
+        weighted_site_quality: 94,
     });
     let normalized = normalize(&report);
     assert_eq!(
@@ -931,7 +931,7 @@ fn test_viewport_data_keeps_the_published_module_weight_derivation() {
     )
     .unwrap();
     assert_eq!(json["pages"][0]["accessibility_score"], 94);
-    assert_eq!(json["pages"][0]["overall_score"], 94);
+    assert_eq!(json["pages"][0]["site_quality_score"], 94);
     assert!(json["pages"][0]["score_breakdown"].is_null());
 }
 
@@ -1173,7 +1173,7 @@ fn test_collection_errors_absent_when_empty() {
 #[test]
 fn test_collection_errors_serialized_when_present() {
     let mut unified = UnifiedReport {
-        schema_version: "2.0",
+        schema_version: "2.1",
         report_type: "batch",
         tool_version: env!("CARGO_PKG_VERSION"),
         build_id: env!("AUDITMYSITE_BUILD_SHA"),
@@ -1191,7 +1191,7 @@ fn test_collection_errors_serialized_when_present() {
         summary: UnifiedSummary {
             url_count: 0,
             accessibility_score: Some(0),
-            overall_score: Some(0),
+            site_quality_score: Some(0),
             grade: Some("F".to_string()),
             risk_level: crate::audit::normalized::RiskLevel::Low,
             violation_count: 0,
@@ -1223,8 +1223,8 @@ fn test_collection_errors_serialized_when_present() {
             performance_throttled_avg_score: None,
             lh_mobile_score: None,
             wcag_coverage: build_wcag_coverage_for_level("AA"),
-            overall_score_weight_basis: 100,
-            overall_score_weight_basis_uniform: None,
+            site_quality_score_weight_basis: 100,
+            site_quality_score_weight_basis_uniform: None,
             accessibility_score_breakdown: vec![],
             management_risks: vec![],
             top_actions: vec![],
@@ -1294,10 +1294,10 @@ fn test_collection_errors_serialized_when_present() {
 }
 
 /// Plan 111: the batch grade describes accessibility, like the single
-/// report. It used to follow the weighted overall, so inros-lackner
-/// (accessibility 49, overall 62) read "D" and report-lint failed.
+/// report. It used to follow the weighted site-quality score, so inros-lackner
+/// (accessibility 49, site quality 62) read "D" and report-lint failed.
 #[test]
-fn test_batch_grade_follows_accessibility_not_overall() {
+fn test_batch_grade_follows_accessibility_not_site_quality() {
     let mut report = all_active_modules_report();
     report.accessibility.wcag_results = WcagResults::new();
     report.accessibility.wcag_results.add_violation(
@@ -1323,7 +1323,7 @@ fn test_batch_grade_follows_accessibility_not_overall() {
     let summary = &json["summary"];
     assert_eq!(summary["accessibility_score"], 49);
     assert!(
-        summary["overall_score"].as_u64().unwrap() > 49,
+        summary["site_quality_score"].as_u64().unwrap() > 49,
         "fixture must separate the two scores: {summary}"
     );
     assert_eq!(summary["grade"], "F");
@@ -1425,7 +1425,7 @@ fn fully_failed_batch_json_has_no_score_and_an_explicit_denominator() {
             .unwrap();
     let summary = &json["summary"];
     assert!(summary["accessibility_score"].is_null(), "{summary}");
-    assert!(summary["overall_score"].is_null(), "{summary}");
+    assert!(summary["site_quality_score"].is_null(), "{summary}");
     // No grade computed from a stand-in 0 either.
     assert!(summary["grade"].is_null(), "{summary}");
     assert_eq!(summary["coverage"]["succeeded"], 0);
@@ -1471,7 +1471,7 @@ fn cls_only_performance_is_partial_from_score_to_json() {
         .find(|m| m.name == "Performance")
         .expect("performance entry");
     assert_eq!(entry.measurement_type, "partial");
-    assert!(!entry.contributes_to_overall);
+    assert!(!entry.contributes_to_site_quality_score);
 
     let json: serde_json::Value = serde_json::from_str(
         &UnifiedReport::single(&normalized, &report)
@@ -1490,7 +1490,7 @@ fn cls_only_performance_is_partial_from_score_to_json() {
     assert_eq!(details["partial"], true);
     assert_eq!(details["metrics_available"], 1);
     // Not counted into the weighted report score either.
-    assert_eq!(json["summary"]["overall_score_weight_basis"], 40);
+    assert_eq!(json["summary"]["site_quality_score_weight_basis"], 40);
 }
 
 /// #952-2: a Medium BFSG-relevant finding (here 1.4.3, AA) is a legal flag by

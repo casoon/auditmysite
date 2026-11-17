@@ -29,7 +29,7 @@ impl BandSet {
     }
 }
 
-/// The five-level word band used across most module/overall scores.
+/// The five-level word band used across most module and site-quality scores.
 /// Thresholds match `crate::audit::interpretation::ScoreBand` and the label
 /// prefixes documented in CLAUDE.md (Sehr gut/Gut/Verbesserungswürdig/
 /// Ausbaufähig/Kritisch, EN Excellent/Good/Needs improvement/Inadequate/Critical).

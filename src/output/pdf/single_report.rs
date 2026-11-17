@@ -163,7 +163,7 @@ fn render_module_split_dashboards(
     // strength/weakness cards was redundant. This dashboard now only covers
     // the composite/heuristic indicator modules (UX, Journey, Search
     // Experience, …) that the score-driver table deliberately excludes
-    // (they don't feed the weighted overall score).
+    // (they don't feed the weighted site-quality score).
     let indicator_modules: Vec<&ModuleScore> = vm
         .modules
         .dashboard
@@ -235,10 +235,10 @@ struct DimensionRow {
 /// the CLI printed "FAIL — legal_flags: 5, blocking_issues: 36" while the
 /// document said nothing (plan 34).
 ///
-/// Labelled "Gesamteinstufung" / "Overall rating": the score band names a
+/// Labelled "Einstufung Barrierefreiheit" / "Accessibility rating": the score band names a
 /// range and certifies nothing, and this document cites BFSG and EN 301 549
 /// (plan 44). The certificate itself is gone (#911).
-fn render_overall_rating(
+fn render_rating(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
     i18n: &I18n,
@@ -458,7 +458,7 @@ impl TopMeasure {
 }
 
 /// Measures from every module that is not accessibility, ordered by severity
-/// first and by how many overall points the module currently costs second.
+/// first and by how many site-quality points the module currently costs second.
 /// Each entry carries the number of further findings collapsed into it.
 ///
 /// Without this the list was fed exclusively from WCAG finding groups, so a
@@ -479,13 +479,13 @@ pub(super) fn cross_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(T
         }
     };
 
-    // Points this module currently costs the overall score — the tie-breaker
+    // Points this module currently costs the site-quality score — the tie-breaker
     // between modules whose issues share a severity.
     let cost_of = |name: &str| -> u32 {
         vm.modules
             .module_scores
             .iter()
-            .find(|m| m.name.eq_ignore_ascii_case(name) && m.contributes_to_overall)
+            .find(|m| m.name.eq_ignore_ascii_case(name) && m.contributes_to_site_quality_score)
             .map(|m| (100u32.saturating_sub(m.score)) * m.weight_pct)
             .unwrap_or(0)
     };
@@ -781,7 +781,7 @@ pub(super) fn render_management_page(
         Callout::info(&vm.summary.verdict).with_title(i18n.t("single-report-overall-verdict")),
     );
 
-    builder = render_overall_rating(builder, vm, i18n);
+    builder = render_rating(builder, vm, i18n);
 
     // Problem profile badge (plan/20-problemprofil-badge.md)
     builder = render_problem_profile(builder, vm, i18n);
@@ -844,7 +844,7 @@ pub(super) fn render_management_page(
     }
 
     // 2c. Score-driver table — the radar shows *balance*, this answers
-    // "why is the overall score X": which modules pull it down vs.
+    // "why is the site-quality score X": which modules pull it down vs.
     // stabilize it, and how much each one actually weighs
     // (plan/2-score-driver-breakdown.md).
     builder = render_score_driver_table(builder, vm, i18n);
@@ -859,7 +859,7 @@ pub(super) fn render_management_page(
 
     // 2d-bis. Additional score drivers beyond Accessibility — the note above
     // only explains the WCAG occurrences; on sites where Performance or
-    // Security are equally significant drags on the overall score, they were
+    // Security are equally significant drags on the site-quality score, they were
     // left unexplained next to their number in the table above (feedback:
     // management summary read as accessibility-only, e.g. "Performance 16"
     // and "Security 22" had no plain-language reason next to them).

@@ -2,7 +2,7 @@
 //! texts of `executive.rs` (positive signals, key points, score driver note),
 //! `positive.rs` (positive aspects), `serp.rs` (page health rows), `mod.rs`
 //! (audit quality note, stability measurements, the quick-win label),
-//! `modules_block.rs` (overall score explanation), `diagnosis.rs` (category
+//! `modules_block.rs` (site-quality score explanation), `diagnosis.rs` (category
 //! names), `module_details/performance.rs` and `module_details/platform.rs`
 //! (performance, security and mobile detail rows) across an enumerated input
 //! space in both languages, as records in `reports/report-builder-texts.json`
@@ -117,7 +117,7 @@ fn module(
         grade: None,
         band: String::new(),
         weight_pct,
-        contributes_to_overall: contributes,
+        contributes_to_site_quality_score: contributes,
         derived_from: Vec::new(),
         measurement_type: measurement_type.to_string(),
     }
@@ -475,18 +475,18 @@ fn viewport_scores() -> ViewportScores {
         desktop: ViewportScoreSet {
             accessibility: 91,
             performance: None,
-            overall: 90,
+            site_quality: 90,
         },
         mobile: ViewportScoreSet {
             accessibility: 77,
             performance: None,
-            overall: 76,
+            site_quality: 76,
         },
-        weighted_overall: 81,
+        weighted_site_quality: 81,
     }
 }
 
-/// The overall score explanation of the module block.
+/// The site-quality score explanation of the module block.
 fn modules_block_records(records: &mut Vec<Value>) {
     let base = report();
     let performance = perf(90);
@@ -526,7 +526,7 @@ fn modules_block_records(records: &mut Vec<Value>) {
                     "build_modules_block_from_normalized",
                     format!("{name} viewports={viewports}"),
                     lang,
-                    block.overall_interpretation
+                    block.site_quality_interpretation
                 ]));
             }
         }

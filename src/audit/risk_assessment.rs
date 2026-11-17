@@ -16,7 +16,7 @@ pub(super) fn compute_risk_assessment(
     interactive_findings: &[InteractiveFinding],
     screen_reader: Option<&crate::screen_reader::ScreenReaderSummary>,
     score: u32,
-    overall_score: u32,
+    site_quality_score: u32,
 ) -> RiskAssessment {
     // Risk thresholds reflect total affected elements (occurrence_counts),
     // not the number of distinct rules (severity_counts).
@@ -168,12 +168,12 @@ pub(super) fn compute_risk_assessment(
     };
     let summary = match level {
         RiskLevel::Critical => {
-            // If the overall score is high (≥ 80, i.e. Grade A or B), the
+            // If the site-quality score is high (≥ 80, i.e. Grade A or B), the
             // Critical risk level alongside a strong grade looks
             // contradictory. Surface the contrast explicitly so the report
             // explains why both signals can hold at once. See issue #237.
-            let prefix = if overall_score >= 80 {
-                "Critical risk despite high overall score"
+            let prefix = if site_quality_score >= 80 {
+                "Critical risk despite high site-quality score"
             } else {
                 "Critical risk"
             };

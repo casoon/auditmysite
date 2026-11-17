@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "type": "bar",
-  "title": "Weights in the overall score",
+  "title": "How the site-quality score (optional modules) is weighted",
   "source": "auditmysite taxonomy, MODULE_WEIGHTS",
   "categoryAxis": { "title": "Module" },
   "valueAxis": { "title": "Weight in percent" },

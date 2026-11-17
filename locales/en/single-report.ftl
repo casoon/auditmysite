@@ -3,7 +3,7 @@
 # findings classification and matrix, the appendix with its manual-review
 # notes, the recognized structural patterns and the dual viewport summary.
 # Which message applies, the thresholds and how lists are joined stay in Rust.
-# The severity labels, the overall rating title, verdict words and reasons,
+# The severity labels, the accessibility rating title, verdict words and reasons,
 # the module names and the column headers "Priority", "Occurrences" and
 # "Effort" are messages of report.ftl.
 
@@ -31,7 +31,7 @@ single-report-dashboard-weak = Where optimization pays off
 single-report-dashboard-good-but-gated = The additional indicator modules (UX, Journey, …) are in good shape, but barriers elsewhere in this report (operability, possible legal relevance) still require action — see Management Summary.
 single-report-dashboard-all-good = The additional indicator modules (UX, Journey, …) are in good shape — no module needs prioritized optimization.
 
-## Overall rating
+## Accessibility rating
 single-report-rating-body = { $rating } — automated check { $verdict }.
 single-report-rating-provisional = This run did not complete in full, so the rating is provisional and describes only what was measured successfully.
 single-report-rating-note = The rating is a band label for the accessibility score within the automated scope, not a statement of conformance.

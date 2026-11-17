@@ -35,7 +35,6 @@ expression: sort_json_keys(value)
     "Security",
     "UX"
   ],
-  "overall_score": 68,
   "score": 49,
   "severity_counts": {
     "critical": 1,
@@ -44,5 +43,6 @@ expression: sort_json_keys(value)
     "medium": 1,
     "total": 2
   },
+  "site_quality_score": 68,
   "url": "https://example.com"
 }

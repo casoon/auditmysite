@@ -25,7 +25,7 @@ use crate::audit::{AuditQualityStatus, AuditReport, BatchReport};
 use crate::taxonomy::{RuleLookup, Severity, SeverityExt};
 
 /// Version of the `index.json` / `findings.jsonl` shape.
-pub const TECHNICIAN_SCHEMA_VERSION: &str = "1.0";
+pub const TECHNICIAN_SCHEMA_VERSION: &str = "1.1";
 
 /// `index.json`: one entry per attempted URL.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,7 +67,7 @@ pub struct IndexEntry {
     pub status: PageStatus,
     /// Why the page is blocked or failed; `null` for `ok`.
     pub reason: Option<String>,
-    pub overall_score: Option<u32>,
+    pub site_quality_score: Option<u32>,
     pub accessibility_score: Option<u32>,
     /// Distinct `(source, rule_id)` pairs among this page's `findings.jsonl` lines.
     pub finding_count: Option<usize>,
@@ -225,7 +225,7 @@ pub fn ok_entry(
         file: Some(file),
         status: PageStatus::Ok,
         reason: None,
-        overall_score: Some(normalized.overall_score),
+        site_quality_score: Some(normalized.site_quality_score),
         accessibility_score: Some(normalized.score),
         finding_count: Some(distinct.len()),
         occurrence_count: Some(rows.len()),
@@ -265,7 +265,7 @@ pub fn build_index(
                 file: None,
                 status,
                 reason: Some(reason),
-                overall_score: None,
+                site_quality_score: None,
                 accessibility_score: None,
                 finding_count: None,
                 occurrence_count: None,
@@ -475,14 +475,14 @@ mod tests {
         assert_eq!(a.file.as_deref(), Some("a.json"));
         assert_eq!(a.finding_count, Some(1));
         assert_eq!(a.occurrence_count, Some(2));
-        assert!(a.accessibility_score.is_some() && a.overall_score.is_some());
+        assert!(a.accessibility_score.is_some() && a.site_quality_score.is_some());
         assert_eq!(a.audit_quality, Some(AuditQualityStatus::Complete));
         assert!(a.reason.is_none());
 
         let b = &index.pages[1];
         assert_eq!(b.status, PageStatus::Blocked);
         assert_eq!(b.reason.as_deref(), Some("the server answered HTTP 403"));
-        assert!(b.file.is_none() && b.overall_score.is_none() && b.occurrence_count.is_none());
+        assert!(b.file.is_none() && b.site_quality_score.is_none() && b.occurrence_count.is_none());
 
         assert_eq!(index.pages[2].occurrence_count, Some(0));
 

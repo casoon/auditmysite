@@ -1,6 +1,6 @@
 # Texte des Builders des Einzelberichts, #936: positive Signale und Aspekte,
 # die Kernaussagen der Management-Zusammenfassung und die Score-Treiber-Notiz,
-# der Hinweis zur Prüfqualität, die Erklärung der Gesamtbewertung, die Zeilen
+# der Hinweis zur Prüfqualität, die Erklärung der Website-Qualität, die Zeilen
 # der Seitengesundheit und die Detailzeilen für Performance, Sicherheit und
 # Mobile (`output::builder::single::{executive, positive, serp,
 # modules_block, module_details::{performance, platform}}` und der
@@ -54,12 +54,12 @@ report-builder-quality-partial = Der automatisierte Audit wurde erfolgreich durc
 report-builder-quality-insufficient = Dieser Prüflauf hat unzureichende Datenqualität: mehrere Messungen sind fehlgeschlagen. Scores und Befunde können unvollständig oder unzuverlässig sein. Details im Methodik-Anhang.
 report-builder-metric-quick-wins = Schnell umsetzbar
 
-## Erklärung der Gesamtbewertung
-report-builder-overall-indicators = Indikator-Module ({ $modules }) werden separat ausgewiesen und verändern den kombinierten technischen Wert nicht.
-report-builder-overall-dual = Der kombinierte technische Wert nutzt das Dual-Viewport-Ergebnis: 70% Mobile und 30% Desktop. Sicherheit fließt mit 10% ein, wenn aktiv.{ $indicators }
-report-builder-overall-weighted = Die Gesamtbewertung ergibt sich aus den gewichteten Einzelmodulen: { $weights }.{ $indicators }
-report-builder-overall-weight = { $name } { $pct } %
-report-builder-overall-weight-default = Barrierefreiheit 100 %
+## Erklärung der Website-Qualität
+report-builder-site-quality-indicators = Indikator-Module ({ $modules }) werden separat ausgewiesen und verändern die Website-Qualität nicht.
+report-builder-site-quality-dual = Die Website-Qualität nutzt das Dual-Viewport-Ergebnis: 70% Mobile und 30% Desktop. Sicherheit fließt mit 10% ein, wenn aktiv.{ $indicators }
+report-builder-site-quality-weighted = Die Website-Qualität ergibt sich aus den gewichteten Einzelmodulen: { $weights }.{ $indicators }
+report-builder-site-quality-weight = { $name } { $pct } %
+report-builder-site-quality-weight-default = Barrierefreiheit 100 %
 
 ## Zeilen der Seitengesundheit
 report-builder-page-health-url-length = URL-Länge

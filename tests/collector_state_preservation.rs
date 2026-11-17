@@ -258,7 +258,7 @@ fn every_collector_state_survives_replay_batch_and_json() {
             );
 
             // A lost scoring collection leaves no measured module score and
-            // no 100 points: the SEO score stays out of the overall score.
+            // no 100 points: the SEO score stays out of the site-quality score.
             if spec.scoring && state.is_gap() && spec.module == "seo" {
                 let seo = replayed
                     .module_scores
@@ -266,7 +266,7 @@ fn every_collector_state_survives_replay_batch_and_json() {
                     .find(|m| m.name == "SEO")
                     .expect("SEO entry");
                 assert_ne!(seo.measurement_type, "measured", "{}", spec.id);
-                assert!(!seo.contributes_to_overall, "{}", spec.id);
+                assert!(!seo.contributes_to_site_quality_score, "{}", spec.id);
             }
 
             // Export projections: single report from the snapshot, then the

@@ -322,7 +322,7 @@ pub(super) fn render_batch_url_ranking(
             let mut row = BenchmarkRow::new(
                 (i + 1) as u32,
                 &short_url(&u.url, 35),
-                u.overall_score,
+                u.site_quality_score,
                 u.score as u32,
                 u.critical_violations as u32,
             );
@@ -360,7 +360,7 @@ pub(super) fn ranking_intro(i18n: &I18n) -> String {
         &[
             ("accessibility", i18n.t("batch-ranking-col-accessibility")),
             ("critical", i18n.t("batch-ranking-col-critical-high")),
-            ("overall", i18n.t("batch-ranking-col-overall")),
+            ("site_quality", i18n.t("batch-ranking-col-site-quality")),
         ],
     )
 }
@@ -368,13 +368,13 @@ pub(super) fn ranking_intro(i18n: &I18n) -> String {
 /// The ranking table without renderreport's built-in German title
 /// ("Website-Ranking"): the section header above already names it in the run
 /// language. The fixed columns are labelled in the run language too; the
-/// score column is the overall score and the last one counts critical and
+/// score column is the site-quality score and the last one counts critical and
 /// high findings (`UrlSummary::critical_violations`, #1039).
 fn ranking_table(rows: Vec<BenchmarkRow>, i18n: &I18n) -> BenchmarkTable {
     let mut table = BenchmarkTable::new(rows).with_labels(
         i18n.t("batch-ranking-col-rank"),
         i18n.t("batch-ranking-col-page"),
-        i18n.t("batch-ranking-col-overall"),
+        i18n.t("batch-ranking-col-site-quality"),
         i18n.t("batch-ranking-col-accessibility"),
         i18n.t("batch-ranking-col-critical-high"),
     );
@@ -412,7 +412,7 @@ pub(super) fn render_batch_tech_url_matrix(
         TableColumn::new(i18n.t("batch-col-links-from")).with_width("10%"),
         TableColumn::new(i18n.t("batch-col-words")).with_width("10%"),
         // The accessibility score; "Score" in the ranking above is the
-        // combined technical value (#1039).
+        // site-quality score (#1039).
         TableColumn::new(i18n.t("batch-matrix-col-accessibility")).with_width("12%"),
     ])
     .with_title(i18n.t("batch-table-pages-overview"));

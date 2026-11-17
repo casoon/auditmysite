@@ -36,8 +36,8 @@ pub struct StudioAuditResponse {
     // ── Scores ──────────────────────────────────────────────────────
     /// WCAG accessibility score (0–100)
     pub accessibility_score: u32,
-    /// Weighted overall score across all active modules (0–100)
-    pub overall_score: u32,
+    /// Weighted site-quality score across all active modules (0–100)
+    pub site_quality_score: u32,
     /// Grade (A–F) of `accessibility_score` — the one grade basis (#781).
     pub grade: String,
     /// The stored decision (#781): verdict, reasons, contract and profile —
@@ -103,14 +103,14 @@ pub struct StudioReportArtifacts {
 pub struct StudioModuleScore {
     pub name: String,
     pub score: u32,
-    /// Letter grade — only for modules that carry weight in the overall score.
+    /// Letter grade — only for modules that carry weight in the site-quality score.
     /// Mirrors `ModuleScoreEntry::grade` (plan 29, D2).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub grade: Option<String>,
     /// Canonical English qualitative band for `score`; present on every entry.
     pub band: String,
     pub weight_pct: u32,
-    pub contributes_to_overall: bool,
+    pub contributes_to_site_quality_score: bool,
 }
 
 /// Compact finding for the findings list — no full descriptions or code.
@@ -145,7 +145,7 @@ impl StudioAuditResponse {
                 grade: m.grade.clone(),
                 band: m.band.clone(),
                 weight_pct: m.weight_pct,
-                contributes_to_overall: m.contributes_to_overall,
+                contributes_to_site_quality_score: m.contributes_to_site_quality_score,
             })
             .collect();
 
@@ -167,7 +167,7 @@ impl StudioAuditResponse {
             url: normalized.normalized.url.clone(),
             timestamp: normalized.normalized.timestamp,
             accessibility_score: normalized.normalized.score,
-            overall_score: normalized.normalized.overall_score,
+            site_quality_score: normalized.normalized.site_quality_score,
             grade: normalized.normalized.grade.clone(),
             decision: normalized.normalized.decision.clone(),
             risk_level: risk_level_string(normalized.normalized.risk.level),
@@ -219,8 +219,8 @@ pub struct StudioHistoryEntry {
     /// WCAG accessibility score
     #[serde(default)]
     pub accessibility_score: u32,
-    /// Weighted overall score
-    pub overall_score: u32,
+    /// Weighted site-quality score
+    pub site_quality_score: u32,
     #[serde(default)]
     pub grade: String,
     /// The audit's stored decision (#781). Required: a history entry
@@ -251,7 +251,7 @@ impl StudioHistoryEntry {
             url: response.url.clone(),
             timestamp: response.timestamp,
             accessibility_score: response.accessibility_score,
-            overall_score: response.overall_score,
+            site_quality_score: response.site_quality_score,
             grade: response.grade.clone(),
             decision: response.decision.clone(),
             risk_level: response.risk_level.clone(),
@@ -269,7 +269,7 @@ impl StudioHistoryEntry {
             url: self.url,
             timestamp: self.timestamp,
             accessibility_score: self.accessibility_score,
-            overall_score: self.overall_score,
+            site_quality_score: self.site_quality_score,
             grade: self.grade,
             decision: self.decision,
             risk_level: self.risk_level,
@@ -344,7 +344,7 @@ mod tests {
 
         assert_eq!(entry.url, response.url);
         assert_eq!(entry.accessibility_score, response.accessibility_score);
-        assert_eq!(entry.overall_score, response.overall_score);
+        assert_eq!(entry.site_quality_score, response.site_quality_score);
         assert_eq!(entry.risk_level, response.risk_level);
     }
 

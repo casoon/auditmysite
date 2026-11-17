@@ -139,7 +139,7 @@ pub(super) fn build_methodology(
         let contributing: Vec<_> = normalized
             .module_scores
             .iter()
-            .filter(|m| m.contributes_to_overall)
+            .filter(|m| m.contributes_to_site_quality_score)
             .collect();
         let total_raw: u32 = contributing.iter().map(|m| m.weight_pct).sum();
         let weights: Vec<String> = contributing
@@ -159,7 +159,7 @@ pub(super) fn build_methodology(
         let indicator_names: Vec<String> = normalized
             .module_scores
             .iter()
-            .filter(|m| !m.contributes_to_overall || m.measurement_type == "heuristic")
+            .filter(|m| !m.contributes_to_site_quality_score || m.measurement_type == "heuristic")
             .map(|m| localized_module_name(&m.name, i18n))
             .collect();
         let mut value = i18n.t_args(
@@ -167,7 +167,7 @@ pub(super) fn build_methodology(
             &[
                 (
                     "score",
-                    FluentValue::from(i64::from(normalized.overall_score)),
+                    FluentValue::from(i64::from(normalized.site_quality_score)),
                 ),
                 ("weights", FluentValue::from(weights_label)),
             ],

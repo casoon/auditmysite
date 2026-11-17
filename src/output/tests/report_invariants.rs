@@ -328,7 +328,7 @@ fn landmark_violations_do_not_move_ai_chunking() {
 }
 
 /// Plan 29, D1: the headline classification describes accessibility. It used
-/// to hang off the weighted overall score, so an accessibility score of 20
+/// to hang off the weighted site-quality score, so an accessibility score of 20
 /// reached the cover as a 39 that five other modules had lifted.
 #[test]
 fn grade_follows_the_accessibility_score() {
@@ -336,7 +336,7 @@ fn grade_follows_the_accessibility_score() {
 
     let mut report = make_report(WcagResults::new());
     report.accessibility.score = 30.0;
-    // A module set that pulls the weighted overall well above accessibility.
+    // A module set that pulls the weighted site-quality score well above accessibility.
     report.discoverability.seo = Some(crate::seo::SeoAnalysis {
         score: 100,
         ..Default::default()
@@ -344,9 +344,9 @@ fn grade_follows_the_accessibility_score() {
     let normalized = normalize(&report).normalized;
 
     assert!(
-        normalized.overall_score > normalized.score,
-        "fixture must separate the two scores: overall {} vs accessibility {}",
-        normalized.overall_score,
+        normalized.site_quality_score > normalized.score,
+        "fixture must separate the two scores: site quality {} vs accessibility {}",
+        normalized.site_quality_score,
         normalized.score,
     );
     assert_eq!(
@@ -354,10 +354,10 @@ fn grade_follows_the_accessibility_score() {
         AccessibilityScorer::calculate_grade(normalized.score as f32),
     );
     // The two bases fall into different score bands (30 vs 43), so a grade
-    // taken from the overall would be visible as a different tier.
+    // taken from the site-quality score would be visible as a different tier.
     assert_ne!(
         crate::audit::interpretation::ScoreBand::from_score(normalized.score as f32),
-        crate::audit::interpretation::ScoreBand::from_score(normalized.overall_score as f32),
+        crate::audit::interpretation::ScoreBand::from_score(normalized.site_quality_score as f32),
         "fixture must make the two bases disagree"
     );
 }

@@ -195,7 +195,7 @@ pub(super) fn first_sentence(text: &str) -> String {
 
 /// Generic label for a module's headline score card. The descriptive module
 /// name lives in the level-2 chapter heading, so the card only needs a short
-/// "overall score" caption (avoids printing the title twice).
+/// "site-quality score" caption (avoids printing the title twice).
 pub(super) fn module_score_caption(i18n: &I18n) -> String {
     i18n.t("pdf-details-score-caption")
 }

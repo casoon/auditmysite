@@ -233,14 +233,14 @@ Note: the SARIF file has page-URL locations without `region` or `partialFingerpr
 
 Outputs: `report-json`, `report-sarif` (absolute paths) and `version`. The action runs with `--report-mode`, so a failing verdict does not fail the step; gate on the JSON report yourself if needed. It audits twice, once per format, so each run adds a page load. Release binaries exist for Linux, macOS on Apple Silicon and Windows (Windows runs use Microsoft Edge; the Windows path is untested).
 
-## How the overall score is weighted
+## How the site-quality score (optional modules) is weighted
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/score-weights.dark.svg">
-  <img src="docs/img/score-weights.svg" alt="Bar chart of the module weights in the overall score: Accessibility 40, Performance 20, SEO 15, Security 10, Mobile 10, HTML Conformance 5 percent." width="640">
+  <img src="docs/img/score-weights.svg" alt="Bar chart of the module weights in the site-quality score: Accessibility 40, Performance 20, SEO 15, Security 10, Mobile 10, HTML Conformance 5 percent." width="640">
 </picture>
 
-Only the weighted modules enter the overall score. Best Practices is shown next to it with weight 0; the experimental indicators (UX, Journey, …) are off unless you ask for them with `--experimental`. The charts in `docs/img/` are generated from the `.json` files next to them with [chartlet](https://github.com/casoon/chartlet) (`chartlet render <spec>.json --format svg --strict`, add `--theme dark` for the dark variant).
+The accessibility score is the headline number; the site-quality score is a secondary figure over the modules that ran (`site_quality_score` in the JSON). Only the weighted modules enter it. Best Practices is shown next to it with weight 0; the experimental indicators (UX, Journey, …) are off unless you ask for them with `--experimental`. The charts in `docs/img/` are generated from the `.json` files next to them with [chartlet](https://github.com/casoon/chartlet) (`chartlet render <spec>.json --format svg --strict`, add `--theme dark` for the dark variant).
 
 ## What it checks
 

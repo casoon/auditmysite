@@ -393,7 +393,7 @@ fn ranked(url: &str, score: f32) -> UrlSummary {
     UrlSummary {
         url: url.to_string(),
         score,
-        overall_score: score as u32,
+        site_quality_score: score as u32,
         grade: "B".to_string(),
         critical_violations: 0,
         total_violations: 0,
@@ -442,14 +442,14 @@ fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
         desktop: ViewportScoreSet {
             accessibility: 95,
             performance: None,
-            overall: 95,
+            site_quality: 95,
         },
         mobile: ViewportScoreSet {
             accessibility: 60,
             performance: None,
-            overall: 60,
+            site_quality: 60,
         },
-        weighted_overall: 71,
+        weighted_site_quality: 71,
     });
     let flagged = BatchReport::from_reports(pages, vec![], 100);
     records.push(json!([

@@ -106,7 +106,7 @@ pub struct AiReport {
     pub url: String,
     pub audit_date: String,
     pub score: u32,
-    pub overall_score: u32,
+    pub site_quality_score: u32,
     pub summary: AiSummary,
     pub tasks: Vec<AiTask>,
     pub passing_checks: usize,
@@ -218,7 +218,7 @@ pub fn format_ai_json_with_annotations(
         url: report.url.clone(),
         audit_date: report.timestamp.format("%Y-%m-%d").to_string(),
         score: normalized.normalized.score,
-        overall_score: normalized.normalized.overall_score,
+        site_quality_score: normalized.normalized.site_quality_score,
         summary: AiSummary {
             total_violations: normalized.normalized.severity_counts.total,
             critical: normalized.normalized.severity_counts.critical,

@@ -52,7 +52,7 @@ cover-fact-scope-batch = Sitemap / Batch
 cover-fact-scope-comparison = Wettbewerbsvergleich
 cover-fact-modules = Module
 cover-fact-date = Prüfdatum
-metric-score = Gesamtscore
+metric-score = Website-Qualität (optionale Module)
 metric-issues-detected = Probleme erkannt
 metric-critical-high = Kritisch / Hoch
 metric-risk = Risiko
@@ -110,7 +110,7 @@ verdict-tier-solid = { $url } erreicht { $score }/100 im automatisierten Accessi
 verdict-tier-stable = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Die Grundlage ist stabil, aber nicht frei von Barrieren — mehrere Verbesserungshebel sollten eingeplant werden.
 verdict-tier-deficient = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Es bestehen deutliche Barrieren — nicht nur Detailprobleme, sondern struktureller Nachholbedarf.
 verdict-tier-critical = { $url } erreicht nur { $score }/100 im automatisierten Accessibility-Prüfumfang. Akuter Handlungsbedarf: Wesentliche Inhalte und Funktionen sind für einen Teil der Nutzer nicht zugänglich.
-score-note-high-with-critical = Der Score berücksichtigt Gewichtung und Häufigkeit. Einzelne kritische Themen können trotz hoher Gesamtbewertung bestehen.
+score-note-high-with-critical = Der Score berücksichtigt Gewichtung und Häufigkeit. Einzelne kritische Themen können trotz eines hohen Barrierefreiheitswerts bestehen.
 score-note-perfect-automated-scope = Im automatisch geprüften Umfang wurden keine bestätigten Accessibility-Verstöße gefunden. Kontextabhängige WCAG-Kriterien benötigen weiterhin manuelle Prüfung.
 
 # Verdict (batch audit)
@@ -160,8 +160,8 @@ cover-card-grade = Note
 cover-card-accessibility = Accessibility
 cover-card-issues = Issues
 cover-card-critical-high-suffix = kritisch/hoch
-cover-card-average = Technischer Wert Ø
-batch-cover-overall-score-note = Mittel der technischen Werte je URL (0–100, höher ist besser).
+cover-card-average = Barrierefreiheit Ø
+batch-cover-site-quality-score-note = Nebenwert: Website-Qualität (optionale Module), Mittel je URL: { $score } (0–100, höher ist besser). Der große Wert und die Note oben beschreiben die Barrierefreiheit.
 cover-card-urls = URLs
 cover-card-wcag-occurrences = { $count } WCAG-Vorkommen
 batch-cover-eyebrow = Automatisierter Batch-Audit-Report
@@ -249,7 +249,7 @@ batch-section-redirect-chains = Redirect-Ketten
 batch-redirect-chains-title = Redirect-Ketten (> 1 Hop)
 batch-col-target = Ziel
 batch-url-ranking-title = URL-Ranking
-batch-url-ranking-intro = Sortiert nach Barrierefreiheit (Spalte „{ $accessibility }“), niedrigster Wert zuerst; bei Gleichstand mehr kritische/hohe WCAG-Befunde (Spalte „{ $critical }“) zuerst. „{ $overall }“ ist der kombinierte technische Wert. Ein niedriger Wert zeigt, wo am meisten verloren geht — einzelne kritische Funktionsbefunde können auch Seiten mit gutem Wert betreffen.
+batch-url-ranking-intro = Sortiert nach Barrierefreiheit (Spalte „{ $accessibility }“), niedrigster Wert zuerst; bei Gleichstand mehr kritische/hohe WCAG-Befunde (Spalte „{ $critical }“) zuerst. „{ $site_quality }“ ist die Website-Qualität (optionale Module). Ein niedriger Wert zeigt, wo am meisten verloren geht — einzelne kritische Funktionsbefunde können auch Seiten mit gutem Wert betreffen.
 batch-render-blocking-section = Render-Blocking & Assets
 batch-render-blocking-kv-title = Render-Blocking-Übersicht (domainweit)
 batch-render-blocking-intro = Render-blockierende Ressourcen und Third-Party-Traffic, aggregiert über alle geprüften Seiten.
@@ -960,7 +960,7 @@ metric-checked-nodes = Geprüfte{"\u00A0"}Knoten
 metric-wcag-level = WCAG-Level
 metric-warnings = Heuristische{"\u00A0"}Warnungen
 metric-not-testable = Manuell{"\u00A0"}zu{"\u00A0"}prüfen
-metric-overall-score = Gesamtscore{"\u00A0"}Website
+metric-site-quality-score = Website-Qualität
 metric-accessibility-score = Barrierefreiheit{"\u00A0"}Score
 date-format-str = %d.%m.%Y
 trend-significantly-improved = Deutlich verbessert
@@ -1349,7 +1349,7 @@ annotations-reason-no-reading-flow = Seite hat keine Screenreader-Prüfung
 annotations-warnings-title = Hinweise zur Annotationsdatei
 
 # Batch decision, risk and portfolio texts (#1039)
-batch-rating-title = Gesamteinstufung
+batch-rating-title = Einstufung Barrierefreiheit
 batch-rating-body = { $rating } — automatisierte Prüfung { $verdict }: { $passed } von { $total ->
         [one] { $total } geprüften URL
        *[other] { $total } geprüften URLs
@@ -1407,7 +1407,7 @@ batch-user-impact-critical = Kritisch — auf den geprüften Seiten erschweren B
 batch-user-impact-limited = Eingeschränkt — strukturelle Probleme behindern Nutzer mit Hilfstechnologien
 batch-user-impact-good = Gut — einzelne Barrieren für Hilfstechnologien auf mehreren Seiten
 batch-user-impact-very-good = Sehr gut — Hilfstechnologien werden weitgehend unterstützt
-batch-user-impact-barriers-fail = Mit Barrieren nutzbar — hoher Durchschnitt, aber Barrieren auf den geprüften Seiten lassen die automatisierte Prüfung scheitern (siehe Gesamteinstufung)
+batch-user-impact-barriers-fail = Mit Barrieren nutzbar — hoher Durchschnitt, aber Barrieren auf den geprüften Seiten lassen die automatisierte Prüfung scheitern (siehe Einstufung Barrierefreiheit)
 batch-effect-open-high = { $count ->
         [one] Guter Durchschnitt, aber 1 Befund hoher Schwere dieses Moduls ist auf den geprüften Seiten noch offen.
        *[other] Guter Durchschnitt, aber { $count } Befunde hoher Schwere dieses Moduls sind auf den geprüften Seiten noch offen.
@@ -1431,7 +1431,7 @@ batch-effect-other-recurring = Das Modul zeigt wiederkehrende Schwächen im gepr
 batch-effect-other-structural = Das Modul benötigt strukturelle Aufmerksamkeit über mehrere Seiten.
 batch-ranking-col-rank = Nr.
 batch-ranking-col-page = Seite
-batch-ranking-col-overall = Gesamt
+batch-ranking-col-site-quality = Website-Qualität
 batch-ranking-col-accessibility = Barrierefr.
 batch-ranking-col-critical-high = WCAG krit./hoch
 batch-ranking-col-seo = SEO

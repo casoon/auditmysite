@@ -17,7 +17,7 @@ use crate::output::module::ReportModule as _;
 use crate::output::report_model::{ReportConfig, UrlMatrixRow};
 
 /// Current envelope schema version.
-const SCHEMA_VERSION: &str = "2.0";
+const SCHEMA_VERSION: &str = "2.1";
 
 mod detail;
 pub(crate) mod helpers;
@@ -27,7 +27,7 @@ use helpers::{
     aggregate_occurrences, aggregate_severity, avg_module_score, batch_report_timestamp,
     build_accessibility_score_breakdown, build_decision_actions, build_en301549_batch_rollup,
     build_internal_comparison, build_management_risks, build_wcag_coverage_for_level,
-    build_wcag_coverage_summary, normalized_module_score, overall_score_weight_basis,
+    build_wcag_coverage_summary, normalized_module_score, site_quality_score_weight_basis,
     weight_basis_is_uniform,
 };
 
@@ -206,7 +206,7 @@ pub struct UnifiedSummary {
     pub url_count: usize,
     /// `null` for a batch without a single audited URL: nothing was measured (#768).
     pub accessibility_score: Option<u32>,
-    pub overall_score: Option<u32>,
+    pub site_quality_score: Option<u32>,
     /// `null` together with the scores for a batch that measured nothing.
     pub grade: Option<String>,
     pub risk_level: crate::audit::normalized::RiskLevel,
@@ -273,17 +273,17 @@ pub struct UnifiedSummary {
     pub lh_mobile_score: Option<u32>,
     /// Automated WCAG coverage scope shown near the executive summary.
     pub wcag_coverage: WcagCoverageSummary,
-    /// Sum of the module weights that actually fed `overall_score`, out of
+    /// Sum of the module weights that actually fed `site_quality_score`, out of
     /// 100. Below 100 the score was renormalised over the modules that ran and
     /// measured successfully, so it is not comparable with a run over a
     /// different module set (plan 41).
-    pub overall_score_weight_basis: u32,
+    pub site_quality_score_weight_basis: u32,
     /// Batch only. `false` when the audited pages did not all contribute the
-    /// same weight basis — their `overall_score` values were then averaged
+    /// same weight basis — their `site_quality_score` values were then averaged
     /// across different module sets and are not directly comparable
     /// (plan 41).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub overall_score_weight_basis_uniform: Option<bool>,
+    pub site_quality_score_weight_basis_uniform: Option<bool>,
     /// Accessibility score explanation by weighted topic.
     pub accessibility_score_breakdown: Vec<AccessibilityScoreComponent>,
     /// Management-oriented risk view derived from findings and module scores.
@@ -550,7 +550,7 @@ pub struct UrlOutlier {
 pub struct PageEntry {
     pub url: String,
     pub accessibility_score: u32,
-    pub overall_score: u32,
+    pub site_quality_score: u32,
     pub grade: String,
     /// WCAG violation occurrences only.
     pub violation_count: usize,
@@ -580,7 +580,7 @@ pub struct PageEntry {
     pub security_score: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mobile_score: Option<u32>,
-    /// How `overall_score` was computed: `"module_weighted"` or `"viewport_weighted"`.
+    /// How `site_quality_score` was computed: `"module_weighted"` or `"viewport_weighted"`.
     pub score_calculation_method: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub score_breakdown: Option<crate::audit::normalized::ScoreBreakdown>,
@@ -1042,13 +1042,13 @@ impl UnifiedReport {
         let occurrence_counts = aggregate_occurrences(&pages);
         let measured = batch_report.summary.average_score.is_some();
         let accessibility_score = batch_report.summary.average_score.unwrap_or(0.0).round() as u32;
-        let overall_score_batch = presentation.portfolio_summary.average_overall_score;
+        let site_quality_score_batch = presentation.portfolio_summary.average_site_quality_score;
         // Accessibility, like the single report.
         let grade = batch_report.summary.grade();
         let summary = UnifiedSummary {
             url_count: batch_report.summary.total_urls,
             accessibility_score: measured.then_some(accessibility_score),
-            overall_score: measured.then_some(overall_score_batch),
+            site_quality_score: measured.then_some(site_quality_score_batch),
             grade,
             risk_level: batch_report.summary.risk,
             violation_count: pages.iter().map(|p| p.violation_count).sum(),
@@ -1082,8 +1082,10 @@ impl UnifiedReport {
                 .first()
                 .map(build_wcag_coverage_summary)
                 .unwrap_or_else(|| build_wcag_coverage_for_level("mixed")),
-            overall_score_weight_basis: overall_score_weight_basis(&normalized_reports),
-            overall_score_weight_basis_uniform: Some(weight_basis_is_uniform(&normalized_reports)),
+            site_quality_score_weight_basis: site_quality_score_weight_basis(&normalized_reports),
+            site_quality_score_weight_basis_uniform: Some(weight_basis_is_uniform(
+                &normalized_reports,
+            )),
             accessibility_score_breakdown: build_accessibility_score_breakdown(
                 &normalized_reports,
                 accessibility_score,
@@ -1251,7 +1253,7 @@ impl UnifiedReport {
         let summary = UnifiedSummary {
             url_count: 1,
             accessibility_score: Some(page.accessibility_score),
-            overall_score: Some(page.overall_score),
+            site_quality_score: Some(page.site_quality_score),
             grade: Some(page.grade.clone()),
             risk_level: page.risk.level,
             violation_count: page.violation_count,
@@ -1292,10 +1294,10 @@ impl UnifiedReport {
                 .find(|t| t.profile == crate::browser::ThrottleProfile::LhMobile)
                 .and_then(|t| t.score),
             wcag_coverage: build_wcag_coverage_summary(&ctx.normalized),
-            overall_score_weight_basis: overall_score_weight_basis(std::slice::from_ref(
+            site_quality_score_weight_basis: site_quality_score_weight_basis(std::slice::from_ref(
                 &ctx.normalized,
             )),
-            overall_score_weight_basis_uniform: None,
+            site_quality_score_weight_basis_uniform: None,
             accessibility_score_breakdown: build_accessibility_score_breakdown(
                 std::slice::from_ref(&ctx.normalized),
                 page.accessibility_score,
@@ -1355,7 +1357,7 @@ impl UnifiedReport {
         let summary = UnifiedSummary {
             url_count: 1,
             accessibility_score: Some(page.accessibility_score),
-            overall_score: Some(page.overall_score),
+            site_quality_score: Some(page.site_quality_score),
             grade: Some(page.grade.clone()),
             risk_level: page.risk.level,
             violation_count: page.violation_count,
@@ -1381,10 +1383,10 @@ impl UnifiedReport {
             performance_throttled_avg_score: None,
             lh_mobile_score: None,
             wcag_coverage: build_wcag_coverage_summary(normalized),
-            overall_score_weight_basis: overall_score_weight_basis(std::slice::from_ref(
+            site_quality_score_weight_basis: site_quality_score_weight_basis(std::slice::from_ref(
                 normalized,
             )),
-            overall_score_weight_basis_uniform: None,
+            site_quality_score_weight_basis_uniform: None,
             accessibility_score_breakdown: build_accessibility_score_breakdown(
                 std::slice::from_ref(normalized),
                 page.accessibility_score,
