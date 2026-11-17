@@ -550,6 +550,10 @@
    "verdict": "errored"
   },
   {
+   "rule_id": "manual/timing",
+   "verdict": "errored"
+  },
+  {
    "rule_id": "manual/interruptions",
    "verdict": "errored"
   },

@@ -145,9 +145,9 @@ rule-label-in-name-mismatch = Sichtbarer Text ≠ zugänglicher Name
     .user-impact = Sprachsteuerungsnutzer können Element nicht ansprechen.
     .technical-impact = Der zugängliche Name, den aria-label oder aria-labelledby einem Button, Link oder anderem aus seinem Inhalt benannten Bedienelement gibt, enthält dessen sichtbare Beschriftung nicht, daher kann ein Sprachsteuerungs-Nutzer, der sagt, was zu sehen ist, es nicht auslösen; ein Prüfhinweis, wenn dieselben Wörter nur in anderer Reihenfolge stehen oder der sichtbare Text mehr als doppelt so lang ist wie der Name; reine Symbol- und Ein-Zeichen-Beschriftungen sind ausgenommen.
 
-rule-meta-refresh = Nicht anpassbare Zeitbegrenzung
-    .user-impact = Nutzer benötigen mehr Zeit für die Eingabe und können durch Timeouts Daten verlieren.
-    .technical-impact = Die Prüfung sucht keinen Timer: Zeitbegrenzungen per JavaScript (setTimeout, setInterval, Sitzungsablauf) sind im Markup nicht erkennbar, daher erhält jede Seite einen Hinweis zur manuellen Prüfung, dass Nutzer solche Fristen abschalten, anpassen oder verlängern können müssen; ein <meta http-equiv="refresh"> wird getrennt bewertet.
+rule-manual-timing = Zeitbegrenzung möglicherweise nicht anpassbar
+    .user-impact = Nutzer, die mehr Zeit brauchen, werden abgebrochen und können Eingaben verlieren.
+    .technical-impact = Die Seite hat Formularfelder, daher ist eine Zeitbegrenzung denkbar; Zeitbegrenzungen per JavaScript (setTimeout, setInterval, Sitzungsablauf) sind im Markup nicht erkennbar, daher erhält die Seite einen Hinweis zur manuellen Prüfung, dass Nutzer eine solche Frist abschalten, anpassen oder verlängern können müssen; ein <meta http-equiv="refresh"> wird getrennt bewertet.
 
 rule-timing-meta-refresh = Nicht anpassbare Zeitbegrenzung
     .user-impact = Nutzer benötigen mehr Zeit für die Eingabe und können durch Timeouts Daten verlieren.
@@ -178,10 +178,6 @@ rule-manual-re-authenticating = Keine Datenspeicherung bei Reauthentifizierung (
     .user-impact = Nutzer müssen alle Formulardaten erneut eingeben.
     .technical-impact = Die Seite hat ein Passwortfeld oder ein CAPTCHA, daher ist eine Anmeldung nach abgelaufener Sitzung wahrscheinlich; ob die eingegebenen Daten die erneute Anmeldung überstehen, ist im Markup nicht erkennbar, die Seite erhält deshalb einen Hinweis zur manuellen Prüfung statt eines Urteils.
 
-rule-timeouts = Keine Warnung vor Inaktivitäts-Timeout (AAA)
-    .user-impact = Nutzer verlieren ungespeicherte Daten ohne Vorwarnung.
-    .technical-impact = Die Prüfung sucht keine Timer oder Sitzungsverwaltung: Auf jeder mit Stufe AAA geprüften Seite steht ein Hinweis zur manuellen Prüfung, weil sich im Markup nicht erkennen lässt, ob vor einem Inaktivitäts-Timeout, der Datenverlust verursachen kann, gewarnt wird (mindestens 20 Sekunden vorher).
-
 rule-navigation-location-missing = Fehlende Positionsangabe (AAA)
     .user-impact = Nutzer verlieren die Orientierung auf verschachtelten Webseiten.
     .technical-impact = Die Seite hat einen Link in einem <nav> oder role="navigation", aber kein Element mit aria-current="page" und kein Element, dessen aria-label „breadcrumb“ enthält, daher zeigt das Markup den aktuellen Ort nicht und ein Screenreader sagt in der Navigation keine aktuelle Seite an; nur als Prüfhinweis gemeldet, weil auch Titel, Überschriften oder eine Sitemap das Kriterium erfüllen können.
@@ -203,9 +199,9 @@ rule-manual-pointer-gestures = Fehlende Alternative für Zeigergesten
     .user-impact = Nutzer mit motorischen Einschränkungen können die Funktionen nicht bedienen.
     .technical-impact = Die Seite enthält ein Element, das nach Gestensteuerung aussieht: ein Handler-Attribut für touchstart, touchmove, pointermove, gesturestart oder dragstart, draggable="true" oder eine Klasse einer Karussell- oder Kartenbibliothek wie swiper, slick, splide, leaflet oder mapboxgl; ob dieselbe Funktion auch mit einem einzelnen Tippen oder Klick geht, ist nicht erkennbar, daher erhält die Seite einen Hinweis zur manuellen Prüfung.
 
-rule-pointer-cancellation = Auslösung von Aktionen bei Zeigerberührung
+rule-manual-pointer-cancellation = Aktion möglicherweise bei Zeigerberührung ausgelöst
     .user-impact = Nutzer können versehentlich Aktionen auslösen, ohne diese abbrechen zu können.
-    .technical-impact = Die Prüfung betrachtet keine Event-Handler: Enthält die Seite etwas, das ein Zeiger bedienen kann (Links, Buttons, Formularelemente, Elemente mit Klick-, Maus- oder Touch-Handlern, tabindex oder Widget-Rolle), steht ein Hinweis zur manuellen Prüfung da, ob Aktionen nicht schon beim Herunterdrücken auslösen oder sich abbrechen oder zurücknehmen lassen.
+    .technical-impact = Ein Element trägt ein Handler-Attribut onmousedown, onpointerdown oder ontouchstart, daher löst eine Aktion womöglich schon beim Herunterdrücken aus; ob sie sich abbrechen oder zurücknehmen lässt oder erst beim Loslassen auslöst, ist im Markup nicht erkennbar, daher erhält die Seite einen Hinweis zur manuellen Prüfung; per Skript angehängte Handler werden nicht untersucht.
 
 rule-manual-motion-actuation = Fehlende Alternative für Bewegungseingabe
     .user-impact = Nutzer, die das Gerät nicht bewegen können, sind von den Funktionen ausgeschlossen.
@@ -428,10 +424,6 @@ rule-text-justified = Eingeschränkte visuelle Darstellung von Text (AAA)
 rule-text-line-height-tight = Eingeschränkte visuelle Darstellung von Text (AAA)
     .user-impact = Nutzer mit Sehbehinderungen oder Legasthenie haben Probleme beim Lesen.
     .technical-impact = Ein Stylesheet gibt den <p>-Absätzen der Seite eine line-height unter 1,5 (als Zahl, em- oder Prozentwert), daher stehen die Zeilen dicht gedrängt und Leser, die Text vergrößern oder Legasthenie haben, verlieren die Zeile; der Wert stammt aus den Stilregeln, nicht aus gerenderten Stilen, und wird als Prüfhinweis gemeldet.
-
-rule-visual-presentation = Eingeschränkte visuelle Darstellung von Text (AAA)
-    .user-impact = Nutzer mit Sehbehinderungen oder Legasthenie haben Probleme beim Lesen.
-    .technical-impact = Die Prüfung misst selbst nichts: Auf jeder mit Stufe AAA geprüften Seite steht ein Hinweis zur manuellen Prüfung für die Teile von 1.4.8, die ein Mensch beurteilen muss, nämlich ob Nutzer Vorder- und Hintergrundfarbe wählen können und ob die Textbreite höchstens 80 Zeichen beträgt; Blocksatz und eine Zeilenhöhe unter 1,5 melden die eigenen Regeln text-justified und text-line-height-tight.
 
 ## Technical robustness
 

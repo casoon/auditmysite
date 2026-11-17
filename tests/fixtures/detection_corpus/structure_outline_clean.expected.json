@@ -131,6 +131,11 @@
       "rule_id": "manual/no-timing",
       "selector": "html",
       "verdict": "needs_review"
+    },
+    {
+      "rule_id": "manual/timing",
+      "selector": "html",
+      "verdict": "needs_review"
     }
   ]
 }

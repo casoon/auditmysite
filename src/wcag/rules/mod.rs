@@ -14,11 +14,8 @@ mod modern_attributes;
 mod on_input;
 mod page_rules;
 mod page_titled;
-mod pointer_cancellation;
 mod reflow;
 mod text_alternatives;
-mod timing_adjustable;
-mod visual_presentation;
 
 pub use accessible_name::check_accessible_name;
 pub use display_modes::{
@@ -38,8 +35,5 @@ pub use modern_attributes::check_modern_attributes_with_page;
 pub use on_input::check_on_input_with_page;
 pub use page_rules::{PageRuleEntry, PAGE_RULES};
 pub use page_titled::check_page_titled_with_page;
-pub use pointer_cancellation::check_pointer_cancellation_with_page;
 pub use reflow::{check_reflow_with_page, REFLOW_RULE};
 pub use text_alternatives::{check_text_alternatives, is_svg_finding};
-pub use timing_adjustable::{check_timeouts_with_page, check_timing_with_page};
-pub use visual_presentation::check_visual_presentation_with_page;

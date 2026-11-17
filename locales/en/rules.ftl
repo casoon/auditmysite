@@ -145,9 +145,9 @@ rule-label-in-name-mismatch = Visible text ≠ accessible name
     .user-impact = Voice-control users cannot address the element.
     .technical-impact = The accessible name that aria-label or aria-labelledby gives a button, link or other control named from its content does not contain its visible label text, so a voice control user who says what is shown cannot activate it; a review hint when the same words only appear in another order or the visible text is more than twice as long as the name; symbol-only and single-character labels are exempt.
 
-rule-meta-refresh = Non-adjustable time limit
-    .user-impact = Users need more time to enter data and may lose data through timeouts.
-    .technical-impact = The check does not look for a timer: time limits set by JavaScript (setTimeout, setInterval, session expiry) are not visible in the markup, so every page gets one manual-check note that users must be able to turn such limits off, adjust or extend them; a <meta http-equiv="refresh"> is judged separately.
+rule-manual-timing = Time limit possibly not adjustable
+    .user-impact = Users who need more time are cut off and may lose what they entered.
+    .technical-impact = The page has form fields, so a time limit is conceivable; time limits set by JavaScript (setTimeout, setInterval, session expiry) are not visible in the markup, so the page gets one manual-check note that users must be able to turn such a limit off, adjust or extend it; a <meta http-equiv="refresh"> is judged separately.
 
 rule-timing-meta-refresh = Non-adjustable time limit
     .user-impact = Users need more time to enter data and may lose data through timeouts.
@@ -178,10 +178,6 @@ rule-manual-re-authenticating = No data preservation on re-authentication (AAA)
     .user-impact = Users must re-enter all form data.
     .technical-impact = The page has a password field or a CAPTCHA, so a sign-in after an expired session is likely; whether the entered data survives re-authentication cannot be seen in the markup, so the page gets one manual-check note instead of a verdict.
 
-rule-timeouts = No warning before inactivity timeout (AAA)
-    .user-impact = Users lose unsaved data without warning.
-    .technical-impact = The check does not look for timers or session handling: on every page audited at level AAA it adds one manual-check note, because whether users are warned before an inactivity timeout can cause data loss (at least 20 seconds ahead) cannot be seen in the markup.
-
 rule-navigation-location-missing = Missing location indication (AAA)
     .user-impact = Users lose orientation within nested websites.
     .technical-impact = The page has a link inside a <nav> or role="navigation" but no element with aria-current="page" and no element whose aria-label contains "breadcrumb", so the markup does not show the current location and a screen reader announces no current page in the navigation; reported only as a review hint, because a title, headings or a sitemap can also satisfy the criterion.
@@ -203,9 +199,9 @@ rule-manual-pointer-gestures = Missing alternative for pointer gestures
     .user-impact = Users with motor impairments cannot operate the functionality.
     .technical-impact = The page contains an element that looks gesture-driven: a touchstart, touchmove, pointermove, gesturestart or dragstart handler attribute, draggable="true", or a class of a carousel or map library such as swiper, slick, splide, leaflet or mapboxgl; whether the same function also works with a single tap or click cannot be detected, so the page gets one manual-check note.
 
-rule-pointer-cancellation = Action triggered on pointer down
+rule-manual-pointer-cancellation = Action possibly triggered on pointer down
     .user-impact = Users may trigger actions accidentally without being able to cancel them.
-    .technical-impact = The check does not look at event handlers: when the page contains anything a pointer can operate (links, buttons, form controls, elements with click, mouse or touch handlers, a tabindex or a widget role) it adds one manual-check note to verify that actions do not fire on the down-event or can be aborted or undone.
+    .technical-impact = An element carries an onmousedown, onpointerdown or ontouchstart handler attribute, so an action may fire on the down event alone; whether it can be aborted, undone or fires on release instead is not visible in the markup, so the page gets one manual-check note; handlers added by script are not inspected.
 
 rule-manual-motion-actuation = Missing alternative for motion actuation
     .user-impact = Users who cannot move the device are excluded from the functionality.
@@ -428,10 +424,6 @@ rule-text-justified = Limited visual presentation of text (AAA)
 rule-text-line-height-tight = Limited visual presentation of text (AAA)
     .user-impact = Users with visual impairments or dyslexia have difficulty reading.
     .technical-impact = A stylesheet gives the <p> paragraphs of the page a line-height below 1.5 (as a number, em or percentage value), so lines sit tightly packed and readers who enlarge text or have dyslexia lose track of the line; the value comes from the style rules, not from rendered styles, and is reported as a review hint.
-
-rule-visual-presentation = Limited visual presentation of text (AAA)
-    .user-impact = Users with visual impairments or dyslexia have difficulty reading.
-    .technical-impact = The check measures nothing itself: on every page audited at level AAA it adds one manual-check note for the parts of 1.4.8 that need a human, namely whether users can choose foreground and background colours and whether the text width stays within 80 characters; justified text and line height below 1.5 are reported by the separate rules text-justified and text-line-height-tight.
 
 ## Technical robustness
 

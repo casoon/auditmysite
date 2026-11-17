@@ -95,6 +95,10 @@
       "verdict": "needs_review"
     },
     {
+      "rule_id": "manual/timing",
+      "verdict": "needs_review"
+    },
+    {
       "rule_id": "manual/help",
       "verdict": "needs_review"
     },

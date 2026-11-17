@@ -72,6 +72,11 @@
       "verdict": "needs_review"
     },
     {
+      "rule_id": "manual/timing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
       "rule_id": "manual/re-authenticating",
       "selector": "html",
       "verdict": "needs_review"

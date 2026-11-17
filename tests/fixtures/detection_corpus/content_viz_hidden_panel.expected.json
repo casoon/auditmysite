@@ -6,6 +6,7 @@
     {"rule_id": "viz/text-missing", "verdict": "pass"},
     {"rule_id": "viz/table-missing", "verdict": "not_applicable"},
     {"rule_id": "manual/no-timing", "verdict": "needs_review"},
+    {"rule_id": "manual/timing", "verdict": "needs_review"},
     {"rule_id": "manual/help", "verdict": "needs_review"}
   ]
 }

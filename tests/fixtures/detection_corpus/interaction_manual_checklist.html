@@ -21,13 +21,13 @@
     <main id="main">
         <h1>Member area</h1>
 
-        <!-- manual/pointer-gestures: a swipe carousel -->
+        <!-- manual/pointer-gestures: a swipe carousel; manual/pointer-cancellation: a down handler on a control -->
         <section aria-label="Photo gallery">
             <h2>Last season</h2>
             <div class="carousel" id="gallery">
                 <p>Slide 1 of 3: the summer tournament.</p>
             </div>
-            <button type="button">Previous photo</button>
+            <button type="button" onmousedown="void 0">Previous photo</button>
             <button type="button">Next photo</button>
         </section>
 

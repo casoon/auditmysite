@@ -36,6 +36,10 @@
       "verdict": "needs_review"
     },
     {
+      "rule_id": "manual/timing",
+      "verdict": "needs_review"
+    },
+    {
       "rule_id": "targets/size-enhanced",
       "selector": "select#display-toggle",
       "verdict": "needs_review"
