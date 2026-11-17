@@ -1,4 +1,4 @@
-pub mod number;
+pub(crate) mod number;
 
 #[cfg(test)]
 pub(crate) mod detail_texts_export;
@@ -262,13 +262,13 @@ thread_local! {
 
 /// [`I18n::count`] for pure text functions that take `en: bool` instead of an
 /// [`I18n`] (the `*_text(kind, values, en)` pattern of #406).
-pub fn count_text(key: &str, n: usize, en: bool) -> String {
+pub(crate) fn count_text(key: &str, n: usize, en: bool) -> String {
     SHARED.with(|bundles| bundles[usize::from(en)].count(key, n))
 }
 
 /// A plain message of the shared bundles by key, for the same pure text
 /// functions as [`count_text`].
-pub fn text(key: &str, en: bool) -> String {
+pub(crate) fn text(key: &str, en: bool) -> String {
     SHARED.with(|bundles| bundles[usize::from(en)].t(key))
 }
 
@@ -276,18 +276,22 @@ pub fn text(key: &str, en: bool) -> String {
 /// for the same pure text functions as [`count_text`]. Numbers go in as
 /// `FluentValue::from(i64)` so a plural selector can use them; text as
 /// `FluentValue::from(String)`.
-pub fn text_args(key: &str, args: &[(&str, FluentValue<'_>)], en: bool) -> String {
+pub(crate) fn text_args(key: &str, args: &[(&str, FluentValue<'_>)], en: bool) -> String {
     SHARED.with(|bundles| bundles[usize::from(en)].t_args(key, args))
 }
 
 /// [`text_args`], or `None` when the shared bundles have no message `key`.
-pub fn try_text_args(key: &str, args: &[(&str, FluentValue<'_>)], en: bool) -> Option<String> {
+pub(crate) fn try_text_args(
+    key: &str,
+    args: &[(&str, FluentValue<'_>)],
+    en: bool,
+) -> Option<String> {
     SHARED.with(|bundles| bundles[usize::from(en)].try_t_args(key, args))
 }
 
 /// An attribute of a message of the shared bundles ([`I18n::attr`]), for the
 /// same pure text functions as [`count_text`].
-pub fn attr_text(key: &str, attr: &str, en: bool) -> String {
+pub(crate) fn attr_text(key: &str, attr: &str, en: bool) -> String {
     SHARED.with(|bundles| bundles[usize::from(en)].attr(key, attr))
 }
 

@@ -5,11 +5,11 @@ use std::time::Duration;
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::Client;
 
-pub const BROWSER_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+pub(crate) const BROWSER_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 /// Build a browser-like header set that passes basic bot-detection heuristics.
 /// Mirrors the Sec-CH-UA / Sec-Fetch-* fingerprint of a real Chrome on macOS.
-pub fn browser_headers() -> HeaderMap {
+pub(crate) fn browser_headers() -> HeaderMap {
     let mut headers = HeaderMap::new();
     let h = |s: &str| HeaderValue::from_str(s).expect("valid header value");
     headers.insert("accept", h("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"));
@@ -61,7 +61,8 @@ pub fn truncate_url(s: &str, max_len: usize) -> String {
 /// (plan 92); cutting at a character count split host and slug mid-word
 /// (`www.casoon.…o-entwicklung-rostock/`, #1039). A URL with no segment to
 /// drop is returned whole, even above `max_len`. Safe for multi-byte UTF-8.
-pub fn short_url(url: &str, max_len: usize) -> String {
+#[cfg(feature = "pdf")]
+pub(crate) fn short_url(url: &str, max_len: usize) -> String {
     let bare = url
         .strip_prefix("https://")
         .or_else(|| url.strip_prefix("http://"))
@@ -97,7 +98,8 @@ pub fn short_url(url: &str, max_len: usize) -> String {
 /// ended with `…` — never in the middle of a word or of the text (#1039).
 /// A first word longer than `max_chars` is cut at the character limit.
 /// Safe for multi-byte UTF-8.
-pub fn truncate_words(text: &str, max_chars: usize) -> String {
+#[cfg(feature = "pdf")]
+pub(crate) fn truncate_words(text: &str, max_chars: usize) -> String {
     if text.chars().count() <= max_chars {
         return text.to_string();
     }
@@ -114,7 +116,7 @@ pub fn truncate_words(text: &str, max_chars: usize) -> String {
 /// multi-byte UTF-8). Distinct from [`truncate_url`], which appends an ASCII
 /// `...` ellipsis instead — this preserves the `…` style the `performance`
 /// modules' finding messages already render.
-pub fn truncate_ellipsis(s: &str, max: usize) -> String {
+pub(crate) fn truncate_ellipsis(s: &str, max: usize) -> String {
     if s.len() <= max {
         return s.to_string();
     }
@@ -131,6 +133,7 @@ pub fn truncate_ellipsis(s: &str, max: usize) -> String {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "pdf")]
     #[test]
     fn short_url_keeps_the_distinguishing_end() {
         let a = short_url(
@@ -156,6 +159,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "pdf")]
     #[test]
     fn truncate_words_ends_at_a_word() {
         assert_eq!(

@@ -212,6 +212,25 @@ mod tests {
         assert!(violation_for("unknown", "html", "").is_none());
     }
 
+    /// #919: the decision table states what each local rule reports.
+    #[test]
+    fn decision_table_matches_what_each_finding_key_reports() {
+        use crate::taxonomy::{best_practice_decision, OutcomeClass};
+        use crate::wcag::types::Outcome;
+        for (key, axe_id, expected) in [
+            ("init", "display/init-missing", OutcomeClass::Fail),
+            ("media", "display/text-media-visible", OutcomeClass::Fail),
+            ("text", "display/text-not-visible", OutcomeClass::Fail),
+            ("hidden", "display/text-hidden", OutcomeClass::FailAndReview),
+        ] {
+            let v = violation_for(key, "figure", "x").expect(key);
+            assert_eq!(v.kind, Outcome::Fail, "{key}");
+            assert_eq!(best_practice_decision(axe_id).unwrap().outcome, expected);
+        }
+        let described = violation_for("described", "figure", "x").unwrap();
+        assert_eq!(described.kind, Outcome::Review);
+    }
+
     #[test]
     fn messages_are_canonical_english() {
         for key in ["init", "media", "text", "hidden", "described"] {

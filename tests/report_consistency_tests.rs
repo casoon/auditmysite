@@ -11,6 +11,7 @@
 #![allow(deprecated)]
 
 use auditmysite::audit::{normalize, AuditReport, BatchReport, PerformanceResults};
+use auditmysite::cli::report_lint::{run_report_lint, ReportLintFailOn};
 use auditmysite::cli::WcagLevel;
 use auditmysite::mobile::MobileFriendliness;
 use auditmysite::output::builder::build_view_model;
@@ -340,11 +341,17 @@ fn foundation_lint_rejects_consistent_looking_but_false_reports() {
         (missing_check, "requested_module_has_outcome"),
         (failed_page, "audit_completeness_matches_execution"),
     ] {
-        let lint = auditmysite::lint::lint(&json, None);
+        // The `report-lint` command logic; with `--fail-on low` it fails and carries the findings
+        // in its message, so the text is the same on both branches.
+        let file = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(file.path(), json.to_string()).unwrap();
+        let text = match run_report_lint(file.path(), Some(ReportLintFailOn::Low), None) {
+            Ok(text) => text,
+            Err(error) => error.to_string(),
+        };
         assert!(
-            lint.findings.iter().any(|f| f.check_id == expected),
-            "{expected}: {:?}",
-            lint.findings
+            text.contains(&format!("] {expected} \u{2014} ")),
+            "{expected}: {text}"
         );
     }
 }
@@ -1450,7 +1457,7 @@ fn test_view_model_preserves_cli_facts_and_finding_density() {
 
 #[test]
 fn test_i18n_en_returns_english_labels() {
-    let i18n = auditmysite::i18n::I18n::new("en").unwrap();
+    let i18n = auditmysite::I18n::new("en").unwrap();
     // Core finding labels
     assert_eq!(i18n.t("finding-elements"), "Elements");
     assert_eq!(i18n.t("finding-occurrences"), "Occurrences");
@@ -1467,7 +1474,7 @@ fn test_i18n_en_returns_english_labels() {
 
 #[test]
 fn test_i18n_de_returns_german_labels() {
-    let i18n = auditmysite::i18n::I18n::new("de").unwrap();
+    let i18n = auditmysite::I18n::new("de").unwrap();
     assert_eq!(i18n.t("finding-elements"), "Elemente");
     assert_eq!(i18n.t("finding-occurrences"), "Vorkommen");
     assert_eq!(i18n.t("finding-recommendation"), "Empfehlung");
@@ -1478,7 +1485,7 @@ fn test_i18n_de_returns_german_labels() {
 
 #[test]
 fn test_i18n_missing_key_returns_key_as_fallback() {
-    let i18n = auditmysite::i18n::I18n::new("en").unwrap();
+    let i18n = auditmysite::I18n::new("en").unwrap();
     assert_eq!(i18n.t("nonexistent-key-xyz"), "nonexistent-key-xyz");
 }
 

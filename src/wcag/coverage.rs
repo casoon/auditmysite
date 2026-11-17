@@ -96,18 +96,20 @@ fn wcag_id_order(id: &str) -> Vec<u32> {
 /// the AAA ones simply drop out of the "also checks" count, since the
 /// manual-review list is scoped to A/AA like the ratio.
 const HINT_ONLY_CRITERIA: &[&str] = &[
-    // A/AA. Review hints only: 1.4.2 `media/audio-autoplay` (#696), 3.1.2
-    // `language/part-unmarked` (#697).
-    "1.2.2", "1.3.2", "1.4.2", "2.1.2", "2.2.2", "2.4.11", "2.5.1", "2.5.2", "2.5.4", "3.1.2",
-    "3.3.7",
+    // A/AA. Review hints only: 3.1.2 `language/part-unmarked` (#697). 1.4.2 is
+    // not listed any more: `media/audio-autoplay-measured` reports violations
+    // from the measured playback.
+    "1.2.2", "1.3.2", "2.1.2", "2.2.2", "2.4.11", "2.5.1", "2.5.2", "2.5.4", "3.1.2", "3.3.7",
     // AAA. Review hints only: 2.4.8 `navigation/location-missing` (#695),
     // 2.4.10 `headings/section-without-heading` and 3.1.4
     // `language/abbreviation-unexpanded` (#697), 1.4.8 `text/*` and 2.3.3
     // `motion/reduced-motion-ignored` (stylesheet rules, a11y-rules 0.19),
     // 2.4.9 `links/purpose-link-only` and 3.2.5 `links/new-window-unannounced`
-    // (plan 98).
-    "1.2.8", "1.4.8", "2.2.3", "2.2.4", "2.2.5", "2.3.3", "2.4.8", "2.4.10", "2.4.12", "3.1.3",
-    "3.1.4", "2.4.9", "3.2.5",
+    // (plan 98). 2.2.4 is not listed any more: `timing/meta-refresh-enhanced`
+    // reports violations. 3.2.5 stays: the rule that can fail there is filed
+    // under 2.2.4.
+    "1.2.8", "1.4.8", "2.2.3", "2.2.5", "2.3.3", "2.4.8", "2.4.10", "2.4.12", "3.1.3", "3.1.4",
+    "2.4.9", "3.2.5",
 ];
 
 /// WCAG criteria with at least one automated rule in this tool, derived from

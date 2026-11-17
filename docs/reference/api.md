@@ -83,10 +83,12 @@ Paths are the ones to use; a root re-export and the module path name the same it
 
 ### Modules
 
-Tiers: `curated` is `pub` and the items above are covered; `queued` is `pub` only for the consumers
-named, not covered, and to be narrowed (or hidden as test support); `crate` is `pub(crate)`.
+Tiers: `curated` is `pub` and the items above are covered; `hidden` is `pub` with `#[doc(hidden)]`,
+deliberately not API (public only because the consumer named drives it, not covered, not shown on
+docs.rs); `queued` is `pub` only for the consumers named, not covered, and still to be narrowed or
+hidden; `crate` is `pub(crate)`.
 Consumers: S = Studio, B = the two binaries, T(n) = n integration-test targets, D = a doc example.
-`src/lib.rs` has 35 modules; the table has one row for each.
+`src/lib.rs` has 35 modules; the table has one row for each: 7 curated, 19 hidden, 1 queued and 8 crate.
 
 | Module | Tier | Decision | Consumers | Why |
 | --- | --- | --- | --- | --- |
@@ -101,58 +103,56 @@ Consumers: S = Studio, B = the two binaries, T(n) = n integration-test targets, 
 | `commerce` | crate | narrowed in this slice | none | experimental indicator; the report carries its results |
 | `html_conform` | crate | narrowed in slice 2; `HtmlConformAnalysis`, `HtmlConformFinding` and `SchemaDetail` at the root | none | the tests build the report field from the root type and JSON |
 | `tech_stack` | crate | narrowed in slice 2; `TechStackAnalysis`, `DetectedTech`, `TechCategory` and `TechConfidence` at the root | none | the test builds the report field from the root type and JSON |
-| `a11y_journey` | queued | `pub(crate)`; tests move next to the code | T(1) | slice 2 |
-| `accessibility` | queued | `pub(crate)`, `AXTree` stays at the root | B (dev), T(6) | slice 2 |
-| `ai_visibility` | queued | `pub(crate)` | T(2) | slice 2 |
-| `annotations` | queued | `pub(crate)` once the binaries' report writers live in the crate | B, T(2) | slice 5 |
-| `best_practices` | queued | `pub(crate)` | T(31) | slice 3 |
-| `content_visibility` | queued | `pub(crate)` | T(1) | slice 2 |
-| `display` | queued | `pub(crate)` | B, T(1) | slice 5 |
-| `i18n` | queued | `pub(crate)` | T(1) | slice 2 |
-| `interaction` | queued | `pub(crate)` | T(2) | slice 2 |
-| `lint` | queued | `pub(crate)`; `cli::report_lint` stays the entry for `report-lint` | T(1) | slice 2 |
-| `mobile` | queued | `pub(crate)` once `mobile::ux_heuristics`, which nothing in the crate calls, is wired up (#1035) | T(2) | slice 2 |
-| `page_flow` | queued | `pub(crate)` | T(5) | slice 2 |
-| `patterns` | queued | `pub(crate)` | T(3) | slice 2 |
-| `performance` | queued | `pub(crate)` | T(3) | slice 3 |
-| `privacy` | queued | `pub(crate)` | T(4) | slice 3 |
-| `registry` | queued | `pub(crate)` | T(2) | slice 2 |
-| `screen_reader` | queued | `pub(crate)` | T(3) | slice 2 |
-| `security` | queued | `pub(crate)` | T(33) | slice 3 |
-| `seo` | queued | `pub(crate)` | T(36) | slice 4, after #936 |
-| `source_quality` | queued | `pub(crate)` | T(2) | slice 2 |
-| `taxonomy` | queued | `pub(crate)` | T(32) | slice 4 |
-| `util` | queued | `pub(crate)` | B | slice 5 |
-| `ux` | queued | `pub(crate)` | T(3) | slice 2 |
-| `wcag` | queued | `pub(crate)`; `Severity`, `Violation`, `WcagResults` stay at the root | T(45) | slice 4 |
+| `display` | crate | narrowed in slice 5; `AuditedDisplayMode`, `DisplayMode`, `DisplayModesInfo` and `VisualisationCount` at the root | none | report and pipeline fields name them; the binary and the test import the root types |
+| `i18n` | crate | narrowed in slice 5; `I18n` at the root | none | `audit::exclusion_note` and `label_localized` take it; the text functions are crate-internal |
+| `lint` | crate | narrowed in slice 5; `cli::report_lint::run_report_lint` stays the entry for `report-lint` | none | the consistency test now drives the command logic instead of `lint::lint` |
+| `util` | crate | narrowed in slice 5; `cli::{build_browser_client, truncate_url}` re-export the two helpers the binaries share with the library | none | the other helpers are crate-internal |
+| `a11y_journey` | hidden | Chrome integration test drives it; narrowing needs the Chrome tests moved next to the code, not decided | T(1) | forced by a Chrome-driven test |
+| `accessibility` | hidden | tests read AX-tree internals and the dev binary's `accname-diff` uses them; `AXTree` is also at the root | B (dev), T(6) | forced by tests and the dev binary |
+| `ai_visibility` | hidden | experimental indicator (#891), otherwise untouched | T(2) | `tests/module_fixtures.rs` drives its `AuditModule` impl |
+| `annotations` | hidden | the report writers of the binaries and the dev binary import it | B, T(2) | forced by the binary side and tests |
+| `best_practices` | hidden | the rule-contract and detection corpus tests import it | T(31) | forced by the corpus |
+| `content_visibility` | hidden | experimental indicator (#891), otherwise untouched | T(1) | `tests/module_fixtures.rs` drives its `AuditModule` impl |
+| `interaction` | hidden | Chrome integration tests drive it; narrowing needs the Chrome tests moved next to the code, not decided | T(2) | forced by Chrome-driven tests |
+| `page_flow` | hidden | experimental indicator (#891), otherwise untouched | T(5) | `tests/module_fixtures.rs` drives its `AuditModule` impl |
+| `patterns` | hidden | Chrome integration tests drive it | T(3) | forced by Chrome-driven tests |
+| `performance` | hidden | the detection corpus tests import it | T(3) | forced by the corpus |
+| `privacy` | hidden | the privacy corpus and findings tests import it | T(4) | forced by the corpus |
+| `registry` | hidden | tests read `registry::REGISTRY` | T(2) | forced by tests |
+| `screen_reader` | hidden | tests use `build_sr_audit_report` | T(3) | forced by tests |
+| `security` | hidden | the detection corpus tests import it | T(33) | forced by the corpus |
+| `seo` | hidden | the detection corpus tests import it; narrowing waits for #936 | T(36) | forced by the corpus |
+| `source_quality` | hidden | experimental indicator (#891), otherwise untouched | T(2) | `tests/module_fixtures.rs` drives its `AuditModule` impl |
+| `taxonomy` | hidden | the rule contracts and the catalogue test import it; `Dimension`, `Subcategory` and `IssueClass` stay reachable here | T(32) | forced by the contracts |
+| `ux` | hidden | experimental indicator (#891), otherwise untouched | T(3) | `tests/module_fixtures.rs` drives its `AuditModule` impl |
+| `wcag` | hidden | the rule contracts and the detection corpora import it; `Severity`, `Violation` and `WcagResults` are also at the root | T(45) | forced by the contracts |
+| `mobile` | queued | `pub(crate)` once `mobile::ux_heuristics`, which nothing in the crate calls, is wired up (#1035) | T(2) | blocked by #1035 |
 
-Order of the remaining slices and their rough size (`pub` declarations counted in the files of the
-modules, methods included):
+How the queued list was worked off (#940), with the size of each slice (`pub` declarations counted
+in the files of the modules, methods included):
 
-1. Done: `assessment`, `commerce` (about 40 public items, 1.6k lines).
-2. The small analysis modules that one to six integration tests import (`a11y_journey`,
-   `accessibility`, `ai_visibility`, `content_visibility`, `html_conform`, `i18n`, `interaction`,
-   `lint`, `mobile`, `page_flow`, `patterns`, `registry`, `screen_reader`, `source_quality`,
-   `tech_stack`, `ux`): about 400 public items. Done: `html_conform` and `tech_stack`, whose tests
-   only built a report field. The others stay queued because a test needs internals that no
-   curated path or root re-export reaches: the Chrome integration tests drive `a11y_journey`,
-   `interaction` and `patterns`; `module_fixtures` runs the `AuditModule` impls of
-   `ai_visibility`, `content_visibility`, `page_flow`, `source_quality` and `ux`; the tests read
-   `accessibility` AX-tree internals (and the dev binary's `accname-diff` uses it), `I18n`,
-   `lint::lint`, `registry::REGISTRY` and `screen_reader::build_sr_audit_report`. `mobile` waits
-   until `mobile::ux_heuristics`, which has no caller in the crate, is wired up (#1035). Each remaining
-   test either moves to a unit test next to the code or the module becomes `#[doc(hidden)] pub`
-   with a comment naming the test as the reason.
-3. `performance`, `privacy`, `security`, `best_practices`: about 190 public items; the detection
-   corpus tests import them.
-4. `wcag`, `taxonomy`, `seo`: about 400 public items, imported by 30 to 45 test targets (rule
-   contracts, detection corpora). Largest slice; `seo` waits for #936.
-5. The binary support: `util`, `display`, `annotations` and the `cli` pieces only `main.rs`
-   uses (about 100 public items). They move into the binary or become `pub(crate)` behind a
-   narrow `cli` entry.
-6. Item-level narrowing inside the curated modules: `audit` (about 550 items), `output` (about
-   230) and `browser` (about 200). The curated list above is the target; everything else becomes
-   `pub(crate)`.
+1. Done: `assessment`, `commerce` (about 40 public items, 1.6k lines), narrowed to `pub(crate)`.
+2. Done: `html_conform` and `tech_stack`, whose tests only built a report field, are `pub(crate)`;
+   their report types are at the root.
+3. Done: the `hidden` tier. A module that a test, a corpus or the dev binary drives for more than a
+   report field is `pub` with `#[doc(hidden)]` instead of being forced `pub(crate)`: `a11y_journey`,
+   `accessibility`, `annotations`, `best_practices`, `interaction`, `patterns`, `performance`,
+   `privacy`, `registry`, `screen_reader`, `security`, `seo`, `taxonomy`, `wcag` (the corpora, the
+   rule contracts, the Chrome integration tests and the dev binary) and the five experimental
+   `AuditModule` modules `ai_visibility`, `content_visibility`, `page_flow`, `source_quality` and
+   `ux` (only because `tests/module_fixtures.rs` drives them; the experimental modules stay
+   otherwise untouched until #891 is decided). The guard checks that the table and the attribute
+   agree. `a11y_journey` and `interaction` could become `pub(crate)` once their Chrome tests move
+   next to the code; that is not decided.
+4. Done: `display`, `i18n`, `lint` and `util` are `pub(crate)`. The root re-exports the types that
+   fields and signatures name (`AuditedDisplayMode`, `DisplayMode`, `DisplayModesInfo`,
+   `VisualisationCount`, `I18n`); the binaries take `build_browser_client` and `truncate_url`
+   from `cli`; the lint test drives `cli::report_lint::run_report_lint`.
+5. Open: `mobile` stays `queued` until `mobile::ux_heuristics`, which has no caller in the crate,
+   is wired up (#1035); `QUEUED_CEILING` is 1 until then.
+6. Open: item-level narrowing inside the curated modules: `audit` (about 550 items), `output`
+   (about 230) and `browser` (about 200). The curated list above is the target; everything else
+   becomes `pub(crate)`. The `hidden` modules are not narrowed item by item: they are not API.
 
 ### Configuring a run
 
