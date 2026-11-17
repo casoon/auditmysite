@@ -10,7 +10,7 @@
   "axe_id": "link-name",
   "severity": "medium",
   "user_impact": "Screen reader link lists show meaningless text.",
-  "technical_impact": "Generic link text without context.",
+  "technical_impact": "The accessible name of an <a> is a single character such as \">\" or \"i\", which a screen reader reads as a symbol name or not at all and which does not name the link target.",
   "checks": [
     {
       "contract_id": "links/single-character-name",

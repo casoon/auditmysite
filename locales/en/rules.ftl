@@ -13,11 +13,11 @@
 
 rule-image-alt = Missing alternative text on images
     .user-impact = Screen reader users receive no image information.
-    .technical-impact = Non-conformant image markup.
+    .technical-impact = An <img> element has no alt attribute, so the accessibility tree gives it no name and a screen reader reads out the file name or skips the image.
 
 rule-images-alt-missing = Missing alternative text on images
     .user-impact = Screen reader users receive no image information.
-    .technical-impact = Non-conformant image markup.
+    .technical-impact = An <img> or role="img" element has no alt attribute and no other accessible name, so it enters the accessibility tree unnamed and a screen reader announces only the file name or "image".
 
 rule-images-alt-suspicious = Alternative text probably not descriptive
     .user-impact = Screen reader users hear text that does not convey the image content.
@@ -30,7 +30,7 @@ rule-images-alt-suspicious = Alternative text probably not descriptive
 
 rule-video-caption = Missing captions for videos
     .user-impact = Deaf or hard-of-hearing users cannot perceive spoken content.
-    .technical-impact = Missing track element for captions.
+    .technical-impact = A <video> has no <track kind="captions"> or <track kind="subtitles"> child, so the media element carries no timed text and spoken content has no text equivalent.
 
 rule-media-alt = Missing media alternative (AAA)
     .user-impact = Users who cannot play video or audio receive no text alternative.
@@ -89,15 +89,15 @@ rule-headings-none = Missing bypass navigation
 
 rule-document-title = Missing or insufficient page title
     .user-impact = Screen reader users cannot identify the page.
-    .technical-impact = Empty or generic <title> tag.
+    .technical-impact = The <title> exists but is generic (for example "Untitled" or "Home"), so the tab title, the history entry and the title announced on page load do not identify the page.
 
 rule-document-title-empty = Missing or insufficient page title
     .user-impact = Screen reader users cannot identify the page.
-    .technical-impact = Empty or generic <title> tag.
+    .technical-impact = The <title> element exists but contains no text, so the browser tab and the title announced on page load are empty or fall back to the URL.
 
 rule-document-title-missing = Missing or insufficient page title
     .user-impact = Screen reader users cannot identify the page.
-    .technical-impact = Empty or generic <title> tag.
+    .technical-impact = The document has no <title> element in <head>, so the browser falls back to the URL for the tab and history entry and a screen reader announces no page name on load.
 
 rule-landmarks-not-unique = Landmarks are not uniquely named
     .user-impact = Screen reader users cannot distinguish similar regions.
@@ -109,19 +109,19 @@ rule-dialog-focusable-missing = Illogical focus order
 
 rule-links-generic-name = Unclear or generic link text
     .user-impact = Screen reader link lists show meaningless text.
-    .technical-impact = Generic link text without context.
+    .technical-impact = The accessible name of an <a> is a generic phrase such as "click here" or "read more" that names no purpose without its surroundings, so in a screen reader link list all such links sound identical.
 
 rule-links-single-character-name = Unclear or generic link text
     .user-impact = Screen reader link lists show meaningless text.
-    .technical-impact = Generic link text without context.
+    .technical-impact = The accessible name of an <a> is a single character such as ">" or "i", which a screen reader reads as a symbol name or not at all and which does not name the link target.
 
 rule-links-url-name = Unclear or generic link text
     .user-impact = Screen reader link lists show meaningless text.
-    .technical-impact = Generic link text without context.
+    .technical-impact = The accessible name of an <a> is the raw URL, which a screen reader spells out character by character and which says nothing about the content of the target.
 
 rule-focus-visible = Focus indicator not visible
     .user-impact = Keyboard users cannot see which element is focused.
-    .technical-impact = CSS outline:none without an alternative.
+    .technical-impact = A CSS rule sets outline: none (or outline: 0) on a focusable element without a replacement style such as box-shadow or border, so keyboard users see no focus indicator.
 
 rule-focus-obscured = Focused element entirely obscured
     .user-impact = Keyboard users tab to an element that is entirely covered by a sticky header, footer, cookie banner, or similar overlay and is therefore not visible.
@@ -147,11 +147,11 @@ rule-label-in-name-mismatch = Visible text ≠ accessible name
 
 rule-meta-refresh = Non-adjustable time limit
     .user-impact = Users need more time to enter data and may lose data through timeouts.
-    .technical-impact = Missing refresh or timeout handling in the script/markup.
+    .technical-impact = A <meta http-equiv="refresh"> with a delay reloads or redirects the page on a fixed timer without a control to stop, extend or adjust it, so screen reader users lose their reading position.
 
 rule-timing-meta-refresh = Non-adjustable time limit
     .user-impact = Users need more time to enter data and may lose data through timeouts.
-    .technical-impact = Missing refresh or timeout handling in the script/markup.
+    .technical-impact = A <meta http-equiv="refresh" content="N"> with N above 0 makes the browser reload or redirect after N seconds, and the DOM offers no way to turn the limit off or extend it.
 
 rule-motion-infinite-animation = Missing pause/stop/hide control
     .user-impact = Users with attention or cognitive impairments, and screen reader users, are distracted or disrupted by continuously running motion they cannot turn off.
@@ -159,7 +159,7 @@ rule-motion-infinite-animation = Missing pause/stop/hide control
 
 rule-manual-no-timing = Timing present (AAA)
     .user-impact = Users cannot complete tasks at their own pace.
-    .technical-impact = Active time limits on the page.
+    .technical-impact = The page applies time limits such as timeouts, timed redirects or auto-advancing content, and a script cannot tell whether users may turn them off, so this stays a manual check and users who need more time are cut off.
 
 rule-manual-interruptions = Non-suppressible interruptions (AAA)
     .user-impact = Users with cognitive impairments or screen reader users are distracted.
@@ -167,11 +167,11 @@ rule-manual-interruptions = Non-suppressible interruptions (AAA)
 
 rule-manual-re-authenticating = No data preservation on re-authentication (AAA)
     .user-impact = Users must re-enter all form data.
-    .technical-impact = Missing session data preservation.
+    .technical-impact = After a session expires and the user signs in again, entered form values are not restored because the DOM state is discarded with the reload; the markup cannot show whether data is kept, so this stays a manual check.
 
 rule-timeouts = No warning before inactivity timeout (AAA)
     .user-impact = Users lose unsaved data without warning.
-    .technical-impact = Missing timeout warning system.
+    .technical-impact = A script ends the session or reloads the page after inactivity without a dialog or live-region warning beforehand, so assistive technology announces nothing and the session cannot be extended in time; the timer is not visible in the markup.
 
 rule-navigation-location-missing = Missing location indication (AAA)
     .user-impact = Users lose orientation within nested websites.
@@ -204,41 +204,41 @@ rule-manual-motion-actuation = Missing alternative for motion actuation
 
 rule-targets-size-enhanced = Insufficient click target size (AAA)
     .user-impact = Users with hand tremors or on mobile devices easily tap the wrong elements.
-    .technical-impact = Links, buttons or form controls dimensioned too small in CSS.
+    .technical-impact = The rendered box of a link, button or form control is under 44 by 44 CSS pixels, so pointer and touch input easily hits a neighbouring element.
 
 rule-targets-size = Insufficient click target size
     .user-impact = Users with hand tremors or on mobile devices easily tap the wrong elements.
-    .technical-impact = Links, buttons or form controls dimensioned too small in CSS.
+    .technical-impact = The rendered box of a link, button or form control is under 24 by 24 CSS pixels and no spacing exception applies, so pointer and touch input easily hits a neighbouring element.
 
 ## Forms & interaction
 
 rule-forms-autocomplete-invalid = Missing input purpose identification
     .user-impact = No autofill possible, data entry more error-prone.
-    .technical-impact = Missing autocomplete attributes.
+    .technical-impact = An input has an autocomplete attribute whose value is not valid in the HTML token grammar, so the browser ignores it, offers no autofill and exposes no input purpose to assistive technology.
 
 rule-forms-purpose-missing = Missing input purpose identification
     .user-impact = No autofill possible, data entry more error-prone.
-    .technical-impact = Missing autocomplete attributes.
+    .technical-impact = An input that collects data about the person (name, e-mail address, address, phone number) has no autocomplete attribute, so the browser cannot autofill it and its purpose is not programmatically determinable.
 
 rule-forms-group-name-missing = Missing form labels
     .user-impact = Users do not know what input is expected.
-    .technical-impact = Missing <label> elements.
+    .technical-impact = A <fieldset> without <legend>, or an element with role="group" or role="radiogroup" without an accessible name, makes a screen reader announce the controls inside without the question they answer.
 
 rule-forms-instructions-missing = Missing form labels
     .user-impact = Users do not know what input is expected.
-    .technical-impact = Missing <label> elements.
+    .technical-impact = An input that expects a specific format (date, phone number, pattern) has no instruction in its <label>, in aria-describedby or in adjacent text, so a screen reader announces the field name but not the expected format.
 
 rule-forms-label-missing = Missing form labels
     .user-impact = Users do not know what input is expected.
-    .technical-impact = Missing <label> elements.
+    .technical-impact = A form control has no programmatically associated label (<label for>, wrapping <label>, aria-label, aria-labelledby or title), so its accessible name is empty and a screen reader announces only the control type.
 
 rule-forms-placeholder-as-label = Missing form labels
     .user-impact = Users do not know what input is expected.
-    .technical-impact = Missing <label> elements.
+    .technical-impact = A form control has a placeholder but no <label>, aria-label or aria-labelledby, so its name is at best a browser fallback and disappears as soon as the user starts typing.
 
 rule-forms-required-unmarked = Missing form labels
     .user-impact = Users do not know what input is expected.
-    .technical-impact = Missing <label> elements.
+    .technical-impact = A control carries required or aria-required="true" but its label shows no visible marker; the state reaches the accessibility tree, but only a human can check whether sighted users see it.
 
 rule-forms-redundant-entry = Missing reuse of previously entered data
     .user-impact = Users must retype data they already entered, which costs time and is an extra burden especially for people with motor or cognitive impairments.
@@ -264,7 +264,7 @@ rule-auth-captcha = Review CAPTCHA in authentication form
 
 rule-forms-no-submit = Form without submit button
     .user-impact = Keyboard and screen reader users have a harder time completing the form.
-    .technical-impact = Missing submit control in the form.
+    .technical-impact = A <form> with input fields has no <button type="submit"> or <input type="submit"> and no control associated through the form attribute, so submitting depends on scripts reacting to field changes.
     .description = A form collects input but has no button or other control that explicitly submits it.
     .explanation-user-impact = Without a submit control it is unclear when the input takes effect. If the form submits when a field changes instead, the context changes without warning.
     .typical-cause = Filter and search forms submitted by script when a field changes, or a button outside the form without a form attribute.
@@ -273,29 +273,29 @@ rule-forms-no-submit = Form without submit button
 
 rule-manual-help = Missing input help (AAA)
     .user-impact = Users do not know what format or data to enter in a field.
-    .technical-impact = Missing form help system.
+    .technical-impact = Where users enter structured data, no help (help link, <details> or text tied via aria-describedby) can be derived from the markup, so whether input help exists stays a manual check.
 
 ## Language & clarity
 
 rule-document-lang-missing = Missing language declaration
     .user-impact = Screen readers read aloud with incorrect pronunciation.
-    .technical-impact = Missing lang attribute.
+    .technical-impact = The <html> element has no lang attribute or an empty one, so the document language is undefined and a screen reader falls back to its default voice and mispronounces the text.
 
 rule-html-has-lang = Missing language declaration
     .user-impact = Screen readers read aloud with incorrect pronunciation.
-    .technical-impact = Missing lang attribute.
+    .technical-impact = The root <html> element carries no valid lang attribute, so browsers cannot choose spell checking, hyphenation and quotation rules and a screen reader reads with its default voice.
 
 rule-context-autofocus = Unexpected context change on focus
     .user-impact = Confusing page changes for keyboard users.
-    .technical-impact = onfocus handlers trigger navigation.
+    .technical-impact = An element carries the autofocus attribute, so focus moves there on page load and a screen reader skips the content before it; reported for review, as autofocus alone does not change the context.
 
 rule-context-on-focus = Unexpected context change on focus
     .user-impact = Confusing page changes for keyboard users.
-    .technical-impact = onfocus handlers trigger navigation.
+    .technical-impact = An element has an onfocus handler that may navigate, submit or open a window, and it runs the moment keyboard focus arrives, so Tab alone changes the context; the markup cannot show what the handler does.
 
 rule-context-on-input = Unexpected context change on input
     .user-impact = Confusing changes while filling out forms.
-    .technical-impact = Auto-submit on onchange.
+    .technical-impact = A form control has an onchange or oninput handler that submits the form or navigates without a submit button, so picking an option with the keyboard changes the context unannounced.
 
 rule-manual-unusual-words = Missing explanation of unusual words (AAA)
     .user-impact = Users with cognitive impairments or non-native speakers do not understand the text.
@@ -303,7 +303,7 @@ rule-manual-unusual-words = Missing explanation of unusual words (AAA)
 
 rule-language-part-undetermined = Check text in another language without lang
     .user-impact = Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.
-    .technical-impact = Heuristic language detection per text block; pages that are neither German nor English stay untested.
+    .technical-impact = The language of text blocks cannot be checked because the page is neither German nor English, the only languages the heuristic detection supports, so missing lang attributes on passages stay unverified.
 
 rule-language-part-invalid = Invalid language code on part of the page
     .user-impact = Screen readers cannot switch to the right pronunciation for that passage.
@@ -311,7 +311,7 @@ rule-language-part-invalid = Invalid language code on part of the page
 
 rule-language-part-unmarked = Check text in another language without lang
     .user-impact = Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.
-    .technical-impact = Heuristic language detection per text block; pages that are neither German nor English stay untested.
+    .technical-impact = A text block is detected as being in another language than <html lang> but sits in an element without its own lang attribute, so a screen reader reads it with the pronunciation of the page language.
     .description = A passage appears to be written in another language than the page, without a lang attribute marking it.
     .explanation-user-impact = Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.
     .typical-cause = Quotes, product names or teasers in another language without lang.
@@ -320,17 +320,17 @@ rule-language-part-unmarked = Check text in another language without lang
 
 rule-language-abbreviation-unexpanded = Missing explanation of abbreviations (AAA)
     .user-impact = Users do not understand the content if they do not know the abbreviation.
-    .technical-impact = Missing abbr tag with title attribute.
+    .technical-impact = An abbreviation appears as plain text without <abbr title> or an expansion on first use, so a screen reader spells out the letters or guesses and nothing in the DOM supplies the long form.
 
 ## Visual presentation / contrast
 
 rule-contrast-text-insufficient = Insufficient color contrast
     .user-impact = Text is hard to read for people with low vision or under poor lighting conditions.
-    .technical-impact = Contrast ratio below 4.5:1 for normal text.
+    .technical-impact = The computed text color against its resolved background has a contrast ratio below 4.5:1 (3:1 for large text), measured from rendered styles; assistive technology cannot compensate for it.
 
 rule-contrast-text-undetermined = Insufficient color contrast
     .user-impact = Text is hard to read for people with low vision or under poor lighting conditions.
-    .technical-impact = Contrast ratio below 4.5:1 for normal text.
+    .technical-impact = The contrast of this text could not be computed because its background is an image, a gradient or overlapping layers, so the 4.5:1 ratio stays unmeasured and needs a manual check.
 
 rule-contrast-text-enhanced = Enhanced color contrast not met (AAA)
     .user-impact = Text remains hard to read for people with substantially reduced vision.
@@ -338,7 +338,7 @@ rule-contrast-text-enhanced = Enhanced color contrast not met (AAA)
 
 rule-zoom-viewport-locked = Zoom blocked by the viewport meta tag
     .user-impact = Users with low vision lose content when zooming in.
-    .technical-impact = Fixed pixel values, overflow:hidden.
+    .technical-impact = <meta name="viewport"> sets user-scalable=no or a maximum-scale below 2, so the browser blocks pinch zoom beyond that limit, which users with low vision rely on.
     .description = The viewport meta tag prevents zooming (user-scalable=no) or limits it to less than 200%.
     .explanation-user-impact = People with visual impairments cannot enlarge the page on mobile devices and lose content.
     .typical-cause = user-scalable=no or maximum-scale=1, set to prevent accidental zooming or to stabilize a layout.
@@ -360,11 +360,11 @@ rule-css-overflow-hidden = No reflow at 320 CSS pixels
 
 rule-contrast-control-insufficient = Insufficient contrast for UI elements
     .user-impact = Interactive elements are hard to recognize.
-    .technical-impact = Contrast ratio of UI elements below 3:1.
+    .technical-impact = The border, icon or state indicator of an interactive control has a contrast ratio below 3:1 against its adjacent colors, measured from computed styles, so the control boundary is hard to perceive.
 
 rule-contrast-control-undetermined = Insufficient contrast for UI elements
     .user-impact = Interactive elements are hard to recognize.
-    .technical-impact = Contrast ratio of UI elements below 3:1.
+    .technical-impact = The contrast of a control boundary or icon could not be computed because of an image or gradient background or an unresolvable color, so the 3:1 ratio stays unmeasured and needs a manual check.
 
 rule-text-spacing-clipped = Content clipped when text spacing is increased
     .user-impact = Users who increase line/letter/word spacing for readability lose content.
@@ -405,15 +405,15 @@ rule-media-audio-autoplay = Check autoplaying audio for a control
 
 rule-text-justified = Limited visual presentation of text (AAA)
     .user-impact = Users with visual impairments or dyslexia have difficulty reading.
-    .technical-impact = Insufficient CSS styling for line spacing or justified-text formatting.
+    .technical-impact = A text block uses text-align: justify, which produces uneven word spacing and rivers of white space that readers with dyslexia or low vision cannot adjust, as the style is fixed in CSS.
 
 rule-text-line-height-tight = Limited visual presentation of text (AAA)
     .user-impact = Users with visual impairments or dyslexia have difficulty reading.
-    .technical-impact = Insufficient CSS styling for line spacing or justified-text formatting.
+    .technical-impact = The computed line-height of a text block is below 1.5 times its font size, so lines sit tightly packed and readers who enlarge text or have dyslexia lose track of the line.
 
 rule-visual-presentation = Limited visual presentation of text (AAA)
     .user-impact = Users with visual impairments or dyslexia have difficulty reading.
-    .technical-impact = Insufficient CSS styling for line spacing or justified-text formatting.
+    .technical-impact = Line spacing, justification, line width or user-selectable colors of the text are fixed in CSS and cannot be adjusted by the user; a script can measure only part of this, so the check is partly manual.
 
 ## Technical robustness
 
@@ -450,11 +450,11 @@ rule-aria-required-parent-missing = Element outside its required parent context
 
 rule-inert-dialog-inert = Invalid modern interaction attributes
     .user-impact = Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.
-    .technical-impact = Broken popovertarget references, unnamed surfaces, or active focus inside inert regions.
+    .technical-impact = An open <dialog> or one of its ancestors carries the inert attribute, which removes the dialog from the accessibility tree and focus order while it is visible, so keyboard and screen reader users cannot reach it.
 
 rule-modern-attribute-misuse = Broken dialog or popover control
     .user-impact = Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.
-    .technical-impact = Broken popovertarget references, unnamed surfaces, or active focus inside inert regions.
+    .technical-impact = Popover, dialog or inert attributes are combined inconsistently, for example an open popover or menu without an accessible name or focus inside an inert subtree, so assistive technology gets an unnamed or unreachable surface.
     .description = Modern HTML attributes for popovers, dialogs, or disabled regions are used incompletely or inconsistently.
     .explanation-user-impact = Keyboard and screen reader users may open, focus, or leave surfaces without understandable feedback.
     .typical-cause = popovertarget points to a missing element, a visible dialog has no accessible name, or an active region is marked inert at the same time.
@@ -463,11 +463,11 @@ rule-modern-attribute-misuse = Broken dialog or popover control
 
 rule-popover-target-invalid = Invalid modern interaction attributes
     .user-impact = Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.
-    .technical-impact = Broken popovertarget references, unnamed surfaces, or active focus inside inert regions.
+    .technical-impact = A popovertarget attribute points to an element that exists but has no popover attribute, so the invoking button does nothing and the target is not exposed as a popover.
 
 rule-popover-target-missing = Invalid modern interaction attributes
     .user-impact = Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.
-    .technical-impact = Broken popovertarget references, unnamed surfaces, or active focus inside inert regions.
+    .technical-impact = A popovertarget attribute references an id that does not exist in the document, so the invoking button is tied to nothing and activating it has no effect for any user.
 
 rule-aria-attribute-prohibited = Prohibited ARIA attributes
     .user-impact = Screen readers receive contradictory or invalid semantics.
@@ -507,11 +507,11 @@ rule-aria-reference-missing = Empty reference in an ARIA relationship attribute
 
 rule-aria-role-abstract = Invalid ARIA role
     .user-impact = Assistive technologies cannot determine the element's function.
-    .technical-impact = Role value is not defined in the ARIA specification.
+    .technical-impact = The role attribute holds an abstract role such as widget or landmark, which exists only in the ARIA taxonomy and must not be used in markup, so browsers ignore it and expose the native role instead.
 
 rule-aria-role-invalid = Invalid ARIA role
     .user-impact = Assistive technologies cannot determine the element's function.
-    .technical-impact = Role value is not defined in the ARIA specification.
+    .technical-impact = The role attribute holds a value that does not exist in WAI-ARIA, for example a misspelling, so browsers ignore it and the element keeps its native role without the intended semantics.
     .description = A role attribute contains a value that does not exist in WAI-ARIA, or an abstract role that must not be used in markup.
     .explanation-user-impact = Browsers ignore the role; screen readers announce the element differently than intended.
     .typical-cause = Typos, invented roles, or abstract roles such as widget or landmark.
@@ -547,11 +547,11 @@ rule-tables-headers-attr-invalid = Invalid headers reference in a table cell
 
 rule-tables-data-undetermined = Table header without associated data cells
     .user-impact = Screen readers announce a header that structures no data.
-    .technical-impact = Header cell with no associated data cells in the table.
+    .technical-impact = A <th> could not be matched to data cells because the table rows were not rendered at test time (lazy or scripted content), so the header and data association stays unverified.
 
 rule-tables-header-without-data = Table header without data cells
     .user-impact = Screen readers announce a header that structures no data.
-    .technical-impact = Header cell with no associated data cells in the table.
+    .technical-impact = A <th> has no data cell in its row or column that it could label, so a screen reader announces a header that structures no data.
     .description = A header cell (<th>) applies to no data cell – the table has headers but no data below or beside them.
     .explanation-user-impact = Screen readers cannot relate data cells to a header; the table reads as empty or wrongly built.
     .typical-cause = Tables used for layout only, or data rows that a script adds later.
@@ -635,11 +635,11 @@ rule-svg-name-missing = Missing alternative text on SVG graphics
 
 rule-images-area-alt-missing = Missing alternative text on image map areas
     .user-impact = Screen reader users are not told where a clickable image region leads.
-    .technical-impact = <area> element without an alt attribute.
+    .technical-impact = An <area> element in an image map has no alt attribute, so its accessible name is empty and a screen reader cannot announce what the clickable region does.
 
 rule-images-input-alt-missing = Missing alternative text on image buttons
     .user-impact = Screen reader users are not told what action the button triggers.
-    .technical-impact = <input type="image"> without an alt attribute.
+    .technical-impact = An <input type="image"> has no alt attribute, so the image button has no accessible name and a screen reader announces only "button" without its function.
 
 rule-objects-alt-missing = Missing text alternative on embedded objects
     .user-impact = Screen reader users receive no information about the embedded object's content.
@@ -693,7 +693,7 @@ rule-landmarks-contentinfo-missing = Missing contentinfo landmark
 
 rule-lists-item-outside-list = List item outside a list
     .user-impact = Screen reader users receive no announcement of the list's length/structure.
-    .technical-impact = <li> outside <ul>/<ol>.
+    .technical-impact = A <li> or role="listitem" element has no <ul>, <ol> or role="list" parent, so the accessibility tree contains no list and a screen reader announces neither the item count nor the position within the list.
     .description = A list item (<li> or role="listitem") is not inside a list.
     .explanation-user-impact = Screen readers announce a list item without a list that gives its length and position.
     .typical-cause = The enclosing <ul>/<ol> is missing, for example because a component renders only the items, or role="listitem" sits on an arbitrary element.
@@ -720,7 +720,7 @@ rule-headings-empty = Empty heading
 
 rule-headings-h1-missing = Missing main heading (h1)
     .user-impact = Screen reader users cannot find the start of the main content via heading navigation.
-    .technical-impact = No <h1> element in the document.
+    .technical-impact = The document contains no <h1> and no role="heading" with aria-level="1", so screen reader heading navigation has no level-1 entry and the page topic is missing from the heading outline.
     .description = The page has no level-1 heading that names its topic.
     .explanation-user-impact = Screen reader users jump to the h1 to learn what the page is about and find none.
     .typical-cause = The logo or an image stands in for the heading, or the template renders the main heading as an h2 or as styled text.
@@ -729,7 +729,7 @@ rule-headings-h1-missing = Missing main heading (h1)
 
 rule-headings-h1-multiple = Multiple main headings (h1)
     .user-impact = Screen reader users find it harder to tell the actual page title from the rest.
-    .technical-impact = Several <h1> elements in the document.
+    .technical-impact = The document contains more than one <h1>, so the heading outline has several top-level entries and a screen reader user cannot tell which one names the page.
     .description = The page has more than one level-1 heading. HTML allows this, but it should be intentional.
     .explanation-user-impact = Screen reader users find it harder to tell the actual page title from other sections.
     .typical-cause = The logo, teasers or a sidebar also use h1, often from a shared template.
@@ -756,7 +756,7 @@ rule-lists-empty = Empty list
 
 rule-lists-term-without-definition = Term without definition in a description list
     .user-impact = Screen reader users cannot recognize the term and its definition as belonging together.
-    .technical-impact = <dt> without a following <dd> inside the <dl>.
+    .technical-impact = A <dt> inside a <dl> is not followed by a <dd>, so the term has no definition and a screen reader announces a description list whose entries are incomplete.
     .description = A description list (<dl>) contains a term (<dt>) without a matching description (<dd>).
     .explanation-user-impact = Screen readers read out a term that is followed by no description.
     .typical-cause = Empty CMS fields, or a <dl> used as a label/value layout where the value is missing.
@@ -801,7 +801,7 @@ rule-document-lang-invalid = Invalid page language
 
 rule-keyboard-positive-tabindex = Positive tabindex changes the focus order
     .user-impact = Keyboard users reach elements in an order that does not match the page layout.
-    .technical-impact = tabindex value greater than 0.
+    .technical-impact = An element has a tabindex above 0, so it moves ahead of all elements with tabindex 0 or none in the tab order regardless of its DOM position, and focus order and reading order diverge.
     .description = An element has a tabindex greater than 0 and therefore receives focus before all other elements, regardless of where it sits on the page.
     .explanation-user-impact = Keyboard users jump around the page unpredictably when tabbing and lose their bearings.
     .typical-cause = Attempts to bring single elements forward with tabindex="1", often in form or search widgets.
@@ -823,11 +823,11 @@ rule-zoom-viewport-scale-limited = Viewport meta tag prevents zooming to 500%
 
 rule-keyboard-click-handler-not-focusable = Click handler without keyboard equivalent
     .user-impact = Keyboard users cannot trigger the function.
-    .technical-impact = onclick on a <div>/<span> without onkeydown/onkeyup, tabindex, or a matching role.
+    .technical-impact = A <div> or <span> has an onclick handler but no tabindex and no interactive role, so keyboard and switch users cannot reach it and the accessibility tree exposes no action.
 
 rule-keyboard-pointer-only = Click handler without keyboard equivalent
     .user-impact = Keyboard users cannot trigger the function.
-    .technical-impact = onclick on a <div>/<span> without onkeydown/onkeyup, tabindex, or a matching role.
+    .technical-impact = A non-interactive element has a click listener but no key handler (onkeydown or onkeyup) and no interactive role, so its function can only be triggered with a pointer and it is exposed as plain text.
 
 rule-landmarks-main-missing = No main-content region as a bypass target
     .user-impact = Keyboard users have no reliable target to bypass repeated navigation blocks.
@@ -864,11 +864,11 @@ rule-aria-owns-conflict = Element owned by several elements via aria-owns
 
 rule-names-required-missing = Interactive element without a meaningful name
     .user-impact = Screen reader users are not told what the element does.
-    .technical-impact = Missing or purely symbolic aria-label/aria-labelledby/text content.
+    .technical-impact = An element whose role requires a name, such as a widget, dialog or meter, or an <input> with an empty <label for>, has no name from aria-label, aria-labelledby or content, so assistive technology announces only the role.
 
 rule-names-symbol-only = Interactive element without a meaningful name
     .user-impact = Screen reader users are not told what the element does.
-    .technical-impact = Missing or purely symbolic aria-label/aria-labelledby/text content.
+    .technical-impact = The accessible name comes from an attribute such as aria-label and consists only of symbols like "×" or "☰", so a screen reader reads a symbol name or nothing and the name does not describe the function.
 
 rule-names-title-only = Native title attribute as the only description
     .user-impact = The title attribute's tooltip only appears on mouse hover; with a keyboard and on touch devices the element's purpose stays invisible.
@@ -898,11 +898,11 @@ rule-dialog-name-missing = Dialog without an accessible name
 
 rule-buttons-name-missing = Form control, link, or button without an accessible name
     .user-impact = Screen reader users are not told what input is expected or where a link/button leads.
-    .technical-impact = Form control/link/button without <label>, aria-label, aria-labelledby, or text content.
+    .technical-impact = A <button>, role="button" element or <summary> has no text content, aria-label, aria-labelledby or title, so its accessible name is empty and a screen reader announces only "button".
 
 rule-links-name-missing = Form control, link, or button without an accessible name
     .user-impact = Screen reader users are not told what input is expected or where a link/button leads.
-    .technical-impact = Form control/link/button without <label>, aria-label, aria-labelledby, or text content.
+    .technical-impact = An <a href> has no text content, image alt, aria-label or aria-labelledby, so its accessible name is empty and a screen reader announces only "link" or reads out the URL.
 
 rule-links-used-as-button = Link used as a button substitute without a matching role
     .user-impact = Assistive technologies announce the element as a link even though it behaves like a button — keyboard users expect the wrong interaction.
@@ -910,7 +910,7 @@ rule-links-used-as-button = Link used as a button substitute without a matching 
 
 rule-aria-role-redundant = Redundant ARIA role
     .user-impact = No immediate user harm, but an unnecessary risk of inconsistency in future changes.
-    .technical-impact = role attribute duplicates the tag's native implicit role.
+    .technical-impact = A role attribute repeats the implicit native role of the element, for example <button role="button">, which changes nothing in the accessibility tree and goes stale when the element type is changed later.
 
 rule-aria-presentation-conflict = Decorative element still exposed to assistive technology
     .user-impact = Screen reader users meet an element the author meant to hide, without a name or purpose.
@@ -922,7 +922,7 @@ rule-aria-presentational-children-focusable = Focusable element inside a control
 
 rule-lists-role-redundant = Redundant ARIA role
     .user-impact = No immediate user harm, but an unnecessary risk of inconsistency in future changes.
-    .technical-impact = role attribute duplicates the tag's native implicit role.
+    .technical-impact = A <ul> or <ol> carries role="list" although its list-style-type is not none, so the role duplicates the native list semantics and changes nothing in the accessibility tree.
 
 rule-summary-name-missing = Summary element without an accessible name
     .user-impact = Screen reader users are not told what the disclosure section contains before opening it.
@@ -930,7 +930,7 @@ rule-summary-name-missing = Summary element without an accessible name
 
 rule-landmarks-content-outside = Content outside a landmark region
     .user-impact = Content outside a landmark region.
-    .technical-impact = Content outside a landmark region.
+    .technical-impact = Visible content sits outside every landmark region (<header>, <nav>, <main>, <footer> or a role equivalent), so landmark navigation in a screen reader skips it and region shortcuts cannot reach it.
 
 rule-keyboard-focusable-no-role = Focusable element without an interactive role
     .user-impact = Focusable element without an interactive role.
@@ -965,7 +965,7 @@ rule-display-text-media-visible = Visualisations visible in text mode
 
 rule-display-text-not-visible = Text layer missing in text mode
     .user-impact = In text mode the statement of the visualisation is lost.
-    .technical-impact = [data-viz-text] missing, empty or not visible with html[data-display=text].
+    .technical-impact = With html[data-display="text"] set, the [data-viz-text] layer of a visualisation is empty or hidden by its computed style, so the text alternative is neither rendered nor exposed in text mode.
     .description = In text mode a visualisation shows no readable statement.
     .explanation-user-impact = Visitors who chose text mode do not learn what the visualisation says.
     .typical-cause = [data-viz-text] is missing, empty or stays hidden in text mode.
@@ -974,7 +974,7 @@ rule-display-text-not-visible = Text layer missing in text mode
 
 rule-viz-text-missing = Visualisation without a text layer
     .user-impact = In text mode the statement of the visualisation is lost.
-    .technical-impact = [data-viz-text] missing, empty or not visible with html[data-display=text].
+    .technical-impact = A figure[data-viz] visualisation has no [data-viz-text] element or only an empty one, so no text layer exists in any display mode and assistive technology sees only the graphic.
     .description = A visualisation has no text layer marked [data-viz-text], or only an empty one.
     .explanation-user-impact = Those who cannot see the graphic do not get its statement; text mode has nothing to show in its place.
     .typical-cause = The description sits in an element without the [data-viz-text] mark, or the visualisation was built without a text layer.

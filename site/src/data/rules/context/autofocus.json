@@ -10,7 +10,7 @@
   "axe_id": "focus-no-context-change",
   "severity": "high",
   "user_impact": "Confusing page changes for keyboard users.",
-  "technical_impact": "onfocus handlers trigger navigation.",
+  "technical_impact": "An element carries the autofocus attribute, so focus moves there on page load and a screen reader skips the content before it; reported for review, as autofocus alone does not change the context.",
   "checks": [
     {
       "contract_id": "context/autofocus",

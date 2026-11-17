@@ -10,7 +10,7 @@
   "axe_id": "lists/item-outside-list",
   "severity": "medium",
   "user_impact": "Screen reader users receive no announcement of the list's length/structure.",
-  "technical_impact": "<li> outside <ul>/<ol>.",
+  "technical_impact": "A <li> or role=\"listitem\" element has no <ul>, <ol> or role=\"list\" parent, so the accessibility tree contains no list and a screen reader announces neither the item count nor the position within the list.",
   "checks": [
     {
       "contract_id": "lists/item-outside-list",

@@ -10,7 +10,7 @@
   "axe_id": "meta-refresh",
   "severity": "high",
   "user_impact": "Users need more time to enter data and may lose data through timeouts.",
-  "technical_impact": "Missing refresh or timeout handling in the script/markup.",
+  "technical_impact": "A <meta http-equiv=\"refresh\"> with a delay reloads or redirects the page on a fixed timer without a control to stop, extend or adjust it, so screen reader users lose their reading position.",
   "checks": [
     {
       "contract_id": "meta-refresh",

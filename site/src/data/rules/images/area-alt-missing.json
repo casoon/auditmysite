@@ -10,7 +10,7 @@
   "axe_id": "area-alt",
   "severity": "high",
   "user_impact": "Screen reader users are not told where a clickable image region leads.",
-  "technical_impact": "<area> element without an alt attribute.",
+  "technical_impact": "An <area> element in an image map has no alt attribute, so its accessible name is empty and a screen reader cannot announce what the clickable region does.",
   "checks": [
     {
       "contract_id": "images/area-alt-missing",

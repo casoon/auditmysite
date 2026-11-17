@@ -10,7 +10,7 @@
   "axe_id": "language/part-unmarked",
   "severity": "medium",
   "user_impact": "Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.",
-  "technical_impact": "Heuristic language detection per text block; pages that are neither German nor English stay untested.",
+  "technical_impact": "The language of text blocks cannot be checked because the page is neither German nor English, the only languages the heuristic detection supports, so missing lang attributes on passages stay unverified.",
   "checks": [
     {
       "contract_id": "language/part-undetermined",

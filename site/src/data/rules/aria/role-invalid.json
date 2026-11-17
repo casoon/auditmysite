@@ -10,7 +10,7 @@
   "axe_id": "aria-roles",
   "severity": "high",
   "user_impact": "Assistive technologies cannot determine the element's function.",
-  "technical_impact": "Role value is not defined in the ARIA specification.",
+  "technical_impact": "The role attribute holds a value that does not exist in WAI-ARIA, for example a misspelling, so browsers ignore it and the element keeps its native role without the intended semantics.",
   "checks": [
     {
       "contract_id": "aria/role-invalid",

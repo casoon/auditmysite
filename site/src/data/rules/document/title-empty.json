@@ -10,7 +10,7 @@
   "axe_id": "document-title",
   "severity": "high",
   "user_impact": "Screen reader users cannot identify the page.",
-  "technical_impact": "Empty or generic <title> tag.",
+  "technical_impact": "The <title> element exists but contains no text, so the browser tab and the title announced on page load are empty or fall back to the URL.",
   "checks": [
     {
       "contract_id": "document/title-empty",

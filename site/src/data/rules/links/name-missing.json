@@ -10,7 +10,7 @@
   "axe_id": "control-missing-label",
   "severity": "high",
   "user_impact": "Screen reader users are not told what input is expected or where a link/button leads.",
-  "technical_impact": "Form control/link/button without <label>, aria-label, aria-labelledby, or text content.",
+  "technical_impact": "An <a href> has no text content, image alt, aria-label or aria-labelledby, so its accessible name is empty and a screen reader announces only \"link\" or reads out the URL.",
   "checks": [
     {
       "contract_id": "links/name-missing",

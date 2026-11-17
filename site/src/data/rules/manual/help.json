@@ -10,7 +10,7 @@
   "axe_id": "help",
   "severity": "low",
   "user_impact": "Users do not know what format or data to enter in a field.",
-  "technical_impact": "Missing form help system.",
+  "technical_impact": "Where users enter structured data, no help (help link, <details> or text tied via aria-describedby) can be derived from the markup, so whether input help exists stays a manual check.",
   "checks": [
     {
       "contract_id": "manual/help",

@@ -10,7 +10,7 @@
   "axe_id": "form-no-submit",
   "severity": "medium",
   "user_impact": "Keyboard and screen reader users have a harder time completing the form.",
-  "technical_impact": "Missing submit control in the form.",
+  "technical_impact": "A <form> with input fields has no <button type=\"submit\"> or <input type=\"submit\"> and no control associated through the form attribute, so submitting depends on scripts reacting to field changes.",
   "checks": [
     {
       "contract_id": "forms/no-submit",

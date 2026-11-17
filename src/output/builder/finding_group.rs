@@ -285,7 +285,9 @@ mod fallback_tests {
         // The localized taxonomy `technical_impact` for this rule (German).
         assert_eq!(
             group.customer_description,
-            "Fehlendes Refresh- oder Timeout-Handling im Script/Markup."
+            crate::taxonomy::rules::RuleLookup::by_id("timing/meta-refresh")
+                .expect("rule is in the catalogue")
+                .technical_impact(false)
         );
     }
 

@@ -10,7 +10,7 @@
   "axe_id": "visual-presentation",
   "severity": "low",
   "user_impact": "Users with visual impairments or dyslexia have difficulty reading.",
-  "technical_impact": "Insufficient CSS styling for line spacing or justified-text formatting.",
+  "technical_impact": "Line spacing, justification, line width or user-selectable colors of the text are fixed in CSS and cannot be adjusted by the user; a script can measure only part of this, so the check is partly manual.",
   "checks": [
     {
       "contract_id": "visual-presentation",

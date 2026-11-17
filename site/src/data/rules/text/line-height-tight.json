@@ -10,7 +10,7 @@
   "axe_id": "visual-presentation",
   "severity": "low",
   "user_impact": "Users with visual impairments or dyslexia have difficulty reading.",
-  "technical_impact": "Insufficient CSS styling for line spacing or justified-text formatting.",
+  "technical_impact": "The computed line-height of a text block is below 1.5 times its font size, so lines sit tightly packed and readers who enlarge text or have dyslexia lose track of the line.",
   "checks": [
     {
       "contract_id": "text/line-height-tight",

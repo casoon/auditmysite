@@ -10,7 +10,7 @@
   "axe_id": "document-title",
   "severity": "high",
   "user_impact": "Screen reader users cannot identify the page.",
-  "technical_impact": "Empty or generic <title> tag.",
+  "technical_impact": "The document has no <title> element in <head>, so the browser falls back to the URL for the tab and history entry and a screen reader announces no page name on load.",
   "checks": [
     {
       "contract_id": "document/title-missing",

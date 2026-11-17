@@ -10,7 +10,7 @@
   "axe_id": "redundant-role",
   "severity": "low",
   "user_impact": "No immediate user harm, but an unnecessary risk of inconsistency in future changes.",
-  "technical_impact": "role attribute duplicates the tag's native implicit role.",
+  "technical_impact": "A role attribute repeats the implicit native role of the element, for example <button role=\"button\">, which changes nothing in the accessibility tree and goes stale when the element type is changed later.",
   "checks": [
     {
       "contract_id": "aria/role-redundant",

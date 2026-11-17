@@ -10,7 +10,7 @@
   "axe_id": "target-size-minimum",
   "severity": "medium",
   "user_impact": "Users with hand tremors or on mobile devices easily tap the wrong elements.",
-  "technical_impact": "Links, buttons or form controls dimensioned too small in CSS.",
+  "technical_impact": "The rendered box of a link, button or form control is under 24 by 24 CSS pixels and no spacing exception applies, so pointer and touch input easily hits a neighbouring element.",
   "checks": [
     {
       "contract_id": "targets/size",

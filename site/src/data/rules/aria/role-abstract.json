@@ -10,7 +10,7 @@
   "axe_id": "aria-roles",
   "severity": "high",
   "user_impact": "Assistive technologies cannot determine the element's function.",
-  "technical_impact": "Role value is not defined in the ARIA specification.",
+  "technical_impact": "The role attribute holds an abstract role such as widget or landmark, which exists only in the ARIA taxonomy and must not be used in markup, so browsers ignore it and expose the native role instead.",
   "checks": [
     {
       "contract_id": "aria/role-abstract",

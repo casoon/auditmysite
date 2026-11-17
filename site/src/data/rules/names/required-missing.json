@@ -10,7 +10,7 @@
   "axe_id": "aria-label",
   "severity": "high",
   "user_impact": "Screen reader users are not told what the element does.",
-  "technical_impact": "Missing or purely symbolic aria-label/aria-labelledby/text content.",
+  "technical_impact": "An element whose role requires a name, such as a widget, dialog or meter, or an <input> with an empty <label for>, has no name from aria-label, aria-labelledby or content, so assistive technology announces only the role.",
   "checks": [
     {
       "contract_id": "names/required-missing",

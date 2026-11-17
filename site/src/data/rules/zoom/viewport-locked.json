@@ -10,7 +10,7 @@
   "axe_id": "meta-viewport",
   "severity": "high",
   "user_impact": "Users with low vision lose content when zooming in.",
-  "technical_impact": "Fixed pixel values, overflow:hidden.",
+  "technical_impact": "<meta name=\"viewport\"> sets user-scalable=no or a maximum-scale below 2, so the browser blocks pinch zoom beyond that limit, which users with low vision rely on.",
   "checks": [
     {
       "contract_id": "zoom/viewport-locked",

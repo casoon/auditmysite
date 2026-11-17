@@ -10,7 +10,7 @@
   "axe_id": "document-title",
   "severity": "high",
   "user_impact": "Screen reader users cannot identify the page.",
-  "technical_impact": "Empty or generic <title> tag.",
+  "technical_impact": "The <title> exists but is generic (for example \"Untitled\" or \"Home\"), so the tab title, the history entry and the title announced on page load do not identify the page.",
   "checks": [
     {
       "contract_id": "document-title",

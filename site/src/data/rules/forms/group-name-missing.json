@@ -10,7 +10,7 @@
   "axe_id": "label",
   "severity": "high",
   "user_impact": "Users do not know what input is expected.",
-  "technical_impact": "Missing <label> elements.",
+  "technical_impact": "A <fieldset> without <legend>, or an element with role=\"group\" or role=\"radiogroup\" without an accessible name, makes a screen reader announce the controls inside without the question they answer.",
   "checks": [
     {
       "contract_id": "forms/group-name-missing",
