@@ -771,7 +771,7 @@ error!("CDP connection lost: {}", err);
 
 ```ruby
 class Auditmysite < Formula
-  desc "WCAG 2.1 Accessibility Checker with full audit reporting"
+  desc "WCAG 2.2 AA Accessibility Checker with full audit reporting"
   homepage "https://github.com/casoon/auditmysite"
   url "https://github.com/casoon/auditmysite/archive/refs/tags/v0.4.5.tar.gz"
   sha256 "..."

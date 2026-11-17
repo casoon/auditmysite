@@ -75,7 +75,7 @@ Implication for `auditmysite`:
 - Real browser rendering via CDP and the native Accessibility Tree.
 - Single-binary distribution and local CLI ergonomics.
 - Deterministic JSON contracts with schema validation (Unified Report Envelope v2.0).
-- Multi-module view across accessibility, performance, SEO, security, mobile, UX, journey, AI visibility, and more.
+- Accessibility as the headline score, with optional performance, SEO, security, mobile and HTML conformance modules next to it; unvalidated experimental indicators (UX, journey, AI visibility, …) only on request.
 - Stakeholder-oriented PDF output via renderreport/Typst — presentation-grade typography.
 - Accessibility Journey Layer: interactive checks (tab-walk, focus-trap, SPA navigation, form-error announcement).
 - Stable scoring semantics documented in OUTPUT_CONTRACT.md and enforced via JSON schema.
