@@ -13,6 +13,7 @@ and verification for each change is in the
 
 ### Added
 
+- **Experimental:** `--experimental ux` also reports advisory page hints from the accessibility tree under `experimental.ux.heuristics` (and as `UX hint:` lines in the terminal table, in the run language): a cookie or consent banner is present, a dialog is not marked modal, several dialogs at once, no call-to-action wording, many competing ones. Unvalidated keyword and role heuristics (English and German wording, matched at word starts); no score, rule id, finding or verdict effect, never in the PDF, and no font check because the accessibility tree holds no font information (Refs #1035, see `docs/OUTPUT_CONTRACT.md`).
 - **JSON:** `summary.fail_url_count` and `summary.warn_url_count` count the pages with verdict `fail` and `warn` apart; `failed_url_count` stays as a deprecated alias (verdict not `pass`), `schema_version` stays `2.0`. The batch decision reason `N URLs failed quality threshold` becomes `N URL(s) failed its/their own check` and `N URL(s) with a warning`, each only above zero (Refs #899, see `docs/OUTPUT_CONTRACT.md`).
 - **Report:** the batch PDF and terminal table name failed and warned URLs separately (terminal: `Failed` counts verdict `fail`, new `Warned` counts verdict `warn`; PDF decision reasons: new `batch-reason-warned-urls`) (Refs #899).
 

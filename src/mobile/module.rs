@@ -9,7 +9,7 @@ use crate::error::Result;
 
 use super::analyze_mobile_friendliness;
 
-pub struct MobileModule;
+pub(crate) struct MobileModule;
 
 #[async_trait]
 impl AuditModule for MobileModule {

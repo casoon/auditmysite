@@ -1113,7 +1113,7 @@
           "$ref": "#/$defs/principleCoverage"
         },
         "experimental": {
-          "description": "Experimental indicators that ran (`--experimental`, #916), keyed by `ux`, `journey`, `ai_visibility`, `content_visibility`, `source_quality`, `commerce`. Each scored indicator (all but `commerce`) carries `measurement_type: heuristic` and a `signal_contract` whose `contract.validation.status` is `unvalidated`. They feed no score, finding, risk level or verdict. Single reports only; absent without `--experimental`.",
+          "description": "Experimental indicators that ran (`--experimental`, #916), keyed by `ux`, `journey`, `ai_visibility`, `content_visibility`, `source_quality`, `commerce`. Each scored indicator (all but `commerce`) carries `measurement_type: heuristic` and a `signal_contract` whose `contract.validation.status` is `unvalidated`. The `ux` indicator also carries `heuristics` (#1035): advisory page hints `{ findings: [{ kind, severity, count?, message }] }`, unvalidated like the indicator itself. They feed no score, finding, risk level or verdict. Single reports only; absent without `--experimental`.",
           "type": "object",
           "propertyNames": {
             "enum": [

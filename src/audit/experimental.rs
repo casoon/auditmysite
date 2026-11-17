@@ -23,7 +23,7 @@ use crate::commerce::CommerceAnalysis;
 use crate::content_visibility::ContentVisibilityAnalysis;
 use crate::page_flow::JourneyAnalysis;
 use crate::source_quality::SourceQualityAnalysis;
-use crate::ux::UxAnalysis;
+use crate::ux::{UxAnalysis, UxHeuristics};
 
 /// One experimental indicator `--experimental` can switch on.
 #[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -115,6 +115,11 @@ impl ExperimentalIndicator {
 pub struct ExperimentalIndicators {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ux: Option<UxAnalysis>,
+    /// The advisory page heuristics of the `ux` indicator (#1035): computed
+    /// from the accessibility tree when `ux` ran, listed under `ux` in the
+    /// JSON (`ux.heuristics`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ux_heuristics: Option<UxHeuristics>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub journey: Option<JourneyAnalysis>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -130,6 +135,7 @@ pub struct ExperimentalIndicators {
 impl ExperimentalIndicators {
     pub fn is_empty(&self) -> bool {
         self.ux.is_none()
+            && self.ux_heuristics.is_none()
             && self.journey.is_none()
             && self.ai_visibility.is_none()
             && self.content_visibility.is_none()
@@ -141,6 +147,7 @@ impl ExperimentalIndicators {
     pub(crate) fn take_from(report: &mut AuditReport) -> Self {
         Self {
             ux: report.ux.take(),
+            ux_heuristics: None,
             journey: report.journey.take(),
             ai_visibility: report.discoverability.ai_visibility.take(),
             content_visibility: report.discoverability.content_visibility.take(),

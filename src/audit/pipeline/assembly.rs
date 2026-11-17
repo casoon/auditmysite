@@ -384,6 +384,12 @@ pub(super) fn aggregate_report(
     // (#916): the PDF, the findings and the scores never read them.
     report.experimental =
         crate::audit::experimental::ExperimentalIndicators::take_from(&mut report);
+    // The advisory page heuristics of the `ux` indicator (#1035) read the
+    // same accessibility tree and appear wherever the indicator does.
+    if report.experimental.ux.is_some() {
+        report.experimental.ux_heuristics =
+            Some(crate::ux::analyze_ux_heuristics(&snapshot.ax_tree));
+    }
 
     report
 }

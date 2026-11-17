@@ -21,7 +21,7 @@ use std::path::Path;
 
 /// Modules that are `pub` only because a binary, a test or Studio imports from them and that
 /// are neither narrowed nor `hidden` yet. Lower it when one leaves; do not raise it.
-const QUEUED_CEILING: usize = 1;
+const QUEUED_CEILING: usize = 0;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum Tier {
