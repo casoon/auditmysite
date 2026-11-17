@@ -1504,7 +1504,7 @@
     },
     {
       "id": "seo.schema.schema_rule_missing_article",
-      "title": "Article: missing required properties",
+      "title": "Article: missing recommended properties",
       "domain": "schema",
       "outcome": "automatic"
     },
@@ -1552,13 +1552,13 @@
     },
     {
       "id": "seo.schema.schema_rule_missing_organization",
-      "title": "Organization: missing required properties",
+      "title": "Organization: missing recommended properties",
       "domain": "schema",
       "outcome": "automatic"
     },
     {
       "id": "seo.schema.schema_rule_missing_person",
-      "title": "Person: missing required properties",
+      "title": "Person: missing recommended properties",
       "domain": "schema",
       "outcome": "automatic"
     },
@@ -1594,13 +1594,13 @@
     },
     {
       "id": "seo.schema.schema_rule_missing_web_page",
-      "title": "WebPage: missing required properties",
+      "title": "WebPage: missing recommended properties",
       "domain": "schema",
       "outcome": "automatic"
     },
     {
       "id": "seo.schema.schema_rule_missing_web_site",
-      "title": "WebSite: missing required properties",
+      "title": "WebSite: missing recommended properties",
       "domain": "schema",
       "outcome": "automatic"
     },

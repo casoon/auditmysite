@@ -10,7 +10,7 @@
   "axe_id": "visual-presentation",
   "severity": "low",
   "user_impact": "Users with visual impairments or dyslexia have difficulty reading.",
-  "technical_impact": "Line spacing, justification, line width or user-selectable colors of the text are fixed in CSS and cannot be adjusted by the user; a script can measure only part of this, so the check is partly manual.",
+  "technical_impact": "The check measures nothing itself: on every page audited at level AAA it adds one manual-check note for the parts of 1.4.8 that need a human, namely whether users can choose foreground and background colours and whether the text width stays within 80 characters; justified text and line height below 1.5 are reported by the separate rules text-justified and text-line-height-tight.",
   "checks": [
     {
       "contract_id": "visual-presentation",

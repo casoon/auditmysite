@@ -10,7 +10,7 @@
   "axe_id": "form-no-submit",
   "severity": "medium",
   "user_impact": "Keyboard and screen reader users have a harder time completing the form.",
-  "technical_impact": "A <form> with input fields has no <button type=\"submit\"> or <input type=\"submit\"> and no control associated through the form attribute, so submitting depends on scripts reacting to field changes.",
+  "technical_impact": "A <form> owns at least one enabled input, select, textarea or button (also through the form attribute) but no submit control, meaning no <button> other than type button or reset and no <input type=\"submit\"> or type \"image\"; always a review finding, because 3.2.2 is only violated when changing a field changes the context, and low severity when the form has no action and no text field, so that only a script can submit it.",
   "checks": [
     {
       "contract_id": "forms/no-submit",

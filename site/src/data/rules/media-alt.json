@@ -10,7 +10,7 @@
   "axe_id": "media-alt",
   "severity": "medium",
   "user_impact": "Users who cannot play video or audio receive no text alternative.",
-  "technical_impact": "Missing transcript or audio description.",
+  "technical_impact": "The check does not detect a missing alternative: on every page audited at level AAA it adds one manual-check note that prerecorded video and audio need a full text alternative, names a found <video> or video embed, and mentions a nearby link containing a word such as \"transcript\" only as a hint, not as proof.",
   "checks": [
     {
       "contract_id": "media-alt",

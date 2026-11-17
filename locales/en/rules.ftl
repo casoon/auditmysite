@@ -34,7 +34,7 @@ rule-video-caption = Missing captions for videos
 
 rule-media-alt = Missing media alternative (AAA)
     .user-impact = Users who cannot play video or audio receive no text alternative.
-    .technical-impact = Missing transcript or audio description.
+    .technical-impact = The check does not detect a missing alternative: on every page audited at level AAA it adds one manual-check note that prerecorded video and audio need a full text alternative, names a found <video> or video embed, and mentions a nearby link containing a word such as "transcript" only as a hint, not as proof.
 
 ## Structure & semantics
 
@@ -147,11 +147,11 @@ rule-label-in-name-mismatch = Visible text ≠ accessible name
 
 rule-meta-refresh = Non-adjustable time limit
     .user-impact = Users need more time to enter data and may lose data through timeouts.
-    .technical-impact = A <meta http-equiv="refresh"> with a delay reloads or redirects the page on a fixed timer without a control to stop, extend or adjust it, so screen reader users lose their reading position.
+    .technical-impact = The check does not look for a timer: time limits set by JavaScript (setTimeout, setInterval, session expiry) are not visible in the markup, so every page gets one manual-check note that users must be able to turn such limits off, adjust or extend them; a <meta http-equiv="refresh"> is judged separately.
 
 rule-timing-meta-refresh = Non-adjustable time limit
     .user-impact = Users need more time to enter data and may lose data through timeouts.
-    .technical-impact = A <meta http-equiv="refresh" content="N"> with N above 0 makes the browser reload or redirect after N seconds, and the DOM offers no way to turn the limit off or extend it.
+    .technical-impact = A <meta http-equiv="refresh"> with a delay of more than 0 seconds and at most 20 hours reloads or redirects the page after that delay and the markup offers no way to stop or extend it, so a user who is still reading is cut off; an immediate redirect (0) and delays above 20 hours are not reported.
 
 rule-timing-meta-refresh-enhanced = Page reloads or redirects itself after a delay (AAA)
     .user-impact = Users are interrupted: the page changes without a request, and screen reader users lose their reading position.
@@ -168,11 +168,11 @@ rule-motion-infinite-animation = Missing pause/stop/hide control
 
 rule-manual-no-timing = Timing present (AAA)
     .user-impact = Users cannot complete tasks at their own pace.
-    .technical-impact = The page applies time limits such as timeouts, timed redirects or auto-advancing content, and a script cannot tell whether users may turn them off, so this stays a manual check and users who need more time are cut off.
+    .technical-impact = The page has form fields or a <meta http-equiv="refresh">, so time limits are conceivable; whether any task depends on timing cannot be seen in the markup, so the page gets one manual-check note instead of a verdict, and it stays open whether users who need more time are cut off.
 
 rule-manual-interruptions = Non-suppressible interruptions (AAA)
     .user-impact = Users with cognitive impairments or screen reader users are distracted.
-    .technical-impact = Unexpected dialogs or assertive live regions.
+    .technical-impact = The page contains a <dialog>, a <meta http-equiv="refresh"> or an element with role alert, alertdialog, status, log, marquee or timer or with an aria-live value other than off; such content can interrupt screen reader output and reading, but whether it can be postponed or turned off cannot be seen in the markup, so the page gets one manual-check note.
 
 rule-manual-re-authenticating = No data preservation on re-authentication (AAA)
     .user-impact = Users must re-enter all form data.
@@ -180,11 +180,11 @@ rule-manual-re-authenticating = No data preservation on re-authentication (AAA)
 
 rule-timeouts = No warning before inactivity timeout (AAA)
     .user-impact = Users lose unsaved data without warning.
-    .technical-impact = A script ends the session or reloads the page after inactivity without a dialog or live-region warning beforehand, so assistive technology announces nothing and the session cannot be extended in time; the timer is not visible in the markup.
+    .technical-impact = The check does not look for timers or session handling: on every page audited at level AAA it adds one manual-check note, because whether users are warned before an inactivity timeout can cause data loss (at least 20 seconds ahead) cannot be seen in the markup.
 
 rule-navigation-location-missing = Missing location indication (AAA)
     .user-impact = Users lose orientation within nested websites.
-    .technical-impact = Missing breadcrumb navigation or sitemap linkage.
+    .technical-impact = The page has a link inside a <nav> or role="navigation" but no element with aria-current="page" and no element whose aria-label contains "breadcrumb", so the markup does not show the current location and a screen reader announces no current page in the navigation; reported only as a review hint, because a title, headings or a sitemap can also satisfy the criterion.
 
 rule-links-purpose-link-only = Unclear link label without context (AAA)
     .user-impact = Users must read the entire paragraph to understand a link's destination.
@@ -201,7 +201,7 @@ rule-links-new-window-unannounced = New window without notice (AAA)
 
 rule-manual-pointer-gestures = Missing alternative for pointer gestures
     .user-impact = Users with motor impairments cannot operate the functionality.
-    .technical-impact = Required touch gestures without a click fallback.
+    .technical-impact = The page contains an element that looks gesture-driven: a touchstart, touchmove, pointermove, gesturestart or dragstart handler attribute, draggable="true", or a class of a carousel or map library such as swiper, slick, splide, leaflet or mapboxgl; whether the same function also works with a single tap or click cannot be detected, so the page gets one manual-check note.
 
 rule-pointer-cancellation = Action triggered on pointer down
     .user-impact = Users may trigger actions accidentally without being able to cancel them.
@@ -209,7 +209,7 @@ rule-pointer-cancellation = Action triggered on pointer down
 
 rule-manual-motion-actuation = Missing alternative for motion actuation
     .user-impact = Users who cannot move the device are excluded from the functionality.
-    .technical-impact = Use of device-motion APIs without UI controls.
+    .technical-impact = An inline <script> mentions devicemotion or deviceorientation, so a function may react to shaking or tilting the device; whether it also works through a control on the page and whether the reaction can be turned off cannot be detected, so the page gets one manual-check note; external scripts are not inspected.
 
 rule-targets-size-enhanced = Insufficient click target size (AAA)
     .user-impact = Users with hand tremors or on mobile devices easily tap the wrong elements.
@@ -273,7 +273,7 @@ rule-auth-captcha = Review CAPTCHA in authentication form
 
 rule-forms-no-submit = Form without submit button
     .user-impact = Keyboard and screen reader users have a harder time completing the form.
-    .technical-impact = A <form> with input fields has no <button type="submit"> or <input type="submit"> and no control associated through the form attribute, so submitting depends on scripts reacting to field changes.
+    .technical-impact = A <form> owns at least one enabled input, select, textarea or button (also through the form attribute) but no submit control, meaning no <button> other than type button or reset and no <input type="submit"> or type "image"; always a review finding, because 3.2.2 is only violated when changing a field changes the context, and low severity when the form has no action and no text field, so that only a script can submit it.
     .description = A form collects input but has no button or other control that explicitly submits it.
     .explanation-user-impact = Without a submit control it is unclear when the input takes effect. If the form submits when a field changes instead, the context changes without warning.
     .typical-cause = Filter and search forms submitted by script when a field changes, or a button outside the form without a form attribute.
@@ -282,7 +282,7 @@ rule-forms-no-submit = Form without submit button
 
 rule-manual-help = Missing input help (AAA)
     .user-impact = Users do not know what format or data to enter in a field.
-    .technical-impact = Where users enter structured data, no help (help link, <details> or text tied via aria-describedby) can be derived from the markup, so whether input help exists stays a manual check.
+    .technical-impact = The page contains form fields (input, select or textarea; hidden fields and buttons do not count); whether they have context-sensitive help such as instructions, examples or a help link cannot be decided from the markup, so the page gets one manual-check note instead of a verdict.
 
 ## Language & clarity
 
@@ -308,7 +308,7 @@ rule-context-on-input = Unexpected context change on input
 
 rule-manual-unusual-words = Missing explanation of unusual words (AAA)
     .user-impact = Users with cognitive impairments or non-native speakers do not understand the text.
-    .technical-impact = Missing glossary linkage or in-text explanation.
+    .technical-impact = The page contains text, so one manual-check note asks whether jargon, idioms and unusual words are explained inline, with <dfn> or in a glossary; the markup cannot show which words are unusual to the readers.
 
 rule-language-part-undetermined = Check text in another language without lang
     .user-impact = Screen readers read the passage with the page language's pronunciation, which makes it hard to understand.
@@ -339,7 +339,7 @@ rule-contrast-text-insufficient = Insufficient color contrast
 
 rule-contrast-text-undetermined = Insufficient color contrast
     .user-impact = Text is hard to read for people with low vision or under poor lighting conditions.
-    .technical-impact = The contrast of this text could not be computed because its background is an image, a gradient or overlapping layers, so the 4.5:1 ratio stays unmeasured and needs a manual check.
+    .technical-impact = The contrast of this text could not be decided: the foreground or background colour could not be resolved (for example an image or gradient background), a fixed or sticky element covers the text, or the measured ratio sits close to the threshold or varies across the text, so the required 4.5:1 (3:1 for large text) stays unverified and needs a manual check.
 
 rule-contrast-text-enhanced = Enhanced color contrast not met (AAA)
     .user-impact = Text remains hard to read for people with substantially reduced vision.
@@ -369,11 +369,11 @@ rule-css-overflow-hidden = No reflow at 320 CSS pixels
 
 rule-contrast-control-insufficient = Insufficient contrast for UI elements
     .user-impact = Interactive elements are hard to recognize.
-    .technical-impact = The border, icon or state indicator of an interactive control has a contrast ratio below 3:1 against its adjacent colors, measured from computed styles, so the control boundary is hard to perceive.
+    .technical-impact = A checkbox, radio button, switch or range input drawn by the page itself (appearance: none) has a border, or without a border its own fill, with a contrast ratio below 3:1 against the background of its parent element, measured from computed styles, so the boundary of the control is hard to perceive; native controls are not measured.
 
 rule-contrast-control-undetermined = Insufficient contrast for UI elements
     .user-impact = Interactive elements are hard to recognize.
-    .technical-impact = The contrast of a control boundary or icon could not be computed because of an image or gradient background or an unresolvable color, so the 3:1 ratio stays unmeasured and needs a manual check.
+    .technical-impact = The background behind a custom-drawn checkbox, radio button, switch or range input could not be resolved from the computed style of its parent element, so the 3:1 ratio of its boundary stays unmeasured and needs a manual check.
 
 rule-text-spacing-clipped = Content clipped when text spacing is increased
     .user-impact = Users who increase line/letter/word spacing for readability lose content.
@@ -427,11 +427,11 @@ rule-text-justified = Limited visual presentation of text (AAA)
 
 rule-text-line-height-tight = Limited visual presentation of text (AAA)
     .user-impact = Users with visual impairments or dyslexia have difficulty reading.
-    .technical-impact = The computed line-height of a text block is below 1.5 times its font size, so lines sit tightly packed and readers who enlarge text or have dyslexia lose track of the line.
+    .technical-impact = A stylesheet gives the <p> paragraphs of the page a line-height below 1.5 (as a number, em or percentage value), so lines sit tightly packed and readers who enlarge text or have dyslexia lose track of the line; the value comes from the style rules, not from rendered styles, and is reported as a review hint.
 
 rule-visual-presentation = Limited visual presentation of text (AAA)
     .user-impact = Users with visual impairments or dyslexia have difficulty reading.
-    .technical-impact = Line spacing, justification, line width or user-selectable colors of the text are fixed in CSS and cannot be adjusted by the user; a script can measure only part of this, so the check is partly manual.
+    .technical-impact = The check measures nothing itself: on every page audited at level AAA it adds one manual-check note for the parts of 1.4.8 that need a human, namely whether users can choose foreground and background colours and whether the text width stays within 80 characters; justified text and line height below 1.5 are reported by the separate rules text-justified and text-line-height-tight.
 
 ## Technical robustness
 
@@ -618,7 +618,7 @@ rule-aria-combobox-popup-missing = Expanded combobox without a reference to its 
 
 rule-frames-name-missing = Iframe without accessible name
     .user-impact = Screen reader users cannot identify the purpose and content of the embedded frame.
-    .technical-impact = Missing accessible name on iframe/frame.
+    .technical-impact = An <iframe> that Tab can reach and that is visible (no negative tabindex, not 0 or 1 pixel wide and high, not display: none) has no accessible name from title, aria-label or aria-labelledby, so a screen reader entering the frame announces no name and its content stays unidentified; <frame> is not checked.
     .description = An <iframe> has no accessible name (title, aria-label or aria-labelledby).
     .explanation-user-impact = Screen readers announce just "frame" when entering it; users cannot tell what it contains or skip it on purpose.
     .typical-cause = Embedded maps, videos, widgets or ads without a title attribute.
@@ -952,7 +952,7 @@ rule-landmarks-content-outside = Content outside a landmark region
 
 rule-keyboard-focusable-no-role = Focusable element without an interactive role
     .user-impact = Focusable element without an interactive role.
-    .technical-impact = Focusable element without an interactive role.
+    .technical-impact = An element that is not natively focusable has a tabindex of 0 or more and no interactive role (generic, group, article, section, paragraph, none, presentation or no role at all), so Tab reaches it but a screen reader announces it without a role or an operable state; reported as a review hint, because a script may still make it operable.
 
 rule-display-toggle-missing = No display-mode toggle
     .user-impact = If there really is no toggle, visitors who cannot cope with motion or graphics cannot switch to a calm or text-only display.

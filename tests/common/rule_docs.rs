@@ -22,7 +22,9 @@ use crate::common::rule_contracts::{load_contracts, Automation, RuleContract};
 use auditmysite::audit::finding_contract::check_title;
 use auditmysite::audit::finding_titles::finding_title;
 use auditmysite::audit::rule_docs::{library_page_id, schema_page_id, security_page_id};
-use auditmysite::seo::schema_rules::{feature_label, SchemaFeature};
+use auditmysite::seo::schema_rules::{
+    assess_node, feature_label, ProductRuleContext, SchemaFeature, SchemaRequirementStatus,
+};
 use auditmysite::taxonomy::rules::RULES;
 use auditmysite::taxonomy::{rule_doc_url, SeverityExt, RULE_DOCS_BASE_URL};
 use serde::Serialize;
@@ -32,6 +34,48 @@ use std::path::{Path, PathBuf};
 /// Largest fixture page shown as an example. A larger one is left out rather
 /// than cut: a cut page is no longer the page the corpus asserts on.
 const MAX_EXAMPLE_BYTES: usize = 6000;
+
+/// Schema.org types the structured-data profiles assess (`assess_node`).
+const ASSESSED_TYPES: [&str; 21] = [
+    "Product",
+    "Article",
+    "BlogPosting",
+    "NewsArticle",
+    "BreadcrumbList",
+    "Organization",
+    "LocalBusiness",
+    "FAQPage",
+    "Event",
+    "Recipe",
+    "VideoObject",
+    "JobPosting",
+    "SoftwareApplication",
+    "WebApplication",
+    "MobileApplication",
+    "ProfilePage",
+    "CollectionPage",
+    "ItemList",
+    "WebPage",
+    "WebSite",
+    "Person",
+];
+
+/// Whether the feature profile has no required property in any of its types:
+/// an empty node of each type is only ever `RecommendationsOnly`, so the
+/// check can only hint and never report a missing required property.
+fn only_recommends(feature: SchemaFeature) -> bool {
+    let empty = serde_json::json!({});
+    let statuses: Vec<_> = ASSESSED_TYPES
+        .iter()
+        .flat_map(|t| assess_node(0, t, &empty, ProductRuleContext::default()))
+        .filter(|a| a.feature == feature)
+        .map(|a| a.requirement_status)
+        .collect();
+    !statuses.is_empty()
+        && statuses
+            .iter()
+            .all(|s| *s == SchemaRequirementStatus::RecommendationsOnly)
+}
 
 /// Directory the generated files live in, relative to the repository root.
 pub const OUTPUT_DIR: &str = "site/src/data/rules";
@@ -431,8 +475,13 @@ pub fn pages() -> Vec<RulePage> {
             id: page_id,
             domain: Domain::Schema,
             title: format!(
-                "{}: missing required properties",
-                feature_label(feature, true)
+                "{}: missing {} properties",
+                feature_label(feature, true),
+                if only_recommends(feature) {
+                    "recommended"
+                } else {
+                    "required"
+                }
             ),
             outcome: page_outcome(&checks),
             area: "SEO, structured data".to_string(),
