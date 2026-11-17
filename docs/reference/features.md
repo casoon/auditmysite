@@ -83,7 +83,7 @@ auditmysite https://example.com --experimental content-visibility -o report.json
 
 `--experimental <name>[,<name>]` takes `ux`, `journey`, `ai-visibility`, `content-visibility`, `source-quality` and `commerce`:
 
-- **UX**: 5-dimension analysis (CTA clarity, visual hierarchy, content clarity, trust signals, cognitive load) with saturation curve scoring
+- **UX**: 5-dimension analysis (CTA clarity, visual hierarchy, content clarity, trust signals, cognitive load) with saturation curve scoring, plus advisory page hints from the accessibility tree (`ux.heuristics`, #1035): a cookie or consent banner is present, a dialog is not marked modal, several dialogs at once, no call-to-action wording, many competing ones. They are keyword and role heuristics, English and German wording, unvalidated and without any effect on the UX score or on any other result
 - **Journey**: user-flow analysis (entry clarity, orientation, navigation, interaction, conversion) with page-intent-aware weighting
 - **AI Visibility**: structural signals for machine readability and indexing (readability, structured data, AI policy, chunk quality); not evidence of AI citation, visibility or content quality
 - **Content Visibility**: search-facing signals in five areas (organic visibility, local business, E-E-A-T markup, content depth, topical authority). It is derived from Source Quality and AI Visibility, so those run with it. `--check-ssr-content` needs it
@@ -92,8 +92,8 @@ auditmysite https://example.com --experimental content-visibility -o report.json
 
 Where the results appear:
 
-- **JSON**: one `experimental` block per page of a single report, keyed by indicator (`ux`, `journey`, `ai_visibility`, `content_visibility`, `source_quality`, `commerce`), each scored one with its `signal_contract` (`commerce` is a checklist without a score and has none; target statement, method, uncertainty, claims it does not establish, `validation`). A batch report carries only the commerce roll-up in `summary.experimental`. Without `--experimental` the block is absent.
-- **Terminal table**: a note lists each indicator that ran, with its score.
+- **JSON**: one `experimental` block per page of a single report, keyed by indicator (`ux`, `journey`, `ai_visibility`, `content_visibility`, `source_quality`, `commerce`), each scored one with its `signal_contract` (the UX page hints are `ux.heuristics`; `commerce` is a checklist without a score and has none; target statement, method, uncertainty, claims it does not establish, `validation`). A batch report carries only the commerce roll-up in `summary.experimental`. Without `--experimental` the block is absent.
+- **Terminal table**: a note lists each indicator that ran, with its score; the UX hints follow the UX line, one per line, in the run language.
 - **PDF**: never. The scores, findings, risk and verdict of every report are computed without them.
 
 An indicator that was switched on because another one is derived from it appears in the block like the one you asked for.

@@ -13,7 +13,6 @@
 
 use auditmysite::audit::{normalize, AuditReport, BatchReport, PerformanceResults};
 use auditmysite::cli::WcagLevel;
-use auditmysite::mobile::MobileFriendliness;
 use auditmysite::output::builder::{build_batch_presentation, build_view_model};
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::page_flow::analyze_journey;
@@ -22,7 +21,7 @@ use auditmysite::security::SecurityAnalysis;
 use auditmysite::seo::SeoAnalysis;
 use auditmysite::ux::analyze_ux;
 use auditmysite::wcag::{Severity, Violation, WcagResults};
-use auditmysite::AXTree;
+use auditmysite::{AXTree, MobileFriendliness};
 
 // ─── Shared Fixtures ────────────────────────────────────────────────────────
 

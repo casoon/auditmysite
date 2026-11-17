@@ -2,15 +2,13 @@
 //!
 //! Analyzes viewport, touch targets, font sizes, and responsive layout.
 
-pub mod module;
+pub(crate) mod module;
 
 #[cfg(test)]
 mod issue_texts_export;
 #[cfg(test)]
 mod issue_texts_guard;
-pub mod ux_heuristics;
-pub use module::MobileModule;
-pub use ux_heuristics::{analyze_ux_heuristics, UxHeuristicFinding, UxHeuristics};
+pub(crate) use module::MobileModule;
 
 use chromiumoxide::Page;
 use fluent_bundle::FluentValue;
@@ -190,7 +188,7 @@ impl MobileIssue {
 /// of `locales/{en,de}/mobile-issues.ftl`. Unknown keys pass through, so a
 /// future context added in the page script degrades to its raw name rather
 /// than disappearing.
-pub fn mobile_context_label(context: &str, en: bool) -> String {
+pub(crate) fn mobile_context_label(context: &str, en: bool) -> String {
     let key = match context {
         "navigation" => "mobile-context-navigation",
         "footer" => "mobile-context-footer",
@@ -209,7 +207,11 @@ pub fn mobile_context_label(context: &str, en: bool) -> String {
 /// it with `en = true` to bake canonical English into the stored struct; the
 /// PDF calls it with the run language. The wording is the `mobile-*` message
 /// of `locales/{en,de}/mobile-issues.ftl`.
-pub fn mobile_issue_text(kind: MobileIssueKind, values: &MobileIssueValues, en: bool) -> String {
+pub(crate) fn mobile_issue_text(
+    kind: MobileIssueKind,
+    values: &MobileIssueValues,
+    en: bool,
+) -> String {
     use MobileIssueKind::*;
     let key = match kind {
         MissingViewport => "mobile-missing-viewport",

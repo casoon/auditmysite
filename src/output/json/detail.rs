@@ -86,10 +86,20 @@ fn build_experimental(ctx: &AuditContext<'_>) -> Option<serde_json::Value> {
     };
     put(
         "ux",
-        experimental
-            .ux
-            .as_ref()
-            .map(|m| with_measurement_type(m.to_json(), "heuristic")),
+        experimental.ux.as_ref().map(|m| {
+            let mut value = with_measurement_type(m.to_json(), "heuristic");
+            // The advisory page heuristics (#1035) belong to the `ux`
+            // indicator and carry its signal contract (unvalidated).
+            if let (Some(heuristics), Some(obj)) =
+                (experimental.ux_heuristics.as_ref(), value.as_object_mut())
+            {
+                obj.insert(
+                    "heuristics".to_string(),
+                    serde_json::to_value(heuristics).unwrap_or(serde_json::Value::Null),
+                );
+            }
+            value
+        }),
     );
     put(
         "journey",

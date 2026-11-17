@@ -238,10 +238,9 @@ fn experimental_lines(
             &[("label", label.to_string())],
         ),
     };
-    experimental
-        .present()
-        .into_iter()
-        .map(|indicator| match indicator {
+    let mut lines = Vec::new();
+    for indicator in experimental.present() {
+        let line = match indicator {
             I::Ux => scored(
                 "UX",
                 experimental.ux.as_ref().and_then(|m| score_of(m.to_json())),
@@ -290,6 +289,39 @@ fn experimental_lines(
                     &[("findings", findings as i64)],
                 )
             }
+        };
+        lines.push(line);
+        if indicator == I::Ux {
+            lines.extend(ux_heuristic_lines(experimental, i18n));
+        }
+    }
+    lines
+}
+
+/// The advisory UX hints of the `ux` indicator (#1035), one line each in the
+/// run language; the analysis stored the kind and the raw value.
+fn ux_heuristic_lines(
+    experimental: &crate::audit::ExperimentalIndicators,
+    i18n: &I18n,
+) -> Vec<String> {
+    let Some(heuristics) = experimental.ux_heuristics.as_ref() else {
+        return Vec::new();
+    };
+    if heuristics.findings.is_empty() {
+        return vec![i18n.t("ux-heuristic-terminal-none")];
+    }
+    let en = i18n.locale() != "de";
+    heuristics
+        .findings
+        .iter()
+        .map(|finding| {
+            i18n.t_args(
+                "ux-heuristic-terminal-line",
+                &[(
+                    "text",
+                    crate::ux::ux_heuristic_text(finding.kind, finding.count, en),
+                )],
+            )
         })
         .collect()
 }
@@ -475,6 +507,57 @@ mod tests {
         }
         let german = experimental_lines(&report.experimental, &I18n::new("de").unwrap());
         assert!(german.iter().any(|l| l.contains("Signalen")), "{german:?}");
+    }
+
+    /// #1035: the advisory UX hints follow the UX line, in the run language;
+    /// the English lines hold no German.
+    #[test]
+    fn ux_hints_follow_the_ux_line_in_the_run_language() {
+        use crate::ux::{UxHeuristicFinding, UxHeuristicKind, UxHeuristics};
+        let mut report = fixture_report();
+        report.experimental.ux = Some(crate::analyze_ux(&crate::AXTree::new()));
+        report.experimental.ux_heuristics = Some(UxHeuristics { findings: vec![] });
+        let en = I18n::new("en").unwrap();
+        let de = I18n::new("de").unwrap();
+        let none = experimental_lines(&report.experimental, &en);
+        assert_eq!(none.len(), 2);
+        assert_eq!(none[1], "UX hints: none");
+        assert_eq!(
+            experimental_lines(&report.experimental, &de)[1],
+            "UX-Hinweise: keine"
+        );
+
+        report.experimental.ux_heuristics = Some(UxHeuristics {
+            findings: vec![
+                UxHeuristicFinding {
+                    kind: UxHeuristicKind::ManyCtas,
+                    severity: crate::taxonomy::Severity::Low,
+                    count: Some(9),
+                    message: String::new(),
+                },
+                UxHeuristicFinding {
+                    kind: UxHeuristicKind::NoCta,
+                    severity: crate::taxonomy::Severity::Low,
+                    count: None,
+                    message: String::new(),
+                },
+            ],
+        });
+        let english = experimental_lines(&report.experimental, &en);
+        assert_eq!(english.len(), 3);
+        assert!(english[0].starts_with("UX: "), "{english:?}");
+        assert!(
+            english[1].starts_with("UX hint: 9 buttons or links"),
+            "{english:?}"
+        );
+        for line in &english {
+            assert!(!line.chars().any(|c| "äöüÄÖÜß".contains(c)), "{line}");
+        }
+        let german = experimental_lines(&report.experimental, &de);
+        assert!(
+            german[1].starts_with("UX-Hinweis: 9 Schaltflächen"),
+            "{german:?}"
+        );
     }
 
     #[test]

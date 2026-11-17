@@ -28,7 +28,7 @@ html_conform crate
 i18n crate
 interaction hidden
 lint crate
-mobile queued
+mobile crate
 model curated
 output curated
 page_flow hidden

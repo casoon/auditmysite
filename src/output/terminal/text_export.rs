@@ -43,6 +43,10 @@ fn scenarios() -> Vec<(String, ExperimentalIndicators)> {
     };
     push("none", &|_| {});
     push("ux", &|s| s.ux = Some(crate::analyze_ux(&tree)));
+    push("ux with heuristics", &|s| {
+        s.ux = Some(crate::analyze_ux(&tree));
+        s.ux_heuristics = Some(crate::ux::analyze_ux_heuristics(&tree));
+    });
     push("journey", &|s| {
         s.journey = Some(crate::page_flow::analyze_journey(&tree))
     });
