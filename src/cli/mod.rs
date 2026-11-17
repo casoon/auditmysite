@@ -15,3 +15,6 @@ pub use args::{
     SampleStrategy, WcagLevel,
 };
 pub use config::Config;
+// The two helpers the binaries share with the library (`truncate_url`, `build_browser_client`);
+// `util` itself is `pub(crate)` (#940).
+pub use crate::util::{build_browser_client, truncate_url};

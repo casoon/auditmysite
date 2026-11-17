@@ -5,6 +5,9 @@
 //!   to the table as `curated` on purpose (and to the table in api.md).
 //! * A table line that disagrees with `lib.rs` fails, so a narrowed module has to be moved to
 //!   `crate` and a widened one cannot slip back unnoticed.
+//! * `hidden` is a `pub mod` that carries `#[doc(hidden)]`: deliberately not API, public only for
+//!   a test, a corpus or the dev binary. The table and the attribute have to agree, and a
+//!   `pub(crate)` module is `crate`, not `hidden`.
 //! * `queued` is a shrinking list, not a baseline: its count may not exceed `QUEUED_CEILING`,
 //!   which is lowered with every module that leaves it and never raised.
 //! * Every module of the table has a row in the api.md table.
@@ -16,15 +19,23 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
-/// Modules that are `pub` only because a binary, a test or Studio imports from them. Lower it
-/// when one is narrowed; do not raise it.
-const QUEUED_CEILING: usize = 24;
+/// Modules that are `pub` only because a binary, a test or Studio imports from them and that
+/// are neither narrowed nor `hidden` yet. Lower it when one leaves; do not raise it.
+const QUEUED_CEILING: usize = 1;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum Tier {
     Curated,
+    Hidden,
     Queued,
     Crate,
+}
+
+/// How a module is declared in `lib.rs`.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+struct Decl {
+    is_pub: bool,
+    doc_hidden: bool,
 }
 
 fn read(rel: &str) -> String {
@@ -32,21 +43,29 @@ fn read(rel: &str) -> String {
         .unwrap_or_else(|e| panic!("{rel}: {e}"))
 }
 
-/// `name -> is_pub` for every `pub mod x;` / `pub(crate) mod x;` line of `lib.rs`.
-fn lib_modules(lib_rs: &str) -> BTreeMap<String, bool> {
+/// `name -> declaration` for every `pub mod x;` / `pub(crate) mod x;` line of `lib.rs`; whether
+/// the preceding non-blank line is `#[doc(hidden)]` is part of the declaration.
+fn lib_modules(lib_rs: &str) -> BTreeMap<String, Decl> {
     let mut modules = BTreeMap::new();
+    let mut previous = "";
     for line in lib_rs.lines() {
         let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
         let (is_pub, rest) = if let Some(rest) = line.strip_prefix("pub mod ") {
             (true, rest)
         } else if let Some(rest) = line.strip_prefix("pub(crate) mod ") {
             (false, rest)
         } else {
+            previous = line;
             continue;
         };
         if let Some(name) = rest.strip_suffix(';') {
-            modules.insert(name.trim().to_string(), is_pub);
+            let doc_hidden = previous == "#[doc(hidden)]";
+            modules.insert(name.trim().to_string(), Decl { is_pub, doc_hidden });
         }
+        previous = line;
     }
     modules
 }
@@ -64,6 +83,7 @@ fn parse_table(table: &str) -> Result<BTreeMap<String, Tier>, String> {
         };
         let tier = match tier {
             "curated" => Tier::Curated,
+            "hidden" => Tier::Hidden,
             "queued" => Tier::Queued,
             "crate" => Tier::Crate,
             other => return Err(format!("{name}: unknown tier `{other}`")),
@@ -82,8 +102,9 @@ fn surface_problems(lib_rs: &str, table: &str, api_md: &str, queued_ceiling: usi
     };
     let modules = lib_modules(lib_rs);
     let mut problems = Vec::new();
-    for (name, is_pub) in &modules {
-        match (rows.get(name), is_pub) {
+    for (name, decl) in &modules {
+        let tier = rows.get(name);
+        match (tier, decl.is_pub) {
             (None, true) => problems.push(format!(
                 "`pub mod {name}` is not in the table: make it `pub(crate)`, or add it as \
                  `curated` with its items in docs/reference/api.md"
@@ -91,10 +112,22 @@ fn surface_problems(lib_rs: &str, table: &str, api_md: &str, queued_ceiling: usi
             (Some(Tier::Crate), true) => problems.push(format!(
                 "`{name}` is `crate` in the table but `pub` in lib.rs: it was widened again"
             )),
-            (Some(Tier::Curated | Tier::Queued), false) => problems.push(format!(
+            (Some(Tier::Curated | Tier::Queued | Tier::Hidden), false) => problems.push(format!(
                 "`{name}` is `pub(crate)` in lib.rs: move it to `crate` in the table"
             )),
             _ => {}
+        }
+        if decl.is_pub {
+            match (tier, decl.doc_hidden) {
+                (Some(Tier::Hidden), false) => problems.push(format!(
+                    "`{name}` is `hidden` in the table but `pub mod {name}` has no \
+                     `#[doc(hidden)]` in lib.rs"
+                )),
+                (Some(Tier::Curated | Tier::Queued), true) => problems.push(format!(
+                    "`{name}` carries `#[doc(hidden)]` in lib.rs: move it to `hidden` in the table"
+                )),
+                _ => {}
+            }
         }
     }
     for name in rows.keys().filter(|n| !modules.contains_key(*n)) {
@@ -165,6 +198,25 @@ fn the_check_rejects_new_widened_stale_and_grown_entries() {
     // the queued list may not grow past its ceiling
     let grown = surface_problems(lib, ok, api, 0);
     assert_eq!(grown.len(), 1, "{grown:?}");
+
+    // `hidden` and `#[doc(hidden)]` agree, across blank lines too; a `pub(crate)` module is
+    // `crate`, never `hidden`
+    let hidden_lib = "#[doc(hidden)]\n\npub mod a;\npub(crate) mod b;\n";
+    assert!(surface_problems(hidden_lib, "a hidden\nb crate\n", api, 1).is_empty());
+    let no_attribute = surface_problems("pub mod a;\n", "a hidden\n", "| `a` |", 1);
+    assert_eq!(no_attribute.len(), 1, "{no_attribute:?}");
+    assert!(no_attribute[0].contains("no `#[doc(hidden)]`"));
+    let not_hidden = surface_problems(hidden_lib, "a queued\nb crate\n", api, 1);
+    assert_eq!(not_hidden.len(), 1, "{not_hidden:?}");
+    assert!(not_hidden[0].contains("move it to `hidden`"));
+    let narrowed_hidden = surface_problems(
+        "#[doc(hidden)]\npub(crate) mod a;\n",
+        "a hidden\n",
+        "| `a` |",
+        1,
+    );
+    assert_eq!(narrowed_hidden.len(), 1, "{narrowed_hidden:?}");
+    assert!(narrowed_hidden[0].contains("move it to `crate`"));
 }
 
 /// The files that define the report model and the public enums of the curated surface: every

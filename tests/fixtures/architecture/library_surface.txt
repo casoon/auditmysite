@@ -3,44 +3,46 @@
 #
 #   curated  `pub`; the items api.md lists for it are covered by the semver promise, the rest of
 #            the module is not and is narrowed module by module
+#   hidden   `pub` with `#[doc(hidden)]`; deliberately not API, public only because a test, a corpus
+#            or the dev binary drives it; not covered, not queued
 #   queued   `pub` only because the binaries, the integration tests or Studio import from it; not
 #            covered, to be narrowed or `#[doc(hidden)]` in a later slice
 #   crate    `pub(crate)`; no consumer outside the crate
 #
 # A new module is `pub(crate)` unless it is deliberately added here as `curated`. `queued` is not
 # a place to put new modules: its count may only fall (QUEUED_CEILING in the test).
-a11y_journey queued
-accessibility queued
-ai_visibility queued
-annotations queued
+a11y_journey hidden
+accessibility hidden
+ai_visibility hidden
+annotations hidden
 assessment crate
 audit curated
-best_practices queued
+best_practices hidden
 browser curated
 cli curated
 commerce crate
-content_visibility queued
-display queued
+content_visibility hidden
+display crate
 error curated
 html_conform crate
-i18n queued
-interaction queued
-lint queued
+i18n crate
+interaction hidden
+lint crate
 mobile queued
 model curated
 output curated
-page_flow queued
-patterns queued
-performance queued
-privacy queued
-registry queued
-screen_reader queued
-security queued
-seo queued
-source_quality queued
+page_flow hidden
+patterns hidden
+performance hidden
+privacy hidden
+registry hidden
+screen_reader hidden
+security hidden
+seo hidden
+source_quality hidden
 studio curated
-taxonomy queued
+taxonomy hidden
 tech_stack crate
-util queued
-ux queued
-wcag queued
+util crate
+ux hidden
+wcag hidden

@@ -54,7 +54,7 @@ impl RunOutcome {
 
 /// Audited URLs whose page carries `figure[data-viz="3d|interactive"]`.
 fn visual_only_urls<'a>(
-    pages: impl Iterator<Item = (&'a str, Option<&'a auditmysite::display::DisplayModesInfo>)>,
+    pages: impl Iterator<Item = (&'a str, Option<&'a auditmysite::DisplayModesInfo>)>,
 ) -> Vec<String> {
     pages
         .filter(|(_, info)| info.is_some_and(|i| i.has_visual_only_content()))

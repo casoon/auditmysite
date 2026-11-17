@@ -8,7 +8,7 @@ use crate::taxonomy::Severity;
 
 use super::LintFinding;
 
-pub fn run_all_checks(report: &Value, findings: &mut Vec<LintFinding>) {
+pub(crate) fn run_all_checks(report: &Value, findings: &mut Vec<LintFinding>) {
     check_score_consistency(report, findings);
     check_grade_consistency(report, findings);
     check_severity_occurrence_sums(report, findings);

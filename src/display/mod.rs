@@ -141,7 +141,7 @@ impl DisplayModesInfo {
 /// call replaces the whole feature list, so code that emulates other media
 /// features on an audited page (the dark colour scheme) must carry
 /// these along or it silently drops the mode's reduced motion.
-pub fn media_features(mode: Option<DisplayMode>) -> Vec<MediaFeature> {
+pub(crate) fn media_features(mode: Option<DisplayMode>) -> Vec<MediaFeature> {
     match mode {
         Some(m) if m.reduces_motion() => vec![MediaFeature {
             name: "prefers-reduced-motion".to_string(),
@@ -167,7 +167,7 @@ fn stored_choice_js(mode: DisplayMode) -> String {
 /// stored choice and the reduced-motion preference. Best effort — a failure
 /// is logged and the audit runs on in the site default, which the report
 /// then shows through [`DisplayModesInfo::active_mode`].
-pub async fn prepare_page(page: &Page, mode: Option<DisplayMode>) {
+pub(crate) async fn prepare_page(page: &Page, mode: Option<DisplayMode>) {
     if let Err(e) = page
         .execute(AddScriptToEvaluateOnNewDocumentParams::new(
             BODY_OBSERVER_JS,
@@ -228,7 +228,7 @@ pub(crate) static DISPLAY_MODES: crate::audit::collection::CollectorSpec =
 /// sets `data-display` nor contains a `figure[data-viz]` — the convention
 /// does not apply, and the report stays unchanged for such pages — or when
 /// the detection failed, which the collection record tells apart (#777).
-pub async fn detect(
+pub(crate) async fn detect(
     page: &Page,
     log: &crate::audit::collection::CollectionLog,
 ) -> Option<DisplayModesInfo> {
@@ -273,7 +273,7 @@ fn info_from_raw(raw: RawDetection) -> Option<DisplayModesInfo> {
 
 /// Report text for the mode a score belongs to. Single text source for the
 /// PDF (#406); `en` selects the language.
-pub fn audited_mode_text(mode: AuditedDisplayMode, en: bool) -> String {
+pub(crate) fn audited_mode_text(mode: AuditedDisplayMode, en: bool) -> String {
     if mode == AuditedDisplayMode::SiteDefault {
         return crate::i18n::text("output-display-site-default", en);
     }
@@ -300,7 +300,7 @@ fn audited_mode_value(mode: AuditedDisplayMode) -> &'static str {
 
 /// "Offers display modes: visual · calm · text" — or why not. Single text
 /// source for the PDF (#406).
-pub fn offered_modes_text(info: Option<&DisplayModesInfo>, en: bool) -> String {
+pub(crate) fn offered_modes_text(info: Option<&DisplayModesInfo>, en: bool) -> String {
     let Some(info) = info.filter(|i| i.offers_display_modes) else {
         return crate::i18n::text("output-display-offered-none", en);
     };

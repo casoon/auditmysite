@@ -11,8 +11,8 @@ use runemark::{
     Console, ProgressMode, ProgressSink, SilentProgress, TerminalProgress, Tone, Verdict,
 };
 
+use auditmysite::cli::truncate_url;
 use auditmysite::cli::ProgressPolicy;
-use auditmysite::util::truncate_url;
 
 pub(crate) struct BatchLifecyclePresenter {
     sink: Box<dyn ProgressSink>,
