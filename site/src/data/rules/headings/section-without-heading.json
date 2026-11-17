@@ -10,7 +10,7 @@
   "axe_id": "heading-order",
   "severity": "low",
   "user_impact": "Users cannot jump directly to specific content.",
-  "technical_impact": "Missing sub-headings in long content blocks.",
+  "technical_impact": "An <article> or a named <section> (with aria-label or aria-labelledby) contains no heading of its own, so heading navigation in a screen reader offers no entry for it; reported as a review hint, because whether a section needs a heading depends on its content (WCAG 2.4.10, AAA).",
   "checks": [
     {
       "contract_id": "headings/section-without-heading",

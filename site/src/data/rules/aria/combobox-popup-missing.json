@@ -10,7 +10,7 @@
   "axe_id": "aria-combobox-options",
   "severity": "medium",
   "user_impact": "Screen reader users cannot tell what choices the combobox offers.",
-  "technical_impact": "combobox without associated listbox/option elements.",
+  "technical_impact": "An element with role=\"combobox\" and aria-expanded=\"true\" has neither aria-controls nor aria-owns and contains no listbox, tree, grid or dialog, so assistive technology cannot find the popup it opened.",
   "checks": [
     {
       "contract_id": "aria/combobox-popup-missing",

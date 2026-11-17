@@ -10,7 +10,7 @@
   "axe_id": "abbreviations",
   "severity": "low",
   "user_impact": "Users do not understand the content if they do not know the abbreviation.",
-  "technical_impact": "An abbreviation appears as plain text without <abbr title> or an expansion on first use, so a screen reader spells out the letters or guesses and nothing in the DOM supplies the long form.",
+  "technical_impact": "An <abbr> or <acronym> element has no title attribute, so the markup supplies no expansion of the abbreviation; reported as a review hint, because the long form may be given in the text or in a glossary (WCAG 3.1.4, AAA).",
   "checks": [
     {
       "contract_id": "language/abbreviation-unexpanded",

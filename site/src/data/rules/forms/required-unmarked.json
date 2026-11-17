@@ -10,7 +10,7 @@
   "axe_id": "label",
   "severity": "high",
   "user_impact": "Users do not know what input is expected.",
-  "technical_impact": "A control carries required or aria-required=\"true\" but its label shows no visible marker; the state reaches the accessibility tree, but only a human can check whether sighted users see it.",
+  "technical_impact": "A control carries required or aria-required=\"true\", but neither its accessible name nor its aria-describedby description contains a marker such as \"*\" or the word \"required\"; the state reaches the accessibility tree, but only a human can tell whether a note elsewhere, for example above the form, tells sighted users; reported as a review hint.",
   "checks": [
     {
       "contract_id": "forms/required-unmarked",

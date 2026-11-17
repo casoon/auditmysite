@@ -9,7 +9,7 @@
   "level": "A",
   "axe_id": "region",
   "severity": "medium",
-  "user_impact": "Content outside a landmark region.",
+  "user_impact": "Screen reader users who jump between landmarks never reach this content.",
   "technical_impact": "Visible content sits outside every landmark region (<header>, <nav>, <main>, <footer> or a role equivalent), so landmark navigation in a screen reader skips it and region shortcuts cannot reach it.",
   "checks": [
     {

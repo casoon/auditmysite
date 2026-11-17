@@ -10,7 +10,7 @@
   "axe_id": "pointer-cancellation",
   "severity": "medium",
   "user_impact": "Users may trigger actions accidentally without being able to cancel them.",
-  "technical_impact": "Event handlers respond to mousedown or touchstart instead of click or mouseup.",
+  "technical_impact": "The check does not look at event handlers: when the page contains anything a pointer can operate (links, buttons, form controls, elements with click, mouse or touch handlers, a tabindex or a widget role) it adds one manual-check note to verify that actions do not fire on the down-event or can be aborted or undone.",
   "checks": [
     {
       "contract_id": "pointer-cancellation",

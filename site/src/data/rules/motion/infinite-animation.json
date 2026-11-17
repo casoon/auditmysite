@@ -10,7 +10,7 @@
   "axe_id": "pause-stop-hide",
   "severity": "medium",
   "user_impact": "Users with attention or cognitive impairments, and screen reader users, are distracted or disrupted by continuously running motion they cannot turn off.",
-  "technical_impact": "`<marquee>` element without pause control, or an element with animation-iteration-count: infinite exceeding 5 seconds per cycle with no detectable pause control or prefers-reduced-motion support.",
+  "technical_impact": "A <marquee> or an element whose animation repeats endlessly (animation-iteration-count: infinite) is present and the page has no switch or button whose label offers to pause, stop or hide it; reported as a review hint, because the duration of the motion and whether such a control works are not measured.",
   "checks": [
     {
       "contract_id": "motion/infinite-animation",

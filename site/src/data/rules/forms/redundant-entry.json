@@ -10,7 +10,7 @@
   "axe_id": "redundant-entry",
   "severity": "medium",
   "user_impact": "Users must retype data they already entered, which costs time and is an extra burden especially for people with motor or cognitive impairments.",
-  "technical_impact": "Form fields without an autocomplete attribute, prefilled value, or reuse option for already-captured values.",
+  "technical_impact": "A <form> asks for the same kind of information (name, e-mail address, phone number, street address or postal code) in more than one field, and the fields have no specific autocomplete value or prefilled value and the form offers no \"same as\" option, so users must type the data again; reported as a review hint, because only a person can tell whether both fields mean the same entry (confirmation and one-time-code fields are exempt).",
   "checks": [
     {
       "contract_id": "forms/redundant-entry",

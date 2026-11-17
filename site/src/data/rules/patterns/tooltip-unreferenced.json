@@ -2,15 +2,15 @@
   "id": "patterns/tooltip-unreferenced",
   "url": "https://casoon.github.io/auditmysite/rules/patterns/tooltip-unreferenced/",
   "domain": "wcag",
-  "title": "Inaccessible hover or focus content (tooltips)",
+  "title": "Tooltip not referenced by its trigger",
   "outcome": "hint-only",
   "area": "Accessibility, Visual Presentation",
   "criterion": "1.4.13",
   "level": "AA",
   "axe_id": "content-on-hover-focus",
   "severity": "medium",
-  "user_impact": "Users cannot read tooltip content, cannot dismiss it via keyboard, or it is ignored by screen readers.",
-  "technical_impact": "Incomplete ARIA linkage (aria-describedby) or missing controls.",
+  "user_impact": "Screen reader users are never told the tooltip text, because nothing points to it.",
+  "technical_impact": "An element with role=\"tooltip\" is not referenced by any aria-describedby or aria-labelledby, so assistive technology never announces its text for the element that triggers it; reported as a best practice.",
   "checks": [
     {
       "contract_id": "patterns/tooltip-unreferenced",

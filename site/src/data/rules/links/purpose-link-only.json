@@ -10,7 +10,7 @@
   "axe_id": "link-name-only",
   "severity": "medium",
   "user_impact": "Users must read the entire paragraph to understand a link's destination.",
-  "technical_impact": "Generic link text such as 'read more' or 'click here'.",
+  "technical_impact": "The text of an <a> on its own is a vague phrase such as \"read more\", \"click here\" or \"details\" and only its surroundings name the target, so a screen reader link list reads out the same vague names and the purpose is not clear from the link text alone (WCAG 2.4.9, AAA); reported as a review hint.",
   "checks": [
     {
       "contract_id": "links/purpose-link-only",

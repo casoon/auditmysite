@@ -10,7 +10,7 @@
   "axe_id": "focus-no-context-change",
   "severity": "high",
   "user_impact": "Confusing page changes for keyboard users.",
-  "technical_impact": "An element has an onfocus handler that may navigate, submit or open a window, and it runs the moment keyboard focus arrives, so Tab alone changes the context; the markup cannot show what the handler does.",
+  "technical_impact": "An element that is neither natively interactive nor has an interactive role carries an onfocus handler, which runs the moment focus arrives and may change the context (navigate, submit, open a window); the markup cannot show what it does, so it is reported as a review hint.",
   "checks": [
     {
       "contract_id": "context/on-focus",

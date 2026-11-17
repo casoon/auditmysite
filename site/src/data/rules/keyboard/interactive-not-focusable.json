@@ -10,7 +10,7 @@
   "axe_id": "keyboard",
   "severity": "critical",
   "user_impact": "Keyboard users are excluded from functionality.",
-  "technical_impact": "Click handler without keyboard alternative.",
+  "technical_impact": "An element with an interactive role (button, link, checkbox, radio, switch, menuitem, tab, option or treeitem) is not natively focusable, has no tabindex and is neither disabled nor managed through aria-activedescendant, so the Tab key skips it although a screen reader announces it as operable; reported as a review hint, because a script may handle the keys.",
   "checks": [
     {
       "contract_id": "keyboard/interactive-not-focusable",

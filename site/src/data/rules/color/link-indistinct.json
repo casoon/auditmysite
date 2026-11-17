@@ -10,7 +10,7 @@
   "axe_id": "link-in-text-block",
   "severity": "medium",
   "user_impact": "Users with color vision deficiency cannot recognize in-text links.",
-  "technical_impact": "No underline, bold weight or other non-color cue present.",
+  "technical_impact": "A link in running text has no underline and the same weight, style, font, border and background as the surrounding text, so it differs from it by colour alone; a violation when the colour contrast to the surrounding text is below 3:1, otherwise a review hint to check that hover and focus add a cue other than colour.",
   "checks": [
     {
       "contract_id": "color/link-indistinct",

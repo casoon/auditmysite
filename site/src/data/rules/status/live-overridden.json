@@ -10,7 +10,7 @@
   "axe_id": "aria-live-region-role",
   "severity": "medium",
   "user_impact": "Screen readers do not announce status messages correctly.",
-  "technical_impact": "Conflict between role (alert/status/log/timer) and aria-live value.",
+  "technical_impact": "An element with role alert, status or log has an aria-live value that overrides the default of its role: aria-live=\"off\" silences its announcements (a violation), a different urgency (polite or assertive instead of the default) only changes the timing and is a review hint.",
   "checks": [
     {
       "contract_id": "status/live-overridden",
