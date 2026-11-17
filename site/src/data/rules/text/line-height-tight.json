@@ -10,7 +10,7 @@
   "axe_id": "visual-presentation",
   "severity": "low",
   "user_impact": "Users with visual impairments or dyslexia have difficulty reading.",
-  "technical_impact": "The computed line-height of a text block is below 1.5 times its font size, so lines sit tightly packed and readers who enlarge text or have dyslexia lose track of the line.",
+  "technical_impact": "A stylesheet gives the <p> paragraphs of the page a line-height below 1.5 (as a number, em or percentage value), so lines sit tightly packed and readers who enlarge text or have dyslexia lose track of the line; the value comes from the style rules, not from rendered styles, and is reported as a review hint.",
   "checks": [
     {
       "contract_id": "text/line-height-tight",

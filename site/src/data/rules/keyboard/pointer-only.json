@@ -10,7 +10,7 @@
   "axe_id": "click-events-have-key-events",
   "severity": "high",
   "user_impact": "Keyboard users cannot trigger the function.",
-  "technical_impact": "A non-interactive element has a click listener but no key handler (onkeydown or onkeyup) and no interactive role, so its function can only be triggered with a pointer and it is exposed as plain text.",
+  "technical_impact": "An element looks clickable (cursor: pointer or an onclick attribute) but has no role or tabindex and neither contains nor sits inside a control, so keyboard users cannot reach it if it does something and a screen reader exposes it as plain text; reported as a review hint.",
   "checks": [
     {
       "contract_id": "keyboard/pointer-only",

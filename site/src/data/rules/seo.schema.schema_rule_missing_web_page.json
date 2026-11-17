@@ -2,7 +2,7 @@
   "id": "seo.schema.schema_rule_missing_web_page",
   "url": "https://casoon.github.io/auditmysite/rules/seo.schema.schema_rule_missing_web_page/",
   "domain": "schema",
-  "title": "WebPage: missing required properties",
+  "title": "WebPage: missing recommended properties",
   "outcome": "automatic",
   "area": "SEO, structured data",
   "checks": [

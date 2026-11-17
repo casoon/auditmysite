@@ -2,15 +2,15 @@
   "id": "focus-visible",
   "url": "https://casoon.github.io/auditmysite/rules/focus-visible/",
   "domain": "wcag",
-  "title": "Focus indicator not visible",
+  "title": "Page without focusable elements",
   "outcome": "manual",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.4.7",
   "level": "AA",
   "axe_id": "focus-visible",
   "severity": "high",
-  "user_impact": "Keyboard users cannot see which element is focused.",
-  "technical_impact": "A CSS rule sets outline: none (or outline: 0) on a focusable element without a replacement style such as box-shadow or border, so keyboard users see no focus indicator.",
+  "user_impact": "Keyboard users have nothing to tab to.",
+  "technical_impact": "The accessibility tree of a page with more than five nodes contains no focusable or interactive node besides the document root, so a keyboard user has no focus to see or move, often because controls are built from plain elements; reported as a warning only, because WCAG 2.4.7 does not apply without a keyboard-operable interface.",
   "checks": [
     {
       "contract_id": "focus-visible",

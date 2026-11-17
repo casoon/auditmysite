@@ -10,7 +10,7 @@
   "axe_id": "aria-allowed-attr",
   "severity": "high",
   "user_impact": "Assistive technologies ignore the attribute or interpret it incorrectly.",
-  "technical_impact": "The attribute/role combination does not match the ARIA specification.",
+  "technical_impact": "An ARIA attribute is not supported by the role of the element (for example aria-checked on role=\"img\" or aria-expanded on a <div>), duplicates a native attribute (aria-disabled next to disabled), or is not a global attribute on <audio> or <video>, so assistive technology ignores it or reads a wrong state.",
   "checks": [
     {
       "contract_id": "aria/attribute-not-allowed",

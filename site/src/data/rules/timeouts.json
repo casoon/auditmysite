@@ -10,7 +10,7 @@
   "axe_id": "timeouts",
   "severity": "medium",
   "user_impact": "Users lose unsaved data without warning.",
-  "technical_impact": "A script ends the session or reloads the page after inactivity without a dialog or live-region warning beforehand, so assistive technology announces nothing and the session cannot be extended in time; the timer is not visible in the markup.",
+  "technical_impact": "The check does not look for timers or session handling: on every page audited at level AAA it adds one manual-check note, because whether users are warned before an inactivity timeout can cause data loss (at least 20 seconds ahead) cannot be seen in the markup.",
   "checks": [
     {
       "contract_id": "timeouts",

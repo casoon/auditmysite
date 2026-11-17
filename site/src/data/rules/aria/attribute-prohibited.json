@@ -10,7 +10,7 @@
   "axe_id": "aria-prohibited-attr",
   "severity": "high",
   "user_impact": "Screen readers receive contradictory or invalid semantics.",
-  "technical_impact": "ARIA attributes do not match the implicit or explicit role.",
+  "technical_impact": "An element carries an ARIA attribute that WAI-ARIA 1.2 prohibits for its implicit or explicit role, for example aria-label on role=\"presentation\"; empty values are not reported.",
   "checks": [
     {
       "contract_id": "aria/attribute-prohibited",

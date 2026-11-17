@@ -10,7 +10,7 @@
   "axe_id": "css-overflow-hidden",
   "severity": "high",
   "user_impact": "Users zooming to 400% must scroll in two directions — content becomes inaccessible.",
-  "technical_impact": "Fixed widths or overflow:hidden prevent responsive reflow.",
+  "technical_impact": "At a viewport 320 CSS pixels wide the page still overflows horizontally because of an element outside the exceptions of 1.4.10 (data tables, images, maps, diagrams and video may scroll), so users zooming to 400% must scroll in two directions; measured in the browser, not read from CSS.",
   "checks": [
     {
       "contract_id": "css-overflow-hidden",

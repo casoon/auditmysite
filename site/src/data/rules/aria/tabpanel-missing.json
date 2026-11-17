@@ -10,7 +10,7 @@
   "axe_id": "aria-tablist-tabpanel",
   "severity": "medium",
   "user_impact": "Screen reader users cannot locate the content associated with a tab after activating it.",
-  "technical_impact": "tablist without an accompanying tabpanel element.",
+  "technical_impact": "An element with role=\"tablist\" exists but no element with role=\"tabpanel\" anywhere in the document, so activating a tab shows no content that assistive technology can relate to it; reported as a review hint.",
   "checks": [
     {
       "contract_id": "aria/tabpanel-missing",

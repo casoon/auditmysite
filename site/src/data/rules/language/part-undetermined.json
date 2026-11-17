@@ -2,7 +2,7 @@
   "id": "language/part-undetermined",
   "url": "https://casoon.github.io/auditmysite/rules/language/part-undetermined/",
   "domain": "wcag",
-  "title": "Check text in another language without lang",
+  "title": "Check foreign-language passages for a lang attribute by hand",
   "outcome": "hint-only",
   "area": "Accessibility, Language & Clarity",
   "criterion": "3.1.2",

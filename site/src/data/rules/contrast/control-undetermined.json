@@ -10,7 +10,7 @@
   "axe_id": "non-text-contrast",
   "severity": "medium",
   "user_impact": "Interactive elements are hard to recognize.",
-  "technical_impact": "The contrast of a control boundary or icon could not be computed because of an image or gradient background or an unresolvable color, so the 3:1 ratio stays unmeasured and needs a manual check.",
+  "technical_impact": "The background behind a custom-drawn checkbox, radio button, switch or range input could not be resolved from the computed style of its parent element, so the 3:1 ratio of its boundary stays unmeasured and needs a manual check.",
   "checks": [
     {
       "contract_id": "contrast/control-undetermined",

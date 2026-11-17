@@ -10,7 +10,7 @@
   "axe_id": "frame-title",
   "severity": "high",
   "user_impact": "Screen reader users cannot identify the purpose and content of the embedded frame.",
-  "technical_impact": "Missing accessible name on iframe/frame.",
+  "technical_impact": "An <iframe> that Tab can reach and that is visible (no negative tabindex, not 0 or 1 pixel wide and high, not display: none) has no accessible name from title, aria-label or aria-labelledby, so a screen reader entering the frame announces no name and its content stays unidentified; <frame> is not checked.",
   "checks": [
     {
       "contract_id": "frames/name-missing",

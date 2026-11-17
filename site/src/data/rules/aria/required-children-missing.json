@@ -10,7 +10,7 @@
   "axe_id": "aria-required-children",
   "severity": "medium",
   "user_impact": "Assistive technologies cannot resolve the relationship between the widget's parts.",
-  "technical_impact": "e.g. role=\"tablist\" without corresponding role=\"tabpanel\" elements.",
+  "technical_impact": "An element whose role requires owned parts, for example tablist without tab, list without listitem or menu without menuitem, contains or owns none of them, unless it is collapsed with aria-expanded=\"false\" or busy.",
   "checks": [
     {
       "contract_id": "aria/required-children-missing",

@@ -10,7 +10,7 @@
   "axe_id": "location",
   "severity": "low",
   "user_impact": "Users lose orientation within nested websites.",
-  "technical_impact": "Missing breadcrumb navigation or sitemap linkage.",
+  "technical_impact": "The page has a link inside a <nav> or role=\"navigation\" but no element with aria-current=\"page\" and no element whose aria-label contains \"breadcrumb\", so the markup does not show the current location and a screen reader announces no current page in the navigation; reported only as a review hint, because a title, headings or a sitemap can also satisfy the criterion.",
   "checks": [
     {
       "contract_id": "navigation/location-missing",

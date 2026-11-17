@@ -10,7 +10,7 @@
   "axe_id": "duplicate-id-aria",
   "severity": "high",
   "user_impact": "Assistive technologies cannot reliably determine which element is referenced.",
-  "technical_impact": "The referenced ID occurs more than once in the DOM.",
+  "technical_impact": "An id listed in the aria-owns of one element is already listed in the aria-owns of another element, so the owned element has two owners and assistive technology cannot decide which one it belongs to.",
   "checks": [
     {
       "contract_id": "aria/owns-conflict",

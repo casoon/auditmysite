@@ -10,7 +10,7 @@
   "axe_id": "label-in-name",
   "severity": "high",
   "user_impact": "Voice-control users cannot address the element.",
-  "technical_impact": "aria-label diverges from the visible text.",
+  "technical_impact": "The accessible name that aria-label or aria-labelledby gives a button, link or other control named from its content does not contain its visible label text, so a voice control user who says what is shown cannot activate it; a review hint when the same words only appear in another order or the visible text is more than twice as long as the name; symbol-only and single-character labels are exempt.",
   "checks": [
     {
       "contract_id": "label-in-name/mismatch",

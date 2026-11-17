@@ -10,7 +10,7 @@
   "axe_id": "bypass",
   "severity": "high",
   "user_impact": "Keyboard users must tab through the navigation on every page change.",
-  "technical_impact": "Missing skip link, missing HTML5 landmarks.",
+  "technical_impact": "The document has no heading (<h1> to <h6> or role=\"heading\"), no main landmark and no skip link, so nothing lets keyboard and screen reader users jump past repeated navigation or header blocks; a violation when a navigation or header landmark exists and no scripted control could hide it, otherwise a review hint (also when a modal dialog was open at measurement time).",
   "checks": [
     {
       "contract_id": "headings/none",
