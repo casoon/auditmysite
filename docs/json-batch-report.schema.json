@@ -679,7 +679,18 @@
         },
         "failed_url_count": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "description": "Deprecated alias: pages whose own decision is not pass (warn or fail). Read fail_url_count and warn_url_count."
+        },
+        "fail_url_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Pages whose own decision is fail."
+        },
+        "warn_url_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Pages whose own decision is warn."
         },
         "attempted_url_count": {
           "type": "integer",

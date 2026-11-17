@@ -1383,6 +1383,10 @@ batch-reason-failed-urls = { $count ->
         [one] 1 URL hat die eigene Prüfung nicht bestanden
        *[other] { $count } URLs haben die eigene Prüfung nicht bestanden
     }
+batch-reason-warned-urls = { $count ->
+        [one] 1 URL mit Warnung
+       *[other] { $count } URLs mit Warnung
+    }
 batch-reason-violations-found = { $count } WCAG-Vorkommen gefunden
 batch-risk-summary-low = Die geprüften Seiten weisen insgesamt ein geringes Barrierefreiheits-Risiko auf.
 batch-risk-summary-medium = { $count } von { $total } geprüften Seiten weisen mindestens mittleres Risiko auf. Gezielte Verbesserungen empfohlen.

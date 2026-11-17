@@ -126,6 +126,8 @@ Every path that publishes a decision reads the stored one and validates before w
 
 Batch: a page counts as passed when its own decision passes; the batch `decision` applies the same profile to the summary (legal flags, blocking issues, technical blockers and the average accessibility score). All pages of a batch share one profile.
 
+Batch URL counts (`summary`, #899): `passed_url_count` pages with verdict `pass`, `fail_url_count` pages with verdict `fail`, `warn_url_count` pages with verdict `warn`; the three sum to `url_count`. `failed_url_count` is a deprecated alias with its 2.0.x value, the pages whose verdict is not `pass` (`fail_url_count + warn_url_count`); it is kept until 3.0. A single report carries the same fields for its one page. `schema_version` stays `2.0` (additive: both schemas gain optional properties). The batch `decision.reasons` text for those pages changes from `N URLs failed quality threshold` to `N URL(s) failed its/their own check` and `N URL(s) with a warning`, each only when its count is above zero; consumers that match the old string must read the counts instead. Batch PDF and terminal use the same split (`Failed` is `fail_url_count`, `Warned` is `warn_url_count`).
+
 ## Findings Baseline
 
 `--write-baseline <file>` records the finding ids of the run, `--baseline <file>` gates a later run against them: findings whose id is in the file are `known`, do not affect the verdict or the exit code, and are counted instead of listed. A baseline is a gating filter, not a suppression: scores, `findings[]`, `severity_counts` and every summary total stay as measured.

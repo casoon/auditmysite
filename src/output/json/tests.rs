@@ -1209,6 +1209,8 @@ fn test_collection_errors_serialized_when_present() {
             occurrence_counts_scope: "wcag_only".to_string(),
             passed_url_count: 0,
             failed_url_count: 0,
+            fail_url_count: 0,
+            warn_url_count: 0,
             attempted_url_count: None,
             coverage: None,
             exclusions: None,

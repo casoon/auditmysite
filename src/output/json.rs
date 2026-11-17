@@ -223,7 +223,14 @@ pub struct UnifiedSummary {
     pub occurrence_counts: crate::audit::normalized::SeverityCounts,
     pub occurrence_counts_scope: String,
     pub passed_url_count: usize,
+    /// URLs whose own decision is not `pass` (`warn` or `fail`). Deprecated
+    /// alias kept for consumers of 2.0.x; read `fail_url_count` and
+    /// `warn_url_count` (#899).
     pub failed_url_count: usize,
+    /// URLs whose own decision is `fail`.
+    pub fail_url_count: usize,
+    /// URLs whose own decision is `warn`.
+    pub warn_url_count: usize,
     /// Batch only: URLs the batch tried to audit. Scores and counts cover
     /// `url_count` of them; the rest could not be audited and are listed in
     /// `errors` (#651).
@@ -1060,6 +1067,8 @@ impl UnifiedReport {
             occurrence_counts_scope: "wcag_only".to_string(),
             passed_url_count: batch_report.summary.passed,
             failed_url_count: batch_report.summary.failed,
+            fail_url_count: batch_report.summary.fail_urls,
+            warn_url_count: batch_report.summary.warn_urls,
             attempted_url_count: Some(batch_report.summary.coverage.attempted),
             coverage: Some(batch_report.summary.coverage.clone()),
             exclusions: crate::audit::exclusion::BatchExclusionSummary::aggregate(
@@ -1263,6 +1272,8 @@ impl UnifiedReport {
             occurrence_counts_scope: "wcag_only".to_string(),
             passed_url_count: passed,
             failed_url_count: 1 - passed,
+            fail_url_count: usize::from(ctx.normalized.decision.verdict == Verdict::Fail),
+            warn_url_count: usize::from(ctx.normalized.decision.verdict == Verdict::Warn),
             attempted_url_count: None,
             coverage: None,
             exclusions: None,
@@ -1367,6 +1378,8 @@ impl UnifiedReport {
             occurrence_counts_scope: "wcag_only".to_string(),
             passed_url_count: passed,
             failed_url_count: 1 - passed,
+            fail_url_count: usize::from(normalized.decision.verdict == Verdict::Fail),
+            warn_url_count: usize::from(normalized.decision.verdict == Verdict::Warn),
             attempted_url_count: None,
             coverage: None,
             exclusions: None,
