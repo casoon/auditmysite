@@ -432,6 +432,14 @@ impl BrowserManager {
             "--disable-site-isolation-trials".to_string(),
             "--metrics-recording-only".to_string(),
             "--mute-audio".to_string(),
+            // Autoplay with sound without a user gesture. Headless Chrome
+            // blocks it, so every autoplaying medium would read `paused` and
+            // `media/audio-autoplay-measured` could never see one playing. A
+            // visitor can get the worst case: Chrome lets autoplay with sound
+            // through once the site has media engagement. The measure is the
+            // element's own state; `--mute-audio` above keeps the machine
+            // quiet without touching `muted`.
+            "--autoplay-policy=no-user-gesture-required".to_string(),
             "--hide-scrollbars".to_string(),
             // Suppress navigator.webdriver and other headless signals that trigger bot detection
             "--disable-blink-features=AutomationControlled".to_string(),
@@ -1273,6 +1281,10 @@ mod tests {
             .any(|a| a.starts_with("--disable-features=") && a.contains("site-per-process")));
         assert!(!args.iter().any(|a| a.starts_with("--user-data-dir=")));
         assert!(!args.iter().any(|a| a.starts_with("--window-size=")));
+        // Autoplay with sound is measured, not blocked by the headless policy.
+        assert!(args
+            .iter()
+            .any(|a| a == "--autoplay-policy=no-user-gesture-required"));
     }
 
     #[test]

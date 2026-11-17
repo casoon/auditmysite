@@ -13,6 +13,12 @@
       "verdict": "pass"
     },
     {
+      "rule_id": "timing/meta-refresh-enhanced",
+      "selector": "meta#slow-redirect",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
       "rule_id": "meta-refresh",
       "verdict": "needs_review",
       "occurrences": 1

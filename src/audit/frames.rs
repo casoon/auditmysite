@@ -173,6 +173,10 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
     "objects/alt-missing",
     "images/server-side-map",
     "media/audio-autoplay",
+    // The playback probe walks same-origin frames like the paste probe: a
+    // measured medium leaves `media/audio-autoplay`, so its measured verdict
+    // has to run there too.
+    "media/audio-autoplay-measured",
     "frames/name-missing",
     "tables/header-without-data",
     "tables/data-undetermined",

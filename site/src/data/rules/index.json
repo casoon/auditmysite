@@ -4,10 +4,10 @@
     {
       "domain": "wcag",
       "label": "WCAG rules",
-      "automatic": 77,
+      "automatic": 79,
       "hint_only": 79,
       "manual": 15,
-      "total": 171
+      "total": 173
     },
     {
       "domain": "security",
@@ -34,7 +34,7 @@
       "total": 8
     }
   ],
-  "total": 210,
+  "total": 212,
   "rules": [
     {
       "id": "display/text-hidden",
@@ -413,6 +413,14 @@
       "level": "A"
     },
     {
+      "id": "media/audio-autoplay-measured",
+      "title": "Autoplaying sound plays longer than three seconds without a control",
+      "domain": "wcag",
+      "outcome": "automatic",
+      "criterion": "1.4.2",
+      "level": "A"
+    },
+    {
       "id": "contrast/text-insufficient",
       "title": "Insufficient color contrast",
       "domain": "wcag",
@@ -665,6 +673,14 @@
       "title": "Non-suppressible interruptions (AAA)",
       "domain": "wcag",
       "outcome": "manual",
+      "criterion": "2.2.4",
+      "level": "AAA"
+    },
+    {
+      "id": "timing/meta-refresh-enhanced",
+      "title": "Page reloads or redirects itself after a delay (AAA)",
+      "domain": "wcag",
+      "outcome": "automatic",
       "criterion": "2.2.4",
       "level": "AAA"
     },

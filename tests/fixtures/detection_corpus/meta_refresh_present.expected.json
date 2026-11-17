@@ -6,6 +6,10 @@
       "verdict": "violation"
     },
     {
+      "rule_id": "timing/meta-refresh-enhanced",
+      "verdict": "violation"
+    },
+    {
       "rule_id": "focus-visible",
       "selector": "root",
       "verdict": "needs_review"

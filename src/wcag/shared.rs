@@ -1248,6 +1248,20 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Audio Control",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/audio-control.html",
     },
+    // Neu aus a11y-rules 0.30.9, keine abgelöste Regel: die Wiedergabe eines
+    // `autoplay`-Mediums gemessen (`Rendering::media_playback`, Messung
+    // `media` in `accessibility::probes`). Spielt es mit Ton länger als drei
+    // Sekunden ohne nutzbare `controls`, ist es ein Verstoß (ACT 80f0bf);
+    // ein gemessenes Element verlässt `media/audio-autoplay`. Damit Chrome
+    // ohne Nutzergeste mit Ton abspielt, startet der Browser mit
+    // `--autoplay-policy=no-user-gesture-required`.
+    SharedRule {
+        id: "media/audio-autoplay-measured",
+        criterion: "1.4.2",
+        level: WcagLevel::A,
+        name: "Audio Control (Measured Playback)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/audio-control.html",
+    },
     // Ersetzt `frame-title` aus `wcag::rules::media_rules`. `a11y-rules`
     // führt 2.4.1 und 4.1.2 (H64); auditmysite meldete unter 2.4.1 und
     // bleibt dabei. Gewollt anders: nur `<iframe>`; unsichtbar heißt
@@ -1360,6 +1374,16 @@ pub const SHARED_RULES: &[SharedRule] = &[
         level: WcagLevel::A,
         name: "Timing Adjustable",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/timing-adjustable.html",
+    },
+    // Neu aus a11y-rules 0.30.9, keine abgelöste Regel: jede verzögerte
+    // Refresh-Anweisung, auch über 20 Stunden (ACT bisz58). Der Befund trägt
+    // 2.2.4 und 3.2.5; geführt unter 2.2.4.
+    SharedRule {
+        id: "timing/meta-refresh-enhanced",
+        criterion: "2.2.4",
+        level: WcagLevel::AAA,
+        name: "Interruptions (Meta Refresh)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/interruptions.html",
     },
     // Ersetzt die Abschnittszählung aus `wcag::rules::section_headings`
     // (`heading-order`, 2.4.10). Gewollt anders: Artikel und benannte
@@ -1971,6 +1995,7 @@ pub fn probe_selection(level: WcagLevel, filter: &RuleFilterConfig) -> ProbeSele
     ProbeSelection {
         frames: wanted(&["frames/cross-origin"]),
         transforms: wanted(&["orientation/root-rotated"]),
+        media: wanted(&["media/audio-autoplay-measured"]),
         paste: wanted(&["auth/paste-blocked"]),
         focus: wanted(&[
             "focus/obscured",
@@ -1986,6 +2011,7 @@ pub fn probe_selection(level: WcagLevel, filter: &RuleFilterConfig) -> ProbeSele
 const PROBE_RULES: &[(&str, &str)] = &[
     ("frames", "frames/cross-origin"),
     ("transforms", "orientation/root-rotated"),
+    ("media", "media/audio-autoplay-measured"),
     ("paste", "auth/paste-blocked"),
     ("focus", "focus/obscured"),
     ("focus", "focus/obscured-enhanced"),
@@ -3129,12 +3155,13 @@ mod tests {
         };
         let aa = probe_selection(WcagLevel::AA, &filter(&[]));
         assert_eq!(aa, ProbeSelection::ALL);
-        // Stufe A: nur der Rahmenvermerk (A); alles andere ist AA oder AAA.
+        // Stufe A: Rahmenvermerk und Wiedergabe (A); alles andere ist AA oder AAA.
         let a = probe_selection(WcagLevel::A, &filter(&[]));
         assert_eq!(
             a,
             ProbeSelection {
                 frames: true,
+                media: true,
                 ..ProbeSelection::NONE
             }
         );

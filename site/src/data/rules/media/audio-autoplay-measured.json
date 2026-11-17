@@ -1,0 +1,44 @@
+{
+  "id": "media/audio-autoplay-measured",
+  "url": "https://casoon.github.io/auditmysite/rules/media/audio-autoplay-measured/",
+  "domain": "wcag",
+  "title": "Autoplaying sound plays longer than three seconds without a control",
+  "outcome": "automatic",
+  "area": "Accessibility, Visual Presentation",
+  "criterion": "1.4.2",
+  "level": "A",
+  "axe_id": "media/audio-autoplay-measured",
+  "severity": "medium",
+  "user_impact": "Sound that starts on its own drowns out screen reader speech, and nothing on the element stops it.",
+  "technical_impact": "Measured in the browser: an audio or video element with autoplay plays, is not muted, has an audio track, lasts more than three seconds and has no usable controls.",
+  "checks": [
+    {
+      "contract_id": "media/audio-autoplay-measured",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 1.4.2 Audio Control; HTML §4.8.11 media elements (autoplay, paused, muted, duration, media fragments); ACT 80f0bf",
+      "applicability": "<audio autoplay> and <video autoplay> in the document, open shadow roots and same-origin frames whose playback the browser measured (Rendering::media_playback, accessibility::probes): metadata within the budget and autoplay no longer waiting for data.",
+      "expectation": "Fails when the measured medium plays (paused false; ended counts as played),\nis not muted, has an audio track heard above -60 dBFS while it plays, lasts\nmore than three seconds (a media fragment #t=a,b shortens it, loop or a\nstream never ends) and has no usable native controls: the sound drowns out\na screen reader and nothing on the element stops it. Paused, muted, three\nseconds or less, no audio track, or native controls pass. An audio track\nthat stays silent while measured (a video with an empty track) or a medium\nof another origin (no capture) gives a review, as does an unknown duration.\nA control mechanism built by the page's script is not recognised (ACT 80f0bf\nPassed Example 3 fails here). Chrome runs with autoplay with sound allowed,\nthe worst case a visitor can get. A medium without a measurement stays with\nmedia/audio-autoplay; a page whose autoplay media were all unmeasured\nrecords this rule as not run (CapabilityMissing), never as a pass.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "interaction",
+        "frames"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "media_autoplay_measured",
+        "file": "tests/fixtures/detection_corpus/media_autoplay_measured.html",
+        "verdict": "violation",
+        "selector": "audio#tone",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Autoplaying sound, measured</title>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Radio</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Station jingles</h1>\n  <!-- WCAG 1.4.2, ACT 80f0bf: 30 s of audible tone, no controls, not muted. -->\n  <audio id=\"tone\" autoplay data-seconds=\"30\" data-hz=\"440\"></audio>\n  <!-- Native controls pause it: passes. -->\n  <audio id=\"tone-controls\" autoplay controls data-seconds=\"30\" data-hz=\"440\"></audio>\n  <!-- Muted: passes. -->\n  <audio id=\"tone-muted\" autoplay muted data-seconds=\"30\" data-hz=\"440\"></audio>\n  <!-- Three seconds at most: passes. -->\n  <audio id=\"jingle\" autoplay data-seconds=\"2\" data-hz=\"660\"></audio>\n  <!-- An audio track of silence: whether it is heard is not measured, a review. -->\n  <audio id=\"silence\" autoplay data-seconds=\"30\" data-hz=\"0\"></audio>\n  <p>The jingles are generated in the page as WAV files (same origin, so the audio track can be measured).</p>\n</main>\n<footer><p>Footer text</p></footer>\n<script>\n  // 16-bit mono PCM at 8 kHz: a sine of data-hz for data-seconds (0 Hz is silence).\n  function wav(seconds, hz) {\n    var rate = 8000, n = seconds * rate, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);\n    function str(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }\n    str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');\n    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);\n    v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true);\n    v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 2, true);\n    for (var i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.round(Math.sin(2 * Math.PI * hz * i / rate) * 12000), true);\n    return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));\n  }\n  document.querySelectorAll('audio[data-seconds]').forEach(function (a) {\n    a.src = wav(Number(a.dataset.seconds), Number(a.dataset.hz));\n  });\n</script>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "media_autoplay_measured",
+        "file": "tests/fixtures/detection_corpus/media_autoplay_measured.html",
+        "verdict": "pass",
+        "selector": "audio#tone-controls",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Autoplaying sound, measured</title>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Radio</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Station jingles</h1>\n  <!-- WCAG 1.4.2, ACT 80f0bf: 30 s of audible tone, no controls, not muted. -->\n  <audio id=\"tone\" autoplay data-seconds=\"30\" data-hz=\"440\"></audio>\n  <!-- Native controls pause it: passes. -->\n  <audio id=\"tone-controls\" autoplay controls data-seconds=\"30\" data-hz=\"440\"></audio>\n  <!-- Muted: passes. -->\n  <audio id=\"tone-muted\" autoplay muted data-seconds=\"30\" data-hz=\"440\"></audio>\n  <!-- Three seconds at most: passes. -->\n  <audio id=\"jingle\" autoplay data-seconds=\"2\" data-hz=\"660\"></audio>\n  <!-- An audio track of silence: whether it is heard is not measured, a review. -->\n  <audio id=\"silence\" autoplay data-seconds=\"30\" data-hz=\"0\"></audio>\n  <p>The jingles are generated in the page as WAV files (same origin, so the audio track can be measured).</p>\n</main>\n<footer><p>Footer text</p></footer>\n<script>\n  // 16-bit mono PCM at 8 kHz: a sine of data-hz for data-seconds (0 Hz is silence).\n  function wav(seconds, hz) {\n    var rate = 8000, n = seconds * rate, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);\n    function str(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }\n    str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');\n    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);\n    v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true);\n    v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 2, true);\n    for (var i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.round(Math.sin(2 * Math.PI * hz * i / rate) * 12000), true);\n    return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));\n  }\n  document.querySelectorAll('audio[data-seconds]').forEach(function (a) {\n    a.src = wav(Number(a.dataset.seconds), Number(a.dataset.hz));\n  });\n</script>\n</body>\n</html>"
+      }
+    }
+  ]
+}

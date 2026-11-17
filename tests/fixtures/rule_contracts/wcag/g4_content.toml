@@ -697,6 +697,50 @@ change = "2 targeted mutation(s) of the shared rule (disable, invert, shift thre
 killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id media/audio-autoplay)"
 
 [[rule]]
+id = "media/audio-autoplay-measured"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=media/audio-autoplay-measured)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 1.4.2 Audio Control; HTML §4.8.11 media elements (autoplay, paused, muted, duration, media fragments); ACT 80f0bf"
+capabilities = ["dom", "interaction", "frames"]
+applicability = "<audio autoplay> and <video autoplay> in the document, open shadow roots and same-origin frames whose playback the browser measured (Rendering::media_playback, accessibility::probes): metadata within the budget and autoplay no longer waiting for data."
+expectation = """
+Fails when the measured medium plays (paused false; ended counts as played),
+is not muted, has an audio track heard above -60 dBFS while it plays, lasts
+more than three seconds (a media fragment #t=a,b shortens it, loop or a
+stream never ends) and has no usable native controls: the sound drowns out
+a screen reader and nothing on the element stops it. Paused, muted, three
+seconds or less, no audio track, or native controls pass. An audio track
+that stays silent while measured (a video with an empty track) or a medium
+of another origin (no capture) gives a review, as does an unknown duration.
+A control mechanism built by the page's script is not recognised (ACT 80f0bf
+Passed Example 3 fails here). Chrome runs with autoplay with sound allowed,
+the worst case a visitor can get. A medium without a measurement stays with
+media/audio-autoplay; a page whose autoplay media were all unmeasured
+records this rule as not run (CapabilityMissing), never as a pass."""
+positive = ["media_autoplay_measured"]
+negative = ["media_autoplay_measured"]
+not_applicable = ["content_plain_article"]
+
+[rule.variants]
+visibility = { not_relevant = "Sound plays whether or not the element is rendered; an <audio> without controls is never rendered." }
+native_vs_aria = { not_relevant = "Only native <audio> and <video> autoplay; no ARIA form." }
+alternative_labels = { not_relevant = "Names and labels do not stop sound." }
+frames_shadow_dom = { not_relevant = "The probe walks open shadow roots and same-origin frames like the paste probe, whose frame cases cover the walk." }
+responsive = { not_relevant = "Autoplay does not depend on the viewport." }
+dynamic = { cases = ["media_autoplay_measured"] }
+thresholds = { cases = ["media_autoplay_measured"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/sonden.toml"
+change = "5 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id media/audio-autoplay-measured)"
+
+[[rule]]
 id = "viz/text-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=viz/text-missing)"]

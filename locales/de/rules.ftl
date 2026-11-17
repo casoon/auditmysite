@@ -153,6 +153,15 @@ rule-timing-meta-refresh = Nicht anpassbare Zeitbegrenzung
     .user-impact = Nutzer benötigen mehr Zeit für die Eingabe und können durch Timeouts Daten verlieren.
     .technical-impact = Ein <meta http-equiv="refresh" content="N"> mit N größer 0 lässt den Browser nach N Sekunden neu laden oder umleiten, und das DOM bietet keine Möglichkeit, die Frist abzuschalten oder zu verlängern.
 
+rule-timing-meta-refresh-enhanced = Seite lädt sich nach einer Frist neu oder leitet weiter (AAA)
+    .user-impact = Nutzer werden unterbrochen: Die Seite wechselt ohne Anforderung, Screenreader-Nutzer verlieren ihre Leseposition.
+    .technical-impact = Ein <meta http-equiv="refresh"> mit einer Frist über 0 lädt die Seite nach dieser Frist neu oder leitet weiter, auch über 20 Stunden.
+    .description = Die Seite lädt sich per <meta http-equiv="refresh"> nach einer Frist neu oder leitet weiter, ohne dass jemand es angefordert hat.
+    .explanation-user-impact = Wer langsam liest oder einen Screenreader nutzt, wird unterbrochen, verliert die Leseposition oder landet auf einer Seite, die er nicht angefordert hat.
+    .typical-cause = <meta http-equiv="refresh" content="300">, um Nachrichten oder ein Dashboard aufzufrischen, oder eine verzögerte Weiterleitung auf eine neue Adresse.
+    .recommendation = Auf dem Server oder mit Frist 0 weiterleiten und Inhalte von Nutzern selbst neu laden lassen.
+    .technical-note = AAA (WCAG 2.2.4 und 3.2.5, ACT bisz58): Jede Frist über 0 zählt, auch über 20 Stunden; die Ausnahme von 2.2.1 gilt hier nicht. Eine sofortige Weiterleitung (0) ist keine Unterbrechung. Es zählt nur die erste gültige Anweisung, wie im Browser.
+
 rule-motion-infinite-animation = Fehlende Pause-/Stopp-/Ausblenden-Kontrolle
     .user-impact = Nutzer mit Aufmerksamkeits- oder kognitiven Einschränkungen sowie Screenreader-Nutzer werden durch dauerhaft laufende Bewegung abgelenkt oder gestört und können sie nicht deaktivieren.
     .technical-impact = `<marquee>`-Element ohne Pause-Steuerung oder Element mit animation-iteration-count: infinite über 5 Sekunden pro Zyklus ohne erkennbare Pause-Kontrolle oder prefers-reduced-motion-Unterstützung.
@@ -402,6 +411,15 @@ rule-media-audio-autoplay = Selbststartender Ton ohne Steuerung prüfen
     .typical-cause = <audio autoplay> für Hintergrundmusik oder Werbung.
     .recommendation = Ton nicht automatisch starten oder eine Steuerung zum Anhalten bzw. Leiserstellen am Anfang der Seite anbieten.
     .technical-note = Prüfhinweis (WCAG 1.4.2): Ob der Ton länger als drei Sekunden läuft und sich anhalten lässt, steht nicht im Markup.
+
+rule-media-audio-autoplay-measured = Selbststartender Ton spielt länger als drei Sekunden ohne Steuerung
+    .user-impact = Ton, der von selbst startet, übertönt die Sprachausgabe von Screenreadern, und am Element hält ihn nichts an.
+    .technical-impact = Im Browser gemessen: Ein audio- oder video-Element mit autoplay spielt, ist nicht stummgeschaltet, hat eine Tonspur, dauert länger als drei Sekunden und hat keine nutzbaren controls.
+    .description = Ein Audio- oder Video-Element startet beim Laden der Seite von selbst und spielt länger als drei Sekunden Ton, ohne Bedienelement zum Anhalten oder Leiserstellen.
+    .explanation-user-impact = Screenreader-Nutzer hören den Ton der Seite über ihrer Sprachausgabe und finden die Steuerung zum Anhalten kaum.
+    .typical-cause = <video autoplay> oder <audio autoplay> für ein Hintergrundvideo, Musik oder Werbung, ohne controls und ohne muted.
+    .recommendation = Ton nicht automatisch starten: das Medium stummgeschaltet starten, den Ton auf höchstens drei Sekunden begrenzen oder Bedienelemente zum Anhalten und Leiserstellen anbieten.
+    .technical-note = Gemessen in Chrome nach dem Laden, mit erlaubtem Autoplay mit Ton (der ungünstigste Fall, den Besucher erleben können): paused, muted, wie lange es spielt (ein Medienfragment kürzt, loop oder ein Datenstrom endet nie) und ob es eine Tonspur hat. Unbekannte Tonspur oder Dauer ergibt eine Prüfung; ohne Messung ist die Regel nicht gelaufen (ACT 80f0bf). Bedienelemente, die ein Skript der Seite baut, sieht die Messung nicht.
 
 rule-text-justified = Eingeschränkte visuelle Darstellung von Text (AAA)
     .user-impact = Nutzer mit Sehbehinderungen oder Legasthenie haben Probleme beim Lesen.

@@ -1,8 +1,9 @@
 //! Rendering-Probes: Messungen an der laufenden Seite für die geteilten Regeln
 //! `frames/cross-origin`, `orientation/root-rotated`, `text-spacing/clipped`,
-//! `focus/obscured(-enhanced)`, `focus/indicator-missing` und
+//! `focus/obscured(-enhanced)`, `focus/indicator-missing`,
 //! `auth/paste-blocked` (a11y-dom 0.29, `Rendering::frame_reachable` und
-//! Nachbarn).
+//! Nachbarn) und `media/audio-autoplay-measured` (a11y-dom 0.30.9,
+//! `Rendering::media_playback`).
 //!
 //! # Regel dieser Datei
 //!
@@ -25,7 +26,9 @@
 //!
 //! # Was die Messungen berühren
 //!
-//! Lesend sind Rahmen und Wurzeldrehung. Einfügen (Handler laufen, `value`
+//! Lesend sind Rahmen, Wurzeldrehung und Wiedergabe (sie wartet auf die
+//! Metadaten der Medien, höchstens etwa dreieinhalb Sekunden, und nur, wenn
+//! die Seite ein `autoplay`-Medium hat). Einfügen (Handler laufen, `value`
 //! wird für einen Moment geschrieben), Fokus (Fokus und Scrollposition) und
 //! Textabstand (ein adoptiertes Stylesheet, solange gemessen wird) verändern die
 //! Seite und stellen den Zustand in einem `finally` wieder her. Was sich nicht
@@ -34,7 +37,7 @@
 
 use std::collections::HashMap;
 
-use a11y_dom::{BoxTransform, FocusCover, PasteProbe, SpacingClip};
+use a11y_dom::{BoxTransform, FocusCover, MediaPlayback, PasteProbe, SpacingClip};
 use chromiumoxide::cdp::browser_protocol::dom::DescribeNodeParams;
 use chromiumoxide::cdp::js_protocol::runtime::{
     EvaluateParams, GetPropertiesParams, ReleaseObjectGroupParams, TimeDelta,
@@ -48,6 +51,7 @@ use crate::error::{AuditError, Result};
 const COMMON_JS: &str = include_str!("js/probes/common.js");
 const FRAMES_JS: &str = include_str!("js/probes/frames.js");
 const TRANSFORMS_JS: &str = include_str!("js/probes/transforms.js");
+const MEDIA_JS: &str = include_str!("js/probes/media.js");
 const PASTE_JS: &str = include_str!("js/probes/paste.js");
 const FOCUS_JS: &str = include_str!("js/probes/focus.js");
 const SPACING_JS: &str = include_str!("js/probes/spacing.js");
@@ -66,6 +70,8 @@ pub struct ProbeSelection {
     pub frames: bool,
     /// `orientation/root-rotated` -- lesend.
     pub transforms: bool,
+    /// `media/audio-autoplay-measured` -- lesend, wartet auf Metadaten.
+    pub media: bool,
     /// `auth/paste-blocked` -- berührt die Seite.
     pub paste: bool,
     /// `focus/obscured`, `focus/obscured-enhanced`, `focus/indicator-missing`
@@ -79,6 +85,7 @@ impl ProbeSelection {
     pub const NONE: ProbeSelection = ProbeSelection {
         frames: false,
         transforms: false,
+        media: false,
         paste: false,
         focus: false,
         spacing: false,
@@ -86,6 +93,7 @@ impl ProbeSelection {
     pub const ALL: ProbeSelection = ProbeSelection {
         frames: true,
         transforms: true,
+        media: true,
         paste: true,
         focus: true,
         spacing: true,
@@ -96,7 +104,8 @@ impl ProbeSelection {
 /// Kommt als `reason` an den Ausführungsvermerk der betroffenen Regeln.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProbeNote {
-    /// Die Messung: `frames`, `transforms`, `paste`, `focus` oder `spacing`.
+    /// Die Messung: `frames`, `transforms`, `media`, `paste`, `focus` oder
+    /// `spacing`.
     pub probe: &'static str,
     pub text: String,
 }
@@ -120,6 +129,7 @@ pub struct FocusMeasure {
 pub struct Probes {
     pub frames: Option<HashMap<i64, bool>>,
     pub transforms: Option<HashMap<i64, BoxTransform>>,
+    pub media: Option<HashMap<i64, MediaPlayback>>,
     pub paste: Option<HashMap<i64, PasteProbe>>,
     pub focus: Option<HashMap<i64, FocusMeasure>>,
     pub spacing: Option<HashMap<i64, SpacingClip>>,
@@ -142,6 +152,7 @@ impl Probes {
         ProbeCounts {
             frames: self.frames.as_ref().map(HashMap::len),
             transforms: self.transforms.as_ref().map(HashMap::len),
+            media: self.media.as_ref().map(HashMap::len),
             paste: self.paste.as_ref().map(HashMap::len),
             focus: self.focus.as_ref().map(HashMap::len),
             spacing: self.spacing.as_ref().map(HashMap::len),
@@ -158,6 +169,7 @@ impl Probes {
 pub struct ProbeCounts {
     pub frames: Option<usize>,
     pub transforms: Option<usize>,
+    pub media: Option<usize>,
     pub paste: Option<usize>,
     pub focus: Option<usize>,
     pub spacing: Option<usize>,
@@ -178,6 +190,9 @@ pub async fn run_probes(page: &Page, selection: ProbeSelection) -> Probes {
             "transforms",
             measure_transforms(page).await,
         );
+    }
+    if selection.media {
+        probes.media = finish(&mut probes.notes, "media", measure_media(page).await);
     }
     if selection.paste {
         probes.paste = finish(&mut probes.notes, "paste", measure_paste(page).await);
@@ -232,11 +247,14 @@ async fn run_script(page: &Page, pass: &str, body: &str) -> Result<ScriptOutput>
     let failed = |what: &str, e: String| AuditError::AXTreeExtractionFailed {
         reason: format!("{pass}: {what}: {e}"),
     };
-    let expression = format!("(function() {{\n{COMMON_JS}\n{body}\n}})()");
+    // Asynchron, damit eine Messung warten kann (Metadaten der Medien); die
+    // übrigen sind synchron und liefern ein sofort erfülltes Versprechen.
+    let expression = format!("(async function() {{\n{COMMON_JS}\n{body}\n}})()");
     let params = EvaluateParams::builder()
         .expression(expression)
         .object_group(GROUP)
         .return_by_value(false)
+        .await_promise(true)
         .timeout(TimeDelta::new(PROBE_TIMEOUT_MS))
         .build()
         .map_err(|e| failed("Parameter", e))?;
@@ -386,6 +404,38 @@ async fn measure_transforms(page: &Page) -> Result<Measured<BoxTransform>> {
         }
     }
     Ok(Measured { values, note: None })
+}
+
+// ── Wiedergabe ───────────────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct MediaRow {
+    e: usize,
+    p: bool,
+    m: bool,
+    d: Option<f64>,
+    i: bool,
+    a: Option<bool>,
+}
+
+async fn measure_media(page: &Page) -> Result<Measured<MediaPlayback>> {
+    let out = run_script(page, "Wiedergabedurchgang", MEDIA_JS).await?;
+    let mut values = HashMap::new();
+    for row in rows::<MediaRow>(&out.json, "Wiedergabedurchgang")? {
+        if let Some(Some(id)) = out.ids.get(row.e) {
+            values.insert(
+                *id,
+                MediaPlayback {
+                    paused: Some(row.p),
+                    muted: Some(row.m),
+                    duration_s: if row.i { Some(f64::INFINITY) } else { row.d },
+                    has_audio: row.a,
+                },
+            );
+        }
+    }
+    let note = skipped(&out.json, "media elements", "50");
+    Ok(Measured { values, note })
 }
 
 // ── Einfügen ─────────────────────────────────────────────────────────────────

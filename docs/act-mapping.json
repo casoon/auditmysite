@@ -151,10 +151,11 @@
       ],
       "coverage": "partial",
       "internal_rules": [
-        "media/audio-autoplay"
+        "media/audio-autoplay",
+        "media/audio-autoplay-measured"
       ],
       "related_rules": [],
-      "note": "Internal rule covers audio only and ends in review; ACT also covers video and is a composite of two sub-rules."
+      "note": "Playback is measured in the browser (paused, muted, duration, audible audio track): audio and video that play sound for more than three seconds without native controls fail. A control mechanism built by the page's own script is not recognised (ACT Passed Example 3 fails), a silent or unmeasurable audio track gives a review, and without a measurement only the markup review of media/audio-autoplay remains."
     },
     {
       "act_id": "e7aa44",
@@ -928,12 +929,14 @@
         "2.2.4",
         "3.2.5"
       ],
-      "coverage": "partial",
+      "coverage": "full",
       "internal_rules": [
+        "timing/meta-refresh-enhanced"
+      ],
+      "related_rules": [
         "timing/meta-refresh"
       ],
-      "related_rules": [],
-      "note": "Internal rule keeps the 20-hour exception that this variant removes, so it misses delays of 20 hours or more."
+      "note": "Every refresh with a delay above 0 fails, also 20 hours or more; only the first valid refresh counts, as in the browser."
     },
     {
       "act_id": "b4f0c3",
