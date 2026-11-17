@@ -286,7 +286,7 @@ impl Interpretation {
         // tier — not the weighted technical value (#896).
         let verdict_key = pick_verdict_key(
             ctx.normalized.score,
-            ctx.normalized.risk.legal_flags,
+            ctx.normalized.risk.severe_legal_flags,
             &ctx.normalized.severity_counts,
         );
         let score_note_key = pick_score_note_key(ctx);
@@ -836,10 +836,10 @@ fn top_tier_key(key: String, counts: &crate::audit::normalized::SeverityCounts) 
 
 fn pick_verdict_key(
     score: u32,
-    legal_flags: usize,
+    severe_legal_flags: usize,
     counts: &crate::audit::normalized::SeverityCounts,
 ) -> String {
-    match legal_gate("verdict-tier", score, legal_flags) {
+    match legal_gate("verdict-tier", score, severe_legal_flags) {
         Some(key) => key,
         None => top_tier_key(verdict_tier_key("verdict-tier", score), counts),
     }
@@ -848,19 +848,19 @@ fn pick_verdict_key(
 /// The batch cover sentence: the band of the average accessibility score,
 /// under the same legal gate as a single page (#356) — a batch that fails on
 /// legal flags must not read "a very good result" (#1039).
-pub fn batch_verdict_key(average: u32, legal_flags: usize) -> String {
-    legal_gate("verdict-batch", average, legal_flags)
+pub fn batch_verdict_key(average: u32, severe_legal_flags: usize) -> String {
+    legal_gate("verdict-batch", average, severe_legal_flags)
         .unwrap_or_else(|| verdict_tier_key("verdict-batch", average))
 }
 
-/// Legal-relevant Level-A/AA findings never receive a reassuring tier,
+/// Legal flags of High/Critical severity never receive a reassuring tier,
 /// regardless of an otherwise passable score (#356): the tier drops to
 /// `deficient`. `None` when the gate does not apply.
-fn legal_gate(prefix: &str, score: u32, legal_flags: usize) -> Option<String> {
+fn legal_gate(prefix: &str, score: u32, severe_legal_flags: usize) -> Option<String> {
     let key = verdict_tier_key(prefix, score);
     let deficient = format!("{prefix}-deficient");
     let critical = format!("{prefix}-critical");
-    (legal_flags > 0 && key != deficient && key != critical).then_some(deficient)
+    (severe_legal_flags > 0 && key != deficient && key != critical).then_some(deficient)
 }
 
 fn pick_score_note_key(normalized: &AuditContext<'_>) -> Option<String> {

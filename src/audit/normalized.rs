@@ -636,7 +636,7 @@ impl NormalizedFinding {
         self.contract.domain.category()
     }
 
-    /// See [`is_bfsg_relevant_open`].
+    /// See [`is_bfsg_relevant_open`]: the one test for a legal flag.
     pub fn is_bfsg_relevant(&self) -> bool {
         is_bfsg_relevant_open(
             &self.bfsg_relevance,
@@ -645,31 +645,30 @@ impl NormalizedFinding {
         )
     }
 
-    /// Raises a legal flag: a WCAG Level-A or Level-AA finding of High or
-    /// Critical severity, automatically confirmed (#922). BFSG and EN 301 549
-    /// require AA, so a High contrast failure (1.4.3) flags as a Level-A one
-    /// does. A convention rule (`display/*`) never does (#704) — it is only
-    /// anchored to a criterion, it does not test it; nor does a criterion
-    /// without a normative clause in EN 301 549 V4.1.1 (AAA criteria,
-    /// retired 4.1.1 Parsing): both derive `bfsg_relevance` "low".
-    pub fn is_legal_flag(&self) -> bool {
-        // A finding that still needs a manual check is no legal flag, however
-        // severe its rule (plan 74).
-        matches!(self.wcag_level.as_str(), "A" | "AA")
-            && matches!(self.severity, Severity::Critical | Severity::High)
-            && self.bfsg_relevance != "low"
-            && self.verification != "manual_review_recommended"
+    /// A legal flag that reaches the consequences (verdict `fail_on_legal_flags`,
+    /// risk score, risk level, Legal card tier): the one predicate
+    /// ([`is_bfsg_relevant_open`]) plus a severity bar, High or Critical.
+    /// Medium and Low findings are legally relevant and shown, counted in
+    /// `legal_flags`, but do not by themselves fail a verdict or raise the risk
+    /// (#952-2).
+    pub fn is_severe_legal_flag(&self) -> bool {
+        self.is_bfsg_relevant() && matches!(self.severity, Severity::Critical | Severity::High)
     }
 }
 
-/// The one definition of a "legally relevant finding": an open (occurring)
+/// The one definition of a "legally relevant finding" (#952-2): an occurring
 /// finding whose BFSG/EAA relevance is high or medium and that is no longer
-/// waiting on a manual check. The management card, the screen-reader BFSG
-/// callout and the per-finding "BFSG-/EAA-Relevanz" row all read this, so none
-/// can say "no legal relevance" while another shows a Medium/High finding
-/// (#952-2). `RiskAssessment.legal_flags` (JSON, risk score, verdict) keeps its
-/// narrower definition on purpose (Level A/AA, High/Critical severity); this
-/// set is a superset of it.
+/// waiting on a manual check. Every count of legally relevant findings reads
+/// it: `RiskAssessment.legal_flags` (JSON), the batch `summary.legal_flags`,
+/// the baseline gate's `legal_flags`, the verdict reason, the management card,
+/// the screen-reader BFSG callout and the "BFSG-/EAA-Relevanz" row of a
+/// finding. What a flag *causes* (verdict, risk score and level, card tier)
+/// reads the subset with severity High or Critical,
+/// [`NormalizedFinding::is_severe_legal_flag`]. `bfsg_relevance` is derived from the rule (`derive_bfsg_relevance`):
+/// high for a Level A criterion of High/Critical severity, medium for any other
+/// Level A/AA criterion with a clause in EN 301 549, low otherwise (AAA,
+/// convention rules, the retired 4.1.1). "Open" in the baseline sense (not
+/// `known`) is the only further filter, applied by the baseline gate.
 pub fn is_bfsg_relevant_open(
     bfsg_relevance: &str,
     occurrence_count: usize,
@@ -916,9 +915,16 @@ pub struct RiskAssessment {
     pub critical_issues: usize,
     /// Number of high-severity issues
     pub high_issues: usize,
-    /// Number of distinct WCAG Level A/AA rules with High/Critical severity,
-    /// automatically confirmed (legally relevant under BFSG/EAA)
+    /// Number of distinct confirmed findings with BFSG/EAA relevance high or
+    /// medium (`is_bfsg_relevant_open`), plus one when the screen-reader audit
+    /// confirms a BFSG-violating high-severity blocker. The count every
+    /// report surface shows.
     pub legal_flags: usize,
+    /// The subset of `legal_flags` with severity High or Critical (and the
+    /// screen-reader signal): the only part that feeds the verdict, the risk
+    /// score and the risk level.
+    #[serde(default)]
+    pub severe_legal_flags: usize,
     /// Number of blocking interaction issues (buttons/forms without names)
     pub blocking_issues: usize,
     /// Subset of `blocking_issues` not operable by keyboard (WCAG 2.1.1).
@@ -943,9 +949,9 @@ impl RiskAssessment {
         }
         match self.level {
             // Breadth-driven vs. volume-driven Critical (#457).
-            RiskLevel::Critical if self.legal_flags >= 3 => format!(
+            RiskLevel::Critical if self.severe_legal_flags >= 3 => format!(
                 "Critical risk: {} WCAG Level A/AA violations with legal relevance (BFSG). {} blocking issues on interactive controls.",
-                self.legal_flags, self.blocking_issues
+                self.severe_legal_flags, self.blocking_issues
             ),
             RiskLevel::Critical => format!(
                 "Critical risk: {} critical violations on interactive controls and content.",
@@ -1925,6 +1931,7 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
                 );
                 (
                     open_risk.legal_flags,
+                    open_risk.severe_legal_flags,
                     open_risk.blocking_issues,
                     open_risk.keyboard_blocking_issues,
                 )
@@ -2204,11 +2211,11 @@ mod tests {
         assert_eq!(located.assurance.evidence, EvidenceQuality::Located);
         assert_eq!(located.confidence, "very_high");
         assert_eq!(located.verification, "automatically_confirmed");
-        assert!(located.is_legal_flag());
+        assert!(located.is_bfsg_relevant());
         assert_eq!(unlocated.assurance.evidence, EvidenceQuality::Unlocated);
         assert_eq!(unlocated.confidence, "medium");
         assert_eq!(unlocated.verification, "manual_review_recommended");
-        assert!(!unlocated.is_legal_flag());
+        assert!(!unlocated.is_bfsg_relevant());
     }
 
     /// A page-level check (placeholder node id) is a document observation:
@@ -2253,8 +2260,9 @@ mod tests {
         }
     }
 
-    /// #922: the legal flag covers Level A and Level AA (BFSG and EN 301 549
-    /// require AA), High/Critical, automatically confirmed, within EN 301 549.
+    /// #922, #952-2: the legal flag covers Level A and Level AA (BFSG and
+    /// EN 301 549 require AA) at any severity, automatically confirmed, within
+    /// EN 301 549.
     #[test]
     fn legal_flag_covers_level_a_and_aa_high_confirmed() {
         let flag =
@@ -2269,7 +2277,7 @@ mod tests {
                     AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
                 let n = normalize(&report).normalized;
                 let f = n.findings.into_iter().next().unwrap();
-                (f.is_legal_flag(), n.risk.legal_flags)
+                (f.is_bfsg_relevant(), n.risk.legal_flags)
             };
         // Positive: AA High contrast, AA Critical, A High.
         assert_eq!(
@@ -2290,17 +2298,19 @@ mod tests {
             flag("2.5.8", WcagLevel::AA, Severity::High, Some("a.x")),
             (true, 1)
         );
-        // Negative: AA Medium, A Low, AA High that still needs a manual check
-        // (no located element), AAA High, and the retired 4.1.1 Parsing,
-        // which is void (9.4.1.1) in EN 301 549 V4.1.1.
+        // Severity does not matter: a confirmed Level A/AA finding of any
+        // severity has relevance medium or high (#952-2).
         assert_eq!(
             flag("1.4.3", WcagLevel::AA, Severity::Medium, Some("p.x")),
-            (false, 0)
+            (true, 1)
         );
         assert_eq!(
             flag("1.1.1", WcagLevel::A, Severity::Low, Some("img.x")),
-            (false, 0)
+            (true, 1)
         );
+        // Negative: AA High that still needs a manual check (no located
+        // element), AAA High, and the retired 4.1.1 Parsing, which is void
+        // (9.4.1.1) in EN 301 549 V4.1.1.
         assert_eq!(
             flag("1.4.3", WcagLevel::AA, Severity::High, None),
             (false, 0)
@@ -2313,6 +2323,28 @@ mod tests {
             flag("4.1.1", WcagLevel::A, Severity::High, Some("div.x")),
             (false, 0)
         );
+    }
+
+    /// #952-2: the severity bar sits on top of the one predicate. A confirmed
+    /// Level A/AA finding of any severity is counted in `legal_flags`; only
+    /// High/Critical ones are `severe_legal_flags`, which feed the verdict and
+    /// the risk score and level.
+    #[test]
+    fn severity_bar_splits_the_shown_count_from_its_consequences() {
+        let counts = |severity: Severity| {
+            let mut results = WcagResults::new();
+            results.add_violation(
+                Violation::new("1.4.3", "x", WcagLevel::AA, severity, "x", "42")
+                    .with_selector("p.x"),
+            );
+            let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+            let n = normalize(&report).normalized;
+            (n.risk.legal_flags, n.risk.severe_legal_flags)
+        };
+        assert_eq!(counts(Severity::Critical), (1, 1));
+        assert_eq!(counts(Severity::High), (1, 1));
+        assert_eq!(counts(Severity::Medium), (1, 0));
+        assert_eq!(counts(Severity::Low), (1, 0));
     }
 
     /// #704: a display-convention rule is only anchored to 1.1.1; it must
@@ -2338,7 +2370,7 @@ mod tests {
         let finding = &norm.findings[0];
         assert_eq!(finding.rule_id, "display/text-hidden");
         assert_eq!(finding.bfsg_relevance, "low");
-        assert!(!finding.is_legal_flag());
+        assert!(!finding.is_bfsg_relevant());
         assert_eq!(norm.risk.legal_flags, 0);
 
         let mut results = WcagResults::new();
@@ -2382,7 +2414,7 @@ mod tests {
         assert_eq!(finding.rule_id, "motion/reduced-motion-ignored");
         assert_eq!(finding.wcag_level, "AAA");
         assert_eq!(finding.bfsg_relevance, "low");
-        assert!(!finding.is_legal_flag());
+        assert!(!finding.is_bfsg_relevant());
         assert_eq!(norm.risk.legal_flags, 0);
     }
 
@@ -2408,7 +2440,7 @@ mod tests {
             assert_eq!(finding.rule_id, taxonomy_id, "{axe_id}");
             assert_eq!(finding.wcag_criterion, "4.1.2", "{axe_id}");
             assert_eq!(finding.bfsg_relevance, "low", "{axe_id}");
-            assert!(!finding.is_legal_flag(), "{axe_id}");
+            assert!(!finding.is_bfsg_relevant(), "{axe_id}");
             assert_eq!(norm.risk.legal_flags, 0, "{axe_id}");
         }
     }
@@ -2429,7 +2461,7 @@ mod tests {
         let finding = &norm.findings[0];
         assert_eq!(finding.rule_id, "zoom/viewport-scale-limited");
         assert_eq!(finding.bfsg_relevance, "low");
-        assert!(!finding.is_legal_flag());
+        assert!(!finding.is_bfsg_relevant());
     }
 
     /// 2.0 finding model: a finding is one rule on one page; its id comes

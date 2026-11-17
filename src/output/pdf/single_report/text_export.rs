@@ -310,7 +310,7 @@ fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
     let mut mixed = good.clone();
     mixed.push(ManagementRiskKind::Legal {
         legal_flags: 2,
-        bfsg_relevant: 2,
+        severe_legal_flags: 2,
         critical: 2,
         high: 1,
         blocking_issues: 0,

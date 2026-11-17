@@ -1116,6 +1116,7 @@ fn small_texts(records: &mut Vec<Value>) {
                     critical_issues: critical,
                     high_issues: high,
                     legal_flags: legal,
+                    severe_legal_flags: legal,
                     blocking_issues: blocking,
                     keyboard_blocking_issues: 0,
                     interactive_critical_issues: interactive_critical,

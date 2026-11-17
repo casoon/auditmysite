@@ -2041,7 +2041,7 @@ pub(super) mod risk_and_strength_tests {
         let kinds = [
             ManagementRiskKind::Legal {
                 legal_flags: 2,
-                bfsg_relevant: 2,
+                severe_legal_flags: 2,
                 critical: 2,
                 high: 1,
                 blocking_issues: 0,
@@ -2089,7 +2089,7 @@ pub(super) mod risk_and_strength_tests {
         let kinds = [
             ManagementRiskKind::Legal {
                 legal_flags: 0,
-                bfsg_relevant: 0,
+                severe_legal_flags: 0,
                 critical: 0,
                 high: 0,
                 blocking_issues: 0,
@@ -2141,7 +2141,7 @@ pub(super) mod risk_and_strength_tests {
         let kinds = [
             ManagementRiskKind::Legal {
                 legal_flags: 1,
-                bfsg_relevant: 1,
+                severe_legal_flags: 1,
                 critical: 0,
                 high: 0,
                 blocking_issues: 0,
@@ -2170,6 +2170,128 @@ pub(super) mod risk_and_strength_tests {
         // Stable within "bad": Legal came before SEO in the input order.
         assert_eq!(risks[0].label, "Legal / BFSG-EAA");
         assert_eq!(risks[1].label, "SEO / visibility");
+    }
+
+    /// #952-2: one open 1.4.3 finding of relevance Medium is ONE legal flag on
+    /// every surface that shows a count (`risk.legal_flags`, the management
+    /// card, the screen-reader callout and finding rows), whatever its
+    /// severity. What a flag causes (verdict, risk score and level, card tier)
+    /// reads only the High/Critical ones, and the number the verdict reason
+    /// names is the number the card prints.
+    #[test]
+    fn legal_flag_count_is_one_everywhere_and_only_severe_ones_have_consequences() {
+        use crate::audit::baseline::{BaselineFinding, PageBaseline};
+        use crate::audit::management_risk::RiskTier;
+        use crate::audit::normalized::RiskLevel;
+        use crate::audit::verdict::{Verdict, VerdictReasonKind};
+
+        let report = |severity: crate::wcag::Severity, baseline: Option<PageBaseline>| {
+            let mut results = crate::wcag::WcagResults::new();
+            results.add_violation(
+                crate::wcag::Violation::new(
+                    "1.4.3",
+                    "Contrast (Minimum)",
+                    crate::model::WcagLevel::AA,
+                    severity,
+                    "low contrast",
+                    "node-p",
+                )
+                .with_selector("p.x")
+                .with_rule_id("contrast/text-insufficient"),
+            );
+            let mut report = AuditReport::new(
+                "https://example.com".into(),
+                crate::model::WcagLevel::AA,
+                results,
+                100,
+            );
+            if let Some(baseline) = baseline {
+                report.run_context.baseline = Some(baseline);
+                report.run_context.decision_profile.set_baseline_digest("d");
+            }
+            report
+        };
+        let card = |normalized: &crate::audit::normalized::NormalizedReport| {
+            match crate::audit::management_risk::build_management_risk_kinds(std::slice::from_ref(
+                normalized,
+            ))
+            .into_iter()
+            .next()
+            .unwrap()
+            {
+                kind @ ManagementRiskKind::Legal { .. } => {
+                    let ManagementRiskKind::Legal { legal_flags, .. } = kind else {
+                        unreachable!()
+                    };
+                    (legal_flags, kind.tier())
+                }
+                other => panic!("first dimension is not the legal one: {other:?}"),
+            }
+        };
+        let callout = |ctx: &crate::audit::normalized::AuditContext<'_>| {
+            let vm = crate::output::builder::build_view_model(ctx, &ReportConfig::default());
+            crate::output::pdf::detail_modules::bfsg_relevant_wcag_findings(
+                &vm.findings.all_findings,
+            )
+        };
+        let legal_reason = |n: &crate::audit::normalized::NormalizedReport| {
+            n.decision.reason_kinds.iter().find_map(|k| match k {
+                VerdictReasonKind::LegalFlags(count) => Some(*count),
+                _ => None,
+            })
+        };
+
+        // Medium severity, relevance medium: counted and shown, no consequence.
+        let medium = report(crate::wcag::Severity::Medium, None);
+        let ctx = crate::audit::normalized::normalize(&medium);
+        let n = &ctx.normalized;
+        assert_eq!(n.findings.len(), 1);
+        assert_eq!(n.findings[0].bfsg_relevance, "medium");
+        assert_eq!(n.risk.legal_flags, 1);
+        assert_eq!(n.risk.severe_legal_flags, 0);
+        assert_eq!(card(n), (1, RiskTier::Medium));
+        assert_eq!(callout(&ctx), 1);
+        assert_eq!(legal_reason(n), None);
+        assert_ne!(n.decision.verdict, Verdict::Fail);
+        assert_eq!(n.risk.level, RiskLevel::Low);
+        assert_eq!(n.risk.score, 0);
+
+        // High severity: the same count, and now the verdict fails on it with
+        // the number the card prints.
+        let high = report(crate::wcag::Severity::High, None);
+        let ctx = crate::audit::normalized::normalize(&high);
+        let n = &ctx.normalized;
+        assert_eq!(n.risk.legal_flags, 1);
+        assert_eq!(n.risk.severe_legal_flags, 1);
+        assert_eq!(card(n), (1, RiskTier::High));
+        assert_eq!(callout(&ctx), 1);
+        assert_eq!(n.decision.verdict, Verdict::Fail);
+        assert_eq!(legal_reason(n), Some(1));
+        assert_eq!(n.decision.reasons, ["legal_flags: 1"]);
+        assert_eq!(n.risk.level, RiskLevel::Medium);
+        // 20 for the flag, 3 for the High occurrence.
+        assert_eq!(n.risk.score, 23);
+
+        // Baselined: the finding is known, so the gate has none and the
+        // verdict is not failed by it; the measured counts stay as the
+        // baseline contract says (a gating filter, not a suppression).
+        let id = n.findings[0].id.clone();
+        let baseline = PageBaseline {
+            listed: true,
+            findings: vec![BaselineFinding {
+                id,
+                rule: "contrast/text-insufficient".into(),
+            }],
+        };
+        let known = report(crate::wcag::Severity::High, Some(baseline));
+        let ctx = crate::audit::normalized::normalize(&known);
+        let n = &ctx.normalized;
+        assert!(n.findings[0].known);
+        let gate = &n.baseline.as_ref().unwrap().gate;
+        assert_eq!((gate.legal_flags, gate.severe_legal_flags), (0, 0));
+        assert_eq!(legal_reason(n), None);
+        assert_ne!(n.decision.verdict, Verdict::Fail);
+        assert_eq!(n.risk.legal_flags, 1);
     }
 
     pub(in crate::output::pdf) fn test_report_view_model() -> ReportViewModel {

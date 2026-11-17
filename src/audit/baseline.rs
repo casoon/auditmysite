@@ -90,7 +90,11 @@ pub struct PageBaseline {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct BaselineGate {
+    /// Legally relevant findings that are not known (the count shown).
     pub legal_flags: usize,
+    /// The subset at High or Critical severity: what the verdict gates on.
+    #[serde(default)]
+    pub severe_legal_flags: usize,
     pub blocking_issues: usize,
     pub keyboard_blocking_issues: usize,
     pub technical_blockers: usize,
@@ -123,6 +127,8 @@ pub struct BaselineStatus {
 #[non_exhaustive]
 pub struct BatchBaselineGate {
     pub legal_flags: usize,
+    #[serde(default)]
+    pub severe_legal_flags: usize,
     pub blocking_issues: usize,
     pub technical_blockers: usize,
     /// WCAG occurrences of findings that are not known.
@@ -333,7 +339,7 @@ pub(crate) fn classify(
     page: &PageBaseline,
     digest: &str,
     findings: &mut [NormalizedFinding],
-    gate: impl FnOnce(&[NormalizedFinding]) -> (usize, usize, usize),
+    gate: impl FnOnce(&[NormalizedFinding]) -> (usize, usize, usize, usize),
 ) -> BaselineStatus {
     let recorded: BTreeSet<&str> = page.findings.iter().map(|f| f.id.as_str()).collect();
     for finding in findings.iter_mut() {
@@ -348,7 +354,7 @@ pub(crate) fn classify(
         .collect();
     let known = findings.iter().filter(|f| f.known).count();
     let open: Vec<NormalizedFinding> = findings.iter().filter(|f| !f.known).cloned().collect();
-    let (legal_flags, blocking_issues, keyboard_blocking_issues) = gate(&open);
+    let (legal_flags, severe_legal_flags, blocking_issues, keyboard_blocking_issues) = gate(&open);
     BaselineStatus {
         digest: digest.to_string(),
         page_listed: page.listed,
@@ -358,6 +364,7 @@ pub(crate) fn classify(
         fixed_ids,
         gate: BaselineGate {
             legal_flags,
+            severe_legal_flags,
             blocking_issues,
             keyboard_blocking_issues,
             technical_blockers: open
@@ -382,22 +389,35 @@ pub(crate) fn summarize_batch(reports: &[NormalizedReport]) -> Option<BatchBasel
 
     // Distinct rules, as the batch's own `legal_flags` counts them; the
     // screen-reader signal has no rule of its own and stays one member.
-    let mut legal_rules: BTreeSet<&str> = statuses
-        .iter()
-        .flat_map(|(r, _)| r.findings.iter())
-        .filter(|f| !f.known && f.is_legal_flag())
-        .map(|f| f.rule_id.as_str())
-        .collect();
-    let sr_only = statuses.iter().any(|(r, b)| {
-        b.gate.legal_flags
-            > r.findings
-                .iter()
-                .filter(|f| !f.known && f.is_legal_flag())
-                .count()
-    });
-    if sr_only {
-        legal_rules.insert("screen_reader.bfsg_noncompliant");
-    }
+    // `severe` is the subset at High/Critical severity that the verdict gates on.
+    let distinct = |severe: bool| -> usize {
+        let counts = |f: &&NormalizedFinding| {
+            !f.known
+                && if severe {
+                    f.is_severe_legal_flag()
+                } else {
+                    f.is_bfsg_relevant()
+                }
+        };
+        let mut rules: BTreeSet<&str> = statuses
+            .iter()
+            .flat_map(|(r, _)| r.findings.iter())
+            .filter(counts)
+            .map(|f| f.rule_id.as_str())
+            .collect();
+        let sr_only = statuses.iter().any(|(r, b)| {
+            let gate = if severe {
+                b.gate.severe_legal_flags
+            } else {
+                b.gate.legal_flags
+            };
+            gate > r.findings.iter().filter(counts).count()
+        });
+        if sr_only {
+            rules.insert("screen_reader.bfsg_noncompliant");
+        }
+        rules.len()
+    };
 
     Some(BatchBaselineSummary {
         digest,
@@ -406,7 +426,8 @@ pub(crate) fn summarize_batch(reports: &[NormalizedReport]) -> Option<BatchBasel
         fixed: statuses.iter().map(|(_, b)| b.fixed).sum(),
         unmatched_pages: 0,
         gate: BatchBaselineGate {
-            legal_flags: legal_rules.len(),
+            legal_flags: distinct(false),
+            severe_legal_flags: distinct(true),
             blocking_issues: statuses.iter().map(|(_, b)| b.gate.blocking_issues).sum(),
             technical_blockers: statuses
                 .iter()

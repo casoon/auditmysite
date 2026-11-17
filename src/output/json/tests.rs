@@ -1493,9 +1493,10 @@ fn cls_only_performance_is_partial_from_score_to_json() {
     assert_eq!(json["summary"]["overall_score_weight_basis"], 40);
 }
 
-/// #952-2: a Medium BFSG-relevant finding (here 1.4.3, AA) is no Level-A
-/// `legal_flag`, yet the management card must not say "0 findings with possible
-/// legal relevance" next to it. Card count and finding rows share one definition.
+/// #952-2: a Medium BFSG-relevant finding (here 1.4.3, AA) is a legal flag by
+/// the one definition, so the management card never says "0 findings with
+/// possible legal relevance" next to it: card, finding rows and
+/// `risk.legal_flags` count the same.
 #[test]
 fn management_legal_card_counts_the_findings_marked_bfsg_relevant() {
     use crate::taxonomy::Severity;
@@ -1521,7 +1522,8 @@ fn management_legal_card_counts_the_findings_marked_bfsg_relevant() {
         .filter(|f| f.is_bfsg_relevant())
         .count();
     assert_eq!(relevant, 1, "findings: {}", normalized.findings.len());
-    assert_eq!(normalized.risk.legal_flags, 0);
+    assert_eq!(normalized.risk.legal_flags, relevant);
+    assert_eq!(normalized.risk.severe_legal_flags, 0);
 
     let risks = helpers::build_management_risks(std::slice::from_ref(&normalized));
     let legal = risks

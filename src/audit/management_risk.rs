@@ -61,11 +61,14 @@ impl RiskTier {
 #[derive(Debug, Clone)]
 pub enum ManagementRiskKind {
     Legal {
+        /// Findings with BFSG/EAA relevance high or medium
+        /// (`is_bfsg_relevant_open`) — the one definition shared with
+        /// `risk.legal_flags`, the verdict reason, the screen-reader callout
+        /// and the finding rows (#952-2). The count the card prints.
         legal_flags: usize,
-        /// Open findings with BFSG/EAA relevance high or medium — the one
-        /// definition shared with the screen-reader callout and the finding
-        /// rows (#952-2). A superset of `legal_flags`.
-        bfsg_relevant: usize,
+        /// The subset at High/Critical severity (`risk.severe_legal_flags`):
+        /// the only part that lifts the tier to High.
+        severe_legal_flags: usize,
         critical: usize,
         high: usize,
         blocking_issues: usize,
@@ -115,15 +118,15 @@ impl ManagementRiskKind {
         match self {
             ManagementRiskKind::Legal {
                 legal_flags,
-                bfsg_relevant,
+                severe_legal_flags,
                 critical,
                 high,
                 blocking_issues,
                 ..
             } => {
-                if *legal_flags > 0 || *critical > 0 || *blocking_issues >= 5 {
+                if *severe_legal_flags > 0 || *critical > 0 || *blocking_issues >= 5 {
                     RiskTier::High
-                } else if *bfsg_relevant > 0 || *high > 0 || *blocking_issues > 0 {
+                } else if *legal_flags > 0 || *high > 0 || *blocking_issues > 0 {
                     RiskTier::Medium
                 } else {
                     RiskTier::Low
@@ -232,20 +235,16 @@ impl ManagementRiskKind {
         match self {
             ManagementRiskKind::Legal {
                 legal_flags,
-                bfsg_relevant,
                 critical,
                 high,
                 blocking_issues,
                 keyboard_blocking,
+                ..
             } => {
-                // One count for "possible legal relevance": the open findings
-                // the finding rows mark Medium/High (never fewer than the
-                // legal flags, which also include screen-reader blockers).
-                let legal_flags = (*bfsg_relevant).max(*legal_flags);
                 let base = text_args(
                     "audit-risk-legal-base",
                     &[
-                        ("count", number(legal_flags)),
+                        ("count", number(*legal_flags)),
                         ("critical", number(*critical)),
                         ("high", number(*high)),
                     ],
@@ -442,15 +441,12 @@ fn score_or_not_measured(score: Option<u32>, en: bool) -> String {
 /// Alle Risiko-Dimensionen für einen Lauf.
 pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<ManagementRiskKind> {
     let legal_flags: usize = reports.iter().map(|r| r.risk.legal_flags).sum();
-    let bfsg_relevant: usize = reports
-        .iter()
-        .map(|r| r.findings.iter().filter(|f| f.is_bfsg_relevant()).count())
-        .sum();
+    let severe_legal_flags: usize = reports.iter().map(|r| r.risk.severe_legal_flags).sum();
     let critical: usize = reports.iter().map(|r| r.severity_counts.critical).sum();
     let high: usize = reports.iter().map(|r| r.severity_counts.high).sum();
     // Controls without an accessible name (WCAG 4.1.2) can be "medium"
-    // severity — so they never reach `legal_flags`, which needs High/Critical
-    // — while still making a control fully inoperable. Regression
+    // severity — so they need not reach `legal_flags` — while still making a
+    // control fully inoperable. Regression
     // (satower-mosterei.de, 2026-08-31): overall risk "medium", verdict
     // "fail", 4 blocking issues, yet every dimension read "low" because this
     // field was never consulted.
@@ -523,7 +519,7 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
     vec![
         ManagementRiskKind::Legal {
             legal_flags,
-            bfsg_relevant,
+            severe_legal_flags,
             critical,
             high,
             blocking_issues,
@@ -587,25 +583,27 @@ mod tests {
         assert_eq!(trust.dimension(true), "Trust / brand");
     }
 
-    /// #952-2/#952-3: an open finding the finding rows mark BFSG-relevant, or a
-    /// high finding in the performance/mobile modules, is never a "low" card
-    /// next to a good module score.
+    /// #952-2/#952-3: a legal flag (a finding the finding rows mark
+    /// BFSG-relevant), or a high finding in the performance/mobile modules, is
+    /// never a "low" card next to a good module score.
     #[test]
     fn open_findings_lift_a_card_that_scores_alone_would_leave_low() {
-        let legal = |bfsg_relevant| ManagementRiskKind::Legal {
-            legal_flags: 0,
-            bfsg_relevant,
+        let legal = |legal_flags, severe_legal_flags| ManagementRiskKind::Legal {
+            legal_flags,
+            severe_legal_flags,
             critical: 0,
             high: 0,
             blocking_issues: 0,
             keyboard_blocking: 0,
         };
-        assert_eq!(legal(0).tier(), RiskTier::Low);
-        assert_eq!(legal(1).tier(), RiskTier::Medium);
-        assert!(legal(1)
+        assert_eq!(legal(0, 0).tier(), RiskTier::Low);
+        // Relevant, but not severe: shown and counted, tier Medium.
+        assert_eq!(legal(1, 0).tier(), RiskTier::Medium);
+        assert_eq!(legal(1, 1).tier(), RiskTier::High);
+        assert!(legal(1, 0)
             .rationale(false)
             .starts_with("1 Befund mit möglicher"));
-        assert!(legal(2)
+        assert!(legal(2, 0)
             .rationale(true)
             .starts_with("2 findings with possible"));
 
@@ -628,7 +626,7 @@ mod tests {
         let kinds = [
             ManagementRiskKind::Legal {
                 legal_flags: 2,
-                bfsg_relevant: 2,
+                severe_legal_flags: 2,
                 critical: 1,
                 high: 2,
                 blocking_issues: 7,

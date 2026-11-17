@@ -1367,8 +1367,8 @@ batch-rating-reasons = Reasons: { $reasons }.
 batch-rating-note = The rating is a band label for the average accessibility score within the automated scope, not a statement of conformance.
 batch-reason-no-url-audited = none of the { $count } requested URLs produced a report
 batch-reason-legal-flags = { $count ->
-        [one] 1 WCAG Level A/AA rule of high or critical severity is violated on the audited pages (possible legal relevance, BFSG/EAA)
-       *[other] { $count } WCAG Level A/AA rules of high or critical severity are violated on the audited pages (possible legal relevance, BFSG/EAA)
+        [one] 1 WCAG Level A/AA rule with BFSG/EAA relevance is violated on the audited pages (possible legal relevance)
+       *[other] { $count } WCAG Level A/AA rules with BFSG/EAA relevance are violated on the audited pages (possible legal relevance)
     }
 batch-reason-blocking-issues = { $count ->
         [one] 1 control without an accessible name or not operable by keyboard

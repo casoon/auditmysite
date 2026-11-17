@@ -285,6 +285,7 @@ fn key_point_records(records: &mut Vec<Value>) {
                                 let ctx = checked(&base);
                                 let mut normalized: NormalizedReport = ctx.normalized.clone();
                                 normalized.risk.legal_flags = legal;
+                                normalized.risk.severe_legal_flags = legal;
                                 normalized.audit_flags.clear();
                                 if flags > 0 {
                                     normalized.audit_flags.push(flag("note", "note"));

@@ -1367,10 +1367,14 @@ pub struct BatchSummary {
     /// Number of distinct WCAG rule IDs that fired anywhere across all pages.
     #[serde(default)]
     pub violated_rule_count: usize,
-    /// Number of distinct WCAG Level-A/AA rules with High/Critical severity across
-    /// all pages (legal exposure indicator).
+    /// Number of distinct legally relevant rules (`is_bfsg_relevant_open`)
+    /// across all pages (legal exposure indicator).
     #[serde(default)]
     pub legal_flags: usize,
+    /// The subset of `legal_flags` at High or Critical severity: what the
+    /// batch verdict gates on.
+    #[serde(default)]
+    pub severe_legal_flags: usize,
     /// Sum of blocking-interaction-issue occurrences (unlabeled interactive
     /// elements, 4.1.2/2.1.1) across all pages. Mirrors the single-page
     /// `RiskAssessment.blocking_issues` signal so the batch CI verdict can
@@ -1583,35 +1587,50 @@ pub fn count_violated_rules(reports: &[crate::audit::normalized::NormalizedRepor
         .len()
 }
 
-/// Count the number of distinct WCAG Level-A/AA rules with High/Critical severity
-/// that appear across any of the given reports (legal exposure indicator).
+/// Count the number of distinct legally relevant rules (`is_bfsg_relevant_open`,
+/// the one definition) that appear across any of the given reports (legal
+/// exposure indicator), and, as the second value, the subset at High/Critical
+/// severity that the batch verdict gates on.
 ///
 /// Also accounts for legal exposure raised purely by the screen-reader BFSG
-/// verdict (`RiskAssessment.legal_flags` can exceed the page's own WCAG
-/// Level-A/AA finding count, see `audit::normalized::compute_risk`). That signal
+/// verdict (`RiskAssessment.legal_flags` can exceed the page's own
+/// legally relevant finding count, see `audit::risk_assessment`). That signal
 /// has no WCAG rule id of its own, so it is represented as a synthetic member
 /// of the same distinct-signal set whenever it fires on at least one page —
 /// otherwise a page could FAIL its single-page verdict on this signal while
 /// contributing nothing to the batch's legal_flags summary (#QA-024).
-fn compute_legal_flags(reports: &[crate::audit::normalized::NormalizedReport]) -> usize {
+fn compute_legal_flags(reports: &[crate::audit::normalized::NormalizedReport]) -> (usize, usize) {
+    use crate::audit::normalized::NormalizedFinding;
     use std::collections::HashSet;
 
-    let mut rule_ids: HashSet<&str> = reports
-        .iter()
-        .flat_map(|r| r.findings.iter())
-        .filter(|f| f.is_legal_flag())
-        .map(|f| f.rule_id.as_str())
-        .collect();
-
-    let sr_only_legal_exposure = reports.iter().any(|r| {
-        let findings_based = r.findings.iter().filter(|f| f.is_legal_flag()).count();
-        r.risk.legal_flags > findings_based
-    });
-    if sr_only_legal_exposure {
-        rule_ids.insert("screen_reader.bfsg_noncompliant");
-    }
-
-    rule_ids.len()
+    let distinct = |severe: bool| -> usize {
+        let counts = |f: &&NormalizedFinding| {
+            if severe {
+                f.is_severe_legal_flag()
+            } else {
+                f.is_bfsg_relevant()
+            }
+        };
+        let mut rule_ids: HashSet<&str> = reports
+            .iter()
+            .flat_map(|r| r.findings.iter())
+            .filter(counts)
+            .map(|f| f.rule_id.as_str())
+            .collect();
+        let sr_only_legal_exposure = reports.iter().any(|r| {
+            let flags = if severe {
+                r.risk.severe_legal_flags
+            } else {
+                r.risk.legal_flags
+            };
+            flags > r.findings.iter().filter(counts).count()
+        });
+        if sr_only_legal_exposure {
+            rule_ids.insert("screen_reader.bfsg_noncompliant");
+        }
+        rule_ids.len()
+    };
+    (distinct(false), distinct(true))
 }
 
 /// Compute the worst-case risk level across a set of normalized reports.
@@ -1706,7 +1725,7 @@ impl BatchReport {
 
         let violated_rule_count = count_violated_rules(&normalized_reports);
         let root_causes = crate::audit::template_dedup::detect_root_causes(&normalized_reports);
-        let legal_flags = compute_legal_flags(&normalized_reports);
+        let (legal_flags, severe_legal_flags) = compute_legal_flags(&normalized_reports);
         let blocking_issues = normalized_reports
             .iter()
             .map(|r| r.risk.blocking_issues)
@@ -1754,7 +1773,7 @@ impl BatchReport {
         };
         // Empty when nothing was measured: no band for a batch without a score.
         let score_band_key = average_score.map_or(String::new(), |average| {
-            super::interpretation::batch_verdict_key(average.round() as u32, legal_flags)
+            super::interpretation::batch_verdict_key(average.round() as u32, severe_legal_flags)
         });
 
         let mut result = Self {
@@ -1770,6 +1789,7 @@ impl BatchReport {
                 total_violations,
                 violated_rule_count,
                 legal_flags,
+                severe_legal_flags,
                 blocking_issues,
                 risk,
                 score_band_key,
