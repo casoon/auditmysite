@@ -100,6 +100,7 @@ pub(super) fn derive_action_plan(i18n: &I18n, finding_groups: &[FindingGroup]) -
         }
         let item = ActionItem {
             action,
+            title: group.title.clone(),
             hint,
             benefit: group.business_impact.clone(),
             role: group.responsible_role,

@@ -212,7 +212,7 @@ pub(super) fn render_batch_cover(
             batch.summary.decision.verdict,
             batch.summary.audit_quality.qualified_results,
             pres.portfolio_summary.total_urls as u32,
-            pres.portfolio_summary.total_violations as u32,
+            pres.portfolio_summary.passed as u32,
             i18n,
         )?)
         .add_component(

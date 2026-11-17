@@ -594,12 +594,16 @@ pub struct RoadmapColumnData {
 }
 
 impl ActionItem {
-    /// The action as one sentence: title and hint when it has both.
+    /// The action as one line: always "what is wrong: what to do". An action
+    /// with a hint already is "title: fix"; an action that is only the fix
+    /// gets the finding's title in front of it.
     pub fn full_text(&self) -> String {
-        if self.hint.is_empty() {
+        if !self.hint.is_empty() {
+            format!("{}: {}", self.action, self.hint)
+        } else if self.title.is_empty() || self.title == self.action {
             self.action.clone()
         } else {
-            format!("{}: {}", self.action, self.hint)
+            format!("{}: {}", self.title, self.action)
         }
     }
 }
@@ -1173,6 +1177,9 @@ pub struct FrictionPointPresentation {
 #[derive(Clone)]
 pub struct ActionItem {
     pub action: String,
+    /// The finding group's own title: the action's name in a table row, where
+    /// the fix alone ("Enable HTTP/2 ...") does not say what is wrong.
+    pub title: String,
     /// What to do, when `action` is only the title (HTML-conformance families
     /// carry a title and a fix hint). Shown as the card body, never in the
     /// card title (#902). Empty for actions that are one sentence.

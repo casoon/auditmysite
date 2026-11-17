@@ -1284,6 +1284,13 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
         .unwrap_or_else(|| check_title(&first.check));
 
     let help_url = crate::audit::rule_docs::finding_help_url(&rule_id);
+    // The impact fields carry the readable sentence, never a checker's raw
+    // message (`html-conform` parser noise stays in `description` and the
+    // occurrences only); for every other module that sentence is the message.
+    let readable_message = first
+        .text
+        .as_ref()
+        .map_or_else(|| first.message.clone(), |text| text.text(true));
 
     NormalizedFinding {
         known: false,
@@ -1301,8 +1308,8 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
         subcategory_kind,
         issue_class_kind: issue_class,
         severity,
-        user_impact: first.message.clone(),
-        technical_impact: first.message.clone(),
+        user_impact: readable_message.clone(),
+        technical_impact: readable_message,
         score_impact: ScoreImpactData {
             base_penalty: 0.0,
             max_penalty: 0.0,
