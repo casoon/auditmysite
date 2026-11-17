@@ -1170,6 +1170,44 @@ change = "2 targeted mutation(s) of the shared rule (disable, invert, shift thre
 killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id timing/meta-refresh)"
 
 [[rule]]
+id = "timing/meta-refresh-enhanced"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=timing/meta-refresh-enhanced)"]
+automation = "automated"
+method = "shared"
+source = "WCAG 2.2 SC 2.2.4 Interruptions and SC 3.2.5 Change on Request (AAA); technique H76/F40/F41; HTML 'shared declarative refresh steps'; ACT bisz58"
+capabilities = ["dom"]
+applicability = "The first meta element with http-equiv=refresh (any case) whose content starts with digits, also when inserted by script."
+expectation = """
+Fails at the meta element when it reloads or redirects after any delay above
+0, also 20 hours or more: the 20-hour exception of 2.2.1 does not apply at
+AAA, and a change the user did not request interrupts them. Content without
+leading digits is ignored by browsers and passes. A delay of 0 is an
+immediate redirect, not an interruption; it is not exercised in the corpus
+because it would navigate the fixture away. Only the first valid refresh
+counts, as in the browser."""
+positive = ["meta_refresh_present", "visual_meta_refresh_redirect", "visual_meta_refresh_exempt", "visual_meta_refresh_twenty_hours"]
+negative = ["visual_meta_refresh_exempt"]
+not_applicable = ["visual_contrast_thresholds", "visual_no_text"]
+
+[rule.variants]
+visibility = { not_relevant = "A meta element is never rendered." }
+native_vs_aria = { not_relevant = "meta refresh has no ARIA counterpart." }
+alternative_labels = { cases = ["visual_meta_refresh_redirect"] }
+frames_shadow_dom = { not_relevant = "A refresh inside a frame reloads only that frame's document; the shared rule reads the top document (scope limit, not a different expectation)." }
+responsive = { not_relevant = "The declaration is the same in both viewports." }
+dynamic = { cases = ["visual_meta_refresh_redirect"] }
+thresholds = { cases = ["visual_meta_refresh_exempt", "visual_meta_refresh_twenty_hours"] }
+
+[rule.test_strength]
+status = "killed"
+
+[[rule.test_strength.mutations]]
+target = "barrierlab:crates/a11y-rules/tests/mutations/dokument.toml"
+change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id timing/meta-refresh-enhanced)"
+
+[[rule]]
 id = "meta-refresh"
 automation = "manual"
 manual_reason = "Script-driven time limits (setTimeout/setInterval, session expiry) and whether users can turn them off, adjust or extend them are not visible in the DOM. The id is historical: it names the 2.2.1 page note for script time limits, while the actual meta refresh detection is timing/meta-refresh."

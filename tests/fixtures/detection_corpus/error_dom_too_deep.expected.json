@@ -386,6 +386,10 @@
    "verdict": "errored"
   },
   {
+   "rule_id": "media/audio-autoplay-measured",
+   "verdict": "errored"
+  },
+  {
    "rule_id": "frames/name-missing",
    "verdict": "errored"
   },
@@ -423,6 +427,10 @@
   },
   {
    "rule_id": "timing/meta-refresh",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "timing/meta-refresh-enhanced",
    "verdict": "errored"
   },
   {

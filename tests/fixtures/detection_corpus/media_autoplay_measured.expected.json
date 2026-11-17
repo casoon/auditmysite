@@ -1,0 +1,11 @@
+{
+  "case": "media_autoplay_measured",
+  "expectations": [
+    {"rule_id": "media/audio-autoplay-measured", "selector": "audio#tone", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "media/audio-autoplay-measured", "selector": "audio#tone-controls", "verdict": "pass"},
+    {"rule_id": "media/audio-autoplay-measured", "selector": "audio#tone-muted", "verdict": "pass"},
+    {"rule_id": "media/audio-autoplay-measured", "selector": "audio#jingle", "verdict": "pass"},
+    {"rule_id": "media/audio-autoplay-measured", "selector": "audio#silence", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "media/audio-autoplay", "selector": "audio#tone", "verdict": "pass"}
+  ]
+}

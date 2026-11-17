@@ -32,8 +32,8 @@ use std::sync::Arc;
 
 use a11y_dom::{
     Arena, ArenaNode, Backdrop, BoxTransform, Color, ColorPairs, ComputedStyle, Document,
-    FocusCover, Layout, NameSource as SharedNameSource, Node, NodeKind, PasteProbe, Rect,
-    Rendering, Semantics, SpacingClip,
+    FocusCover, Layout, MediaPlayback, NameSource as SharedNameSource, Node, NodeKind, PasteProbe,
+    Rect, Rendering, Semantics, SpacingClip,
 };
 use chromiumoxide::cdp::browser_protocol::dom::{
     DescribeNodeParams, GetDocumentParams, Node as CdpNode, ShadowRootType,
@@ -1526,6 +1526,12 @@ impl Rendering for RenderedCdpDocument<'_> {
             .as_ref()?
             .get(&backend)
             .cloned()
+    }
+
+    /// Aus dem Wiedergabedurchgang, an `audio`/`video` mit `autoplay`.
+    fn media_playback<'n>(&'n self, node: Self::N<'n>) -> Option<MediaPlayback> {
+        let backend = self.doc.backend_node_id(node)?;
+        self.styles.probes.media.as_ref()?.get(&backend).copied()
     }
 
     /// Aus dem Einfügedurchgang, an Passwort- und Codefeldern.

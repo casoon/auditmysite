@@ -153,6 +153,15 @@ rule-timing-meta-refresh = Non-adjustable time limit
     .user-impact = Users need more time to enter data and may lose data through timeouts.
     .technical-impact = A <meta http-equiv="refresh" content="N"> with N above 0 makes the browser reload or redirect after N seconds, and the DOM offers no way to turn the limit off or extend it.
 
+rule-timing-meta-refresh-enhanced = Page reloads or redirects itself after a delay (AAA)
+    .user-impact = Users are interrupted: the page changes without a request, and screen reader users lose their reading position.
+    .technical-impact = A <meta http-equiv="refresh"> with a delay above 0 reloads or redirects the page after that delay, also above 20 hours.
+    .description = The page reloads or redirects itself after a delay through <meta http-equiv="refresh">, without the user asking for it.
+    .explanation-user-impact = People who read slowly or use a screen reader are interrupted, lose their reading position or land on another page they did not ask for.
+    .typical-cause = <meta http-equiv="refresh" content="300"> to refresh news or a dashboard, or a delayed redirect to a new address.
+    .recommendation = Redirect on the server or with a delay of 0, and let users reload content themselves.
+    .technical-note = AAA (WCAG 2.2.4 and 3.2.5, ACT bisz58): every delay above 0 counts, also above 20 hours; the exception of 2.2.1 does not apply. An immediate redirect (0) is no interruption. Only the first valid refresh counts, as in the browser.
+
 rule-motion-infinite-animation = Missing pause/stop/hide control
     .user-impact = Users with attention or cognitive impairments, and screen reader users, are distracted or disrupted by continuously running motion they cannot turn off.
     .technical-impact = `<marquee>` element without pause control, or an element with animation-iteration-count: infinite exceeding 5 seconds per cycle with no detectable pause control or prefers-reduced-motion support.
@@ -402,6 +411,15 @@ rule-media-audio-autoplay = Check autoplaying audio for a control
     .typical-cause = <audio autoplay> for background music or ads.
     .recommendation = Do not start audio automatically, or offer a control to pause or lower it at the start of the page.
     .technical-note = Review hint (WCAG 1.4.2): whether the audio plays longer than three seconds and can be paused is not in the markup.
+
+rule-media-audio-autoplay-measured = Autoplaying sound plays longer than three seconds without a control
+    .user-impact = Sound that starts on its own drowns out screen reader speech, and nothing on the element stops it.
+    .technical-impact = Measured in the browser: an audio or video element with autoplay plays, is not muted, has an audio track, lasts more than three seconds and has no usable controls.
+    .description = An audio or video element starts on its own when the page loads and plays sound for more than three seconds, without a control to pause it or turn it down.
+    .explanation-user-impact = Screen reader users hear the page's sound over their speech output and can hardly find the control to stop it.
+    .typical-cause = <video autoplay> or <audio autoplay> for a background video, music or an advert, without controls and without muted.
+    .recommendation = Do not start sound automatically: start the medium muted, keep the sound to three seconds at most, or offer controls to pause it or lower its volume.
+    .technical-note = Measured in Chrome after load, with autoplay with sound allowed (the worst case a visitor can get): paused, muted, how long it plays (a media fragment shortens it, loop or a stream never ends) and whether it has an audio track. An unknown audio track or duration gives a review; without a measurement the rule is not run (ACT 80f0bf). Controls built by the page's own script are not seen.
 
 rule-text-justified = Limited visual presentation of text (AAA)
     .user-impact = Users with visual impairments or dyslexia have difficulty reading.

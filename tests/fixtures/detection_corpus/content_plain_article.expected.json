@@ -19,6 +19,7 @@
     {"rule_id": "images/server-side-map", "verdict": "not_applicable"},
     {"rule_id": "objects/alt-missing", "verdict": "not_applicable"},
     {"rule_id": "media/audio-autoplay", "verdict": "not_applicable"},
+    {"rule_id": "media/audio-autoplay-measured", "verdict": "not_applicable"},
     {"rule_id": "image-alt", "verdict": "not_applicable"},
     {"rule_id": "viz/text-missing", "verdict": "not_applicable"},
     {"rule_id": "viz/caption-missing", "verdict": "not_applicable"},

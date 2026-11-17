@@ -54,6 +54,10 @@
       "verdict": "not_applicable"
     },
     {
+      "rule_id": "timing/meta-refresh-enhanced",
+      "verdict": "not_applicable"
+    },
+    {
       "rule_id": "display/toggle-missing",
       "verdict": "not_applicable"
     },

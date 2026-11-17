@@ -1,0 +1,42 @@
+{
+  "id": "timing/meta-refresh-enhanced",
+  "url": "https://casoon.github.io/auditmysite/rules/timing/meta-refresh-enhanced/",
+  "domain": "wcag",
+  "title": "Page reloads or redirects itself after a delay (AAA)",
+  "outcome": "automatic",
+  "area": "Accessibility, Navigation & Operation",
+  "criterion": "2.2.4",
+  "level": "AAA",
+  "axe_id": "timing/meta-refresh-enhanced",
+  "severity": "medium",
+  "user_impact": "Users are interrupted: the page changes without a request, and screen reader users lose their reading position.",
+  "technical_impact": "A <meta http-equiv=\"refresh\"> with a delay above 0 reloads or redirects the page after that delay, also above 20 hours.",
+  "checks": [
+    {
+      "contract_id": "timing/meta-refresh-enhanced",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 2.2.4 Interruptions and SC 3.2.5 Change on Request (AAA); technique H76/F40/F41; HTML 'shared declarative refresh steps'; ACT bisz58",
+      "applicability": "The first meta element with http-equiv=refresh (any case) whose content starts with digits, also when inserted by script.",
+      "expectation": "Fails at the meta element when it reloads or redirects after any delay above\n0, also 20 hours or more: the 20-hour exception of 2.2.1 does not apply at\nAAA, and a change the user did not request interrupts them. Content without\nleading digits is ignored by browsers and passes. A delay of 0 is an\nimmediate redirect, not an interruption; it is not exercised in the corpus\nbecause it would navigate the fixture away. Only the first valid refresh\ncounts, as in the browser.",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "visual_meta_refresh_exempt",
+        "file": "tests/fixtures/detection_corpus/visual_meta_refresh_exempt.html",
+        "verdict": "violation",
+        "selector": "meta#daily-refresh",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<!-- 72001 s, just over 20 hours: the 20-hour exception of 2.2.1 (\"longer than 20 hours\"). -->\n<meta id=\"daily-refresh\" http-equiv=\"refresh\" content=\"72001\">\n<!-- No leading digits: the browser ignores this declaration. -->\n<meta id=\"broken-refresh\" http-equiv=\"refresh\" content=\"soon; url=/news\">\n<title>Dashboard refreshed once a day</title>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Status board</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Service status</h1>\n  <p>All systems operational.</p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "visual_meta_refresh_exempt",
+        "file": "tests/fixtures/detection_corpus/visual_meta_refresh_exempt.html",
+        "verdict": "pass",
+        "selector": "meta#broken-refresh",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<!-- 72001 s, just over 20 hours: the 20-hour exception of 2.2.1 (\"longer than 20 hours\"). -->\n<meta id=\"daily-refresh\" http-equiv=\"refresh\" content=\"72001\">\n<!-- No leading digits: the browser ignores this declaration. -->\n<meta id=\"broken-refresh\" http-equiv=\"refresh\" content=\"soon; url=/news\">\n<title>Dashboard refreshed once a day</title>\n</head>\n<body>\n<header>\n  <a href=\"#main\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Skip to main content</a>\n  <p>Status board</p>\n  <nav aria-label=\"Main\"><a href=\"#main\" aria-current=\"page\" style=\"display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px\">Overview</a></nav>\n</header>\n<main id=\"main\">\n  <h1>Service status</h1>\n  <p>All systems operational.</p>\n</main>\n<footer><p>Footer text</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

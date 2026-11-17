@@ -179,11 +179,12 @@ async fn unselected_probes_leave_their_rules_not_run() {
         (
             counts.frames,
             counts.transforms,
+            counts.media,
             counts.paste,
             counts.focus,
             counts.spacing
         ),
-        (None, None, None, None, None)
+        (None, None, None, None, None, None)
     );
 
     let doc = capture.document(&AXTree::new()).expect("document");
@@ -220,6 +221,82 @@ async fn unselected_probes_leave_their_rules_not_run() {
         "{:?}",
         results.violations
     );
+}
+
+/// Autoplaying sound, generated in the page as same-origin WAV: the launch
+/// flag lets it play, the probe hears the tone, and the rule fails the medium
+/// without controls; native controls pass, a silent track is a review.
+#[tokio::test]
+#[ignore = "needs real Chrome; run with `cargo test --test rendering_probes_browser -- --ignored`"]
+async fn autoplaying_sound_is_measured_and_reported() {
+    let html = r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><title>t</title></head>
+<body><main><h1>x</h1>
+<audio id="tone" autoplay data-hz="440"></audio>
+<audio id="ok" autoplay controls data-hz="440"></audio>
+<audio id="quiet" autoplay data-hz="0"></audio>
+</main><script>
+function wav(hz) {
+  var rate = 8000, n = 20 * rate, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  function str(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }
+  str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 2, true);
+  for (var i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.round(Math.sin(2 * Math.PI * hz * i / rate) * 12000), true);
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+}
+document.querySelectorAll('audio').forEach(function (a) { a.src = wav(Number(a.dataset.hz)); });
+</script></body></html>"#;
+    let (capture, fixture) = capture(html, ProbeSelection::ALL).await;
+    fixture.stop();
+    let probes = capture.probes().expect("layout styles");
+    let media = probes.media.as_ref().expect("media measured");
+    assert_eq!(media.len(), 3, "{media:?}");
+    assert!(
+        media.values().all(|m| m.paused == Some(false)
+            && m.muted == Some(false)
+            && m.duration_s.is_some_and(|d| (d - 20.0).abs() < 0.1)),
+        "autoplay with sound is not blocked: {media:?}"
+    );
+    assert_eq!(
+        media.values().filter(|m| m.has_audio == Some(true)).count(),
+        2,
+        "two tones heard: {media:?}"
+    );
+    assert_eq!(
+        media.values().filter(|m| m.has_audio.is_none()).count(),
+        1,
+        "a silent track is unknown, not absent: {media:?}"
+    );
+
+    let doc = capture.document(&AXTree::new()).expect("document");
+    let results = run_shared_rules(&doc, "en");
+    let id = Some("media/audio-autoplay-measured");
+    assert_eq!(
+        results
+            .violations
+            .iter()
+            .filter(|v| v.rule_id.as_deref() == id)
+            .count(),
+        1,
+        "{:?}",
+        results.violations
+    );
+    assert_eq!(
+        results
+            .warnings
+            .iter()
+            .filter(|v| v.rule_id.as_deref() == id)
+            .count(),
+        1,
+        "{:?}",
+        results.warnings
+    );
+    // Measured media leave the markup review.
+    assert!(results
+        .warnings
+        .iter()
+        .all(|v| v.rule_id.as_deref() != Some("media/audio-autoplay")));
 }
 
 /// The page wins the override with a layered `!important`: no element is

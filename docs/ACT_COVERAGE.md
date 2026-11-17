@@ -70,8 +70,8 @@ One id per rule: the detector id (`contrast/text-insufficient`) is also the `rul
 
 | Coverage | ACT rules |
 | --- | ---: |
-| `full` | 23 |
-| `partial` | 21 |
+| `full` | 24 |
+| `partial` | 20 |
 | `unclear` | 5 |
 | `none` | 45 |
 
@@ -102,6 +102,7 @@ One id per rule: the detector id (`contrast/text-insufficient`) is also the `rul
 | `09o5cg` | Text has enhanced contrast | `contrast/text-enhanced` | Same thresholds (7:1, 4.5:1 for large text). |
 | `2ee8b8` | Visible label is part of accessible name | `label-in-name/mismatch` | Both require the visible label to be contained in the accessible name; internal rule adds review for ambiguous composite labels. |
 | `b33eff` | Orientation of the page is not restricted using CSS transforms | `orientation/locked` | Same applicability and expectation: rotation under an orientation media query compared in both orientations; review where the media query, selector or value cannot be decided. |
+| `bisz58` | Meta element has no refresh delay (no exception) | `timing/meta-refresh-enhanced` | Same applicability and expectation: every delay above 0 fails, also 20 hours or more. |
 
 ## Partial coverage
 
@@ -111,7 +112,7 @@ One id per rule: the detector id (`contrast/text-insufficient`) is also the `rul
 | `bc4a75` | ARIA required owned elements | `aria/required-children-missing` | Internal rule also passes aria-expanded=false containers, which ACT does not exempt. |
 | `5c01ea` | ARIA state or property is permitted | `aria/attribute-not-allowed` | Internal rule additionally applies the stricter ARIA in HTML restrictions for native elements. |
 | `6a7281` | ARIA state or property has valid value | `aria/attribute-value-invalid` | Internal rule covers enumerated, integer and number types; ID reference types are a separate rule. |
-| `80f0bf` | Audio or video element avoids automatically playing audio | `media/audio-autoplay` | Internal rule covers audio only and ends in review; ACT also covers video and is a composite of two sub-rules. |
+| `80f0bf` | Audio or video element avoids automatically playing audio | `media/audio-autoplay`, `media/audio-autoplay-measured` | Playback measured in the browser; native controls only, so a control mechanism built by script is not recognised (Passed Example 3 fails). A silent or unmeasurable audio track gives a review. |
 | `cf77f2` | Bypass Blocks of Repeated Content | `headings/none` | Composite rule. Internal rule accepts headings, a main landmark or a skip link as bypass mechanism and reports review without a repeated block; no collapsible-block check. |
 | `c4a8a4` | HTML page title is descriptive | `document-title` | Internal rule only flags known placeholder titles (F25); descriptiveness is a human judgement. Heuristic: not reported as ACT result. |
 | `3ea0c8` | Id attribute value is unique (deprecated) | `ids/duplicate` | Internal rule only reviews duplicate ids that are referenced; ACT applies to every id. The ACT rule is deprecated (SC 4.1.1 removed in WCAG 2.2). |
@@ -120,7 +121,6 @@ One id per rule: the detector id (`contrast/text-insufficient`) is also the `rul
 | `23a2a8` | Image has non-empty accessible name | `images/alt-missing`, `image-alt` | Internal rules split img (images/alt-missing) and role=img (image-alt); ACT also accepts role none/presentation as pass. |
 | `aizyf1` | Link is descriptive | `links/purpose-link-only` | Internal rule flags generic link names as review; descriptiveness is a human judgement. Heuristic: not reported as ACT result. |
 | `5effbb` | Link in context is descriptive | `links/generic-name` | Internal rule flags generic link names as review; descriptiveness is a human judgement. Heuristic: not reported as ACT result. |
-| `bisz58` | Meta element has no refresh delay (no exception) | `timing/meta-refresh` | Internal rule keeps the 20-hour exception that this variant removes, so it misses delays of 20 hours or more. |
 | `8fc3b6` | Object element rendering non-text content has non-empty accessible name | `objects/alt-missing` | ACT is limited to objects embedding image, video or audio resources; internal rule judges every object. |
 | `4e8ab6` | Element with role attribute has required states and properties | `aria/required-attribute-missing` | Internal rule covers a fixed list of roles; ACT covers every role with required states and properties. |
 | `0ssw9k` | Scrollable content can be reached with sequential focus navigation | `keyboard/scrollable-region-not-focusable` | Internal rule uses a 13 px overflow tolerance and requires text; ACT compares the scroll distance with the padding. |

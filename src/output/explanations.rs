@@ -184,6 +184,14 @@ static RULE_ENTRIES: &[(&str, &str)] = &[
     ("zoom/viewport-locked", "zoom/viewport-locked"),
     ("zoom/viewport-missing", "zoom/viewport-missing"),
     ("media/audio-autoplay", "media/audio-autoplay"),
+    (
+        "media/audio-autoplay-measured",
+        "media/audio-autoplay-measured",
+    ),
+    (
+        "timing/meta-refresh-enhanced",
+        "timing/meta-refresh-enhanced",
+    ),
     ("keyboard/hidden-focusable", "keyboard/hidden-focusable"),
     (
         "aria/required-attribute-missing",
@@ -1797,6 +1805,28 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             example_decorative: None,
         },
     ),
+    (
+        "media/audio-autoplay-measured",
+        RuleExplanation {
+            key: "media/audio-autoplay-measured",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<video src=\"hero.mp4\" autoplay loop></video>"),
+            example_good: Some("<video src=\"hero.mp4\" autoplay loop muted controls></video>"),
+            example_decorative: None,
+        },
+    ),
+    (
+        "timing/meta-refresh-enhanced",
+        RuleExplanation {
+            key: "timing/meta-refresh-enhanced",
+            responsible_role: Role::Development,
+            effort_estimate: Effort::Quick,
+            example_bad: Some("<meta http-equiv=\"refresh\" content=\"300\">"),
+            example_good: Some("<!-- reload on request; redirect on the server (301) -->"),
+            example_decorative: None,
+        },
+    ),
     // `frame-title` fiel bisher auf den 2.4.1-Text („Fehlende
     // Sprungnavigation") zurueck.
     (
@@ -2277,8 +2307,8 @@ mod tests {
                 None => none += 1,
             }
         }
-        assert_eq!((own, other, none), (62, 84, 25));
-        assert_eq!(RULE_ENTRIES.len(), 62 + 84);
+        assert_eq!((own, other, none), (64, 84, 25));
+        assert_eq!(RULE_ENTRIES.len(), 64 + 84);
     }
 
     /// The lookup the reports use resolves for every entry: a missing message

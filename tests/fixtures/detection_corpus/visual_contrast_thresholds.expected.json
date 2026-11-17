@@ -29,6 +29,7 @@
     { "rule_id": "display/text-not-visible", "verdict": "not_applicable" },
     { "rule_id": "display/text-hidden", "verdict": "not_applicable" },
     { "rule_id": "timing/meta-refresh", "verdict": "not_applicable" },
+    { "rule_id": "timing/meta-refresh-enhanced", "verdict": "not_applicable" },
     { "rule_id": "orientation/content-hidden", "verdict": "not_applicable" }
   ]
 }

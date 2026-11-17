@@ -87,6 +87,7 @@ Chrome is started as a **child process** with these flags:
 --disable-features=TranslateUI   # No Translate UI
 --metrics-recording-only         # Do not send telemetry
 --mute-audio                     # No audio
+--autoplay-policy=no-user-gesture-required  # Autoplay with sound is measured, not blocked
 --disable-infobars               # No infobars
 --disable-popup-blocking         # No popup blocking
 --disable-gpu                    # No GPU (headless)

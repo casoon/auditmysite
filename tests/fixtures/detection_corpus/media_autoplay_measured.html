@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Autoplaying sound, measured</title>
+</head>
+<body>
+<header>
+  <a href="#main" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Skip to main content</a>
+  <nav aria-label="Main"><a href="#main" aria-current="page" style="display: inline-block; min-width: 44px; min-height: 44px; line-height: 44px; padding: 0 8px">Radio</a></nav>
+</header>
+<main id="main">
+  <h1>Station jingles</h1>
+  <!-- WCAG 1.4.2, ACT 80f0bf: 30 s of audible tone, no controls, not muted. -->
+  <audio id="tone" autoplay data-seconds="30" data-hz="440"></audio>
+  <!-- Native controls pause it: passes. -->
+  <audio id="tone-controls" autoplay controls data-seconds="30" data-hz="440"></audio>
+  <!-- Muted: passes. -->
+  <audio id="tone-muted" autoplay muted data-seconds="30" data-hz="440"></audio>
+  <!-- Three seconds at most: passes. -->
+  <audio id="jingle" autoplay data-seconds="2" data-hz="660"></audio>
+  <!-- An audio track of silence: whether it is heard is not measured, a review. -->
+  <audio id="silence" autoplay data-seconds="30" data-hz="0"></audio>
+  <p>The jingles are generated in the page as WAV files (same origin, so the audio track can be measured).</p>
+</main>
+<footer><p>Footer text</p></footer>
+<script>
+  // 16-bit mono PCM at 8 kHz: a sine of data-hz for data-seconds (0 Hz is silence).
+  function wav(seconds, hz) {
+    var rate = 8000, n = seconds * rate, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+    function str(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }
+    str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true);
+    v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 2, true);
+    for (var i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.round(Math.sin(2 * Math.PI * hz * i / rate) * 12000), true);
+    return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+  }
+  document.querySelectorAll('audio[data-seconds]').forEach(function (a) {
+    a.src = wav(Number(a.dataset.seconds), Number(a.dataset.hz));
+  });
+</script>
+</body>
+</html>

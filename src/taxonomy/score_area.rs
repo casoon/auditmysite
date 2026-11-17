@@ -165,6 +165,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("zoom/viewport-missing", Semantics),
     ("zoom/viewport-scale-limited", Semantics),
     ("media/audio-autoplay", Semantics),
+    ("media/audio-autoplay-measured", Semantics),
     ("text/justified", Semantics),
     ("text/line-height-tight", Semantics),
     ("visual-presentation", Semantics),
@@ -207,6 +208,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     // ── 2.2.x — Zeitlimits ──
     ("meta-refresh", Semantics),
     ("timing/meta-refresh", Semantics),
+    ("timing/meta-refresh-enhanced", Semantics),
     ("motion/infinite-animation", Semantics),
     ("manual/no-timing", Semantics),
     ("manual/interruptions", Semantics),
