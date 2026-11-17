@@ -16,7 +16,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "2.1"
+      "const": "2.2"
     },
     "report_type": {
       "type": "string",
@@ -923,7 +923,6 @@
       "type": "object",
       "required": [
         "area",
-        "score",
         "weight_pct",
         "estimated_lost_points",
         "main_driver"
@@ -932,11 +931,6 @@
       "properties": {
         "area": {
           "type": "string"
-        },
-        "score": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
         },
         "weight_pct": {
           "type": "integer",
@@ -1230,27 +1224,6 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/capabilitySignal"
-          }
-        },
-        "accessibility_subcategory_scores": {
-          "description": "Accessibility score per subcategory (0-100, higher is better). Single reports only.",
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "name",
-              "score"
-            ],
-            "properties": {
-              "name": {
-                "type": "string"
-              },
-              "score": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 100
-              }
-            }
           }
         },
         "security_category_scores": {

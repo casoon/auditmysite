@@ -584,7 +584,8 @@ impl PipelineConfig {
         // 32 for the experimental indicators moving into `experimental` (#916).
         // 33 for `help_url` as the rule page and the new `understanding_url` (#929).
         // 34 for `viewport_scores.{desktop,mobile}.overall` becoming `site_quality` (#909).
-        const CACHE_FMT: u8 = 34;
+        // 35 for the accessibility breakdown losing its per-area `score` and `detail.accessibility_subcategory_scores` (#902).
+        const CACHE_FMT: u8 = 35;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
@@ -2450,7 +2451,7 @@ mod tests {
         assert_eq!(
             PipelineConfig::default().audit_signature(),
             format!(
-                "v={version};fmt=34;level=AA;perf=1;seo=1;sec=1;mobile=1;html_conform=1;\
+                "v={version};fmt=35;level=AA;perf=1;seo=1;sec=1;mobile=1;html_conform=1;\
                  privacy=0;isolate_tp_impact=0;perf_runs=1;ssr_content=0;stack=1;experimental=;\
                  consent=0;interactive=Full;state_changes=0;journey_budget_ms=15000;\
                  session=isolated;state_id=;state=;lang=en;disabled=;enabled_only=;\
@@ -2467,7 +2468,7 @@ mod tests {
         assert_eq!(
             narrowed.audit_signature(),
             format!(
-                "v={version};fmt=34;level=AAA;perf=0;seo=1;sec=0;mobile=0;html_conform=0;\
+                "v={version};fmt=35;level=AAA;perf=0;seo=1;sec=0;mobile=0;html_conform=0;\
                  privacy=1;isolate_tp_impact=0;perf_runs=1;ssr_content=0;stack=0;experimental=;\
                  consent=0;interactive=Off;state_changes=0;journey_budget_ms=15000;\
                  session=isolated;state_id=;state=;lang=de;disabled=;enabled_only=;\

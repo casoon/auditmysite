@@ -248,6 +248,44 @@ fn export_subcategory_breakdown(records: &mut Vec<Value>, lang: &str, i18n: &I18
     }
 }
 
+fn export_accessibility_loss_breakdown(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
+    let title = i18n.t("module-accessibility");
+    for mask in 0..8u32 {
+        let mut areas: Vec<(String, u32)> = Vec::new();
+        if mask & 1 != 0 {
+            areas.push(("Images".to_string(), 9));
+            areas.push(("Forms".to_string(), 7));
+        }
+        if mask & 2 != 0 {
+            areas.push(("ARIA".to_string(), 0));
+            areas.push(("Keyboard".to_string(), 0));
+        }
+        let critical = if mask & 4 != 0 {
+            vec![("Missing alt text".to_string(), "Images".to_string())]
+        } else {
+            Vec::new()
+        };
+        records.push(json!([
+            "render_accessibility_loss_breakdown",
+            format!(
+                "lost={} clean={} critical={}",
+                mask & 1 != 0,
+                mask & 2 != 0,
+                critical.len()
+            ),
+            lang,
+            components(render_accessibility_loss_breakdown(
+                bare(),
+                &title,
+                84,
+                &areas,
+                &critical,
+                i18n
+            ))
+        ]));
+    }
+}
+
 /// Every record of the export, in both languages.
 pub(super) fn records() -> Vec<Value> {
     let mut records: Vec<Value> = Vec::new();
@@ -256,6 +294,7 @@ pub(super) fn records() -> Vec<Value> {
         export_score_driver_table(&mut records, lang, &i18n);
         export_additional_score_drivers(&mut records, lang, &i18n);
         export_subcategory_breakdown(&mut records, lang, &i18n);
+        export_accessibility_loss_breakdown(&mut records, lang, &i18n);
     }
     records
 }

@@ -311,6 +311,65 @@ pub(super) fn render_additional_score_drivers(
     builder
 }
 
+/// The components of the accessibility score: the points each area cost.
+///
+/// `areas` is `(localized area, estimated_lost_points)` from the same
+/// `build_accessibility_score_breakdown` the JSON carries, and `headline` is
+/// the report's accessibility score, so the callout states the arithmetic the
+/// numbers obey: `100 - sum(lost points) = headline`. There is no second
+/// 0-100 scale per area (#902 item 10). `critical` (finding title, localized
+/// area) names where each critical finding counts. Renders nothing for an
+/// empty input.
+pub(super) fn render_accessibility_loss_breakdown(
+    mut builder: renderreport::engine::ReportBuilder,
+    title: &str,
+    headline: u32,
+    areas: &[(String, u32)],
+    critical: &[(String, String)],
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    if areas.is_empty() {
+        return builder;
+    }
+    let mut lost: Vec<&(String, u32)> = areas.iter().filter(|(_, l)| *l > 0).collect();
+    lost.sort_by_key(|(_, points)| std::cmp::Reverse(*points));
+    let clean: Vec<&str> = areas
+        .iter()
+        .filter(|(_, l)| *l == 0)
+        .map(|(name, _)| name.as_str())
+        .collect();
+
+    let mut lines = Vec::new();
+    if !lost.is_empty() {
+        let items = lost
+            .iter()
+            .map(|(name, points)| format!("{name} −{points}"))
+            .collect::<Vec<_>>()
+            .join(" · ");
+        lines.push(i18n.t_args(
+            "score-drivers-loss-lost",
+            &[
+                ("lost", (100 - headline.min(100)).to_string()),
+                ("score", headline.to_string()),
+                ("items", items),
+            ],
+        ));
+    }
+    if !clean.is_empty() {
+        lines.push(i18n.t_args("score-drivers-loss-clean", &[("items", clean.join(" · "))]));
+    }
+    if !critical.is_empty() {
+        let items = critical
+            .iter()
+            .map(|(finding, area)| format!("{finding} → {area}"))
+            .collect::<Vec<_>>()
+            .join(" · ");
+        lines.push(i18n.t_args("score-drivers-subcategory-critical", &[("items", items)]));
+    }
+    builder = builder.add_component(Callout::info(lines.join("\n")).with_title(title));
+    builder
+}
+
 /// Splits a list of `(label, score)` pairs into "critical weaknesses"
 /// (below the shared FIVE_BAND "Verbesserungswürdig"/"Needs improvement"
 /// cutoff at 60 — no new threshold invented), other sub-areas, and sub-areas

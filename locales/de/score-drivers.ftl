@@ -50,3 +50,7 @@ score-drivers-subcategory-weak = Kritische Schwächen: { $items }
 score-drivers-subcategory-partial = Weitere Teilbereiche der { $title }: { $items }
 score-drivers-subcategory-clean = Ohne zugeordnete Befunde (100): { $items }. Das heißt nur, dass dort nichts gezählt wurde — nicht, dass der Bereich geprüft und mängelfrei ist.
 score-drivers-subcategory-critical = Kritische Befunde und der Teilbereich, in dem sie zählen: { $items }
+
+## Bestandteile des Barrierefreiheits-Scores (verlorene Punkte je Bereich)
+score-drivers-loss-lost = Verlorene Punkte je Bereich, insgesamt { $lost } (100 − { $lost } = { $score }): { $items }
+score-drivers-loss-clean = Ohne verlorene Punkte: { $items }. Das heißt nur, dass dort nichts gezählt wurde — nicht, dass der Bereich geprüft und mängelfrei ist.

@@ -8,7 +8,7 @@
 - Batch JSON is generated from normalized reports plus batch `summary`, optional `errors`, and deterministic `metadata`.
 - Timestamps are data-derived, not generated at serialization time.
 - New top-level fields may be added in a backward-compatible way.
-- Existing required fields should not be removed or renamed without a versioned contract change: a rename that is not additive raises the minor part of `schema_version` (see "Site quality score (optional modules)" below for the 2.1 step).
+- Existing required fields should not be removed or renamed without a versioned contract change: a rename that is not additive raises the minor part of `schema_version` (see "Site quality score (optional modules)" below for the 2.1 step and "One axis for the accessibility score and its components" for 2.2).
 
 ## Module Classification
 
@@ -226,6 +226,21 @@ Naming rule: every key, label and id that names this figure says `site_quality`,
 
 PDF and table labels follow the name (`Site quality (optional modules)` / `Website-Qualität (optionale Module)`); the JSON stays English.
 
+## One axis for the accessibility score and its components
+
+The accessibility score has one set of components: the points each area cost. They add up to the headline, `100 - sum(estimated_lost_points) = accessibility_score`, in the JSON (`summary.accessibility_score_breakdown[]`) and the PDF (the accessibility callout of the management page) alike; the terminal table shows no components. There is no second 0-100 scale per area.
+
+Until schema 2.2 the report carried two other sets next to it, both the accessibility scorer re-run on a *slice* of the findings: a per-area `score` in the breakdown ("what the page would score if this area were its only problem") and `detail.accessibility_subcategory_scores` (the same on the seven taxonomy subcategories, which the PDF printed as its sub-scores). The scorer is non-linear (diversity factor, compression above the knee, soft floor, severity cap), so slices do not add up to the whole: a page scoring 75 with four areas losing 7, 7, 9 and 2 points showed those areas as 89, 89, 89 and 99, i.e. 11, 11, 11 and 1 points lost, 34 in total against the 25 the page lost. The loss of the whole is the authority; the areas reconcile to it.
+
+`schema_version` is `2.2` (was `2.1`; the technician index is unchanged). Stored snapshots stay valid (`SNAPSHOT_SCHEMA_VERSION` 3, `EVALUATION_VERSION` 8: no score, finding or verdict moves for unchanged input); cache `fmt` 35 turns cached results into misses so they are re-rendered. There is no alias.
+
+| Old key | New | Where |
+| --- | --- | --- |
+| `summary.accessibility_score_breakdown[].score` | removed; read `estimated_lost_points` (area share of the lost points) and `weight_pct` (the same share in percent) | single and batch `summary` |
+| `pages[].detail.accessibility_subcategory_scores` | removed; the components are `summary.accessibility_score_breakdown[]` | single report detail |
+
+`pages[].detail.security_category_scores` is unchanged: it breaks down the Security module's own score, not the accessibility score.
+
 ## Validation codes
 
 A report that contradicts itself is rejected with machine-readable codes (`ReportContractError.violations[].code`, `audit::CONTRACT_CODES`). The codes, by area:
@@ -346,14 +361,13 @@ published weights, Security added afterwards); read `site_quality_score` for the
 score of the page.
 
 <a id="subcategory-scores"></a>
-### subcategory_scores — `pages[].detail.accessibility_subcategory_scores` / `pages[].detail.security_category_scores`
+### subcategory_scores — `pages[].detail.security_category_scores`
 
-Accessibility score per subcategory and Security score per category, each on
-the 0-100 scale; higher is better. Each entry is `{ name, score }` with a
-canonical English `name`. Accessibility entries re-run the module's own scorer
-on that subcategory's violations, so a subcategory without violations scores
-100. Security entries are omitted when the Security module did not run. Single
-reports only; batch page details omit both fields.
+Security score per category on the 0-100 scale; higher is better. Each entry
+is `{ name, score }` with a canonical English `name`. Entries are omitted when
+the Security module did not run. Single reports only; batch page details omit
+the field. The accessibility score has no per-subcategory score set; its
+components are `summary.accessibility_score_breakdown[]`.
 
 <a id="named-module-score"></a>
 ### named_module_score — `summary.*_score` / `pages[].*_score`
@@ -378,22 +392,23 @@ means `site_quality_score` values from different module sets were averaged.
 <a id="accessibility-score-breakdown"></a>
 ### accessibility_score_breakdown — `summary.accessibility_score_breakdown[]`
 
-Two different statements per area, deliberately kept apart:
+The components of `summary.accessibility_score`, one entry per area, on one
+axis (see "One axis for the accessibility score and its components" above):
 
-- `score` (0-100, higher is better) is that area run through the accessibility
-  scorer *on its own* — what the page would score if this area were its only
-  problem. Area scores do not add up to `summary.accessibility_score`, and no
-  weighting of them reproduces it: the scorer's diversity factor, compression
-  curve, soft floor and severity cap are all non-linear and depend on the
-  finding set as a whole.
 - `estimated_lost_points` is the area's share of the points the score actually
-  lost. Across all areas it sums to exactly
-  `100 - summary.accessibility_score`. `weight_pct` is the same share expressed
-  in percent (summing to 100 whenever anything was lost).
+  lost, apportioned by the area's share of the raw per-rule penalty (largest
+  remainder). Across all areas it sums to exactly
+  `100 - summary.accessibility_score`.
+- `weight_pct` is the same share expressed in percent (summing to 100 whenever
+  anything was lost).
+- `main_driver` names the area's most frequent finding.
 
-So a low `score` with few `estimated_lost_points` is meaningful, not a
-contradiction: the area is bad in isolation but accounts for little of this
-page's total loss.
+The headline is the authority and the areas reconcile to it. There is no
+per-area 0-100 score: the scorer's diversity factor, compression curve, soft
+floor and severity cap are non-linear and depend on the finding set as a
+whole, so a score computed for one area alone does not add up to the whole.
+`auditmysite-dev report-lint` checks the sum
+(`accessibility_breakdown_reconciles_with_score`).
 
 <a id="legal-relevance"></a>
 ### One definition of legal relevance

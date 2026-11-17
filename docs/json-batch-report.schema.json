@@ -16,7 +16,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "2.1"
+      "const": "2.2"
     },
     "report_type": {
       "type": "string",
@@ -1247,7 +1247,6 @@
       "type": "object",
       "required": [
         "area",
-        "score",
         "weight_pct",
         "estimated_lost_points",
         "main_driver"
@@ -1256,11 +1255,6 @@
       "properties": {
         "area": {
           "type": "string"
-        },
-        "score": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
         },
         "weight_pct": {
           "type": "integer",

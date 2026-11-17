@@ -89,7 +89,7 @@ fn test_json_report_generation() {
     let parsed: serde_json::Value =
         serde_json::from_str(&json_str).expect("Failed to parse generated JSON");
 
-    assert_eq!(parsed["schema_version"], "2.1");
+    assert_eq!(parsed["schema_version"], "2.2");
     assert_eq!(parsed["report_type"], "single");
     assert_eq!(parsed["pages"][0]["url"], "https://example.com");
     assert_eq!(parsed["metadata"]["wcag_level"], "AA");

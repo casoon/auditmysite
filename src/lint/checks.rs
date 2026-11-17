@@ -150,7 +150,10 @@ const CHECK_BREAKDOWN_RECONCILES: &str = "accessibility_breakdown_reconciles_wit
 /// the formal checks noticed, because every individual number was
 /// self-consistent.
 ///
-/// Tolerance is +/-2 points to absorb rounding in the apportionment.
+/// There is no tolerance: the apportionment uses largest-remainder rounding, so
+/// `100 - sum(estimated_lost_points) == accessibility_score` holds exactly
+/// (#902). A component that carries a 0-100 `score` of its own is a second
+/// scale next to the lost points and is flagged as well.
 fn check_accessibility_breakdown_reconciles(report: &Value, findings: &mut Vec<LintFinding>) {
     // No measured pages means no lost points to apportion. The zero score
     // of an all-failed batch is a sentinel, not a measured accessibility score.
@@ -183,7 +186,7 @@ fn check_accessibility_breakdown_reconciles(report: &Value, findings: &mut Vec<L
         .sum();
     let expected_loss = 100u64.saturating_sub(score);
 
-    if lost.abs_diff(expected_loss) > 2 {
+    if lost != expected_loss {
         findings.push(LintFinding {
             check_id: CHECK_BREAKDOWN_RECONCILES,
             evidence_path: "summary.accessibility_score_breakdown[].estimated_lost_points"
@@ -196,11 +199,16 @@ fn check_accessibility_breakdown_reconciles(report: &Value, findings: &mut Vec<L
         });
     }
 
-    // Deliberately NOT checked: that `score` and `estimated_lost_points`
-    // complement to 100. They answer different questions — `score` is the area
-    // run through the scorer on its own, `estimated_lost_points` is its share
-    // of the loss the whole page took. Asserting a relation between them would
-    // re-introduce exactly the false arithmetic this check exists to prevent.
+    if areas.iter().any(|a| a.get("score").is_some()) {
+        findings.push(LintFinding {
+            check_id: CHECK_BREAKDOWN_RECONCILES,
+            evidence_path: "summary.accessibility_score_breakdown[].score".to_string(),
+            expected: "components on one axis: estimated_lost_points only, no per-area 0-100 score"
+                .to_string(),
+            actual: "a component carries its own score".to_string(),
+            severity: Severity::High,
+        });
+    }
 }
 
 // ─── Score consistency ────────────────────────────────────────────────────
@@ -732,7 +740,7 @@ mod tests {
 
     fn clean_single_report() -> Value {
         json!({
-            "schema_version": "2.1",
+            "schema_version": "2.2",
             "report_type": "single",
             "metric_context": registry_metric_context_json("single"),
             "summary": {
@@ -763,6 +771,50 @@ mod tests {
         let mut findings = Vec::new();
         run_all_checks(&clean_single_report(), &mut findings);
         assert!(findings.is_empty(), "unexpected findings: {findings:?}");
+    }
+
+    fn with_breakdown(lost: &[u64]) -> Value {
+        let mut report = clean_single_report();
+        report["summary"]["accessibility_score_breakdown"] = Value::Array(
+            lost.iter()
+                .map(|l| json!({"area": "Forms", "weight_pct": 0, "estimated_lost_points": l}))
+                .collect(),
+        );
+        report
+    }
+
+    #[test]
+    fn breakdown_that_adds_up_to_the_headline_passes() {
+        // The clean report scores 82: 18 points lost.
+        let mut findings = Vec::new();
+        run_all_checks(&with_breakdown(&[10, 5, 3]), &mut findings);
+        assert!(findings.is_empty(), "unexpected findings: {findings:?}");
+    }
+
+    #[test]
+    fn breakdown_that_does_not_add_up_to_the_headline_is_flagged() {
+        // One point off is already a contradiction: there is no tolerance.
+        for lost in [[10, 5, 2], [10, 5, 4]] {
+            let mut findings = Vec::new();
+            run_all_checks(&with_breakdown(&lost), &mut findings);
+            assert!(
+                findings
+                    .iter()
+                    .any(|f| f.check_id == CHECK_BREAKDOWN_RECONCILES),
+                "{lost:?} must not reconcile with 100 - 82"
+            );
+        }
+    }
+
+    #[test]
+    fn breakdown_component_with_a_second_scale_is_flagged() {
+        let mut report = with_breakdown(&[10, 5, 3]);
+        report["summary"]["accessibility_score_breakdown"][0]["score"] = json!(89);
+        let mut findings = Vec::new();
+        run_all_checks(&report, &mut findings);
+        assert!(findings
+            .iter()
+            .any(|f| f.check_id == CHECK_BREAKDOWN_RECONCILES));
     }
 
     #[test]
@@ -823,7 +875,7 @@ mod tests {
 
     fn clean_batch_report() -> Value {
         json!({
-            "schema_version": "2.1",
+            "schema_version": "2.2",
             "report_type": "batch",
             "summary": {
                 "accessibility_score": 82,

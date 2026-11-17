@@ -714,8 +714,8 @@ async fn test_output_formats() {
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("Invalid JSON output");
     assert_eq!(
         parsed.get("schema_version").and_then(|v| v.as_str()),
-        Some("2.1"),
-        "JSON should contain schema_version 2.1"
+        Some("2.2"),
+        "JSON should contain schema_version 2.2"
     );
     let pages = parsed
         .get("pages")
@@ -1245,8 +1245,8 @@ async fn test_catalog_audit_json_envelope_v2() {
 
     assert_eq!(
         parsed["schema_version"].as_str(),
-        Some("2.1"),
-        "schema_version must be 2.1"
+        Some("2.2"),
+        "schema_version must be 2.2"
     );
     assert_eq!(
         parsed["report_type"].as_str(),

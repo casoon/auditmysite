@@ -44,13 +44,12 @@ fn apply_soft_floor(raw_score: f32) -> f32 {
 /// The global half of the accessibility score: everything applied *after*
 /// the per-rule penalties are summed.
 ///
-/// Extracted so the JSON score breakdown can score a single area with the
-/// exact same pipeline instead of inventing a second model (plan 37). Every
-/// step here is non-linear and depends on the finding set as a whole, which is
-/// why per-area scores produced by this function do not add up to the score of
-/// the whole set — that reconciliation is carried by
-/// `estimated_lost_points`, not by the per-area scores.
-pub(crate) fn score_from_penalties(
+/// Every step here is non-linear and depends on the finding set as a whole,
+/// which is why a score computed for a slice of the findings would not add up
+/// to the score of the whole set. The accessibility score breakdown therefore
+/// does not re-run this per area: it apportions the loss of the whole-set score
+/// as `estimated_lost_points`.
+fn score_from_penalties(
     raw_penalty: f32,
     unique_criteria: usize,
     critical_occurrences: usize,

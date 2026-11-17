@@ -1,0 +1,13 @@
+{
+  "id": "accessibility-score-components-two-axes",
+  "category": "Semantic",
+  "problem": "The accessibility score had two different sets of components. summary.accessibility_score_breakdown[] carried a per-area `score` (the accessibility scorer re-run on that area's findings alone) next to `estimated_lost_points` (the area's share of the points the page actually lost), and the PDF printed a third set, detail.accessibility_subcategory_scores (the same re-run on the seven taxonomy subcategories). The scorer is non-linear (diversity factor, compression above the knee, soft floor, severity cap), so slices do not add up to the whole: a reader saw an area at 94 beside 7 lost points (100 - 94 = 6, not 7), PDF sub-scores of 98 and 95 beside JSON areas at 94, and no way to reconcile any of them with the headline.",
+  "evidence": "casoon.de audit, issue #902 item 10: PDF accessibility sub-scores 98 / 95 against JSON accessibility_score_breakdown Semantics 94 with 7 lost points. Reproduced on a fixture with images/alt-missing x3, forms/label-missing x3, landmarks/main-missing and contrast/text-insufficient: headline 75, so 25 points lost, areas lost 9 + 7 + 7 + 2 = 25, while the per-area scores read 89, 89, 89 and 99, i.e. 11 + 11 + 11 + 1 = 34 points lost.",
+  "expected": "One axis. The headline accessibility_score is the authority and its components are the points each area cost: summary.accessibility_score_breakdown[].estimated_lost_points sums to exactly 100 - accessibility_score, weight_pct is the same share in percent, and the PDF prints the same lost points and the arithmetic (100 - lost = headline). There is no per-area 0-100 score and no accessibility_subcategory_scores. JSON schema_version 2.2.",
+  "regression": "output::builder::single::one_score_axis_tests::components_are_the_same_in_json_and_view_model_and_add_up_to_the_headline, output::pdf::single_report::one_score_axis_tests::pdf_prints_the_json_lost_points_and_the_headline_they_add_up_to, lint check accessibility_breakdown_reconciles_with_score (exact sum, flags a component with its own score; src/lint/checks.rs)",
+  "counter_examples": [
+    "A report with no findings keeps every area at 0 lost points and weight_pct 0; the PDF then lists every area under 'No points lost' and says that only means nothing was counted there.",
+    "security_category_scores stays a 0-100 set: it breaks down the Security module's own score, which is a different quantity from the accessibility score, not a slice of it."
+  ],
+  "status": "resolved"
+}

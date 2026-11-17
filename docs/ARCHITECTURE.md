@@ -255,7 +255,7 @@ src/
 │   │   │                      # both files in both languages) and findings/text_guard.rs (guards)
 │   │   ├── appendix.rs, design.rs (4-color law)
 │   │   ├── problem_profile.rs # Problem concentration/breadth diagnosis
-│   │   ├── score_drivers.rs   # Score-driver table, score derivation, subcategory breakdown; texts:
+│   │   ├── score_drivers.rs   # Score-driver table, score derivation, accessibility lost-points and security subcategory breakdowns; texts:
 │   │   │                      # `score-drivers-*` in `locales/<lang>/score-drivers.ftl` (#936),
 │   │   │                      # score_drivers/text_export.rs (ignored test: exports them in both
 │   │   │                      # languages) and score_drivers/text_guard.rs (guards of that file)
