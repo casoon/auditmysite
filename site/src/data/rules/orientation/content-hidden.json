@@ -10,7 +10,7 @@
   "axe_id": "css-orientation-lock",
   "severity": "high",
   "user_impact": "Users with fixed-mount screens (e.g. wheelchair-mounted) cannot read the page.",
-  "technical_impact": "CSS media queries hide content depending on the orientation.",
+  "technical_impact": "A style rule inside @media (orientation: ...) sets display: none or visibility: hidden on elements that exist on the page, so content disappears in one orientation; reported as a review hint, with high severity when html, body or main is hidden.",
   "checks": [
     {
       "contract_id": "orientation/content-hidden",

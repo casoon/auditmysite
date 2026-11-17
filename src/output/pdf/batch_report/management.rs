@@ -342,11 +342,14 @@ pub(super) fn render_batch_decision_actions(
             // Name the place: the element of the rule's most widespread
             // pattern. The full CSS path stays in the template list; a long
             // path in this narrow column broke the layout before (#518).
-            format!(
-                "{}: {}",
-                selector_tail(&cluster.selector),
-                cluster.decision_label
-            )
+            // A bare tag name ("span") names nothing a reader can find: leave
+            // it out and keep the claim.
+            let element = selector_tail(&cluster.selector);
+            if is_bare_tag(element) {
+                cluster.decision_label.clone()
+            } else {
+                format!("{element}: {}", cluster.decision_label)
+            }
         } else if group.affected_urls.len() > 1 {
             // Recurring is observed; a shared component is not (plan 85).
             i18n.t_args(
@@ -404,6 +407,15 @@ fn selector_tail(selector: &str) -> &str {
         .rsplit(|c: char| c.is_whitespace() || c == '>' || c == '+' || c == '~')
         .find(|part| !part.is_empty())
         .unwrap_or(selector)
+}
+
+/// A selector that is only an element name (`span`, `li`) — no class, id,
+/// attribute or pseudo-class that would identify the place.
+fn is_bare_tag(selector: &str) -> bool {
+    !selector.is_empty()
+        && selector
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-')
 }
 
 fn change_scope_label(complexity: &str, i18n: &I18n) -> String {
@@ -474,7 +486,7 @@ pub(super) fn build_batch_key_points(
 
 #[cfg(test)]
 mod tests {
-    use super::selector_tail;
+    use super::{is_bare_tag, selector_tail};
 
     #[test]
     fn selector_tail_names_the_element() {
@@ -484,5 +496,10 @@ mod tests {
         );
         assert_eq!(selector_tail("a#skip"), "a#skip");
         assert_eq!(selector_tail("ul > li + li"), "li");
+        assert!(is_bare_tag("span"));
+        assert!(is_bare_tag(selector_tail("div > span")));
+        assert!(!is_bare_tag("a.mainnav-toggle"));
+        assert!(!is_bare_tag("a#skip"));
+        assert!(!is_bare_tag("input[type=text]"));
     }
 }

@@ -359,9 +359,19 @@ mod tests {
         let batch = failing_batch();
         let i18n = I18n::new("en").unwrap();
         let out = typ(&batch, "en");
-        assert!(out.contains(&i18n.count(
-            "cover-card-wcag-occurrences",
-            batch.summary.total_violations
+        // The URLs card counts URLs: how many passed, not occurrences.
+        assert!(out.contains(&i18n.t_args(
+            "cover-card-urls-passed",
+            &[
+                (
+                    "passed",
+                    fluent_bundle::FluentValue::from(batch.summary.passed as i64)
+                ),
+                (
+                    "total",
+                    fluent_bundle::FluentValue::from(batch.summary.total_urls as i64)
+                ),
+            ],
         )));
         assert!(out.contains(&i18n.t("batch-scope-note-json")));
         assert!(!out.contains(&i18n.t("batch-scope-note-appendix")));
@@ -774,13 +784,26 @@ mod tests {
         ]
         .map(str::to_string);
         assert_eq!(
-            portfolio::leading_items(&issues, 52, &en),
-            "Insufficient color contrast and 2 more"
+            portfolio::leading_items(&issues, 2, &en),
+            "Insufficient color contrast, CSP: frame-ancestors directive missing and 1 more"
         );
         assert_eq!(
-            portfolio::leading_items(&issues[..1], 52, &en),
+            portfolio::leading_items(&issues[..1], 2, &en),
             "Insufficient color contrast"
         );
+        // The number of visible titles does not depend on their length, so
+        // the English and the German cell show the same count.
+        let short = ["a", "b", "c", "d"].map(str::to_string);
+        let long = [
+            "a".repeat(60),
+            "b".repeat(60),
+            "c".repeat(60),
+            "d".repeat(60),
+        ];
+        for items in [&short[..], &long[..]] {
+            assert!(portfolio::leading_items(items, 2, &en).ends_with("and 2 more"));
+            assert!(portfolio::leading_items(items, 2, &de).ends_with("und 2 weitere"));
+        }
         assert_eq!(
             seo::sitemap_orphan_title_key(true, false),
             "batch-seo-sitemap-orphan-title-orphans"

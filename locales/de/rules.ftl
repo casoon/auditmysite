@@ -34,17 +34,17 @@ rule-video-caption = Fehlende Untertitel für Videos
 
 rule-media-alt = Fehlende Medienalternative (AAA)
     .user-impact = Nutzer, die keine Videos oder Audios abspielen können, erhalten keine Textalternative.
-    .technical-impact = Fehlendes Transkript oder Audiobeschreibung.
+    .technical-impact = Die Prüfung erkennt keine fehlende Alternative: Auf jeder mit Stufe AAA geprüften Seite steht ein Hinweis zur manuellen Prüfung, dass aufgezeichnete Video- und Audioinhalte eine vollständige Textalternative brauchen; ein gefundenes <video> oder Video-Embed wird genannt, ein Link in der Nähe mit einem Wort wie „Transkript“ nur als Hinweis, nicht als Beleg.
 
 ## Structure & semantics
 
 rule-order-visual-mismatch = Visuelle Reihenfolge weicht von der Vorlese-Reihenfolge ab
     .user-impact = Screenreader-Nutzer hören Inhalte in einer anderen Reihenfolge, als sie sehende Nutzer visuell wahrnehmen.
-    .technical-impact = CSS `order` verändert die visuelle Reihenfolge, der DOM- und Accessibility-Baum bleiben unverändert.
+    .technical-impact = Ein Flex-Container mit flex-direction row-reverse oder column-reverse oder ein Kind mit einer CSS-order ungleich 0 zeigt Inhalt in anderer Reihenfolge als das DOM, während DOM und Accessibility-Tree ihre Reihenfolge behalten, daher können Tab- und Lesereihenfolge vom Sichtbaren abweichen; als Prüfhinweis gemeldet, wenn das Layout gemessen wurde.
 
 rule-headings-section-without-heading = Fehlende Abschnittsüberschriften
     .user-impact = Nutzer können Inhalte nicht gezielt ansteuern.
-    .technical-impact = Fehlende Sub-Headings in langen Inhaltsblöcken.
+    .technical-impact = Ein <article> oder ein benanntes <section> (mit aria-label oder aria-labelledby) enthält keine eigene Überschrift, daher bietet die Überschriftennavigation eines Screenreaders keinen Eintrag dafür an; als Prüfhinweis gemeldet, weil vom Inhalt abhängt, ob ein Abschnitt eine Überschrift braucht (WCAG 2.4.10, AAA).
 
 rule-orientation-root-rotated = Prüfen, ob die gedrehte Wurzel eine Bildschirmausrichtung erzwingt
     .user-impact = Nutzer mit fest montierten Bildschirmen (z. B. am Rollstuhl) können die Seite nicht lesen.
@@ -57,7 +57,7 @@ rule-orientation-root-rotated = Prüfen, ob die gedrehte Wurzel eine Bildschirma
 
 rule-orientation-content-hidden = Eingeschränkte Bildschirmausrichtung
     .user-impact = Nutzer mit fest montierten Bildschirmen (z. B. am Rollstuhl) können die Seite nicht lesen.
-    .technical-impact = CSS-Medienabfragen blenden je nach Ausrichtung Inhalt aus.
+    .technical-impact = Eine Stilregel in @media (orientation: ...) setzt display: none oder visibility: hidden auf Elemente, die auf der Seite vorkommen, daher verschwindet Inhalt in einer Ausrichtung; als Prüfhinweis gemeldet, mit hoher Schwere, wenn html, body oder main ausgeblendet wird.
 
 rule-orientation-locked = Element nur in einer Ausrichtung um eine Vierteldrehung gedreht
     .user-impact = Nutzer mit fest montierten Bildschirmen (z. B. am Rollstuhl) sehen den Inhalt quer und können das Gerät nicht drehen, um ihn zu lesen.
@@ -72,11 +72,11 @@ rule-orientation-locked = Element nur in einer Ausrichtung um eine Vierteldrehun
 
 rule-keyboard-interactive-not-focusable = Inhalte nicht per Tastatur bedienbar
     .user-impact = Tastaturnutzer sind von Funktionen ausgeschlossen.
-    .technical-impact = Click-Handler ohne Tastatur-Alternative.
+    .technical-impact = Ein Element mit interaktiver Rolle (button, link, checkbox, radio, switch, menuitem, tab, option oder treeitem) ist nicht von sich aus fokussierbar, hat keinen tabindex und ist weder deaktiviert noch über aria-activedescendant verwaltet, daher überspringt die Tabtaste es, obwohl ein Screenreader es als bedienbar ansagt; als Prüfhinweis gemeldet, weil ein Skript die Tasten behandeln kann.
 
 rule-keyboard-trap = Tastaturfalle nicht automatisch prüfbar
     .user-impact = Seite wird faktisch unbenutzbar für Tastaturnutzer.
-    .technical-impact = Fehlende Fokus-Verwaltung in modalen Elementen.
+    .technical-impact = Eine Falle wird nicht erkannt: Auf jeder Seite mit einem fokussierbaren Element fordert ein Hinweis zur manuellen Prüfung dazu auf, die Seite per Tab zu durchlaufen, und ein modaler Dialog im Accessibility-Tree (Rolle dialog oder alertdialog mit gesetztem modal) fügt eine Warnung hinzu, zu prüfen, ob der Fokus ihn per Escape oder Tab verlassen kann; ob skriptgesteuerte Widgets den Fokus einfangen, ist ohne Bedienung nicht erkennbar.
     .description = Ob der Tastaturfokus in einem Dialog, Karussell oder individuellen JavaScript-Bedienelement hängen bleiben kann, lässt sich nicht automatisiert feststellen. Das erfordert manuelles Navigieren ausschließlich mit der Tab-Taste.
     .explanation-user-impact = Personen, die ausschließlich mit der Tastatur oder einem Screenreader navigieren, können in einem Bedienelement stecken bleiben und die Seite nicht mehr per Tastatur verlassen.
     .typical-cause = Individuelle Dialoge, Karussells oder Widgets mit eigener JavaScript-Fokusverwaltung, die keinen Weg zurück per Escape-Taste, erreichbarem Schließen-Button oder dokumentiertem Tastaturkürzel vorsehen.
@@ -85,7 +85,7 @@ rule-keyboard-trap = Tastaturfalle nicht automatisch prüfbar
 
 rule-headings-none = Fehlende Sprungnavigation
     .user-impact = Tastaturnutzer müssen bei jedem Seitenwechsel durch die Navigation tabben.
-    .technical-impact = Fehlender Skip-Link, fehlende HTML5-Landmarks.
+    .technical-impact = Das Dokument hat keine Überschrift (<h1> bis <h6> oder role="heading"), keine main-Landmarke und keinen Sprunglink, daher lässt sich wiederholte Navigation oder ein Kopfbereich weder für Tastatur- noch für Screenreader-Nutzer überspringen; ein Verstoß, wenn eine Navigations- oder Kopf-Landmarke vorhanden ist und kein Skript-Bedienelement sie ausblenden könnte, sonst ein Prüfhinweis (auch wenn beim Messen ein modaler Dialog offen war).
 
 rule-document-title = Fehlender oder unzureichender Seitentitel
     .user-impact = Screenreader-Nutzer können die Seite nicht identifizieren.
@@ -103,9 +103,9 @@ rule-landmarks-not-unique = Landmarks nicht eindeutig benannt
     .user-impact = Screenreader-Nutzer können gleichartige Bereiche nicht unterscheiden.
     .technical-impact = Mehrfach verwendete Landmark-Rollen ohne eindeutige aria-label/aria-labelledby-Werte.
 
-rule-dialog-focusable-missing = Unlogische Fokus-Reihenfolge
-    .user-impact = Verwirrende Navigation für Tastaturnutzer.
-    .technical-impact = DOM-Reihenfolge weicht von visueller Reihenfolge ab.
+rule-dialog-focusable-missing = Dialog ohne fokussierbares Element
+    .user-impact = Tastaturnutzer können den Dialog weder bedienen noch schließen.
+    .technical-impact = Ein Element mit der Rolle dialog oder alertdialog (ein offenes <dialog> zählt, ein geschlossenes nicht) enthält keinen fokussierbaren Nachfahren, also weder ein von sich aus fokussierbares Element noch ein Element mit tabindex, daher kann der Tastaturfokus nicht hineingelangen; als Prüfhinweis gemeldet, weil der Dialog selbst mit tabindex="-1" den Fokus nehmen und Escape ihn schließen kann.
 
 rule-links-generic-name = Unklare oder generische Linktexte
     .user-impact = Screenreader-Linklisten zeigen nichtssagende Texte.
@@ -119,9 +119,9 @@ rule-links-url-name = Unklare oder generische Linktexte
     .user-impact = Screenreader-Linklisten zeigen nichtssagende Texte.
     .technical-impact = Der zugängliche Name eines <a> ist die rohe URL, die ein Screenreader Zeichen für Zeichen vorliest und die nichts über den Inhalt des Ziels aussagt.
 
-rule-focus-visible = Fokus-Indikator nicht sichtbar
-    .user-impact = Tastaturnutzer sehen nicht, welches Element fokussiert ist.
-    .technical-impact = Eine CSS-Regel setzt outline: none (oder outline: 0) auf ein fokussierbares Element ohne Ersatzstil wie box-shadow oder border, daher sehen Tastatur-Nutzer keinen Fokusindikator.
+rule-focus-visible = Seite ohne fokussierbare Elemente
+    .user-impact = Tastaturnutzer finden nichts, was sie per Tab erreichen können.
+    .technical-impact = Der Accessibility-Tree einer Seite mit mehr als fünf Knoten enthält außer der Dokumentwurzel keinen fokussierbaren oder interaktiven Knoten, daher hat ein Tastaturnutzer keinen Fokus, den er sehen oder bewegen könnte, oft weil Bedienelemente aus einfachen Elementen gebaut sind; nur als Warnung gemeldet, weil WCAG 2.4.7 ohne tastaturbedienbare Oberfläche nicht gilt.
 
 rule-focus-obscured = Fokussiertes Element vollständig verdeckt
     .user-impact = Tastaturnutzer springen per Tab auf ein Element, das durch einen Sticky-Header, -Footer, ein Cookie-Banner o. ä. vollständig verdeckt ist und daher nicht sichtbar ist.
@@ -143,15 +143,15 @@ rule-focus-obscured-enhanced = Fokussiertes Element teilweise verdeckt
 
 rule-label-in-name-mismatch = Sichtbarer Text ≠ zugänglicher Name
     .user-impact = Sprachsteuerungsnutzer können Element nicht ansprechen.
-    .technical-impact = aria-label weicht vom sichtbaren Text ab.
+    .technical-impact = Der zugängliche Name, den aria-label oder aria-labelledby einem Button, Link oder anderem aus seinem Inhalt benannten Bedienelement gibt, enthält dessen sichtbare Beschriftung nicht, daher kann ein Sprachsteuerungs-Nutzer, der sagt, was zu sehen ist, es nicht auslösen; ein Prüfhinweis, wenn dieselben Wörter nur in anderer Reihenfolge stehen oder der sichtbare Text mehr als doppelt so lang ist wie der Name; reine Symbol- und Ein-Zeichen-Beschriftungen sind ausgenommen.
 
 rule-meta-refresh = Nicht anpassbare Zeitbegrenzung
     .user-impact = Nutzer benötigen mehr Zeit für die Eingabe und können durch Timeouts Daten verlieren.
-    .technical-impact = Ein <meta http-equiv="refresh"> mit Verzögerung lädt die Seite nach fester Zeit neu oder leitet um, ohne Steuerung zum Anhalten, Verlängern oder Anpassen, daher verlieren Screenreader-Nutzer ihre Leseposition.
+    .technical-impact = Die Prüfung sucht keinen Timer: Zeitbegrenzungen per JavaScript (setTimeout, setInterval, Sitzungsablauf) sind im Markup nicht erkennbar, daher erhält jede Seite einen Hinweis zur manuellen Prüfung, dass Nutzer solche Fristen abschalten, anpassen oder verlängern können müssen; ein <meta http-equiv="refresh"> wird getrennt bewertet.
 
 rule-timing-meta-refresh = Nicht anpassbare Zeitbegrenzung
     .user-impact = Nutzer benötigen mehr Zeit für die Eingabe und können durch Timeouts Daten verlieren.
-    .technical-impact = Ein <meta http-equiv="refresh" content="N"> mit N größer 0 lässt den Browser nach N Sekunden neu laden oder umleiten, und das DOM bietet keine Möglichkeit, die Frist abzuschalten oder zu verlängern.
+    .technical-impact = Ein <meta http-equiv="refresh"> mit einer Verzögerung von mehr als 0 Sekunden und höchstens 20 Stunden lädt die Seite nach dieser Frist neu oder leitet um, und das Markup bietet keine Möglichkeit, sie anzuhalten oder zu verlängern, daher wird abgebrochen, wer noch liest; eine sofortige Weiterleitung (0) und Fristen über 20 Stunden werden nicht gemeldet.
 
 rule-timing-meta-refresh-enhanced = Seite lädt sich nach einer Frist neu oder leitet weiter (AAA)
     .user-impact = Nutzer werden unterbrochen: Die Seite wechselt ohne Anforderung, Screenreader-Nutzer verlieren ihre Leseposition.
@@ -164,31 +164,31 @@ rule-timing-meta-refresh-enhanced = Seite lädt sich nach einer Frist neu oder l
 
 rule-motion-infinite-animation = Fehlende Pause-/Stopp-/Ausblenden-Kontrolle
     .user-impact = Nutzer mit Aufmerksamkeits- oder kognitiven Einschränkungen sowie Screenreader-Nutzer werden durch dauerhaft laufende Bewegung abgelenkt oder gestört und können sie nicht deaktivieren.
-    .technical-impact = `<marquee>`-Element ohne Pause-Steuerung oder Element mit animation-iteration-count: infinite über 5 Sekunden pro Zyklus ohne erkennbare Pause-Kontrolle oder prefers-reduced-motion-Unterstützung.
+    .technical-impact = Ein <marquee> oder ein Element, dessen Animation sich endlos wiederholt (animation-iteration-count: infinite), ist vorhanden und die Seite hat keinen Schalter oder Button, dessen Beschriftung anbietet, sie anzuhalten, zu stoppen oder auszublenden; als Prüfhinweis gemeldet, weil die Dauer der Bewegung und die Wirkung eines solchen Bedienelements nicht gemessen werden.
 
 rule-manual-no-timing = Zeitbegrenzung vorhanden (AAA)
     .user-impact = Nutzer können Aufgaben nicht in ihrem eigenen Tempo abschließen.
-    .technical-impact = Die Seite setzt Zeitbegrenzungen wie Timeouts, zeitgesteuerte Weiterleitungen oder automatisch fortschreitende Inhalte, und ein Skript kann nicht erkennen, ob Nutzer sie abschalten können; die Prüfung bleibt manuell, wer mehr Zeit braucht, wird abgebrochen.
+    .technical-impact = Die Seite hat Formularfelder oder ein <meta http-equiv="refresh">, daher sind Zeitbegrenzungen denkbar; ob eine Aufgabe von Zeit abhängt, ist im Markup nicht erkennbar, die Seite erhält deshalb einen Hinweis zur manuellen Prüfung statt eines Urteils, und offen bleibt, ob Nutzer, die mehr Zeit brauchen, abgebrochen werden.
 
 rule-manual-interruptions = Nicht unterdrückbare Unterbrechungen (AAA)
     .user-impact = Nutzer mit kognitiven Einschränkungen oder Screenreader-Nutzer werden abgelenkt.
-    .technical-impact = Unerwartete Dialoge oder assertive Live-Regionen.
+    .technical-impact = Die Seite enthält ein <dialog>, ein <meta http-equiv="refresh"> oder ein Element mit der Rolle alert, alertdialog, status, log, marquee oder timer oder mit einem aria-live-Wert ungleich off; solche Inhalte können die Screenreader-Ausgabe und das Lesen unterbrechen, ob sie sich aufschieben oder abschalten lassen, ist im Markup nicht erkennbar, daher erhält die Seite einen Hinweis zur manuellen Prüfung.
 
 rule-manual-re-authenticating = Keine Datenspeicherung bei Reauthentifizierung (AAA)
     .user-impact = Nutzer müssen alle Formulardaten erneut eingeben.
-    .technical-impact = Nach Ablauf einer Sitzung und erneuter Anmeldung werden eingegebene Formularwerte nicht wiederhergestellt, weil der DOM-Zustand beim Neuladen verworfen wird; aus dem Markup ist nicht erkennbar, ob Daten erhalten bleiben, daher bleibt die Prüfung manuell.
+    .technical-impact = Die Seite hat ein Passwortfeld oder ein CAPTCHA, daher ist eine Anmeldung nach abgelaufener Sitzung wahrscheinlich; ob die eingegebenen Daten die erneute Anmeldung überstehen, ist im Markup nicht erkennbar, die Seite erhält deshalb einen Hinweis zur manuellen Prüfung statt eines Urteils.
 
 rule-timeouts = Keine Warnung vor Inaktivitäts-Timeout (AAA)
     .user-impact = Nutzer verlieren ungespeicherte Daten ohne Vorwarnung.
-    .technical-impact = Ein Skript beendet die Sitzung oder lädt die Seite nach Inaktivität neu, ohne vorher per Dialog oder Live-Region zu warnen, daher sagt die Hilfstechnik nichts an und die Sitzung lässt sich nicht rechtzeitig verlängern; der Timer ist im Markup nicht sichtbar.
+    .technical-impact = Die Prüfung sucht keine Timer oder Sitzungsverwaltung: Auf jeder mit Stufe AAA geprüften Seite steht ein Hinweis zur manuellen Prüfung, weil sich im Markup nicht erkennen lässt, ob vor einem Inaktivitäts-Timeout, der Datenverlust verursachen kann, gewarnt wird (mindestens 20 Sekunden vorher).
 
 rule-navigation-location-missing = Fehlende Positionsangabe (AAA)
     .user-impact = Nutzer verlieren die Orientierung auf verschachtelten Webseiten.
-    .technical-impact = Fehlende Breadcrumb-Navigation oder Sitemap-Verbindung.
+    .technical-impact = Die Seite hat einen Link in einem <nav> oder role="navigation", aber kein Element mit aria-current="page" und kein Element, dessen aria-label „breadcrumb“ enthält, daher zeigt das Markup den aktuellen Ort nicht und ein Screenreader sagt in der Navigation keine aktuelle Seite an; nur als Prüfhinweis gemeldet, weil auch Titel, Überschriften oder eine Sitemap das Kriterium erfüllen können.
 
 rule-links-purpose-link-only = Unklare Linkbeschriftung ohne Kontext (AAA)
     .user-impact = Nutzer müssen den gesamten Absatz lesen, um das Ziel eines Links zu verstehen.
-    .technical-impact = Generischer Linktext wie 'Mehr lesen' oder 'Hier klicken'.
+    .technical-impact = Der Text eines <a> ist für sich allein eine vage Wendung wie „Mehr“, „Hier klicken“ oder „Details“ und nur sein Umfeld nennt das Ziel, daher liest die Linkliste eines Screenreaders dieselben vagen Namen vor und der Zweck ist aus dem Linktext allein nicht erkennbar (WCAG 2.4.9, AAA); als Prüfhinweis gemeldet.
 
 rule-links-new-window-unannounced = Neues Fenster ohne Ankündigung (AAA)
     .user-impact = Nutzer verlieren unerwartet den Kontext; der Zurück-Button führt nicht zurück.
@@ -201,15 +201,15 @@ rule-links-new-window-unannounced = Neues Fenster ohne Ankündigung (AAA)
 
 rule-manual-pointer-gestures = Fehlende Alternative für Zeigergesten
     .user-impact = Nutzer mit motorischen Einschränkungen können die Funktionen nicht bedienen.
-    .technical-impact = Erforderliche Touch-Gesten ohne Klick-Fallback.
+    .technical-impact = Die Seite enthält ein Element, das nach Gestensteuerung aussieht: ein Handler-Attribut für touchstart, touchmove, pointermove, gesturestart oder dragstart, draggable="true" oder eine Klasse einer Karussell- oder Kartenbibliothek wie swiper, slick, splide, leaflet oder mapboxgl; ob dieselbe Funktion auch mit einem einzelnen Tippen oder Klick geht, ist nicht erkennbar, daher erhält die Seite einen Hinweis zur manuellen Prüfung.
 
 rule-pointer-cancellation = Auslösung von Aktionen bei Zeigerberührung
     .user-impact = Nutzer können versehentlich Aktionen auslösen, ohne diese abbrechen zu können.
-    .technical-impact = Event-Handler reagieren auf mousedown oder touchstart statt click oder mouseup.
+    .technical-impact = Die Prüfung betrachtet keine Event-Handler: Enthält die Seite etwas, das ein Zeiger bedienen kann (Links, Buttons, Formularelemente, Elemente mit Klick-, Maus- oder Touch-Handlern, tabindex oder Widget-Rolle), steht ein Hinweis zur manuellen Prüfung da, ob Aktionen nicht schon beim Herunterdrücken auslösen oder sich abbrechen oder zurücknehmen lassen.
 
 rule-manual-motion-actuation = Fehlende Alternative für Bewegungseingabe
     .user-impact = Nutzer, die das Gerät nicht bewegen können, sind von den Funktionen ausgeschlossen.
-    .technical-impact = Nutzen von Device-Motion-APIs ohne UI-Bedienelemente.
+    .technical-impact = Ein Inline-<script> nennt devicemotion oder deviceorientation, daher reagiert eine Funktion womöglich auf Schütteln oder Neigen des Geräts; ob sie auch über ein Bedienelement auf der Seite geht und ob sich die Reaktion abschalten lässt, ist nicht erkennbar, daher erhält die Seite einen Hinweis zur manuellen Prüfung; externe Skripte werden nicht untersucht.
 
 rule-targets-size-enhanced = Unzureichende Klickzielgröße (AAA)
     .user-impact = Nutzer mit zittrigen Händen oder auf Mobilgeräten klicken leicht auf falsche Elemente.
@@ -247,11 +247,11 @@ rule-forms-placeholder-as-label = Fehlende Formularbeschriftungen
 
 rule-forms-required-unmarked = Fehlende Formularbeschriftungen
     .user-impact = Nutzer wissen nicht, welche Eingaben erwartet werden.
-    .technical-impact = Ein Feld trägt required oder aria-required="true", aber seine Beschriftung zeigt keine sichtbare Kennzeichnung; der Zustand erreicht den Accessibility-Tree, doch ob sehende Nutzer ihn erkennen, kann nur ein Mensch prüfen.
+    .technical-impact = Ein Bedienelement trägt required oder aria-required="true", aber weder sein zugänglicher Name noch seine aria-describedby-Beschreibung enthält eine Kennzeichnung wie „*“ oder das Wort „Pflicht“ bzw. „required“; der Zustand erreicht den Accessibility-Tree, ob aber ein Hinweis an anderer Stelle, etwa über dem Formular, sehende Nutzer informiert, kann nur ein Mensch beurteilen; als Prüfhinweis gemeldet.
 
 rule-forms-redundant-entry = Fehlende Wiederverwendung bereits eingegebener Daten
     .user-impact = Nutzer müssen bereits eingegebene Daten erneut eintippen, was Zeit kostet und besonders für Menschen mit motorischen oder kognitiven Einschränkungen eine zusätzliche Hürde darstellt.
-    .technical-impact = Formularfelder ohne autocomplete-Attribut, Vorbefüllung oder Wiederverwendungs-Option für bereits erfasste Werte.
+    .technical-impact = Ein <form> verlangt dieselbe Art Angabe (Name, E-Mail-Adresse, Telefonnummer, Straße oder Postleitzahl) in mehr als einem Feld, die Felder haben weder einen passenden autocomplete-Wert noch einen vorbelegten Wert, und das Formular bietet kein „wie oben“ an, daher müssen Nutzer die Daten erneut tippen; als Prüfhinweis gemeldet, weil nur ein Mensch beurteilen kann, ob beide Felder dieselbe Angabe meinen (Bestätigungs- und Einmalcode-Felder sind ausgenommen).
 
 rule-auth-paste-blocked = Einfügen in Passwort- oder Code-Feld blockiert
     .user-impact = Nutzer können weder einen Passwort-Manager noch die Zwischenablage verwenden. Wer sich Passwörter nicht merken oder fehlerfrei abschreiben kann, etwa wegen kognitiver oder motorischer Einschränkungen, scheitert an der Anmeldung.
@@ -273,7 +273,7 @@ rule-auth-captcha = CAPTCHA im Anmeldeformular prüfen
 
 rule-forms-no-submit = Formular ohne Absende-Button
     .user-impact = Tastatur- und Screenreader-Nutzer erkennen den Abschluss der Eingabe schwerer.
-    .technical-impact = Ein <form> mit Eingabefeldern hat weder <button type="submit"> noch <input type="submit"> noch ein per form-Attribut zugeordnetes Bedienelement, daher hängt das Absenden von Skripten ab, die auf Feldänderungen reagieren.
+    .technical-impact = Ein <form> besitzt mindestens ein aktives input, select, textarea oder button (auch über das form-Attribut), aber kein Absende-Element, also keinen <button> außer mit type button oder reset und kein <input type="submit"> oder type "image"; immer ein Prüfbefund, weil 3.2.2 erst verletzt ist, wenn eine Feldänderung den Kontext wechselt, und mit niedriger Schwere, wenn das Formular weder action noch Textfeld hat und nur ein Skript es absenden kann.
     .description = Ein Formular sammelt Eingaben, hat aber keinen Button und kein anderes Element, mit dem es ausdrücklich abgeschickt wird.
     .explanation-user-impact = Ohne Absende-Element bleibt unklar, wann die Eingabe gilt. Wird das Formular stattdessen beim Ändern eines Felds abgeschickt, wechselt der Kontext unangekündigt.
     .typical-cause = Filter- und Suchformulare, die per Skript beim Ändern eines Felds abgeschickt werden, oder ein Button außerhalb des Formulars ohne form-Attribut.
@@ -282,7 +282,7 @@ rule-forms-no-submit = Formular ohne Absende-Button
 
 rule-manual-help = Fehlende Ausfüllhilfe (AAA)
     .user-impact = Nutzer wissen nicht, welches Format oder welche Daten in ein Feld eingegeben werden müssen.
-    .technical-impact = Wo Nutzer strukturierte Daten eingeben, ist aus dem Markup keine Hilfe (Hilfelink, <details> oder per aria-describedby verknüpfter Text) ableitbar, daher bleibt die Prüfung auf eine Ausfüllhilfe manuell.
+    .technical-impact = Die Seite enthält Formularfelder (input, select oder textarea; versteckte Felder und Schaltflächen zählen nicht); ob sie kontextbezogene Hilfe wie Anleitung, Beispiele oder einen Hilfelink haben, lässt sich aus dem Markup nicht entscheiden, daher erhält die Seite einen Hinweis zur manuellen Prüfung statt eines Urteils.
 
 ## Language & clarity
 
@@ -300,7 +300,7 @@ rule-context-autofocus = Unerwartete Kontextänderung bei Fokus
 
 rule-context-on-focus = Unerwartete Kontextänderung bei Fokus
     .user-impact = Verwirrende Seitenänderungen für Tastaturnutzer.
-    .technical-impact = Ein Element hat einen onfocus-Handler, der navigieren, absenden oder ein Fenster öffnen kann, und er läuft, sobald der Tastaturfokus eintrifft, daher ändert schon Tab den Kontext; aus dem Markup ist nicht erkennbar, was der Handler tut.
+    .technical-impact = Ein Element, das weder von sich aus interaktiv ist noch eine interaktive Rolle hat, trägt einen onfocus-Handler, der in dem Moment läuft, in dem der Fokus eintrifft, und den Kontext wechseln kann (navigieren, absenden, ein Fenster öffnen); was er tut, zeigt das Markup nicht, daher wird er als Prüfhinweis gemeldet.
 
 rule-context-on-input = Unerwartete Kontextänderung bei Eingabe
     .user-impact = Verwirrende Änderungen beim Ausfüllen.
@@ -308,9 +308,9 @@ rule-context-on-input = Unerwartete Kontextänderung bei Eingabe
 
 rule-manual-unusual-words = Fehlende Erklärung unüblicher Wörter (AAA)
     .user-impact = Nutzer mit kognitiven Einschränkungen oder Fremdsprachler verstehen den Text nicht.
-    .technical-impact = Fehlende Glossar-Verlinkung oder Erklärung im Text.
+    .technical-impact = Die Seite enthält Text, daher fragt ein Hinweis zur manuellen Prüfung, ob Fachbegriffe, Redewendungen und ungewöhnliche Wörter im Text, mit <dfn> oder in einem Glossar erklärt werden; aus dem Markup lässt sich nicht erkennen, welche Wörter für die Leser ungewöhnlich sind.
 
-rule-language-part-undetermined = Anderssprachiger Textteil ohne lang prüfen
+rule-language-part-undetermined = Anderssprachige Passagen von Hand auf lang prüfen
     .user-impact = Screenreader lesen den Abschnitt mit der Aussprache der Seitensprache vor; er wird schwer verständlich.
     .technical-impact = Die Sprache von Textblöcken lässt sich nicht prüfen, weil die Seite weder Deutsch noch Englisch ist, die einzigen Sprachen der heuristischen Erkennung, daher bleiben fehlende lang-Attribute an Textstellen ungeprüft.
 
@@ -329,7 +329,7 @@ rule-language-part-unmarked = Anderssprachiger Textteil ohne lang prüfen
 
 rule-language-abbreviation-unexpanded = Fehlende Erklärung von Abkürzungen (AAA)
     .user-impact = Nutzer verstehen den Inhalt nicht, wenn sie die Abkürzung nicht kennen.
-    .technical-impact = Eine Abkürzung steht als einfacher Text ohne <abbr title> oder Auflösung bei der ersten Verwendung, daher buchstabiert ein Screenreader die Buchstaben oder rät und im DOM fehlt die Langform.
+    .technical-impact = Ein <abbr>- oder <acronym>-Element hat kein title-Attribut, daher liefert das Markup keine Langform der Abkürzung; als Prüfhinweis gemeldet, weil die Langform im Text oder in einem Glossar stehen kann (WCAG 3.1.4, AAA).
 
 ## Visual presentation / contrast
 
@@ -339,7 +339,7 @@ rule-contrast-text-insufficient = Unzureichender Farbkontrast
 
 rule-contrast-text-undetermined = Unzureichender Farbkontrast
     .user-impact = Text bei Sehschwäche oder ungünstigen Lichtverhältnissen schwer lesbar.
-    .technical-impact = Der Kontrast dieses Textes ließ sich nicht berechnen, weil der Hintergrund ein Bild, ein Verlauf oder überlappende Ebenen ist, daher bleibt das Verhältnis von 4,5:1 ungemessen und braucht eine manuelle Prüfung.
+    .technical-impact = Der Kontrast dieses Textes ließ sich nicht entscheiden: Die Vorder- oder Hintergrundfarbe war nicht auflösbar (etwa bei einem Bild- oder Verlaufshintergrund), ein fixiertes oder klebendes Element überdeckt den Text, oder das gemessene Verhältnis liegt nahe an der Grenze oder schwankt über den Text, daher bleibt das geforderte Verhältnis von 4,5:1 (3:1 bei großem Text) ungeprüft und braucht eine manuelle Prüfung.
 
 rule-contrast-text-enhanced = Erhöhter Farbkontrast nicht erreicht (AAA)
     .user-impact = Für Menschen mit deutlich eingeschränktem Sehvermögen bleibt der Text schwer lesbar.
@@ -365,15 +365,15 @@ rule-zoom-viewport-missing = Fehlende Viewport-Angabe
 
 rule-css-overflow-hidden = Kein Reflow bei 320 CSS-Pixeln
     .user-impact = Nutzer, die auf 400 % zoomen, müssen in zwei Richtungen scrollen — Inhalte werden unzugänglich.
-    .technical-impact = Feste Breiten oder overflow:hidden verhindern responsives Reflow.
+    .technical-impact = Bei einem Viewport von 320 CSS-Pixeln Breite läuft die Seite wegen eines Elements außerhalb der Ausnahmen von 1.4.10 (Datentabellen, Bilder, Karten, Diagramme und Video dürfen scrollen) weiterhin waagerecht über, daher müssen Nutzer, die auf 400 % vergrößern, in zwei Richtungen scrollen; im Browser gemessen, nicht aus dem CSS gelesen.
 
 rule-contrast-control-insufficient = Unzureichender Kontrast bei UI-Elementen
     .user-impact = Interaktive Elemente schwer erkennbar.
-    .technical-impact = Rahmen, Icon oder Zustandsanzeige eines Bedienelements hat gegenüber den angrenzenden Farben ein Kontrastverhältnis unter 3:1, gemessen an den berechneten Stilen, daher ist die Begrenzung des Elements schwer wahrnehmbar.
+    .technical-impact = Ein von der Seite selbst gezeichnetes Kontrollkästchen, Optionsfeld, Schalter oder Range-Eingabefeld (appearance: none) hat an seinem Rahmen, ohne Rahmen an der eigenen Fläche, ein Kontrastverhältnis unter 3:1 gegenüber dem Hintergrund des Elternelements, gemessen an den berechneten Stilen, daher ist die Begrenzung des Elements schwer wahrnehmbar; native Bedienelemente werden nicht gemessen.
 
 rule-contrast-control-undetermined = Unzureichender Kontrast bei UI-Elementen
     .user-impact = Interaktive Elemente schwer erkennbar.
-    .technical-impact = Der Kontrast von Rahmen oder Icon eines Bedienelements ließ sich wegen eines Bild- oder Verlaufshintergrunds oder einer nicht auflösbaren Farbe nicht berechnen, daher bleibt das Verhältnis von 3:1 ungemessen und braucht eine manuelle Prüfung.
+    .technical-impact = Der Hintergrund hinter einem selbst gezeichneten Kontrollkästchen, Optionsfeld, Schalter oder Range-Eingabefeld ließ sich aus dem berechneten Stil des Elternelements nicht auflösen, daher bleibt das Verhältnis von 3:1 für seine Begrenzung ungemessen und braucht eine manuelle Prüfung.
 
 rule-text-spacing-clipped = Inhalt bei erhöhtem Zeilen-/Wortabstand abgeschnitten
     .user-impact = Nutzer, die Zeilen-/Wortabstand für bessere Lesbarkeit anpassen, verlieren Inhalte.
@@ -393,15 +393,15 @@ rule-text-spacing-line-height-important = Zeilenhöhe mit !important festgesetzt
 
 rule-color-link-indistinct = Link nur durch Farbe unterscheidbar
     .user-impact = Nutzer mit Farbsehschwäche können Links im Text nicht erkennen.
-    .technical-impact = Kein Unterstrich, Fettschrift oder anderes nicht-farbliches Merkmal vorhanden.
+    .technical-impact = Ein Link im Fließtext hat keine Unterstreichung und dasselbe Gewicht, denselben Schnitt, dieselbe Schrift, Unterkante und denselben Hintergrund wie der umgebende Text, daher unterscheidet er sich nur durch die Farbe; ein Verstoß, wenn der Farbkontrast zum umgebenden Text unter 3:1 liegt, sonst ein Prüfhinweis, ob Hover und Fokus einen Hinweis außer der Farbe ergänzen.
 
 rule-motion-reduced-motion-ignored = Animationen ohne prefers-reduced-motion
     .user-impact = Nutzer mit vestibulären Störungen oder Photosensitivität können Bewegung nicht deaktivieren.
     .technical-impact = Kein @media (prefers-reduced-motion) in den Stylesheets.
 
-rule-patterns-tooltip-unreferenced = Unzugängliche Hover- oder Fokus-Inhalte (Tooltips)
-    .user-impact = Nutzer können Tooltip-Inhalte nicht lesen, diese nicht per Tastatur schließen, oder sie werden von Screenreadern ignoriert.
-    .technical-impact = Unvollständige ARIA-Verknüpfung (aria-describedby) oder fehlende Steuerungsmöglichkeiten.
+rule-patterns-tooltip-unreferenced = Tooltip nicht vom auslösenden Element referenziert
+    .user-impact = Screenreader-Nutzer erfahren den Tooltip-Text nie, weil nichts darauf verweist.
+    .technical-impact = Ein Element mit role="tooltip" wird von keinem aria-describedby oder aria-labelledby referenziert, daher sagt die Hilfstechnik seinen Text für das auslösende Element nie an; als Best Practice gemeldet.
 
 rule-media-audio-autoplay = Selbststartender Ton ohne Steuerung prüfen
     .user-impact = Ton, der von selbst startet, übertönt die Sprachausgabe von Screenreadern.
@@ -427,11 +427,11 @@ rule-text-justified = Eingeschränkte visuelle Darstellung von Text (AAA)
 
 rule-text-line-height-tight = Eingeschränkte visuelle Darstellung von Text (AAA)
     .user-impact = Nutzer mit Sehbehinderungen oder Legasthenie haben Probleme beim Lesen.
-    .technical-impact = Die berechnete line-height eines Textblocks liegt unter dem 1,5-Fachen der Schriftgröße, daher stehen die Zeilen dicht gedrängt und Leser, die Text vergrößern oder Legasthenie haben, verlieren die Zeile.
+    .technical-impact = Ein Stylesheet gibt den <p>-Absätzen der Seite eine line-height unter 1,5 (als Zahl, em- oder Prozentwert), daher stehen die Zeilen dicht gedrängt und Leser, die Text vergrößern oder Legasthenie haben, verlieren die Zeile; der Wert stammt aus den Stilregeln, nicht aus gerenderten Stilen, und wird als Prüfhinweis gemeldet.
 
 rule-visual-presentation = Eingeschränkte visuelle Darstellung von Text (AAA)
     .user-impact = Nutzer mit Sehbehinderungen oder Legasthenie haben Probleme beim Lesen.
-    .technical-impact = Zeilenabstand, Blocksatz, Zeilenbreite oder vom Nutzer wählbare Farben des Textes sind im CSS festgelegt und vom Nutzer nicht anpassbar; ein Skript kann nur einen Teil messen, daher ist die Prüfung teilweise manuell.
+    .technical-impact = Die Prüfung misst selbst nichts: Auf jeder mit Stufe AAA geprüften Seite steht ein Hinweis zur manuellen Prüfung für die Teile von 1.4.8, die ein Mensch beurteilen muss, nämlich ob Nutzer Vorder- und Hintergrundfarbe wählen können und ob die Textbreite höchstens 80 Zeichen beträgt; Blocksatz und eine Zeilenhöhe unter 1,5 melden die eigenen Regeln text-justified und text-line-height-tight.
 
 ## Technical robustness
 
@@ -446,11 +446,11 @@ rule-keyboard-hidden-focusable = Fokussierbares Element versteckt vor Screenread
 
 rule-status-live-overridden = Statusmeldungen nicht programmatisch bestimmbar
     .user-impact = Screenreader kündigt Statusmeldungen nicht korrekt an.
-    .technical-impact = Konflikt zwischen role (alert/status/log/timer) und aria-live-Wert.
+    .technical-impact = Ein Element mit der Rolle alert, status oder log hat einen aria-live-Wert, der die Vorgabe seiner Rolle überschreibt: aria-live="off" schaltet die Ansagen ab (ein Verstoß), eine andere Dringlichkeit (polite oder assertive statt der Vorgabe) ändert nur den Zeitpunkt und ist ein Prüfhinweis.
 
 rule-aria-required-attribute-missing = Pflicht-ARIA-Attribut fehlt
     .user-impact = Assistive Technologien können Zustand oder Wert des Elements nicht verlässlich vermitteln.
-    .technical-impact = Rolle und ARIA-Attributsatz sind unvollständig.
+    .technical-impact = Einem Element mit einer Rolle, die Zustands- oder Wertattribute braucht, etwa einer checkbox ohne aria-checked oder einem slider ohne aria-valuenow, fehlen sie, daher kann die Hilfstechnik Zustand oder Wert nicht ausgeben; native Checkbox-, Radio- und Range-Eingaben, meter und progress sind ausgenommen.
     .description = Ein Element trägt eine Rolle, die einen Zustand ansagt (etwa checkbox oder slider), aber nicht das Attribut, das diesen Zustand trägt.
     .explanation-user-impact = Screenreader-Nutzer erfahren nicht, ob ein Schalter an ist oder welchen Wert ein Regler hat.
     .typical-cause = Selbst gebaute Bedienelemente setzen die Rolle, pflegen den Zustand aber nur visuell.
@@ -459,7 +459,7 @@ rule-aria-required-attribute-missing = Pflicht-ARIA-Attribut fehlt
 
 rule-aria-required-parent-missing = Element außerhalb des erforderlichen Eltern-Kontexts
     .user-impact = Assistive Technologien können die Beziehung des Elements zu seiner Gruppe (z. B. Tab zu Tableiste) nicht vermitteln.
-    .technical-impact = Fehlender struktureller Eltern-Kontext für die verwendete ARIA-Rolle.
+    .technical-impact = Ein Element, dessen Rolle in einer bestimmten Elternrolle stehen muss, etwa tab in tablist, option in listbox oder listitem in list, hat keinen solchen Vorfahren oder Besitzer, daher kann die Hilfstechnik nicht vermitteln, zu welcher Gruppe es gehört.
     .description = Ein Element mit einer Rolle wie tab, option oder listitem steht nicht in einem Element mit der dafür erforderlichen Rolle.
     .explanation-user-impact = Screenreader können das Element keinem Widget zuordnen; Position und Anzahl („Tab 2 von 3“) werden nicht angesagt.
     .typical-cause = Ein Element mit eigener Rolle dazwischen, etwa ein <li> zwischen role="tablist" und role="tab".
@@ -489,7 +489,7 @@ rule-popover-target-missing = Ungültige moderne Interaktionsattribute
 
 rule-aria-attribute-prohibited = Verbotene ARIA-Attribute
     .user-impact = Screenreader erhalten widersprüchliche oder ungültige Semantik.
-    .technical-impact = ARIA-Attribute passen nicht zur impliziten oder expliziten Rolle.
+    .technical-impact = Ein Element trägt ein ARIA-Attribut, das WAI-ARIA 1.2 für seine implizite oder explizite Rolle verbietet, etwa aria-label an role="presentation"; leere Werte werden nicht gemeldet.
     .description = Für bestimmte HTML-Elemente oder ARIA-Rollen werden Attribute verwendet, die für diese Rolle nicht zulässig oder sinnvoll sind.
     .explanation-user-impact = Screenreader erhalten widersprüchliche oder fehlerhafte Signale, was die Bedienbarkeit der Website beeinträchtigen kann.
     .typical-cause = Verwendung von ARIA-Attributen (wie aria-label oder aria-expanded) auf Elementen, die keine interaktive Rolle haben (z. B. span oder div ohne role).
@@ -498,7 +498,7 @@ rule-aria-attribute-prohibited = Verbotene ARIA-Attribute
 
 rule-aria-attribute-not-allowed = ARIA-Attribut für diese Rolle nicht zulässig
     .user-impact = Assistive Technologien ignorieren das Attribut oder interpretieren es falsch.
-    .technical-impact = Attribut-Rollen-Kombination entspricht nicht der ARIA-Spezifikation.
+    .technical-impact = Ein ARIA-Attribut wird von der Rolle des Elements nicht unterstützt (etwa aria-checked an role="img" oder aria-expanded an einem <div>), doppelt ein natives Attribut (aria-disabled neben disabled) oder ist an <audio> oder <video> kein globales Attribut, daher ignoriert die Hilfstechnik es oder liest einen falschen Zustand.
     .description = Ein Element trägt ein ARIA-Attribut, das seine Rolle nicht unterstützt, oder eines, das neben einem nativen Attribut nicht stehen darf.
     .explanation-user-impact = Screenreader ignorieren das Attribut oder erhalten widersprüchliche Angaben zu Zustand und Wert.
     .typical-cause = Zustände wie aria-expanded oder aria-checked an Elementen ohne passende Rolle, etwa an einem div.
@@ -563,8 +563,8 @@ rule-tables-headers-attr-invalid = Ungültiger Headers-Verweis in Tabellenzelle
     .recommendation = headers nur auf IDs von <th> derselben Tabelle zeigen lassen oder bei einfachen Tabellen ganz auf scope setzen.
     .technical-note = Geprüft wird nur an Zellen (td, th und ihre Rollen); nur dort definiert HTML das Attribut.
 
-rule-tables-data-undetermined = Tabellenüberschrift ohne zugehörige Datenzellen
-    .user-impact = Screenreader kündigen eine Überschrift an, die keine Daten strukturiert.
+rule-tables-data-undetermined = Tabellenkopfzellen auf Datenzellen prüfen
+    .user-impact = Bleiben die Zeilen leer, kündigen Screenreader eine Kopfzelle an, die keine Daten gliedert.
     .technical-impact = Ein <th> ließ sich keinen Datenzellen zuordnen, weil die Tabellenzeilen zum Prüfzeitpunkt nicht gerendert waren (nachgeladene oder skriptgenerierte Inhalte), daher bleibt die Zuordnung von Überschrift und Daten ungeprüft.
 
 rule-tables-header-without-data = Tabellenkopf ohne Datenzellen
@@ -578,7 +578,7 @@ rule-tables-header-without-data = Tabellenkopf ohne Datenzellen
 
 rule-aria-tabpanel-missing = Tableiste ohne zugehöriges Tab-Panel
     .user-impact = Screenreader-Nutzer können nach Aktivieren eines Tabs den zugehörigen Inhalt nicht auffinden.
-    .technical-impact = tablist ohne begleitendes tabpanel-Element.
+    .technical-impact = Es gibt ein Element mit role="tablist", aber im ganzen Dokument kein Element mit role="tabpanel", daher zeigt das Aktivieren eines Tabs keinen Inhalt, den die Hilfstechnik ihm zuordnen kann; als Prüfhinweis gemeldet.
 
 rule-aria-tab-selected-missing = Kein Tab als ausgewählt ausgezeichnet
     .user-impact = Screenreader-Nutzer erfahren nicht, welcher Tab aktiv ist und zu welchem der sichtbare Inhalt gehört.
@@ -609,7 +609,7 @@ rule-dialog-modal-unmarked = Dialog nicht als modal ausgezeichnet
 
 rule-aria-combobox-popup-missing = Aufgeklappte Combobox ohne Verweis auf ihr Popup
     .user-impact = Screenreader-Nutzer erfahren nicht, welche Auswahlmöglichkeiten die Combobox bietet.
-    .technical-impact = combobox ohne verknüpfte listbox/option-Elemente.
+    .technical-impact = Ein Element mit role="combobox" und aria-expanded="true" hat weder aria-controls noch aria-owns und enthält keine listbox, tree, grid oder dialog, daher findet die Hilfstechnik das geöffnete Popup nicht.
     .description = Eine Combobox ist als aufgeklappt ausgezeichnet, verweist aber nicht per aria-controls auf ihre Auswahlliste.
     .explanation-user-impact = Screenreader-Nutzer erfahren nicht, welche Auswahlmöglichkeiten die Combobox bietet, und erreichen sie nicht.
     .typical-cause = Die Liste steht neben der Combobox statt darin, und aria-controls fehlt.
@@ -618,7 +618,7 @@ rule-aria-combobox-popup-missing = Aufgeklappte Combobox ohne Verweis auf ihr Po
 
 rule-frames-name-missing = Iframe ohne zugänglichen Namen
     .user-impact = Screenreader-Nutzer erkennen Zweck und Inhalt des eingebetteten Frames nicht.
-    .technical-impact = Fehlender zugänglicher Name auf iframe/frame.
+    .technical-impact = Ein <iframe>, den die Tabtaste erreicht und der sichtbar ist (kein negativer tabindex, nicht 0 oder 1 Pixel breit und hoch, nicht display: none), hat keinen zugänglichen Namen aus title, aria-label oder aria-labelledby, daher sagt ein Screenreader beim Betreten des Rahmens keinen Namen an und sein Inhalt bleibt unbestimmt; <frame> wird nicht geprüft.
     .description = Ein <iframe> hat keinen zugänglichen Namen (title, aria-label oder aria-labelledby).
     .explanation-user-impact = Screenreader nennen beim Betreten des Rahmens nur „Rahmen“; Nutzer erfahren nicht, was darin steckt, und können ihn nicht gezielt überspringen.
     .typical-cause = Eingebettete Karten, Videos, Widgets oder Werbung ohne title-Attribut.
@@ -841,11 +841,11 @@ rule-zoom-viewport-scale-limited = Zoom auf 500% durch Viewport-Meta-Tag verhind
 
 rule-keyboard-click-handler-not-focusable = Klick-Handler ohne Tastatur-Äquivalent
     .user-impact = Tastaturnutzer können die Funktion nicht auslösen.
-    .technical-impact = Ein <div> oder <span> hat einen onclick-Handler, aber weder tabindex noch interaktive Rolle, daher erreichen Tastatur- und Schalter-Nutzer es nicht und der Accessibility-Tree stellt keine Aktion bereit.
+    .technical-impact = Ein <div>, <span>, <p>, <li>, <section>, <article> oder ein <a> ohne href hat ein onclick-Attribut, aber keine interaktive Rolle und keinen tabindex, daher erreichen Tastatur- und Schalternutzer es nicht und der Accessibility-Tree zeigt keine Aktion; nur ein Prüfhinweis, wenn ein fokussierbares Element darin wahrscheinlich den Klick erhält.
 
 rule-keyboard-pointer-only = Klick-Handler ohne Tastatur-Äquivalent
     .user-impact = Tastaturnutzer können die Funktion nicht auslösen.
-    .technical-impact = Ein nicht-interaktives Element hat einen Klick-Listener, aber weder Tastatur-Handler (onkeydown oder onkeyup) noch interaktive Rolle, daher lässt sich seine Funktion nur mit dem Zeiger auslösen und es wird als einfacher Text bereitgestellt.
+    .technical-impact = Ein Element sieht anklickbar aus (cursor: pointer oder ein onclick-Attribut), hat aber weder Rolle noch tabindex und enthält kein Bedienelement und steht in keinem, daher erreichen Tastaturnutzer es nicht, falls es etwas auslöst, und ein Screenreader gibt es als einfachen Text aus; als Prüfhinweis gemeldet.
 
 rule-landmarks-main-missing = Kein Hauptinhaltsbereich als Sprungziel
     .user-impact = Tastaturnutzer haben kein verlässliches Ziel, um wiederkehrende Navigation zu überspringen.
@@ -873,7 +873,7 @@ rule-forms-error-unidentified = Ungültiges Feld ohne zugängliche Fehlerbeschre
 
 rule-aria-owns-conflict = Element gehört per aria-owns zu mehreren Elementen
     .user-impact = Assistierende Technologien können nicht zuverlässig bestimmen, welches Element gemeint ist.
-    .technical-impact = Referenzierte ID kommt im DOM mehr als einmal vor.
+    .technical-impact = Eine id, die im aria-owns eines Elements steht, steht schon im aria-owns eines anderen Elements, daher hat das besessene Element zwei Besitzer und die Hilfstechnik kann nicht entscheiden, zu welchem es gehört.
     .description = Dieselbe ID steht im aria-owns mehrerer Elemente. Welches Element der Besitzer ist, bleibt offen.
     .explanation-user-impact = Assistierende Technologien können das Element keinem Widget eindeutig zuordnen; Name, Rolle und Wert werden unzuverlässig.
     .typical-cause = Mehrfach eingebundene Komponenten, die auf dieselbe Liste zeigen, oder eine doppelt vergebene ID.
@@ -903,7 +903,7 @@ rule-description-duplicates-name = Beschreibung wiederholt den Namen
 
 rule-aria-required-children-missing = Erforderliche Bestandteile einer ARIA-Rolle fehlen
     .user-impact = Assistierende Technologien können die Beziehung zwischen den Widget-Teilen nicht auswerten.
-    .technical-impact = z. B. role="tablist" ohne zugehörige role="tabpanel"-Elemente.
+    .technical-impact = Ein Element, dessen Rolle besessene Teile verlangt, etwa tablist ohne tab, list ohne listitem oder menu ohne menuitem, enthält oder besitzt keines davon, außer es ist mit aria-expanded="false" eingeklappt oder beschäftigt.
     .description = Ein Behälter wie role="tablist", "list" oder "menu" enthält keines der Elemente, die seine Rolle verlangt.
     .explanation-user-impact = Screenreader sagen einen leeren oder fehlerhaften Behälter an; Nutzer finden die Einträge nicht.
     .typical-cause = Die Einträge tragen keine oder eine andere Rolle, oder ein Element mit eigener Rolle steht zwischen Behälter und Einträgen.
@@ -947,12 +947,12 @@ rule-summary-name-missing = Summary-Element ohne zugänglichen Namen
     .technical-impact = <summary> ohne Textinhalt oder aria-label.
 
 rule-landmarks-content-outside = Inhalt außerhalb einer Landmark-Region
-    .user-impact = Inhalt außerhalb einer Landmark-Region.
+    .user-impact = Screenreader-Nutzer, die zwischen Landmarken springen, erreichen diesen Inhalt nie.
     .technical-impact = Sichtbarer Inhalt liegt außerhalb jeder Landmark-Region (<header>, <nav>, <main>, <footer> oder eine entsprechende Rolle), daher überspringt ihn die Landmark-Navigation eines Screenreaders und Regionen-Kürzel erreichen ihn nicht.
 
 rule-keyboard-focusable-no-role = Fokussierbares Element ohne interaktive Rolle
-    .user-impact = Fokussierbares Element ohne interaktive Rolle.
-    .technical-impact = Fokussierbares Element ohne interaktive Rolle.
+    .user-impact = Screenreader-Nutzer hören einen Tabstopp ohne Rolle und erkennen weder, was er ist, noch, wie er zu bedienen ist.
+    .technical-impact = Ein Element, das nicht von sich aus fokussierbar ist, hat einen tabindex ab 0 und keine interaktive Rolle (generic, group, article, section, paragraph, none, presentation oder gar keine Rolle), daher erreicht die Tabtaste es, ein Screenreader sagt es aber ohne Rolle und ohne bedienbaren Zustand an; als Prüfhinweis gemeldet, weil ein Skript es dennoch bedienbar machen kann.
 
 rule-display-toggle-missing = Kein Umschalter für Darstellungsmodi
     .user-impact = Fehlt der Umschalter tatsächlich, kann nicht auf eine ruhige oder reine Textdarstellung wechseln, wer Bewegung oder Grafiken nicht verträgt.
@@ -1027,9 +1027,9 @@ rule-viz-static-missing = Bewegte Visualisierung ohne Standbild
     .technical-note = Best Practice aus der BarrierLab-Konvention für Darstellungsmodi (Entwurf v0), keine WCAG-Anforderung; verankert an WCAG 2.2.2. Gilt für data-viz="3d" und "interactive".
 
 rule-viz-table-missing = Diagramm ohne Wertetabelle
-    .user-impact = Die Beziehungen zwischen den Werten gehen verloren, wenn die Textschicht sie nicht auf andere Weise vermittelt.
+    .user-impact = Screenreader-Nutzer können die Werte des Diagramms nicht als Zeilen und Spalten lesen und erkennen den Zusammenhang nicht.
     .technical-impact = figure[data-viz=chart] ohne <table> im Teilbaum.
-    .description = Ein Diagramm hat keine Tabelle mit seinen Werten. Zu prüfen ist, ob die Textschicht sie auch ohne Tabelle vermittelt.
+    .description = Ein Diagramm (data-viz="chart") hat keine <table> mit seinen Werten.
     .explanation-user-impact = Die Beziehungen zwischen den Werten können verloren gehen, wenn sie nur als Fließtext oder gar nicht vorliegen.
     .typical-cause = Die Werte stehen nur in der Grafik oder in einem Satz, bei Sparklines oft bewusst.
     .recommendation = Die Werte als <table> in die Textschicht aufnehmen, sofern ein Satz sie nicht ebenso vollständig trägt.

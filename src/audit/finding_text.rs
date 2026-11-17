@@ -281,6 +281,22 @@ mod tests {
         );
     }
 
+    /// The JSON's impact fields never carry the checker's parser noise: only
+    /// `description` and the occurrences keep the raw message (#1039).
+    #[test]
+    fn stored_impacts_of_html_conform_carry_no_parser_noise() {
+        let findings = domain_findings();
+        let schema = findings
+            .iter()
+            .find(|f| f.rule_id == "html_conform.schema.html5")
+            .unwrap();
+        assert!(schema
+            .description
+            .contains("{http://www.w3.org/1999/xhtml}span"));
+        assert_eq!(schema.user_impact, "Element <span> is not allowed here.");
+        assert_eq!(schema.technical_impact, schema.user_impact);
+    }
+
     #[test]
     fn english_text_has_no_german_characters() {
         for finding in &domain_findings() {

@@ -2,15 +2,15 @@
   "id": "dialog/focusable-missing",
   "url": "https://casoon.github.io/auditmysite/rules/dialog/focusable-missing/",
   "domain": "wcag",
-  "title": "Illogical focus order",
+  "title": "Dialog without a focusable element",
   "outcome": "hint-only",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.4.3",
   "level": "A",
   "axe_id": "focus-order-semantics",
   "severity": "high",
-  "user_impact": "Confusing navigation for keyboard users.",
-  "technical_impact": "DOM order diverges from the visual order.",
+  "user_impact": "Keyboard users can neither operate the dialog nor close it.",
+  "technical_impact": "An element with role dialog or alertdialog (an open <dialog> counts, a closed one does not) contains no focusable descendant, meaning no natively focusable element and no element with a tabindex, so keyboard focus cannot move into it; reported as a review hint, because the dialog itself may take focus with tabindex=\"-1\" and Escape may close it.",
   "checks": [
     {
       "contract_id": "dialog/focusable-missing",

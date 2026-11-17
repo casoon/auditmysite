@@ -10,7 +10,7 @@
   "axe_id": "aria-required-attr",
   "severity": "critical",
   "user_impact": "Assistive technologies cannot reliably expose the element state or value.",
-  "technical_impact": "Role and ARIA attribute set are incomplete.",
+  "technical_impact": "An element with a role that needs state or value attributes, for example a checkbox without aria-checked or a slider without aria-valuenow, lacks them, so assistive technology cannot expose its state or value; native checkbox, radio and range inputs, meter and progress are exempt.",
   "checks": [
     {
       "contract_id": "aria/required-attribute-missing",

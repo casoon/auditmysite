@@ -9,7 +9,7 @@
   "level": "A",
   "axe_id": "viz/table-missing",
   "severity": "low",
-  "user_impact": "The relations between the values are lost unless the text layer conveys them another way.",
+  "user_impact": "Screen reader users cannot read the values of the chart as rows and columns and miss how they relate.",
   "technical_impact": "figure[data-viz=chart] without a <table> in its subtree.",
   "checks": [
     {

@@ -81,8 +81,9 @@ impl I18n {
         // and of the interpretation layer (`audit-interpretation.ftl`,
         // `seo::interpretation`, `audit::{interpretation,
         // performance_interpretation, verdict, finding_derive, summary,
-        // baseline}`, `seo::headings`, `taxonomy::score_area`) are
-        // twenty-nine resources of the one bundle.
+        // baseline}`, `seo::headings`, `taxonomy::score_area`) and of the
+        // experimental UX heuristics (`ux-heuristics.ftl`, `ux::heuristics`)
+        // are thirty resources of the one bundle.
         let sources = match locale {
             "en" => [
                 include_str!("../../locales/en/report.ftl"),
@@ -114,6 +115,7 @@ impl I18n {
                 include_str!("../../locales/en/pdf-analysis.ftl"),
                 include_str!("../../locales/en/audit-interpretation.ftl"),
                 include_str!("../../locales/en/report-builder.ftl"),
+                include_str!("../../locales/en/ux-heuristics.ftl"),
             ],
             _ => [
                 include_str!("../../locales/de/report.ftl"),
@@ -145,6 +147,7 @@ impl I18n {
                 include_str!("../../locales/de/pdf-analysis.ftl"),
                 include_str!("../../locales/de/audit-interpretation.ftl"),
                 include_str!("../../locales/de/report-builder.ftl"),
+                include_str!("../../locales/de/ux-heuristics.ftl"),
             ],
         };
         for ftl in sources {

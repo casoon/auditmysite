@@ -258,7 +258,10 @@ pub(crate) fn build_accessibility_score_breakdown(
 
     // Raw penalty per area, from the `ScoreImpact` of each finding's rule.
     let mut raw_penalty = [0f64; AREAS.len()];
-    let mut drivers: [Option<(&str, usize)>; AREAS.len()] = Default::default();
+    // Occurrences per rule over all reports, so the driver of a batch is the
+    // rule that costs most across the set, not the single worst page.
+    let mut driver_rules: [std::collections::BTreeMap<&str, (&str, usize)>; AREAS.len()] =
+        Default::default();
 
     for finding in reports.iter().flat_map(|report| report.findings.iter()) {
         let Some(area) = score_area_for_finding(finding) else {
@@ -275,13 +278,20 @@ pub(crate) fn build_accessibility_score_breakdown(
             .score_impact
             .calculate_penalty(finding.occurrence_count.max(1)) as f64;
 
-        if drivers[idx]
-            .map(|(_, count)| finding.occurrence_count > count)
-            .unwrap_or(true)
-        {
-            drivers[idx] = Some((&finding.title, finding.occurrence_count));
-        }
+        driver_rules[idx]
+            .entry(finding.rule_id.as_str())
+            .or_insert((finding.title.as_str(), 0))
+            .1 += finding.occurrence_count.max(1);
     }
+    let drivers: Vec<Option<(&str, usize)>> = driver_rules
+        .iter()
+        .map(|rules| {
+            rules
+                .values()
+                .copied()
+                .reduce(|best, next| if next.1 > best.1 { next } else { best })
+        })
+        .collect();
 
     let total_raw: f64 = raw_penalty.iter().sum();
     let total_loss = 100u32.saturating_sub(accessibility_score);
@@ -303,7 +313,12 @@ pub(crate) fn build_accessibility_score_breakdown(
             weight_pct: share_pct[idx],
             estimated_lost_points: lost_points[idx],
             main_driver: drivers[idx]
-                .map(|(title, count)| format!("{title} ({count} occurrences)"))
+                .map(|(title, count)| {
+                    format!(
+                        "{title} ({count} occurrence{})",
+                        if count == 1 { "" } else { "s" }
+                    )
+                })
                 .unwrap_or_else(|| "No detected driver".to_string()),
         })
         .collect()
@@ -1052,6 +1067,30 @@ mod tests {
         let mut seo = make_finding("seo.headings.multiple_h1", "Two H1 headings found.");
         seo.contract.domain = crate::audit::finding_contract::FindingDomain::Seo;
         assert_eq!(score_area_for_finding(&seo), None);
+    }
+
+    /// The driver of an area is counted over all reports and reads in the
+    /// singular for one occurrence ("1 occurrences" next to five pages with
+    /// the same finding, #1039).
+    #[test]
+    fn main_driver_counts_occurrences_across_reports() {
+        let driver = |reports: &[crate::audit::normalized::NormalizedReport]| {
+            build_accessibility_score_breakdown(reports, 90)
+                .into_iter()
+                .find(|a| a.area == "Forms")
+                .unwrap()
+                .main_driver
+        };
+        let mut finding = make_finding("forms/label-missing", "Field without a label.");
+        finding.title = "Missing label".into();
+        finding.occurrence_count = 1;
+        let report = make_report(vec![finding]);
+        assert_eq!(
+            driver(std::slice::from_ref(&report)),
+            "Missing label (1 occurrence)"
+        );
+        let reports = vec![report; 5];
+        assert_eq!(driver(&reports), "Missing label (5 occurrences)");
     }
 
     #[test]

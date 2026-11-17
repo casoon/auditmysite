@@ -10,7 +10,7 @@
   "axe_id": "meta-refresh",
   "severity": "high",
   "user_impact": "Users need more time to enter data and may lose data through timeouts.",
-  "technical_impact": "A <meta http-equiv=\"refresh\" content=\"N\"> with N above 0 makes the browser reload or redirect after N seconds, and the DOM offers no way to turn the limit off or extend it.",
+  "technical_impact": "A <meta http-equiv=\"refresh\"> with a delay of more than 0 seconds and at most 20 hours reloads or redirects the page after that delay and the markup offers no way to stop or extend it, so a user who is still reading is cut off; an immediate redirect (0) and delays above 20 hours are not reported.",
   "checks": [
     {
       "contract_id": "timing/meta-refresh",

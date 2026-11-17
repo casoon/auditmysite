@@ -97,7 +97,7 @@ pub(crate) mod i18n;
 #[doc(hidden)]
 pub mod interaction;
 pub(crate) mod lint;
-pub mod mobile;
+pub(crate) mod mobile;
 pub mod model;
 pub mod output;
 #[doc(hidden)]

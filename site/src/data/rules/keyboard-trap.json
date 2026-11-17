@@ -10,7 +10,7 @@
   "axe_id": "keyboard-trap",
   "severity": "critical",
   "user_impact": "The page becomes effectively unusable for keyboard users.",
-  "technical_impact": "Missing focus management in modal elements.",
+  "technical_impact": "No trap is detected: on every page with a focusable element one manual-check note asks to tab through the page, and a modal dialog in the accessibility tree (role dialog or alertdialog with modal set) adds a warning to check that focus can leave it with Escape or Tab; whether script-driven widgets trap focus cannot be seen without operating them.",
   "checks": [
     {
       "contract_id": "keyboard-trap",

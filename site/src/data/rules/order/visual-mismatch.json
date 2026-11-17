@@ -10,7 +10,7 @@
   "axe_id": "css-order-reading-sequence",
   "severity": "medium",
   "user_impact": "Screen reader users hear content in a different sequence than sighted users perceive visually.",
-  "technical_impact": "CSS `order` changes the visual sequence while the DOM and accessibility tree stay unchanged.",
+  "technical_impact": "A flex container with flex-direction row-reverse or column-reverse, or a child with a CSS order other than 0, shows content in a different sequence than the DOM while the DOM and the accessibility tree keep their order, so tab order and reading order can diverge from what is seen; reported as a review hint when the layout was measured.",
   "checks": [
     {
       "contract_id": "order/visual-mismatch",

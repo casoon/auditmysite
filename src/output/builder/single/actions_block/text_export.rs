@@ -55,6 +55,7 @@ fn item(
 ) -> ActionItem {
     ActionItem {
         action: format!("{} #{seq}", ACTIONS[seq % ACTIONS.len()]),
+        title: String::new(),
         hint: if seq.is_multiple_of(2) {
             String::new()
         } else {

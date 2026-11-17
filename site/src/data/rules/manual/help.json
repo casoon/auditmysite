@@ -10,7 +10,7 @@
   "axe_id": "help",
   "severity": "low",
   "user_impact": "Users do not know what format or data to enter in a field.",
-  "technical_impact": "Where users enter structured data, no help (help link, <details> or text tied via aria-describedby) can be derived from the markup, so whether input help exists stays a manual check.",
+  "technical_impact": "The page contains form fields (input, select or textarea; hidden fields and buttons do not count); whether they have context-sensitive help such as instructions, examples or a help link cannot be decided from the markup, so the page gets one manual-check note instead of a verdict.",
   "checks": [
     {
       "contract_id": "manual/help",

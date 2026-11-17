@@ -10,7 +10,7 @@
   "axe_id": "aria-required-parent",
   "severity": "critical",
   "user_impact": "Assistive technologies cannot convey the element's relationship to its group (e.g. a tab to its tab list).",
-  "technical_impact": "Missing structural parent context for the ARIA role in use.",
+  "technical_impact": "An element whose role must sit inside a certain parent role, for example tab inside tablist, option inside listbox or listitem inside list, has no such ancestor or owner, so assistive technology cannot convey which group it belongs to.",
   "checks": [
     {
       "contract_id": "aria/required-parent-missing",

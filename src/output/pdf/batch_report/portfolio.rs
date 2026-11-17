@@ -462,7 +462,7 @@ pub(super) fn render_batch_tech_url_matrix(
                 if detail.top_issues.is_empty() {
                     "—".to_string()
                 } else {
-                    leading_items(&detail.top_issues, 80, i18n)
+                    leading_items(&detail.top_issues, 2, i18n)
                 },
             ]);
         }
@@ -472,21 +472,13 @@ pub(super) fn render_batch_tech_url_matrix(
     builder
 }
 
-/// The first items of a list that fit `max_chars` together, each whole, and
-/// how many more there are. One cut through the joined list printed
-/// "Insufficient colo… frame-ancestors directive missing" (#1039). The first
-/// item is always shown.
-pub(super) fn leading_items(items: &[String], max_chars: usize, i18n: &I18n) -> String {
-    let mut shown: Vec<&str> = Vec::new();
-    let mut length = 0;
-    for item in items {
-        let added = item.chars().count() + if shown.is_empty() { 0 } else { 2 };
-        if !shown.is_empty() && length + added > max_chars {
-            break;
-        }
-        length += added;
-        shown.push(item);
-    }
+/// The first `max_items` items of a list, each whole, and how many more there
+/// are. The number shown is a count, not a character budget: titles differ in
+/// length between the languages, so a budget showed two titles in English and
+/// three in German for the same page (#1039). One cut through the joined list
+/// printed "Insufficient colo… frame-ancestors directive missing".
+pub(super) fn leading_items(items: &[String], max_items: usize, i18n: &I18n) -> String {
+    let shown = &items[..items.len().min(max_items)];
     let list = shown.join(", ");
     let rest = items.len() - shown.len();
     if rest == 0 {

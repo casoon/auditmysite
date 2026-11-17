@@ -88,7 +88,7 @@ deliberately not API (public only because the consumer named drives it, not cove
 docs.rs); `queued` is `pub` only for the consumers named, not covered, and still to be narrowed or
 hidden; `crate` is `pub(crate)`.
 Consumers: S = Studio, B = the two binaries, T(n) = n integration-test targets, D = a doc example.
-`src/lib.rs` has 35 modules; the table has one row for each: 7 curated, 19 hidden, 1 queued and 8 crate.
+`src/lib.rs` has 35 modules; the table has one row for each: 7 curated, 19 hidden, 0 queued and 9 crate.
 
 | Module | Tier | Decision | Consumers | Why |
 | --- | --- | --- | --- | --- |
@@ -126,7 +126,7 @@ Consumers: S = Studio, B = the two binaries, T(n) = n integration-test targets, 
 | `taxonomy` | hidden | the rule contracts and the catalogue test import it; `Dimension`, `Subcategory` and `IssueClass` stay reachable here | T(32) | forced by the contracts |
 | `ux` | hidden | experimental indicator (#891), otherwise untouched | T(3) | `tests/module_fixtures.rs` drives its `AuditModule` impl |
 | `wcag` | hidden | the rule contracts and the detection corpora import it; `Severity`, `Violation` and `WcagResults` are also at the root | T(45) | forced by the contracts |
-| `mobile` | queued | `pub(crate)` once `mobile::ux_heuristics`, which nothing in the crate calls, is wired up (#1035) | T(2) | blocked by #1035 |
+| `mobile` | crate | narrowed once the UX heuristics moved to `ux` and are called (#1035); `analyze_mobile_friendliness` and `MobileFriendliness` are at the root | none | the tests build the report field from the root type |
 
 How the queued list was worked off (#940), with the size of each slice (`pub` declarations counted
 in the files of the modules, methods included):
@@ -148,8 +148,9 @@ in the files of the modules, methods included):
    fields and signatures name (`AuditedDisplayMode`, `DisplayMode`, `DisplayModesInfo`,
    `VisualisationCount`, `I18n`); the binaries take `build_browser_client` and `truncate_url`
    from `cli`; the lint test drives `cli::report_lint::run_report_lint`.
-5. Open: `mobile` stays `queued` until `mobile::ux_heuristics`, which has no caller in the crate,
-   is wired up (#1035); `QUEUED_CEILING` is 1 until then.
+5. Done: `mobile` is `pub(crate)`. Its `ux_heuristics`, the one part nothing in the crate called,
+   moved to `ux` and is wired to the experimental `ux` indicator (#1035); `MobileFriendliness` and
+   `analyze_mobile_friendliness` are at the root. The queued list is empty and `QUEUED_CEILING` is 0.
 6. Open: item-level narrowing inside the curated modules: `audit` (about 550 items), `output`
    (about 230) and `browser` (about 200). The curated list above is the target; everything else
    becomes `pub(crate)`. The `hidden` modules are not narrowed item by item: they are not API.

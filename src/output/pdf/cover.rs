@@ -54,7 +54,7 @@ pub(super) fn build_batch_cover_score_row(
     verdict: crate::audit::verdict::Verdict,
     partial: bool,
     total_urls: u32,
-    total_violations: u32,
+    passed_urls: u32,
     i18n: &I18n,
 ) -> anyhow::Result<Grid> {
     let en = i18n.locale() == "en";
@@ -82,8 +82,22 @@ pub(super) fn build_batch_cover_score_row(
     Ok(grid.add_item(serde_json::json!({
         "type": "metric-card",
         "data": MetricCard::new(i18n.t("cover-card-urls"), total_urls.to_string())
-            .with_subtitle(i18n.count("cover-card-wcag-occurrences", total_violations as usize))
-            .with_accent_color(tokens::DANGER)
+            // The card counts URLs, so it says how many of them passed; the
+            // WCAG occurrences have their own cards (#1039).
+            .with_subtitle(i18n.t_args(
+                "cover-card-urls-passed",
+                &[
+                    ("passed", fluent_bundle::FluentValue::from(passed_urls as i64)),
+                    ("total", fluent_bundle::FluentValue::from(total_urls as i64)),
+                ],
+            ))
+            .with_accent_color(if passed_urls >= total_urls {
+                tokens::SUCCESS
+            } else if passed_urls == 0 {
+                tokens::DANGER
+            } else {
+                tokens::WARN_DEEP
+            })
             .with_height("100%")
             .to_data()
     })))

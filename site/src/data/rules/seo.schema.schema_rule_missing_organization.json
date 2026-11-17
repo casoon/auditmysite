@@ -2,7 +2,7 @@
   "id": "seo.schema.schema_rule_missing_organization",
   "url": "https://casoon.github.io/auditmysite/rules/seo.schema.schema_rule_missing_organization/",
   "domain": "schema",
-  "title": "Organization: missing required properties",
+  "title": "Organization: missing recommended properties",
   "outcome": "automatic",
   "area": "SEO, structured data",
   "checks": [

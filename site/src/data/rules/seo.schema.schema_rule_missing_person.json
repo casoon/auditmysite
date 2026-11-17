@@ -2,7 +2,7 @@
   "id": "seo.schema.schema_rule_missing_person",
   "url": "https://casoon.github.io/auditmysite/rules/seo.schema.schema_rule_missing_person/",
   "domain": "schema",
-  "title": "Person: missing required properties",
+  "title": "Person: missing recommended properties",
   "outcome": "automatic",
   "area": "SEO, structured data",
   "checks": [

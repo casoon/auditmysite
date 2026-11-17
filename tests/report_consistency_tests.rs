@@ -13,7 +13,6 @@
 use auditmysite::audit::{normalize, AuditReport, BatchReport, PerformanceResults};
 use auditmysite::cli::report_lint::{run_report_lint, ReportLintFailOn};
 use auditmysite::cli::WcagLevel;
-use auditmysite::mobile::MobileFriendliness;
 use auditmysite::output::builder::build_view_model;
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{format_ai_json, format_json_batch, UnifiedReport};
@@ -24,7 +23,7 @@ use auditmysite::security::SecurityAnalysis;
 use auditmysite::seo::SeoAnalysis;
 use auditmysite::ux::{analyze_ux, UxAnalysis};
 use auditmysite::wcag::{Severity, Violation, WcagResults};
-use auditmysite::AXTree;
+use auditmysite::{AXTree, MobileFriendliness};
 
 // Cross-layer regressions: a locally plausible result must remain truthful
 // after normalization, aggregation and export.

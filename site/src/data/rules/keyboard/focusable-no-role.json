@@ -9,8 +9,8 @@
   "level": "A",
   "axe_id": "focusable-no-role",
   "severity": "critical",
-  "user_impact": "Focusable element without an interactive role.",
-  "technical_impact": "Focusable element without an interactive role.",
+  "user_impact": "Screen reader users hear a tab stop without a role and cannot tell what it is or how to operate it.",
+  "technical_impact": "An element that is not natively focusable has a tabindex of 0 or more and no interactive role (generic, group, article, section, paragraph, none, presentation or no role at all), so Tab reaches it but a screen reader announces it without a role or an operable state; reported as a review hint, because a script may still make it operable.",
   "checks": [
     {
       "contract_id": "keyboard/focusable-no-role",
