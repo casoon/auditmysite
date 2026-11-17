@@ -167,6 +167,7 @@ and verification for each change is in the
 - **Report:** the batch action plan arranges the same findings as the top actions (`summary.top_actions`, the PDF's top-actions table) instead of every finding that had a fix text; the page-health and mobile checks (HTTP/1.1 only, inefficient caching, large DOM, small touch targets and the others) now carry a written fix in both languages, on their finding cards and in the single-page action plan too (Refs #1039).
 - **Batch:** a reference finding whose cause no other finding on the page charges is listed in the batch aggregation: the Mobile touch-target finding (44 px) on pages where WCAG 2.5.8 (24 px) did not fire. This changes JSON values: `summary.top_actions` can include `mobile.small_targets`, and the PDF lists it under the most frequent violations; scores are unchanged (Refs #1039).
 - **Docs:** five broken links on the project site point to existing pages again (the manual WCAG checks, the CLI and output contract) or to the repository file where no site page exists (accname differential, privacy findings).
+- **Rules:** `keyboard/hidden-focusable` no longer counts a closed `aria-modal` box with an empty 0×0 layout (such as a closed cookie preference centre) as an open modal, so focusable elements in the hidden background stay a violation instead of a review (barrierlab `a11y-rules` 0.30.12). The a11y crates move from 0.30.11 to 0.30.12.
 
 ## [2.0.2] - 2026-11-05
 
