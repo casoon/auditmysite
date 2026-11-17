@@ -247,3 +247,29 @@ fn struct_field_pairs(
     }
     pairs
 }
+
+/// The ids of the repository's own rules whose `RuleMetadata` carries the
+/// `best-practice` tag (#919). Rules of the shared library are not found
+/// here: their keyword is set at run time by `a11y-rules`.
+pub fn own_best_practice_rule_ids() -> BTreeSet<String> {
+    let mut ids = BTreeSet::new();
+    for (_file, source) in read_rs_files(&wcag_rules_dir()) {
+        let marker = "RuleMetadata {";
+        let mut search_from = 0;
+        while let Some(rel_start) = source[search_from..].find(marker) {
+            let block_start = search_from + rel_start + marker.len();
+            let end = source[block_start..]
+                .find('}')
+                .map_or(source.len(), |i| block_start + i);
+            let block = &source[block_start..end];
+            let tagged = block
+                .lines()
+                .any(|l| l.trim_start().starts_with("tags:") && l.contains("\"best-practice\""));
+            if let (true, Some(id)) = (tagged, extract_field_str(block, "axe_id")) {
+                ids.insert(id);
+            }
+            search_from = end;
+        }
+    }
+    ids
+}
