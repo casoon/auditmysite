@@ -635,14 +635,14 @@ mod tests {
 
     /// #952-5: the four ratios are scoped to the criteria the "N of ~55
     /// checked automatically" statement counts. A criterion that can only emit
-    /// review hints (1.4.2) ran, but is neither checked nor passed, so it
+    /// review hints (1.3.2) ran, but is neither checked nor passed, so it
     /// leaves the ratio; the totals never exceed the statement.
     #[test]
     fn test_coverage_is_scoped_to_the_automated_criteria_it_is_compared_with() {
         use crate::wcag::RuleRun;
         let results = run_results(vec![
             RuleRun::ran("a", 0).with_wcag(["1.1.1"]),
-            RuleRun::ran("hint", 0).with_wcag(["1.4.2"]),
+            RuleRun::ran("hint", 0).with_wcag(["1.3.2"]),
         ]);
         let coverage = AccessibilityScorer::calculate_execution_coverage(&results);
         assert_eq!(
