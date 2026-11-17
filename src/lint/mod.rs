@@ -12,14 +12,14 @@ mod invariants;
 use serde::Serialize;
 
 use checks::check_pdf_score_traceability;
-pub use checks::run_all_checks;
+pub(crate) use checks::run_all_checks;
 
 use crate::taxonomy::Severity;
 
 /// One lint finding: which check produced it, where in the report, what was
 /// expected vs. observed, and how severe the mismatch is.
 #[derive(Debug, Clone, Serialize)]
-pub struct LintFinding {
+pub(crate) struct LintFinding {
     pub check_id: &'static str,
     pub evidence_path: String,
     pub expected: String,
@@ -29,17 +29,17 @@ pub struct LintFinding {
 
 /// The full result of linting one report.
 #[derive(Debug, Clone, Serialize, Default)]
-pub struct LintReport {
+pub(crate) struct LintReport {
     pub findings: Vec<LintFinding>,
 }
 
 impl LintReport {
     /// The most severe finding, or `None` if the report is clean.
-    pub fn worst_severity(&self) -> Option<Severity> {
+    pub(crate) fn worst_severity(&self) -> Option<Severity> {
         self.findings.iter().map(|f| f.severity).max()
     }
 
-    pub fn is_clean(&self) -> bool {
+    pub(crate) fn is_clean(&self) -> bool {
         self.findings.is_empty()
     }
 }
@@ -54,7 +54,7 @@ impl LintReport {
 /// same report; when given, it additionally runs the scoped PDF-traceability
 /// check (does the report's accessibility score actually appear in the
 /// rendered output).
-pub fn lint(report: &serde_json::Value, typst_source: Option<&str>) -> LintReport {
+pub(crate) fn lint(report: &serde_json::Value, typst_source: Option<&str>) -> LintReport {
     let mut findings = Vec::new();
     run_all_checks(report, &mut findings);
     if let Some(typst_source) = typst_source {

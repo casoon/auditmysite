@@ -418,14 +418,19 @@ locales/                 # Fluent sources, compiled in with include_str!
 The crate is a CLI first; the library is for Studio and for programs that run the pipeline
 (#940). `src/lib.rs` declares the visibility of every module, and `docs/reference/api.md` holds the
 policy and the table: *curated* modules (`audit`, `browser`, `cli`, `error`, `model`, `output`,
-`studio`) are `pub` and only the items api.md lists are covered by the semver promise, *queued*
-modules are `pub` only because the two binaries, the integration tests (which are external crates
-and see only the public surface) or Studio import from them, and *crate* modules (`assessment`,
-`commerce`, `html_conform`, `tech_stack`) are `pub(crate)`. A new module is `pub(crate)`; adding a `pub mod` needs a row in
+`studio`) are `pub` and only the items api.md lists are covered by the semver promise, *hidden*
+modules are `pub` with `#[doc(hidden)]`, deliberately not API and public only because a test, a
+corpus or the dev binary drives them (`accessibility`, `annotations`, `best_practices`, `patterns`,
+`performance`, `privacy`, `registry`, `screen_reader`, `security`, `seo`, `taxonomy`, `wcag`,
+`a11y_journey`, `interaction` and the experimental `ai_visibility`, `content_visibility`,
+`page_flow`, `source_quality`, `ux`), *queued* modules are `pub` only for the same reason and not
+narrowed yet (`mobile`, until #1035), and *crate* modules (`assessment`, `commerce`, `display`,
+`html_conform`, `i18n`, `lint`, `tech_stack`, `util`) are `pub(crate)`. A new module is
+`pub(crate)`; adding a `pub mod` needs a row in
 `tests/fixtures/architecture/library_surface.txt` and in api.md, which
-`cargo test --test library_surface` enforces. The same test pins the paths Studio imports. The
-queued modules are narrowed in slices, each a `pub(crate)` change plus the tests that moved next to
-the code (order in api.md).
+`cargo test --test library_surface` enforces. The same test pins the paths Studio imports. Items a
+test or binary still needs from a `crate` module are re-exported at the root or behind `cli`
+(order and status in api.md).
 
 ## Data Flow
 

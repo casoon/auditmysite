@@ -73,40 +73,59 @@
 // rustdoc lint fails the docs.rs build instead of shipping broken pages (#588).
 #![deny(rustdoc::all)]
 
+#[doc(hidden)]
 pub mod a11y_journey;
+#[doc(hidden)]
 pub mod accessibility;
+#[doc(hidden)]
 pub mod ai_visibility;
+#[doc(hidden)]
 pub mod annotations;
 pub(crate) mod assessment;
 pub mod audit;
+#[doc(hidden)]
 pub mod best_practices;
 pub mod browser;
 pub mod cli;
 pub(crate) mod commerce;
+#[doc(hidden)]
 pub mod content_visibility;
-pub mod display;
+pub(crate) mod display;
 pub mod error;
 pub(crate) mod html_conform;
-pub mod i18n;
+pub(crate) mod i18n;
+#[doc(hidden)]
 pub mod interaction;
-pub mod lint;
+pub(crate) mod lint;
 pub mod mobile;
 pub mod model;
 pub mod output;
+#[doc(hidden)]
 pub mod page_flow;
+#[doc(hidden)]
 pub mod patterns;
+#[doc(hidden)]
 pub mod performance;
+#[doc(hidden)]
 pub mod privacy;
+#[doc(hidden)]
 pub mod registry;
+#[doc(hidden)]
 pub mod screen_reader;
+#[doc(hidden)]
 pub mod security;
+#[doc(hidden)]
 pub mod seo;
+#[doc(hidden)]
 pub mod source_quality;
 pub mod studio;
+#[doc(hidden)]
 pub mod taxonomy;
 pub(crate) mod tech_stack;
-pub mod util;
+pub(crate) mod util;
+#[doc(hidden)]
 pub mod ux;
+#[doc(hidden)]
 pub mod wcag;
 
 // Re-export commonly used types
@@ -129,8 +148,10 @@ pub use browser::{
 };
 pub use cli::{Args, BrowserAction, Command, OutputFormat, WcagLevel};
 pub use content_visibility::{analyze_content_visibility, ContentVisibilityAnalysis};
+pub use display::{AuditedDisplayMode, DisplayMode, DisplayModesInfo, VisualisationCount};
 pub use error::{AuditError, Result};
 pub use html_conform::{message::SchemaDetail, HtmlConformAnalysis, HtmlConformFinding};
+pub use i18n::I18n;
 pub use mobile::{analyze_mobile_friendliness, MobileFriendliness};
 pub use output::format_json_normalized;
 pub use page_flow::{analyze_journey, analyze_journey_with_dom_check, JourneyAnalysis, PageIntent};

@@ -2828,10 +2828,7 @@ async fn display_text_sets_stored_choice_and_reduced_motion() {
     let mut config = PipelineConfig::from_args_and_config(&args, None);
     config.interactive = auditmysite::cli::InteractiveMode::Off;
     config.persist_artifacts = false;
-    assert_eq!(
-        config.display_mode,
-        Some(auditmysite::display::DisplayMode::Text)
-    );
+    assert_eq!(config.display_mode, Some(auditmysite::DisplayMode::Text));
 
     let page = manager.new_page().await.expect("New page failed");
     let (report, _) = audit_page(&page, &url, &config, &manager)
@@ -2847,7 +2844,7 @@ async fn display_text_sets_stored_choice_and_reduced_motion() {
     let execution = &report.accessibility.execution;
     assert_eq!(
         execution.scope.display_mode,
-        auditmysite::display::AuditedDisplayMode::Text
+        auditmysite::AuditedDisplayMode::Text
     );
     let info = execution
         .display_modes
@@ -2879,7 +2876,7 @@ async fn display_text_sets_stored_choice_and_reduced_motion() {
     assert_eq!(probe["active"], "visual", "{probe}");
     assert_eq!(
         report.accessibility.execution.scope.display_mode,
-        auditmysite::display::AuditedDisplayMode::SiteDefault
+        auditmysite::AuditedDisplayMode::SiteDefault
     );
 }
 

@@ -6,7 +6,7 @@
 
 /// `value` with `decimals` places in the notation of the language
 /// (`en = true`: decimal point, otherwise decimal comma).
-pub fn decimal(value: f64, decimals: usize, en: bool) -> String {
+pub(crate) fn decimal(value: f64, decimals: usize, en: bool) -> String {
     let plain = format!("{value:.decimals$}");
     if en {
         plain
@@ -18,7 +18,7 @@ pub fn decimal(value: f64, decimals: usize, en: bool) -> String {
 /// `value` with thousands grouping: German `7.594`, English `7,594`. Values
 /// below 1000 stay plain. One convention for every whole number in report
 /// text, so `7.594` and `7594` never appear for the same figure (#952).
-pub fn integer(value: i64, en: bool) -> String {
+pub(crate) fn integer(value: i64, en: bool) -> String {
     let separator = if en { ',' } else { '.' };
     let digits = value.unsigned_abs().to_string();
     let mut grouped = String::with_capacity(digits.len() + digits.len() / 3 + 1);

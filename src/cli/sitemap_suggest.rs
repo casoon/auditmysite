@@ -7,8 +7,8 @@
 use colored::Colorize;
 
 use auditmysite::audit::count_sitemap_entries_shallow;
+use auditmysite::cli::build_browser_client;
 use auditmysite::error::{AuditError, Result};
-use auditmysite::util::build_browser_client;
 
 pub(crate) async fn discover_populated_sitemap(base_url: &str) -> Result<Option<(String, usize)>> {
     let mut candidates = sitemap_candidates(base_url)?;
