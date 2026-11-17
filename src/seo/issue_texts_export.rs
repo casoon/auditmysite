@@ -9,7 +9,7 @@ use super::meta::{meta_issue_text, MetaIssueKind, MetaIssueValues};
 use super::schema::{schema_issue_text, SchemaIssue, SchemaIssueSeverity};
 use super::technical::{
     collect_technical_issues, AmpAnalysis, FormSecurityAnalysis, HreflangTag, MixedContentResource,
-    PwaAnalysis, TechnicalSeo, WwwRedirectCheck,
+    PwaAnalysis, TechnicalSeo, WwwAlternateUnanswered, WwwRedirectCheck,
 };
 use serde_json::json;
 
@@ -314,6 +314,21 @@ pub(crate) fn technical_scenarios() -> Vec<(String, TechnicalSeo)> {
         }
     }
 
+    for primary in [TEXTS[0], TEXTS[1]] {
+        for alternative in [TEXTS[1], TEXTS[2]] {
+            push(
+                &mut v,
+                format!("www unanswered primary={primary:?} alt={alternative:?}"),
+                Box::new(move |t| {
+                    t.www_alternate_unanswered = Some(WwwAlternateUnanswered {
+                        primary: primary.to_string(),
+                        alternative: alternative.to_string(),
+                    });
+                }),
+            );
+        }
+    }
+
     push(
         &mut v,
         "everything".to_string(),
@@ -367,6 +382,10 @@ pub(crate) fn technical_scenarios() -> Vec<(String, TechnicalSeo)> {
                 alternative_status: 200,
                 redirects_to_primary: false,
                 canonical_matches_primary: Some(false),
+            });
+            t.www_alternate_unanswered = Some(WwwAlternateUnanswered {
+                primary: "https://example.com/x/".to_string(),
+                alternative: "https://www.example.com/x/".to_string(),
             });
         }),
     );

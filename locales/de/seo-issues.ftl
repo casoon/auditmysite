@@ -65,6 +65,7 @@ seo-technical-www-no-redirect = Sowohl { $primary } als auch { $alternative } li
 seo-technical-www-note-canonical-ok = {" "}Canonical-Tag ist korrekt gesetzt, ein 301 wird dennoch empfohlen — Canonicals sind Hinweise, keine Direktiven.
 seo-technical-www-note-canonical-other = {" "}Zusätzlich zeigt das Canonical nicht auf die primäre Domain.
 seo-technical-www-note-canonical-none = {" "}Kein Canonical-Tag gefunden.
+seo-technical-www-alternate-unanswered = Die andere Host-Variante { $alternative } hat auf die Anfrage nicht geantwortet (keine Antwort, Verbindungs- oder TLS-Fehler oder keine Antwort innerhalb von 8 Sekunden), während { $primary } gemessen wurde. Besucher, Links und Lesezeichen, die die andere Variante nutzen, landen auf einer Fehlerseite. Lege den fehlenden DNS-Eintrag und das Zertifikat für diesen Host an und leite ihn per 301 auf { $primary } weiter.
 seo-technical-canonical-domain-mismatch = Canonical-URL zeigt auf eine andere Domain-Variante als die geprüfte URL ({ $primary } vs. Canonical).
 
 seo-meta-missing-title = Seitentitel fehlt

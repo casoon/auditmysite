@@ -26,6 +26,8 @@ and verification for each change is in the
 
 - **Baseline:** `--write-baseline <file>` records the finding ids of a run, `--baseline <file>` gates later runs against them: known findings (`findings[].known`) no longer affect the verdict or exit code and show as one count; only new findings decide. Scores and the finding list are unchanged; a batch gates per URL; the baseline digest is stored in `decision.profile`; a malformed file or another finding id scheme exits 3. A baseline entry means "this rule on this URL", not "these elements" ([contract](https://casoon.github.io/auditmysite/docs/reference/cli-and-output/), Closes #930).
 
+- **SEO:** a host variant (with or without `www`) that was probed and did not answer (no response, connection or TLS error, or no answer within 8 seconds) is now a Medium finding `seo.technical.www_alternate_unanswered` with a written fix, so it reaches the action plan instead of only the `side_check_unanswered` flag. Score-neutral: no module score, severity count or verdict changes. Only a probe that ran and got no answer counts; a probe that could not run stays the flag. The unanswered variant is stored additively as `seo.technical.www_alternate_unanswered` (Refs #899).
+
 - **Library:** `i18n::text_args(key, args, en)` resolves a Fluent message with named arguments for the pure `*_text(…, en)` functions; the page-health issue texts (`seo::page_health::collect_issues`) now come from `locales/{de,en}/page-health.ftl` instead of paired string literals, texts unchanged (Refs #936).
 
 ### Changed

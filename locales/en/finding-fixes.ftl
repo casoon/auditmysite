@@ -51,6 +51,9 @@ finding-fix-seo-page-health-www-not-consolidated = Redirect one host variant (wi
 finding-fix-seo-page-health-trailing-slash-inconsistent = Settle on one URL form, with or without a trailing slash, and redirect the other with 301.
 finding-fix-seo-page-health-http-not-redirected-to-https = Redirect every http:// request with 301 to the same https:// URL.
 
+## SEO: technical
+finding-fix-seo-technical-www-alternate-unanswered = Create the DNS record and TLS certificate for the host variant that does not answer (with or without www) and redirect it with 301 to the variant the site uses, or remove the links and listings that still point to it.
+
 ## Mobile
 finding-fix-mobile-missing-viewport = Add <meta name="viewport" content="width=device-width, initial-scale=1"> to the head.
 finding-fix-mobile-improper-viewport = Set the viewport to width=device-width, initial-scale=1 instead of a fixed width.
