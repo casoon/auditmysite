@@ -248,24 +248,35 @@ pub fn compute_verdict(normalized: &NormalizedReport, profile: &DecisionProfile)
     let mut fail = Reasons::default();
     // Under a baseline (#930) the finding-driven inputs are the ones left
     // after the known findings; score and audit quality are not baselined.
-    let (legal_flags, blocking_issues, keyboard_blocking, blockers, open_findings) =
-        match &normalized.baseline {
-            Some(baseline) => (
-                baseline.gate.legal_flags,
-                baseline.gate.blocking_issues,
-                baseline.gate.keyboard_blocking_issues,
-                baseline.gate.technical_blockers,
-                baseline.gate.open_findings,
-            ),
-            None => (
-                normalized.risk.legal_flags,
-                normalized.risk.blocking_issues,
-                normalized.risk.keyboard_blocking_issues,
-                technical_blockers(normalized),
-                normalized.severity_counts.total,
-            ),
-        };
-    if profile.fail_on_legal_flags && legal_flags > 0 {
+    // The verdict fails on the legal flags of High/Critical severity and
+    // names the count the report shows (`legal_flags`), which is never below
+    // it, so the reason cannot disagree with the management card (#952-2).
+    let (
+        legal_flags,
+        severe_legal_flags,
+        blocking_issues,
+        keyboard_blocking,
+        blockers,
+        open_findings,
+    ) = match &normalized.baseline {
+        Some(baseline) => (
+            baseline.gate.legal_flags,
+            baseline.gate.severe_legal_flags,
+            baseline.gate.blocking_issues,
+            baseline.gate.keyboard_blocking_issues,
+            baseline.gate.technical_blockers,
+            baseline.gate.open_findings,
+        ),
+        None => (
+            normalized.risk.legal_flags,
+            normalized.risk.severe_legal_flags,
+            normalized.risk.blocking_issues,
+            normalized.risk.keyboard_blocking_issues,
+            technical_blockers(normalized),
+            normalized.severity_counts.total,
+        ),
+    };
+    if profile.fail_on_legal_flags && severe_legal_flags > 0 {
         fail.push(
             format!("legal_flags: {legal_flags}"),
             VerdictReasonKind::LegalFlags(legal_flags),
@@ -440,22 +451,24 @@ fn decide_batch(
     }
     // Under a baseline (#930) the finding-driven inputs are the ones left
     // after the known findings.
-    let (legal_flags, blocking_issues, technical_blockers, open_violations) =
+    let (legal_flags, severe_legal_flags, blocking_issues, technical_blockers, open_violations) =
         match &summary.baseline {
             Some(baseline) => (
                 baseline.gate.legal_flags,
+                baseline.gate.severe_legal_flags,
                 baseline.gate.blocking_issues,
                 baseline.gate.technical_blockers,
                 baseline.gate.open_violations,
             ),
             None => (
                 summary.legal_flags,
+                summary.severe_legal_flags,
                 summary.blocking_issues,
                 summary.technical_blockers,
                 summary.total_violations,
             ),
         };
-    if profile.fail_on_legal_flags && legal_flags > 0 {
+    if profile.fail_on_legal_flags && severe_legal_flags > 0 {
         fail.push((
             format!("legal_flags: {legal_flags} (across all pages)"),
             BatchReasonKind::LegalFlags(legal_flags),
@@ -639,6 +652,7 @@ mod tests {
         ))
         .normalized;
         normalized.risk.legal_flags = 3;
+        normalized.risk.severe_legal_flags = 3;
         normalized.risk.blocking_issues = 7;
 
         let result = compute_verdict(&normalized, &DecisionProfile::default());
@@ -667,6 +681,7 @@ mod tests {
             total_violations: 0,
             violated_rule_count: 0,
             legal_flags: 0,
+            severe_legal_flags: 0,
             blocking_issues: 0,
             risk: crate::audit::normalized::RiskLevel::Low,
             score_band_key: String::new(),

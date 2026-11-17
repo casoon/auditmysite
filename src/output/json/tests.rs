@@ -1523,6 +1523,7 @@ fn management_legal_card_counts_the_findings_marked_bfsg_relevant() {
         .count();
     assert_eq!(relevant, 1, "findings: {}", normalized.findings.len());
     assert_eq!(normalized.risk.legal_flags, relevant);
+    assert_eq!(normalized.risk.severe_legal_flags, 0);
 
     let risks = helpers::build_management_risks(std::slice::from_ref(&normalized));
     let legal = risks

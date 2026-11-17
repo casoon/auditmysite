@@ -1912,6 +1912,7 @@
         "critical_issues",
         "high_issues",
         "legal_flags",
+        "severe_legal_flags",
         "blocking_issues",
         "interactive_critical_issues",
         "interactive_high_issues",
@@ -1949,6 +1950,10 @@
           "minimum": 0
         },
         "legal_flags": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "severe_legal_flags": {
           "type": "integer",
           "minimum": 0
         },
@@ -2402,6 +2407,7 @@
           "type": "object",
           "required": [
             "legal_flags",
+            "severe_legal_flags",
             "blocking_issues",
             "keyboard_blocking_issues",
             "technical_blockers",
@@ -2410,6 +2416,10 @@
           "additionalProperties": false,
           "properties": {
             "legal_flags": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "severe_legal_flags": {
               "type": "integer",
               "minimum": 0
             },

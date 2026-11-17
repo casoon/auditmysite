@@ -2041,6 +2041,7 @@ pub(super) mod risk_and_strength_tests {
         let kinds = [
             ManagementRiskKind::Legal {
                 legal_flags: 2,
+                severe_legal_flags: 2,
                 critical: 2,
                 high: 1,
                 blocking_issues: 0,
@@ -2088,6 +2089,7 @@ pub(super) mod risk_and_strength_tests {
         let kinds = [
             ManagementRiskKind::Legal {
                 legal_flags: 0,
+                severe_legal_flags: 0,
                 critical: 0,
                 high: 0,
                 blocking_issues: 0,
@@ -2139,6 +2141,7 @@ pub(super) mod risk_and_strength_tests {
         let kinds = [
             ManagementRiskKind::Legal {
                 legal_flags: 1,
+                severe_legal_flags: 1,
                 critical: 0,
                 high: 0,
                 blocking_issues: 0,
@@ -2169,24 +2172,27 @@ pub(super) mod risk_and_strength_tests {
         assert_eq!(risks[1].label, "SEO / visibility");
     }
 
-    /// #952-2: one open 1.4.3 finding of relevance Medium is one legal flag on
-    /// every surface: `risk.legal_flags`, the verdict line, the management
-    /// card, the screen-reader callout and the finding row. A baselined one
-    /// raises none of them in the verdict (the gate), however the measured
-    /// counts stay as the baseline contract says.
+    /// #952-2: one open 1.4.3 finding of relevance Medium is ONE legal flag on
+    /// every surface that shows a count (`risk.legal_flags`, the management
+    /// card, the screen-reader callout and finding rows), whatever its
+    /// severity. What a flag causes (verdict, risk score and level, card tier)
+    /// reads only the High/Critical ones, and the number the verdict reason
+    /// names is the number the card prints.
     #[test]
-    fn one_medium_relevant_finding_is_one_legal_flag_on_every_surface() {
+    fn legal_flag_count_is_one_everywhere_and_only_severe_ones_have_consequences() {
         use crate::audit::baseline::{BaselineFinding, PageBaseline};
-        use crate::audit::verdict::VerdictReasonKind;
+        use crate::audit::management_risk::RiskTier;
+        use crate::audit::normalized::RiskLevel;
+        use crate::audit::verdict::{Verdict, VerdictReasonKind};
 
-        let report = |baseline: Option<PageBaseline>| {
+        let report = |severity: crate::wcag::Severity, baseline: Option<PageBaseline>| {
             let mut results = crate::wcag::WcagResults::new();
             results.add_violation(
                 crate::wcag::Violation::new(
                     "1.4.3",
                     "Contrast (Minimum)",
                     crate::model::WcagLevel::AA,
-                    crate::wcag::Severity::Medium,
+                    severity,
                     "low contrast",
                     "node-p",
                 )
@@ -2213,33 +2219,62 @@ pub(super) mod risk_and_strength_tests {
             .next()
             .unwrap()
             {
-                ManagementRiskKind::Legal { legal_flags, .. } => legal_flags,
+                kind @ ManagementRiskKind::Legal { .. } => {
+                    let ManagementRiskKind::Legal { legal_flags, .. } = kind else {
+                        unreachable!()
+                    };
+                    (legal_flags, kind.tier())
+                }
                 other => panic!("first dimension is not the legal one: {other:?}"),
             }
         };
+        let callout = |ctx: &crate::audit::normalized::AuditContext<'_>| {
+            let vm = crate::output::builder::build_view_model(ctx, &ReportConfig::default());
+            crate::output::pdf::detail_modules::bfsg_relevant_wcag_findings(
+                &vm.findings.all_findings,
+            )
+        };
+        let legal_reason = |n: &crate::audit::normalized::NormalizedReport| {
+            n.decision.reason_kinds.iter().find_map(|k| match k {
+                VerdictReasonKind::LegalFlags(count) => Some(*count),
+                _ => None,
+            })
+        };
 
-        // Open: one flag, everywhere.
-        let open_report = report(None);
-        let ctx = crate::audit::normalized::normalize(&open_report);
+        // Medium severity, relevance medium: counted and shown, no consequence.
+        let medium = report(crate::wcag::Severity::Medium, None);
+        let ctx = crate::audit::normalized::normalize(&medium);
         let n = &ctx.normalized;
         assert_eq!(n.findings.len(), 1);
         assert_eq!(n.findings[0].bfsg_relevance, "medium");
         assert_eq!(n.risk.legal_flags, 1);
-        assert_eq!(card(n), 1);
-        assert!(n
-            .decision
-            .reason_kinds
-            .contains(&VerdictReasonKind::LegalFlags(1)));
-        let vm = crate::output::builder::build_view_model(&ctx, &ReportConfig::default());
-        assert_eq!(
-            crate::output::pdf::detail_modules::bfsg_relevant_wcag_findings(
-                &vm.findings.all_findings
-            ),
-            1
-        );
+        assert_eq!(n.risk.severe_legal_flags, 0);
+        assert_eq!(card(n), (1, RiskTier::Medium));
+        assert_eq!(callout(&ctx), 1);
+        assert_eq!(legal_reason(n), None);
+        assert_ne!(n.decision.verdict, Verdict::Fail);
+        assert_eq!(n.risk.level, RiskLevel::Low);
+        assert_eq!(n.risk.score, 0);
 
-        // Baselined: the verdict gate has none, the callout and the finding
-        // rows are unchanged measurements.
+        // High severity: the same count, and now the verdict fails on it with
+        // the number the card prints.
+        let high = report(crate::wcag::Severity::High, None);
+        let ctx = crate::audit::normalized::normalize(&high);
+        let n = &ctx.normalized;
+        assert_eq!(n.risk.legal_flags, 1);
+        assert_eq!(n.risk.severe_legal_flags, 1);
+        assert_eq!(card(n), (1, RiskTier::High));
+        assert_eq!(callout(&ctx), 1);
+        assert_eq!(n.decision.verdict, Verdict::Fail);
+        assert_eq!(legal_reason(n), Some(1));
+        assert_eq!(n.decision.reasons, ["legal_flags: 1"]);
+        assert_eq!(n.risk.level, RiskLevel::Medium);
+        // 20 for the flag, 3 for the High occurrence.
+        assert_eq!(n.risk.score, 23);
+
+        // Baselined: the finding is known, so the gate has none and the
+        // verdict is not failed by it; the measured counts stay as the
+        // baseline contract says (a gating filter, not a suppression).
         let id = n.findings[0].id.clone();
         let baseline = PageBaseline {
             listed: true,
@@ -2248,16 +2283,14 @@ pub(super) mod risk_and_strength_tests {
                 rule: "contrast/text-insufficient".into(),
             }],
         };
-        let baselined_report = report(Some(baseline));
-        let ctx = crate::audit::normalized::normalize(&baselined_report);
+        let known = report(crate::wcag::Severity::High, Some(baseline));
+        let ctx = crate::audit::normalized::normalize(&known);
         let n = &ctx.normalized;
         assert!(n.findings[0].known);
-        assert_eq!(n.baseline.as_ref().unwrap().gate.legal_flags, 0);
-        assert!(!n
-            .decision
-            .reason_kinds
-            .iter()
-            .any(|k| matches!(k, VerdictReasonKind::LegalFlags(_))));
+        let gate = &n.baseline.as_ref().unwrap().gate;
+        assert_eq!((gate.legal_flags, gate.severe_legal_flags), (0, 0));
+        assert_eq!(legal_reason(n), None);
+        assert_ne!(n.decision.verdict, Verdict::Fail);
         assert_eq!(n.risk.legal_flags, 1);
     }
 

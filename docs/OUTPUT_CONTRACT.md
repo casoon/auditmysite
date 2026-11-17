@@ -105,7 +105,7 @@ What follows: a baseline entry means "this rule is reported on this URL", not "t
 
 Migration from `auditmysite.decision/2`: `decision.certificate` (`very_good` … `not_passed`) is gone, and so are the certificate badge and label in the terminal and PDF. Read `decision.verdict` and `decision.reasons` for the outcome and `summary.grade` / `accessibility_score` for the band; the Studio response and history entry lost their `certificate` field the same way. Cached snapshots written under `decision/1` or `decision/2` are cache misses.
 
-- **Fail** when the profile enables it and there are legal flags, blocking issues, technical blockers (`fail_on_technical_blockers`, default off) or the accessibility score is below `fail_below_score`.
+- **Fail** when the profile enables it and there are legal flags of High or Critical severity (`severe_legal_flags`; the reason names `legal_flags`), blocking issues, technical blockers (`fail_on_technical_blockers`, default off) or the accessibility score is below `fail_below_score`.
 - **Warn** for an incomplete run, technical blockers, an accessibility score below `warn_below_score` (default 70), or, above it, any WCAG finding. `warn_below_score` is a policy threshold of the verdict, independent of the score bands (90/75/60/40) that name the tiers; no report text derives a tier name from it.
 - Thresholds compare `accessibility_score`. `overall_score` never decides.
 - A stored decision that its own profile does not reproduce is a contract violation (`decision`), reported with every other violation found.
@@ -141,7 +141,7 @@ Batch: a page counts as passed when its own decision passes; the batch `decision
 **Reporting.**
 - `pages[].findings[].known: true` marks a known finding (the field is absent otherwise).
 - `pages[].baseline` (single and batch): `digest`, `page_listed`, `known`, `new`, `fixed` (baseline entries of this page without a finding in this run) with `fixed_ids`, and `gate`. `fixed` also counts entries of modules that did not run this time, and entries of renamed rules.
-- Batch only, top level `baseline` (`summary.baseline` internally): `digest`, `known`, `new`, `fixed`, `unmatched_pages` (pages the baseline lists that this run did not audit) and `gate` (`legal_flags`, `blocking_issues`, `technical_blockers`, `open_violations`).
+- Batch only, top level `baseline` (`summary.baseline` internally): `digest`, `known`, `new`, `fixed`, `unmatched_pages` (pages the baseline lists that this run did not audit) and `gate` (`legal_flags`, `severe_legal_flags`, `blocking_issues`, `technical_blockers`, `open_violations`).
 - `decision.profile.baseline_digest` is the SHA-256 over the recorded `url` and finding id pairs (not over `created_at` or `tool_version`, so rewriting an identical baseline keeps it). A gated decision never has the profile name `default`; a result with and without baseline cannot be mistaken for each other.
 - The terminal table and the PDF show one line (`Baseline: n known, m new, k fixed findings`), no per-finding rows.
 - A page whose stored `baseline` status, known flags or profile digest disagree fails validation as `baseline`, and so does a batch whose `baseline` block is not the sum of its pages.
@@ -370,16 +370,13 @@ page's total loss.
 <a id="legal-relevance"></a>
 ### One definition of legal relevance
 
-A finding is *legally relevant* when it is **confirmed** (`verification` is not `manual_review_recommended`, so a finding that needs a manual check raises none), **occurs** (`occurrence_count > 0`) and its `bfsg_relevance` is `high` or `medium`. The code is `audit::normalized::is_bfsg_relevant_open`; nothing else decides it. `bfsg_relevance` is derived from the rule alone: `high` for a Level A criterion at High or Critical severity, `medium` for any other Level A or Level AA criterion that has a normative clause in EN 301 549 V4.1.1 (clauses 9.1-9.4, WCAG 2.2 A/AA), `low` otherwise (AAA criteria, the retired 4.1.1 Parsing, convention rules such as `display/*`). Severity therefore no longer decides on its own: a Medium 1.4.3 contrast finding is legally relevant, a Low one too, as long as it is confirmed.
+A finding is *legally relevant* when it is **confirmed** (`verification` is not `manual_review_recommended`, so a finding that needs a manual check raises none), **occurs** (`occurrence_count > 0`) and its `bfsg_relevance` is `high` or `medium`. The code is `audit::normalized::is_bfsg_relevant_open`; nothing else decides it. `bfsg_relevance` is derived from the rule alone: `high` for a Level A criterion at High or Critical severity, `medium` for any other Level A or Level AA criterion that has a normative clause in EN 301 549 V4.1.1 (clauses 9.1-9.4, WCAG 2.2 A/AA), `low` otherwise (AAA criteria, the retired 4.1.1 Parsing, convention rules such as `display/*`). A Medium or Low 1.4.3 contrast finding is therefore legally relevant as long as it is confirmed.
 
-Every count of legally relevant findings reads this one predicate, so they cannot disagree:
+**The count** every surface shows reads this one predicate, so they cannot disagree: `pages[].risk.legal_flags`, the batch `summary.legal_flags` (distinct rules across the pages), `legal_flags` of the baseline gate (`pages[].baseline.gate`, `baseline.gate`; the findings that are not `known`), the number in the verdict reason (`legal_flags: n`, "n findings with possible legal relevance"), the executive key point, the Legal / BFSG-EAA management card, the screen-reader BFSG callout and the "BFSG/EAA relevance" row of a finding.
 
-- `pages[].risk.legal_flags` (and through it the risk score, the risk level and the `legal_flags: n` reason of the decision),
-- the batch `summary.legal_flags` (distinct rules across the pages),
-- the baseline gate (`pages[].baseline.gate.legal_flags`, `baseline.gate.legal_flags`), which counts the same predicate over the findings that are not `known`,
-- the verdict line "n findings with possible legal relevance", the executive key point, the Legal / BFSG-EAA management card, the screen-reader BFSG callout and the "BFSG/EAA relevance" row of a finding.
+**The consequences** read the same predicate with one stated severity bar: `severe_legal_flags` (`pages[].risk`, batch `summary`, the baseline gates) counts the legally relevant findings of severity High or Critical (`NormalizedFinding::is_severe_legal_flag`). Only these fail the verdict (`fail_on_legal_flags`), add the 20 points of the risk score, drive the risk level (the `legal_flags` terms of the table below read it), tier the Legal card High and keep the verdict line from a reassuring tier. A relevant finding of Medium or Low severity is shown and counted but does not by itself fail the verdict or raise the risk; the Legal card is then `medium`. `severe_legal_flags <= legal_flags` always; a failing verdict names `legal_flags` (`legal_flags: n`), the number the card prints, never the smaller severe count.
 
-The screen-reader signal above is the only addition: it raises `legal_flags` to at least 1 and has no finding id. Under `--baseline` the measured counts (`risk.legal_flags`, the card, the callout) stay as measured; only the gate and the decision read the findings that are not known.
+The screen-reader signal described below is the only addition: it raises both counts to at least 1 and has no finding id. Under `--baseline` the measured counts (`risk.legal_flags`, the card, the callout) stay as measured; the gate and the decision read the findings that are not known.
 
 <a id="risk-score"></a>
 ### risk_score — `pages[].risk.score`
@@ -397,7 +394,7 @@ exact numbers. Read the counts (`legal_flags`, `critical_issues`,
 
 ```
 score = min(100,
-    20 * legal_flags
+    20 * severe_legal_flags
   + 10 * critical_issues              (WCAG, per occurrence)
   +  3 * high_issues                  (WCAG, per occurrence)
   +  2 * blocking_issues              (per element)
@@ -408,8 +405,9 @@ score = min(100,
 ```
 
 - `legal_flags` counts *distinct rules* on the page, not occurrences (1000
-  images without alt text are one flag). It is the one count of "legally
-  relevant findings" (see [One definition of legal relevance](#legal-relevance)).
+  images without alt text are one flag); `severe_legal_flags` is its subset at
+  High or Critical severity, and the formula and the level conditions below
+  read that subset (see [One definition of legal relevance](#legal-relevance)).
   A page also carries at least one flag when the screen-reader audit confirms a
   BFSG-violating high-severity blocker (empty interactive element, unlabeled
   form field) and was not blocked by a consent wall. The flag marks automatic
@@ -436,9 +434,9 @@ first match wins:
 
 | Level | Condition |
 | --- | --- |
-| `critical` | `legal_flags >= 3` (breadth: at least three distinct legally relevant rules) or `critical_issues >= 5` (volume) |
-| `high` | `legal_flags > 0` together with `critical_issues > 0`, or `critical_issues >= 3`, or `blocking_issues >= 5`, or `risk_score >= 80` |
-| `medium` | `high_issues >= 3` with accessibility score below 80, or any critical issue, legal flag, blocking issue, interactive critical/high finding, or accessibility score at most 20 |
+| `critical` | `severe_legal_flags >= 3` (breadth: at least three distinct legally relevant rules at High/Critical) or `critical_issues >= 5` (volume) |
+| `high` | `severe_legal_flags > 0` together with `critical_issues > 0`, or `critical_issues >= 3`, or `blocking_issues >= 5`, or `risk_score >= 80` |
+| `medium` | `high_issues >= 3` with accessibility score below 80, or any critical issue, severe legal flag, blocking issue, interactive critical/high finding, or accessibility score at most 20 |
 | `low` | otherwise |
 
 `driven_by` names the condition that fired (`Legal Compliance` only when the

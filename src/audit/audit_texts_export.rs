@@ -155,12 +155,13 @@ pub(crate) fn risk_kinds() -> Vec<(String, ManagementRiskKind)> {
     // (total blocking, keyboard subset): none, unnamed only (1 and 3),
     // keyboard only (1 and 2), both (1+1, 2+3).
     let blocking = [(0, 0), (1, 0), (3, 0), (1, 1), (2, 2), (2, 1), (5, 3)];
-    for legal_flags in [0, 1, 2, 4] {
+    for (legal_flags, severe_legal_flags) in [(0, 0), (1, 0), (1, 1), (4, 2), (2, 2)] {
         for (blocking_issues, keyboard_blocking) in blocking {
             out.push((
-                format!("legal {legal_flags} blocking {blocking_issues}/{keyboard_blocking}"),
+                format!("legal {legal_flags}/{severe_legal_flags} blocking {blocking_issues}/{keyboard_blocking}"),
                 ManagementRiskKind::Legal {
                     legal_flags,
+                    severe_legal_flags,
                     critical: 2,
                     high: 5,
                     blocking_issues,

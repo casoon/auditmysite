@@ -644,15 +644,27 @@ impl NormalizedFinding {
             &self.verification,
         )
     }
+
+    /// A legal flag that reaches the consequences (verdict `fail_on_legal_flags`,
+    /// risk score, risk level, Legal card tier): the one predicate
+    /// ([`is_bfsg_relevant_open`]) plus a severity bar, High or Critical.
+    /// Medium and Low findings are legally relevant and shown, counted in
+    /// `legal_flags`, but do not by themselves fail a verdict or raise the risk
+    /// (#952-2).
+    pub fn is_severe_legal_flag(&self) -> bool {
+        self.is_bfsg_relevant() && matches!(self.severity, Severity::Critical | Severity::High)
+    }
 }
 
 /// The one definition of a "legally relevant finding" (#952-2): an occurring
 /// finding whose BFSG/EAA relevance is high or medium and that is no longer
 /// waiting on a manual check. Every count of legally relevant findings reads
-/// it: `RiskAssessment.legal_flags` (JSON, risk score, risk level, verdict),
-/// the batch `summary.legal_flags`, the baseline gate, the management card,
+/// it: `RiskAssessment.legal_flags` (JSON), the batch `summary.legal_flags`,
+/// the baseline gate's `legal_flags`, the verdict reason, the management card,
 /// the screen-reader BFSG callout and the "BFSG-/EAA-Relevanz" row of a
-/// finding. `bfsg_relevance` is derived from the rule (`derive_bfsg_relevance`):
+/// finding. What a flag *causes* (verdict, risk score and level, card tier)
+/// reads the subset with severity High or Critical,
+/// [`NormalizedFinding::is_severe_legal_flag`]. `bfsg_relevance` is derived from the rule (`derive_bfsg_relevance`):
 /// high for a Level A criterion of High/Critical severity, medium for any other
 /// Level A/AA criterion with a clause in EN 301 549, low otherwise (AAA,
 /// convention rules, the retired 4.1.1). "Open" in the baseline sense (not
@@ -905,8 +917,14 @@ pub struct RiskAssessment {
     pub high_issues: usize,
     /// Number of distinct confirmed findings with BFSG/EAA relevance high or
     /// medium (`is_bfsg_relevant_open`), plus one when the screen-reader audit
-    /// confirms a BFSG-violating high-severity blocker
+    /// confirms a BFSG-violating high-severity blocker. The count every
+    /// report surface shows.
     pub legal_flags: usize,
+    /// The subset of `legal_flags` with severity High or Critical (and the
+    /// screen-reader signal): the only part that feeds the verdict, the risk
+    /// score and the risk level.
+    #[serde(default)]
+    pub severe_legal_flags: usize,
     /// Number of blocking interaction issues (buttons/forms without names)
     pub blocking_issues: usize,
     /// Subset of `blocking_issues` not operable by keyboard (WCAG 2.1.1).
@@ -931,9 +949,9 @@ impl RiskAssessment {
         }
         match self.level {
             // Breadth-driven vs. volume-driven Critical (#457).
-            RiskLevel::Critical if self.legal_flags >= 3 => format!(
+            RiskLevel::Critical if self.severe_legal_flags >= 3 => format!(
                 "Critical risk: {} WCAG Level A/AA violations with legal relevance (BFSG). {} blocking issues on interactive controls.",
-                self.legal_flags, self.blocking_issues
+                self.severe_legal_flags, self.blocking_issues
             ),
             RiskLevel::Critical => format!(
                 "Critical risk: {} critical violations on interactive controls and content.",
@@ -1913,6 +1931,7 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
                 );
                 (
                     open_risk.legal_flags,
+                    open_risk.severe_legal_flags,
                     open_risk.blocking_issues,
                     open_risk.keyboard_blocking_issues,
                 )
@@ -2304,6 +2323,28 @@ mod tests {
             flag("4.1.1", WcagLevel::A, Severity::High, Some("div.x")),
             (false, 0)
         );
+    }
+
+    /// #952-2: the severity bar sits on top of the one predicate. A confirmed
+    /// Level A/AA finding of any severity is counted in `legal_flags`; only
+    /// High/Critical ones are `severe_legal_flags`, which feed the verdict and
+    /// the risk score and level.
+    #[test]
+    fn severity_bar_splits_the_shown_count_from_its_consequences() {
+        let counts = |severity: Severity| {
+            let mut results = WcagResults::new();
+            results.add_violation(
+                Violation::new("1.4.3", "x", WcagLevel::AA, severity, "x", "42")
+                    .with_selector("p.x"),
+            );
+            let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+            let n = normalize(&report).normalized;
+            (n.risk.legal_flags, n.risk.severe_legal_flags)
+        };
+        assert_eq!(counts(Severity::Critical), (1, 1));
+        assert_eq!(counts(Severity::High), (1, 1));
+        assert_eq!(counts(Severity::Medium), (1, 0));
+        assert_eq!(counts(Severity::Low), (1, 0));
     }
 
     /// #704: a display-convention rule is only anchored to 1.1.1; it must
