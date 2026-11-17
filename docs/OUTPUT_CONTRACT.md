@@ -367,6 +367,20 @@ So a low `score` with few `estimated_lost_points` is meaningful, not a
 contradiction: the area is bad in isolation but accounts for little of this
 page's total loss.
 
+<a id="legal-relevance"></a>
+### One definition of legal relevance
+
+A finding is *legally relevant* when it is **confirmed** (`verification` is not `manual_review_recommended`, so a finding that needs a manual check raises none), **occurs** (`occurrence_count > 0`) and its `bfsg_relevance` is `high` or `medium`. The code is `audit::normalized::is_bfsg_relevant_open`; nothing else decides it. `bfsg_relevance` is derived from the rule alone: `high` for a Level A criterion at High or Critical severity, `medium` for any other Level A or Level AA criterion that has a normative clause in EN 301 549 V4.1.1 (clauses 9.1-9.4, WCAG 2.2 A/AA), `low` otherwise (AAA criteria, the retired 4.1.1 Parsing, convention rules such as `display/*`). Severity therefore no longer decides on its own: a Medium 1.4.3 contrast finding is legally relevant, a Low one too, as long as it is confirmed.
+
+Every count of legally relevant findings reads this one predicate, so they cannot disagree:
+
+- `pages[].risk.legal_flags` (and through it the risk score, the risk level and the `legal_flags: n` reason of the decision),
+- the batch `summary.legal_flags` (distinct rules across the pages),
+- the baseline gate (`pages[].baseline.gate.legal_flags`, `baseline.gate.legal_flags`), which counts the same predicate over the findings that are not `known`,
+- the verdict line "n findings with possible legal relevance", the executive key point, the Legal / BFSG-EAA management card, the screen-reader BFSG callout and the "BFSG/EAA relevance" row of a finding.
+
+The screen-reader signal above is the only addition: it raises `legal_flags` to at least 1 and has no finding id. Under `--baseline` the measured counts (`risk.legal_flags`, the card, the callout) stay as measured; only the gate and the decision read the findings that are not known.
+
 <a id="risk-score"></a>
 ### risk_score — `pages[].risk.score`
 
@@ -394,15 +408,9 @@ score = min(100,
 ```
 
 - `legal_flags` counts *distinct rules* on the page, not occurrences (1000
-  images without alt text are one flag). A finding is a legal flag when it is a
-  WCAG Level A **or** Level AA finding of High or Critical severity, is
-  `automatically_confirmed` (a finding that needs manual review raises none),
-  and its criterion has a normative clause in EN 301 549 V4.1.1 (2026-09,
-  clauses 9.1-9.4: the WCAG 2.2 A/AA table; AAA criteria do not flag, the
-  retired 4.1.1 Parsing is void in that edition). Convention rules (`display/*`)
-  never flag. AA is included because BFSG and EN 301 549 require AA: a High
-  contrast failure (1.4.3) is as actionable as a Level A failure. A page also
-  carries at least one flag when the screen-reader audit confirms a
+  images without alt text are one flag). It is the one count of "legally
+  relevant findings" (see [One definition of legal relevance](#legal-relevance)).
+  A page also carries at least one flag when the screen-reader audit confirms a
   BFSG-violating high-severity blocker (empty interactive element, unlabeled
   form field) and was not blocked by a consent wall. The flag marks automatic
   evidence worth a legal review, not a legal conclusion.
@@ -428,7 +436,7 @@ first match wins:
 
 | Level | Condition |
 | --- | --- |
-| `critical` | `legal_flags >= 3` (breadth: at least three distinct Level A/AA rules at High/Critical) or `critical_issues >= 5` (volume) |
+| `critical` | `legal_flags >= 3` (breadth: at least three distinct legally relevant rules) or `critical_issues >= 5` (volume) |
 | `high` | `legal_flags > 0` together with `critical_issues > 0`, or `critical_issues >= 3`, or `blocking_issues >= 5`, or `risk_score >= 80` |
 | `medium` | `high_issues >= 3` with accessibility score below 80, or any critical issue, legal flag, blocking issue, interactive critical/high finding, or accessibility score at most 20 |
 | `low` | otherwise |

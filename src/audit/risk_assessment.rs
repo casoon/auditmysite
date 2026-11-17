@@ -23,10 +23,11 @@ pub(super) fn compute_risk_assessment(
     let critical_issues = occurrence_counts.critical;
     let high_issues = occurrence_counts.high;
 
-    // Legal flags: count distinct WCAG Level A/AA rules with High/Critical
-    // severity (#922). Per-occurrence counting would inflate the number (e.g. 1000 images without
-    // alt text is one rule violation, not 1000 legal flags).
-    let mut legal_flags = findings.iter().filter(|f| f.is_legal_flag()).count();
+    // Legal flags: count findings (one per rule and page) that are legally
+    // relevant by the one definition, `is_bfsg_relevant_open` (#952-2).
+    // Per-occurrence counting would inflate the number (e.g. 1000 images
+    // without alt text is one rule violation, not 1000 legal flags).
+    let mut legal_flags = findings.iter().filter(|f| f.is_bfsg_relevant()).count();
 
     // The screen-reader audit can detect journey-level BFSG barriers the static
     // WCAG engine misses, so the main report and the screen-reader sidecar should
@@ -127,12 +128,11 @@ pub(super) fn compute_risk_assessment(
     // raise the floor even when critical_issues is zero (see issue #250).
     //
     // "Critical" is reserved for *systemic* legal exposure: breadth (≥3 distinct
-    // WCAG Level A/AA rules with High/Critical severity) OR volume (≥5 critical
-    // occurrences). The breadth path must NOT also require a critical occurrence
-    // — legal_flags already counts High-severity Level A/AA rules, so gating it on
-    // `critical_issues > 0` made a site with 4 High-severity legal barriers rank
-    // *below* one with a single flag but 5+ critical occurrences (#457). A single
-    // isolated legal flag with a few critical occurrences stays High (#250).
+    // legally relevant rules) OR volume (≥5 critical occurrences). The breadth
+    // path must NOT also require a critical occurrence — gating it on
+    // `critical_issues > 0` made a site with 4 legal barriers rank *below* one
+    // with a single flag but 5+ critical occurrences (#457). A single isolated
+    // legal flag with a few critical occurrences stays High (#250).
     let level = if legal_flags >= 3 || critical_issues >= 5 {
         RiskLevel::Critical
     } else if (legal_flags > 0 && critical_issues > 0)

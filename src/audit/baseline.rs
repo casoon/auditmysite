@@ -385,14 +385,14 @@ pub(crate) fn summarize_batch(reports: &[NormalizedReport]) -> Option<BatchBasel
     let mut legal_rules: BTreeSet<&str> = statuses
         .iter()
         .flat_map(|(r, _)| r.findings.iter())
-        .filter(|f| !f.known && f.is_legal_flag())
+        .filter(|f| !f.known && f.is_bfsg_relevant())
         .map(|f| f.rule_id.as_str())
         .collect();
     let sr_only = statuses.iter().any(|(r, b)| {
         b.gate.legal_flags
             > r.findings
                 .iter()
-                .filter(|f| !f.known && f.is_legal_flag())
+                .filter(|f| !f.known && f.is_bfsg_relevant())
                 .count()
     });
     if sr_only {

@@ -1364,8 +1364,8 @@ batch-rating-reasons = Gründe: { $reasons }.
 batch-rating-note = Die Einstufung ist ein Bandlabel für den durchschnittlichen Barrierefreiheitswert im automatisierten Prüfumfang, kein Konformitätsnachweis.
 batch-reason-no-url-audited = keine der { $count } angeforderten URLs hat einen Report ergeben
 batch-reason-legal-flags = { $count ->
-        [one] 1 WCAG-Regel der Stufe A/AA mit hoher oder kritischer Schwere ist auf den geprüften Seiten verletzt (mögliche Rechtsrelevanz, BFSG/EAA)
-       *[other] { $count } WCAG-Regeln der Stufe A/AA mit hoher oder kritischer Schwere sind auf den geprüften Seiten verletzt (mögliche Rechtsrelevanz, BFSG/EAA)
+        [one] 1 WCAG-Regel der Stufe A/AA mit BFSG/EAA-Relevanz ist auf den geprüften Seiten verletzt (mögliche Rechtsrelevanz)
+       *[other] { $count } WCAG-Regeln der Stufe A/AA mit BFSG/EAA-Relevanz sind auf den geprüften Seiten verletzt (mögliche Rechtsrelevanz)
     }
 batch-reason-blocking-issues = { $count ->
         [one] 1 Bedienelement ohne zugänglichen Namen oder nicht per Tastatur bedienbar

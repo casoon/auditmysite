@@ -2041,7 +2041,6 @@ pub(super) mod risk_and_strength_tests {
         let kinds = [
             ManagementRiskKind::Legal {
                 legal_flags: 2,
-                bfsg_relevant: 2,
                 critical: 2,
                 high: 1,
                 blocking_issues: 0,
@@ -2089,7 +2088,6 @@ pub(super) mod risk_and_strength_tests {
         let kinds = [
             ManagementRiskKind::Legal {
                 legal_flags: 0,
-                bfsg_relevant: 0,
                 critical: 0,
                 high: 0,
                 blocking_issues: 0,
@@ -2141,7 +2139,6 @@ pub(super) mod risk_and_strength_tests {
         let kinds = [
             ManagementRiskKind::Legal {
                 legal_flags: 1,
-                bfsg_relevant: 1,
                 critical: 0,
                 high: 0,
                 blocking_issues: 0,
@@ -2170,6 +2167,98 @@ pub(super) mod risk_and_strength_tests {
         // Stable within "bad": Legal came before SEO in the input order.
         assert_eq!(risks[0].label, "Legal / BFSG-EAA");
         assert_eq!(risks[1].label, "SEO / visibility");
+    }
+
+    /// #952-2: one open 1.4.3 finding of relevance Medium is one legal flag on
+    /// every surface: `risk.legal_flags`, the verdict line, the management
+    /// card, the screen-reader callout and the finding row. A baselined one
+    /// raises none of them in the verdict (the gate), however the measured
+    /// counts stay as the baseline contract says.
+    #[test]
+    fn one_medium_relevant_finding_is_one_legal_flag_on_every_surface() {
+        use crate::audit::baseline::{BaselineFinding, PageBaseline};
+        use crate::audit::verdict::VerdictReasonKind;
+
+        let report = |baseline: Option<PageBaseline>| {
+            let mut results = crate::wcag::WcagResults::new();
+            results.add_violation(
+                crate::wcag::Violation::new(
+                    "1.4.3",
+                    "Contrast (Minimum)",
+                    crate::model::WcagLevel::AA,
+                    crate::wcag::Severity::Medium,
+                    "low contrast",
+                    "node-p",
+                )
+                .with_selector("p.x")
+                .with_rule_id("contrast/text-insufficient"),
+            );
+            let mut report = AuditReport::new(
+                "https://example.com".into(),
+                crate::model::WcagLevel::AA,
+                results,
+                100,
+            );
+            if let Some(baseline) = baseline {
+                report.run_context.baseline = Some(baseline);
+                report.run_context.decision_profile.set_baseline_digest("d");
+            }
+            report
+        };
+        let card = |normalized: &crate::audit::normalized::NormalizedReport| {
+            match crate::audit::management_risk::build_management_risk_kinds(std::slice::from_ref(
+                normalized,
+            ))
+            .into_iter()
+            .next()
+            .unwrap()
+            {
+                ManagementRiskKind::Legal { legal_flags, .. } => legal_flags,
+                other => panic!("first dimension is not the legal one: {other:?}"),
+            }
+        };
+
+        // Open: one flag, everywhere.
+        let open_report = report(None);
+        let ctx = crate::audit::normalized::normalize(&open_report);
+        let n = &ctx.normalized;
+        assert_eq!(n.findings.len(), 1);
+        assert_eq!(n.findings[0].bfsg_relevance, "medium");
+        assert_eq!(n.risk.legal_flags, 1);
+        assert_eq!(card(n), 1);
+        assert!(n
+            .decision
+            .reason_kinds
+            .contains(&VerdictReasonKind::LegalFlags(1)));
+        let vm = crate::output::builder::build_view_model(&ctx, &ReportConfig::default());
+        assert_eq!(
+            crate::output::pdf::detail_modules::bfsg_relevant_wcag_findings(
+                &vm.findings.all_findings
+            ),
+            1
+        );
+
+        // Baselined: the verdict gate has none, the callout and the finding
+        // rows are unchanged measurements.
+        let id = n.findings[0].id.clone();
+        let baseline = PageBaseline {
+            listed: true,
+            findings: vec![BaselineFinding {
+                id,
+                rule: "contrast/text-insufficient".into(),
+            }],
+        };
+        let baselined_report = report(Some(baseline));
+        let ctx = crate::audit::normalized::normalize(&baselined_report);
+        let n = &ctx.normalized;
+        assert!(n.findings[0].known);
+        assert_eq!(n.baseline.as_ref().unwrap().gate.legal_flags, 0);
+        assert!(!n
+            .decision
+            .reason_kinds
+            .iter()
+            .any(|k| matches!(k, VerdictReasonKind::LegalFlags(_))));
+        assert_eq!(n.risk.legal_flags, 1);
     }
 
     pub(in crate::output::pdf) fn test_report_view_model() -> ReportViewModel {
