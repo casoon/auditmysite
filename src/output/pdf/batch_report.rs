@@ -89,8 +89,6 @@ fn build_batch_report(
 
     let mut builder = engine
         .report("wcag-batch-audit")
-        .title(&pres.cover.title)
-        .subtitle(&pres.cover.url)
         .metadata("date", &pres.cover.date)
         .metadata("version", &pres.cover.version)
         .metadata("author", domain)
@@ -394,6 +392,44 @@ mod tests {
         seo.technical.word_count = 1392;
         seo.content_profile = Some(crate::seo::build_content_profile(&seo, "en"));
         contrast_page(url).with_seo(seo)
+    }
+
+    /// The first page is the cover component with the average score and the
+    /// module gauges, as in the single report, not the engine's bare title
+    /// page (a long title broke at its hyphen there); the running header takes
+    /// the cover's title.
+    #[test]
+    fn batch_first_page_is_a_cover_with_scores() {
+        let batch = BatchReport::from_reports(
+            ["a", "b"]
+                .iter()
+                .map(|p| content_page(&format!("https://www.example.com/{p}")))
+                .collect(),
+            vec![],
+            100,
+        );
+        for locale in ["de", "en"] {
+            let config = ReportConfig {
+                locale: locale.to_string(),
+                ..Default::default()
+            };
+            let (_, request) = build_batch_report(&batch, &config, None).unwrap();
+            assert!(
+                request.title.as_deref().unwrap_or("").is_empty(),
+                "{locale}"
+            );
+            let first = &request.components[0];
+            assert_eq!(first["type"], "cover-page", "{locale}");
+            let data = &first["data"];
+            let i18n = I18n::new(locale).unwrap();
+            assert_eq!(data["title"], i18n.t("batch-cover-title"), "{locale}");
+            assert_eq!(data["domain"], "example.com", "no www on the cover");
+            assert!(data["score"].is_number(), "{locale}");
+            assert!(
+                !data["module_gauges"].as_array().unwrap().is_empty(),
+                "{locale}"
+            );
+        }
     }
 
     /// #1039: numbers, module names, profile attributes and the ranking

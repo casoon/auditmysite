@@ -3,9 +3,8 @@ use renderreport::components::advanced::{
     Grid, KeyValueList, List, PageBreak, SectionHeaderSplit, TableOfContents,
 };
 use renderreport::components::text::{Label, TextBlock};
-use renderreport::components::MetricCard;
 use renderreport::components::{AuditTable, TableColumn};
-use renderreport::prelude::Image;
+use renderreport::components::{CoverModuleGauge, CoverPage, MetricCard};
 use renderreport::prelude::*;
 use renderreport::Component;
 
@@ -35,28 +34,98 @@ pub(super) fn render_batch_cover(
     i18n: &I18n,
 ) -> anyhow::Result<renderreport::engine::ReportBuilder> {
     let domain = &pres.portfolio_summary.domain;
+    // The cover names the site as the single report does, without "www.".
+    let cover_domain = domain.strip_prefix("www.").unwrap_or(domain);
+    let en = is_english(i18n);
 
+    // The cover's headline number is the accessibility average, the figure
+    // the grade card on the next page is banded from. The site-quality average
+    // (the mixed score over the optional modules) is the labelled secondary
+    // note further down.
+    let accessibility_average = pres
+        .portfolio_summary
+        .average_score
+        .expect(super::UNMEASURED_REFUSED)
+        .round() as u32;
+    let verdict = batch.summary.decision.verdict;
+    let partial = batch.summary.audit_quality.qualified_results;
+
+    // White-label: only a user-supplied custom logo takes the brand slot on
+    // the cover, as in the single report.
     let cover_logo_asset = super::super::cover_logo_asset(config);
-    builder = super::super::register_cover_logo_asset(builder, config, cover_logo_asset);
+    let custom_logo = if cover_logo_asset == super::super::CUSTOM_COVER_LOGO_ASSET {
+        builder = super::super::register_cover_logo_asset(builder, config, cover_logo_asset);
+        Some(cover_logo_asset)
+    } else {
+        None
+    };
 
-    builder = builder
-        .add_component(Image::new(cover_logo_asset).with_width("120pt"))
-        .add_component(
-            Label::new(i18n.t("batch-cover-eyebrow"))
-                .with_size("11pt")
-                .bold()
-                .with_color("#0f766e"),
+    // One subtitle line: what was audited. The frame table on the next page
+    // carries the full scope text and its caveats.
+    let subtitle = match &batch.sample {
+        Some(sample) if sample.is_sample => i18n.t_args(
+            "batch-cover-subtitle-sample",
+            &[
+                ("audited", sample.audited.to_string()),
+                ("total", sample.total_discovered.to_string()),
+                ("source", i18n.t(&format!("batch-source-{}", sample.source))),
+            ],
+        ),
+        _ => pres.cover.url.clone(),
+    };
+    let gauges: Vec<CoverModuleGauge> = pres
+        .portfolio_summary
+        .module_averages
+        .iter()
+        .map(|(name, average)| {
+            CoverModuleGauge::new(
+                super::portfolio::localized_module_name(name, i18n),
+                *average,
+            )
+        })
+        .collect();
+    let occurrences = &pres.portfolio_summary.occurrence_distribution;
+    let mut cover = CoverPage::new(
+        &i18n.t("batch-cover-title"),
+        cover_domain,
+        accessibility_average,
+        &pres.portfolio_summary.grade,
+    )
+    .with_brand(cover_domain)
+    .with_subtitle(&subtitle)
+    .with_date(&pres.cover.date)
+    .with_band_phrase(super::super::cover::cover_band_phrase(
+        accessibility_average,
+        verdict,
+        partial,
+        en,
+    ))
+    .with_issues(
+        pres.portfolio_summary.total_violations as u32,
+        (occurrences.critical + occurrences.high) as u32,
+    )
+    .with_module_gauges(gauges)
+    .with_labels(
+        i18n.t("pdf-frame-cover-score-label"),
+        i18n.t("pdf-frame-cover-findings-label"),
+        i18n.t("batch-cover-modules-label"),
+        i18n.t("pdf-frame-cover-critical-label"),
+        i18n.t("pdf-frame-cover-no-critical"),
+    );
+    if let Some(logo) = custom_logo {
+        cover = cover.with_logo(logo);
+    }
+    builder = builder.add_component(cover);
+
+    // Page 2 opens with a heading of its own: the title is on the cover.
+    builder = builder.add_component(
+        SectionHeaderSplit::new(
+            i18n.t("batch-cover-frame-title"),
+            i18n.t("batch-cover-kicker"),
         )
-        .add_component(
-            Label::new(i18n.t("batch-cover-title"))
-                .with_size("28pt")
-                .bold(),
-        )
-        .add_component(
-            Label::new(i18n.t("batch-cover-kicker"))
-                .with_size("12pt")
-                .with_color("#475569"),
-        );
+        .with_eyebrow(i18n.t("batch-cover-eyebrow"))
+        .with_level(1),
+    );
 
     // Audit-Rahmen box
     {
@@ -67,7 +136,7 @@ pub(super) fn render_batch_cover(
             .map(|name| super::portfolio::localized_module_name(name, i18n))
             .collect::<Vec<_>>()
             .join(", ");
-        let mut cover_meta = KeyValueList::new().with_title(i18n.t("batch-cover-frame-title"));
+        let mut cover_meta = KeyValueList::new();
         cover_meta = cover_meta
             .add(i18n.t("batch-cover-frame-domain"), domain)
             .add(i18n.t("batch-cover-frame-date"), &pres.cover.date)
@@ -196,15 +265,9 @@ pub(super) fn render_batch_cover(
         builder = builder.add_component(cover_meta);
     }
 
-    // The cover's headline number is the accessibility average, the figure
-    // the grade card beside it is banded from. The site-quality average (the
-    // mixed score over the optional modules) is the labelled secondary note
-    // below the row.
-    let accessibility_average = pres
-        .portfolio_summary
-        .average_score
-        .expect(super::UNMEASURED_REFUSED)
-        .round() as u32;
+    // The grade card sits under the frame table; the site-quality average
+    // (the mixed score over the optional modules) is the labelled secondary
+    // note below the row.
     builder = builder
         .add_component(build_batch_cover_score_row(
             accessibility_average,
