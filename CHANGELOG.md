@@ -7,6 +7,8 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-18
+
 ### Breaking
 
 - **Release:** 2.1.0 deliberately carries breaking changes inside the 2.x line (there is no 3.0: the tool is young and its consumers are few). Every break is listed here and in one table, old to new, in the [2.0 to 2.1 migration guide](https://casoon.github.io/auditmysite/docs/guides/migration-21/).
