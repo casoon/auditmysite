@@ -363,9 +363,9 @@
       "capture_sha256": "3fc1aa566a260629b3fbc070a652065d805b2c5a95e6f0cdc54589ed91860c81"
     },
     {
-      "id": "videolan-org",
-      "url": "https://www.videolan.org/",
-      "labelled": "2026-11-03",
+      "id": "postgresql-org",
+      "url": "https://www.postgresql.org/",
+      "labelled": "2026-11-18",
       "checks_labelled": [
         "tracking_requests",
         "non_essential_storage",
@@ -378,28 +378,32 @@
         {
           "key": "policy_link_missing|imprint",
           "reason": "Imprint labels are written for German-language pages only: the concept is German-law specific and the footer link of an English page (\"Legal\", \"Terms\") is not reliably an imprint."
+        },
+        {
+          "key": "policy_link_missing|privacy",
+          "reason": "The footer carries a \"Policies\" hub link (/about/policies/) that lists a Privacy page (/about/policies/privacy/, read it); whether a hub link counts as a privacy link is not decided by the labels. The page has no direct privacy link and the word \"privacy\" never appears in the served HTML."
         }
       ],
       "expected": [
         {
           "key": "tracking_request_before_consent|google-analytics",
-          "evidence": "GET region1.google-analytics.com/g/collect (fetch).",
+          "evidence": "Script www.google-analytics.com/analytics.js and GET www.google-analytics.com/j/collect (pageview, tid UA-1345454-1) before any choice.",
           "provenance": [
             "raw capture (tool dump)",
-            "curl of the served HTML (inline gtag config)"
+            "provider documentation"
           ]
         },
         {
           "key": "tracking_request_before_consent|google-tag-manager",
-          "evidence": "Script www.googletagmanager.com/gtag/js, <script> in the served HTML.",
+          "evidence": "Scripts www.googletagmanager.com/gtm.js?id=GTM-WC97NKC and gtag/js?id=G-FGJ68XB9NC; the GTM loader is in /media/js/main.js (curl), not in the served HTML.",
           "provenance": [
             "raw capture (tool dump)",
-            "curl of the served HTML"
+            "curl of /media/js/main.js"
           ]
         },
         {
           "key": "non_essential_storage_before_consent|google-analytics",
-          "evidence": "Cookies _ga and _ga_GZPMWXW7NJ on .videolan.org.",
+          "evidence": "Cookies _ga, _gid, _gat_UA-1345454-1 and _ga_FGJ68XB9NC on .postgresql.org.",
           "provenance": [
             "raw capture (tool dump)",
             "provider documentation"
@@ -415,25 +419,17 @@
         },
         {
           "key": "no_consent_platform_detected",
-          "evidence": "No consent trace; no banner, no CMP request.",
-          "provenance": [
-            "raw capture (tool dump)",
-            "curl of the served HTML"
-          ]
-        },
-        {
-          "key": "policy_link_missing|privacy",
-          "evidence": "No privacy link; the footer \"Legal\" page (/legal.html) is about usage restrictions and French law and contains no privacy policy (read it); the HTML never contains the word \"privacy\".",
+          "evidence": "No consent trace; no banner, no CMP request; neither the served HTML nor /media/js/main.js contains \"consent\" or \"cookie\".",
           "provenance": [
             "raw capture (tool dump)",
             "curl of the served HTML",
-            "curl of /legal.html"
+            "curl of /media/js/main.js"
           ]
         }
       ],
       "outside_ruleset": [],
-      "notes": "images.videolan.org is a first-party-owned sibling host (unclassified, no finding).",
-      "capture_sha256": "5d3e7800ee30c720b6cdb3a9ccd18bf3fd940585bffa6fb2cad6aa31ade03059"
+      "notes": "csp-report.postgresql.org is a first-party-owned sibling host (unclassified, no finding). The only storage key, localStorage `theme`, is a first-party display preference. Replaces videolan.org, which dropped Google Analytics after 2026-11-03 (re-measured 2026-11-18: no third-party request, no cookie); a replaced page, not a relabelled one.",
+      "capture_sha256": "d08755a623eae8f034ab9824268f50bc9e4a6a2b48bf0c79e12b5ad1c05384c5"
     },
     {
       "id": "w3schools-com",

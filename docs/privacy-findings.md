@@ -124,7 +124,7 @@ Process, so the labels stay independent of the tool:
 The offline replay runs the rules over the frozen captures; it guards the rules and the labels
 against typos and regressions but is not a measurement of the live pages.
 
-**Numbers (live run on 2026-11-03, 15 pages, measured from one network location, with `web-checks` 0.7.0):**
+**Numbers (live run on 2026-11-18, 15 pages, measured from one network location, with `web-checks` 0.7.0):**
 
 | Finding kind | TP | FP | FN | Precision | Recall |
 |---|---|---|---|---|---|
@@ -133,12 +133,14 @@ against typos and regressions but is not a measurement of the live pages.
 | `visitor_ip_transfer` | 3 | 0 | 0 | 100 % | 100 % |
 | `third_country_provider` | 8 | 0 | 0 | 100 % | 100 % |
 | `no_consent_platform_detected` | 5 | 0 | 0 | 100 % | 100 % |
-| `policy_link_missing` | 5 | 0 | 0 | 100 % | 100 % |
-| all scored findings | 40 | 0 | 0 | 100 % | 100 % |
+| `policy_link_missing` | 4 | 0 | 0 | 100 % | 100 % |
+| all scored findings | 39 | 0 | 0 | 100 % | 100 % |
 
-Read these with their limits. 40 scored findings with no false positive bound the false-positive
-rate only to roughly 7 % at 95 % confidence ("rule of three"); 15 pages are a hand-checked sample,
-not a survey. The labels were written from the same kind of capture the tool uses (independent
+Read these with their limits. 39 scored findings with no false positive bound the false-positive
+rate only to roughly 8 % at 95 % confidence ("rule of three"); 15 pages are a hand-checked sample,
+not a survey. videolan.org left the set on 2026-11-18 because the page dropped Google Analytics after
+it was labelled (the tool was right, the label was stale); postgresql.org, labelled from a fresh raw
+capture, took its place. The labels were written from the same kind of capture the tool uses (independent
 checks cover the HTML, the page script and the provider documentation, not a second browser), and
 the third-country labels follow the provider's own stated seat in the ruleset. The set was chosen
 so that every check has pages for and against it; pages whose capture never went idle
