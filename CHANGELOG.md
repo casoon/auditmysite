@@ -7,6 +7,10 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Fixed
+
+- **Performance:** the score-gap sentence no longer claims "Core Web Vitals are green" (Refs #1137). The flag checks lab LCP and CLS only; a missing metric is unknown instead of good, FCP is no longer counted as a Core Web Vital, the text states that INP is not measured (Total Blocking Time is the proxy), and measured values are separated from the inference that real users may notice delays.
+
 ## [2.1.0] - 2026-11-18
 
 ### Breaking

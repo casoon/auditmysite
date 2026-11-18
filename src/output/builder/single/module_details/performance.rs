@@ -1,6 +1,6 @@
 use crate::audit::normalized::AuditContext;
 use crate::audit::performance_interpretation::{
-    append_performance_qualifiers_text, performance_gap_text,
+    append_performance_qualifiers_text, lab_lcp_cls_good, performance_gap_text,
 };
 use crate::i18n::I18n;
 use crate::output::localized::is_english;
@@ -173,15 +173,14 @@ pub(super) fn build_performance_details(
             }
         }
 
-        // If CWV are all good but score is below 85, explain the gap
-        let cwv_all_good = p.vitals.lcp.as_ref().is_none_or(|v| v.rating == "good")
-            && p.vitals.fcp.as_ref().is_none_or(|v| v.rating == "good")
-            && p.vitals.cls.as_ref().is_none_or(|v| v.rating == "good");
+        // If lab LCP and CLS are both measured and good but the score is below 85,
+        // explain the gap. A missing metric is unknown, not good.
+        let lab_lcp_cls_good = lab_lcp_cls_good(p);
 
         // When render-blocking resources exist but all vitals are good, clarify that
         // they had no measured impact on this run (fast server / warm cache).
         let en = locale == "en";
-        if has_render_blocking && cwv_all_good && !render_blocking_suggestions.is_empty() {
+        if has_render_blocking && lab_lcp_cls_good && !render_blocking_suggestions.is_empty() {
             render_blocking_suggestions.push(i18n.t("report-builder-perf-no-measurable-impact"));
         }
         let base_perf = module_interpretation(&normalized.normalized, "performance", locale);
@@ -191,7 +190,7 @@ pub(super) fn build_performance_details(
         let perf_interpretation = performance_gap_text(
             base_perf,
             p,
-            cwv_all_good,
+            lab_lcp_cls_good,
             score_below_excellent,
             has_render_blocking,
             en,

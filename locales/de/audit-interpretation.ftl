@@ -54,7 +54,8 @@ audit-interpretation-perf-contrast =
     } { $phrases } unauffällig.
 audit-interpretation-perf-reason-dom = DOM-Größe
 audit-interpretation-perf-reason-render-blocking = Render-blockierende Ressourcen
-audit-interpretation-perf-gap = { $base } Score durch { $reasons } reduziert, obwohl Core Web Vitals im grünen Bereich liegen.
+audit-interpretation-perf-gap = { $base } Gemessene Ladezeiten (LCP) und Layout-Stabilität (CLS) sind gut. Der Score ist durch { $reasons } reduziert, die technisches Optimierungspotenzial zeigen; ob das für echte Nutzer spürbare Verzögerungen verursacht, lässt sich aus diesem Labor-Lauf nicht ableiten.
+audit-interpretation-perf-inp-not-measured = Die Reaktionsfähigkeit auf Eingaben (INP) wird in diesem Labor-Lauf nicht gemessen; die Total Blocking Time dient als Näherung.
 
 ## Score interpretation per module and band (`audit::interpretation`)
 audit-interpretation-score-accessibility-excellent = Sehr gut — die Barrierefreiheit ist technisch sauber umgesetzt und weist nur geringe Einschränkungen auf.

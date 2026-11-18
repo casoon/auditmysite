@@ -204,17 +204,24 @@ pub fn append_performance_qualifiers_text(
     out
 }
 
-/// When all core vitals are green but the score is below excellent, append the
+/// True only when lab LCP and CLS are both measured and rated good; a missing
+/// metric is unknown, not good. INP is not measured here (TBT is the proxy).
+pub fn lab_lcp_cls_good(p: &PerformanceResults) -> bool {
+    p.vitals.lcp.as_ref().is_some_and(|v| v.rating == "good")
+        && p.vitals.cls.as_ref().is_some_and(|v| v.rating == "good")
+}
+
+/// When lab LCP and CLS are both measured and good but the score is below excellent, append the
 /// cause for the gap. Returns `base` unchanged otherwise.
 pub fn performance_gap_text(
     base: String,
     p: &PerformanceResults,
-    cwv_all_good: bool,
+    lab_lcp_cls_good: bool,
     score_below_excellent: bool,
     has_render_blocking: bool,
     en: bool,
 ) -> String {
-    if !(cwv_all_good && score_below_excellent) {
+    if !(lab_lcp_cls_good && score_below_excellent) {
         return base;
     }
     let mut reasons = Vec::new();
@@ -230,14 +237,19 @@ pub fn performance_gap_text(
     if reasons.is_empty() {
         base
     } else {
-        text_args(
+        let mut out = text_args(
             "audit-interpretation-perf-gap",
             &[
                 ("base", FluentValue::from(base)),
                 ("reasons", FluentValue::from(reasons.join(", "))),
             ],
             en,
-        )
+        );
+        if p.vitals.inp.is_none() {
+            out.push(' ');
+            out.push_str(&text("audit-interpretation-perf-inp-not-measured", en));
+        }
+        out
     }
 }
 
@@ -270,6 +282,39 @@ mod tests {
             critical_qualifier_text(PerfCriticalQualifier::HighDomComplexity(4200), false)
                 .contains("Komplexität")
         );
+    }
+
+    #[test]
+    fn missing_lcp_is_not_good_and_gap_text_makes_no_green_claim() {
+        let vitals = crate::performance::WebVitals {
+            cls: Some(crate::performance::VitalMetric::new(0.0, 0.1, 0.25)),
+            ..Default::default()
+        };
+        let score = crate::performance::calculate_performance_score(&vitals, None);
+        let mut p = PerformanceResults {
+            vitals,
+            score,
+            render_blocking: None,
+            content_weight: None,
+            third_party: None,
+            critical_chain: None,
+            minification: None,
+            animations: None,
+            coverage: None,
+            measurement_warnings: Vec::new(),
+        };
+        assert!(!lab_lcp_cls_good(&p), "missing LCP must not count as good");
+        p.vitals.lcp = Some(crate::performance::VitalMetric::new(1000.0, 2500.0, 4000.0));
+        assert!(lab_lcp_cls_good(&p));
+        p.vitals.dom_nodes = Some(2000);
+        for en in [true, false] {
+            let t = performance_gap_text("Base.".to_string(), &p, true, true, false, en);
+            assert!(!t.contains("grünen") && !t.contains("in the green"), "{t}");
+            assert!(t.contains("INP"), "{t}");
+            if en {
+                assert!(!t.chars().any(|c| "äöüÄÖÜß".contains(c)), "{t}");
+            }
+        }
     }
 
     #[test]
