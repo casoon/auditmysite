@@ -92,10 +92,18 @@ fn detected_width() -> Option<usize> {
         .map(|(_rows, cols)| cols as usize)
 }
 
+/// The table's own texts in the run language: any language but "de" prints
+/// English, as the baseline note does.
+fn terminal_i18n(options: &TerminalOptions) -> I18n {
+    I18n::new(if options.lang == "de" { "de" } else { "en" }).expect("the bundled locales load")
+}
+
 /// Runemark's default overflow hint names a `--details` flag this CLI does
 /// not have. The table is a sample by design; the complete findings are in
 /// the JSON and PDF outputs.
-const DETAILS_HINT: &str = "use --format json or --format pdf for all";
+fn details_hint(i18n: &I18n) -> String {
+    i18n.t("report-builder-terminal-details-hint")
+}
 
 fn render_options() -> RenderOptions {
     match detected_width() {
@@ -152,19 +160,32 @@ pub fn render_single_report_for(
     let vm = build_view_model(&normalized, &report_config(options));
 
     let verdict = terminal_verdict(normalized.normalized.decision.verdict);
+    let i18n = terminal_i18n(options);
 
     let mut rm_report = Report::new(&vm.meta.title, verdict)
-        .with_details_hint(Some(DETAILS_HINT.to_string()))
+        .with_details_hint(Some(details_hint(&i18n)))
         // Accessibility first — it is what the grade below
         // classifies (plan 29, D1); the site-quality score follows, named.
-        .add_metric(Metric::new("Accessibility", vm.summary.score.to_string()))
         .add_metric(Metric::new(
-            "Site quality (optional modules)",
+            i18n.t("report-builder-terminal-metric-accessibility"),
+            vm.summary.score.to_string(),
+        ))
+        .add_metric(Metric::new(
+            i18n.t("report-builder-terminal-metric-site-quality"),
             vm.summary.site_quality_score.to_string(),
         ))
-        .add_metric(Metric::new("Grade", &vm.summary.grade))
-        .add_metric(Metric::new("Violations", vm.severity.total.to_string()))
-        .add_metric(Metric::new("Duration", format!("{}ms", report.duration_ms)));
+        .add_metric(Metric::new(
+            i18n.t("report-builder-terminal-metric-grade"),
+            &vm.summary.grade,
+        ))
+        .add_metric(Metric::new(
+            i18n.t("report-builder-terminal-metric-violations"),
+            vm.severity.total.to_string(),
+        ))
+        .add_metric(Metric::new(
+            i18n.t("report-builder-terminal-metric-duration"),
+            format!("{}ms", report.duration_ms),
+        ));
 
     for tier in &vm.findings.by_severity {
         let mut group = RmFindingGroup::new(&tier.label).with_total_count(tier.total_occurrences);
@@ -173,9 +194,10 @@ pub fn render_single_report_for(
                 Finding::new(severity_tone(f.finding.severity), &f.customer_description)
                     .with_rule_id(&f.finding.rule_id)
                     .with_remedy(&f.recommendation);
-            if !f.title.is_empty() {
+            // Where the finding sits on the page; the rule title is not a location.
+            if let Some(hint) = f.location_hints.first() {
                 finding =
-                    finding.with_location(runemark::location::Location::Selector(f.title.clone()));
+                    finding.with_location(runemark::location::Location::Selector(hint.clone()));
             }
             group = group.add_finding(finding);
         }
@@ -194,7 +216,7 @@ pub fn render_single_report_for(
 
     if let Some(baseline) = &normalized.normalized.baseline {
         rm_report = rm_report.add_scope_note(runemark::report::ScopeNote::new(
-            "Baseline",
+            i18n.t("report-builder-terminal-baseline-title"),
             vec![crate::audit::baseline::summary_text(
                 baseline.known,
                 baseline.new,
@@ -205,9 +227,6 @@ pub fn render_single_report_for(
         ));
     }
 
-    // Any language but "de" prints English, as the baseline note above does.
-    let i18n = I18n::new(if options.lang == "de" { "de" } else { "en" })
-        .expect("the bundled locales load");
     let lines = experimental_lines(&report.experimental, &i18n);
     if !lines.is_empty() {
         rm_report = rm_report.add_scope_note(runemark::report::ScopeNote::new(
@@ -351,34 +370,63 @@ pub fn render_batch_report(
     // The stored batch decision (#781), not a rule of its own.
     let verdict = terminal_verdict(batch_report.summary.decision.verdict);
 
-    let mut rm_report = Report::new(format!("Batch Audit — {}", p.domain), verdict)
-        .with_details_hint(Some(DETAILS_HINT.to_string()))
-        .add_metric(Metric::new("URLs", p.total_urls.to_string()))
-        .add_metric(Metric::new("Passed", p.passed.to_string()))
-        .add_metric(Metric::new("Failed", p.fail_urls.to_string()))
-        .add_metric(Metric::new("Warned", p.warn_urls.to_string()))
-        .add_metric(Metric::new(
-            "Avg. score",
-            batch_report
-                .summary
-                .average_score
-                .map_or("–".to_string(), |average| format!("{average:.0}/100")),
-        ))
-        .add_metric(Metric::new("Violations", p.total_violations.to_string()))
-        .add_metric(Metric::new("Duration", format!("{}ms", p.duration_ms)));
+    let i18n = terminal_i18n(options);
+    let mut rm_report = Report::new(
+        i18n.t_args(
+            "report-builder-terminal-batch-title",
+            &[("domain", p.domain.to_string())],
+        ),
+        verdict,
+    )
+    .with_details_hint(Some(details_hint(&i18n)))
+    .add_metric(Metric::new(
+        i18n.t("report-builder-terminal-metric-urls"),
+        p.total_urls.to_string(),
+    ))
+    .add_metric(Metric::new(
+        i18n.t("report-builder-terminal-metric-passed"),
+        p.passed.to_string(),
+    ))
+    .add_metric(Metric::new(
+        i18n.t("report-builder-terminal-metric-failed"),
+        p.fail_urls.to_string(),
+    ))
+    .add_metric(Metric::new(
+        i18n.t("report-builder-terminal-metric-warned"),
+        p.warn_urls.to_string(),
+    ))
+    .add_metric(Metric::new(
+        i18n.t("report-builder-terminal-metric-avg-score"),
+        batch_report
+            .summary
+            .average_score
+            .map_or("–".to_string(), |average| format!("{average:.0}/100")),
+    ))
+    .add_metric(Metric::new(
+        i18n.t("report-builder-terminal-metric-violations"),
+        p.total_violations.to_string(),
+    ))
+    .add_metric(Metric::new(
+        i18n.t("report-builder-terminal-metric-duration"),
+        format!("{}ms", p.duration_ms),
+    ));
 
     if let Some(sample) = &batch_report.sample {
         rm_report = rm_report.add_scope_note(runemark::report::ScopeNote::new(
-            "Scope",
-            vec![format!(
-                "{} of {} discovered URLs ({})",
-                sample.audited, sample.total_discovered, sample.source
+            i18n.t("report-builder-terminal-scope-title"),
+            vec![i18n.t_args(
+                "report-builder-terminal-scope-sample",
+                &[
+                    ("audited", sample.audited.to_string()),
+                    ("total", sample.total_discovered.to_string()),
+                    ("source", sample.source.to_string()),
+                ],
             )],
         ));
     }
     if let Some(baseline) = &batch_report.summary.baseline {
         rm_report = rm_report.add_scope_note(runemark::report::ScopeNote::new(
-            "Baseline",
+            i18n.t("report-builder-terminal-baseline-title"),
             vec![crate::audit::baseline::summary_text(
                 baseline.known,
                 baseline.new,
@@ -390,18 +438,23 @@ pub fn render_batch_report(
     }
     if !batch_report.errors.is_empty() {
         rm_report = rm_report.add_scope_note(runemark::report::ScopeNote::new(
-            "Score basis",
-            vec![format!(
-                "Scores cover {} of {} URLs; {} could not be audited",
-                p.total_urls,
-                p.total_urls + batch_report.errors.len(),
-                batch_report.errors.len()
+            i18n.t("report-builder-terminal-score-basis-title"),
+            vec![i18n.t_args(
+                "report-builder-terminal-score-basis",
+                &[
+                    ("audited", p.total_urls.to_string()),
+                    (
+                        "total",
+                        (p.total_urls + batch_report.errors.len()).to_string(),
+                    ),
+                    ("failed", batch_report.errors.len().to_string()),
+                ],
             )],
         ));
     }
 
-    let mut group =
-        RmFindingGroup::new("Top recurring rules").with_total_count(presentation.top_issues.len());
+    let mut group = RmFindingGroup::new(i18n.t("report-builder-terminal-top-rules"))
+        .with_total_count(presentation.top_issues.len());
     for issue in presentation.top_issues.iter().take(5) {
         group = group.add_finding(
             Finding::new(
@@ -417,9 +470,12 @@ pub fn render_batch_report(
     }
 
     for err in batch_report.errors.iter().take(5) {
-        rm_report = rm_report.add_next_step(NextStep::new(format!(
-            "Fix audit error for {}: {}",
-            err.url, err.error
+        rm_report = rm_report.add_next_step(NextStep::new(i18n.t_args(
+            "report-builder-terminal-fix-audit-error",
+            &[
+                ("url", err.url.to_string()),
+                ("error", err.error.to_string()),
+            ],
         )));
     }
 
@@ -633,7 +689,10 @@ mod tests {
         );
         let output = render_single_report(&report, &test_options()).unwrap();
         assert!(output.contains("more finding(s)"), "{output}");
-        assert!(output.contains(DETAILS_HINT), "{output}");
+        assert!(
+            output.contains(&details_hint(&terminal_i18n(&test_options()))),
+            "{output}"
+        );
         assert!(!output.contains("--details"), "{output}");
     }
 
@@ -739,6 +798,65 @@ mod tests {
         let options = test_options();
         let output = render_batch_report(&batch, &options).unwrap();
         assert!(output.contains("broken"));
+    }
+
+    /// `--lang de` prints the table's own labels in German; the English run
+    /// keeps English and no umlauts.
+    #[test]
+    fn table_labels_follow_the_run_language() {
+        let mut de = test_options();
+        de.lang = "de".to_string();
+        let en = test_options();
+        let single_de = render_single_report(&fixture_report(), &de).unwrap();
+        let batch_de = render_batch_report(&fixture_batch(), &de).unwrap();
+        for out in [&single_de, &batch_de] {
+            assert!(out.contains("Verstöße") && out.contains("Dauer"), "{out}");
+            for english in ["Violations", "Duration", "Accessibility:", "Avg. score"] {
+                assert!(!out.contains(english), "{english} in German output:\n{out}");
+            }
+        }
+        assert!(batch_de.contains("Bestanden"), "{batch_de}");
+        assert!(
+            batch_de.contains("Die Scores decken 1 von 2 URLs ab"),
+            "{batch_de}"
+        );
+        let single_en = render_single_report(&fixture_report(), &en).unwrap();
+        let batch_en = render_batch_report(&fixture_batch(), &en).unwrap();
+        for out in [&single_en, &batch_en] {
+            assert!(
+                out.contains("Violations") && out.contains("Duration"),
+                "{out}"
+            );
+            assert!(!out.chars().any(|c| "äöüÄÖÜß".contains(c)), "{out}");
+        }
+    }
+
+    /// The location line shows where a finding sits, never the rule title.
+    #[test]
+    fn finding_location_is_not_the_rule_title() {
+        use crate::wcag::Violation;
+        let mut results = WcagResults::new();
+        results.add_violation(Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            crate::model::WcagLevel::A,
+            crate::taxonomy::Severity::High,
+            "Image without alternative text".to_string(),
+            "img-1".to_string(),
+        ));
+        let report = AuditReport::new(
+            "https://example.com".to_string(),
+            crate::model::WcagLevel::AA,
+            results,
+            42,
+        );
+        let vm = build_view_model(&normalize(&report), &report_config(&test_options()));
+        let title = &vm.findings.by_severity[0].findings[0].title;
+        let output = render_single_report(&report, &test_options()).unwrap();
+        assert!(
+            !output.contains(&format!("at `{title}`")),
+            "the title is printed as a location:\n{output}"
+        );
     }
 
     #[test]

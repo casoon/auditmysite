@@ -136,3 +136,24 @@ report-builder-terminal-commerce =
         [one] 1 Hinweis
        *[other] { $findings } Hinweise
     }
+
+# Terminal table chrome (single and batch): the table's own labels follow the run language.
+report-builder-terminal-metric-accessibility = Barrierefreiheit
+report-builder-terminal-metric-site-quality = Website-Qualität (optionale Module)
+report-builder-terminal-metric-grade = Note
+report-builder-terminal-metric-violations = Verstöße
+report-builder-terminal-metric-duration = Dauer
+report-builder-terminal-metric-urls = URLs
+report-builder-terminal-metric-passed = Bestanden
+report-builder-terminal-metric-failed = Fehlgeschlagen
+report-builder-terminal-metric-warned = Mit Warnung
+report-builder-terminal-metric-avg-score = Ø Score
+report-builder-terminal-details-hint = alle Befunde: --format json oder --format pdf
+report-builder-terminal-batch-title = Batch-Audit — { $domain }
+report-builder-terminal-scope-title = Umfang
+report-builder-terminal-scope-sample = { $audited } von { $total } gefundenen URLs ({ $source })
+report-builder-terminal-baseline-title = Baseline
+report-builder-terminal-score-basis-title = Score-Grundlage
+report-builder-terminal-score-basis = Die Scores decken { $audited } von { $total } URLs ab; { $failed } konnten nicht geprüft werden
+report-builder-terminal-top-rules = Häufigste wiederkehrende Regeln
+report-builder-terminal-fix-audit-error = Prüffehler beheben für { $url }: { $error }
