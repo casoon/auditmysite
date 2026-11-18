@@ -20,7 +20,7 @@ validate your consumers against `docs/json-report.schema.json` and
 
 Cached snapshots written under `auditmysite.decision/1` are cache misses.
 
-This table describes the 2.0 state. A later 2.x release renamed the mixed score `overall_score` used below to `site_quality_score` (and its sibling keys, `schema_version` 2.1); the old-key to new-key table is in the "Site quality score (optional modules)" section of the output contract.
+This table describes the 2.0 state. Later breaking changes, among them the rename of the mixed score `overall_score` used below to `site_quality_score` and the removal of the certificate, are in [Migrating from 2.0 to 2.1](../migration-21/).
 
 ## Migration table
 
