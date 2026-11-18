@@ -182,6 +182,8 @@ mod tests {
             "Language tag",
             "Word count",
             "Internal links",
+            "Intent fit",
+            "Weak",
         ] {
             assert!(
                 typ.contains(expected),
@@ -207,6 +209,9 @@ mod tests {
             "Interne Links",
             "Externe Links",
             "Vollständigkeit",
+            "Intent-Fit",
+            "Schwach",
+            "Uneinheitlich",
         ] {
             assert!(
                 !typ.contains(leaked),

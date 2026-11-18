@@ -347,6 +347,7 @@ fn export_search_experience(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
                     } else {
                         vec![]
                     },
+                    not_measured: vec![],
                     warnings: if has_warnings {
                         vec!["First warning.".to_string(), "Second warning.".to_string()]
                     } else {

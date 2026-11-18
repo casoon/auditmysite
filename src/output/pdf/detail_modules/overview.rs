@@ -7,7 +7,17 @@ pub(in crate::output::pdf) fn render_search_experience(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let title = i18n.t("pdf-sections-search-title");
-    let body = i18n.t("pdf-sections-search-body");
+    let body = i18n.t_args(
+        "pdf-sections-search-body",
+        &[(
+            "components",
+            sx.components
+                .iter()
+                .map(|c| c.label.as_str())
+                .collect::<Vec<_>>()
+                .join(", "),
+        )],
+    );
 
     let sx_takeaway = super::first_sentence(&sx.interpretation);
     builder = super::module_chapter_opener(builder, &title, &sx_takeaway, is_first);
@@ -62,6 +72,17 @@ pub(in crate::output::pdf) fn render_search_experience(
             ]);
         }
         builder = builder.add_component(table);
+    }
+
+    if !sx.not_measured.is_empty() {
+        builder = builder.add_component(
+            Label::new(i18n.t_args(
+                "pdf-sections-search-not-measured",
+                &[("components", sx.not_measured.join(", "))],
+            ))
+            .with_size("10pt")
+            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+        );
     }
 
     builder

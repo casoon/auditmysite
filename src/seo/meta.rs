@@ -210,8 +210,8 @@ impl MetaTags {
                         "description",
                         DescriptionTooLong,
                         sized(len),
-                        Severity::Medium,
-                        "Shorten description to under 160 characters",
+                        Severity::Low,
+                        "Check that the key statement comes first; the rest may be truncated in search results",
                     )),
                     _ => {}
                 }
@@ -408,11 +408,11 @@ mod tests {
             .unwrap();
         assert_eq!(
             issue.message,
-            "Description is too long (176 chars, recommended: 120-160)"
+            "Description is 176 characters; it may be truncated in search results, check that the key statement comes first"
         );
         assert_eq!(
             issue.localized_message(false),
-            "Beschreibung ist zu lang (176 Zeichen, Empfehlung: 120-160)"
+            "Beschreibung hat 176 Zeichen und kann in den Suchergebnissen gekürzt werden, die Kernaussage sollte vorn stehen"
         );
     }
 

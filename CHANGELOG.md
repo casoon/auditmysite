@@ -7,6 +7,16 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Fixed
+
+- **Report:** the Search Experience breakdown shows the weights the score was actually computed with (renormalized over the measured components, summing to 100 %), so the score can be recomputed from the rows. A line below the table names the components not measured in the run, and the intro lists only measured components (Refs #1134).
+- **Report:** English PDFs no longer print the German rating words "Stark", "Solide", "Uneinheitlich" and "Schwach" (and "Intent-Fit") in the SEO profile score grid; they come from `locales/{de,en}/report.ftl` in the run language. `SiteState::label()` returns canonical English ("Strong", "Stable foundation", "Unstable", "Critical") instead of German; a test fails on German rating-label literals in `src/output` (Refs #1136).
+- **Performance:** the score-gap sentence no longer claims "Core Web Vitals are green" (Refs #1137). The flag checks lab LCP and CLS only; a missing metric is unknown instead of good, FCP is no longer counted as a Core Web Vital, the text states that INP is not measured (Total Blocking Time is the proxy), and measured values are separated from the inference that real users may notice delays.
+
+### Changed
+
+- **SEO:** a meta description over 160 characters is an advisory (Low, no score effect) instead of a Medium problem (Refs #1138). Google sets no fixed maximum and truncates snippets dynamically, so the finding now reads "Description is N characters; it may be truncated in search results, check that the key statement comes first" (DE and EN). A too-short description is unchanged.
+
 ## [2.1.0] - 2026-11-18
 
 ### Breaking
@@ -80,6 +90,7 @@ and verification for each change is in the
 - **SEO:** a host variant (with or without `www`) that was probed and did not answer (no response, connection or TLS error, or no answer within 8 seconds) is now a Medium finding `seo.technical.www_alternate_unanswered` with a written fix, so it reaches the action plan instead of only the `side_check_unanswered` flag. Score-neutral: no module score, severity count or verdict changes. Only a probe that ran and got no answer counts; a probe that could not run stays the flag. The unanswered variant is stored additively as `seo.technical.www_alternate_unanswered` (Refs #899).
 
 - **Library:** `i18n::text_args(key, args, en)` resolves a Fluent message with named arguments for the pure `*_text(…, en)` functions; the page-health issue texts (`seo::page_health::collect_issues`) now come from `locales/{de,en}/page-health.ftl` instead of paired string literals, texts unchanged (Refs #936).
+
 
 ### Changed
 
@@ -176,6 +187,7 @@ and verification for each change is in the
 
 ## [2.0.2] - 2026-11-05
 
+
 ### Changed
 
 - **Report:** the "legally relevant finding" has one definition for the management card, the screen-reader BFSG callout and each finding's "BFSG-/EAA-Relevanz" row: an open, confirmed finding whose relevance is high or medium (Refs #952-2). The Legal card counts those findings (never fewer than `risk.legal_flags`) and is at least "medium" while one is open; the callout says "violations found" only for such a finding or a high-severity screen-reader blocker, low reading-order notes alone read "needs review". `risk.legal_flags`, the risk score, the verdict and all JSON field names are unchanged: `legal_flags` stays the narrower Level-A count, but `management_risks[].rationale` and `.level` of the Legal card follow the wider set.
@@ -198,6 +210,7 @@ and verification for each change is in the
 - **PDF:** numbers and plurals in German text follow one convention: thousands grouped ("7.594", also in the tech-complexity sentences), decimal comma for CLS, vitals and CO2e, and counts select singular and plural ("Minifizierung von 1 Datei", "1 weiterer Befund", "1 Cookie") through Fluent plural selectors; `I18n::count_with` keeps a count numeric next to text placeholders.
 
 ## [2.0.1] - 2026-11-04
+
 
 ### Changed
 
@@ -288,6 +301,7 @@ and verification for each change is in the
 - **SEO:** `--expect-indexable` (implied for sitemap runs) makes `noindex` a technical blocker that caps the SEO score and warns, or fails with `[verdict] fail_on_technical_blockers`; without a declared goal it is a finding to review. Details: [Indexability](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#indexability).
 - **report-lint:** `indicator_carries_no_weight` flags a module that contributes to the overall score without a weight, or an indicator with a weight or a letter grade.
 - **Heuristic signals:** Every heuristic module carries a versioned `signal_contract` stating what its score may be read as and that it is `unvalidated`; a pre-registered, blind calibration harness is in place, its reference set still empty. Details: [Calibration](https://github.com/casoon/auditmysite/blob/main/docs/calibration.md).
+
 
 ### Changed
 
@@ -445,6 +459,7 @@ and verification for each change is in the
 - **Batch:** Canonical targets that the sitemap check saw redirect or fail are reported as canonical conflicts.
 - **Batch:** Security headers are compared across the pages: headers missing on some pages or sent with different values are listed, uniform ones summarized (`site_analysis.security.header_consistency`).
 
+
 ### Changed
 
 - **WCAG:** Breaking: findings of the rules moved to `a11y-rules` (forms, landmarks, links and pointer, images and media, tables, document and language, link purpose) carry the shared ids, e.g. `links/generic-name` instead of `link-name`; `[rules]` filters with the old ids still apply.
@@ -487,6 +502,7 @@ and verification for each change is in the
 - **WCAG:** Cross-site iframes are now audited too, because the audit browser starts without site isolation (#720).
 - **JSON:** `exclusion.excluded_landmarks` now records landmarks left out of landmark counting by exclusions (#726).
 
+
 ### Changed
 
 - **WCAG:** Breaking: ARIA and accessible-name checks now come from the shared `a11y-rules` crate instead of own rules, with new rule ids under `aria/*`, `names/*`, `dialog/*`, `popover/*` and `inert/*`; an unnamed dialog is reported only once (#691, #692).
@@ -504,6 +520,7 @@ and verification for each change is in the
 - **WCAG:** New rule `scrollable-region-focusable` (2.1.1) reports scrollable areas that cannot be reached by keyboard (#717).
 - **WCAG:** Element rules now run inside same-process iframes, and `execution.frames` lists which frames were checked or skipped (#715).
 - **WCAG:** Contrast is now measured inside Shadow DOM and over floated containers (#716).
+
 
 ### Changed
 
@@ -527,6 +544,7 @@ and verification for each change is in the
 
 - **WCAG:** New findings `zoom/viewport-missing` (no viewport meta tag) and `images/alt-suspicious` (file name, filler word or one or two characters as alt text, as a hint).
 
+
 ### Changed
 
 - **WCAG:** Breaking: 21 rule ids are now taken from the shared `a11y-rules` 0.13.2 (for example `landmarks/main-missing`, `images/alt-missing`, `keyboard/hidden-focusable`) and the replaced own rules are removed, so no finding appears twice (#690).
@@ -542,6 +560,7 @@ and verification for each change is in the
 - **CLI:** `--display calm|text|visual|all` audits each display mode of the `data-display` convention (#653).
 - **CLI:** Intentional bad examples can be excluded with `data-audit-exclude`, `--exclude-selector` or `exclude_selectors` in `auditmysite.toml`; exclusions are shown in the report (#645).
 - **CLI:** `--no-screen-reader-report` and `--html-conform` can now be used on their own.
+
 
 ### Changed
 
@@ -569,6 +588,7 @@ and verification for each change is in the
 - **Journeys:** Disclosure findings from a click whose wait ended early are now marked as uncertain.
 - **JSON:** `accessibility.execution.navigation.meta_refresh` now records followed meta-refresh interstitials and unfollowed refresh redirects.
 - **CLI:** `accname-diff` now accepts several URLs and `--url-file` for a corpus summary, uses computed style for its own name, and reports `text_transform` as its own class.
+
 
 ### Changed
 
@@ -610,6 +630,7 @@ and verification for each change is in the
 - **PDF:** Verdict and overall rating are now shown, and the overall value is derived in a table that reproduces it exactly.
 - **CLI:** New command `accname-diff <URL>` compares the own accessible-name computation against Chrome's native accessibility tree.
 
+
 ### Changed
 
 - **JSON:** Breaking: a module's `grade` is optional and only set for modules that feed the overall score (weight above 0).
@@ -636,6 +657,7 @@ and verification for each change is in the
 
 - **JSON:** `security.issues[].values` and `mobile.issues[].values` now carry the raw interpolated values behind each message, omitted when empty.
 - **JSON:** The HTML conformance module now reports `distinct_defect_count`, and the PDF shows one findings row per cause with an occurrences column.
+
 
 ### Changed
 
@@ -666,6 +688,7 @@ and verification for each change is in the
 
 ## [1.3.1] - 2026-09-16
 
+
 ### Changed
 
 - **Contributors:** CI and `release-check.sh` now run every detection-corpus binary even after an earlier one fails (#582), and the README documents the 1.3.0 features and renamed rule ids.
@@ -694,6 +717,7 @@ and verification for each change is in the
 - **UX:** The opt-in `--design-quality` module reports readability heuristics and alt-text quality issues without affecting scores (#528).
 - **CLI:** New `--color` and `--progress` flags, terminal output via Runemark, logs on stderr so `--format json` stdout stays machine-readable, and every audit request now sends Do-Not-Track and Global Privacy Control (#529, #530).
 
+
 ### Changed
 
 - **WCAG:** The rule ids `label` and `link-name` (2.4.9) were renamed to `control-missing-label` and `link-name-only`, and unrelated checks sharing a WCAG criterion are no longer merged into one finding.
@@ -716,6 +740,7 @@ and verification for each change is in the
 
 ## [1.2.2] - 2026-07-24
 
+
 ### Changed
 
 - **Contributors:** Duplicate helpers and tautological tests were cleaned up, and the unused `tokio-test` dev dependency was removed.
@@ -730,6 +755,7 @@ and verification for each change is in the
 - **Browser:** The browser installer now logs errors it previously reported as success (#521).
 
 ## [1.2.1] - 2026-07-20
+
 
 ### Changed
 
@@ -747,6 +773,7 @@ and verification for each change is in the
 ### Added
 
 - **CLI:** New `report-lint` subcommand checks a JSON report for inconsistent scores, grades, certificates and counts, with `--fail-on` and `--typst-source` (#507).
+
 
 ### Changed
 
@@ -769,6 +796,7 @@ and verification for each change is in the
 - **PDF:** Finding cards in single reports now show an element screenshot, DOM path and measured values, plus a plain-language explanation of the impact.
 - **Batch:** Batch reports now identify shared template causes across pages as `template_clusters`.
 - **CLI:** New `--format sarif` for GitHub Code Scanning and `--report-mode`, which exits 0 whenever the report was generated (#503).
+
 
 ### Changed
 
@@ -796,6 +824,7 @@ and verification for each change is in the
 - **Batch:** Batch reports now detect duplicate titles, descriptions and H1s, canonical conflicts and non-reciprocal hreflang links (#423).
 - **SEO:** New shop-gated Commerce module reports product structured data completeness, page kind and links to trust pages such as Impressum, AGB and Widerruf, with a site-wide roll-up in batch reports.
 
+
 ### Changed
 
 - **Scoring:** Accessibility areas no longer collapse to 0 from a few findings, well-configured pages keep a SEO baseline, and screen-reader legal flags come only from confirmed Level-A blockers (#484–#486).
@@ -819,6 +848,7 @@ and verification for each change is in the
 - **JSON:** Cached reports now include full module detail.
 
 ## [0.49.1] - 2026-06-15
+
 
 ### Changed
 
@@ -850,6 +880,7 @@ and verification for each change is in the
 
 ## [0.48.0] - 2026-06-13
 
+
 ### Changed
 
 - **Scoring:** Critical risk is now reserved for systemic legal exposure (>= 3 distinct Level A barriers with a critical occurrence, or >= 5 critical occurrences); a single isolated barrier is now High (#250).
@@ -878,6 +909,7 @@ and verification for each change is in the
 - **PDF:** The single report now has a gauge-based cover, a management summary page, a root-cause analysis section and a timeframe roadmap.
 - **PDF:** A customer diagnosis panel, customer-impact categories per finding, recurring-pattern panels, module customer-context callouts and audit-confidence notes were added (#397–#403).
 
+
 ### Changed
 
 - **WCAG:** Tab and table checks no longer overstate passes: `aria-controls` is reported as declared rather than as a valid tabpanel, and only explicit `headers` associations count (#444).
@@ -904,6 +936,7 @@ and verification for each change is in the
 
 ## [0.46.2] - 2026-06-05
 
+
 ### Changed
 
 - **Contributors:** Fixed clippy and compile failures in rules and test fixtures.
@@ -917,6 +950,7 @@ and verification for each change is in the
 ### Added
 
 - **CLI:** A pass/warn/fail verdict now sets exit codes 0/1/2, configurable via `[verdict]` in `auditmysite.toml`; `verdict` and `verdict_reasons` were added to all JSON outputs, and runtime errors now exit 3 (was 2) (#390).
+
 
 ### Changed
 
@@ -947,6 +981,7 @@ and verification for each change is in the
 
 - **Performance:** The performance score now applies penalties and hard caps for critical page weight, JS size, request count and DOM complexity, and the PDF explains the capping in restructured Vitals/Resources/Bottlenecks subsections.
 
+
 ### Changed
 
 - **Batch:** Failed URLs now appear immediately in the progress output, and timeouts are no longer retried.
@@ -966,11 +1001,13 @@ and verification for each change is in the
 - **JSON:** The summary now includes `wcag_coverage`, `accessibility_score_breakdown`, `management_risks` and `top_actions` (#369, #372, #378, #380).
 - **Batch:** Batch JSON now includes `internal_comparison` with module extremes, outlier URLs and root causes (#375).
 
+
 ### Changed
 
 - **Reports:** Time-based effort labels were replaced by complexity levels (#374).
 
 ## [0.44.0] - 2026-05-30
+
 
 ### Changed
 
@@ -988,6 +1025,7 @@ and verification for each change is in the
 
 ## [0.43.0] - 2026-05-30
 
+
 ### Changed
 
 - **PDF:** The content-depth label now marks its 300-word threshold as a guideline, and the SEO interpretation notes when strong technical SEO meets weak content depth (#3, #4).
@@ -999,6 +1037,7 @@ and verification for each change is in the
 - **PDF:** Empty pages caused by double page breaks no longer appear (renderreport 0.2.19).
 
 ## [0.42.0] - 2026-05-29
+
 
 ### Changed
 
@@ -1017,11 +1056,13 @@ and verification for each change is in the
 - **JSON:** Reports now include an `interpretation` block with pre-computed DE/EN assessment texts (#336).
 - **Batch:** The batch summary now includes `top_recurring_rules`, `violated_rule_count`, `legal_flags` and `risk` (#337).
 
+
 ### Changed
 
 - **Contributors:** Moved all modules onto a catalog-driven pipeline, replaced inline page-rule calls with a table-driven catalog, turned builders into pure mappers, and added per-module fixture tests; audit output is unchanged (#330–#335, #338).
 
 ## [0.40.1] - 2026-05-29
+
 
 ### Changed
 
@@ -1056,6 +1097,7 @@ and verification for each change is in the
 
 - **Reports:** The rule `seo.headings.skipped_level` now has its own explanation in German and English.
 
+
 ### Changed
 
 - **Contributors:** `ARCHITECTURE.md`, `CHANGELOG.md` and `reports/README.md` were removed from the repository.
@@ -1086,6 +1128,7 @@ and verification for each change is in the
 
 ## [0.37.0] - 2026-05-28
 
+
 ### Changed
 
 - **Journeys:** Journey detection and reporting were expanded.
@@ -1103,6 +1146,7 @@ and verification for each change is in the
 - **PDF:** Single-page reports now include an Accessibility Journey detail section.
 - **Batch:** Batch PDF reports now include an aggregated interactive journey section.
 - **CLI:** `--semantic-eval` adds advisory findings from a semantic AI evaluation, and `--export-snapshot` exports the AX tree and journey trace as YAML.
+
 
 ### Changed
 
@@ -1128,6 +1172,7 @@ and verification for each change is in the
 - **Performance:** Implausible headless measurements (TBT 0 on heavy pages, SI/TTI falling back to LCP, INP not measurable, LCP not captured under throttling) are now detected as `measurement_warnings`. (#291)
 - **Security:** Missing `Permissions-Policy`, COOP and CORP headers are now reported as low-severity issues.
 
+
 ### Changed
 
 - **Scoring:** Any critical finding now caps the overall score at 49 instead of 94/96.
@@ -1142,6 +1187,7 @@ and verification for each change is in the
 - **SEO:** New checks for missing SRI `integrity` on external scripts and stylesheets, synchronous scripts in `<head>`, broken fragment anchors, generic link texts and internal links with query parameters.
 - **SEO:** `hreflang` is now validated for `x-default` and self-reference, and noindex pages listed in the sitemap are flagged.
 
+
 ### Changed
 
 - **Contributors:** Clippy fixes and a missing test fixture field.
@@ -1154,6 +1200,7 @@ and verification for each change is in the
 - **SEO:** `images_without_srcset` flags `<img>` elements outside `<picture>` without `srcset`.
 - **SEO:** JSON-LD types such as Article, Product, Event, Recipe and Review are now checked for required properties per Google's rich-result spec, including items nested in `@graph`.
 
+
 ### Changed
 
 - **Contributors:** Release artifacts in CI are now kept for one day only.
@@ -1163,6 +1210,7 @@ and verification for each change is in the
 ### Added
 
 - **JSON:** Summary and page entries now state `severity_counts_scope` (`wcag_only`). (#274)
+
 
 ### Changed
 
@@ -1178,6 +1226,7 @@ and verification for each change is in the
 
 ## [0.31.0] - 2026-05-23
 
+
 ### Changed
 
 - **Batch:** Recurring-rule severity in batch reports now comes from the taxonomy base severity instead of the highest per-finding severity. (#279)
@@ -1191,6 +1240,7 @@ and verification for each change is in the
 - **Reports:** Findings without fix guidance no longer emit empty strings, and 1.4.10 Reflow now has an explanation. (#276)
 
 ## [0.30.0] - 2026-05-23
+
 
 ### Changed
 
@@ -1220,6 +1270,7 @@ and verification for each change is in the
 
 - **WCAG:** Text on images and gradients is now checked by sampling screenshot pixels, and confirmed violations are separated from manual-review cases. (#264)
 
+
 ### Changed
 
 - **PDF:** Module details and action texts now come from Fluent locale files instead of inline language checks. (#258)
@@ -1231,6 +1282,7 @@ and verification for each change is in the
 - **PDF:** The empty "SEO & Sichtbarkeit" section header page is gone.
 
 ## [0.27.0] - 2026-05-21
+
 
 ### Changed
 
