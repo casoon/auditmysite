@@ -1,6 +1,6 @@
 {
   "name": "auditmysite",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "description": "WCAG 2.2 AA accessibility checker. Downloads the matching auditmysite release binary on install.",
   "keywords": [
     "accessibility",
