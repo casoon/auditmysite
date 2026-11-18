@@ -66,10 +66,10 @@ impl SiteState {
 
     pub fn label(&self) -> &str {
         match self {
-            Self::Polished => "Stark",
-            Self::NeedsWork => "Tragfähige Basis",
-            Self::Weak => "Instabil",
-            Self::Critical => "Kritisch",
+            Self::Polished => "Strong",
+            Self::NeedsWork => "Stable foundation",
+            Self::Weak => "Unstable",
+            Self::Critical => "Critical",
         }
     }
 

@@ -10,6 +10,7 @@ and verification for each change is in the
 ### Fixed
 
 - **Report:** the Search Experience breakdown shows the weights the score was actually computed with (renormalized over the measured components, summing to 100 %), so the score can be recomputed from the rows. A line below the table names the components not measured in the run, and the intro lists only measured components (Refs #1134).
+- **Report:** English PDFs no longer print the German rating words "Stark", "Solide", "Uneinheitlich" and "Schwach" (and "Intent-Fit") in the SEO profile score grid; they come from `locales/{de,en}/report.ftl` in the run language. `SiteState::label()` returns canonical English ("Strong", "Stable foundation", "Unstable", "Critical") instead of German; a test fails on German rating-label literals in `src/output` (Refs #1136).
 
 ## [2.1.0] - 2026-11-18
 
