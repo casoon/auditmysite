@@ -640,6 +640,9 @@ fn collect(
                     FindingScoring::new("Mobile", E::Reference),
                     Some(VIEWPORT_MISSING),
                 ),
+                _ if issue.kind == Some(crate::seo::meta::MetaIssueKind::DescriptionTooLong) => {
+                    (FindingScoring::none(), None)
+                }
                 _ => (FindingScoring::new("SEO", E::Deduction), None),
             };
             let mut c = Collected::new(

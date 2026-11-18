@@ -257,6 +257,9 @@ fn calculate_seo_score(
     let meta_penalty: u32 = meta_issues
         .iter()
         .filter(|issue| !matches!(issue.field.as_str(), "lang" | "canonical" | "viewport"))
+        // An overlong description is an advisory: Google truncates snippets
+        // dynamically and sets no fixed maximum.
+        .filter(|issue| issue.kind != Some(crate::seo::meta::MetaIssueKind::DescriptionTooLong))
         .map(|issue| match issue.severity {
             crate::taxonomy::Severity::Critical => 15,
             crate::taxonomy::Severity::High => 10,
