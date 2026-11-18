@@ -396,7 +396,7 @@ mod tests {
                 .description
                 .clone()
         };
-        assert!(text("seo.meta.description").starts_with("Beschreibung ist zu lang (176 Zeichen"));
+        assert!(text("seo.meta.description").starts_with("Beschreibung hat 176 Zeichen"));
         assert!(text("seo.page_health.excessive_dom")
             .starts_with("DOM-Größe kritisch: 1714 HTML-Elemente"));
     }
