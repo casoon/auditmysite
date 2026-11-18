@@ -45,7 +45,9 @@ pdf-analysis-profile-structural = { $count ->
        *[other] Isolated local optimizations; { $count } findings with wide reach or a structural fix are named under key risks.
     }
 pdf-analysis-profile-isolated-good = Very good technical condition. { $tail }
-pdf-analysis-profile-isolated-named = { $names } determines the primary need for action. { $tail }
+pdf-analysis-profile-isolated-mixed = Good condition in { $good }; clear deficits in { $weak }. { $tail }
+pdf-analysis-profile-isolated-weak = Clear deficits in { $weak }. { $tail }
+pdf-analysis-profile-isolated-named ={ $names } determines the primary need for action. { $tail }
 pdf-analysis-profile-concentrated-systemic = { $names } { $several ->
         [yes] determine
        *[no] determines

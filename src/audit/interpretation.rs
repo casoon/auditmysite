@@ -284,11 +284,7 @@ impl Interpretation {
         let consequence_key = pick_consequence_key(ctx);
         // The sentence names the accessibility score, so that score picks the
         // tier — not the weighted technical value (#896).
-        let verdict_key = pick_verdict_key(
-            ctx.normalized.score,
-            ctx.normalized.risk.severe_legal_flags,
-            &ctx.normalized.severity_counts,
-        );
+        let verdict_key = Assessment::from_report(&ctx.normalized).verdict_key();
         let score_note_key = pick_score_note_key(ctx);
         let batch_verdict_key = String::new();
 
@@ -837,30 +833,215 @@ fn top_tier_key(key: String, counts: &crate::audit::normalized::SeverityCounts) 
 fn pick_verdict_key(
     score: u32,
     severe_legal_flags: usize,
+    systemic: bool,
     counts: &crate::audit::normalized::SeverityCounts,
 ) -> String {
-    match legal_gate("verdict-tier", score, severe_legal_flags) {
-        Some(key) => key,
-        None => top_tier_key(verdict_tier_key("verdict-tier", score), counts),
+    match VerdictTier::from_parts(score, severe_legal_flags, systemic) {
+        VerdictTier::Band => top_tier_key(verdict_tier_key("verdict-tier", score), counts),
+        tier => format!("verdict-tier-{}", tier.slug()),
     }
 }
 
 /// The batch cover sentence: the band of the average accessibility score,
-/// under the same legal gate as a single page (#356) — a batch that fails on
-/// legal flags must not read "a very good result" (#1039).
+/// under the same legal cap as a single page (#356, #1131) — a batch that
+/// fails on legal flags must not read "a very good result" (#1039). A batch
+/// carries no per-page concentration, so "deficient" stays a score band here.
 pub fn batch_verdict_key(average: u32, severe_legal_flags: usize) -> String {
-    legal_gate("verdict-batch", average, severe_legal_flags)
-        .unwrap_or_else(|| verdict_tier_key("verdict-batch", average))
+    let reassuring = matches!(
+        ScoreBand::from_score(average as f32),
+        ScoreBand::Excellent | ScoreBand::Good | ScoreBand::NeedsImprovement
+    );
+    if severe_legal_flags > 0 && reassuring {
+        "verdict-batch-violations".to_string()
+    } else {
+        verdict_tier_key("verdict-batch", average)
+    }
 }
 
-/// Legal flags of High/Critical severity never receive a reassuring tier,
-/// regardless of an otherwise passable score (#356): the tier drops to
-/// `deficient`. `None` when the gate does not apply.
-fn legal_gate(prefix: &str, score: u32, severe_legal_flags: usize) -> Option<String> {
-    let key = verdict_tier_key(prefix, score);
-    let deficient = format!("{prefix}-deficient");
-    let critical = format!("{prefix}-critical");
-    (severe_legal_flags > 0 && key != deficient && key != critical).then_some(deficient)
+/// The tier of the single-page verdict sentence (#1131). `Band` is the tier of
+/// the accessibility score band ([`verdict_tier_key`]); the others override it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum VerdictTier {
+    Band,
+    /// "Automated checks identified WCAG violations": the cap of the legal
+    /// gate, and the tier of a weak score without systemic findings.
+    Violations,
+    /// "Structural backlog": only with systemic findings.
+    Deficient,
+    Critical,
+}
+
+impl VerdictTier {
+    /// Severe legal flags cap the verdict at `Violations` — never a
+    /// reassuring band, but never "structural backlog" from them alone (#356,
+    /// #1131). `Deficient` needs systemic findings, whether the score band or
+    /// a legal flag asks for it; a score in the critical band stays critical.
+    fn from_parts(score: u32, severe_legal_flags: usize, systemic: bool) -> Self {
+        let band = ScoreBand::from_score(score as f32);
+        let gated = severe_legal_flags > 0 || band == ScoreBand::Weak;
+        match band {
+            ScoreBand::Critical => Self::Critical,
+            _ if gated && systemic => Self::Deficient,
+            _ if gated => Self::Violations,
+            _ => Self::Band,
+        }
+    }
+
+    fn slug(self) -> &'static str {
+        match self {
+            Self::Band => "band",
+            Self::Violations => "violations",
+            Self::Deficient => "deficient",
+            Self::Critical => "critical",
+        }
+    }
+
+    /// The sentence names structural backlog or urgent need for action.
+    pub fn is_structural(self) -> bool {
+        matches!(self, Self::Deficient | Self::Critical)
+    }
+}
+
+/// WCAG rules at medium severity or above that make findings systemic: one
+/// rule is one finding, however often it occurs (#1131).
+pub const SYSTEMIC_MIN_RULES: usize = 2;
+/// Up to this many occurrences say nothing about a recurring pattern.
+pub const SYSTEMIC_MIN_OCCURRENCES: usize = 3;
+/// The top rules whose share of the occurrences measures concentration.
+pub const SYSTEMIC_TOP_N: usize = 4;
+/// Share of the occurrences the top rules must carry, in percent.
+const SYSTEMIC_MIN_CONCENTRATION_PCT: usize = 50;
+
+/// The one assessment the verdict sentence and the problem profile both read
+/// (#1131), so the two can never name different conditions: the verdict tier
+/// comes from the accessibility score, the severe legal flags and `systemic`;
+/// the profile from the same `systemic` and the module bands.
+#[derive(Debug, Clone, Default)]
+#[non_exhaustive]
+pub struct Assessment {
+    pub accessibility_score: u32,
+    pub severe_legal_flags: usize,
+    pub severity_counts: crate::audit::normalized::SeverityCounts,
+    /// The WCAG findings show systemic concentration: at least
+    /// [`SYSTEMIC_MIN_RULES`] rules at medium severity or above, more than
+    /// [`SYSTEMIC_MIN_OCCURRENCES`] occurrences, and the top
+    /// [`SYSTEMIC_TOP_N`] rules carry at least half of them.
+    pub systemic: bool,
+    /// Modules that feed the site-quality score, by drag
+    /// (`(100 - score) * weight`) descending.
+    pub modules: Vec<crate::audit::normalized::ModuleScoreEntry>,
+}
+
+impl Assessment {
+    pub fn from_report(report: &crate::audit::normalized::NormalizedReport) -> Self {
+        Self::new(
+            report.score,
+            report.risk.severe_legal_flags,
+            report.severity_counts.clone(),
+            &report.findings,
+            &report.module_scores,
+        )
+    }
+
+    pub fn new(
+        accessibility_score: u32,
+        severe_legal_flags: usize,
+        severity_counts: crate::audit::normalized::SeverityCounts,
+        findings: &[crate::audit::normalized::NormalizedFinding],
+        module_scores: &[crate::audit::normalized::ModuleScoreEntry],
+    ) -> Self {
+        use crate::taxonomy::Severity;
+        let mut occurrences: Vec<usize> = findings
+            .iter()
+            .filter(|f| {
+                f.occurrence_count > 0
+                    && !f.wcag_criterion.is_empty()
+                    && matches!(
+                        f.severity,
+                        Severity::Critical | Severity::High | Severity::Medium
+                    )
+            })
+            .map(|f| f.occurrence_count)
+            .collect();
+        occurrences.sort_unstable_by(|a, b| b.cmp(a));
+        let total: usize = occurrences.iter().sum();
+        let top: usize = occurrences.iter().take(SYSTEMIC_TOP_N).sum();
+        let systemic = occurrences.len() >= SYSTEMIC_MIN_RULES
+            && total > SYSTEMIC_MIN_OCCURRENCES
+            && top * 100 >= total * SYSTEMIC_MIN_CONCENTRATION_PCT;
+
+        let mut modules: Vec<_> = module_scores
+            .iter()
+            .filter(|m| m.contributes_to_site_quality_score)
+            .cloned()
+            .collect();
+        modules.sort_by_key(|m| std::cmp::Reverse((100 - m.score.min(100)) * m.weight_pct));
+
+        Self {
+            accessibility_score,
+            severe_legal_flags,
+            severity_counts,
+            systemic,
+            modules,
+        }
+    }
+
+    pub fn verdict_tier(&self) -> VerdictTier {
+        VerdictTier::from_parts(
+            self.accessibility_score,
+            self.severe_legal_flags,
+            self.systemic,
+        )
+    }
+
+    /// i18n key of the verdict sentence.
+    pub fn verdict_key(&self) -> String {
+        pick_verdict_key(
+            self.accessibility_score,
+            self.severe_legal_flags,
+            self.systemic,
+            &self.severity_counts,
+        )
+    }
+
+    fn modules_where(
+        &self,
+        keep: impl Fn(ScoreBand) -> bool,
+    ) -> Vec<&crate::audit::normalized::ModuleScoreEntry> {
+        self.modules
+            .iter()
+            .filter(|m| keep(ScoreBand::from_score(m.score as f32)))
+            .collect()
+    }
+
+    /// Modules in the "good" band or above (score 75+).
+    pub fn good_modules(&self) -> Vec<&crate::audit::normalized::ModuleScoreEntry> {
+        self.modules_where(|b| matches!(b, ScoreBand::Excellent | ScoreBand::Good))
+    }
+
+    /// Modules below the "good" band (score under 75).
+    pub fn weak_modules(&self) -> Vec<&crate::audit::normalized::ModuleScoreEntry> {
+        self.modules_where(|b| !matches!(b, ScoreBand::Excellent | ScoreBand::Good))
+    }
+
+    /// Modules in the critical band (score under 40).
+    pub fn critical_modules(&self) -> Vec<&crate::audit::normalized::ModuleScoreEntry> {
+        self.modules_where(|b| b == ScoreBand::Critical)
+    }
+
+    /// The modules that determine the need for action: the critical ones, and
+    /// accessibility whenever the verdict itself names structural backlog.
+    pub fn action_modules(&self) -> Vec<&crate::audit::normalized::ModuleScoreEntry> {
+        let mut modules = self.critical_modules();
+        if self.verdict_tier().is_structural() && !modules.iter().any(|m| m.name == "Accessibility")
+        {
+            if let Some(a11y) = self.modules.iter().find(|m| m.name == "Accessibility") {
+                modules.insert(0, a11y);
+            }
+        }
+        modules
+    }
 }
 
 fn pick_score_note_key(normalized: &AuditContext<'_>) -> Option<String> {
@@ -925,11 +1106,107 @@ mod tests {
             "verdict-tier-excellent"
         );
         assert_eq!(verdict_tier_key("verdict-tier", 74), "verdict-tier-stable");
-        // A legal finding never keeps a reassuring tier.
+        // A legal finding never keeps a reassuring tier, but alone it caps the
+        // verdict at "violations found", not "structural backlog" (#1131).
         let none = crate::audit::normalized::SeverityCounts::default();
-        assert_eq!(pick_verdict_key(93, 1, &none), "verdict-tier-deficient");
-        assert_eq!(pick_verdict_key(30, 1, &none), "verdict-tier-critical");
-        assert_eq!(pick_verdict_key(93, 0, &none), "verdict-tier-excellent");
+        assert_eq!(
+            pick_verdict_key(93, 1, false, &none),
+            "verdict-tier-violations"
+        );
+        assert_eq!(
+            pick_verdict_key(80, 1, false, &none),
+            "verdict-tier-violations"
+        );
+        assert_eq!(
+            pick_verdict_key(65, 1, false, &none),
+            "verdict-tier-violations"
+        );
+        assert_eq!(
+            pick_verdict_key(30, 1, false, &none),
+            "verdict-tier-critical"
+        );
+        assert_eq!(
+            pick_verdict_key(93, 0, false, &none),
+            "verdict-tier-excellent"
+        );
+    }
+
+    /// #1131: "structural backlog" needs systemic findings. One rule, however
+    /// often it occurs, with a severe legal flag reads "violations found";
+    /// several rules with recurring occurrences read "deficient".
+    #[test]
+    fn deficient_tier_needs_systemic_findings() {
+        use crate::wcag::{Severity as WcagSeverity, Violation, WcagResults};
+        let assess = |rules: &[(&str, &str, WcagSeverity, usize)]| {
+            let mut results = WcagResults::new();
+            results.nodes_checked = 50;
+            for (criterion, rule_id, severity, n) in rules {
+                for i in 0..*n {
+                    results.add_violation(
+                        Violation::new(
+                            *criterion,
+                            "name",
+                            crate::model::WcagLevel::A,
+                            *severity,
+                            "msg",
+                            format!("node-{rule_id}-{i}"),
+                        )
+                        .with_rule_id(*rule_id)
+                        .with_selector(format!("#{}-{i}", rule_id.replace('/', "-"))),
+                    );
+                }
+            }
+            let report = crate::audit::AuditReport::new(
+                "https://example.com".into(),
+                crate::model::WcagLevel::AA,
+                results,
+                100,
+            );
+            let mut assessment =
+                Assessment::from_report(&crate::audit::normalized::normalize(&report).normalized);
+            // The tier under test is the one a severe legal flag at a high
+            // score gets; the score itself is the reported one elsewhere.
+            assessment.accessibility_score = 93;
+            assessment.severe_legal_flags = 1;
+            assessment
+        };
+
+        // One high contrast finding on six elements plus one low hint: a
+        // single finding, not a pattern.
+        let single = assess(&[
+            ("1.4.3", "contrast/text-insufficient", WcagSeverity::High, 6),
+            ("1.3.1", "landmarks/main-missing", WcagSeverity::Low, 1),
+        ]);
+        assert!(!single.systemic);
+        assert_eq!(single.verdict_tier(), VerdictTier::Violations);
+        assert_eq!(single.verdict_key(), "verdict-tier-violations");
+
+        // Several rules, recurring: systemic concentration.
+        let systemic = assess(&[
+            ("1.4.3", "contrast/text-insufficient", WcagSeverity::High, 6),
+            ("1.1.1", "images/alt-missing", WcagSeverity::High, 4),
+            ("3.3.2", "forms/label-missing", WcagSeverity::Medium, 2),
+        ]);
+        assert!(systemic.systemic);
+        assert_eq!(systemic.verdict_key(), "verdict-tier-deficient");
+        assert!(systemic.verdict_tier().is_structural());
+
+        // A score in the "inadequate" band without systemic findings also
+        // stays at "violations found".
+        let mut weak = single.clone();
+        weak.severe_legal_flags = 0;
+        weak.accessibility_score = 50;
+        assert_eq!(weak.verdict_key(), "verdict-tier-violations");
+    }
+
+    /// #1131: the batch band is capped like a single page.
+    #[test]
+    fn batch_legal_flags_cap_instead_of_forcing_deficient() {
+        assert_eq!(batch_verdict_key(93, 1), "verdict-batch-violations");
+        assert_eq!(batch_verdict_key(65, 1), "verdict-batch-violations");
+        assert_eq!(batch_verdict_key(50, 1), "verdict-batch-deficient");
+        assert_eq!(batch_verdict_key(30, 1), "verdict-batch-critical");
+        assert_eq!(batch_verdict_key(93, 0), "verdict-batch-excellent");
     }
 
     /// #899: the top tier never says "no structural problem" while a high or
@@ -944,14 +1221,14 @@ mod tests {
             low,
             total: critical + high + medium + low,
         };
-        let key = |counts| pick_verdict_key(93, 0, &counts);
+        let key = |counts| pick_verdict_key(93, 0, false, &counts);
         assert_eq!(key(c(0, 0, 0, 4)), "verdict-tier-excellent");
         assert_eq!(key(c(0, 0, 2, 4)), "verdict-tier-excellent-medium");
         assert_eq!(key(c(0, 1, 2, 4)), "verdict-tier-excellent-high");
         assert_eq!(key(c(1, 1, 2, 4)), "verdict-tier-excellent-critical");
         // Lower tiers keep their own wording.
         assert_eq!(
-            pick_verdict_key(80, 0, &c(1, 1, 0, 0)),
+            pick_verdict_key(80, 0, false, &c(1, 1, 0, 0)),
             "verdict-tier-solid"
         );
 
@@ -980,7 +1257,14 @@ mod tests {
         for locale in ["de", "en"] {
             let i18n = crate::i18n::I18n::new(locale).unwrap();
             for prefix in ["verdict-tier", "verdict-batch"] {
-                for tier in ["excellent", "solid", "stable", "deficient", "critical"] {
+                for tier in [
+                    "excellent",
+                    "solid",
+                    "stable",
+                    "violations",
+                    "deficient",
+                    "critical",
+                ] {
                     let key = format!("{prefix}-{tier}");
                     let text = i18n.t_args(
                         &key,

@@ -103,60 +103,22 @@ impl ProblemProfileKind {
     }
 }
 
-/// Modules that contribute to the weighted site-quality score and fall below the "Good" band (< 75).
-/// Sorted by drag impact descending ((100 - score) * weight). Supplementary context only (e.g.
-/// deciding success-vs-info styling for an otherwise "isolated" profile) — NOT the breadth count
-/// for the Problem-Profile tier itself, see `critical_contributing_modules`.
-fn weak_contributing_modules(
-    vm: &ReportViewModel,
-) -> Vec<&crate::audit::normalized::ModuleScoreEntry> {
-    let mut weak: Vec<&crate::audit::normalized::ModuleScoreEntry> = vm
-        .modules
-        .module_scores
-        .iter()
-        .filter(|m| m.contributes_to_site_quality_score && m.score < 75)
-        .collect();
-    weak.sort_by_key(|m| std::cmp::Reverse((100 - m.score) * m.weight_pct));
-    weak
-}
-
-/// Modules that contribute to the weighted site-quality score and are "Kritisch" (< 40 — same
-/// FIVE_BAND cutoff used elsewhere in the report, e.g. `score_band_label`). This, not the
-/// broader < 75 "Good" band, decides how many modules "determine the need for action" for the
-/// Problem-Profile breadth tiering (feedback 2026-09-07: the < 75 threshold pulled in merely
-/// "Verbesserungswürdig" modules — e.g. Performance 64 / SEO 65 on inros-lackner.de — alongside
-/// the two genuinely critical ones (Accessibility 20 / Security 30), producing "breit &
-/// systemisch" where the real driver was two critical modules, not four weak ones).
-/// Sorted by drag impact descending, same as `weak_contributing_modules`.
-fn critical_contributing_modules(
-    vm: &ReportViewModel,
-) -> Vec<&crate::audit::normalized::ModuleScoreEntry> {
-    let mut critical: Vec<&crate::audit::normalized::ModuleScoreEntry> = vm
-        .modules
-        .module_scores
-        .iter()
-        .filter(|m| m.contributes_to_site_quality_score && m.score < 40)
-        .collect();
-    critical.sort_by_key(|m| std::cmp::Reverse((100 - m.score) * m.weight_pct));
-    critical
-}
-
-/// Pure classification function combining breadth (< 40 "Kritisch" module count) and systemics
-/// (plan/20-problemprofil-badge.md).
+/// Classification from the shared assessment (#1131): breadth is the count of
+/// "Kritisch" (< 40) modules (feedback 2026-09-07: the < 75 threshold pulled
+/// in merely "Verbesserungswürdig" modules such as Performance 64 / SEO 65 on
+/// inros-lackner.de, producing "breit & systemisch" where the real driver was
+/// two critical modules), systemics is the same `systemic` the verdict reads,
+/// and a verdict that names structural backlog is never "punktuell".
 pub(super) fn classify_problem_profile(vm: &ReportViewModel) -> ProblemProfileKind {
-    let critical = critical_contributing_modules(vm);
-    let critical_count = critical.len();
-    let concentration = compute_problem_concentration(vm);
-    let has_systemic_wcag = match &concentration {
-        Some(c) => {
-            c.total_occurrences > PROBLEM_CONCENTRATION_MIN_OCCURRENCES && c.concentration_pct >= 50
-        }
-        None => false,
-    };
+    let assessment = &vm.assessment;
+    let critical_count = assessment.critical_modules().len();
 
     if critical_count >= 3 {
         ProblemProfileKind::BreitSystemisch
-    } else if critical_count == 2 || (critical_count == 1 && has_systemic_wcag) {
+    } else if critical_count == 2
+        || (critical_count == 1 && assessment.systemic)
+        || assessment.verdict_tier().is_structural()
+    {
         ProblemProfileKind::KonzentriertSystemisch
     } else {
         ProblemProfileKind::Punktuell
@@ -216,19 +178,12 @@ fn build_problem_profile_description(
     kind: ProblemProfileKind,
     i18n: &I18n,
 ) -> String {
-    // Only "Kritisch" (< 40) modules are named as "determining the need for
-    // action" — same set `classify_problem_profile` tiers on, so the badge
-    // text and the tier it's attached to can't silently diverge (feedback
-    // 2026-09-07: naming from the broader < 75 band pulled in merely
-    // "Verbesserungswürdig" modules that didn't actually drive the tier).
-    let critical_modules = critical_contributing_modules(vm);
-    let concentration = compute_problem_concentration(vm);
-    let has_systemic_wcag = match &concentration {
-        Some(c) => {
-            c.total_occurrences > PROBLEM_CONCENTRATION_MIN_OCCURRENCES && c.concentration_pct >= 50
-        }
-        None => false,
-    };
+    // The modules named as "determining the need for action" are the ones
+    // `classify_problem_profile` tiers on, so the badge text and its tier
+    // can't diverge (feedback 2026-09-07).
+    let assessment = &vm.assessment;
+    let critical_modules = assessment.action_modules();
+    let has_systemic_wcag = assessment.systemic;
 
     match kind {
         ProblemProfileKind::Punktuell => {
@@ -239,8 +194,29 @@ fn build_problem_profile_description(
                 "pdf-analysis-profile-structural",
                 structural_finding_count(vm),
             );
-            if critical_modules.is_empty() {
+            let weak = assessment.weak_modules();
+            if weak.is_empty() {
                 i18n.t_args("pdf-analysis-profile-isolated-good", &[("tail", tail)])
+            } else if critical_modules.is_empty() {
+                // "Very good" only while no module is below the "good" band
+                // (#1131): otherwise name the good and the weak areas.
+                let good = assessment.good_modules();
+                let weak = format_module_names(&weak, i18n);
+                if good.is_empty() {
+                    i18n.t_args(
+                        "pdf-analysis-profile-isolated-weak",
+                        &[("weak", weak), ("tail", tail)],
+                    )
+                } else {
+                    i18n.t_args(
+                        "pdf-analysis-profile-isolated-mixed",
+                        &[
+                            ("good", format_module_names(&good, i18n)),
+                            ("weak", weak),
+                            ("tail", tail),
+                        ],
+                    )
+                }
             } else {
                 let names = format_module_names(&critical_modules, i18n);
                 i18n.t_args(
@@ -292,7 +268,7 @@ pub(super) fn render_problem_profile(
             // `classify_problem_profile`): a lone merely-"Verbesserungswürdig"
             // module still earns an `info` callout instead of `success`, even
             // though it doesn't change the tier.
-            if weak_contributing_modules(vm).is_empty() {
+            if vm.assessment.weak_modules().is_empty() {
                 Callout::success(desc).with_title(title)
             } else {
                 Callout::info(desc).with_title(title)
@@ -369,6 +345,26 @@ mod tests {
     // The fixture stays where the rest of the report tests use it; only these
     // three moved (plan 27).
     use super::super::single_report::risk_and_strength_tests::test_report_view_model;
+    use crate::audit::interpretation::Assessment;
+    use crate::audit::normalized::ModuleScoreEntry;
+
+    /// Rebuilds the shared assessment from the view model after a test changed
+    /// its modules or findings, the way the builder derives it from the report.
+    fn reassess(vm: &mut ReportViewModel) {
+        let findings: Vec<_> = vm
+            .findings
+            .all_findings
+            .iter()
+            .map(|f| f.finding.clone())
+            .collect();
+        vm.assessment = Assessment::new(
+            vm.summary.score,
+            vm.assessment.severe_legal_flags,
+            vm.assessment.severity_counts.clone(),
+            &findings,
+            &vm.modules.module_scores,
+        );
+    }
 
     /// #952-4: the badge must not say "no structural problem" while the risk
     /// list counts a finding with wide reach / structural fix.
@@ -387,6 +383,7 @@ mod tests {
             count: 0,
             pages: None,
         }];
+        reassess(&mut vm);
         let kind = ProblemProfileKind::Punktuell;
         assert!(build_problem_profile_description(&vm, kind, &i18n_de)
             .contains("ohne strukturelles Problem"));
@@ -427,6 +424,7 @@ mod tests {
         finding.finding.wcag_criterion = "1.4.12".into();
         vm.findings.all_findings = vec![finding];
 
+        reassess(&mut vm);
         let kind = classify_problem_profile(&vm);
         assert_eq!(kind, ProblemProfileKind::Punktuell);
         assert_eq!(kind.label(&i18n_de), "punktuell");
@@ -472,6 +470,7 @@ mod tests {
         f2.finding.wcag_criterion = "4.1.2".into();
         vm.findings.all_findings = vec![f1, f2];
 
+        reassess(&mut vm);
         let kind = classify_problem_profile(&vm);
         assert_eq!(kind, ProblemProfileKind::KonzentriertSystemisch);
         assert_eq!(kind.label(&i18n_de), "konzentriert & systemisch");
@@ -505,6 +504,7 @@ mod tests {
             crate::audit::normalized::ModuleScoreEntry::new("Mobile", 70, "measured", true),
         ];
 
+        reassess(&mut vm);
         let kind = classify_problem_profile(&vm);
         assert_eq!(kind, ProblemProfileKind::BreitSystemisch);
         assert_eq!(kind.label(&i18n_de), "breit & systemisch");
@@ -517,5 +517,115 @@ mod tests {
         let desc_en = build_problem_profile_description(&vm, kind, &i18n_en);
         assert!(desc_en.contains("Multiple technical areas are affected simultaneously"));
         assert!(desc_en.contains("Accessibility, Performance, and Security"));
+    }
+
+    /// #1131: a module below the "good" band never yields "very good
+    /// technical condition"; the weak and the good areas are named.
+    #[test]
+    fn problem_profile_with_weak_modules_names_them_instead_of_very_good() {
+        let mut vm = test_report_view_model();
+        vm.modules.module_scores = vec![
+            ModuleScoreEntry::new("Accessibility", 49, "measured", true),
+            ModuleScoreEntry::new("Performance", 92, "measured", true),
+            ModuleScoreEntry::new("SEO", 88, "measured", true),
+            ModuleScoreEntry::new("Security", 40, "measured", true),
+        ];
+        vm.summary.score = 49;
+        reassess(&mut vm);
+        vm.management_risks = vec![];
+
+        let kind = classify_problem_profile(&vm);
+        for (locale, very_good, names) in [
+            (
+                "de",
+                "Sehr guter technischer Zustand",
+                ["Barrierefreiheit", "Sicherheit", "Performance"],
+            ),
+            (
+                "en",
+                "Very good technical condition",
+                ["Accessibility", "Security", "Performance"],
+            ),
+        ] {
+            let i18n = I18n::new(locale).unwrap();
+            let desc = build_problem_profile_description(&vm, kind, &i18n);
+            assert!(!desc.contains(very_good), "{locale}: {desc}");
+            for name in names {
+                assert!(desc.contains(name), "{locale}: {name} missing in {desc}");
+            }
+            if locale == "en" {
+                assert!(!desc.chars().any(|c| "äöüß".contains(c)), "{desc}");
+                assert!(
+                    desc.contains("clear deficits in Accessibility and Security"),
+                    "{desc}"
+                );
+            } else {
+                assert!(
+                    desc.contains("deutliche Defizite bei Barrierefreiheit und Sicherheit"),
+                    "{desc}"
+                );
+            }
+        }
+
+        // Without any module in the good band the sentence names only the
+        // deficits.
+        vm.modules.module_scores = vec![
+            ModuleScoreEntry::new("Accessibility", 49, "measured", true),
+            ModuleScoreEntry::new("Security", 40, "measured", true),
+        ];
+        reassess(&mut vm);
+        let kind = classify_problem_profile(&vm);
+        let en = build_problem_profile_description(&vm, kind, &I18n::new("en").unwrap());
+        assert!(
+            en.starts_with("Clear deficits in Accessibility and Security."),
+            "{en}"
+        );
+        let de = build_problem_profile_description(&vm, kind, &I18n::new("de").unwrap());
+        assert!(
+            de.starts_with("Deutliche Defizite bei Barrierefreiheit und Sicherheit."),
+            "{de}"
+        );
+    }
+
+    /// #1131: the profile reads the verdict's assessment — a verdict that
+    /// names structural backlog is never "isolated", and a single finding under
+    /// a legal flag is neither structural in the verdict nor in the profile.
+    #[test]
+    fn problem_profile_follows_the_verdict_assessment() {
+        let mut vm = test_report_view_model();
+        vm.modules.module_scores = vec![
+            ModuleScoreEntry::new("Accessibility", 92, "measured", true),
+            ModuleScoreEntry::new("Performance", 90, "measured", true),
+            ModuleScoreEntry::new("Security", 95, "measured", true),
+        ];
+        vm.summary.score = 92;
+        let mut finding = vm.findings.all_findings[0].clone();
+        finding.finding.occurrence_count = 6;
+        vm.findings.all_findings = vec![finding.clone()];
+        reassess(&mut vm);
+        vm.assessment.severe_legal_flags = 1;
+        assert_eq!(vm.assessment.verdict_key(), "verdict-tier-violations");
+        assert_eq!(classify_problem_profile(&vm), ProblemProfileKind::Punktuell);
+
+        let mut second = finding.clone();
+        second.finding.rule_id = "4.1.2".into();
+        second.finding.wcag_criterion = "4.1.2".into();
+        vm.findings.all_findings = vec![finding, second];
+        reassess(&mut vm);
+        vm.assessment.severe_legal_flags = 1;
+        assert_eq!(vm.assessment.verdict_key(), "verdict-tier-deficient");
+        assert_eq!(
+            classify_problem_profile(&vm),
+            ProblemProfileKind::KonzentriertSystemisch
+        );
+        let en = build_problem_profile_description(
+            &vm,
+            ProblemProfileKind::KonzentriertSystemisch,
+            &I18n::new("en").unwrap(),
+        );
+        assert!(
+            en.starts_with("Accessibility determines the need for action"),
+            "{en}"
+        );
     }
 }

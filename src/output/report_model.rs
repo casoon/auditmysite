@@ -136,6 +136,9 @@ pub struct ReportViewModel {
     /// them in the run language while the JSON keeps canonical English
     /// (#406, plan 35).
     pub management_risks: Vec<crate::audit::management_risk::ManagementRiskKind>,
+    /// The assessment the verdict sentence is derived from; the problem
+    /// profile reads the same one (#1131).
+    pub assessment: crate::audit::interpretation::Assessment,
     /// External assessments of `--annotations` (#961). Set by the PDF entry
     /// point, never by the view-model builder: nothing in the view model is
     /// derived from them.

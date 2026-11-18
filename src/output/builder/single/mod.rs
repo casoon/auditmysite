@@ -462,6 +462,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         appendix: build_appendix_block_from_normalized(&config.locale, &normalized.normalized),
         positive_signals: build_positive_signals(&i18n, normalized),
         management_risks,
+        assessment: crate::audit::interpretation::Assessment::from_report(&normalized.normalized),
         annotations: None,
     }
 }

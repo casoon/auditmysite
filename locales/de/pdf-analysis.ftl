@@ -40,7 +40,9 @@ pdf-analysis-profile-structural = { $count ->
        *[other] Einzelne lokale Optimierungen; { $count } Befunde mit großer Reichweite oder struktureller Änderung werden unter den wichtigsten Risiken genannt.
     }
 pdf-analysis-profile-isolated-good = Sehr guter technischer Zustand. { $tail }
-pdf-analysis-profile-isolated-named = { $names } bestimmt den Handlungsbedarf. { $tail }
+pdf-analysis-profile-isolated-mixed = Guter Zustand bei { $good }; deutliche Defizite bei { $weak }. { $tail }
+pdf-analysis-profile-isolated-weak = Deutliche Defizite bei { $weak }. { $tail }
+pdf-analysis-profile-isolated-named ={ $names } bestimmt den Handlungsbedarf. { $tail }
 pdf-analysis-profile-concentrated-systemic = { $names } { $several ->
         [yes] bestimmen
        *[no] bestimmt

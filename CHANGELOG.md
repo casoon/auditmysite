@@ -7,6 +7,10 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Fixed
+
+- **Report:** the verdict sentence and the problem profile read one shared assessment and no longer contradict the scores (Refs #1131). A High/Critical legal flag caps the verdict at the new tier "Automated checks identified WCAG violations" instead of forcing "structural backlog"; "structural backlog" needs systemic findings (several WCAG rules at medium severity or above with recurring occurrences), never a single finding, and the problem profile is never "isolated" next to it. "Very good technical condition" appears only while no weighted module is below the "good" band; otherwise the profile names the good and the weak areas. JSON: `interpretation.verdict_key` can be `verdict-tier-violations`, the batch `summary.score_band_key` `verdict-batch-violations`.
+
 ## [2.1.0] - 2026-11-18
 
 ### Breaking

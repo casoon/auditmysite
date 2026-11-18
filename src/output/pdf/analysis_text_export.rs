@@ -380,12 +380,18 @@ const FINDING_SETS: [(&str, &[usize]); 7] = [
 
 // ─── Problem profile ────────────────────────────────────────────────────────
 
-/// Module score sets: no weak module, a weak one that is not critical, and one
-/// to four critical ones (the names include one without a message).
-const MODULE_SETS: [(&str, &[(&str, u32)]); 8] = [
+/// Module score sets: no weak module, weak ones that are not critical (with
+/// and without a good one), and one to four critical ones (the names include
+/// one without a message).
+const MODULE_SETS: [(&str, &[(&str, u32)]); 10] = [
     ("none", &[]),
     ("all good", &[("Accessibility", 99), ("SEO", 90)]),
     ("weak only", &[("Accessibility", 99), ("Performance", 60)]),
+    (
+        "two weak",
+        &[("Accessibility", 49), ("Performance", 92), ("Security", 40)],
+    ),
+    ("no good", &[("Accessibility", 49), ("Security", 40)]),
     ("one critical", &[("Security", 30), ("SEO", 90)]),
     ("one unknown", &[("Brand New Module", 10)]),
     (
@@ -418,6 +424,19 @@ fn export_problem_profile(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
             .collect();
         for (findings_name, counts) in FINDING_SETS {
             vm.findings.all_findings = findings(&template, counts);
+            let all: Vec<_> = vm
+                .findings
+                .all_findings
+                .iter()
+                .map(|f| f.finding.clone())
+                .collect();
+            vm.assessment = crate::audit::interpretation::Assessment::new(
+                vm.summary.score,
+                0,
+                vm.assessment.severity_counts.clone(),
+                &all,
+                &vm.modules.module_scores,
+            );
             for structural in [0, 1, 2] {
                 vm.management_risks = vec![ManagementRiskKind::Project {
                     count: structural,

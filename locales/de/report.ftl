@@ -108,6 +108,7 @@ verdict-tier-excellent-high = { $url } erreicht { $score }/100 im automatisierte
 verdict-tier-excellent-critical = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Trotz des hohen Werts ist mindestens ein kritischer Befund offen und sollte zuerst behoben werden. Dieser Wert ersetzt keine manuelle Prüfung.
 verdict-tier-solid = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Die Grundlage ist gut — die verbleibenden Befunde sind gezielte Verbesserungshebel mit überschaubarem Aufwand.
 verdict-tier-stable = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Die Grundlage ist stabil, aber nicht frei von Barrieren — mehrere Verbesserungshebel sollten eingeplant werden.
+verdict-tier-violations = { $url } erreicht { $score }/100. Im automatisierten Prüfumfang wurden WCAG-Verstöße erkannt; sie beschränken sich auf einzelne Regeln und bilden kein wiederkehrendes Muster — diese zuerst beheben.
 verdict-tier-deficient = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Es bestehen deutliche Barrieren — nicht nur Detailprobleme, sondern struktureller Nachholbedarf.
 verdict-tier-critical = { $url } erreicht nur { $score }/100 im automatisierten Accessibility-Prüfumfang. Akuter Handlungsbedarf: Wesentliche Inhalte und Funktionen sind für einen Teil der Nutzer nicht zugänglich.
 score-note-high-with-critical = Der Score berücksichtigt Gewichtung und Häufigkeit. Einzelne kritische Themen können trotz eines hohen Barrierefreiheitswerts bestehen.
@@ -117,6 +118,7 @@ score-note-perfect-automated-scope = Im automatisch geprüften Umfang wurden kei
 verdict-batch-excellent = Über { $total_urls } geprüfte URLs erreicht die Barrierefreiheit im Schnitt { $score }/100 — ein sehr gutes Ergebnis im automatisch geprüften Umfang.
 verdict-batch-solid = Die { $total_urls } geprüften URLs erreichen bei der Barrierefreiheit im Schnitt { $score }/100. Die Grundlage ist gut, es bestehen aber wiederkehrende Probleme.
 verdict-batch-stable = Die { $total_urls } geprüften URLs erreichen bei der Barrierefreiheit im Schnitt { $score }/100. Die Grundlage ist stabil, aber wiederkehrende Barrieren sollten eingeplant werden.
+verdict-batch-violations = Die { $total_urls } geprüften URLs erreichen bei der Barrierefreiheit im Schnitt { $score }/100. Im automatisierten Prüfumfang wurden WCAG-Verstöße erkannt, die vorrangig behoben werden sollten.
 verdict-batch-deficient = Die { $total_urls } geprüften URLs erreichen bei der Barrierefreiheit im Schnitt { $score }/100. Es bestehen erhebliche wiederkehrende Probleme.
 verdict-batch-critical = Die { $total_urls } geprüften URLs erreichen bei der Barrierefreiheit im Schnitt nur { $score }/100. Die wiederkehrenden Barrieren sollten vorrangig behoben werden.
 
