@@ -7,6 +7,10 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Fixed
+
+- **Report:** a module of the technical appendix no longer always starts on a new page: it follows the previous one when at least 30 % of the page is left (`soft-page-break` of renderreport 0.8.1). Short module tails no longer leave pages that are mostly empty; the sample report of casoon.de goes from 44 to 40 pages.
+
 ## [2.1.0] - 2026-11-18
 
 ### Breaking
