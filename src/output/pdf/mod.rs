@@ -484,6 +484,8 @@ mod annex_text_guard;
 mod frame_text_export;
 #[cfg(test)]
 mod frame_text_guard;
+#[cfg(test)]
+mod rating_label_guard;
 
 #[cfg(all(test, feature = "pdf_test"))]
 #[path = "tests.rs"]

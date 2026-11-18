@@ -158,13 +158,13 @@ pub(super) fn effort_short_label_i18n(effort: Effort, i18n: &I18n) -> String {
     effort.short_label(is_english(i18n))
 }
 
-pub(super) fn score_quality_label(score: u32) -> &'static str {
-    match score {
-        85..=100 => "Stark",
-        70..=84 => "Solide",
-        50..=69 => "Uneinheitlich",
-        _ => "Schwach",
-    }
+pub(super) fn score_quality_label(score: u32, i18n: &I18n) -> String {
+    i18n.t(match score {
+        85..=100 => "pdf-score-quality-strong",
+        70..=84 => "pdf-score-quality-solid",
+        50..=69 => "pdf-score-quality-uneven",
+        _ => "pdf-score-quality-weak",
+    })
 }
 
 pub(super) fn score_quality_color(score: u32) -> &'static str {

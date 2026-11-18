@@ -7,6 +7,10 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Fixed
+
+- **Report:** English PDFs no longer print the German rating words "Stark", "Solide", "Uneinheitlich" and "Schwach" (and "Intent-Fit") in the SEO profile score grid; they come from `locales/{de,en}/report.ftl` in the run language. `SiteState::label()` returns canonical English ("Strong", "Stable foundation", "Unstable", "Critical") instead of German; a test fails on German rating-label literals in `src/output` (Refs #1136).
+
 ## [2.1.0] - 2026-11-18
 
 ### Breaking

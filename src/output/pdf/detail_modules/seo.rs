@@ -539,25 +539,25 @@ pub(in crate::output::pdf) fn render_seo_profile(
         (
             i18n.t("pdf-seo-profile-content-depth"),
             profile.content_depth_score,
-            score_quality_label(profile.content_depth_score),
+            score_quality_label(profile.content_depth_score, i18n),
             score_quality_color(profile.content_depth_score),
         ),
         (
             i18n.t("pdf-seo-profile-structure-quality"),
             profile.structural_richness_score,
-            score_quality_label(profile.structural_richness_score),
+            score_quality_label(profile.structural_richness_score, i18n),
             score_quality_color(profile.structural_richness_score),
         ),
         (
             i18n.t("pdf-seo-profile-media-balance"),
             profile.media_text_balance_score,
-            score_quality_label(profile.media_text_balance_score),
+            score_quality_label(profile.media_text_balance_score, i18n),
             score_quality_color(profile.media_text_balance_score),
         ),
         (
-            "Intent-Fit".to_string(),
+            i18n.t("pdf-seo-profile-intent-fit"),
             profile.intent_fit_score,
-            score_quality_label(profile.intent_fit_score),
+            score_quality_label(profile.intent_fit_score, i18n),
             score_quality_color(profile.intent_fit_score),
         ),
     ] {
