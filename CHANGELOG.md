@@ -7,12 +7,6 @@ and verification for each change is in the
 
 ## [Unreleased]
 
-### Fixed
-
-- **CLI:** with `--lang de` the table's own labels are German (`Barrierefreiheit`, `Verstöße`, `Dauer`, the batch counters, scope and baseline notes, the overflow hint); they were English next to German findings. The location after a finding is where it sits (`249:66`), no longer the rule title. The words of the table library itself (`Next steps:`, `more finding(s)`, `PASS`) stay English until it can be localized.
-- **Report:** the batch PDF opens with a cover like the single report's (domain, sample scope, average accessibility score with its band, WCAG occurrences, module averages) instead of the bare title page, where the long title broke at its hyphen (`Audit-` / `Report`). Page 2 now starts with its own heading, "Audit-Rahmen" / "Audit frame".
-- **Report:** a module of the technical appendix no longer always starts on a new page: it follows the previous one when at least 30 % of the page is left (`soft-page-break` of renderreport 0.8.1). Short module tails no longer leave pages that are mostly empty; the sample report of casoon.de goes from 44 to 40 pages.
-
 ## [2.1.0] - 2026-11-18
 
 ### Breaking
@@ -145,6 +139,7 @@ and verification for each change is in the
 
 ### Fixed
 
+- **CLI:** with `--lang de` the table's own labels are German (`Barrierefreiheit`, `Verstöße`, `Dauer`, the batch counters, scope and baseline notes, the overflow hint); they were English next to German findings. The location after a finding is where it sits (`249:66`), no longer the rule title. The words of the table library itself (`Next steps:`, `more finding(s)`, `PASS`) stay English until it can be localized.
 - **Pages:** the project site builds again: the generated `docs/reference/best-practice-rules.md` carries its front matter, so the Pages workflow no longer fails on every push to `main`.
 - **Report:** the batch top-actions rows no longer show a bare element name ("span: ...") or "cause open" and say "no shared cause established"; the action-plan table names every action as "problem: fix" and heads its last column "Priority"; the cover URLs card says how many URLs passed instead of counting WCAG occurrences; the per-page top-issues cell shows two titles in both languages; the HTML schema card no longer promises a message per element (Refs #1039).
 - **JSON:** `user_impact` and `technical_impact` of `html_conform.*` findings carry the readable sentence instead of the validator's parser string (which stays in `description` and the occurrences); `accessibility_score_breakdown[].main_driver` counts the rule over all pages and reads "1 occurrence" in the singular (Refs #1039).
@@ -173,6 +168,8 @@ and verification for each change is in the
 - **Report:** batch PDF wording matches its content: localized German criterion and module names, the defined band words, WCAG-labelled critical/high counts, intros naming the printed columns, ties disclosed, URLs and titles cut at path or word boundaries, no rule ids in titles and no duplicate schema table. The caching findings are now titled "HTML document without effective caching" and "Static resources without efficient caching" (JSON too) (Refs #1039).
 - **Report:** each HTML-conformance heading rule has its own fix text: a section or article without a heading, an empty heading, a missing h1, a skipped level and an invalid `headingoffset` no longer share one recommendation that led with skipped levels (Refs #1039).
 - **Report:** the batch action plan arranges the same findings as the top actions (`summary.top_actions`, the PDF's top-actions table) instead of every finding that had a fix text; the page-health and mobile checks (HTTP/1.1 only, inefficient caching, large DOM, small touch targets and the others) now carry a written fix in both languages, on their finding cards and in the single-page action plan too (Refs #1039).
+- **Report:** the batch PDF opens with a cover like the single report's (domain, sample scope, average accessibility score with its band, WCAG occurrences, module averages) instead of the bare title page, where the long title broke at its hyphen (`Audit-` / `Report`). Page 2 now starts with its own heading, "Audit-Rahmen" / "Audit frame".
+- **Report:** a module of the technical appendix no longer always starts on a new page: it follows the previous one when at least 30 % of the page is left (`soft-page-break` of renderreport 0.8.1). Short module tails no longer leave pages that are mostly empty; the sample report of casoon.de goes from 44 to 40 pages.
 - **Batch:** a reference finding whose cause no other finding on the page charges is listed in the batch aggregation: the Mobile touch-target finding (44 px) on pages where WCAG 2.5.8 (24 px) did not fire. This changes JSON values: `summary.top_actions` can include `mobile.small_targets`, and the PDF lists it under the most frequent violations; scores are unchanged (Refs #1039).
 - **Docs:** five broken links on the project site point to existing pages again (the manual WCAG checks, the CLI and output contract) or to the repository file where no site page exists (accname differential, privacy findings).
 - **Rules:** `keyboard/hidden-focusable` no longer counts a closed `aria-modal` box with an empty 0×0 layout (such as a closed cookie preference centre) as an open modal, so focusable elements in the hidden background stay a violation instead of a review (barrierlab `a11y-rules` 0.30.12). The a11y crates move from 0.30.11 to 0.30.12.
