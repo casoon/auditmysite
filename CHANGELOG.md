@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Fixed
 
+- **CLI:** with `--lang de` the table's own labels are German (`Barrierefreiheit`, `Verstöße`, `Dauer`, the batch counters, scope and baseline notes, the overflow hint); they were English next to German findings. The location after a finding is where it sits (`249:66`), no longer the rule title. The words of the table library itself (`Next steps:`, `more finding(s)`, `PASS`) stay English until it can be localized.
 - **Report:** a module of the technical appendix no longer always starts on a new page: it follows the previous one when at least 30 % of the page is left (`soft-page-break` of renderreport 0.8.1). Short module tails no longer leave pages that are mostly empty; the sample report of casoon.de goes from 44 to 40 pages.
 
 ## [2.1.0] - 2026-11-18
