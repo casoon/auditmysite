@@ -7,6 +7,10 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Fixed
+
+- **Report:** the Search Experience breakdown shows the weights the score was actually computed with (renormalized over the measured components, summing to 100 %), so the score can be recomputed from the rows. A line below the table names the components not measured in the run, and the intro lists only measured components (Refs #1134).
+
 ## [2.1.0] - 2026-11-18
 
 ### Breaking

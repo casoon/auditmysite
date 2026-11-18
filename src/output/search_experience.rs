@@ -112,6 +112,18 @@ pub fn build_search_experience(
     }
 
     let score = composite_score(&components);
+    let not_measured = [
+        ("pdf-analysis-search-content-clarity", W_CONTENT),
+        ("pdf-analysis-search-trust", W_TRUST),
+        ("pdf-analysis-search-structure", W_STRUCTURE),
+        ("pdf-analysis-search-ai", W_AI),
+        ("pdf-analysis-search-mobile", W_MOBILE),
+    ]
+    .iter()
+    .map(|(key, _)| i18n.t(key))
+    .filter(|label| !components.iter().any(|c| &c.label == label))
+    .collect();
+    apply_effective_weights(&mut components);
     let mut warnings = build_warnings(normalized, score, i18n);
     warnings.truncate(5);
 
@@ -120,6 +132,7 @@ pub fn build_search_experience(
         label: i18n.t("pdf-analysis-search-label"),
         interpretation: interpretation(score, seo.score, &components, i18n),
         components,
+        not_measured,
         warnings,
     })
 }
@@ -131,6 +144,33 @@ fn composite_score(components: &[SearchExperienceComponent]) -> u32 {
     }
     let weighted: u32 = components.iter().map(|c| c.score * c.weight_pct).sum();
     ((weighted as f64 / total_weight as f64).round() as u32).min(100)
+}
+
+/// Replaces the nominal weights by the weights the composite actually used
+/// (renormalized over the present components), as whole percents summing to
+/// exactly 100 (largest remainder), so the score can be recomputed from the rows.
+fn apply_effective_weights(components: &mut [SearchExperienceComponent]) {
+    let total: u32 = components.iter().map(|c| c.weight_pct).sum();
+    if total == 0 {
+        return;
+    }
+    let mut effective: Vec<(u32, u32)> = components
+        .iter()
+        .map(|c| (c.weight_pct * 100 / total, c.weight_pct * 100 % total))
+        .collect();
+    let mut missing = 100 - effective.iter().map(|(w, _)| w).sum::<u32>();
+    let mut order: Vec<usize> = (0..effective.len()).collect();
+    order.sort_by_key(|&i| std::cmp::Reverse(effective[i].1));
+    for i in order {
+        if missing == 0 {
+            break;
+        }
+        effective[i].0 += 1;
+        missing -= 1;
+    }
+    for (component, (weight, _)) in components.iter_mut().zip(effective) {
+        component.weight_pct = weight;
+    }
 }
 
 fn weighted_average(items: &[(u32, u32)]) -> u32 {
@@ -320,6 +360,28 @@ mod tests {
         ];
 
         assert_eq!(composite_score(&components), 63);
+    }
+
+    #[test]
+    fn effective_weights_sum_to_100_and_reproduce_the_score() {
+        let mut components: Vec<SearchExperienceComponent> =
+            [(88, 35), (69, 25), (60, 10), (75, 5)]
+                .iter()
+                .map(|&(score, weight_pct)| SearchExperienceComponent {
+                    label: String::new(),
+                    score,
+                    weight_pct,
+                    explanation: String::new(),
+                })
+                .collect();
+        let score = composite_score(&components);
+        apply_effective_weights(&mut components);
+        assert_eq!(components.iter().map(|c| c.weight_pct).sum::<u32>(), 100);
+        let weighted: f64 = components
+            .iter()
+            .map(|c| c.score as f64 * c.weight_pct as f64 / 100.0)
+            .sum();
+        assert!((weighted - score as f64).abs() <= 1.0);
     }
 
     #[test]

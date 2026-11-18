@@ -556,6 +556,8 @@ pub struct SearchExperiencePresentation {
     pub label: String,
     pub interpretation: String,
     pub components: Vec<SearchExperienceComponent>,
+    /// Labels of the nominal components this run did not measure.
+    pub not_measured: Vec<String>,
     pub warnings: Vec<String>,
 }
 
