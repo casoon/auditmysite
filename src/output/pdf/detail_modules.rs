@@ -153,19 +153,25 @@ fn score_gauge_thresholds() -> Vec<GaugeThreshold> {
     ]
 }
 
-/// Opens a module as a level-2 chapter: a page break (unless it is the first
-/// module) plus a level-2 header carrying the module name and a one-line key
-/// takeaway, so the module appears in the table of contents as its own chapter
-/// and the reader leaves the page with one core message (#15).
+/// Share of the page height a module opener needs (header, score card and the
+/// first lines of text). With less room left, the module starts a new page;
+/// with more it follows the previous module, so a short module tail no longer
+/// leaves a page that is mostly empty.
+pub(super) const MODULE_OPENER_ROOM: f64 = 0.30;
+
+/// Opens a module as a level-2 chapter: a soft page break (unless it is the
+/// first module) plus a level-2 header carrying the module name and a one-line
+/// key takeaway, so the module appears in the table of contents as its own
+/// chapter and the reader leaves the page with one core message (#15).
 pub(super) fn module_chapter_opener(
     mut builder: renderreport::engine::ReportBuilder,
     title: &str,
     takeaway: &str,
     is_first: bool,
 ) -> renderreport::engine::ReportBuilder {
-    use renderreport::components::advanced::{PageBreak, SectionHeaderSplit};
+    use renderreport::components::advanced::{SectionHeaderSplit, SoftPageBreak};
     if !is_first {
-        builder = builder.add_component(PageBreak::new());
+        builder = builder.add_component(SoftPageBreak::needs(MODULE_OPENER_ROOM));
     }
     builder.add_component(SectionHeaderSplit::new(title, takeaway).with_level(2))
 }

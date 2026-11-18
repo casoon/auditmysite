@@ -94,3 +94,23 @@ mod journey_label_tests {
         assert_eq!(journey_label("something_new_7", false), "something_new_7");
     }
 }
+
+/// A module opener follows the previous module when enough room is left, and
+/// the first module needs no break at all.
+#[test]
+fn module_opener_uses_a_soft_page_break_except_for_the_first_module() {
+    let builder = |first| {
+        super::module_chapter_opener(
+            renderreport::engine::ReportBuilder::new("single"),
+            "Title",
+            "Takeaway",
+            first,
+        )
+        .build()
+    };
+    let later = serde_json::to_string(&builder(false).components).unwrap();
+    assert!(later.contains("soft-page-break"), "{later}");
+    assert!(!later.contains("\"page-break\""), "{later}");
+    let first = serde_json::to_string(&builder(true).components).unwrap();
+    assert!(!first.contains("page-break"), "{first}");
+}
