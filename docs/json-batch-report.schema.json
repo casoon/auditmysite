@@ -1018,14 +1018,35 @@
     },
     "coverageRatio": {
       "type": "object",
+      "description": "Per-principle count of automatically checked WCAG A/AA criteria by state (#1135): `passed` (ran, no finding), `violation` (at least one violation), `review` (heuristic warning, needs manual review), `not_tested` (not run or not testable), `not_applicable` (nothing to check on this page; outside `total`). `total` is `passed + violation + review + not_tested`, `ratio` is `passed / total`.",
       "required": [
         "passed",
+        "violation",
+        "review",
+        "not_tested",
+        "not_applicable",
         "total",
         "ratio"
       ],
       "additionalProperties": false,
       "properties": {
         "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "violation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "review": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_tested": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_applicable": {
           "type": "integer",
           "minimum": 0
         },

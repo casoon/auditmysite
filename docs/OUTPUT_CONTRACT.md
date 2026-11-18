@@ -494,6 +494,28 @@ the volume bounds (5, 3, 5) are likewise conventions.
 Share from 0 to 1 of automatically evaluated checks without a finding for
 that WCAG principle; it is coverage context and does not affect the score.
 
+Each principle (`perceivable`, `operable`, `understandable`, `robust`) counts
+the automatically checked WCAG A/AA criteria by their state in this run
+(#1135). A criterion has exactly one state; when several rules or findings
+touch it, the strongest wins in the order below (violation first):
+
+| Field | State |
+| --- | --- |
+| `violation` | at least one violation |
+| `review` | a heuristic warning that needs manual review; not a violation, no score effect |
+| `not_tested` | a rule for it did not run (error, disabled, capability missing) or it is reported as not testable |
+| `passed` | its rules ran and found nothing |
+| `not_applicable` | nothing to check on this page, or above the audited level |
+
+`total` is `passed + violation + review + not_tested` (`not_applicable` stays
+outside it) and `ratio` is `passed / total`, as before. Before #1135 the block
+carried only `passed`, `total` and `ratio`, so "11/12 passed" at an
+accessibility score of 100 did not say why one criterion was not passed; a
+review warning lowers `passed`, never the score. The four counts are additive
+and required in both schemas; `schema_version` stays `2.2`, cache `fmt` 36
+turns cached results into misses. The PDF prints the same five counts per
+principle.
+
 <a id="finding-priority-score"></a>
 ### finding_priority_score — `pages[].findings[].priority_score`
 

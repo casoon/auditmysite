@@ -7,6 +7,10 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Changed
+
+- **JSON/PDF:** the WCAG principle coverage counts every automatically checked criterion by state: `pages[].principle_coverage.*` gains `violation`, `review`, `not_tested` and `not_applicable` next to `passed`, `total` and `ratio`, and the PDF prints the five counts per principle, so "11/12 passed" at an accessibility score of 100 shows the one review warning behind it. The score and the meaning of `passed`, `total` and `ratio` are unchanged; schemas updated, cache entries are misses (cache `fmt` 36). Details: [Output contract](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md#principle-coverage-ratio) (Refs #1135).
+
 ## [2.1.0] - 2026-11-18
 
 ### Breaking

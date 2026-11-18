@@ -46,7 +46,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 77);
+    assert_eq!(en.len(), 78);
 }
 
 #[test]
@@ -112,6 +112,12 @@ fn every_key_resolves_in_both_languages_without_errors() {
             "list",
             "listed",
             "aaa",
+            "passed",
+            "percent",
+            "violation",
+            "review",
+            "not_tested",
+            "not_applicable",
         ] {
             args.set(name, FluentValue::from("x"));
         }

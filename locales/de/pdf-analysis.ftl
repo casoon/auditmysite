@@ -86,6 +86,7 @@ pdf-analysis-coverage-perceivable = Wahrnehmbar
 pdf-analysis-coverage-operable = Bedienbar
 pdf-analysis-coverage-understandable = Verständlich
 pdf-analysis-coverage-robust = Robust
+pdf-analysis-coverage-ratio = { $passed }/{ $total } bestanden ({ $percent } %) · Verstoß: { $violation } · manuelle Prüfung: { $review } · nicht prüfbar oder nicht gelaufen: { $not_tested } · entfällt: { $not_applicable }
 pdf-analysis-coverage-scope-title = Prüfumfang
 pdf-analysis-coverage-intro = Dieses Audit prüft { $automated } von ca. { $total } WCAG-2.2-AA-Kriterien automatisch. Die unten aufgeführten Kriterien benötigen manuelle Prüfung.
 pdf-analysis-coverage-intro-new = Dieses Audit prüft { $automated } von ca. { $total } WCAG-2.2-AA-Kriterien automatisch. { $count } davon ({ $list }, unten und bei einzelnen Befunden mit „WCAG 2.2“ gekennzeichnet) sind mit WCAG 2.2 hinzugekommen und Teil von EN 301 549 V4.1.1, aber nicht von V3.2.1. Die unten aufgeführten Kriterien benötigen manuelle Prüfung.
