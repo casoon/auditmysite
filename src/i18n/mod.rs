@@ -811,6 +811,9 @@ mod tests {
         assert!(leverage(&en, 1).contains("1 occurrence affected"));
         assert!(leverage(&en, 3).contains("3 occurrences affected"));
         assert!(leverage(&de, 1).contains("1 Vorkommen betroffen"));
+        // The label names the reach of the fix, not urgency (#1133).
+        assert!(leverage(&en, 1).starts_with("Fix reach: "));
+        assert!(leverage(&de, 1).starts_with("Reichweite der Korrektur: "));
 
         // The EN texts take the count words the German ones already used.
         let evidence = en.t_args(

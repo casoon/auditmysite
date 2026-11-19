@@ -468,6 +468,35 @@ impl TopMeasure {
 /// further down. Everything here is already-localized view-model data; no new
 /// analysis is derived at render time.
 pub(super) fn cross_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(TopMeasure, usize)> {
+    ranked_module_measures(vm, i18n)
+        .into_iter()
+        .map(|ranked| (ranked.measure, ranked.extra))
+        .collect()
+}
+
+/// 0 = critical … 3 = low: the order of the key-measures ranking.
+fn severity_rank(severity: crate::wcag::Severity) -> u8 {
+    use crate::wcag::Severity;
+    match severity {
+        Severity::Critical => 0,
+        Severity::High => 1,
+        Severity::Medium => 2,
+        Severity::Low => 3,
+    }
+}
+
+/// A module measure with what the cross-module ranking needs (#1133).
+struct RankedModuleMeasure {
+    /// 0 = critical … 3 = low.
+    severity: u8,
+    /// Points the module costs the site-quality score; the module's own lever.
+    cost: u32,
+    measure: TopMeasure,
+    /// Further measures of the same kind collapsed into this one.
+    extra: usize,
+}
+
+fn ranked_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<RankedModuleMeasure> {
     use crate::wcag::Severity;
 
     let details = &vm.module_details;
@@ -489,13 +518,6 @@ pub(super) fn cross_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(T
             .find(|m| m.name.eq_ignore_ascii_case(name) && m.contributes_to_site_quality_score)
             .map(|m| (100u32.saturating_sub(m.score)) * m.weight_pct)
             .unwrap_or(0)
-    };
-
-    let severity_rank = |s: Severity| match s {
-        Severity::Critical => 0u8,
-        Severity::High => 1,
-        Severity::Medium => 2,
-        Severity::Low => 3,
     };
 
     // (severity, module cost, measure)
@@ -603,21 +625,22 @@ pub(super) fn cross_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(T
     // Collapse findings that resolve into the same action. Three separate CSP
     // misconfigurations are three findings but one measure — listing them
     // individually filled a five-slot management list with one topic.
-    let mut collapsed: Vec<(TopMeasure, usize)> = Vec::new();
-    for (_, _, measure) in ranked {
-        let duplicate = !measure.title.is_empty()
-            && collapsed
-                .iter()
-                .any(|(kept, _)| kept.module == measure.module && kept.title == measure.title);
-        if duplicate {
-            if let Some(entry) = collapsed
-                .iter_mut()
-                .find(|(kept, _)| kept.module == measure.module && kept.title == measure.title)
-            {
-                entry.1 += 1;
+    let mut collapsed: Vec<RankedModuleMeasure> = Vec::new();
+    for (severity, cost, measure) in ranked {
+        let same = |kept: &RankedModuleMeasure| {
+            kept.measure.module == measure.module && kept.measure.title == measure.title
+        };
+        if !measure.title.is_empty() && collapsed.iter().any(same) {
+            if let Some(entry) = collapsed.iter_mut().find(|kept| same(kept)) {
+                entry.extra += 1;
             }
         } else {
-            collapsed.push((measure, 0));
+            collapsed.push(RankedModuleMeasure {
+                severity,
+                cost,
+                measure,
+                extra: 0,
+            });
         }
     }
     collapsed
@@ -634,36 +657,81 @@ fn is_accessibility_rule(rule_id: &str) -> bool {
 /// further findings collapsed into each. The single source for that list and
 /// for the action plan, which carries a card for every entry (#902-8).
 pub(super) fn top_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(TopMeasure, usize)> {
+    use crate::audit::prioritization::is_mandatory;
+
     let accessibility = module_label_accessibility(i18n);
-    let mut measures: Vec<(TopMeasure, usize)> = vm
+    let mut candidates: Vec<Candidate> = vm
         .findings
         .top_findings
         .iter()
         // Only accessibility groups carry the "Accessibility" label and a
         // written recommendation; HTML conformance, security and SEO
-        // findings enter through `cross_module_measures` under their own
+        // findings enter through `ranked_module_measures` under their own
         // module name. Labelling them "Barrierefreiheit — Unsafe inline
         // script: " (empty text) was a mislabel.
         .filter(|group| is_accessibility_rule(&group.finding.rule_id))
-        .take(5)
-        .map(|group| {
-            (
-                TopMeasure {
-                    module: accessibility.clone(),
-                    title: group.title.clone(),
-                    detail: group.recommendation.clone(),
-                    from_findings: true,
-                },
-                0,
-            )
+        .map(|group| Candidate {
+            severity: severity_rank(group.finding.severity),
+            optional: u8::from(!is_mandatory(
+                group.finding.category(),
+                &group.finding.wcag_level,
+            )),
+            reach: group.finding.occurrence_count,
+            leverage: group.finding.priority_score,
+            measure: TopMeasure {
+                module: accessibility.clone(),
+                title: group.title.clone(),
+                detail: group.recommendation.clone(),
+                from_findings: true,
+            },
+            extra: 0,
         })
         .collect();
+    candidates.extend(
+        ranked_module_measures(vm, i18n)
+            .into_iter()
+            .map(|ranked| Candidate {
+                severity: ranked.severity,
+                optional: 1,
+                reach: 1 + ranked.extra,
+                leverage: ranked.cost as f32,
+                measure: ranked.measure,
+                extra: ranked.extra,
+            }),
+    );
 
-    if measures.len() < 5 {
-        let missing = 5 - measures.len();
-        measures.extend(cross_module_measures(vm, i18n).into_iter().take(missing));
-    }
-    measures
+    rank_measures(candidates)
+}
+
+/// One entry of the key-measures ranking; lower `severity` is more urgent.
+struct Candidate {
+    severity: u8,
+    /// 0 for a WCAG A/AA obligation, 1 for everything else.
+    optional: u8,
+    reach: usize,
+    leverage: f32,
+    measure: TopMeasure,
+    extra: usize,
+}
+
+/// One list for all modules (#1133): severity first, at equal severity the
+/// WCAG A/AA obligations ahead of everything else, then reach, then leverage.
+/// The sort is stable, so equal entries keep the order the accessibility
+/// groups (`action_order`) and the module lists already have; a Low hint never
+/// outranks a High finding of any module. The first five are the key measures.
+fn rank_measures(mut candidates: Vec<Candidate>) -> Vec<(TopMeasure, usize)> {
+    candidates.sort_by(|a, b| {
+        a.severity
+            .cmp(&b.severity)
+            .then(a.optional.cmp(&b.optional))
+            .then(b.reach.cmp(&a.reach))
+            .then(b.leverage.total_cmp(&a.leverage))
+    });
+    candidates
+        .into_iter()
+        .take(5)
+        .map(|candidate| (candidate.measure, candidate.extra))
+        .collect()
 }
 
 pub(super) fn build_top_measures_list(vm: &ReportViewModel, i18n: &I18n) -> List {
@@ -1990,6 +2058,64 @@ mod top_measure_tests {
         ] {
             assert!(!is_accessibility_rule(id), "{id}");
         }
+    }
+
+    fn candidate(module: &str, severity: u8, optional: u8, reach: usize) -> Candidate {
+        Candidate {
+            severity,
+            optional,
+            reach,
+            leverage: 0.0,
+            measure: measure(module, "", ""),
+            extra: 0,
+        }
+    }
+
+    fn order(candidates: Vec<Candidate>) -> Vec<String> {
+        rank_measures(candidates)
+            .into_iter()
+            .map(|(m, _)| m.module)
+            .collect()
+    }
+
+    /// #1133: a Low accessibility hint sat at position 2 ahead of missing
+    /// CSP and HSTS because the accessibility findings were taken first.
+    #[test]
+    fn a_low_hint_never_outranks_a_high_finding_of_another_module() {
+        let ranked = order(vec![
+            candidate("a11y-low-hint", 3, 1, 40),
+            candidate("a11y-high", 1, 0, 2),
+            candidate("security-csp", 1, 1, 1),
+            candidate("security-hsts", 1, 1, 1),
+        ]);
+        assert_eq!(
+            ranked,
+            [
+                "a11y-high",
+                "security-csp",
+                "security-hsts",
+                "a11y-low-hint"
+            ]
+        );
+    }
+
+    #[test]
+    fn at_equal_severity_a_wcag_obligation_comes_before_other_modules() {
+        let ranked = order(vec![
+            candidate("seo", 2, 1, 50),
+            candidate("a11y-aa", 2, 0, 1),
+        ]);
+        assert_eq!(ranked, ["a11y-aa", "seo"]);
+    }
+
+    #[test]
+    fn reach_breaks_a_tie_and_only_five_measures_are_kept() {
+        let mut candidates: Vec<Candidate> = (1..=7)
+            .map(|reach| candidate(&format!("m{reach}"), 2, 1, reach))
+            .collect();
+        candidates.push(candidate("critical", 0, 1, 1));
+        let ranked = order(candidates);
+        assert_eq!(ranked, ["critical", "m7", "m6", "m5", "m4"]);
     }
 
     #[test]

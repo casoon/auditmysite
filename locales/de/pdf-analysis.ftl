@@ -73,7 +73,7 @@ pdf-analysis-roadmap-modules-title = Weitere Module
 pdf-analysis-roadmap-modules-subtitle = Empfehlungen aus den Modulen Sicherheit, Mobile, Performance und SEO, die in den wichtigsten Maßnahmen genannt sind.
 pdf-analysis-roadmap-empty-modules = Keine priorisierten Barrierefreiheits-Maßnahmen. Zu anderen Modulen (Performance, SEO, Sicherheit, Mobile): { $recommendations } — sie stehen in den jeweiligen Modulabschnitten und in den wichtigsten Maßnahmen oben.
 pdf-analysis-roadmap-empty = Keine priorisierten Maßnahmen — keine Befunde mit Handlungsbedarf.
-pdf-analysis-roadmap-leverage = Reparaturhebel: { $leverage } — { $count ->
+pdf-analysis-roadmap-leverage = Reichweite der Korrektur: { $leverage } — { $count ->
         [one] 1 Vorkommen
        *[other] { $count } Vorkommen
     } betroffen · Aufwand: { $effort }
