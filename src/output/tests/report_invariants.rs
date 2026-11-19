@@ -279,6 +279,7 @@ fn landmark_violations_do_not_move_ai_chunking() {
         in_faq_context: false,
         word_count_after: 120,
         hidden: false,
+        in_dialog: false,
     };
     let with_main = |results: WcagResults| {
         let mut report = make_report(results);
@@ -286,6 +287,7 @@ fn landmark_violations_do_not_move_ai_chunking() {
             headings: HeadingStructure {
                 h1_count: 1,
                 h1_text: Some("Title".to_string()),
+                dialog_h1_count: 0,
                 headings: vec![
                     heading(1, "Title"),
                     heading(2, "Part"),

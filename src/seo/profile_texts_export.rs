@@ -30,6 +30,7 @@ fn heading(level: u8) -> HeadingInfo {
         in_faq_context: false,
         word_count_after: 0,
         hidden: false,
+        in_dialog: false,
     }
 }
 

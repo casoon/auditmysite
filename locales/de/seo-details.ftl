@@ -23,6 +23,11 @@ seo-details-heading-summary =
         [one] { $issues } Problem
        *[other] { $issues } Probleme
     }
+seo-details-heading-dialog-h1 =
+    { $count ->
+        [one] 1 H1 in einem Dialog oder Einwilligungs-Layer (zählt nicht als H1 der Seite)
+       *[other] { $count } H1-Überschriften in einem Dialog oder Einwilligungs-Layer (zählen nicht als H1 der Seite)
+    }
 seo-details-social-summary = Open Graph: { $og }, Twitter Card: { $twitter }, Vollständigkeit: { $completeness }%
 
 ## Schema inventory

@@ -1674,6 +1674,7 @@ mod tests {
             headings: HeadingStructure {
                 h1_count: 2,
                 h1_text: Some("First".into()),
+                dialog_h1_count: 0,
                 headings: vec![
                     HeadingInfo {
                         level: 2,
@@ -1683,6 +1684,7 @@ mod tests {
                         in_faq_context: false,
                         word_count_after: 10,
                         hidden: false,
+                        in_dialog: false,
                     },
                     HeadingInfo {
                         level: 1,
@@ -1692,6 +1694,7 @@ mod tests {
                         in_faq_context: false,
                         word_count_after: 10,
                         hidden: false,
+                        in_dialog: false,
                     },
                     HeadingInfo {
                         level: 3,
@@ -1701,6 +1704,7 @@ mod tests {
                         in_faq_context: false,
                         word_count_after: 5,
                         hidden: false,
+                        in_dialog: false,
                     },
                     HeadingInfo {
                         level: 1,
@@ -1710,6 +1714,7 @@ mod tests {
                         in_faq_context: false,
                         word_count_after: 5,
                         hidden: false,
+                        in_dialog: false,
                     },
                 ],
                 issues: vec![],
@@ -1963,6 +1968,7 @@ mod tests {
             headings: HeadingStructure {
                 h1_count: usize::from(h1.is_some()),
                 h1_text: h1.map(str::to_string),
+                dialog_h1_count: 0,
                 headings: h1
                     .map(|text| {
                         vec![HeadingInfo {
@@ -1973,6 +1979,7 @@ mod tests {
                             in_faq_context: false,
                             word_count_after: 10,
                             hidden: false,
+                            in_dialog: false,
                         }]
                     })
                     .unwrap_or_default(),

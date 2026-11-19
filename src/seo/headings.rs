@@ -17,10 +17,15 @@ use crate::util::truncate_url;
 /// Heading structure analysis
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct HeadingStructure {
-    /// Number of H1 elements
+    /// Number of H1 elements of the page's content: an H1 inside a dialog or
+    /// consent layer is not counted here (#1132), see `dialog_h1_count`.
     pub h1_count: usize,
-    /// H1 text content (first one if multiple)
+    /// H1 text content (first one if multiple), outside dialogs
     pub h1_text: Option<String>,
+    /// H1 elements inside a dialog or consent layer. They do not describe the
+    /// page topic, so they are neither `h1_count` nor `h1_text`.
+    #[serde(default)]
+    pub dialog_h1_count: usize,
     /// All headings in order
     pub headings: Vec<HeadingInfo>,
     /// Heading issues found
@@ -53,15 +58,25 @@ pub struct HeadingInfo {
     /// no reader meets it: it never decides which heading comes first (#952-1).
     #[serde(default)]
     pub hidden: bool,
+    /// Inside a dialog or a consent layer (`<dialog>`, `role="dialog"`,
+    /// `aria-modal`, a known consent manager): part of that layer, not of the
+    /// page's content (#1132). It never counts as the page's H1 and never
+    /// decides which heading comes first.
+    #[serde(default)]
+    pub in_dialog: bool,
 }
 
 impl HeadingStructure {
-    /// Level of the first heading a reader encounters: the first one that is
-    /// exposed. One definition for the SEO heading signals, the structure
-    /// signal and the screen-reader heading audit (which reads the
-    /// accessibility tree and never sees hidden headings).
+    /// Level of the first heading of the page's content that a reader
+    /// encounters: the first one that is exposed and not part of a dialog.
+    /// One definition for the SEO heading signals, the structure signal and
+    /// the screen-reader heading audit (which reads the accessibility tree
+    /// and never sees hidden headings).
     pub fn first_exposed_level(&self) -> Option<u8> {
-        self.headings.iter().find(|h| !h.hidden).map(|h| h.level)
+        self.headings
+            .iter()
+            .find(|h| !h.hidden && !h.in_dialog)
+            .map(|h| h.level)
     }
 }
 
@@ -119,7 +134,7 @@ pub(crate) static HEADINGS: crate::audit::collection::CollectorSpec =
         id: "seo.headings",
         module: "seo",
         method: crate::audit::collection::CollectionMethod::JavaScript,
-        method_version: 2,
+        method_version: 3,
         scoring: true,
     };
 
@@ -145,9 +160,16 @@ pub async fn analyze_heading_structure(
 
 fn check_headings_structure(headings: Vec<HeadingInfo>) -> HeadingStructure {
     // Analyze structure
-    let h1_headings: Vec<_> = headings.iter().filter(|h| h.level == 1).collect();
+    let h1_headings: Vec<_> = headings
+        .iter()
+        .filter(|h| h.level == 1 && !h.in_dialog)
+        .collect();
     let h1_count = h1_headings.len();
     let h1_text = h1_headings.first().map(|h| h.text.clone());
+    let dialog_h1_count = headings
+        .iter()
+        .filter(|h| h.level == 1 && h.in_dialog)
+        .count();
 
     // Missing and multiple H1, skipped levels and empty headings come from
     // the shared `headings/*` rules once the accessibility results exist
@@ -156,7 +178,7 @@ fn check_headings_structure(headings: Vec<HeadingInfo>) -> HeadingStructure {
     let mut issues = Vec::new();
 
     // Check for very long headings
-    for heading in &headings {
+    for heading in headings.iter().filter(|h| !h.in_dialog) {
         let max_len = if heading.is_question || heading.in_faq_context {
             100
         } else if heading.level <= 2 {
@@ -190,6 +212,7 @@ fn check_headings_structure(headings: Vec<HeadingInfo>) -> HeadingStructure {
     HeadingStructure {
         h1_count,
         h1_text,
+        dialog_h1_count,
         total_count: headings.len(),
         headings,
         issues,
@@ -301,6 +324,7 @@ mod tests {
                 in_faq_context: false,
                 word_count_after: 0,
                 hidden: false,
+                in_dialog: false,
             },
             HeadingInfo {
                 level: 4,
@@ -310,6 +334,7 @@ mod tests {
                 in_faq_context: false,
                 word_count_after: 0,
                 hidden: false,
+                in_dialog: false,
             },
         ]);
         // Before the shared findings arrive only the SEO rule has fired.
@@ -340,6 +365,7 @@ mod tests {
             in_faq_context: false,
             word_count_after: 0,
             hidden: false,
+            in_dialog: false,
         };
 
         assert_eq!(heading.level, 1);
@@ -357,6 +383,7 @@ mod tests {
                 in_faq_context: false,
                 word_count_after: 0,
                 hidden: false,
+                in_dialog: false,
             },
             HeadingInfo {
                 level: 2,
@@ -366,6 +393,7 @@ mod tests {
                 in_faq_context: false,
                 word_count_after: 0,
                 hidden: false,
+                in_dialog: false,
             }
         ];
         let res = check_headings_structure(headings);
@@ -376,5 +404,73 @@ mod tests {
             .collect();
         assert_eq!(long_heading_issues.len(), 1);
         assert!(long_heading_issues[0].message.contains("H2 is too long"));
+    }
+
+    fn heading(level: u8, text: &str, in_dialog: bool) -> HeadingInfo {
+        HeadingInfo {
+            level,
+            text: text.to_string(),
+            length: text.chars().count(),
+            is_question: false,
+            in_faq_context: false,
+            word_count_after: 0,
+            hidden: false,
+            in_dialog,
+        }
+    }
+
+    /// #1132: the H1 of a consent dialog is not the page's H1. SEO listed it
+    /// as "H1 present" while the keyboard journey, reading the page content,
+    /// reported none.
+    #[test]
+    fn a_dialog_h1_is_not_the_pages_h1() {
+        let structure = check_headings_structure(vec![
+            heading(1, "Privacy settings", true),
+            heading(2, "Services", false),
+        ]);
+        assert_eq!(structure.h1_count, 0);
+        assert_eq!(structure.h1_text, None);
+        assert_eq!(structure.dialog_h1_count, 1);
+        assert_eq!(structure.total_count, 2);
+    }
+
+    #[test]
+    fn the_page_h1_is_found_next_to_a_dialog_h1() {
+        let structure = check_headings_structure(vec![
+            heading(1, "Privacy settings", true),
+            heading(1, "Our services", false),
+        ]);
+        assert_eq!(structure.h1_count, 1);
+        assert_eq!(structure.h1_text.as_deref(), Some("Our services"));
+        assert_eq!(structure.dialog_h1_count, 1);
+    }
+
+    #[test]
+    fn a_dialog_heading_never_decides_which_heading_comes_first() {
+        let structure = check_headings_structure(vec![
+            heading(1, "Privacy settings", true),
+            heading(2, "Services", false),
+        ]);
+        assert_eq!(structure.first_exposed_level(), Some(2));
+    }
+
+    #[test]
+    fn a_long_dialog_heading_is_no_page_issue() {
+        let long = "x".repeat(120);
+        let structure = check_headings_structure(vec![heading(2, &long, true)]);
+        assert!(structure.issues.is_empty());
+    }
+
+    /// Reports written before `in_dialog` existed still read back.
+    #[test]
+    fn old_json_without_the_dialog_fields_reads_back() {
+        let info: HeadingInfo =
+            serde_json::from_str(r#"{"level":1,"text":"T","length":1}"#).unwrap();
+        assert!(!info.in_dialog);
+        let structure: HeadingStructure = serde_json::from_str(
+            r#"{"h1_count":1,"h1_text":"T","headings":[],"issues":[],"total_count":0}"#,
+        )
+        .unwrap();
+        assert_eq!(structure.dialog_h1_count, 0);
     }
 }

@@ -1289,3 +1289,4 @@ and verification for each change is in the
 ### Changed
 
 - **Contributors:** First release in this repository with a clean repository root; earlier history is archived in branch `archive/main-history`.
+- **SEO:** a heading inside a dialog or consent layer (`<dialog>`, `role="dialog"`, `aria-modal`, a known consent manager) is marked `in_dialog` and no longer counts as the page's H1 or as its first heading, so the SEO view and the keyboard journey agree that a page with an H1 only in its cookie dialog has none; the SEO heading line names such an H1 (`dialog_h1_count`, additive) (#1132).
