@@ -17,7 +17,7 @@ and verification for each change is in the
 
 - **SEO:** a meta description over 160 characters is an advisory (Low, no score effect) instead of a Medium problem (Refs #1138). Google sets no fixed maximum and truncates snippets dynamically, so the finding now reads "Description is N characters; it may be truncated in search results, check that the key statement comes first" (DE and EN). A too-short description is unchanged.
 
-## [2.1.0] - 2026-11-18
+## [2.1.0] - 2026-11-19
 
 ### Breaking
 
