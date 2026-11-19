@@ -446,18 +446,48 @@ jobs:
   # tag run, as #783 asked: moving it to a weekly run would let a release ship
   # without it. The contract gate itself (tests/rule_contract_gate.rs) runs in
   # every `cargo test` above.
-  # One mutation takes about two minutes on a runner (v2.0.0: 60 of 127 in the
-  # old 120-minute single job), so `--shard K/N` splits the sorted list
-  # round-robin into four jobs that together cover every mutation once.
+  # One mutation takes about two minutes on a runner (v2.1.0: 118 mutations in
+  # four shards, 58 to 70 minutes each), so `--shard K/N` splits the sorted
+  # list round-robin into eight jobs that together cover every mutation once.
+  # With eight the shards take about as long as the E2E job (22 to 33 minutes).
+  #
+  # The tag run does not repeat what the pre-tag dispatch already proved:
+  # `mutation-coverage` looks for a successful dispatch of this workflow whose
+  # mutation shards all passed and whose commit differs from the tagged one only
+  # in CHANGELOG.md, README.md or CLAUDE.md. Found: the shards are skipped here
+  # and the gate is that earlier run. Not found, or any error: the shards run
+  # in the tag run exactly as before, so the gate can never be skipped without
+  # a green run on the same code.
+  mutation-coverage:
+    name: Detector mutation coverage
+    if: ${{ (!inputs.suites || inputs.suites == 'all') && startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      covered: ${{ steps.coverage.outputs.covered }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Look for an earlier green mutation check on this code
+        id: coverage
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/check-mutation-coverage.py
+
   mutation-check:
-    name: Detector mutation check ${{ matrix.shard }}/4
-    if: ${{ (!inputs.suites || inputs.suites == 'all') && (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') }}
+    name: Detector mutation check ${{ matrix.shard }}/8
+    needs: [mutation-coverage]
+    # always(): on a dispatch `mutation-coverage` is skipped, which would skip this job too.
+    if: ${{ always() && (!inputs.suites || inputs.suites == 'all') && (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch') && needs.mutation-coverage.outputs.covered != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -473,7 +503,7 @@ jobs:
         env:
           AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
           CI: "true"
-        run: python3 scripts/mutation-check.py --shard ${{ matrix.shard }}/4
+        run: python3 scripts/mutation-check.py --shard ${{ matrix.shard }}/8
 
   # One real browser run per supported platform (#854, #856; design in
   # docs/browser-pool.md). A cross-build is not a runtime test: each leg

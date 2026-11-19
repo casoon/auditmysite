@@ -262,6 +262,14 @@ fn release_requires_complete_detector_contracts_and_mutation_check() {
     let mutation = workflow_job_body(&ci, "mutation-check");
     assert!(mutation.contains("python3 scripts/mutation-check.py"));
     assert!(mutation.contains("timeout-minutes"));
+    // The tag run may skip the shards only through the coverage job, which
+    // falls back to running them (the gate is never skipped without evidence).
+    assert!(mutation.contains("needs: [mutation-coverage]"));
+    assert!(mutation.contains("needs.mutation-coverage.outputs.covered != 'true'"));
+    assert!(mutation.contains("--shard ${{ matrix.shard }}/8"));
+    let coverage = workflow_job_body(&ci, "mutation-coverage");
+    assert!(coverage.contains("python3 scripts/check-mutation-coverage.py"));
+    assert!(coverage.contains("actions: read"));
 }
 
 #[test]
@@ -352,6 +360,7 @@ fn full_qa_only_runs_on_call_or_dispatch_and_cannot_publish() {
         "coverage",
         "browser-smoke",
         "detection-corpus",
+        "mutation-coverage",
         "mutation-check",
     ] {
         assert!(

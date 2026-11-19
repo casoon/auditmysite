@@ -46,6 +46,10 @@ jobs:
   quality-gates:
     name: Quality Gates (full CI)
     uses: ./.github/workflows/ci.yml
+    # `mutation-coverage` in ci.yml reads the earlier QA runs of this repository.
+    permissions:
+      contents: read
+      actions: read
 
   build:
     name: Build ${{ matrix.target }}
