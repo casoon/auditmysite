@@ -168,12 +168,13 @@ pub fn corpus_ca_pem() -> Vec<u8> {
     tls().ca_pem.clone()
 }
 
-/// A base URL nothing listens on: bound once, then released.
+/// A base URL nothing listens on: loopback port 1 (tcpmux), which refuses the
+/// connection at once. A port bound and released again (`bind` to port 0, then
+/// `drop`) lies in the ephemeral range, where another socket of the test
+/// process or the runner can take it before the request arrives and turn
+/// "does not answer" into an answer.
 pub fn unreachable_origin() -> String {
-    let socket = TcpListener::bind("127.0.0.1:0").expect("failed to bind");
-    let url = format!("http://{}", socket.local_addr().unwrap());
-    drop(socket);
-    url
+    "http://127.0.0.1:1".to_string()
 }
 
 fn server_config(transport: Transport) -> Option<Arc<rustls::ServerConfig>> {
