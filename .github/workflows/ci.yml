@@ -152,7 +152,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Build the docs the way docs.rs will
-        uses: rust-lang/docs.rs/github-actions/build@239a8ccd5ae4677c729303124c08cba6956ff85f
+        # Pinned to 217cff7: 239a8cc (Dependabot, 2026-11-08) fails its strict doc-coverage step with
+        # `rustdoc: Unrecognized option: 'show-coverage'` although the HTML docs build. Move the pin
+        # again only when the full QA run is green with it.
+        uses: rust-lang/docs.rs/github-actions/build@217cff7cc357e583763c19d7f943cf4ba9c28fa0
         with:
           strict: true
 
@@ -249,6 +252,7 @@ jobs:
           cargo tarpaulin
           --no-default-features
           --tests
+          --timeout 300
           --exclude-files 'src/output/*' 'src/i18n/*'
           --out xml
           --output-dir coverage/
