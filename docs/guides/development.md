@@ -124,11 +124,15 @@ base history runs the checks. Superseded quick runs are cancelled.
 
 `ci.yml` is the full QA workflow: production-feature tests (PDF) and all-feature rustdoc, PDF smoke,
 browser integration, three WCAG corpus shards, dependency audit, unused-dependency
-checks, and mocked tests. Coverage runs on non-tag refs. Detector mutations (four
+checks, and mocked tests. Coverage runs on non-tag refs. Detector mutations (eight
 shards) and docs.rs sandbox parity run on `v*` tags and on `workflow_dispatch`
 (any ref, #894), so a release candidate can be exercised before it is tagged. The
 docs.rs job remains advisory (`continue-on-error`), as before; the mutation check
-is a blocking gate. All jobs have time limits and the QA
+is a blocking gate. On a tag the job `Detector mutation coverage` first looks for a
+successful dispatch of `ci.yml` whose mutation shards all passed and whose commit
+differs from the tagged one only in `CHANGELOG.md`, `README.md` or `CLAUDE.md`
+(`scripts/check-mutation-coverage.py`); then the shards are skipped in the tag run and
+that dispatch is the gate. Otherwise, or on any error, they run in the tag run as before. All jobs have time limits and the QA
 token has read-only contents access. Full runs use distinct concurrency groups
 per run and attempt, so dispatches and release calls cannot cancel or replace
 one another.
@@ -163,7 +167,7 @@ gh workflow run ci.yml --ref <candidate-branch-or-tag>
 ```
 
 The selected ref must contain this workflow. A dispatch runs every job, including
-docs.rs sandbox parity and the four mutation shards (PR #956); a branch dispatch
+docs.rs sandbox parity and the eight mutation shards (PR #956); a branch dispatch
 needs no tag. Only a pushed `v*` tag starts `release.yml`. It calls `ci.yml` from the same
 commit and requires both version/milestone validation and full QA before any
 binary packaging. `scripts/v2-readiness.json` retains exactly U01–U26; additional
@@ -275,11 +279,16 @@ It validates:
    gh run watch <run-id>
    ```
 
-   The dispatch runs the tag-only jobs too (docs.rs sandbox parity, four detector
-   mutation shards). The mutation shards set the wall time: 75 to 90 minutes, against a job
-   limit of 90 (#894). A mutation or docs.rs failure found here costs a branch push; found
+   The dispatch runs the tag-only jobs too (docs.rs sandbox parity, eight detector
+   mutation shards). With four shards they set the wall time (58 to 70 minutes per shard in
+   v2.1.0, against a job limit of 90, #894); eight should bring them to the length of the E2E
+   job, 22 to 33 minutes. A mutation or docs.rs failure found here costs a branch push; found
    on the tag it costs a re-tag (2.0.0 and 2.0.1 both needed one).
 5. Push the tag `vX.Y.Z`; `release.yml` runs the same full QA on the tag commit, then builds.
+   The mutation shards do not run again when step 4 passed on the same code (only
+   `CHANGELOG.md`, `README.md` and `CLAUDE.md` may differ); the job `Detector mutation
+   coverage` says which case applied. Any other change after the dispatch means the shards run
+   in the tag run.
 6. Wait for the job `docs.rs Build (sandbox parity)` on the tag run, only then approve the job
    `Publish to crates.io` (environment `crates-io`). It publishes through crates.io Trusted
    Publishing with a short-lived OIDC token; no registry token is stored, and a local
@@ -336,12 +345,15 @@ No script enforces this; the checkboxes in the release PR are the record.
 
 - **The detector mutation check stays a blocking gate of the tag run.** There is no weekly
   run on `main` (#783 asked for a binding gate; a weekly run would let a release ship without
-  it). The cost is paid before the tag, by the pre-tag dispatch above. The decision is
-  written in the comment above the `mutation-check` job in `ci.yml`.
+  it). The cost is paid before the tag, by the pre-tag dispatch above; the tag run accepts that
+  dispatch as the gate when the code is the same and runs the shards itself otherwise (the
+  gate is never skipped without a green run on the same code). The decision is written in the
+  comment above the `mutation-check` job in `ci.yml`.
 - **The E2E job (`Browser Integration Tests (E2E)`) is not split** like the detection corpus.
   The last 11 successful runs took 22 to 33 minutes against its 45-minute limit, and a split
-  would not shorten a tag or dispatch run, whose wall time is set by the mutation shards.
-  Revisit if it passes about 38 minutes (#894).
+  would not shorten a tag or dispatch run on its own. Since the mutation check has eight shards
+  the E2E job is the longest one next to them, so revisit the split if it passes about 38
+  minutes (#894).
 
 ## Library / Development
 

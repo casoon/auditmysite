@@ -133,11 +133,12 @@ version exactly once: what arrives broken there stays broken permanently. Theref
    "Human release smoke" in `docs/guides/development.md`.
 1. **Dispatch the full QA on the release candidate and wait for green before pushing the tag:**
    `gh workflow run ci.yml --ref <candidate>` (since PR #956 a branch dispatch also runs the
-   docs.rs sandbox build and the four detector-mutation shards, #894). The mutation shards take
-   about 75–90 min and set the wall time; a failure found here costs a branch push, on the tag a
+   docs.rs sandbox build and the eight detector-mutation shards, #894). The eight mutation shards take
+   about as long as the E2E job (4 shards took 58–70 min each in 2.1.0); a failure found here costs a branch push, on the tag a
    re-tag.
 2. **Set and push the tag `vX.Y.Z`.** This starts `release.yml`: version check, full CI,
-   binaries, GitHub release.
+   binaries, GitHub release. The mutation shards are skipped there when step 1 passed on the
+   same code (only CHANGELOG/README/CLAUDE.md differ), else they run again.
 3. **Wait for the job `docs.rs Build (sandbox parity)`.** It runs on tags and on
    `workflow_dispatch` (step 1 is the first run) and builds the
    docs in the real docs.rs sandbox image — its nightly, its memory and time limits, and on what

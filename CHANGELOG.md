@@ -7,6 +7,10 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Changed
+
+- **Contributors:** the detector mutation check runs in eight shards instead of four, and the tag run skips it when a successful pre-tag QA dispatch already ran every shard on the same code (only `CHANGELOG.md`, `README.md` and `CLAUDE.md` may differ); otherwise it runs there as before. Details: [development guide](https://casoon.github.io/auditmysite/docs/guides/development/).
+
 ## [2.1.0] - 2026-11-19
 
 ### Breaking

@@ -44,6 +44,8 @@ jobs:
         run: |
           python3 scripts/test_quick_ci_scope.py
           python3 scripts/test_check_v2_readiness.py
+          python3 scripts/test_check_mutation_coverage.py
+          python3 scripts/test_mutation_shards.py
 
       # JavaScript embedded in the Rust sources (src/**/js/*.js, #941): ESLint
       # and node:test, pinned in scripts/js/package-lock.json. Same job, a
