@@ -544,14 +544,24 @@ pub(super) fn build_seo_details(
 }
 
 fn heading_summary(s: &SeoAnalysis, i18n: &I18n) -> String {
-    i18n.t_args(
+    let summary = i18n.t_args(
         "seo-details-heading-summary",
         &[
             ("h1", s.headings.h1_count as i64),
             ("total", s.headings.total_count as i64),
             ("issues", s.headings.issues.len() as i64),
         ],
-    )
+    );
+    // An H1 inside a dialog or consent layer is not the page's H1 (#1132):
+    // name it, so "0 H1" next to a cookie dialog's heading is not a mystery.
+    if s.headings.dialog_h1_count == 0 {
+        return summary;
+    }
+    let dialog = i18n.t_args(
+        "seo-details-heading-dialog-h1",
+        &[("count", s.headings.dialog_h1_count as i64)],
+    );
+    format!("{summary}, {dialog}")
 }
 
 fn social_summary(s: &SeoAnalysis, i18n: &I18n) -> String {
@@ -871,4 +881,34 @@ fn tracking_category_summary<'a>(categories: impl Iterator<Item = &'a str>) -> O
             .collect::<Vec<_>>()
             .join(", "),
     )
+}
+
+#[cfg(test)]
+mod heading_summary_tests {
+    use super::*;
+
+    fn summary(dialog_h1: usize, locale: &str) -> String {
+        let mut seo = SeoAnalysis::default();
+        seo.headings.total_count = 4;
+        seo.headings.dialog_h1_count = dialog_h1;
+        heading_summary(&seo, &I18n::new(locale).unwrap())
+    }
+
+    /// #1132: "0 H1" next to a cookie dialog's heading names the dialog H1.
+    #[test]
+    fn a_dialog_h1_is_named_in_both_languages() {
+        assert_eq!(
+            summary(1, "en"),
+            "0 H1 headings, 4 headings total, 0 issues, 1 H1 inside a dialog or consent layer (not counted as the page's H1)"
+        );
+        assert!(summary(2, "de").ends_with("2 H1-Überschriften in einem Dialog oder Einwilligungs-Layer (zählen nicht als H1 der Seite)"));
+    }
+
+    #[test]
+    fn without_a_dialog_h1_the_summary_is_unchanged() {
+        assert_eq!(
+            summary(0, "en"),
+            "0 H1 headings, 4 headings total, 0 issues"
+        );
+    }
 }

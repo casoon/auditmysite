@@ -1662,6 +1662,7 @@ mod tests {
             headings: HeadingStructure {
                 h1_count: 0,
                 h1_text: None,
+                dialog_h1_count: 0,
                 headings: vec![],
                 issues: vec![],
                 total_count: 0,
@@ -1701,6 +1702,7 @@ mod tests {
             in_faq_context: false,
             word_count_after: 0,
             hidden: false,
+            in_dialog: false,
         };
         let mut seo = minimal_seo();
         seo.headings.h1_count = 1;
@@ -1728,6 +1730,7 @@ mod tests {
             in_faq_context: false,
             word_count_after: 0,
             hidden: false,
+            in_dialog: false,
         };
         let mut seo = minimal_seo();
         seo.headings.h1_count = 1;
@@ -2000,6 +2003,7 @@ mod tests {
                 in_faq_context: false,
                 word_count_after: 0,
                 hidden: false,
+                in_dialog: false,
             },
             HeadingInfo {
                 level: 2,
@@ -2009,6 +2013,7 @@ mod tests {
                 in_faq_context: false,
                 word_count_after: 0,
                 hidden: false,
+                in_dialog: false,
             },
             HeadingInfo {
                 level: 2,
@@ -2018,6 +2023,7 @@ mod tests {
                 in_faq_context: false,
                 word_count_after: 0,
                 hidden: false,
+                in_dialog: false,
             },
             HeadingInfo {
                 level: 3,
@@ -2027,6 +2033,7 @@ mod tests {
                 in_faq_context: false,
                 word_count_after: 0,
                 hidden: false,
+                in_dialog: false,
             },
         ];
         seo.headings.total_count = seo.headings.headings.len();

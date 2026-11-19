@@ -12,6 +12,26 @@
             }
         };
         collect(document);
+        // A heading inside a dialog or a consent layer belongs to that layer,
+        // not to the page's content (#1132): `<dialog>`, `role="dialog"`,
+        // `role="alertdialog"`, `aria-modal="true"`, or the root of a known
+        // consent manager. The walk leaves a shadow root through its host.
+        const consentLayer = /onetrust|cookiebot|usercentrics|didomi|borlabs|complianz|cookieconsent|truste|cmp-?(banner|container|wrapper)/i;
+        const inDialogLayer = (node) => {
+            let el = node;
+            while (el) {
+                if (el.nodeType === 1) {
+                    const role = (el.getAttribute('role') || '').toLowerCase();
+                    const names = `${el.id || ''} ${typeof el.className === 'string' ? el.className : ''}`;
+                    if (el.tagName === 'DIALOG' || role === 'dialog' || role === 'alertdialog'
+                        || el.getAttribute('aria-modal') === 'true' || consentLayer.test(names)) {
+                        return true;
+                    }
+                }
+                el = el.parentElement || (el.getRootNode && el.getRootNode().host) || null;
+            }
+            return false;
+        };
         const countWords = (s) => {
             const t = s.trim();
             return t.length ? t.split(/\s+/).length : 0;
@@ -90,7 +110,14 @@
                 hidden = false;
             }
 
-            return { level, text, length: text.length, is_question, in_faq_context, word_count_after, hidden };
+            let in_dialog = false;
+            try {
+                in_dialog = inDialogLayer(h);
+            } catch (e) {
+                in_dialog = false;
+            }
+
+            return { level, text, length: text.length, is_question, in_faq_context, word_count_after, hidden, in_dialog };
         });
         return JSON.stringify(headings);
     })()
