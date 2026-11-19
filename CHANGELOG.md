@@ -11,6 +11,10 @@ and verification for each change is in the
 
 - **Contributors:** the detector mutation check runs in eight shards instead of four, and the tag run skips it when a successful pre-tag QA dispatch already ran every shard on the same code (only `CHANGELOG.md`, `README.md` and `CLAUDE.md` may differ); otherwise it runs there as before. Details: [development guide](https://casoon.github.io/auditmysite/docs/guides/development/).
 
+### Fixed
+
+- **Report:** the key measures of the single report come from one ranking across all modules: severity first, then WCAG A/AA obligations, reach and leverage, so a Low accessibility hint no longer ranks ahead of a High finding such as a missing CSP or HSTS. The action-plan line "Reparaturhebel" / "Remediation leverage" is now "Reichweite der Korrektur" / "Fix reach", so it cannot read as low urgency (#1133).
+
 ## [2.1.0] - 2026-11-19
 
 ### Breaking

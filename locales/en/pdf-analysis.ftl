@@ -78,7 +78,7 @@ pdf-analysis-roadmap-modules-title = Other modules
 pdf-analysis-roadmap-modules-subtitle = Recommendations from the security, mobile, performance and SEO modules that the key measures name.
 pdf-analysis-roadmap-empty-modules = No prioritized accessibility actions. Other modules (performance, SEO, security, mobile): { $recommendations } — listed in their module sections and in the key measures above.
 pdf-analysis-roadmap-empty = No prioritized actions — no findings require remediation.
-pdf-analysis-roadmap-leverage = Remediation leverage: { $leverage } — { $count ->
+pdf-analysis-roadmap-leverage = Fix reach: { $leverage } — { $count ->
         [one] 1 occurrence
        *[other] { $count } occurrences
     } affected · effort: { $effort }
