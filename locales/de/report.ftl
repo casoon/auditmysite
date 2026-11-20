@@ -568,12 +568,12 @@ recommendation-security-permissions-permissive = Permissions-Policy enger fassen
 recommendation-security-sourcemap = Source Maps nicht öffentlich ausliefern oder den Zugriff darauf einschränken.
 recommendation-security-hsts-preload = Die HSTS-Direktive so ergänzen, dass sie die Preload-Anforderungen erfüllt (max-age >= 1 Jahr, includeSubDomains, preload).
 recommendation-security-default = Die grundlegenden Security-Header sind sauber gesetzt. Nächster Schritt: Richtlinien regelmäßig prüfen und an neue Skript- oder Integrationsquellen anpassen.
-lever-mobile-small = Größter Hebel: Touch-Targets vergrößern ({ $small_targets } zu klein)
+lever-mobile-small = Empfehlung: Touch-Targets auf mindestens 44 px vergrößern ({ $small_targets } darunter, nicht im Mobile-Wert enthalten)
 lever-mobile-crowded = Größter Hebel: Abstände mobiler Bedienelemente erhöhen ({ $crowded_targets })
 lever-mobile-default = Größter Hebel: mobile Lesbarkeit und Touch-Flows weiter optimieren
-context-mobile-proper = Viewport korrekt gesetzt, { $small_targets } zu kleine Touch-Targets, { $crowded_targets } zu enge Abstände.
-context-mobile-improper = Viewport nicht sauber konfiguriert, { $small_targets } zu kleine Touch-Targets, { $crowded_targets } zu enge Abstände.
-card-mobile-small = { $small_targets } zu kleine Touch-Targets
+context-mobile-proper = Viewport korrekt gesetzt, { $small_targets } Touch-Targets unter 44 px, { $crowded_targets } zu enge Abstände.
+context-mobile-improper = Viewport nicht sauber konfiguriert, { $small_targets } Touch-Targets unter 44 px, { $crowded_targets } zu enge Abstände.
+card-mobile-small = { $small_targets } Touch-Targets unter 44 px
 card-mobile-crowded = { $crowded_targets } zu enge Abstände
 card-mobile-proper = Viewport korrekt gesetzt
 card-mobile-improper = Viewport prüfen

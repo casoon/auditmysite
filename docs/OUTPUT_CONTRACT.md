@@ -342,6 +342,8 @@ report. It is a band label for the automated scope, not a conformance statement.
 Module-specific 0-100 score. Scores from different modules use different
 measured or heuristic inputs and are not interchangeable raw measurements.
 
+The Mobile score does not charge touch targets or a locked zoom: WCAG 2.5.8 (24 px, with spacing exceptions) and 1.4.4 are charged once, on the Accessibility side. Targets of 24-43 px are reported as an ergonomic recommendation (44 px) and are not scored anywhere (#976). While any Mobile issue is listed, the Mobile wording and the band label are capped at "Good", whatever the number says; the number and grade are untouched.
+
 <a id="module-dimension-score"></a>
 ### module_dimension_score — `pages[].detail.modules.*.score` and nested dimension scores
 

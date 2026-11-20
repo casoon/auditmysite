@@ -6,7 +6,7 @@
 mobile-missing-viewport = Missing viewport meta tag
 mobile-improper-viewport = Viewport is not properly configured
 mobile-not-scalable = Page disables zooming (user-scalable=no)
-mobile-small-targets = { $count } touch targets are too small (<44x44px){ $contexts }{ $samples }
+mobile-small-targets = { $count } touch targets are below the recommended 44x44 px (ergonomic recommendation; WCAG 2.5.8 AA requires 24 px){ $contexts }{ $samples }
 mobile-small-targets-contexts = {" "}({ $list })
 mobile-small-targets-samples = {" "}— e.g. { $list }
 mobile-small-fonts = Smallest font size is { $size }px (recommended: ≥12px)
