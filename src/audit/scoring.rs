@@ -111,17 +111,22 @@ pub(super) fn semantic_cap(
 }
 
 impl AccessibilityScorer {
-    /// Per-criterion execution state of this run: `Some(true)` ran and found
-    /// nothing, `Some(false)` did not pass, `None` not applicable. Single source
-    /// for the principle coverage ratios and the criterion tags in the PDF, so a
-    /// violated criterion can never be listed as passed.
-    pub fn criterion_execution_states(
+    /// Per-criterion state of this run, five-valued (#1135). The single source
+    /// for the principle coverage counts and the criterion tags in the PDF, so
+    /// a violated criterion can never be listed as passed. A criterion that
+    /// shows up in several runs or findings takes the most serious of its
+    /// states: violation, then review, then not testable or not run, then
+    /// passed; not applicable only when nothing else was seen.
+    pub fn criterion_states(
         results: &crate::wcag::WcagResults,
-    ) -> BTreeMap<String, Option<bool>> {
-        // Per criterion: `Some(true)` ran and found nothing, `Some(false)` did
-        // not pass (finding, error, disabled, capability missing), `None` has
-        // nothing to check on this page and leaves the denominator (#778).
-        let mut criteria: BTreeMap<String, Option<bool>> = BTreeMap::new();
+    ) -> BTreeMap<String, CriterionState> {
+        let mut criteria: BTreeMap<String, CriterionState> = BTreeMap::new();
+        let mut note = |id: String, state: CriterionState| {
+            criteria
+                .entry(id)
+                .and_modify(|seen| *seen = (*seen).max(state))
+                .or_insert(state);
+        };
         for run in &results.rule_outcomes {
             let ids = if run.wcag.is_empty() {
                 criterion_for_rule(&run.rule_id).into_iter().collect()
@@ -130,65 +135,81 @@ impl AccessibilityScorer {
             };
             let above_level = run.reason.as_deref() == Some("above_wcag_level");
             let state = match run.not_run {
-                None => Some(true),
-                Some(a11y_report::NotRun::NotApplicable) => None,
-                Some(a11y_report::NotRun::Disabled) if above_level => None,
-                Some(_) => Some(false),
+                None => CriterionState::Passed,
+                Some(a11y_report::NotRun::NotApplicable) => CriterionState::NotApplicable,
+                Some(a11y_report::NotRun::Disabled) if above_level => CriterionState::NotApplicable,
+                // Finding-free but unchecked: errored, disabled, capability missing.
+                Some(_) => CriterionState::NotTestable,
             };
             for id in ids {
-                criteria
-                    .entry(id)
-                    .and_modify(|p| {
-                        *p = match (*p, state) {
-                            (Some(false), _) | (_, Some(false)) => Some(false),
-                            (Some(true), _) | (_, Some(true)) => Some(true),
-                            _ => None,
-                        }
-                    })
-                    .or_insert(state);
+                note(id, state);
             }
         }
-        for finding in results
-            .violations
-            .iter()
-            .chain(&results.warnings)
-            .chain(&results.not_testables)
-        {
-            if let Some(id) = criterion_for_rule(&finding.rule) {
-                criteria.insert(id, Some(false));
+        for (findings, state) in [
+            (&results.not_testables, CriterionState::NotTestable),
+            (&results.warnings, CriterionState::Review),
+            (&results.violations, CriterionState::Violation),
+        ] {
+            for finding in findings {
+                if let Some(id) = criterion_for_rule(&finding.rule) {
+                    note(id, state);
+                }
             }
         }
         criteria
+    }
+
+    /// The criterion states folded to the old three-valued view: `Some(true)`
+    /// ran and found nothing, `Some(false)` did not pass, `None` not applicable.
+    pub fn criterion_execution_states(
+        results: &crate::wcag::WcagResults,
+    ) -> BTreeMap<String, Option<bool>> {
+        Self::criterion_states(results)
+            .into_iter()
+            .map(|(id, state)| {
+                let passed = match state {
+                    CriterionState::Passed => Some(true),
+                    CriterionState::NotApplicable => None,
+                    _ => Some(false),
+                };
+                (id, passed)
+            })
+            .collect()
     }
 
     /// Execution-backed coverage of the automated checks in this run.
     /// Missing, failed and review-only checks must never become passes merely
     /// because no violation was retained. This is not WCAG conformance.
     pub fn calculate_execution_coverage(results: &crate::wcag::WcagResults) -> PrincipleCoverage {
-        let criteria = Self::criterion_execution_states(results);
-        let criteria: BTreeMap<String, bool> = criteria
+        // Scoped to the criteria the coverage statement counts, so the four
+        // ratios add up to at most "N automatically checked" (#952-5).
+        let criteria: BTreeMap<String, CriterionState> = Self::criterion_states(results)
             .into_iter()
-            .filter_map(|(id, state)| state.map(|passed| (id, passed)))
-            // Scoped to the criteria the coverage statement counts, so the
-            // four ratios add up to at most "N automatically checked" (#952-5).
             .filter(|(id, _)| crate::wcag::coverage::is_automated_aa_criterion(id))
             .collect();
         let ratio_for = |principle| {
-            let entries: Vec<_> = criteria
+            let mut ratio = CoverageRatio::default();
+            for state in criteria
                 .iter()
                 .filter(|(id, _)| principle_for_criterion(id) == Some(principle))
-                .collect();
-            let total = entries.len() as u32;
-            let passed = entries.iter().filter(|(_, passed)| **passed).count() as u32;
-            CoverageRatio {
-                passed,
-                total,
-                ratio: if total == 0 {
-                    0.0
-                } else {
-                    (passed as f32 / total as f32 * 10000.0).round() / 10000.0
-                },
+                .map(|(_, state)| state)
+            {
+                match state {
+                    CriterionState::Passed => ratio.passed += 1,
+                    CriterionState::Violation => ratio.violation += 1,
+                    CriterionState::Review => ratio.review += 1,
+                    CriterionState::NotTestable => ratio.not_testable += 1,
+                    CriterionState::NotApplicable => ratio.not_applicable += 1,
+                }
             }
+            // Not applicable leaves the denominator (#778).
+            ratio.total = ratio.passed + ratio.violation + ratio.review + ratio.not_testable;
+            ratio.ratio = if ratio.total == 0 {
+                0.0
+            } else {
+                (ratio.passed as f32 / ratio.total as f32 * 10000.0).round() / 10000.0
+            };
+            ratio
         };
         PrincipleCoverage {
             perceivable: ratio_for(WcagPrinciple::Perceivable),
@@ -309,7 +330,28 @@ impl AccessibilityScorer {
     }
 }
 
-/// Pass/total ratio of checked WCAG criteria for one principle.
+/// What one automatically checked WCAG criterion came to in this run (#1135).
+/// Ordered from the least to the most serious, so the larger of two states
+/// is the one a criterion keeps when several runs or findings name it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[non_exhaustive]
+pub enum CriterionState {
+    /// There was nothing to check on this page (or above the audited level).
+    NotApplicable,
+    /// Ran and found nothing.
+    Passed,
+    /// Could not be decided: a check errored, was switched off, lacked a
+    /// capability, or reported a not-testable item.
+    NotTestable,
+    /// Only a warning or heuristic hint: a human has to decide.
+    Review,
+    /// A violation is retained.
+    Violation,
+}
+
+/// The states of the checked WCAG criteria of one principle, counted.
+/// `passed`, `violation`, `review` and `not_testable` add up to `total`; the
+/// criteria that were not applicable are counted apart and are not in it.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct CoverageRatio {
@@ -317,6 +359,18 @@ pub struct CoverageRatio {
     pub total: u32,
     /// 0.0 – 1.0
     pub ratio: f32,
+    /// Criteria with a retained violation.
+    #[serde(default)]
+    pub violation: u32,
+    /// Criteria with only a warning or heuristic hint, needing manual review.
+    #[serde(default)]
+    pub review: u32,
+    /// Criteria that were not testable or not run (error, disabled, missing capability).
+    #[serde(default)]
+    pub not_testable: u32,
+    /// Criteria with nothing to check on this page; not part of `total`.
+    #[serde(default)]
+    pub not_applicable: u32,
 }
 
 /// WCAG principle coverage — informative secondary indicator (#99).
@@ -654,6 +708,106 @@ mod tests {
             + coverage.understandable.total
             + coverage.robust.total;
         assert!(total as usize <= automated);
+    }
+
+    fn review_warning(criterion: &str, rule: &str) -> Violation {
+        Violation::new(
+            criterion,
+            "Review",
+            crate::model::WcagLevel::A,
+            Severity::Low,
+            "review required",
+            "n1",
+        )
+        .with_rule_id(rule)
+    }
+
+    /// #1135: a review warning is no violation. The criterion counts as
+    /// "review", the others stay passed, and the score is untouched.
+    #[test]
+    fn a_review_warning_is_counted_as_review_not_as_a_violation() {
+        use crate::wcag::RuleRun;
+        let mut results = run_results(vec![
+            RuleRun::ran("images/alt-missing", 0).with_wcag(["1.1.1"]),
+            RuleRun::ran("contrast/low", 0).with_wcag(["1.4.3"]),
+            RuleRun::ran("resize/clipped", 0).with_wcag(["1.4.4"]),
+        ]);
+        results
+            .warnings
+            .push(review_warning("1.4.3", "contrast/low"));
+        let perceivable = AccessibilityScorer::calculate_execution_coverage(&results).perceivable;
+        assert_eq!(perceivable.passed, 2);
+        assert_eq!(perceivable.violation, 0);
+        assert_eq!(perceivable.review, 1);
+        assert_eq!(perceivable.not_testable, 0);
+        assert_eq!(perceivable.total, 3);
+        // The score ignores warnings.
+        assert_eq!(
+            AccessibilityScorer::calculate_score(&results.violations),
+            100.0
+        );
+    }
+
+    /// #1135: every criterion is in exactly one state, the counts add up to
+    /// `total`, and not applicable stays outside it.
+    #[test]
+    fn criteria_fall_into_exactly_one_of_five_states() {
+        use crate::wcag::RuleRun;
+        use a11y_report::NotRun;
+        let mut results = run_results(vec![
+            RuleRun::ran("a", 0).with_wcag(["1.1.1"]),
+            RuleRun::ran("b", 1).with_wcag(["1.4.3"]),
+            RuleRun::ran("c", 0).with_wcag(["1.3.1"]),
+            RuleRun::not_run("d", NotRun::Errored).with_wcag(["1.4.4"]),
+            RuleRun::not_run("e", NotRun::NotApplicable).with_wcag(["1.4.12"]),
+        ]);
+        results.violations.push(Violation::new(
+            "1.4.3",
+            "Contrast",
+            crate::model::WcagLevel::AA,
+            Severity::High,
+            "Low contrast",
+            "n1",
+        ));
+        results
+            .warnings
+            .push(review_warning("1.3.1", "structure/review"));
+        let states = AccessibilityScorer::criterion_states(&results);
+        assert_eq!(states["1.1.1"], CriterionState::Passed);
+        assert_eq!(states["1.4.3"], CriterionState::Violation);
+        assert_eq!(states["1.3.1"], CriterionState::Review);
+        assert_eq!(states["1.4.4"], CriterionState::NotTestable);
+        assert_eq!(states["1.4.12"], CriterionState::NotApplicable);
+
+        let p = AccessibilityScorer::calculate_execution_coverage(&results).perceivable;
+        assert_eq!(
+            (
+                p.passed,
+                p.violation,
+                p.review,
+                p.not_testable,
+                p.not_applicable
+            ),
+            (1, 1, 1, 1, 1)
+        );
+        assert_eq!(p.passed + p.violation + p.review + p.not_testable, p.total);
+    }
+
+    /// A report stored before the five counts existed reads them as 0.
+    #[test]
+    fn a_coverage_stored_without_the_state_counts_still_reads() {
+        let ratio: CoverageRatio =
+            serde_json::from_str(r#"{"passed":3,"total":4,"ratio":0.75}"#).unwrap();
+        assert_eq!((ratio.passed, ratio.total), (3, 4));
+        assert_eq!(
+            (
+                ratio.violation,
+                ratio.review,
+                ratio.not_testable,
+                ratio.not_applicable
+            ),
+            (0, 0, 0, 0)
+        );
     }
 
     #[test]

@@ -505,6 +505,8 @@ the volume bounds (5, 3, 5) are likewise conventions.
 Share from 0 to 1 of automatically evaluated checks without a finding for
 that WCAG principle; it is coverage context and does not affect the score.
 
+Each criterion of a principle is in exactly one of five states, counted per principle next to the ratio (#1135): `passed` (ran, found nothing), `violation` (a violation is retained), `review` (only a warning or heuristic hint, a human decides), `not_testable` (a check errored, was switched off, lacked a capability, or reported a not-testable item) and `not_applicable` (nothing to check on this page). `total` is `passed + violation + review + not_testable`; `not_applicable` is outside it. A criterion keeps its most serious state: violation, then review, then not testable, then passed. So "11 of 12 passed" with no violation means one criterion is in `review` or `not_testable`, and the score, which ignores warnings, stays where it is. Before the five counts only `passed`, `total` and `ratio` existed; a stored report without the counts reads them as 0.
+
 <a id="finding-priority-score"></a>
 ### finding_priority_score — `pages[].findings[].priority_score`
 
