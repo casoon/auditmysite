@@ -81,10 +81,12 @@ audit-risk-legal-controls = { $base } In addition: { $controls } (WCAG 4.1.2/2.1
 audit-risk-assistive-none = No blocking barrier for screen reader or keyboard use detected within the automated scope.
 audit-risk-assistive-findings = { $critical } critical and { $high } high findings.
 audit-risk-assistive-blocking = { $critical } critical and { $high } high findings; { $controls }. { $consequence }
-audit-risk-conversion-base = Accessibility { $accessibility }/100, performance { $performance }, mobile { $mobile }.
-audit-risk-conversion-blocking = { $base } { $controls }: tasks routed through them are harder to complete with assistive technology. Whether a task is fully blocked was not tested.
-audit-risk-seo-score = SEO score { $score }/100.
-audit-risk-seo-not-run = SEO module was not run.
+audit-risk-conversion-blocking = { $controls }: tasks routed through them are harder to complete with assistive technology. Whether a task is fully blocked was not tested.
+audit-risk-seo-findings =
+    { $count ->
+        [one] 1 SEO finding
+       *[other] { $count } SEO findings
+    } of medium or higher severity (SEO score { $score }).
 audit-risk-performance-mobile-none = Neither the performance nor the mobile module was run.
 audit-risk-performance-mobile-base = Performance { $performance }, mobile usability { $mobile } (lab measurement).
 audit-risk-performance-mobile-high =

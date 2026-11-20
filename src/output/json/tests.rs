@@ -1,5 +1,5 @@
 use super::*;
-use crate::audit::normalized::normalize;
+use crate::audit::normalized::{normalize, ModuleScoreEntry};
 use crate::model::WcagLevel;
 use crate::wcag::WcagResults;
 
@@ -44,24 +44,29 @@ fn test_management_risks_rationale_has_no_debug_format_leak() {
         WcagResults::new(),
         500,
     );
-    let normalized = normalize(&report);
+    let mut normalized = normalize(&report);
+    normalized.normalized.risk.blocking_issues = 1;
+    normalized.normalized.module_scores =
+        vec![ModuleScoreEntry::new("Performance", 85, "measured", true)];
     let unified = UnifiedReport::single(&normalized, &report);
 
-    let conversion_risk = unified
+    for risk in &unified.summary.management_risks {
+        assert!(
+            !risk.rationale.contains("Some(") && !risk.rationale.contains("None"),
+            "rationale leaks Rust Option debug format: {}",
+            risk.rationale
+        );
+    }
+    let performance = unified
         .summary
         .management_risks
         .iter()
-        .find(|r| r.dimension == "Conversion / usability")
-        .expect("Conversion / usability risk must be present");
+        .find(|r| r.dimension == "Performance & mobile")
+        .expect("Performance & mobile risk must be present");
     assert!(
-        !conversion_risk.rationale.contains("Some(") && !conversion_risk.rationale.contains("None"),
-        "rationale leaks Rust Option debug format: {}",
-        conversion_risk.rationale
-    );
-    assert!(
-        conversion_risk.rationale.contains("not measured"),
-        "expected a clean fallback for unmeasured performance/mobile scores: {}",
-        conversion_risk.rationale
+        performance.rationale.contains("not measured"),
+        "expected a clean fallback for the unmeasured mobile score: {}",
+        performance.rationale
     );
 }
 

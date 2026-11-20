@@ -2186,7 +2186,10 @@ pub(super) mod risk_and_strength_tests {
                 blocking_issues: 0,
                 keyboard_blocking: 0,
             },
-            ManagementRiskKind::Seo { score: Some(95) },
+            ManagementRiskKind::Project {
+                count: 0,
+                pages: None,
+            },
             ManagementRiskKind::PerformanceMobile {
                 performance: Some(95),
                 mobile: Some(95),
@@ -2201,15 +2204,18 @@ pub(super) mod risk_and_strength_tests {
 
         assert_eq!(risks.len(), 2, "legal and conversion should be risks");
         assert!(
-            risks
-                .iter()
-                .all(|d| d.label != ManagementRiskKind::Seo { score: Some(95) }.dimension(false)),
-            "a good SEO score must never appear in the risks bucket",
+            risks.iter().all(|d| d.label
+                != ManagementRiskKind::Project {
+                    count: 0,
+                    pages: None
+                }
+                .dimension(false)),
+            "a good dimension must never appear in the risks bucket",
         );
         assert_eq!(
             strengths.len(),
             2,
-            "SEO and performance/mobile should be strengths",
+            "project and performance/mobile should be strengths",
         );
     }
 
@@ -2240,7 +2246,6 @@ pub(super) mod risk_and_strength_tests {
                 blocking_issues: 0,
                 keyboard_blocking: 0,
             },
-            ManagementRiskKind::Seo { score: Some(95) },
             ManagementRiskKind::PerformanceMobile {
                 performance: Some(95),
                 mobile: Some(95),
@@ -2285,7 +2290,10 @@ pub(super) mod risk_and_strength_tests {
                 blocking_issues: 0,
                 keyboard_blocking: 0,
             },
-            ManagementRiskKind::Seo { score: Some(50) },
+            ManagementRiskKind::Seo {
+                score: Some(50),
+                findings: 2,
+            },
             ManagementRiskKind::PerformanceMobile {
                 performance: Some(70),
                 mobile: Some(95),

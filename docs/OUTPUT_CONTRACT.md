@@ -421,6 +421,17 @@ A finding is *legally relevant* when it is **confirmed** (`verification` is not 
 
 The screen-reader signal described below is the only addition: it raises both counts to at least 1 and has no finding id. Under `--baseline` the measured counts (`risk.legal_flags`, the card, the callout) stay as measured; the gate and the decision read the findings that are not known.
 
+<a id="management-risks"></a>
+### management_risks — `summary.management_risks[]`
+
+The dimensions are `Legal / BFSG-EAA`, `Assistive technology use`, `Performance & mobile` and `Project risk` in every run. Three more appear only with the findings that justify them, because a dimension that restates a module score adds nothing the score on the cover does not already say (#1139):
+
+- `Conversion / usability`: only with blocking controls (`risk.blocking_issues` above 0). The rationale names the controls and the consequence, no scores.
+- `SEO / visibility`: only with at least one open SEO finding of Medium severity or higher. The rationale gives the finding count next to the SEO score; the level is never `low`.
+- `Trust / brand`: only with at least one critical or high WCAG finding. It is inferred from accessibility alone and says so.
+
+A consumer must not assume a fixed list of dimensions: before this change all seven were always present.
+
 <a id="risk-score"></a>
 ### risk_score — `pages[].risk.score`
 

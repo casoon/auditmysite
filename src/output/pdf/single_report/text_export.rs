@@ -300,7 +300,10 @@ fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
     // Risks and strengths: none, all good, risks and strengths.
     let mut vm = view_model(&report, ReportLevel::Standard, lang);
     let good = vec![
-        ManagementRiskKind::Seo { score: Some(95) },
+        ManagementRiskKind::Project {
+            count: 0,
+            pages: None,
+        },
         ManagementRiskKind::PerformanceMobile {
             performance: Some(95),
             mobile: Some(95),
@@ -316,8 +319,14 @@ fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
         blocking_issues: 0,
         keyboard_blocking: 0,
     });
-    mixed.push(ManagementRiskKind::Seo { score: Some(50) });
-    let mut risks_only = vec![ManagementRiskKind::Seo { score: Some(50) }];
+    mixed.push(ManagementRiskKind::Seo {
+        score: Some(50),
+        findings: 3,
+    });
+    let mut risks_only = vec![ManagementRiskKind::Seo {
+        score: Some(50),
+        findings: 3,
+    }];
     for (input, kinds) in [
         ("none", vec![]),
         ("all good", good),

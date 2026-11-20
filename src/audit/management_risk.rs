@@ -91,6 +91,9 @@ pub enum ManagementRiskKind {
     },
     Seo {
         score: Option<u32>,
+        /// Open SEO findings of Medium severity or higher. The row exists
+        /// only because of them; the score alone is not a cause (#1139).
+        findings: usize,
     },
     PerformanceMobile {
         performance: Option<u32>,
@@ -167,7 +170,12 @@ impl ManagementRiskKind {
                     RiskTier::Low
                 }
             }
-            ManagementRiskKind::Seo { score } => RiskTier::from_optional_score(*score),
+            // The row only exists with a Medium-or-higher SEO finding, so it
+            // is never a strength, whatever the score says.
+            ManagementRiskKind::Seo { score, .. } => match RiskTier::from_optional_score(*score) {
+                RiskTier::Low | RiskTier::Unknown => RiskTier::Medium,
+                tier => tier,
+            },
             ManagementRiskKind::PerformanceMobile {
                 performance,
                 mobile,
@@ -297,46 +305,30 @@ impl ManagementRiskKind {
                 )
             }
             ManagementRiskKind::Conversion {
-                accessibility,
-                performance,
-                mobile,
                 blocking_issues,
                 keyboard_blocking,
+                ..
             } => {
-                let base = text_args(
-                    "audit-risk-conversion-base",
-                    &[
-                        ("accessibility", number(*accessibility)),
-                        (
-                            "performance",
-                            FluentValue::from(score_or_not_measured(*performance, en)),
-                        ),
-                        (
-                            "mobile",
-                            FluentValue::from(score_or_not_measured(*mobile, en)),
-                        ),
-                    ],
-                    en,
-                );
-                if *blocking_issues == 0 {
-                    return base;
-                }
                 let controls = blocking_controls_text(*blocking_issues, *keyboard_blocking, en);
                 // A nameless control still works; only a keyboard blocker can
                 // stop a task, and no task was run to completion (plan 99).
                 text_args(
                     "audit-risk-conversion-blocking",
-                    &[
-                        ("base", FluentValue::from(base)),
-                        ("controls", FluentValue::from(controls)),
-                    ],
+                    &[("controls", FluentValue::from(controls))],
                     en,
                 )
             }
-            ManagementRiskKind::Seo { score } => match score {
-                Some(score) => text_args("audit-risk-seo-score", &[("score", number(*score))], en),
-                None => text("audit-risk-seo-not-run", en),
-            },
+            ManagementRiskKind::Seo { score, findings } => text_args(
+                "audit-risk-seo-findings",
+                &[
+                    ("count", number(*findings)),
+                    (
+                        "score",
+                        FluentValue::from(score_or_not_measured(*score, en)),
+                    ),
+                ],
+                en,
+            ),
             ManagementRiskKind::PerformanceMobile {
                 performance,
                 mobile,
@@ -486,6 +478,14 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
     let performance = module("Performance");
     let mobile = module("Mobile");
     let seo = module("SEO");
+    let seo_findings = reports
+        .iter()
+        .flat_map(|r| r.findings.iter())
+        .filter(|f| {
+            f.contract.domain == crate::audit::finding_contract::FindingDomain::Seo
+                && f.severity >= crate::taxonomy::Severity::Medium
+        })
+        .count();
 
     // A template or component defect can only be inferred from recurrence
     // across pages; within one page, repetition is one page repeating itself
@@ -516,7 +516,10 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
         )
     };
 
-    vec![
+    // A dimension that would only restate a module score is not a risk row:
+    // the score is on the cover already. Conversion, SEO and trust appear only
+    // with the findings that justify them (#1139).
+    let mut kinds = vec![
         ManagementRiskKind::Legal {
             legal_flags,
             severe_legal_flags,
@@ -531,39 +534,49 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
             blocking_issues,
             keyboard_blocking,
         },
-        ManagementRiskKind::Conversion {
+    ];
+    if blocking_issues > 0 {
+        kinds.push(ManagementRiskKind::Conversion {
             accessibility,
             performance,
             mobile,
             blocking_issues,
             keyboard_blocking,
-        },
-        ManagementRiskKind::Seo { score: seo },
-        ManagementRiskKind::PerformanceMobile {
-            performance,
-            mobile,
-            high_findings: reports
-                .iter()
-                .flat_map(|r| r.findings.iter())
-                .filter(|f| {
-                    matches!(
-                        f.contract.domain,
-                        crate::audit::finding_contract::FindingDomain::Mobile
-                            | crate::audit::finding_contract::FindingDomain::Performance
-                    ) && f.severity >= crate::taxonomy::Severity::High
-                })
-                .count(),
-        },
-        ManagementRiskKind::Trust {
+        });
+    }
+    if seo_findings > 0 {
+        kinds.push(ManagementRiskKind::Seo {
+            score: seo,
+            findings: seo_findings,
+        });
+    }
+    kinds.push(ManagementRiskKind::PerformanceMobile {
+        performance,
+        mobile,
+        high_findings: reports
+            .iter()
+            .flat_map(|r| r.findings.iter())
+            .filter(|f| {
+                matches!(
+                    f.contract.domain,
+                    crate::audit::finding_contract::FindingDomain::Mobile
+                        | crate::audit::finding_contract::FindingDomain::Performance
+                ) && f.severity >= crate::taxonomy::Severity::High
+            })
+            .count(),
+    });
+    if critical > 0 || high > 0 {
+        kinds.push(ManagementRiskKind::Trust {
             accessibility,
             critical,
             high,
-        },
-        ManagementRiskKind::Project {
-            count: project_count,
-            pages,
-        },
-    ]
+        });
+    }
+    kinds.push(ManagementRiskKind::Project {
+        count: project_count,
+        pages,
+    });
+    kinds
 }
 
 #[cfg(test)]
@@ -717,6 +730,7 @@ mod tests {
             );
             let mut n = crate::audit::normalized::normalize(&report).normalized;
             n.score = score;
+            n.risk.blocking_issues = 1;
             n.module_scores = vec![crate::audit::normalized::ModuleScoreEntry::new(
                 "Mobile", mobile, "measured", true,
             )];

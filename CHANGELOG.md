@@ -13,6 +13,7 @@ and verification for each change is in the
 
 ### Fixed
 
+- **Report:** the risk overview and `summary.management_risks` list the conversion, SEO and trust dimensions only when findings justify them (blocking controls, an SEO finding of medium severity or higher, a critical or high WCAG finding), no longer as restatements of a module score (#1139). Details: [output contract](https://casoon.github.io/auditmysite/docs/OUTPUT_CONTRACT/#management-risks).
 - **Report:** the key measures of the single report come from one ranking across all modules: severity first, then WCAG A/AA obligations, reach and leverage, so a Low accessibility hint no longer ranks ahead of a High finding such as a missing CSP or HSTS. The action-plan line "Reparaturhebel" / "Remediation leverage" is now "Reichweite der Korrektur" / "Fix reach", so it cannot read as low urgency (#1133).
 
 ## [2.1.0] - 2026-11-19
