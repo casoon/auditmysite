@@ -57,7 +57,9 @@ const headers = (e: Example) =>
           )}
           .{' '}
           {example.html
-            ? 'The page may contain further findings for other rules.'
+            ? example.excerpt
+              ? 'Only this element is shown; the page is longer and may contain further findings for other rules.'
+              : 'The page may contain further findings for other rules.'
             : 'The case is a set of response headers; there is no page.'}
         </p>
         {example.response_headers && (

@@ -14,6 +14,7 @@ export interface Example {
   selector?: string;
   response_headers?: Record<string, string>;
   html?: string;
+  excerpt?: boolean;
 }
 
 export interface Check {
