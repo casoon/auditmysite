@@ -426,6 +426,16 @@ fn change_scope_label(complexity: &str, i18n: &I18n) -> String {
     })
 }
 
+/// The URLs that carry at least one critical or high WCAG finding: the number
+/// the "critical/high occurrences on N URLs" key point names. It was the count
+/// of all audited URLs, so two failing pages of five read "on 5 URLs" (#1039).
+fn urls_with_critical_or_high(pres: &BatchPresentation) -> i64 {
+    pres.url_ranking
+        .iter()
+        .filter(|url| url.critical_violations > 0)
+        .count() as i64
+}
+
 /// 3 key takeaways for batch report
 pub(super) fn build_batch_key_points(
     pres: &BatchPresentation,
@@ -445,10 +455,7 @@ pub(super) fn build_batch_key_points(
             "batch-management-point-severe",
             &[
                 ("occurrences", FluentValue::from(ch_occurrences as i64)),
-                (
-                    "urls",
-                    FluentValue::from(pres.portfolio_summary.total_urls as i64),
-                ),
+                ("urls", FluentValue::from(urls_with_critical_or_high(pres))),
                 ("findings", FluentValue::from(ch as i64)),
             ],
         ));

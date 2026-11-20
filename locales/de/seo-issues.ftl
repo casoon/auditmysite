@@ -129,7 +129,7 @@ seo-profile-page-type-structured-content = Strukturierter Wissensinhalt
 seo-profile-page-type-marketing-landing = Marketing / Landing Page
 seo-profile-page-type-media-heavy = Medienorientierte Seite
 seo-profile-page-type-utility = Transaktional / Utility
-seo-profile-page-type-thin-content = Thin / Minimal Content
+seo-profile-page-type-thin-content = Dünner / minimaler Inhalt
 
 # Texts of the SEO content profile (`seo::profile::build_content_profile`):
 # the page attributes, the content type, the summary without meta
