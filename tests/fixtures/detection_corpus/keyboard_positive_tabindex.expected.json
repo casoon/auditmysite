@@ -1,0 +1,10 @@
+{
+  "case": "keyboard_positive_tabindex",
+  "expectations": [
+    { "rule_id": "keyboard/positive-tabindex", "selector": "button#pt-native", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "absent" },
+    { "rule_id": "navigation/location-missing", "verdict": "absent" },
+    { "rule_id": "targets/size", "verdict": "absent" },
+    { "rule_id": "targets/size-enhanced", "verdict": "absent" }
+  ]
+}

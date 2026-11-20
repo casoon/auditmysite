@@ -1,0 +1,10 @@
+{
+  "case": "keyboard_interactive_not_focusable",
+  "expectations": [
+    { "rule_id": "keyboard/interactive-not-focusable", "selector": "span#inf-button", "verdict": "needs_review", "occurrences": 1 },
+    { "rule_id": "keyboard/skip-link-missing", "verdict": "absent" },
+    { "rule_id": "navigation/location-missing", "verdict": "absent" },
+    { "rule_id": "targets/size", "verdict": "absent" },
+    { "rule_id": "targets/size-enhanced", "verdict": "absent" }
+  ]
+}

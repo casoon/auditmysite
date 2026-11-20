@@ -13,7 +13,7 @@
 mod common;
 
 use auditmysite::taxonomy::{is_addressable_rule_id, rule_doc_url, RULE_DOCS_BASE_URL};
-use common::rule_docs::{generate, page_file, repo_root, OUTPUT_DIR};
+use common::rule_docs::{excerpt_of, generate, page_file, repo_root, OUTPUT_DIR};
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -209,4 +209,28 @@ fn pages_carry_no_empty_sections() {
         let json: serde_json::Value = serde_json::from_str(&content).unwrap();
         check(&name, "", &json);
     }
+}
+
+/// A fixture page larger than the example cap is cut to the element the corpus
+/// expectation names, not left out (#1013).
+#[test]
+fn an_oversized_fixture_page_is_cut_to_the_named_element() {
+    let page = std::fs::read_to_string(
+        repo_root().join("tests/fixtures/detection_corpus/forms_hidden.html"),
+    )
+    .unwrap();
+    assert!(page.len() > 6000, "the fixture must exceed the cap");
+
+    let button = excerpt_of(&page, Some("button#sr-empty-button")).unwrap();
+    assert_eq!(
+        button,
+        r#"<button id="sr-empty-button" type="button"></button>"#
+    );
+
+    // A selector that names nothing, names the whole page, or is a frame path
+    // has no excerpt, so that example is left out.
+    assert_eq!(excerpt_of(&page, Some("button#no-such-id")), None);
+    assert_eq!(excerpt_of(&page, Some("html")), None);
+    assert_eq!(excerpt_of(&page, Some("iframe#a [frame] a#b")), None);
+    assert_eq!(excerpt_of(&page, None), None);
 }

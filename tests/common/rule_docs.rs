@@ -27,12 +27,17 @@ use auditmysite::seo::schema_rules::{
 };
 use auditmysite::taxonomy::rules::RULES;
 use auditmysite::taxonomy::{rule_doc_url, SeverityExt, RULE_DOCS_BASE_URL};
+use html5ever::serialize::{serialize, SerializeOpts, TraversalScope};
+use html5ever::{parse_document, tendril::TendrilSink};
+use markup5ever_rcdom::{Handle, NodeData, RcDom, SerializableHandle};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-/// Largest fixture page shown as an example. A larger one is left out rather
-/// than cut: a cut page is no longer the page the corpus asserts on.
+/// Largest example shown, per example (not per page). A fixture page within
+/// the cap is shown whole; a larger one is cut to the element the corpus
+/// expectation names (`excerpt_of`), and left out only when that element
+/// cannot be found or is itself larger than the cap.
 const MAX_EXAMPLE_BYTES: usize = 6000;
 
 /// Schema.org types the structured-data profiles assess (`assess_node`).
@@ -137,6 +142,10 @@ pub struct Example {
     pub response_headers: BTreeMap<String, String>,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub html: String,
+    /// `html` is the element the expectation names, cut out of a fixture page
+    /// larger than [`MAX_EXAMPLE_BYTES`], not the whole page.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub excerpt: bool,
 }
 
 /// What one contract says about one detector. A page documents one check
@@ -255,8 +264,8 @@ fn criterion_key(criterion: Option<&str>) -> (bool, Vec<u32>) {
 
 /// The most focused fixture page among `cases` on which the rule has one of
 /// `verdicts` (preferred in the order given), within [`MAX_EXAMPLE_BYTES`]:
-/// the page with the fewest confirmed violations of other rules, then the
-/// smallest.
+/// a page that fits whole before an excerpt of a larger one, then the page
+/// with the fewest confirmed violations of other rules, then the smallest.
 fn example(
     contract_id: &str,
     cases: &[String],
@@ -264,7 +273,7 @@ fn example(
     verdicts: &[Verdict],
 ) -> Option<Example> {
     for wanted in verdicts {
-        let mut best: Option<((usize, usize), Example)> = None;
+        let mut best: Option<((bool, usize, usize), Example)> = None;
         for name in cases {
             let Some(case) = corpus.get(name) else {
                 continue;
@@ -289,15 +298,20 @@ fn example(
                     String::new()
                 }
             };
-            if html.len() > MAX_EXAMPLE_BYTES {
-                continue;
-            }
+            let (html, excerpt) = if html.len() > MAX_EXAMPLE_BYTES {
+                match excerpt_of(&html, exp.selector.as_deref()) {
+                    Some(element) => (element, true),
+                    None => continue,
+                }
+            } else {
+                (html, false)
+            };
             let others = case
                 .expectations
                 .iter()
                 .filter(|e| e.rule_id != contract_id && e.verdict == Verdict::Violation)
                 .count();
-            let key = (others, html.len());
+            let key = (excerpt, others, html.len());
             if best.as_ref().is_none_or(|(k, _)| key < *k) {
                 best = Some((
                     key,
@@ -312,6 +326,7 @@ fn example(
                         selector: exp.selector.clone(),
                         response_headers: case.response_headers.clone(),
                         html: html.trim_end().to_string(),
+                        excerpt,
                     },
                 ));
             }
@@ -321,6 +336,71 @@ fn example(
         }
     }
     None
+}
+
+/// The first element of `html` that a corpus selector of the form `tag`,
+/// `tag#id` or `tag.class` names, as markup, if it is within
+/// [`MAX_EXAMPLE_BYTES`]. A selector of another form (a frame path) or one
+/// that matches nothing gives `None`.
+pub fn excerpt_of(html: &str, selector: Option<&str>) -> Option<String> {
+    let selector = selector?;
+    let (tag, id, class) = match selector.split_once('#') {
+        Some((tag, id)) => (tag, Some(id), None),
+        None => match selector.split_once('.') {
+            Some((tag, class)) => (tag, None, Some(class)),
+            None => (selector, None, None),
+        },
+    };
+    if !tag.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+        || !id.is_none_or(|v| {
+            v.chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        })
+        || !class.is_none_or(|v| {
+            v.chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        })
+    {
+        return None;
+    }
+    let dom: RcDom = parse_document(RcDom::default(), Default::default()).one(html);
+    let element = find_element(&dom.document, tag, id, class)?;
+    let mut out = Vec::new();
+    serialize(
+        &mut out,
+        &SerializableHandle::from(element),
+        SerializeOpts {
+            traversal_scope: TraversalScope::IncludeNode,
+            ..Default::default()
+        },
+    )
+    .ok()?;
+    let markup = String::from_utf8(out).ok()?;
+    (markup.len() <= MAX_EXAMPLE_BYTES).then_some(markup)
+}
+
+fn find_element(node: &Handle, tag: &str, id: Option<&str>, class: Option<&str>) -> Option<Handle> {
+    if let NodeData::Element { name, attrs, .. } = &node.data {
+        let attr = |wanted: &str| {
+            attrs
+                .borrow()
+                .iter()
+                .find(|a| &*a.name.local == wanted)
+                .map(|a| a.value.to_string())
+        };
+        if &*name.local == tag
+            && id.is_none_or(|id| attr("id").as_deref() == Some(id))
+            && class.is_none_or(|class| {
+                attr("class").is_some_and(|c| c.split_whitespace().any(|c| c == class))
+            })
+        {
+            return Some(node.clone());
+        }
+    }
+    node.children
+        .borrow()
+        .iter()
+        .find_map(|child| find_element(child, tag, id, class))
 }
 
 /// `<case>.expected.json` → `<case>.html`.
@@ -354,11 +434,16 @@ fn check_of(
     corpus: &BTreeMap<String, ExpectedCase>,
 ) -> Check {
     let outcome = outcome_of(contract);
-    let (failing_verdict, passing_verdicts): (Verdict, &[Verdict]) = match outcome {
-        Outcome::Automatic => (Verdict::Violation, &[Verdict::Pass, Verdict::Absent]),
-        Outcome::HintOnly => (Verdict::NeedsReview, &[Verdict::Pass, Verdict::Absent]),
+    let (failing_verdicts, passing_verdicts): (&[Verdict], &[Verdict]) = match outcome {
+        // A check that has no violation state (a missing recommended
+        // property, a missing opt-in header) shows its review case instead.
+        Outcome::Automatic => (
+            &[Verdict::Violation, Verdict::NeedsReview],
+            &[Verdict::Pass, Verdict::Absent],
+        ),
+        Outcome::HintOnly => (&[Verdict::NeedsReview], &[Verdict::Pass, Verdict::Absent]),
         // A manual check proves its review flag, never a pass.
-        Outcome::Manual => (Verdict::NeedsReview, &[]),
+        Outcome::Manual => (&[Verdict::NeedsReview], &[]),
     };
     Check {
         contract_id: contract.id.clone(),
@@ -371,7 +456,7 @@ fn check_of(
         capabilities: contract.capabilities.clone(),
         page_level: contract.page_level,
         manual_reason: contract.manual_reason.clone(),
-        failing: example(&contract.id, &contract.positive, corpus, &[failing_verdict]),
+        failing: example(&contract.id, &contract.positive, corpus, failing_verdicts),
         passing: example(&contract.id, &contract.negative, corpus, passing_verdicts),
     }
 }

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Interactive role without focus</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        a, button, [role="button"], [tabindex] { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <header><p>Example Shop</p></header>
+    <nav aria-label="Main">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/products">Products</a>
+    </nav>
+    <main id="main">
+        <h1>Order your delivery</h1>
+        <!-- needs_review (2.1.1): role button, but no tabindex and not natively focusable -->
+        <span id="inf-button" role="button">Save for later</span>
+    </main>
+    <footer><p>Example Shop footer</p></footer>
+</body>
+</html>

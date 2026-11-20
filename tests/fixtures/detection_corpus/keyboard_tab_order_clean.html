@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Tab order without findings</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 16px; color: #111; background: #fff; }
+        a, button, [role="button"], [tabindex] { display: inline-block; min-width: 44px; min-height: 44px; padding: 12px; box-sizing: border-box; margin: 4px; }
+        .skip { position: absolute; left: -9999px; }
+        .skip:focus { left: 16px; }
+    </style>
+</head>
+<body>
+    <a class="skip" href="#main">Skip to main content</a>
+    <header><p>Example Shop</p></header>
+    <nav aria-label="Main">
+        <a href="/" aria-current="page">Home</a>
+        <a href="/products">Products</a>
+    </nav>
+    <main id="main">
+        <h1>Order your delivery</h1>
+        <!-- absent: tabindex 0 and -1 keep the natural order -->
+        <button id="pt-zero" type="button" tabindex="0">Edit address</button>
+        <button id="pt-minus" type="button" tabindex="-1">Skipped by Tab</button>
+        <!-- absent: a named region in the tab order is the scrollable-region pattern -->
+        <div id="fnr-region" role="region" aria-label="Delivery terms" tabindex="0">Delivery terms.</div>
+        <!-- pass: aria-hidden content taken out of the tab order -->
+        <div aria-hidden="true">
+            <a id="hf-minus" href="/faq" tabindex="-1">FAQ</a>
+        </div>
+    </main>
+    <footer><p>Example Shop footer</p></footer>
+</body>
+</html>

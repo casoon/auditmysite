@@ -26,8 +26,8 @@ and are not reported; the boundary is 1. A display:none element is in no tab
 order and is not reported. ARIA widgets (span role=button) and native
 controls count alike, so do elements in an open shadow root, a value set by
 script after load, and an element rendered on one viewport only."""
-positive = ["interaction_tab_order"]
-negative = ["interaction_tab_order"]
+positive = ["interaction_tab_order", "keyboard_positive_tabindex"]
+negative = ["interaction_tab_order", "keyboard_tab_order_clean"]
 not_applicable = ["interaction_static_text"]
 
 [rule.variants]
@@ -65,8 +65,8 @@ the element is taken out of the tab order (tabindex="-1"), when the hidden
 subtree is inert, when it is not rendered, or when aria-hidden is "false".
 Native links and ARIA widgets with tabindex 0 count alike, as does
 aria-hidden set by a script after load."""
-positive = ["interaction_tab_order"]
-negative = ["interaction_tab_order"]
+positive = ["interaction_tab_order", "keyboard_hidden_focusable"]
+negative = ["interaction_tab_order", "keyboard_tab_order_clean"]
 not_applicable = ["interaction_static_text"]
 
 [rule.variants]
@@ -105,7 +105,7 @@ is 0), a named region with tabindex="0" (the recommended scrollable-region
 pattern), elements that are not rendered. A tabindex added by script after
 load counts."""
 positive = ["interaction_tab_order", "keyboard_and_targets"]
-negative = ["interaction_tab_order"]
+negative = ["interaction_tab_order", "keyboard_tab_order_clean"]
 not_applicable = ["interaction_static_text"]
 
 [rule.variants]
@@ -144,7 +144,7 @@ whose ancestor manages focus with aria-activedescendant, elements not
 rendered. An <a> without href has no link role (HTML-AAM: generic) and is
 the business of keyboard/click-handler-not-focusable, not of this rule. A
 tabindex removed by script after load counts."""
-positive = ["interaction_tab_order"]
+positive = ["interaction_tab_order", "keyboard_interactive_not_focusable"]
 negative = ["interaction_tab_order", "interaction_click_anchor"]
 not_applicable = ["interaction_static_text"]
 

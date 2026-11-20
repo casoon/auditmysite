@@ -17,6 +17,12 @@
         "dom"
       ],
       "page_level": true,
+      "failing": {
+        "case": "schema_rules_subtypes",
+        "file": "tests/fixtures/detection_corpus_nonwcag/schema_rules/schema_rules_subtypes.html",
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Article and application subtypes</title>\n  <script type=\"application/ld+json\">\n  {\"@context\": \"https://schema.org\", \"@type\": \"NewsArticle\", \"headline\": \"News\", \"author\": {\"@type\": \"Person\", \"name\": \"Ada\"}, \"datePublished\": \"2026-01-01\", \"dateModified\": \"2026-01-02\", \"image\": \"https://example.com/n.jpg\"}\n  </script>\n  <script type=\"application/ld+json\">\n  {\"@context\": \"https://schema.org\", \"@type\": \"WebApplication\", \"name\": \"Web app\", \"offers\": {\"@type\": \"Offer\", \"price\": 0}, \"aggregateRating\": {\"@type\": \"AggregateRating\", \"ratingValue\": 4.2, \"ratingCount\": 40}, \"applicationCategory\": \"BusinessApplication\", \"operatingSystem\": \"Any\"}\n  </script>\n  <script type=\"application/ld+json\">\n  {\"@context\": \"https://schema.org\", \"@type\": \"CollectionPage\", \"name\": \"Guides\", \"url\": \"https://example.com/guides\", \"mainEntity\": {\"@type\": \"ItemList\", \"itemListElement\": []}}\n  </script>\n</head>\n<body>\n  <header><p>Example</p></header>\n  <main>\n    <h1>Article and application subtypes</h1>\n    <p>Structured data corpus page.</p>\n  </main>\n  <footer><p>Footer</p></footer>\n</body>\n</html>"
+      },
       "passing": {
         "case": "schema_rules_complete",
         "file": "tests/fixtures/detection_corpus_nonwcag/schema_rules/schema_rules_complete.html",
