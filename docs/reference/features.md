@@ -160,6 +160,21 @@ Risk level is computed independently from the score. A page scoring 81 can still
 
 `auditmysite.toml` is an optional project-level config file placed in the working directory. It supports `[audit]`, `[rules]`, `[interactive]`, `[thresholds]`, and `[budget]` sections.
 
+## Browser language
+
+`--accept-language <TAGS>` (or `[audit] accept_language` in `auditmysite.toml`; the flag wins) sets the
+languages the browser sends as `Accept-Language` and reports as `navigator.languages`, most preferred
+first: a plain comma-separated list of language tags, for example `de-DE,de` (no spaces, no quality
+values, the browser adds them). The default is `en-US,en`. A site that redirects or renders by
+language (a country path, a consent platform) answers to it, so a reference run is reproducible only
+with the same value; the value is stored in the report's measurement profile. It is not the report
+language (`--lang`), and it cannot change the region a server infers from the IP address.
+
+```toml
+[audit]
+accept_language = "de-DE,de"
+```
+
 ## Rule configuration
 
 Rules can be selectively disabled or filtered via `auditmysite.toml`:

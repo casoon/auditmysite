@@ -182,7 +182,7 @@ pub struct AuditScope {
 
 /// Version of the measurement profile's meaning. A report of another
 /// version is another contract, never the same measurement.
-pub const MEASUREMENT_PROFILE_VERSION: u32 = 3;
+pub const MEASUREMENT_PROFILE_VERSION: u32 = 4;
 
 /// How the pages of a run were measured beyond the viewport (#787).
 ///
@@ -219,6 +219,13 @@ pub struct MeasurementProfile {
     /// profile version 3 on; absent in reports from before.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub browser: Option<crate::browser::BrowserProvenance>,
+    /// The languages the browser was launched with, a plain comma-separated
+    /// list (`en-US,en`; `--accept-language`, #1110). A site that redirects
+    /// or renders by language answers to them, so another list is another
+    /// measurement. Required from profile version 4 on; absent in reports
+    /// from before. The header that went out is `navigation.accept_language`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accept_language: Option<String>,
 }
 
 /// Identity of a declared browser state (`--storage-state`).
@@ -242,6 +249,7 @@ impl Default for MeasurementProfile {
             storage_state: None,
             extra_checks: Vec::new(),
             browser: None,
+            accept_language: None,
         }
     }
 }

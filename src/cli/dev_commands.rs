@@ -222,6 +222,7 @@ fn run_replay_mode(
         extra_checks: None,
         // A replay measures nothing, so it asserts no browser.
         browser: None,
+        accept_language: args.accept_language.clone(),
     };
     let refuse = |e: auditmysite::audit::ReplayError| AuditError::ConfigError(e.to_string());
     snapshot.check_measurement(&expected).map_err(refuse)?;

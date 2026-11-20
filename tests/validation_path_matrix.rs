@@ -44,6 +44,7 @@ fn consistent() -> AuditReport {
     let mut report = contradictory();
     let profile = &mut report.accessibility.execution.scope.measurement_profile;
     profile.state_changing_journeys.clear();
+    profile.accept_language = Some("en-US,en".into());
     profile.browser = Some(auditmysite::browser::BrowserProvenance {
         product: auditmysite::browser::BrowserProduct::Chrome,
         version: Some("131.0.6778.85".into()),

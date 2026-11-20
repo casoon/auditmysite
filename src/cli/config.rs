@@ -60,6 +60,9 @@ pub struct AuditConfig {
     /// Whether the audited pages are meant to be indexed (#780), as
     /// `--expect-indexable`.
     pub expect_indexable: Option<bool>,
+    /// Languages the browser sends and reports, as `--accept-language`
+    /// (`"de-DE,de"`; the flag takes precedence).
+    pub accept_language: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -183,6 +186,10 @@ impl Config {
             if args.concurrency.is_none() {
                 args.concurrency = Some(concurrency);
             }
+        }
+
+        if args.accept_language.is_none() {
+            args.accept_language = self.audit.accept_language.clone();
         }
 
         // Output settings
@@ -339,6 +346,25 @@ mode = "off"
         config.apply_to_args_with_sources(&mut args, false);
 
         assert_eq!(args.interactive, InteractiveMode::Off);
+    }
+
+    /// `[audit] accept_language` fills the browser languages, `--accept-language`
+    /// beats it (#1110).
+    #[test]
+    fn accept_language_config_is_a_default_the_flag_beats() {
+        let config: Config = toml::from_str("[audit]\naccept_language = \"de-DE,de\"\n").unwrap();
+        let mut from_file = Args::parse_from(["auditmysite", "https://example.com"]);
+        config.apply_to_args(&mut from_file);
+        assert_eq!(from_file.effective_accept_language(), "de-DE,de");
+
+        let mut flagged = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--accept-language",
+            "fr-FR,fr",
+        ]);
+        config.apply_to_args(&mut flagged);
+        assert_eq!(flagged.effective_accept_language(), "fr-FR,fr");
     }
 
     #[test]

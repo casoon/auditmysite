@@ -75,6 +75,56 @@ impl SessionPolicy {
     }
 }
 
+/// The languages a browser sends and reports when none are asked for
+/// (`--accept-language`, #1110): American English, then English. A plain
+/// list of language tags; Chrome derives the quality values itself.
+pub const DEFAULT_ACCEPT_LANGUAGE: &str = "en-US,en";
+
+/// Checks a `--accept-language` value: one to eight comma-separated language
+/// tags (`de-DE,de`), no spaces and no quality values.
+///
+/// Chrome's `--accept-lang` takes the plain list and writes the `;q=` values
+/// of the header itself. A value that already carries one (`en;q=0.9`) is not
+/// understood as a quality: the tool used to pass `en-US,en;q=0.9` and sent
+/// `en-US,en;q=0.9,en;q=0.9;q=0.8`, with `navigator.languages` holding the
+/// entry `en;q=0.9`.
+pub fn validate_accept_language(value: &str) -> std::result::Result<(), String> {
+    let well_formed = |tag: &str| {
+        let mut parts = tag.split('-');
+        let primary_ok = parts.next().is_some_and(|p| {
+            (2..=3).contains(&p.len()) && p.bytes().all(|b| b.is_ascii_alphabetic())
+        });
+        primary_ok
+            && parts
+                .all(|p| (1..=8).contains(&p.len()) && p.bytes().all(|b| b.is_ascii_alphanumeric()))
+    };
+    let tags: Vec<&str> = value.split(',').collect();
+    if tags.len() > 8 || !tags.iter().all(|tag| well_formed(tag)) {
+        return Err(format!(
+            "invalid --accept-language `{value}`: expected one to eight comma-separated language tags such as `de-DE,de` (no spaces, no quality values: Chrome adds them)"
+        ));
+    }
+    Ok(())
+}
+
+/// The `Accept-Language` header for a plain list of tags, written the way
+/// Chrome writes it: the first tag as is, every further one with a quality
+/// that falls by 0.1 (`de-DE,de;q=0.9,en-US;q=0.8`).
+fn accept_language_header(languages: &[&str]) -> String {
+    languages
+        .iter()
+        .enumerate()
+        .map(|(rank, tag)| {
+            if rank == 0 {
+                (*tag).to_string()
+            } else {
+                format!("{tag};q=0.{}", 10usize.saturating_sub(rank).max(1))
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
 /// Browser configuration options
 #[derive(Debug, Clone)]
 pub struct BrowserOptions {
@@ -101,6 +151,12 @@ pub struct BrowserOptions {
     pub focus_emulation: bool,
     /// Whether the pages of a pool share cookies and storage (#787).
     pub session: SessionPolicy,
+    /// Languages the browser sends as `Accept-Language` and reports as
+    /// `navigator.languages`, a validated plain list (see
+    /// [`validate_accept_language`]). Fixed per browser: the header would
+    /// otherwise follow the machine's language and a run could not be
+    /// reproduced elsewhere (#1110).
+    pub accept_language: String,
 }
 
 impl Default for BrowserOptions {
@@ -117,6 +173,7 @@ impl Default for BrowserOptions {
             user_agent_override: None,
             focus_emulation: false,
             session: SessionPolicy::default(),
+            accept_language: DEFAULT_ACCEPT_LANGUAGE.to_string(),
         }
     }
 }
@@ -445,9 +502,15 @@ impl BrowserManager {
             "--disable-blink-features=AutomationControlled".to_string(),
             // Use the real installed Chrome version in the UA to avoid bot-detection fingerprint mismatch
             format!("--user-agent={}", user_agent),
-            // Language header — many bot detectors reject requests with no Accept-Language
-            "--lang=en-US,en;q=0.9".to_string(),
-            "--accept-lang=en-US,en;q=0.9".to_string(),
+            // Language header — many bot detectors reject requests with no Accept-Language.
+            // `--accept-lang` is a plain list (Chrome writes the q-values);
+            // `--lang` is the UI locale and alone leaves the header to the
+            // machine's language.
+            format!(
+                "--lang={}",
+                options.accept_language.split(',').next().unwrap_or("en-US")
+            ),
+            format!("--accept-lang={}", options.accept_language),
         ];
 
         if disable_gpu {
@@ -488,6 +551,11 @@ impl BrowserManager {
             ),
         })?;
         Ok(dir)
+    }
+
+    /// The languages this browser sends and reports (`--accept-language`).
+    pub fn accept_language(&self) -> &str {
+        &self.options.accept_language
     }
 
     /// The session policy this browser was launched with.
@@ -586,7 +654,6 @@ impl BrowserManager {
         privacy_signals: bool,
     ) -> Result<Page> {
         use chromiumoxide::cdp::browser_protocol::emulation::SetFocusEmulationEnabledParams;
-        use chromiumoxide::cdp::browser_protocol::network::{Headers, SetExtraHttpHeadersParams};
         use chromiumoxide::cdp::browser_protocol::page::AddScriptToEvaluateOnNewDocumentParams;
 
         let mut target = CreateTargetParams::new("about:blank");
@@ -629,6 +696,21 @@ impl BrowserManager {
             ))
             .await;
 
+        // The languages are set on the page itself, not only at launch: a
+        // browser context other than the default one (a batch under the
+        // `isolated` session policy) ignores `--accept-lang` and falls back to
+        // the list of the UI locale (`de-DE,de,en-US,en` for `de-DE`), so the
+        // header would differ between a single run and a batch (#1110).
+        let languages: Vec<&str> = self.options.accept_language.split(',').collect();
+        let _ = page
+            .execute(AddScriptToEvaluateOnNewDocumentParams::new(format!(
+                "(() => {{ const l = Object.freeze({}); \
+                 Object.defineProperty(Navigator.prototype, 'languages', {{ get: () => l, configurable: true }}); \
+                 Object.defineProperty(Navigator.prototype, 'language', {{ get: () => l[0], configurable: true }}); }})();",
+                serde_json::json!(languages)
+            )))
+            .await;
+
         if privacy_signals {
             // Send Do-Not-Track / Global Privacy Control on every request, and
             // expose the matching JS-visible navigator properties (headers alone
@@ -644,22 +726,37 @@ impl BrowserManager {
             // audit visit shouldn't pollute the site owner's real analytics
             // regardless, so this is unconditional rather than opt-in.
             let _ = page
-                .execute(SetExtraHttpHeadersParams::new(Headers::new(
-                    serde_json::json!({
-                        "DNT": "1",
-                        "Sec-GPC": "1",
-                    }),
-                )))
-                .await;
-            let _ = page
                 .execute(AddScriptToEvaluateOnNewDocumentParams::new(
                     "Object.defineProperty(navigator,'doNotTrack',{get:()=>'1'});\
                      Object.defineProperty(navigator,'globalPrivacyControl',{get:()=>true});",
                 ))
                 .await;
         }
+        self.apply_request_headers(&page, privacy_signals).await;
 
         Ok(page)
+    }
+
+    /// Sets the headers every request of `page` carries: `Accept-Language`
+    /// and, with `privacy_signals`, `DNT` and `Sec-GPC`.
+    ///
+    /// The headers only apply while the CDP `Network` domain is enabled on
+    /// the page (the audit pipeline enables it before its first navigation
+    /// and leaves it on, #1110).
+    async fn apply_request_headers(&self, page: &Page, privacy_signals: bool) {
+        use chromiumoxide::cdp::browser_protocol::network::{Headers, SetExtraHttpHeadersParams};
+
+        let languages: Vec<&str> = self.options.accept_language.split(',').collect();
+        let mut headers = serde_json::json!({
+            "Accept-Language": accept_language_header(&languages),
+        });
+        if privacy_signals {
+            headers["DNT"] = "1".into();
+            headers["Sec-GPC"] = "1".into();
+        }
+        let _ = page
+            .execute(SetExtraHttpHeadersParams::new(Headers::new(headers)))
+            .await;
     }
 
     /// Navigate a page to a URL and wait for load.
@@ -1297,6 +1394,61 @@ mod tests {
 
         assert!(!args.iter().any(|a| a == "--no-sandbox"));
         assert!(!args.iter().any(|a| a == "--disable-dev-shm-usage"));
+    }
+
+    /// The languages go to Chrome as the plain list it expects (#1110): a
+    /// `;q=` in it was written into the header a second time.
+    #[test]
+    fn launch_args_pass_the_languages_as_a_plain_list() {
+        let default = BrowserManager::build_launch_args(&BrowserOptions::default(), true, None);
+        assert!(default.contains(&"--accept-lang=en-US,en".to_string()));
+        assert!(default.contains(&"--lang=en-US".to_string()));
+        let german = BrowserOptions {
+            accept_language: "de-DE,de".to_string(),
+            ..Default::default()
+        };
+        let args = BrowserManager::build_launch_args(&german, true, None);
+        assert!(args.contains(&"--accept-lang=de-DE,de".to_string()));
+        assert!(args.contains(&"--lang=de-DE".to_string()));
+        assert!(!args.iter().any(|a| a.contains("q=")));
+    }
+
+    #[test]
+    fn the_header_carries_falling_qualities_like_chromes() {
+        assert_eq!(accept_language_header(&["de"]), "de");
+        assert_eq!(accept_language_header(&["en-US", "en"]), "en-US,en;q=0.9");
+        assert_eq!(
+            accept_language_header(&["de-DE", "de", "en-US", "en"]),
+            "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7"
+        );
+        let eight = accept_language_header(&["a1", "b2", "c3", "d4", "e5", "f6", "g7", "h8"]);
+        assert!(eight.ends_with("h8;q=0.3"), "{eight}");
+    }
+
+    #[test]
+    fn accept_language_is_a_plain_list_of_language_tags() {
+        for ok in [
+            "en-US,en",
+            "de",
+            "de-DE,de,en-US,en",
+            "zh-Hant-TW",
+            "es-419",
+        ] {
+            assert!(validate_accept_language(ok).is_ok(), "{ok}");
+        }
+        for bad in [
+            "",
+            "en-US,en;q=0.9",
+            "en-US, en",
+            "e",
+            "english",
+            "en_US",
+            "*",
+            "en,,de",
+            "a1,b,c,d,e,f,g,h,i",
+        ] {
+            assert!(validate_accept_language(bad).is_err(), "{bad}");
+        }
     }
 
     #[test]

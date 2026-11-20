@@ -94,6 +94,7 @@ impl PipelineConfig {
             allow_state_changes: args.allow_state_changes,
             journey_budget_ms,
             session: args.session,
+            accept_language: args.effective_accept_language(),
             storage_state: args
                 .load_storage_state()
                 .expect("--storage-state is checked by Args::validate"),
@@ -131,6 +132,7 @@ impl From<&Args> for BatchConfig {
                 // Parallel pages share one window; only then are tabs hidden.
                 focus_emulation: args.effective_concurrency() > 1,
                 session: args.session,
+                accept_language: args.effective_accept_language(),
                 chrome_path: args.chrome_path.clone(),
                 no_sandbox: args.no_sandbox,
                 disable_images: args.disable_images,
@@ -222,6 +224,7 @@ mod tests {
             interactive: crate::model::InteractiveMode::Off,
             allow_state_changes: false,
             session: Default::default(),
+            accept_language: None,
             storage_state: None,
             state_id: None,
             report_level: crate::model::ReportLevel::Standard,
@@ -651,6 +654,33 @@ mod tests {
         let default = PipelineConfig::default();
         assert_eq!(cli.audit_signature(), default.audit_signature());
         assert_eq!(format!("{cli:#?}"), format!("{default:#?}"));
+    }
+
+    /// `--accept-language` reaches the pipeline (cache signature) and the
+    /// browser of a batch alike (#1110).
+    #[test]
+    fn accept_language_reaches_the_pipeline_and_the_browser() {
+        let args = Args::parse_from([
+            "auditmysite",
+            "--url-file",
+            "urls.txt",
+            "--accept-language",
+            "de-DE,de",
+        ]);
+        let batch = BatchConfig::from(&args);
+        assert_eq!(batch.pipeline.accept_language, "de-DE,de");
+        assert_eq!(
+            batch.pool_config.browser_options.accept_language,
+            "de-DE,de"
+        );
+        assert!(batch
+            .pipeline
+            .audit_signature()
+            .contains("accept_language=de-DE,de;"));
+        assert_ne!(
+            batch.pipeline.audit_signature(),
+            PipelineConfig::default().audit_signature()
+        );
     }
 
     #[test]
