@@ -1037,6 +1037,26 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1
+        },
+        "violation": {
+          "description": "Criteria with a retained violation (part of `total`).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "review": {
+          "description": "Criteria with only a warning or heuristic hint, needing manual review (part of `total`).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_testable": {
+          "description": "Criteria that were not testable or not run: error, disabled, missing capability (part of `total`).",
+          "type": "integer",
+          "minimum": 0
+        },
+        "not_applicable": {
+          "description": "Criteria with nothing to check on this page; not part of `total`.",
+          "type": "integer",
+          "minimum": 0
         }
       }
     },

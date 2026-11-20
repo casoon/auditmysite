@@ -7,35 +7,55 @@ use renderreport::components::advanced::{
 use renderreport::components::text::Label;
 use renderreport::components::TagCloud;
 
-use crate::audit::{AccessibilityScorer, AuditReport, CoverageRatio};
+use crate::audit::{AccessibilityScorer, AuditReport, CoverageRatio, CriterionState};
 use crate::i18n::I18n;
 
-/// Criteria with at least one violation in this run.
-pub(super) fn violated_criteria(
-    results: &crate::wcag::WcagResults,
-) -> std::collections::BTreeSet<String> {
-    results
-        .violations
-        .iter()
-        .filter_map(|v| crate::taxonomy::criterion_for_rule(&v.rule))
-        .collect()
-}
-
 /// Tag colour of an automatically checked criterion, derived from the same
-/// execution states as the principle coverage ratios: only a criterion that
-/// ran and found nothing is shown as passed (#902-1).
+/// criterion states as the principle coverage counts: only a criterion that
+/// ran and found nothing is shown as passed, and a violated one is never
+/// green (#902-1, #1135).
 pub(super) fn criterion_tag_status(
     criterion: &str,
-    states: &std::collections::BTreeMap<String, Option<bool>>,
-    violated: &std::collections::BTreeSet<String>,
+    states: &std::collections::BTreeMap<String, CriterionState>,
 ) -> &'static str {
-    if violated.contains(criterion) {
-        return "bad";
-    }
     match states.get(criterion) {
-        Some(Some(true)) => "good",
-        Some(Some(false)) => "warn",
-        _ => "neutral",
+        Some(CriterionState::Violation) => "bad",
+        Some(CriterionState::Passed) => "good",
+        Some(CriterionState::Review | CriterionState::NotTestable) => "warn",
+        Some(CriterionState::NotApplicable) | None => "neutral",
+    }
+}
+
+/// One principle's coverage as the report words it: the passed share, then
+/// the criteria that are not passed, by state, so "11/12" explains itself
+/// (#1135). Zero counts are left out.
+fn format_coverage(ratio: &CoverageRatio, i18n: &I18n) -> String {
+    let base = format!(
+        "{}/{} ({:.0} %)",
+        ratio.passed,
+        ratio.total,
+        ratio.ratio * 100.0
+    );
+    let parts: Vec<String> = [
+        ("pdf-analysis-coverage-state-violation", ratio.violation),
+        ("pdf-analysis-coverage-state-review", ratio.review),
+        (
+            "pdf-analysis-coverage-state-not-testable",
+            ratio.not_testable,
+        ),
+        (
+            "pdf-analysis-coverage-state-not-applicable",
+            ratio.not_applicable,
+        ),
+    ]
+    .into_iter()
+    .filter(|(_, count)| *count > 0)
+    .map(|(key, count)| i18n.t_args(key, &[("count", count.to_string())]))
+    .collect();
+    if parts.is_empty() {
+        base
+    } else {
+        format!("{base} — {}", parts.join(", "))
     }
 }
 
@@ -57,8 +77,7 @@ pub(super) fn render_wcag_coverage_section(
     let coverage =
         AccessibilityScorer::calculate_execution_coverage(&report.accessibility.wcag_results);
     let cov_title = i18n.t("pdf-analysis-coverage-principles-title");
-    let fmt_ratio =
-        |r: &CoverageRatio| format!("{}/{} ({:.0} %)", r.passed, r.total, r.ratio * 100.0);
+    let fmt_ratio = |r: &CoverageRatio| format_coverage(r, i18n);
     builder = builder.add_component(
         KeyValueList::new()
             .with_title(cov_title)
@@ -146,16 +165,14 @@ pub(super) fn render_wcag_coverage_section(
         ],
     );
     let mut tag_cloud = TagCloud::new().with_title(&automated_title).with_gap("5pt");
-    let states =
-        AccessibilityScorer::criterion_execution_states(&report.accessibility.wcag_results);
-    let violated = violated_criteria(&report.accessibility.wcag_results);
+    let states = AccessibilityScorer::criterion_states(&report.accessibility.wcag_results);
     for (c, l) in automated_criteria().iter() {
         let tag = if crate::wcag::coverage::is_wcag22_only(c) {
             format!("WCAG {} ({}, WCAG 2.2)", c, l)
         } else {
             format!("WCAG {} ({})", c, l)
         };
-        tag_cloud = tag_cloud.add(tag, criterion_tag_status(c, &states, &violated));
+        tag_cloud = tag_cloud.add(tag, criterion_tag_status(c, &states));
     }
     builder = builder.add_component(tag_cloud);
     let listed_note = format!("{listed_note} {}", i18n.t("pdf-analysis-coverage-legend"));
@@ -217,30 +234,61 @@ pub(super) fn render_wcag_coverage_section(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::{BTreeMap, BTreeSet};
+    use std::collections::BTreeMap;
 
     #[test]
     fn tag_status_marks_only_passed_criteria_as_good() {
-        let mut states = BTreeMap::new();
-        states.insert("1.1.1".to_string(), Some(true));
-        states.insert("1.4.3".to_string(), Some(false));
-        states.insert("2.5.3".to_string(), Some(false));
-        states.insert("1.2.1".to_string(), None);
-        let violated: BTreeSet<String> = ["2.5.3".to_string()].into_iter().collect();
-
-        assert_eq!(criterion_tag_status("1.1.1", &states, &violated), "good");
+        let states = BTreeMap::from([
+            ("1.1.1".to_string(), CriterionState::Passed),
+            ("1.4.3".to_string(), CriterionState::Review),
+            ("1.4.4".to_string(), CriterionState::NotTestable),
+            ("2.5.3".to_string(), CriterionState::Violation),
+            ("1.2.1".to_string(), CriterionState::NotApplicable),
+        ]);
+        assert_eq!(criterion_tag_status("1.1.1", &states), "good");
         // Not passed without a confirmed violation: needs review, not green.
-        assert_eq!(criterion_tag_status("1.4.3", &states, &violated), "warn");
-        // A violated criterion is never green, whatever its state says.
-        assert_eq!(criterion_tag_status("2.5.3", &states, &violated), "bad");
-        assert_eq!(criterion_tag_status("1.2.1", &states, &violated), "neutral");
-        assert_eq!(criterion_tag_status("9.9.9", &states, &violated), "neutral");
+        assert_eq!(criterion_tag_status("1.4.3", &states), "warn");
+        assert_eq!(criterion_tag_status("1.4.4", &states), "warn");
+        // A violated criterion is never green.
+        assert_eq!(criterion_tag_status("2.5.3", &states), "bad");
+        assert_eq!(criterion_tag_status("1.2.1", &states), "neutral");
+        assert_eq!(criterion_tag_status("9.9.9", &states), "neutral");
+    }
 
-        let mut contradicting = states.clone();
-        contradicting.insert("2.5.3".to_string(), Some(true));
+    /// #1135: "11/12" explains itself: the criterion that is not passed is
+    /// named by its state, in both languages, and zero counts stay out.
+    #[test]
+    fn coverage_names_the_states_of_the_criteria_that_are_not_passed() {
+        let mut ratio = CoverageRatio {
+            passed: 11,
+            review: 1,
+            total: 12,
+            ratio: 0.9167,
+            ..Default::default()
+        };
+        let de = format_coverage(&ratio, &I18n::new("de").unwrap());
+        assert_eq!(de, "11/12 (92 %) — 1 zur manuellen Prüfung");
+        let en = format_coverage(&ratio, &I18n::new("en").unwrap());
+        assert_eq!(en, "11/12 (92 %) — 1 need manual review");
+
+        ratio.violation = 2;
+        ratio.not_testable = 1;
+        ratio.not_applicable = 3;
+        let en = format_coverage(&ratio, &I18n::new("en").unwrap());
         assert_eq!(
-            criterion_tag_status("2.5.3", &contradicting, &violated),
-            "bad"
+            en,
+            "11/12 (92 %) — 2 with a violation, 1 need manual review, 1 not testable or not run, 3 not applicable"
+        );
+
+        let clean = CoverageRatio {
+            passed: 4,
+            total: 4,
+            ratio: 1.0,
+            ..Default::default()
+        };
+        assert_eq!(
+            format_coverage(&clean, &I18n::new("en").unwrap()),
+            "4/4 (100 %)"
         );
     }
 }
