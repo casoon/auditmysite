@@ -22,13 +22,27 @@ batch-consistency-skip-link = Skip-Link
 batch-consistency-headings-title = Überschriften ({ $single }/{ $total } mit einem H1, { $none } ohne H1, { $multiple } mit mehreren)
 batch-consistency-headings-consistent = Jede Seite beginnt mit genau einem H1.
 batch-consistency-missing-h1 = Fehlende H1
-batch-consistency-missing-h1-detail = { $count } geprüfte Seiten haben keine H1.
+batch-consistency-missing-h1-detail =
+    { $count ->
+        [one] 1 geprüfte Seite hat keine H1.
+       *[other] { $count } geprüfte Seiten haben keine H1.
+    }
 batch-consistency-multiple-h1 = Mehrere H1-Überschriften
-batch-consistency-multiple-h1-detail = { $count } geprüfte Seiten haben mehrere H1-Überschriften.
+batch-consistency-multiple-h1-detail =
+    { $count ->
+        [one] 1 geprüfte Seite hat mehrere H1-Überschriften.
+       *[other] { $count } geprüfte Seiten haben mehrere H1-Überschriften.
+    }
 batch-consistency-canonical-title = Canonical-URLs (www: { $www }, ohne www: { $non_www }, fehlend: { $missing } von { $total })
 batch-consistency-canonical-consistent = Alle Seiten kanonisieren auf dieselbe Domain-Variante.
 batch-consistency-mixed-hosts = Gemischte Host-Strategie
-batch-consistency-mixed-hosts-detail = { $www } Seiten verwenden www- und { $non_www } Seiten nicht-www-Canonicals.
+batch-consistency-mixed-hosts-detail = { $www ->
+        [one] 1 Seite verwendet
+       *[other] { $www } Seiten verwenden
+    } www- und { $non_www ->
+        [one] 1 Seite
+       *[other] { $non_www } Seiten
+    } nicht-www-Canonicals.
 batch-consistency-missing-canonical = Fehlendes Canonical
 batch-consistency-missing-canonical-detail = Fehlt auf { $missing } von { $total } geprüften Seiten. Optional: Suchmaschinen wählen die kanonische URL dann selbst. Relevant wird das erst bei URL-Varianten (Parameter, www/ohne www); das wurde hier nicht geprüft.
 
@@ -56,9 +70,15 @@ batch-consistency-schema-conflicts-title = Identitätskonflikte bei Schema-Entit
 batch-consistency-structured-types-title = Verteilung strukturierter Daten
 batch-consistency-col-audited-pages = Geprüfte Seiten
 batch-consistency-blockers-title = Wiederkehrende Blocker bei strukturierten Daten
-batch-consistency-blocker-detail = Pflichtbedingung fehlt auf { $count } geprüften Seiten
+batch-consistency-blocker-detail = Pflichtbedingung fehlt auf { $count ->
+        [one] 1 geprüften Seite
+       *[other] { $count } geprüften Seiten
+    }
 batch-consistency-parity-title = Wiederkehrende Abweichungen zwischen Schema und Inhalt
-batch-consistency-parity-detail = Sichtbarer Inhalt weicht auf { $count } geprüften Seiten ab
+batch-consistency-parity-detail = Sichtbarer Inhalt weicht auf { $count ->
+        [one] 1 geprüften Seite
+       *[other] { $count } geprüften Seiten
+    } ab
 batch-consistency-matrix-col-types = Vorgeschlagen / erkannt
 batch-consistency-coverage-complete = Abgedeckt
 batch-consistency-coverage-opportunity = Optionale Ergänzung
@@ -70,7 +90,10 @@ batch-consistency-identity-ids-differ = Die Organisationsidentität verwendet au
 batch-consistency-identity-id-missing = Mindestens ein Organisationsknoten besitzt keine stabile @id zur seitenübergreifenden Identitätsprüfung.
 
 ## Security headers and topics
-batch-consistency-headers-title = Sicherheits-Header über die Seiten ({ $checked } Seiten mit Sicherheitsprüfung)
+batch-consistency-headers-title = Sicherheits-Header über die Seiten ({ $checked ->
+        [one] 1 Seite
+       *[other] { $checked } Seiten
+    } mit Sicherheitsprüfung)
 batch-consistency-header-partial = Auf { $present } von { $checked } Seiten gesetzt; fehlt z. B. auf { $examples }.
 batch-consistency-header-values = { $values } verschiedene Werte auf { $present } Seiten.
 batch-consistency-header-uniform = Einheitlich
@@ -104,8 +127,17 @@ batch-management-assessment-stable-critical = Technisch stabil, aber mit kritisc
 batch-management-assessment-good-high = Gute Basis, aber Barrieren hoher Schwere gefunden
 batch-management-assessment-fine-tuning = Weitgehend barrierefrei — Feinschliff
 batch-management-assessment-polish = Weitgehend barrierefrei — Feinschliff
-batch-management-point-severe = { $occurrences } kritische/hohe WCAG-Vorkommen auf { $urls } URLs ({ $findings } Befunde, je Seite gruppiert)
-batch-management-point-main-issue = Hauptproblem: { $title } ({ $occurrences } Vorkommen auf { $urls } URLs)
+batch-management-point-severe = { $occurrences } kritische/hohe WCAG-Vorkommen auf { $urls ->
+        [one] 1 URL
+       *[other] { $urls } URLs
+    } ({ $findings ->
+        [one] 1 Befund
+       *[other] { $findings } Befunde
+    }, je Seite gruppiert)
+batch-management-point-main-issue = Hauptproblem: { $title } ({ $occurrences } Vorkommen auf { $urls ->
+        [one] 1 URL
+       *[other] { $urls } URLs
+    })
 batch-management-point-legal-flags = WCAG-Level-A/AA-Verstöße automatisiert erkannt — manuelle Prüfung für belastbare BFSG-Einordnung nötig
 batch-management-point-structural = Keine Level-A/AA-Verstöße, aber strukturelle Optimierungspotenziale auf mehreren Seiten
 batch-management-point-no-barriers = Keine automatisiert erkennbaren kritischen Barrieren — manuelle Prüfung empfohlen.
