@@ -123,7 +123,7 @@ finding-title-security-csp-missing-directive = CSP: { $directive }-Direktive feh
 finding-title-mobile-missing-viewport = Viewport fehlt
 finding-title-mobile-improper-viewport = Viewport falsch konfiguriert
 finding-title-mobile-not-scalable = Zoomen unterbunden
-finding-title-mobile-small-targets = Zu kleine Bedienelemente
+finding-title-mobile-small-targets = Bedienelemente unter der empfohlenen Größe
 finding-title-mobile-small-fonts = Zu kleine Schrift
 finding-title-mobile-horizontal-scroll = Horizontales Scrollen
 

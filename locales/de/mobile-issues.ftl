@@ -6,7 +6,7 @@
 mobile-missing-viewport = Viewport-Meta-Tag fehlt
 mobile-improper-viewport = Viewport ist nicht korrekt konfiguriert
 mobile-not-scalable = Seite unterbindet Zoomen (user-scalable=no)
-mobile-small-targets = { $count } Bedienelemente sind zu klein (<44x44px){ $contexts }{ $samples }
+mobile-small-targets = { $count } Bedienelemente liegen unter der empfohlenen Größe von 44x44 px (Ergonomie-Empfehlung; WCAG 2.5.8 AA verlangt 24 px){ $contexts }{ $samples }
 mobile-small-targets-contexts = {" "}({ $list })
 mobile-small-targets-samples = {" "}— z. B. { $list }
 mobile-small-fonts = Kleinste Schriftgröße ist { $size }px (empfohlen: ≥12px)

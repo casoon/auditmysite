@@ -368,6 +368,28 @@ pub fn interpret_security_score_localized(
     interpret_band_localized(InterpretArea::Security, security_text_band(score, issues))
 }
 
+/// Mobile wording follows the listed issues, like Security's (#976). Small
+/// touch targets and a locked zoom stay listed but no longer lower the Mobile
+/// score (#921), so the score alone can sit in the top band while the page
+/// lists dozens of them; "works reliably without noticeable limitations" must
+/// not be printed above that list. Any listed issue caps the wording at
+/// `Good`; the number and grade are untouched.
+pub fn mobile_text_band(score: f32, issues: &[crate::mobile::MobileIssue]) -> ScoreBand {
+    let band = ScoreBand::from_score(score);
+    if issues.is_empty() {
+        band
+    } else {
+        worse_of(band, ScoreBand::Good)
+    }
+}
+
+pub fn interpret_mobile_score_localized(
+    score: f32,
+    issues: &[crate::mobile::MobileIssue],
+) -> LocalizedText {
+    interpret_band_localized(InterpretArea::Mobile, mobile_text_band(score, issues))
+}
+
 impl ScoreBand {
     /// A score that falls inside this band, for looking the band's label up in
     /// the shared `FIVE_BAND` vocabulary instead of duplicating the labels.
@@ -640,7 +662,7 @@ fn build_per_module_localized(normalized: &AuditContext<'_>) -> BTreeMap<String,
     if let Some(m) = normalized.raw_mobile {
         map.insert(
             "mobile".to_string(),
-            interpret_score_localized(InterpretArea::Mobile, m.score as f32),
+            interpret_mobile_score_localized(m.score as f32, &m.issues),
         );
     }
 
@@ -915,6 +937,51 @@ mod tests {
 
     /// #896: the cover sentence and the score label name the same tier,
     /// at every band edge, for single and batch.
+    fn mobile_issue(issue_type: &str) -> crate::mobile::MobileIssue {
+        crate::mobile::MobileIssue {
+            category: "Touch Targets".into(),
+            issue_type: issue_type.into(),
+            message: String::new(),
+            severity: crate::taxonomy::Severity::Medium,
+            impact: String::new(),
+            values: Default::default(),
+        }
+    }
+
+    /// #976: a Mobile score of 100 with listed issues (37 small targets stay
+    /// listed but are not charged) must not read "without noticeable
+    /// limitations"; without issues the band is the score's.
+    #[test]
+    fn mobile_wording_is_capped_while_issues_are_listed() {
+        assert_eq!(mobile_text_band(100.0, &[]), ScoreBand::Excellent);
+        let issues = [mobile_issue("small_targets")];
+        assert_eq!(mobile_text_band(100.0, &issues), ScoreBand::Good);
+        // A lower score is never lifted.
+        assert_eq!(mobile_text_band(50.0, &issues), ScoreBand::Weak);
+
+        let clean = interpret_mobile_score_localized(100.0, &[]);
+        assert!(
+            clean.de.contains("ohne erkennbare Einschränkungen"),
+            "{}",
+            clean.de
+        );
+        for text in [
+            interpret_mobile_score_localized(100.0, &issues),
+            interpret_mobile_score_localized(95.0, &issues),
+        ] {
+            assert!(
+                !text.de.contains("ohne erkennbare Einschränkungen"),
+                "{}",
+                text.de
+            );
+            assert!(
+                !text.en.contains("no noticeable limitations"),
+                "{}",
+                text.en
+            );
+        }
+    }
+
     #[test]
     fn verdict_tier_follows_the_score_bands() {
         for score in 0..=100u32 {

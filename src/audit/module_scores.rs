@@ -82,7 +82,17 @@ pub(super) fn build_module_scores(
         module_scores.push(entry);
     }
     if let Some(ref mob) = report.experience.mobile {
-        module_scores.push(measured_entry("Mobile", "mobile", mob.score));
+        let mut entry = measured_entry("Mobile", "mobile", mob.score);
+        // The wording band is capped while issues are listed (#976); the band
+        // printed next to the number must be that one band (#902-2).
+        entry.band = crate::registry::FIVE_BAND
+            .label(
+                crate::audit::interpretation::mobile_text_band(mob.score as f32, &mob.issues)
+                    .representative_score(),
+                true,
+            )
+            .to_string();
+        module_scores.push(entry);
     }
     if let Some(ref hc) = report.html_conform {
         // Weighted since the score became trustworthy again (it is now charged
