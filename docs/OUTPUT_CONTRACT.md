@@ -304,6 +304,12 @@ Structured-data detail separates parse state, eligibility blockers, recommendati
 
 Batch `pages[]` entries remain compact and carry profile/prioritization data rather than complete duplicate single-page report trees.
 
+## Sitemap diagnostics: normalised URLs
+
+`sitemap_diagnostics` compares sitemap URLs, audited URLs and link targets, so the URL lists it computes from that comparison print the normalised spelling, not the spelling of `pages[].url` (#1111): `orphan_sitemap_urls`, `linked_not_in_sitemap`, `crawl_depths.start_url`, `crawl_depths.deepest_pages[].url` and `crawl_depths.unreachable_pages`. The audited page `https://example.com/agenturen/` therefore appears as `https://example.com/agenturen` there. `http_issues[].url` and `robots_conflicts[].url` name the sitemap entry as written in the sitemap.
+
+The normalisation rule (`normalize_url` in `src/audit/batch.rs`) is: parse the URL, drop the fragment, and drop a trailing `/` from the path unless the path is `/` itself. Scheme, query and the serialised form of host and port (lower-case host, default port omitted) are kept, so a bare origin `https://example.com` becomes `https://example.com/`. A reader who joins these lists with `pages[].url` by string normalises `pages[].url` the same way first. The counts are unaffected, because every comparison inside the diagnostics normalises both sides.
+
 ## Metrics
 
 Canonical per-metric definitions live in `src/registry/metrics.rs`

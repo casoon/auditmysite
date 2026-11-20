@@ -81,6 +81,7 @@
       ]
     },
     "sitemap_diagnostics": {
+      "description": "Sitemap validation and link-graph diagnostics. URL lists computed from comparing sitemap, audited and linked URLs (orphan_sitemap_urls, linked_not_in_sitemap, crawl_depths) use the normalised spelling of normalize_url (fragment and a trailing slash dropped, except for the root path), not the spelling of pages[].url; see docs/OUTPUT_CONTRACT.md.",
       "type": [
         "object",
         "null"

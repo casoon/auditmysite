@@ -1624,6 +1624,60 @@ mod tests {
         assert_eq!(depths.get("https://example.com/"), None);
     }
 
+    /// #1111: the sitemap diagnostics print the normalised spelling, not the
+    /// audited one (`pages[].url`). The rule is `normalize_url`: fragment
+    /// dropped, one trailing slash dropped on every path except `/`; the
+    /// query, scheme and host stay. Documented in docs/OUTPUT_CONTRACT.md
+    /// ("Sitemap diagnostics: normalised URLs").
+    #[test]
+    fn normalize_url_rule_is_pinned() {
+        for (input, expected) in [
+            (
+                "https://example.com/agenturen/",
+                "https://example.com/agenturen",
+            ),
+            (
+                "https://example.com/agenturen",
+                "https://example.com/agenturen",
+            ),
+            ("https://example.com/a/b/#top", "https://example.com/a/b"),
+            ("https://example.com/a/?x=1", "https://example.com/a?x=1"),
+            ("https://example.com", "https://example.com/"),
+            ("https://example.com/", "https://example.com/"),
+            ("https://example.com/#x", "https://example.com/"),
+            ("https://Example.com:443/a/", "https://example.com/a"),
+        ] {
+            assert_eq!(normalize_url(input).as_deref(), Some(expected), "{input}");
+        }
+        assert_eq!(normalize_url("not a url"), None);
+    }
+
+    /// #1111: audited URLs with a trailing slash appear without it in
+    /// `unreachable_pages` and `deepest_pages[].url`; the root keeps its slash.
+    #[test]
+    fn crawl_depth_diagnostics_print_the_normalised_spelling() {
+        let reports = vec![
+            report_with_links("https://example.com/", &["/a/"]),
+            report_with_links("https://example.com/a/", &[]),
+            report_with_links("https://example.com/lost/", &[]),
+        ];
+        let sitemap_urls: Vec<String> = reports.iter().map(|r| r.url.clone()).collect();
+        let diag = build_crawl_depth_diagnostics(&audited_home(), &sitemap_urls, &reports);
+        assert_eq!(diag.start_url, "https://example.com/");
+        assert_eq!(diag.unreachable_pages, vec!["https://example.com/lost"]);
+        let deepest: Vec<(&str, usize)> = diag
+            .deepest_pages
+            .iter()
+            .map(|e| (e.url.as_str(), e.depth))
+            .collect();
+        assert_eq!(
+            deepest,
+            vec![("https://example.com/a", 1), ("https://example.com/", 0)]
+        );
+        // The audited spelling is untouched: a reader joins by normalising.
+        assert_eq!(reports[1].url, "https://example.com/a/");
+    }
+
     #[test]
     fn homepage_url_is_the_site_root() {
         let sitemap = vec!["https://example.com/de/datenschutz".to_string()];
