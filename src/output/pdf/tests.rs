@@ -2305,32 +2305,10 @@ mod tests {
             text.contains("Stärken im geprüften Umfang"),
             "expected a separate strengths panel for the good dimensions"
         );
-        assert_eq!(
-            panel_of(&text, "SEO & Sichtbarkeit"),
-            "strengths",
-            "a good SEO score must be rendered as a strength, not a risk",
+        assert!(
+            !text.contains("SEO & Sichtbarkeit"),
+            "a good SEO score alone is neither a risk nor a strength row (#1139)",
         );
-    }
-
-    /// Which of the two management-summary panels a dimension label was
-    /// rendered under. The risks panel is rendered first, the strengths panel
-    /// directly below it, so position in the extracted text settles it — the
-    /// row text itself is now the same in both (plan 35 replaced the old
-    /// status-specific prose with the rationale that names the numbers).
-    fn panel_of(text: &str, label: &str) -> &'static str {
-        let risks = text.find("Wichtigste Risiken").expect("risks panel title");
-        let strengths = text
-            .find("Stärken im geprüften Umfang")
-            .expect("strengths panel title");
-        let at = text
-            .find(label)
-            .unwrap_or_else(|| panic!("{label} not in PDF text"));
-        assert!(at > risks, "{label} rendered above the risks panel");
-        if at < strengths {
-            "risks"
-        } else {
-            "strengths"
-        }
     }
 
     #[test]
@@ -2368,14 +2346,13 @@ mod tests {
             .expect("pdftotext should run");
         let text = std::fs::read_to_string(&txt_path).expect("read text");
 
-        assert_eq!(
-            panel_of(&text, "SEO & Sichtbarkeit"),
-            "risks",
-            "an SEO score of 20 must be rendered as a risk, not a strength",
-        );
+        // #1139: the score alone is no cause. Without an SEO finding of
+        // medium severity or higher there is no SEO row at all, so a poor
+        // score is neither shown as a risk nor, as before plan/29, invented
+        // into a strength.
         assert!(
-            text.contains("SEO-Score 20/100"),
-            "the risk row must name the score that set it: {text}",
+            !text.contains("SEO & Sichtbarkeit"),
+            "an SEO score without a finding must not make a risk row: {text}",
         );
     }
 

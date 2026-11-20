@@ -968,13 +968,101 @@ mod tests {
         );
     }
 
+    fn dimensions(report: &crate::audit::normalized::NormalizedReport) -> Vec<String> {
+        build_management_risks(std::slice::from_ref(report))
+            .into_iter()
+            .map(|r| r.dimension)
+            .collect()
+    }
+
+    /// #1139: a module score alone is no risk row. A site with SEO 67 and no
+    /// SEO finding of Medium severity or higher gets neither an SEO, a
+    /// conversion nor a trust row; the score is on the cover already.
+    #[test]
+    fn a_module_score_alone_makes_no_risk_row() {
+        let mut report = make_report(vec![]);
+        report.module_scores = vec![crate::audit::normalized::ModuleScoreEntry::new(
+            "SEO", 67, "measured", true,
+        )];
+        report.score = 55;
+        let found = dimensions(&report);
+        for dropped in [
+            "SEO / visibility",
+            "Conversion / usability",
+            "Trust / brand",
+        ] {
+            assert!(!found.iter().any(|d| d == dropped), "{dropped}: {found:?}");
+        }
+
+        // A Low SEO finding is a hint, not a cause for a risk row.
+        let mut low = make_finding("seo/meta-description-missing", "");
+        low.contract.domain = crate::audit::finding_contract::FindingDomain::Seo;
+        low.severity = Severity::Low;
+        let mut with_low = report.clone();
+        with_low.findings = vec![low];
+        assert!(!dimensions(&with_low)
+            .iter()
+            .any(|d| d == "SEO / visibility"));
+    }
+
+    /// #1139: an SEO finding of at least Medium severity brings the row back,
+    /// and it names the finding count next to the score.
+    #[test]
+    fn an_seo_finding_of_medium_severity_makes_the_seo_row() {
+        let mut finding = make_finding("seo/title-missing", "");
+        finding.contract.domain = crate::audit::finding_contract::FindingDomain::Seo;
+        finding.severity = Severity::Medium;
+        let mut report = make_report(vec![finding]);
+        report.module_scores = vec![crate::audit::normalized::ModuleScoreEntry::new(
+            "SEO", 90, "measured", true,
+        )];
+        let risks = build_management_risks(std::slice::from_ref(&report));
+        let seo = risks
+            .iter()
+            .find(|r| r.dimension == "SEO / visibility")
+            .expect("SEO row");
+        assert_eq!(
+            seo.rationale,
+            "1 SEO finding of medium or higher severity (SEO score 90/100)."
+        );
+        // Never a strength, even with a good score.
+        assert_ne!(seo.level, "low");
+    }
+
+    /// #1139: the conversion row needs a cause — controls that block use — and
+    /// names it instead of restating the scores.
+    #[test]
+    fn blocking_controls_make_the_conversion_row_with_the_cause() {
+        let mut report = make_report(vec![]);
+        report.risk.blocking_issues = 3;
+        let risks = build_management_risks(std::slice::from_ref(&report));
+        let conversion = risks
+            .iter()
+            .find(|r| r.dimension == "Conversion / usability")
+            .expect("conversion row");
+        assert!(
+            conversion
+                .rationale
+                .starts_with("3 controls without an accessible name or role"),
+            "{}",
+            conversion.rationale
+        );
+        assert!(
+            !conversion.rationale.contains("/100"),
+            "{}",
+            conversion.rationale
+        );
+    }
+
     /// Plan 40: "Trust / brand" was a fixed sentence citing no measurement,
     /// while its level came from the accessibility score.
     #[test]
     fn trust_risk_names_the_data_that_set_it() {
         let mut finding = make_finding("names/required-missing", "");
         finding.occurrence_count = 15;
-        let risks = build_management_risks(std::slice::from_ref(&make_report(vec![finding])));
+        let mut report = make_report(vec![finding]);
+        report.severity_counts.high = 1;
+        let risks = build_management_risks(std::slice::from_ref(&report));
         let trust = risks
             .iter()
             .find(|r| r.dimension == "Trust / brand")

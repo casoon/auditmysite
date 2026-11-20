@@ -206,8 +206,11 @@ pub(crate) fn risk_kinds() -> Vec<(String, ManagementRiskKind)> {
             ));
         }
     }
-    for score in [Some(0), Some(95), None] {
-        out.push((format!("seo {score:?}"), ManagementRiskKind::Seo { score }));
+    for (score, findings) in [(Some(0), 1), (Some(95), 1), (None, 1), (Some(67), 4)] {
+        out.push((
+            format!("seo {score:?} findings {findings}"),
+            ManagementRiskKind::Seo { score, findings },
+        ));
     }
     for (performance, mobile) in [
         (Some(81), Some(64)),
