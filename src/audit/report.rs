@@ -1092,10 +1092,12 @@ pub struct SitemapDiagnostics {
     /// or that are marked noindex.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub http_issues: Vec<SitemapHttpIssue>,
-    /// URLs present in the sitemap but not linked by any audited page.
+    /// URLs present in the sitemap but not linked by any audited page, in the
+    /// normalised spelling (fragment and trailing slash dropped, #1111).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub orphan_sitemap_urls: Vec<String>,
-    /// Internal targets linked by audited pages but absent from the sitemap.
+    /// Internal targets linked by audited pages but absent from the sitemap,
+    /// in the normalised spelling (#1111).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub linked_not_in_sitemap: Vec<String>,
     /// Sitemap entries blocked by a `Disallow` rule in `robots.txt` under
@@ -1132,7 +1134,8 @@ pub struct SitemapDiagnostics {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct CrawlDepthDiagnostics {
-    /// The site's homepage BFS started from, after redirects (plan 81).
+    /// The site's homepage BFS started from, after redirects (plan 81), in
+    /// the normalised spelling (#1111).
     pub start_url: String,
     /// Where the homepage's outbound links came from: `"audited_homepage"`
     /// (it was one of the audited pages) or `"fetched_homepage"` (fetched
@@ -1145,11 +1148,13 @@ pub struct CrawlDepthDiagnostics {
     /// start page itself.
     pub depth_histogram: BTreeMap<usize, usize>,
     /// The most-clicks-away pages, capped and sorted deepest-first —
-    /// intentionally not a full per-page dump (see #548).
+    /// intentionally not a full per-page dump (see #548). URLs use the
+    /// normalised spelling (no trailing slash except the root, #1111).
     pub deepest_pages: Vec<CrawlDepthEntry>,
     /// Audited pages never reached by following internal links from
     /// `start_url` within this batch, capped — distinct from "very deep",
-    /// not a default/fallback depth.
+    /// not a default/fallback depth. URLs use the normalised spelling
+    /// (no trailing slash except the root, #1111).
     pub unreachable_pages: Vec<String>,
     /// True when the audited set is smaller than the full discovered
     /// sitemap (sampling via `--max-pages`, or per-page audit failures) —
