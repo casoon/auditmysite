@@ -239,8 +239,22 @@ fn build_problem_profile_description(
                 "pdf-analysis-profile-structural",
                 structural_finding_count(vm),
             );
-            if critical_modules.is_empty() {
+            // "Very good technical condition" is only true while no module is
+            // below the "good" band; a module at 49 or 40 is no such thing
+            // even though it is not "critical" (< 40) (#1131). Those modules
+            // are named instead.
+            let weak_modules = weak_contributing_modules(vm);
+            if critical_modules.is_empty() && weak_modules.is_empty() {
                 i18n.t_args("pdf-analysis-profile-isolated-good", &[("tail", tail)])
+            } else if critical_modules.is_empty() {
+                let several = if weak_modules.len() > 1 { "yes" } else { "no" };
+                i18n.t_args(
+                    "pdf-analysis-profile-isolated-weak",
+                    &[
+                        ("names", format_module_names(&weak_modules, i18n)),
+                        ("several", several.to_string()),
+                    ],
+                )
             } else {
                 let names = format_module_names(&critical_modules, i18n);
                 i18n.t_args(
@@ -517,5 +531,51 @@ mod tests {
         let desc_en = build_problem_profile_description(&vm, kind, &i18n_en);
         assert!(desc_en.contains("Multiple technical areas are affected simultaneously"));
         assert!(desc_en.contains("Accessibility, Performance, and Security"));
+    }
+
+    /// #1131: modules at 49 and 40 are below the "good" band, so the profile
+    /// never calls the technical condition "very good" and names them.
+    #[test]
+    fn a_module_below_the_good_band_is_never_very_good() {
+        let mut vm = test_report_view_model();
+        vm.modules.module_scores = vec![
+            crate::audit::normalized::ModuleScoreEntry::new("Accessibility", 49, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("Security", 40, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("Performance", 90, "measured", true),
+        ];
+        let kind = classify_problem_profile(&vm);
+        for (locale, expected) in [
+            (
+                "de",
+                "Barrierefreiheit und Sicherheit liegen unter dem Bereich „gut“",
+            ),
+            (
+                "en",
+                "Accessibility and Security fall below the \"good\" band",
+            ),
+        ] {
+            let i18n = I18n::new(locale).unwrap();
+            let text = build_problem_profile_description(&vm, kind, &i18n);
+            assert!(text.contains(expected), "{text}");
+            assert!(
+                !text.contains("Sehr guter") && !text.contains("Very good"),
+                "{text}"
+            );
+        }
+
+        // One module below the band is named in the singular.
+        vm.modules.module_scores = vec![
+            crate::audit::normalized::ModuleScoreEntry::new("Accessibility", 92, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("Performance", 62, "measured", true),
+        ];
+        let en = build_problem_profile_description(
+            &vm,
+            classify_problem_profile(&vm),
+            &I18n::new("en").unwrap(),
+        );
+        assert!(
+            en.starts_with("Performance falls below the \"good\" band"),
+            "{en}"
+        );
     }
 }

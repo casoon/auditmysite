@@ -46,6 +46,13 @@ pdf-analysis-profile-structural = { $count ->
     }
 pdf-analysis-profile-isolated-good = Very good technical condition. { $tail }
 pdf-analysis-profile-isolated-named = { $names } determines the primary need for action. { $tail }
+pdf-analysis-profile-isolated-weak = { $names } { $several ->
+        [yes] fall
+       *[no] falls
+    } below the "good" band and { $several ->
+        [yes] determine
+       *[no] determines
+    } the need for action.
 pdf-analysis-profile-concentrated-systemic = { $names } { $several ->
         [yes] determine
        *[no] determines
