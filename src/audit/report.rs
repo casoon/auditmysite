@@ -289,6 +289,13 @@ pub struct NavigationSnapshot {
     /// or the chain was not captured (`redirect_count` still says how many).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub redirect_chain: Vec<RedirectHop>,
+    /// The `Accept-Language` header the main document's request carried, as
+    /// the browser reported it for the desktop navigation (#1110). A site
+    /// that redirects or renders by language (a consent platform, a country
+    /// path) answered to this value. Absent when the request was not
+    /// observed or reports from before the field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accept_language: Option<String>,
 }
 
 /// One redirect response in the main document's chain (#775).
@@ -1907,6 +1914,26 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&nav).unwrap()["redirect_chain"],
             serde_json::json!([{"url": "http://a.test/", "status": 301}])
+        );
+    }
+
+    /// A report from before the field reads, and one without an observed
+    /// request writes no key (#1110).
+    #[test]
+    fn accept_language_is_optional_in_both_directions() {
+        let json = serde_json::to_value(NavigationSnapshot::default()).unwrap();
+        assert!(json.get("accept_language").is_none());
+        let old: NavigationSnapshot =
+            serde_json::from_value(serde_json::json!({"requested_url": "https://a.test/"}))
+                .unwrap();
+        assert_eq!(old.accept_language, None);
+        let seen = NavigationSnapshot {
+            accept_language: Some("en-US,en;q=0.9".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            serde_json::to_value(&seen).unwrap()["accept_language"],
+            "en-US,en;q=0.9"
         );
     }
 

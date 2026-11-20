@@ -15,7 +15,7 @@ use std::time::Instant;
 
 use chromiumoxide::cdp::browser_protocol::network::{
     DisableParams as NetworkDisableParams, EnableParams as NetworkEnableParams,
-    EventRequestWillBeSent, ResourceType,
+    EventRequestWillBeSent, EventRequestWillBeSentExtraInfo, ResourceType,
 };
 use chromiumoxide::cdp::browser_protocol::page::SetBypassCspParams;
 use chromiumoxide::cdp::browser_protocol::security::{
@@ -100,21 +100,42 @@ async fn set_viewport(page: &Page, viewport: Viewport) -> Result<()> {
     Ok(())
 }
 
-/// Redirects the main document went through, read from the network events of
-/// the desktop navigation (#775). The first `Document` request is the
-/// navigation itself; each later event of the same request carrying a
-/// `redirectResponse` is one hop, and that response's URL is the redirecting
-/// side. Frames load their own `Document` requests under other ids and are
-/// ignored.
-async fn drain_redirect_chain(
+/// What the network events of the desktop navigation say about the main
+/// document: the redirects it went through (#775) and the `Accept-Language`
+/// its first request carried (#1110).
+struct MainDocumentRequest {
+    redirect_chain: Vec<crate::audit::RedirectHop>,
+    accept_language: Option<String>,
+}
+
+impl MainDocumentRequest {
+    fn unobserved() -> Self {
+        Self {
+            redirect_chain: Vec::new(),
+            accept_language: None,
+        }
+    }
+}
+
+/// Reads the main document's request from the network events of the desktop
+/// navigation. The first `Document` request is the navigation itself; each
+/// later event of the same request carrying a `redirectResponse` is one hop,
+/// and that response's URL is the redirecting side. Frames load their own
+/// `Document` requests under other ids and are ignored.
+///
+/// `Accept-Language` is added by the browser process after the renderer built
+/// the request, so it is not in `requestWillBeSent` but in the
+/// `requestWillBeSentExtraInfo` of the same request id; the first one is the
+/// request as sent before any redirect.
+async fn drain_main_document_request(
     events: &mut EventStream<EventRequestWillBeSent>,
-) -> Vec<crate::audit::RedirectHop> {
+    extra_events: Option<&mut EventStream<EventRequestWillBeSentExtraInfo>>,
+) -> MainDocumentRequest {
     use futures::StreamExt;
+    let wait = std::time::Duration::from_millis(50);
     let mut navigation = None;
-    let mut chain = Vec::new();
-    while let Ok(Some(event)) =
-        tokio::time::timeout(std::time::Duration::from_millis(50), events.next()).await
-    {
+    let mut out = MainDocumentRequest::unobserved();
+    while let Ok(Some(event)) = tokio::time::timeout(wait, events.next()).await {
         if event.r#type != Some(ResourceType::Document) {
             continue;
         }
@@ -123,13 +144,32 @@ async fn drain_redirect_chain(
             continue;
         }
         if let Some(response) = &event.redirect_response {
-            chain.push(crate::audit::RedirectHop {
+            out.redirect_chain.push(crate::audit::RedirectHop {
                 url: response.url.clone(),
                 status: u16::try_from(response.status).unwrap_or(0),
             });
         }
     }
-    chain
+    let (Some(navigation), Some(extra_events)) = (navigation, extra_events) else {
+        return out;
+    };
+    while let Ok(Some(extra)) = tokio::time::timeout(wait, extra_events.next()).await {
+        if extra.request_id == navigation {
+            out.accept_language = extra
+                .headers
+                .inner()
+                .as_object()
+                .and_then(|headers| {
+                    headers
+                        .iter()
+                        .find(|(name, _)| name.eq_ignore_ascii_case("accept-language"))
+                })
+                .and_then(|(_, value)| value.as_str())
+                .map(str::to_string);
+            break;
+        }
+    }
+    out
 }
 
 async fn collect_certificate_details(
@@ -958,19 +998,25 @@ pub async fn audit_page(
     set_viewport(page, Viewport::Desktop).await?;
     prepare_pass_collection(page, "desktop", config).await;
     let mut navigation_events = page.event_listener::<EventRequestWillBeSent>().await.ok();
+    let mut navigation_extra_events = page
+        .event_listener::<EventRequestWillBeSentExtraInfo>()
+        .await
+        .ok();
     if navigation_events.is_some() {
         let _ = page.execute(NetworkEnableParams::default()).await;
     }
     let desktop_refresh = browser.navigate(page, url).await?;
-    let redirect_chain = match navigation_events.as_mut() {
+    let main_document = match navigation_events.as_mut() {
         Some(events) => {
-            let chain = drain_redirect_chain(events).await;
+            let request =
+                drain_main_document_request(events, navigation_extra_events.as_mut()).await;
             let _ = page.execute(NetworkDisableParams::default()).await;
-            chain
+            request
         }
-        None => Vec::new(),
+        None => MainDocumentRequest::unobserved(),
     };
     drop(navigation_events);
+    drop(navigation_extra_events);
     if let Some(sec) = &mut security {
         let https = sec.fetch.final_url.starts_with("https://");
         let details = if security_listener_failed {
@@ -1302,7 +1348,8 @@ pub async fn audit_page(
         &crate::audit::capture_collectors::NAVIGATION_SNAPSHOT,
         navigation_collection,
     );
-    navigation.redirect_chain = redirect_chain;
+    navigation.redirect_chain = main_document.redirect_chain;
+    navigation.accept_language = main_document.accept_language;
 
     let mut report = aggregate_report(
         url,
@@ -1651,6 +1698,7 @@ async fn collect_navigation_snapshot(
         stability: Vec::new(),
         meta_refresh: Vec::new(),
         redirect_chain: Vec::new(),
+        accept_language: None,
     };
     (snapshot, state)
 }

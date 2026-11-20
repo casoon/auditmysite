@@ -310,6 +310,14 @@ async fn foundation_redirect_chain_is_captured_once_for_all_modules() {
         Some(format!("{}/final", fixture.url).as_str())
     );
     assert_eq!(nav.redirect_count, 2);
+    // #1110: the language the request carried is recorded as sent.
+    assert!(
+        nav.accept_language
+            .as_deref()
+            .is_some_and(|language| language.starts_with("en-US")),
+        "{:?}",
+        nav.accept_language
+    );
     let hops: Vec<_> = nav
         .redirect_chain
         .iter()
