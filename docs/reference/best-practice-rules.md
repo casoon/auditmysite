@@ -18,12 +18,12 @@ This page records the current classification; it does not change one.
 | Rule | Criterion | Outcome | Source | Convention | Keyword | Reason |
 | --- | --- | --- | --- | --- | --- | --- |
 | `aria/role-redundant` | 4.1.2 | review | barrierlab | no | yes | The role is correct, 4.1.2 is met; ARIA in HTML merely discourages repeating the implicit role. |
-| `description-duplicates-name` | 4.1.2 | fail | local | yes | yes | The element has a name; a description that repeats it is redundant, not a missing name (#713). Anchored to 4.1.2 without breaching it. |
-| `display/init-missing` | 2.2.2 | fail | local | yes | yes | BarrierLab display-mode convention (#653): not a WCAG requirement, anchored to the nearest criterion and reported only on pages that use the convention. |
+| `description-duplicates-name` | 4.1.2 | fail | local | yes | yes | The element has a name; a description that repeats it is redundant, not a missing name (#713). Anchored to 4.1.2 without breaching it. Decided 2026-11-20 (#919): becomes a review upstream (casoon/barrierlab#260); until the port the local rule stays a fail. |
+| `display/init-missing` | 2.2.2 | fail | local | yes | yes | BarrierLab display-mode convention (#653): not a WCAG requirement, anchored to the nearest criterion and reported only on pages that use the convention. Kept as a fail on purpose (#919): a page that opts in breaks its own contract; the finding is never BFSG-relevant. |
 | `display/text-hidden` | 1.1.1 | fail + review | local | yes | yes | BarrierLab display-mode convention (#653): not a WCAG requirement. A text layer removed from assistive technology is a fail; one that a rendered element still references by aria-describedby or aria-details is already a review note (#704). |
-| `display/text-media-visible` | 2.2.2 | fail | local | yes | yes | BarrierLab display-mode convention (#653): not a WCAG requirement, anchored to the nearest criterion and reported only on pages that use the convention. |
-| `display/text-not-visible` | 1.1.1 | fail | local | yes | yes | BarrierLab display-mode convention (#653): not a WCAG requirement, anchored to the nearest criterion and reported only on pages that use the convention. |
-| `display/toggle-missing` | 2.2.2 | fail | barrierlab | yes | yes | BarrierLab display-mode convention (#653): not a WCAG requirement, anchored to the nearest criterion and reported only on pages that use the convention. |
+| `display/text-media-visible` | 2.2.2 | fail | local | yes | yes | BarrierLab display-mode convention (#653): not a WCAG requirement, anchored to the nearest criterion and reported only on pages that use the convention. Kept as a fail on purpose (#919): a page that opts in breaks its own contract; the finding is never BFSG-relevant. |
+| `display/text-not-visible` | 1.1.1 | fail | local | yes | yes | BarrierLab display-mode convention (#653): not a WCAG requirement, anchored to the nearest criterion and reported only on pages that use the convention. Kept as a fail on purpose (#919): a page that opts in breaks its own contract; the finding is never BFSG-relevant. |
+| `display/toggle-missing` | 2.2.2 | fail | barrierlab | yes | yes | BarrierLab display-mode convention (#653): not a WCAG requirement, anchored to the nearest criterion and reported only on pages that use the convention. Kept as a fail on purpose (#919): a page that opts in breaks its own contract; the finding is never BFSG-relevant. |
 | `headings/h1-missing` | 1.3.1 | review | barrierlab | no | yes | A correctly marked-up h2 is programmatically determinable as a heading (1.3.1); WCAG does not require a particular heading level. |
 | `headings/skip-level` | 1.3.1 | review | barrierlab | no | yes | 1.3.1 requires determinable levels, not gapless ones; G141 is sufficient, not mandatory. |
 | `landmarks/banner-duplicate` | 1.3.1 | review | barrierlab | no | yes | Several banner landmarks are WAI-ARIA practice; no success criterion limits their number (axe landmark-no-duplicate-banner is best practice). |
@@ -36,9 +36,20 @@ This page records the current classification; it does not change one.
 | `lists/role-redundant` | 4.1.2 | review | barrierlab | no | yes | With visible markers role="list" repeats the implicit role and restores nothing; 4.1.2 is met. |
 | `names/title-only` | 4.1.2 | review | barrierlab | yes | no | `title` is a valid name source (H65), so 4.1.2 is met; the tooltip is only reachable by mouse hover (#711). The library reports a review hint without the best-practice keyword. |
 | `patterns/tooltip-unreferenced` | 1.4.13 | review | barrierlab | no | yes | 1.4.13 governs appearing and disappearing on hover and focus, not the association. |
-| `viz/caption-missing` | 1.1.1 | fail | barrierlab | yes | yes | BarrierLab display-mode convention (#653): not a WCAG requirement, anchored to the nearest criterion and reported only on pages that use the convention. |
-| `viz/static-missing` | 2.2.2 | fail | barrierlab | yes | yes | BarrierLab display-mode convention (#653): not a WCAG requirement, anchored to the nearest criterion and reported only on pages that use the convention. |
+| `viz/caption-missing` | 1.1.1 | fail | barrierlab | yes | yes | BarrierLab display-mode convention (#653): not a WCAG requirement, anchored to the nearest criterion and reported only on pages that use the convention. Kept as a fail on purpose (#919): a page that opts in breaks its own contract; the finding is never BFSG-relevant. |
+| `viz/static-missing` | 2.2.2 | fail | barrierlab | yes | yes | BarrierLab display-mode convention (#653): not a WCAG requirement, anchored to the nearest criterion and reported only on pages that use the convention. Kept as a fail on purpose (#919): a page that opts in breaks its own contract; the finding is never BFSG-relevant. |
 | `viz/table-missing` | 1.3.1 | review | barrierlab | yes | yes | BarrierLab display-mode convention (#653): not a WCAG requirement; a review hint because a few values are also carried by a sentence. |
-| `viz/text-missing` | 1.1.1 | fail | barrierlab | yes | yes | BarrierLab display-mode convention (#653): not a WCAG requirement, anchored to the nearest criterion and reported only on pages that use the convention. |
+| `viz/text-missing` | 1.1.1 | fail | barrierlab | yes | yes | BarrierLab display-mode convention (#653): not a WCAG requirement, anchored to the nearest criterion and reported only on pages that use the convention. Kept as a fail on purpose (#919): a page that opts in breaks its own contract; the finding is never BFSG-relevant. |
 | `zoom/viewport-missing` | 1.4.4 | review | barrierlab | no | yes | Without a viewport declaration zooming stays possible (1.4.4) and reflow is measured in the browser (1.4.10); the declaration does not touch either. |
 | `zoom/viewport-scale-limited` | 1.4.4 | review | barrierlab | yes | yes | A maximum-scale of at least 2 does not block zooming under 1.4.4; the 500 % limit is a recommendation. |
+
+## Decided outside this table
+
+Four rules that the audit of 2026-11-04 named are not tagged `best-practice`, so they have no row above. Decision of 2026-11-20 (#919): all four stay as they are.
+
+| Rule | Outcome | Reason |
+| --- | --- | --- |
+| `names/duplicated` | review | Local screen-reader heuristic ("Contact Contact"), filed under 2.4.4 with a doubtful mapping; a heuristic is a hint, not a failure. |
+| `links/used-as-button` | review | A link with a placeholder `href` is a hint that a button was meant; barrierlab rule. |
+| `links/generic-name` | review | The whole link name is a generic phrase (exact match on the normalized name, not a substring test); barrierlab rule. |
+| `color/link-indistinct` | fail below 3:1, review from 3:1 | A real criterion (1.4.1, F73): a link in a text block that differs from the text by colour alone and by less than 3:1 fails; barrierlab rule. |

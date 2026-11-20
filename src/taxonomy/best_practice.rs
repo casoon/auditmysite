@@ -73,7 +73,8 @@ pub struct BestPracticeDecision {
 
 const CONVENTION_REASON: &str = "BarrierLab display-mode convention (#653): not a WCAG \
     requirement, anchored to the nearest criterion and reported only on pages that use the \
-    convention.";
+    convention. Kept as a fail on purpose (#919): a page that opts in breaks its own \
+    contract; the finding is never BFSG-relevant.";
 
 const fn row(
     id: &'static str,
@@ -112,7 +113,9 @@ pub const BEST_PRACTICE_DECISIONS: &[BestPracticeDecision] = &[
         true,
         Some(
             "The element has a name; a description that repeats it is redundant, not a missing \
-             name (#713). Anchored to 4.1.2 without breaching it.",
+             name (#713). Anchored to 4.1.2 without breaching it. Decided 2026-11-20 (#919): \
+             becomes a review upstream (casoon/barrierlab#260); until the port the local rule \
+             stays a fail.",
         ),
     ),
     row(

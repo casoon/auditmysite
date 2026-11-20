@@ -183,6 +183,22 @@ fn render() -> String {
             reason.replace('|', "\\|"),
         ));
     }
+    out.push_str(
+        "\n## Decided outside this table\n\n\
+         Four rules that the audit of 2026-11-04 named are not tagged `best-practice`, so they \
+         have no row above. Decision of 2026-11-20 (#919): all four stay as they are.\n\n\
+         | Rule | Outcome | Reason |\n\
+         | --- | --- | --- |\n\
+         | `names/duplicated` | review | Local screen-reader heuristic (\"Contact Contact\"), \
+         filed under 2.4.4 with a doubtful mapping; a heuristic is a hint, not a failure. |\n\
+         | `links/used-as-button` | review | A link with a placeholder `href` is a hint that a \
+         button was meant; barrierlab rule. |\n\
+         | `links/generic-name` | review | The whole link name is a generic phrase (exact match on \
+         the normalized name, not a substring test); barrierlab rule. |\n\
+         | `color/link-indistinct` | fail below 3:1, review from 3:1 | A real criterion (1.4.1, \
+         F73): a link in a text block that differs from the text by colour alone and by less \
+         than 3:1 fails; barrierlab rule. |\n",
+    );
     out
 }
 
