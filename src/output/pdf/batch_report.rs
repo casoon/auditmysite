@@ -248,8 +248,9 @@ mod tests {
         assert!(legal_flags > 0);
         let kinds = batch_reason_kinds(&batch.summary);
         assert_eq!(kinds, vec![BatchReasonKind::LegalFlags(legal_flags)]);
-        // The band sentence is gated like a single page's (#356).
-        assert_eq!(batch.summary.score_band_key, "verdict-batch-deficient");
+        // The band sentence is gated like a single page's (#356): capped at
+        // "violations found", not "structural backlog", for a single rule (#1131).
+        assert_eq!(batch.summary.score_band_key, "verdict-batch-violations");
 
         for locale in ["en", "de"] {
             let i18n = I18n::new(locale).unwrap();

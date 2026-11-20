@@ -109,6 +109,7 @@ verdict-tier-excellent-critical = { $url } reaches { $score }/100 within the aut
 verdict-tier-solid = { $url } reaches { $score }/100 within the automated accessibility scope. The foundation is good — the remaining findings are targeted improvement levers at manageable effort.
 verdict-tier-stable = { $url } reaches { $score }/100 within the automated accessibility scope. The foundation is stable but not free of barriers — several improvement levers should be planned.
 verdict-tier-deficient = { $url } reaches { $score }/100 within the automated accessibility scope. There are significant barriers — not isolated details but structural backlog.
+verdict-tier-violations = { $url } reaches { $score }/100 within the automated accessibility scope. Automated checks identified WCAG violations that should be fixed first.
 verdict-tier-critical = { $url } only reaches { $score }/100 within the automated accessibility scope. Urgent action needed: essential content and functions are not accessible for a part of users.
 score-note-high-with-critical = The score weighs frequency and severity. Individual critical topics can persist despite a high accessibility score.
 score-note-perfect-automated-scope = No confirmed accessibility violations were found within the automatically tested scope. Context-dependent WCAG criteria still require manual review.
@@ -118,6 +119,7 @@ verdict-batch-excellent = Across { $total_urls } audited URLs accessibility aver
 verdict-batch-solid = The { $total_urls } audited URLs average { $score }/100 for accessibility. The foundation is good, but recurring issues exist.
 verdict-batch-stable = The { $total_urls } audited URLs average { $score }/100 for accessibility. The foundation is stable, but the recurring barriers should be planned for.
 verdict-batch-deficient = The { $total_urls } audited URLs average { $score }/100 for accessibility. There are significant recurring problems.
+verdict-batch-violations = The { $total_urls } audited URLs average { $score }/100 for accessibility. Automated checks identified WCAG violations.
 verdict-batch-critical = The { $total_urls } audited URLs average only { $score }/100 for accessibility. The recurring barriers should be fixed with priority.
 
 # Site state (audit summary)
