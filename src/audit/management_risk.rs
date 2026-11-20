@@ -12,7 +12,7 @@
 //! `dimension`/`rationale` sind die EINZIGE Textquelle — das JSON ruft sie mit
 //! `en = true`, der PDF-Builder mit der Lauf-Sprache.
 
-use super::normalized::NormalizedReport;
+use super::normalized::{NormalizedFinding, NormalizedReport};
 use crate::i18n::{count_text, text, text_args};
 use fluent_bundle::FluentValue;
 
@@ -430,6 +430,12 @@ fn score_or_not_measured(score: Option<u32>, en: bool) -> String {
     }
 }
 
+/// Whether a finding can make a project risk: Medium severity or higher.
+/// Single report and batch use this one predicate (#1039).
+fn counts_for_project_risk(finding: &NormalizedFinding) -> bool {
+    finding.severity >= crate::taxonomy::Severity::Medium
+}
+
 /// Alle Risiko-Dimensionen für einen Lauf.
 pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<ManagementRiskKind> {
     let legal_flags: usize = reports.iter().map(|r| r.risk.legal_flags).sum();
@@ -490,12 +496,19 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
     // A template or component defect can only be inferred from recurrence
     // across pages; within one page, repetition is one page repeating itself
     // (plan 40).
+    // Only findings of Medium severity or higher count: a Low finding that
+    // recurs on every page (fonts not preloaded, static caching) is polish and
+    // no reason for "High" project risk (#1039). One predicate for both paths.
     let (project_count, pages) = if reports.len() > 1 {
         let mut pages_per_rule: std::collections::HashMap<&str, usize> =
             std::collections::HashMap::new();
         for report in reports {
             let mut seen = std::collections::HashSet::new();
-            for finding in &report.findings {
+            for finding in report
+                .findings
+                .iter()
+                .filter(|f| counts_for_project_risk(f))
+            {
                 if seen.insert(finding.rule_id.as_str()) {
                     *pages_per_rule.entry(finding.rule_id.as_str()).or_default() += 1;
                 }
@@ -510,6 +523,7 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
             reports
                 .iter()
                 .flat_map(|r| r.findings.iter())
+                .filter(|f| counts_for_project_risk(f))
                 .filter(|f| f.occurrence_count >= 10 || f.complexity == "high")
                 .count(),
             None,
@@ -582,6 +596,105 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A page with the given findings, cloned from one real finding so the
+    /// contract fields are filled: `(rule id, severity, occurrences)`.
+    fn page(findings: &[(&str, crate::taxonomy::Severity, usize)]) -> NormalizedReport {
+        use crate::audit::AuditReport;
+        use crate::model::WcagLevel;
+        use crate::wcag::{Severity, Violation, WcagResults};
+        let mut results = WcagResults::new();
+        results.add_violation(
+            Violation::new(
+                "1.4.3",
+                "Contrast (Minimum)",
+                WcagLevel::AA,
+                Severity::High,
+                "Insufficient contrast",
+                "node-1",
+            )
+            .with_rule_id("contrast/text-insufficient"),
+        );
+        let report = AuditReport::new(
+            "https://example.com/".to_string(),
+            WcagLevel::AA,
+            results,
+            1,
+        );
+        let mut normalized = crate::audit::normalized::normalize(&report).normalized;
+        let template = normalized.findings[0].clone();
+        normalized.findings = findings
+            .iter()
+            .map(|(rule_id, severity, occurrences)| {
+                let mut finding = template.clone();
+                finding.rule_id = rule_id.to_string();
+                finding.severity = *severity;
+                finding.occurrence_count = *occurrences;
+                finding.complexity = "low".to_string();
+                finding
+            })
+            .collect();
+        normalized
+    }
+
+    fn project(reports: &[NormalizedReport]) -> (usize, Option<usize>, RiskTier) {
+        let kind = build_management_risk_kinds(reports)
+            .into_iter()
+            .find(|k| matches!(k, ManagementRiskKind::Project { .. }))
+            .expect("the project risk is in every run");
+        let ManagementRiskKind::Project { count, pages } = &kind else {
+            unreachable!()
+        };
+        (*count, *pages, kind.tier())
+    }
+
+    /// #1039: ten Low rules that recur on every page were "High" project
+    /// risk next to a clean report. Only rules of Medium severity or higher
+    /// count, in the batch (recurrence) and in the single report (reach).
+    #[test]
+    fn project_risk_counts_only_medium_and_higher_findings() {
+        use crate::taxonomy::Severity::{High, Low, Medium};
+        let low_everywhere = [("l/a", Low, 1), ("l/b", Low, 1), ("l/c", Low, 1)];
+
+        // Low rules recurring on all three pages: no project risk.
+        let reports = vec![
+            page(&low_everywhere),
+            page(&low_everywhere),
+            page(&low_everywhere),
+        ];
+        assert_eq!(project(&reports), (0, Some(3), RiskTier::Low));
+
+        // Two Medium rules recur on two pages, a third on one page only, next
+        // to the Low ones: two recurring rules, tier Medium.
+        let reports = vec![
+            page(&[
+                ("m/a", Medium, 1),
+                ("m/b", High, 1),
+                ("m/c", Medium, 1),
+                ("l/a", Low, 1),
+            ]),
+            page(&[("m/a", Medium, 1), ("m/b", High, 1), ("l/a", Low, 1)]),
+            page(&[("l/a", Low, 1)]),
+        ];
+        assert_eq!(project(&reports), (2, Some(3), RiskTier::Medium));
+
+        // A third recurring Medium-or-higher rule makes it High.
+        let reports = vec![
+            page(&[("m/a", Medium, 1), ("m/b", High, 1), ("m/c", Medium, 1)]),
+            page(&[("m/a", Medium, 1), ("m/b", High, 1), ("m/c", Medium, 1)]),
+        ];
+        assert_eq!(project(&reports), (3, Some(2), RiskTier::High));
+
+        // Single report: reach of ten or more elements counts only from Medium.
+        let single = vec![page(&[
+            ("l/a", Low, 12),
+            ("m/a", Medium, 12),
+            ("m/b", Medium, 3),
+        ])];
+        assert_eq!(project(&single), (1, None, RiskTier::Medium));
+        let single = vec![page(&[("l/a", Low, 12), ("l/b", Low, 40)])];
+        assert_eq!(project(&single), (0, None, RiskTier::Low));
+    }
 
     /// #952-4: the trust risk is derived from accessibility alone, so its
     /// German name must not read like the measured "Vertrauenssignale" score.

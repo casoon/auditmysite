@@ -24,12 +24,11 @@ use crate::seo::{
     extract_page_topics,
 };
 
-/// Canonical kind for page-type distribution insights (#406: message-baked, locale derived at render time).
-enum DistributionInsightKind {
-    HighThinContentShare,
-    NoEditorialContent,
-    MarketingDominated,
-}
+/// Below this many audited URLs the distribution insights state absolute
+/// counts ("1 of 5 audited pages ...") instead of a judgement about the share
+/// ("High share ...", "dominate"): on a hand-picked sample of a few pages a
+/// percentage says nothing about the website (#1039).
+const MIN_URLS_FOR_SHARE_INSIGHTS: usize = 10;
 
 fn distribution_insight_text(kind: DistributionInsightKind, en: bool) -> String {
     let key = match kind {
@@ -40,6 +39,73 @@ fn distribution_insight_text(kind: DistributionInsightKind, en: bool) -> String 
         }
     };
     crate::i18n::text(key, en)
+}
+
+/// The same insight as an absolute statement: `count` of `total` audited pages.
+fn distribution_insight_count_text(
+    kind: DistributionInsightKind,
+    count: usize,
+    total: usize,
+    en: bool,
+) -> String {
+    let key = match kind {
+        DistributionInsightKind::HighThinContentShare => {
+            "output-batch-distribution-thin-content-count"
+        }
+        DistributionInsightKind::NoEditorialContent => {
+            "output-batch-distribution-no-editorial-count"
+        }
+        DistributionInsightKind::MarketingDominated => {
+            "output-batch-distribution-marketing-dominated-count"
+        }
+    };
+    crate::i18n::text_args(
+        key,
+        &[
+            ("count", fluent_bundle::FluentValue::from(count as i64)),
+            ("total", fluent_bundle::FluentValue::from(total as i64)),
+        ],
+        en,
+    )
+}
+
+/// The page-type distribution insights of a batch: a thin-content share of
+/// 20 % or more, no editorial page, marketing pages from 50 %. From
+/// [`MIN_URLS_FOR_SHARE_INSIGHTS`] audited URLs on they read as a judgement
+/// about the share; below, as the absolute count of audited pages.
+fn derive_distribution_insights(
+    thin_pages: usize,
+    editorial_pages: usize,
+    marketing_pages: usize,
+    total_urls: usize,
+    en: bool,
+) -> Vec<DistributionInsight> {
+    let small_sample = total_urls < MIN_URLS_FOR_SHARE_INSIGHTS;
+    let insight = |kind: DistributionInsightKind, count: usize| DistributionInsight {
+        kind,
+        text: if small_sample {
+            distribution_insight_count_text(kind, count, total_urls, en)
+        } else {
+            distribution_insight_text(kind, en)
+        },
+    };
+    let mut insights = Vec::new();
+    if thin_pages > 0 && (thin_pages as f64 / total_urls as f64) >= 0.2 {
+        insights.push(insight(
+            DistributionInsightKind::HighThinContentShare,
+            thin_pages,
+        ));
+    }
+    if editorial_pages == 0 {
+        insights.push(insight(DistributionInsightKind::NoEditorialContent, 0));
+    }
+    if marketing_pages > 0 && (marketing_pages as f64 / total_urls as f64) >= 0.5 {
+        insights.push(insight(
+            DistributionInsightKind::MarketingDominated,
+            marketing_pages,
+        ));
+    }
+    insights
 }
 
 /// Build a complete presentation model from a batch audit report
@@ -406,25 +472,13 @@ pub fn build_batch_presentation_with_normalized(
     page_type_distribution.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
     let page_type_groups = build_page_type_groups(&url_details, &top_issue_rule_ids);
 
-    let mut distribution_insights = Vec::new();
-    if thin_pages > 0 && (thin_pages as f64 / batch.summary.total_urls as f64) >= 0.2 {
-        distribution_insights.push(distribution_insight_text(
-            DistributionInsightKind::HighThinContentShare,
-            en,
-        ));
-    }
-    if editorial_pages == 0 {
-        distribution_insights.push(distribution_insight_text(
-            DistributionInsightKind::NoEditorialContent,
-            en,
-        ));
-    }
-    if marketing_pages > 0 && (marketing_pages as f64 / batch.summary.total_urls as f64) >= 0.5 {
-        distribution_insights.push(distribution_insight_text(
-            DistributionInsightKind::MarketingDominated,
-            en,
-        ));
-    }
+    let distribution_insights = derive_distribution_insights(
+        thin_pages,
+        editorial_pages,
+        marketing_pages,
+        batch.summary.total_urls,
+        en,
+    );
     // A balanced distribution is no insight with an action: it used to be
     // listed under "Action needed" with a warning (#1039).
 
@@ -2089,6 +2143,59 @@ mod duplicate_content_tests {
             "Batch presentation must expose module score aggregates"
         );
         assert_eq!(pres.portfolio_summary.total_urls, 2);
+    }
+
+    /// #1039: a hand-picked sample of five URLs said "High share of
+    /// thin-content pages" for one thin page. Below ten audited URLs the
+    /// insights name absolute counts; from ten on they keep the judgement.
+    #[test]
+    fn distribution_insights_name_counts_on_small_samples() {
+        use DistributionInsightKind::{
+            HighThinContentShare, MarketingDominated, NoEditorialContent,
+        };
+        let kinds =
+            |insights: &[DistributionInsight]| insights.iter().map(|i| i.kind).collect::<Vec<_>>();
+
+        // 1 thin page of 5 (20 %), no editorial page, 3 marketing pages of 5.
+        for (en, thin, editorial, marketing) in [
+            (
+                true,
+                "Thin-content pages: 1 of 5 audited pages.",
+                "No editorial content page among the 5 audited pages:",
+                "Marketing and landing pages: 3 of 5 audited pages.",
+            ),
+            (
+                false,
+                "Seiten mit dünnem Inhalt (Thin Content): 1 von 5 geprüften Seiten.",
+                "Keine redaktionelle Inhaltsseite unter 5 geprüften Seiten:",
+                "Marketing- und Landingpages: 3 von 5 geprüften Seiten.",
+            ),
+        ] {
+            let small = derive_distribution_insights(1, 0, 3, 5, en);
+            assert_eq!(
+                kinds(&small),
+                [HighThinContentShare, NoEditorialContent, MarketingDominated]
+            );
+            assert!(small[0].text.starts_with(thin), "{}", small[0].text);
+            assert!(small[1].text.starts_with(editorial), "{}", small[1].text);
+            assert!(small[2].text.starts_with(marketing), "{}", small[2].text);
+        }
+
+        // Nine URLs are still a small sample, ten are not.
+        let nine = derive_distribution_insights(3, 0, 0, 9, true);
+        assert!(nine[0].text.starts_with("Thin-content pages: 3 of 9"));
+        let ten = derive_distribution_insights(3, 0, 0, 10, true);
+        assert_eq!(kinds(&ten), [HighThinContentShare, NoEditorialContent]);
+        assert_eq!(
+            ten[0].text,
+            "High share of thin-content pages: this can limit informational value and SEO potential."
+        );
+        assert!(ten[1].text.starts_with("No editorial content pages:"));
+
+        // The triggers are unchanged: under 20 % thin and a page of each
+        // other kind gives no insight, at any sample size.
+        assert!(derive_distribution_insights(1, 1, 1, 6, true).is_empty());
+        assert!(derive_distribution_insights(1, 1, 1, 12, true).is_empty());
     }
 
     #[test]

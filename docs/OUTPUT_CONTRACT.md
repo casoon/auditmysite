@@ -442,6 +442,8 @@ The dimensions are `Legal / BFSG-EAA`, `Assistive technology use`, `Performance 
 
 A consumer must not assume a fixed list of dimensions: before this change all seven were always present.
 
+`Project risk` counts only findings of Medium severity or higher (#1039): in a batch the rules that recur on two or more pages (three or more such rules are `high`), in a single report the findings with 10 or more occurrences or a structural fix. Low findings, such as fonts not preloaded or static resources without efficient caching, no longer raise it. The values of `summary.management_risks` move for unchanged input; no field is added or removed, so `schema_version` stays, and no score, finding or verdict moves, so `EVALUATION_VERSION` stays (the risks are derived from the normalized report when the JSON is built, not stored in snapshots or the cache).
+
 <a id="risk-score"></a>
 ### risk_score — `pages[].risk.score`
 

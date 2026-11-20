@@ -21,6 +21,18 @@ output-issue-kind-misconfigured = Misconfigured
 output-batch-distribution-thin-content = High share of thin-content pages: this can limit informational value and SEO potential.
 output-batch-distribution-no-editorial = No editorial content pages: knowledge-building and informational search intents are barely served.
 output-batch-distribution-marketing-dominated = Marketing and landing pages dominate: more structured in-depth content would balance the domain.
+output-batch-distribution-thin-content-count = Thin-content pages: { $count } of { $total } audited { $total ->
+        [one] page
+       *[other] pages
+    }. This can limit informational value and SEO potential.
+output-batch-distribution-no-editorial-count = No editorial content page among the { $total } audited { $total ->
+        [one] page
+       *[other] pages
+    }: knowledge-building and informational search intents are barely served.
+output-batch-distribution-marketing-dominated-count = Marketing and landing pages: { $count } of { $total } audited { $total ->
+        [one] page
+       *[other] pages
+    }. More structured in-depth content would balance the domain.
 output-batch-lever-fallback = Maintain results
 output-batch-cover-title = Web Accessibility Batch Audit Report
 output-batch-cover-urls = { $count ->

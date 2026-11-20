@@ -871,7 +871,6 @@ batch-seo-weakest-note = Das Inhaltsprofil fasst Struktur- und Umfangssignale zu
 batch-seo-action-needed = Handlungsbedarf
 batch-seo-patterns-impact-title = Content-Auffälligkeiten → Business-Impact
 batch-seo-impact-thin = { $insight } → schwächere Rankings, geringere Verweildauer
-batch-seo-impact-duplicate = { $insight } → Keyword-Kannibalisierung, Aufteilung der Sichtbarkeit in Suchmaschinen
 batch-seo-near-dup-title = Near-Duplicate-Content → Keyword-Kannibalisierung
 batch-seo-risk-high = Hoch — konsolidieren
 batch-seo-risk-medium = Mittel — differenzieren

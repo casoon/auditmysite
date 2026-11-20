@@ -21,6 +21,18 @@ output-issue-kind-misconfigured = Fehlkonfiguriert
 output-batch-distribution-thin-content = Hoher Anteil an Thin-Content-Seiten: Das kann Informationswert und SEO-Potenzial begrenzen.
 output-batch-distribution-no-editorial = Editoriale Inhaltsseiten fehlen: Wissensaufbau und Suchintentionen werden kaum bedient.
 output-batch-distribution-marketing-dominated = Marketing- und Landingpages dominieren: Mehr strukturierter Tiefeninhalt würde die Domain ausbalancieren.
+output-batch-distribution-thin-content-count = Seiten mit dünnem Inhalt (Thin Content): { $count } von { $total } geprüften { $total ->
+        [one] Seite
+       *[other] Seiten
+    }. Das kann Informationswert und SEO-Potenzial begrenzen.
+output-batch-distribution-no-editorial-count = Keine redaktionelle Inhaltsseite unter { $total } geprüften { $total ->
+        [one] Seite
+       *[other] Seiten
+    }: Wissensaufbau und Suchintentionen werden kaum bedient.
+output-batch-distribution-marketing-dominated-count = Marketing- und Landingpages: { $count } von { $total } geprüften { $total ->
+        [one] Seite
+       *[other] Seiten
+    }. Mehr strukturierter Tiefeninhalt würde die Domain ausbalancieren.
 output-batch-lever-fallback = Ergebnisse stabil halten
 output-batch-cover-title = Barrierefreiheits-Batch-Audit-Report
 output-batch-cover-urls = { $count ->
