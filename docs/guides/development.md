@@ -270,6 +270,9 @@ It validates:
 1. `./scripts/release-check.sh` (above).
 2. The reference runs: `cargo test --test reference_sites_test -- --ignored` and
    `python3 scripts/privacy-reference.py live` (details in `CLAUDE.md`, release step 0).
+   A page outside its band is audited a second time: back in the band it is listed as
+   unstable with the rule ids that differ between the runs (add `-- --nocapture` to see that
+   list when nothing failed), outside in both runs it is a deviation (#1110).
 3. The [human release smoke](#human-release-smoke) below.
 4. **Dispatch the full QA on the release candidate** and wait for it to finish green:
 

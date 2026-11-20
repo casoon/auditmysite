@@ -9,6 +9,8 @@ and verification for each change is in the
 
 ### Changed
 
+- **Report:** `pages[].navigation.accept_language` records the `Accept-Language` header the main document's request carried, next to the requested and final URL, redirect chain and `pages[].consent` that were already there, so a reader can see why two runs of a page that redirects by language differ (#1110). Details: [output contract](https://casoon.github.io/auditmysite/docs/OUTPUT_CONTRACT/).
+- **Contributors:** `reference_sites_test` audits a page outside its band a second time: back in the band it is listed as unstable with the rule ids that differ between the runs, outside in both runs it is a deviation (#1110). Details: [development guide](https://casoon.github.io/auditmysite/docs/guides/development/).
 - **Pages:** the project site uses the current shared theme (0.16.0).
 - **Contributors:** the detector mutation check runs in eight shards instead of four, and the tag run skips it when a successful pre-tag QA dispatch already ran every shard on the same code (only `CHANGELOG.md`, `README.md` and `CLAUDE.md` may differ); otherwise it runs there as before. Details: [development guide](https://casoon.github.io/auditmysite/docs/guides/development/).
 

@@ -962,7 +962,15 @@
           "type": "array"
         },
         "navigation": {
-          "type": "object"
+          "type": "object",
+          "description": "How the main document of this page was reached.",
+          "properties": {
+            "requested_url": {"type": "string"},
+            "final_url": {"type": "string"},
+            "main_document_status": {"type": "integer"},
+            "redirect_count": {"type": "integer", "minimum": 0},
+            "accept_language": {"type": "string", "description": "The `Accept-Language` header the main document's request carried, as the browser reported it for the desktop navigation. Absent when the request was not observed."}
+          }
         },
         "consent": {
           "type": "object"

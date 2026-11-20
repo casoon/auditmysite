@@ -1155,6 +1155,7 @@
             "final_url": {"type": "string"},
             "main_document_status": {"type": "integer"},
             "redirect_count": {"type": "integer", "minimum": 0},
+            "accept_language": {"type": "string", "description": "The `Accept-Language` header the main document's request carried, as the browser reported it for the desktop navigation. Absent when the request was not observed."},
             "redirect_chain": {
               "type": "array",
               "description": "HTTP redirects the main document went through, in order, ending before `final_url`. Empty or absent when it loaded without a redirect or the chain was not captured (`redirect_count` still says how many).",
