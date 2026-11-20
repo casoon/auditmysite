@@ -1112,9 +1112,9 @@ explanation-1-4-1 = Links distinguishable by color alone
 explanation-1-4-3 = Insufficient color contrast
     .description = Text on the website has insufficient contrast against its background. Under poor lighting conditions or for people with low vision, the text is hard to read.
     .user-impact = People with visual impairments, older users, and any user under poor screen conditions (sunlight, low-quality displays) can read the text only with difficulty or not at all.
-    .typical-cause = Light font color on a light background, gray text on white, design decisions made without contrast checking.
-    .recommendation = Adjust font colors so normal text has a contrast ratio of at least 4.5:1 and large text at least 3:1 against the background. Verify contrast values with tools such as the WebAIM Contrast Checker.
-    .technical-note = WCAG 2.1 Level AA: 4.5:1 for normal text (<18pt / <14pt bold), 3:1 for large text (≥18pt / ≥14pt bold). Use CSS variables for a consistent color palette.
+    .typical-cause = Light font color on a light background, gray text on white, design decisions made without contrast checking. Also reduced `opacity` on the text or a parent (a dimmed inactive state, a fade effect): the text colour is blended with the background, so the ratio is lower than the colour values suggest.
+    .recommendation = Adjust font colors so normal text has a contrast ratio of at least 4.5:1 and large text at least 3:1 against the background. If `opacity` dims the text, raise the opacity or darken the colour until the dimmed state reaches the ratio too. Verify contrast values with tools such as the WebAIM Contrast Checker.
+    .technical-note = WCAG 2.1 Level AA: 4.5:1 for normal text (<18pt / <14pt bold), 3:1 for large text (≥18pt / ≥14pt bold). Opacity is blended into the measured colour and a state is measured as rendered: a row dimmed with `opacity: .55` is judged in that state, not in its active one. Text inside an `aria-hidden` illustration is measured as well, because the criterion is about what is seen. Use CSS variables for a consistent color palette.
 
 explanation-1-4-4 = Text cannot be sufficiently resized
     .description = Text on the website cannot be enlarged to 200% without loss of content or functionality. Users who depend on larger text lose information.

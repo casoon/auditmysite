@@ -1112,9 +1112,9 @@ explanation-1-4-1 = Links nur durch Farbe erkennbar
 explanation-1-4-3 = Unzureichender Farbkontrast
     .description = Text auf der Website hat nicht genügend Kontrast zum Hintergrund. Bei ungünstigen Lichtverhältnissen oder für Menschen mit Sehschwäche ist der Text schwer lesbar.
     .user-impact = Menschen mit Sehbeeinträchtigung, ältere Nutzer und alle Nutzer bei ungünstigen Bildschirmbedingungen (Sonnenlicht, schlechte Displays) können Texte schlecht oder gar nicht lesen.
-    .typical-cause = Helle Schriftfarbe auf hellem Hintergrund, graue Texte auf weißem Grund, Designentscheidungen ohne Kontrastprüfung.
-    .recommendation = Schriftfarben anpassen, sodass normaler Text mindestens ein Kontrastverhältnis von 4,5:1 und großer Text von 3:1 zum Hintergrund hat. Kontrastwerte mit Tools wie dem WebAIM Contrast Checker prüfen.
-    .technical-note = WCAG 2.1 Level AA: 4.5:1 für normalen Text (<18pt / <14pt bold), 3:1 für großen Text (≥18pt / ≥14pt bold). CSS-Variablen für konsistente Farbpalette verwenden.
+    .typical-cause = Helle Schriftfarbe auf hellem Hintergrund, graue Texte auf weißem Grund, Designentscheidungen ohne Kontrastprüfung. Auch verringerte `opacity` am Text oder an einem Elternelement (ein abgedunkelter inaktiver Zustand, ein Einblendeffekt): Die Textfarbe wird mit dem Hintergrund gemischt, das Verhältnis liegt dann unter dem, was die Farbwerte vermuten lassen.
+    .recommendation = Schriftfarben anpassen, sodass normaler Text mindestens ein Kontrastverhältnis von 4,5:1 und großer Text von 3:1 zum Hintergrund hat. Dämpft `opacity` den Text, die Deckkraft erhöhen oder die Farbe abdunkeln, bis auch der gedämpfte Zustand das Verhältnis erreicht. Kontrastwerte mit Tools wie dem WebAIM Contrast Checker prüfen.
+    .technical-note = WCAG 2.1 Level AA: 4.5:1 für normalen Text (<18pt / <14pt bold), 3:1 für großen Text (≥18pt / ≥14pt bold). Deckkraft wird in die gemessene Farbe eingerechnet, und ein Zustand wird so gemessen, wie er gerendert ist: Eine mit `opacity: .55` abgedunkelte Zeile wird in diesem Zustand beurteilt, nicht in ihrem aktiven. Auch Text in einer `aria-hidden`-Illustration wird gemessen, weil das Kriterium sich auf das Gesehene bezieht. CSS-Variablen für konsistente Farbpalette verwenden.
 
 explanation-1-4-4 = Text nicht ausreichend skalierbar
     .description = Texte auf der Website können nicht ohne Verlust von Inhalt oder Funktion auf 200% vergrößert werden. Nutzer, die auf größere Schrift angewiesen sind, verlieren dadurch Inhalte.
