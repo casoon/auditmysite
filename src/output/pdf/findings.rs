@@ -163,6 +163,50 @@ fn report_code_label(value: &str, i18n: &I18n) -> String {
     i18n.t(key)
 }
 
+/// The origin of a finding's markup as one neutral line, or `None` for the
+/// main document (#1109): which kind of frame it sits in, the known
+/// provider(s) and where the fix belongs. A label, not a verdict: the
+/// finding keeps its place in the report and the page is not called
+/// conformant by it.
+///
+/// A cross-origin frame of an unknown provider names the host of its source
+/// (the iframe's `src`, read from the listed occurrences) instead.
+pub(super) fn origin_text(
+    f: &crate::audit::normalized::NormalizedFinding,
+    i18n: &I18n,
+) -> Option<String> {
+    use crate::model::FindingOrigin as O;
+    let en = is_english(i18n);
+    let mut hosts: Vec<&str> = f
+        .occurrences
+        .iter()
+        .filter(|o| o.origin == O::CrossOriginFrame)
+        .filter_map(|o| o.frame_host.as_deref())
+        .collect();
+    hosts.sort_unstable();
+    hosts.dedup();
+    let (key, list) = match (f.origin, f.providers.is_empty(), hosts.is_empty()) {
+        (O::CrossOriginFrame, false, _) => {
+            ("pdf-findings-origin-cross-origin", f.providers.join(", "))
+        }
+        (O::CrossOriginFrame, true, false) => {
+            ("pdf-findings-origin-cross-origin-source", hosts.join(", "))
+        }
+        (O::CrossOriginFrame, true, true) => {
+            ("pdf-findings-origin-cross-origin-unknown", String::new())
+        }
+        (O::SameSiteFrame, ..) => ("pdf-findings-origin-same-site", String::new()),
+        (O::Mixed, false, _) => ("pdf-findings-origin-mixed-provider", f.providers.join(", ")),
+        (O::Mixed, true, _) => ("pdf-findings-origin-mixed", String::new()),
+        _ => return None,
+    };
+    Some(crate::i18n::text_args(
+        key,
+        &[("list", FluentValue::from(list))],
+        en,
+    ))
+}
+
 /// Small tracked-caps section caption inside a finding card — the same
 /// visual language as the report's chapter eyebrows, scaled down. Used to
 /// separate the finding card's secondary blocks (QA metadata, action
@@ -232,6 +276,10 @@ pub(super) fn render_finding_technical(
     let color = super::design::severity_color(group.finding.severity);
 
     builder = add_title_and_lead_in(builder, group, i18n, color);
+    if let Some(origin) = origin_text(&group.finding, i18n) {
+        builder =
+            builder.add_component(Callout::info(origin).with_title(i18n.t("pdf-findings-origin")));
+    }
     builder = add_priority_strip(builder, group, i18n, color);
     builder = add_qa_metadata(builder, group, i18n, acronyms_expanded);
     builder = add_action_assessment(builder, group, i18n);
@@ -923,6 +971,100 @@ mod tests {
         f.bfsg_relevance = String::new();
         f.verification = String::new();
         group
+    }
+
+    /// #1109: the origin line is a neutral label with the provider and where
+    /// the fix belongs; a main-document finding has none. Both languages, the
+    /// English one without German characters.
+    #[test]
+    fn origin_line_names_the_provider_and_the_fix_in_both_languages() {
+        use crate::i18n::I18n;
+        use crate::model::FindingOrigin as O;
+        let en = I18n::new("en").unwrap();
+        let de = I18n::new("de").unwrap();
+        let finding = |origin: O, providers: &[&str], host: Option<&str>| {
+            let mut f = group("buttons/name-missing", "Button", "Accessibility").finding;
+            f.origin = origin;
+            f.providers = providers.iter().map(|p| p.to_string()).collect();
+            f.occurrences = vec![crate::audit::normalized::OccurrenceDetail {
+                origin: if origin == O::FirstParty {
+                    O::FirstParty
+                } else {
+                    O::CrossOriginFrame
+                },
+                frame_host: host.map(str::to_string),
+                ..Default::default()
+            }];
+            f
+        };
+        let yt = finding(O::CrossOriginFrame, &["YouTube"], Some("www.youtube.com"));
+        assert_eq!(
+            super::origin_text(&yt, &en).as_deref(),
+            Some("Third-party frame (provider YouTube), fix at the provider")
+        );
+        assert_eq!(
+            super::origin_text(&yt, &de).as_deref(),
+            Some("Drittanbieter-Frame (Anbieter YouTube), Behebung beim Anbieter")
+        );
+        // Unknown provider: the host of the iframe's `src` is named.
+        let unknown = finding(O::CrossOriginFrame, &[], Some("ir-api.eqs.com"));
+        assert_eq!(
+            super::origin_text(&unknown, &en).as_deref(),
+            Some("Third-party frame (source ir-api.eqs.com), fix at the provider of the embedded content")
+        );
+        assert_eq!(
+            super::origin_text(&finding(O::CrossOriginFrame, &[], None), &en).as_deref(),
+            Some("Third-party frame, fix at the provider of the embedded content")
+        );
+        assert_eq!(
+            super::origin_text(&finding(O::FirstParty, &[], None), &en),
+            None
+        );
+        for origin in [O::SameSiteFrame, O::CrossOriginFrame, O::Mixed] {
+            for (providers, host) in [
+                (vec![], None),
+                (vec!["YouTube"], Some("www.youtube.com")),
+                (vec![], Some("ir-api.eqs.com")),
+            ] {
+                let f = finding(origin, &providers, host);
+                let text = super::origin_text(&f, &en).unwrap();
+                assert!(
+                    !text.contains(['\u{e4}', '\u{f6}', '\u{fc}', '\u{df}']),
+                    "{text}"
+                );
+                assert!(!text.contains('$'), "{text}");
+                assert_ne!(Some(text), super::origin_text(&f, &de));
+            }
+        }
+    }
+
+    #[test]
+    fn the_finding_card_shows_the_origin_only_for_frame_findings() {
+        use super::render_finding_technical;
+        use crate::i18n::I18n;
+        use crate::model::FindingOrigin as O;
+        let i18n = I18n::new("en").unwrap();
+        let card = |origin: O, providers: Vec<String>| {
+            let mut g = group("buttons/name-missing", "Button name", "Accessibility");
+            g.finding.origin = origin;
+            g.finding.providers = providers;
+            let mut seq = 0;
+            let mut expanded = false;
+            let builder = render_finding_technical(
+                renderreport::engine::ReportBuilder::new("t"),
+                &g,
+                &i18n,
+                0,
+                &mut seq,
+                &mut expanded,
+            );
+            serde_json::to_string(&builder.build().components).unwrap()
+        };
+        let frame = card(O::CrossOriginFrame, vec!["YouTube".to_string()]);
+        assert!(frame.contains("Third-party frame (provider YouTube), fix at the provider"));
+        let page = card(O::FirstParty, Vec::new());
+        assert!(!page.contains("Third-party frame"));
+        assert!(!page.contains("fix at the provider"));
     }
 
     #[test]

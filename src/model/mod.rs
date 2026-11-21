@@ -6,12 +6,14 @@
 
 mod annex_kind;
 mod color_policy;
+mod finding_origin;
 mod interactive_mode;
 mod report_level;
 mod wcag_level;
 
 pub use annex_kind::AnnexKind;
 pub use color_policy::ColorPolicy;
+pub use finding_origin::{frame_origin, FindingOrigin, FrameOrigin};
 pub use interactive_mode::InteractiveMode;
 pub use report_level::ReportLevel;
 pub use wcag_level::WcagLevel;

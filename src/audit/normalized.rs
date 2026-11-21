@@ -17,7 +17,7 @@ use crate::audit::report::{AuditReport, PerformanceResults, ViewportScores};
 use crate::audit::risk_assessment::compute_risk_assessment;
 use crate::audit::scoring::{AccessibilityScorer, PrincipleCoverage};
 use crate::mobile::MobileFriendliness;
-use crate::model::WcagLevel;
+use crate::model::{FindingOrigin, WcagLevel};
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
 use crate::taxonomy::{ReportVisibility, RuleLookup, Scaling, Severity};
@@ -400,6 +400,14 @@ pub struct NormalizedFinding {
     pub remediation_priority: String,
     /// Einzelne Vorkommen
     pub occurrences: Vec<OccurrenceDetail>,
+    /// Where the markup of the finding comes from, over all its occurrences
+    /// (not only the listed sample): the main document, a same-site frame, a
+    /// cross-origin frame, or `Mixed` (#1109). A label; no score, grade or
+    /// verdict reads it.
+    pub origin: crate::model::FindingOrigin,
+    /// Known third-party providers (canonical English names, sorted) of the
+    /// cross-origin frames the occurrences sit in.
+    pub providers: Vec<String>,
     /// Domain, source, outcome, applicability, cause and scoring
     /// responsibility — the contract every domain shares (#780).
     pub contract: crate::audit::finding_contract::FindingContract,
@@ -467,6 +475,10 @@ struct NormalizedFindingWire {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     remediation_priority: String,
     occurrences: Vec<OccurrenceDetail>,
+    #[serde(default)]
+    origin: crate::model::FindingOrigin,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    providers: Vec<String>,
     contract: crate::audit::finding_contract::FindingContract,
 }
 
@@ -512,6 +524,8 @@ impl From<NormalizedFinding> for NormalizedFindingWire {
             bfsg_relevance,
             remediation_priority,
             occurrences,
+            origin,
+            providers,
             contract,
         } = f;
         Self {
@@ -550,6 +564,8 @@ impl From<NormalizedFinding> for NormalizedFindingWire {
             bfsg_relevance,
             remediation_priority,
             occurrences,
+            origin,
+            providers,
             contract,
         }
     }
@@ -621,6 +637,8 @@ impl TryFrom<NormalizedFindingWire> for NormalizedFinding {
             bfsg_relevance: w.bfsg_relevance,
             remediation_priority: w.remediation_priority,
             occurrences: w.occurrences,
+            origin: w.origin,
+            providers: w.providers,
             contract: w.contract,
         })
     }
@@ -750,6 +768,20 @@ pub struct OccurrenceDetail {
     /// (#898, #406). In-memory only.
     #[serde(skip)]
     pub text: Option<crate::audit::finding_text::MessageText>,
+    /// Where the element sits (#1109); present only for an element in a
+    /// frame, absent (= `first_party`) for the main document.
+    #[serde(
+        default,
+        skip_serializing_if = "crate::model::FindingOrigin::is_first_party"
+    )]
+    pub origin: crate::model::FindingOrigin,
+    /// Known third-party provider of the cross-origin frame the element sits in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    /// Host of the frame's source (its `src` attribute, else its document
+    /// URL), for an element inside a frame.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frame_host: Option<String>,
 }
 
 /// Score-Eintrag pro Modul
@@ -1132,6 +1164,9 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                     evidence_screenshot: v.evidence_screenshot.clone(),
                     evidence_viewport: v.evidence_viewport,
                     text: None,
+                    origin: v.origin,
+                    provider: v.provider.clone(),
+                    frame_host: v.frame_host.clone(),
                 })
                 .collect();
             // Deduplicate fix_suggestion: if all stored occurrences share the same
@@ -1258,12 +1293,24 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 bfsg_relevance,
                 remediation_priority,
                 occurrences,
+                origin: FindingOrigin::of_occurrences(violations.iter().map(|v| v.origin)),
+                providers: providers_of(violations.iter().map(|v| v.provider.as_deref())),
                 contract,
             }
         })
         .collect();
 
     findings
+}
+
+/// The distinct provider names of a finding's occurrences, sorted.
+fn providers_of<'a>(providers: impl Iterator<Item = Option<&'a str>>) -> Vec<String> {
+    providers
+        .flatten()
+        .map(str::to_string)
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect()
 }
 
 /// How many of the aggregated batch findings are the batch's top actions:
@@ -1314,6 +1361,13 @@ pub fn aggregate_batch_findings(
                     let (entry, urls) = &mut aggregated[i];
                     entry.occurrence_count += finding.occurrence_count;
                     entry.severity = entry.severity.max(finding.severity);
+                    entry.origin = FindingOrigin::of_occurrences([entry.origin, finding.origin]);
+                    for provider in &finding.providers {
+                        if !entry.providers.contains(provider) {
+                            entry.providers.push(provider.clone());
+                        }
+                    }
+                    entry.providers.sort();
                     if !urls.contains(&report.url) {
                         urls.push(report.url.clone());
                     }
@@ -3761,4 +3815,210 @@ mod tests {
             .iter()
             .any(|(f, _)| f.rule_id == "mobile.small_targets"));
     }
+    // ── Finding origin (#1109) ───────────────────────────────────────────
+
+    fn origin_violation(
+        rule_id: &str,
+        node: &str,
+        origin: FindingOrigin,
+        provider: Option<&str>,
+    ) -> Violation {
+        let mut v = Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "Missing alt",
+            node,
+        )
+        .with_rule_id(rule_id);
+        v.origin = origin;
+        v.provider = provider.map(str::to_string);
+        v
+    }
+
+    fn origin_report(url: &str, violations: Vec<Violation>) -> NormalizedReport {
+        let mut results = WcagResults::new();
+        for v in violations {
+            results.add_violation(v);
+        }
+        normalize(&AuditReport::new(
+            url.to_string(),
+            WcagLevel::AA,
+            results,
+            100,
+        ))
+        .normalized
+    }
+
+    #[test]
+    fn a_frame_finding_carries_its_origin_and_provider_a_page_finding_stays_first_party() {
+        let report = origin_report(
+            "https://example.com/",
+            vec![
+                origin_violation("images/alt-missing", "n1", FindingOrigin::FirstParty, None),
+                origin_violation(
+                    "buttons/name-missing",
+                    "frame:F1:n2",
+                    FindingOrigin::CrossOriginFrame,
+                    Some("YouTube"),
+                ),
+            ],
+        );
+        let page = report
+            .findings
+            .iter()
+            .find(|f| f.rule_id == "images/alt-missing")
+            .unwrap();
+        assert_eq!(page.origin, FindingOrigin::FirstParty);
+        assert!(page.providers.is_empty());
+        let frame = report
+            .findings
+            .iter()
+            .find(|f| f.rule_id == "buttons/name-missing")
+            .unwrap();
+        assert_eq!(frame.origin, FindingOrigin::CrossOriginFrame);
+        assert_eq!(frame.providers, ["YouTube"]);
+        assert_eq!(frame.occurrences[0].origin, FindingOrigin::CrossOriginFrame);
+        assert_eq!(frame.occurrences[0].provider.as_deref(), Some("YouTube"));
+
+        let json = serde_json::to_value(&report.findings).unwrap();
+        let by_rule = |rule: &str| {
+            json.as_array()
+                .unwrap()
+                .iter()
+                .find(|f| f["rule_id"] == rule)
+                .unwrap()
+                .clone()
+        };
+        let page = by_rule("images/alt-missing");
+        assert_eq!(page["origin"], "first_party");
+        assert!(page.get("providers").is_none());
+        assert!(page["occurrences"][0].get("origin").is_none());
+        let frame = by_rule("buttons/name-missing");
+        assert_eq!(frame["origin"], "cross_origin_frame");
+        assert_eq!(frame["providers"], serde_json::json!(["YouTube"]));
+        assert_eq!(frame["occurrences"][0]["origin"], "cross_origin_frame");
+        assert_eq!(frame["occurrences"][0]["provider"], "YouTube");
+    }
+
+    #[test]
+    fn a_finding_with_occurrences_of_two_origins_is_mixed_over_all_of_them() {
+        let report = origin_report(
+            "https://example.com/",
+            vec![
+                origin_violation("images/alt-missing", "n1", FindingOrigin::FirstParty, None),
+                origin_violation(
+                    "images/alt-missing",
+                    "frame:F1:n2",
+                    FindingOrigin::CrossOriginFrame,
+                    Some("YouTube"),
+                ),
+            ],
+        );
+        let finding = &report.findings[0];
+        assert_eq!(finding.occurrence_count, 2);
+        assert_eq!(finding.origin, FindingOrigin::Mixed);
+        assert_eq!(finding.providers, ["YouTube"]);
+    }
+
+    #[test]
+    fn a_finding_without_origin_in_old_json_reads_as_first_party() {
+        let report = origin_report(
+            "https://example.com/",
+            vec![origin_violation(
+                "images/alt-missing",
+                "n1",
+                FindingOrigin::FirstParty,
+                None,
+            )],
+        );
+        let mut json = serde_json::to_value(&report.findings[0]).unwrap();
+        json.as_object_mut().unwrap().remove("origin");
+        let read: NormalizedFinding = serde_json::from_value(json).unwrap();
+        assert_eq!(read.origin, FindingOrigin::FirstParty);
+        assert!(read.providers.is_empty());
+    }
+
+    /// The batch names a provider finding once: the same rule in a frame of
+    /// the same provider on every page is one aggregated finding with the
+    /// provider once, not one entry or one provider per URL.
+    #[test]
+    fn the_batch_names_a_recurring_provider_finding_once() {
+        let page = |url: &str| {
+            origin_report(
+                url,
+                vec![origin_violation(
+                    "buttons/name-missing",
+                    "frame:F1:n2",
+                    FindingOrigin::CrossOriginFrame,
+                    Some("YouTube"),
+                )],
+            )
+        };
+        let reports = [
+            page("https://example.com/a"),
+            page("https://example.com/b"),
+            page("https://example.com/c"),
+        ];
+        let aggregated = aggregate_batch_findings(&reports);
+        assert_eq!(aggregated.len(), 1);
+        let (finding, urls) = &aggregated[0];
+        assert_eq!(urls.len(), 3);
+        assert_eq!(finding.occurrence_count, 3);
+        assert_eq!(finding.origin, FindingOrigin::CrossOriginFrame);
+        assert_eq!(finding.providers, ["YouTube"]);
+
+        // The same rule first-party on another page makes the aggregate mixed.
+        let first_party = origin_report(
+            "https://example.com/d",
+            vec![origin_violation(
+                "buttons/name-missing",
+                "n3",
+                FindingOrigin::FirstParty,
+                None,
+            )],
+        );
+        let aggregated = aggregate_batch_findings(&[reports[0].clone(), first_party]);
+        assert_eq!(aggregated[0].0.origin, FindingOrigin::Mixed);
+        assert_eq!(aggregated[0].0.providers, ["YouTube"]);
+    }
+
+    /// #1109 decision: attribution only. Scores, grades and the verdict of a
+    /// report with frame findings are what they were before origins existed,
+    /// and what the same findings give as main-document findings.
+    #[test]
+    fn origin_does_not_change_score_grade_or_decision() {
+        let make = |frame_origin: FindingOrigin, provider: Option<&str>| {
+            origin_report(
+                "https://example.com/",
+                vec![
+                    origin_violation("images/alt-missing", "n1", FindingOrigin::FirstParty, None),
+                    origin_violation(
+                        "buttons/name-missing",
+                        "frame:F1:n2",
+                        frame_origin,
+                        provider,
+                    ),
+                    origin_violation("links/name-missing", "frame:F1:n3", frame_origin, provider),
+                ],
+            )
+        };
+        let attributed = make(FindingOrigin::CrossOriginFrame, Some("YouTube"));
+        let plain = make(FindingOrigin::FirstParty, None);
+        assert_eq!(attributed.score, plain.score);
+        assert_eq!(attributed.grade, plain.grade);
+        assert_eq!(attributed.decision, plain.decision);
+        for (a, p) in attributed.findings.iter().zip(&plain.findings) {
+            assert_eq!(a.score_impact.base_penalty, p.score_impact.base_penalty);
+            assert_eq!(a.score_impact.max_penalty, p.score_impact.max_penalty);
+            assert_eq!(a.severity, p.severity);
+        }
+        // The value itself, fixed when the origin was added (2026-11-21).
+        assert_eq!(attributed.score, PINNED_SCORE_WITH_FRAME_FINDINGS);
+        assert_eq!(attributed.grade, PINNED_GRADE_WITH_FRAME_FINDINGS);
+    }
+
+    const PINNED_SCORE_WITH_FRAME_FINDINGS: u32 = 89;
+    const PINNED_GRADE_WITH_FRAME_FINDINGS: &str = "B";
 }

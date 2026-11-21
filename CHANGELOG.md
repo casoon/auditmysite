@@ -7,6 +7,10 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Added
+
+- **Report:** every finding carries its origin (Refs #1109): `findings[].origin` is `first_party`, `same_site_frame`, `cross_origin_frame` or `mixed`, `findings[].providers` names the known third-party providers (`web-checks` provider list) of the cross-origin frames it sits in, and occurrences inside a frame carry `origin` and `provider`. The PDF finding card and the batch top-issue card show a neutral label ("Third-party frame (provider X), fix at the provider"), the provider once per finding, not once per URL. Attribution only: scores, grades, verdicts and finding ids are unchanged; whether such findings should weigh differently is decided after a measurement. Cached results are misses (cache `fmt` 37). Details: [output contract](https://casoon.github.io/auditmysite/docs/OUTPUT_CONTRACT/#finding-origin-1109).
+
 ### Changed
 
 - **CLI:** `--accept-language <TAGS>` (or `[audit] accept_language`) sets the languages the browser sends as `Accept-Language` and reports as `navigator.languages`, default `en-US,en`, so a reference run can be pinned (#1110). The list is stored in `measurement_profile.accept_language` (profile version 4) and is part of the cache signature and the replay identity. It is not the report language (`--lang`). Details: [feature reference](https://casoon.github.io/auditmysite/docs/reference/features/).

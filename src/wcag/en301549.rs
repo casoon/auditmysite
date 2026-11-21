@@ -694,6 +694,8 @@ mod tests {
         NormalizedFinding {
             known: false,
             contract: Default::default(),
+            origin: Default::default(),
+            providers: Default::default(),
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,

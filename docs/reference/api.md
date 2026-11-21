@@ -72,7 +72,7 @@ Paths are the ones to use; a root re-export and the module path name the same it
 | --- | --- |
 | Pipeline entry | `audit::{audit_page, run_single_audit}`, `browser::{BrowserManager, BrowserOptions}` (also at the root) |
 | Batch entry | `audit::{run_concurrent_batch, BatchConfig, BatchResult, parse_sitemap, read_url_file}`, `browser::{BrowserPool, PoolConfig}` |
-| Configuration | `audit::{PipelineConfig, Module, ModuleSet}` and their setters, `model::{WcagLevel, InteractiveMode, ReportLevel, AnnexKind, ColorPolicy}` |
+| Configuration | `audit::{PipelineConfig, Module, ModuleSet}` and their setters, `model::{WcagLevel, InteractiveMode, ReportLevel, AnnexKind, ColorPolicy}`; `model::FindingOrigin` (the `origin` of a finding, #1109) |
 | Report types | `audit::{AuditReport, BatchReport, Verdict, VerdictResult}` and the types their fields name, `Severity`, `Violation`, `WcagResults` (root) |
 | Normalised report | `audit::{NormalizedReport, AuditContext, normalize_checked, validate_batch, ReportContractError}`; `audit::normalize` is deprecated and stays until Studio has moved to `normalize_checked` |
 | Baseline | `audit::{Baseline, BaselineStatus, BASELINE_CONTRACT, FINDING_ID_SCHEME}` |

@@ -1653,6 +1653,18 @@
           "items": {
             "$ref": "#/$defs/occurrenceEvidence"
           }
+        },
+        "origin": {
+          "enum": ["same_site_frame", "cross_origin_frame"],
+          "description": "Where the element sits (#1109). Present only for an element inside a frame; absent means the main document (`first_party`). A label for the reader: scores, grades and the verdict do not read it."
+        },
+        "provider": {
+          "type": "string",
+          "description": "Canonical English name of the known third-party provider (web-checks provider list) of the cross-origin frame the element sits in. Absent for an unknown host and for everything but a cross-origin frame."
+        },
+        "frame_host": {
+          "type": "string",
+          "description": "Host of the frame's source (the iframe's `src` attribute, else the frame document's URL) for an element inside a frame (#1109)."
         }
       }
     },
@@ -1775,6 +1787,15 @@
           "type": "integer",
           "minimum": 0,
           "description": "Number of distinct patterns, also beyond the 20 listed."
+        },
+        "origin": {
+          "enum": ["first_party", "same_site_frame", "cross_origin_frame", "mixed"],
+          "description": "Where the markup of the finding comes from, over all its occurrences, not only the listed sample (#1109): the main document, a frame of the same site, a frame of another site, or `mixed` when its occurrences have more than one origin. Absent in reports written before it existed (read as `first_party`). A label for the reader: scores, grades and the verdict do not read it (docs/OUTPUT_CONTRACT.md, Finding origin)."
+        },
+        "providers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Known third-party providers (canonical English names, sorted, web-checks provider list) of the cross-origin frames the occurrences sit in. Absent when there are none."
         },
         "contract": {
           "$ref": "#/$defs/findingContract"

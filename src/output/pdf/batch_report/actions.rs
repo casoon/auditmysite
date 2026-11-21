@@ -285,6 +285,10 @@ pub(super) fn render_batch_top_issues(
             kv = kv.add(&fix_label, &group.recommendation);
         }
         kv = kv.add(&meta_label, meta_line);
+        // The provider is named once on the cross-page card, not once per URL (#1109).
+        if let Some(origin) = super::super::findings::origin_text(&group.finding, i18n) {
+            kv = kv.add(i18n.t("pdf-findings-origin"), origin);
+        }
         builder = builder.add_component(kv);
     }
 

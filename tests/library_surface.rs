@@ -244,6 +244,7 @@ const NON_EXHAUSTIVE_FILES: &[&str] = &[
     "src/error.rs",
     "src/model/annex_kind.rs",
     "src/model/color_policy.rs",
+    "src/model/finding_origin.rs",
     "src/model/interactive_mode.rs",
     "src/model/report_level.rs",
     "src/model/wcag_level.rs",
