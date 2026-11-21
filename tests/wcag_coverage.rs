@@ -350,8 +350,7 @@ fn test_nodes_checked_counter_is_populated() {
 
 /// Real CDP `Accessibility.AXPropertyName` values (Chrome DevTools Protocol),
 /// plus a few properties this codebase confirmed Chrome exposes in practice
-/// beyond the strictly documented enum (empirically verified 2026-07-13 —
-/// see plans/quality-audit-backlog.md's QA-032 entry for the repro).
+/// beyond the strictly documented enum (empirically verified 2026-07-13).
 const REAL_CDP_PROPERTIES: &[&str] = &[
     // Value-type AX properties
     "busy",
@@ -596,7 +595,7 @@ fn extract_rule_metadata_entries(file: &str, content: &str) -> Vec<RuleMetaEntry
 /// SC groups where multiple rule files legitimately share a raw success
 /// criterion with differing severity/level, already reviewed and accepted —
 /// each reason states why the mix is fine, not just that it exists.
-// 2026-09-06 (plan/1-root-cause-title-occurrence-mismatch.md, "Mechanism 2"):
+// 2026-09-06 ("Mechanism 2"):
 // the "2.1.1", "1.4.4", "1.1.1", "4.1.2", and "1.3.1" groups formerly listed
 // here were exactly QA-009's deferred content-authoring task — every axe_id
 // in those groups that previously lacked its own taxonomy entry

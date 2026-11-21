@@ -253,7 +253,7 @@ fn calculate_seo_score(
     // Meta tags — cap total penalty at 20 to avoid collapse from many minor issues.
     // A missing lang or canonical is charged once, in the technical section
     // below; the meta list reported it a second time. A missing viewport is
-    // charged by Mobile and Accessibility, not here as well (plan 105).
+    // charged by Mobile and Accessibility, not here as well.
     let meta_penalty: u32 = meta_issues
         .iter()
         .filter(|issue| !matches!(issue.field.as_str(), "lang" | "canonical" | "viewport"))
@@ -361,7 +361,7 @@ mod score_tests {
         }
     }
 
-    /// Plan 105: a missing lang or canonical showed up in the meta list and
+    /// A missing lang or canonical showed up in the meta list and
     /// in the technical checks, and cost points in both. It counts once.
     #[test]
     fn missing_lang_and_canonical_are_charged_once() {
@@ -399,7 +399,7 @@ mod score_tests {
         assert_eq!(without_meta_issues, 100 - 5 - 3);
     }
 
-    /// Plan 105: a missing viewport is charged by Mobile and Accessibility;
+    /// A missing viewport is charged by Mobile and Accessibility;
     /// SEO lists it without a deduction.
     #[test]
     fn missing_viewport_costs_seo_nothing() {

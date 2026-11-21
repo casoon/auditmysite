@@ -883,7 +883,7 @@ mod tests {
         }
     }
 
-    /// Plan 69 / #777: a lost collection makes the run partial, all of them
+    /// #777: a lost collection makes the run partial, all of them
     /// lost makes it failed — not "completed" with an empty, passing result.
     #[test]
     fn fold_marks_partial_and_failed_runs() {

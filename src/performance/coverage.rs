@@ -535,7 +535,7 @@ pub async fn take_coverage_results(
     // ── CSS coverage ──────────────────────────────────────────────────────────
     // `stopRuleUsageTracking` returns the rules *used* since tracking began —
     // not every rule — so its length is no denominator: it made 316 of 316
-    // (100 %) on inros-lackner, and nearly every page 100 % (plan 78). The
+    // (100 %) on inros-lackner, and nearly every page 100 %. The
     // denominator is the style rules in each stylesheet the page added, read
     // back with `getStyleSheetText`.
     let css_coverage = match page.execute(StopRuleUsageTrackingParams::default()).await {
@@ -738,7 +738,7 @@ fn sha256_hex(text: &str) -> String {
 #[cfg(test)]
 mod tests {
 
-    /// Plan 78: the denominator counts style rules wherever they sit, and
+    /// The denominator counts style rules wherever they sit, and
     /// nothing that is no style rule.
     #[test]
     fn count_style_rules_counts_nested_and_grouped_rules_only() {

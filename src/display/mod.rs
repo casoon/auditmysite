@@ -1,6 +1,6 @@
 //! Display modes (#653): the BarrierLab `data-display` convention.
 //!
-//! A site following the convention (draft v0, `barrierlab/plan/03`) sets
+//! A site following the convention (draft v0) sets
 //! `<html data-display="visual|calm|text">` before the first paint, stores the
 //! visitor's choice in `localStorage` under the key `display`, and offers a
 //! `[data-display-toggle]` control on every page with a visualisation

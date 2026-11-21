@@ -59,7 +59,7 @@ fn clean_section_note(i18n: &I18n) -> Label {
 fn module_customer_context(
     i18n: &I18n,
     module_key: &str,
-    // `None` for a module that carries no 0-100 score at all (plan 29, D4) —
+    // `None` for a module that carries no 0-100 score at all —
     // the score-derived weakness sentence is then simply omitted.
     score: Option<u32>,
     // Intentionally unused: the technical interpretation / heuristic disclaimer
@@ -119,7 +119,7 @@ fn module_customer_context(
 /// The opener's takeaway is `first_sentence(interpretation)`, and a
 /// single-sentence interpretation therefore arrived twice: once in the
 /// `section-header-split` body, once as a standalone label two components
-/// later, with only a score card between them (plan 36 §3).
+/// later, with only a score card between them.
 pub(super) fn interpretation_beyond_takeaway<'a>(
     interpretation: &'a str,
     takeaway: &str,

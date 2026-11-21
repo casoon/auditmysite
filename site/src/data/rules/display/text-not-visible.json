@@ -15,7 +15,7 @@
     {
       "contract_id": "display/text-not-visible",
       "outcome": "automatic",
-      "source": "BarrierLab display-mode convention draft v0 (barrierlab/plan/03), anchored to WCAG 2.2 SC 1.1.1; best practice",
+      "source": "BarrierLab display-mode convention draft v0, anchored to WCAG 2.2 SC 1.1.1; best practice",
       "applicability": "Pages rendered in text mode with figure[data-viz] whose [data-viz-text] has content.",
       "expectation": "A best-practice violation at the figure when, in text mode, none of its\nnon-empty text layers is rendered: still clipped to 1 x 1 by the\nvisually-hidden pattern, or transparent (opacity 0). A text layer removed\nfrom assistive technology is display/text-hidden instead and not reported\ntwice; a figure without any text is viz/text-missing. Outside text mode the\nrule does not apply.",
       "method": "page",

@@ -31,8 +31,7 @@ pub(super) fn build_cli_snapshot_table(vm: &ReportViewModel, i18n: &I18n) -> Aud
         // but for modules without a dedicated short blurb it can fall back
         // to the same text as `interpretation` (e.g. Search Experience when
         // no specific warning was derived), which would otherwise print the
-        // same sentence twice in a row (plan/32-appendix-duplicated-
-        // interpretation-sentence.md).
+        // same sentence twice in a row.
         let value = if module.interpretation.trim().is_empty() {
             format!("{} / 100", module.score)
         } else if module.card_context.is_empty() || module.card_context == module.interpretation {

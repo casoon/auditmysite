@@ -77,7 +77,7 @@ pub(in crate::output::pdf) fn render_best_practices(
             .with_thresholds(75, 40),
     );
     // What "nothing detected" covers — a clean result is no general
-    // all-clear (plan 69).
+    // all-clear.
     builder = builder.add_component(TextBlock::new(i18n.t_args(
         "pdf-bp-scope",
         &[("libs", crate::best_practices::CHECKED_LIBRARIES.join(", "))],

@@ -1525,7 +1525,7 @@ explanation-summary-name = Summary element without an accessible name
     .recommendation = Add text content to the <summary> element describing what the disclosure section contains.
     .technical-note = <summary> without text content or aria-label.
 
-## Missing navigation and contentinfo landmark (plan 56)
+## Missing navigation and contentinfo landmark
 
 explanation-landmark-navigation-present = Missing navigation landmark
     .description = The page has no area marked up as navigation (<nav> or role="navigation").

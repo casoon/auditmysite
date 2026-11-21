@@ -721,7 +721,7 @@ impl Args {
 
     /// Returns the effective concurrency: the CLI value, else 3 — or 1 when
     /// journeys run on a browser that stalls under parallel keyboard
-    /// journeys (full browser on macOS, plan 65).
+    /// journeys (full browser on macOS).
     pub fn effective_concurrency(&self) -> usize {
         self.concurrency.unwrap_or_else(|| {
             if self.interactive.is_enabled()

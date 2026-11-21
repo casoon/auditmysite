@@ -1,5 +1,5 @@
 //! Diff-based accuracy test: JSON-LD schema-rules detection corpus against a
-//! real audit run (plan/11, rest-scope of #558; strict comparison #783).
+//! real audit run (rest-scope of #558, strict comparison #783).
 //!
 //! Needs real Chrome/CDP. `#[ignore]`-gated like
 //! `tests/detection_corpus_test.rs`; run with `cargo test -- --ignored`.

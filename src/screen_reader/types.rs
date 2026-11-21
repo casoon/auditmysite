@@ -94,7 +94,7 @@ pub struct SrAuditIssue {
     /// A heuristic that needs a reader's judgement (generic or repeated link
     /// text, heading order, landmark structure, icon-font characters) rather
     /// than a confirmed failure. Review items never count as BFSG violations
-    /// and never as passed (plan 74).
+    /// and never as passed.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub review: bool,
 }
@@ -149,7 +149,7 @@ pub struct BfsgCompliance {
     pub criteria_without_findings: Vec<String>,
     /// Heuristic findings on BFSG-relevant criteria (generic link text,
     /// heading order, …): to be judged by a reader, neither violations nor
-    /// passed (plan 74).
+    /// passed.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub needs_review: Vec<BfsgViolation>,
     #[serde(flatten)]

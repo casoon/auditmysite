@@ -69,8 +69,8 @@ pub(super) fn build_module_scores(
     if let Some(ref sec) = report.security {
         let adjusted = sec.score.saturating_sub(vuln_security_penalty);
         let mut entry = measured_entry("Security", "security", adjusted);
-        // Security's wording band is corrected by open severe findings
-        // (plan 33). The band printed next to the number in the PDF, the
+        // Security's wording band is corrected by open severe findings.
+        // The band printed next to the number in the PDF, the
         // module overview and the JSON must be that one band (#902-2).
         entry.band = crate::registry::FIVE_BAND
             .label(
@@ -150,7 +150,7 @@ pub(super) fn build_module_scores(
     }
     if let Some(ref bp) = report.best_practices {
         // Neither the console nor the library check ran: the 100 left over
-        // from no deductions is not a result (plan 69).
+        // from no deductions is not a result.
         module_scores.push(ModuleScoreEntry::new(
             "Best Practices",
             bp.score,
@@ -170,8 +170,7 @@ pub(super) fn build_module_scores(
     // entry here, so the report showed a bare number with no relation to the
     // rest (#447). They appear here consistently as non-contributing
     // indicators — with a band word rather than a letter grade, because a
-    // grade on a module of weight 0 claimed an authority it does not have
-    // (plan 29, D2).
+    // grade on a module of weight 0 claimed an authority it does not have.
     if let Some(ref ai) = report.discoverability.ai_visibility {
         module_scores.push(ModuleScoreEntry::new(
             "AI Visibility",
@@ -190,7 +189,7 @@ pub(super) fn build_module_scores(
     }
     // Content Visibility carries no 0-100 score: it used to be
     // "share of checks that did not complain", so adding a check that usually
-    // passes raised every site's value (plan 43 §3, resolved by plan 29 D4).
+    // passes raised every site's value.
     // The counts are reported in the module payload instead.
 
     // Tech Stack is detection-only — no score in module_scores.
@@ -201,7 +200,7 @@ pub(super) fn build_module_scores(
 /// Points the Accessibility result costs the UX indicator.
 ///
 /// Split out of `build_module_scores` so the applied penalty can be reported
-/// next to the score instead of being folded in silently (plan 42 §2).
+/// next to the score instead of being folded in silently.
 pub(crate) fn ux_a11y_penalty(occurrence_counts: &SeverityCounts) -> u32 {
     let critical = occurrence_counts.critical;
     let high = occurrence_counts.high;

@@ -108,7 +108,7 @@ pub struct VulnerableLibrariesAnalysis {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub duplicate_libraries: Vec<DuplicateLibraryVersions>,
     /// Whether detection ran. `false` means the empty lists are no
-    /// measurement (plan 69); older reports carry no field.
+    /// measurement; older reports carry no field.
     #[serde(default = "crate::best_practices::collected_by_default")]
     pub checked: bool,
 }
@@ -383,7 +383,7 @@ fn find_version_pattern(text: &str) -> Option<String> {
 
 /// The libraries whose versions are checked against known vulnerabilities —
 /// the whole scope of the check. "No known vulnerability" means none among
-/// these, not that the page has no vulnerable script (plan 69).
+/// these, not that the page has no vulnerable script.
 pub const CHECKED_LIBRARIES: &[&str] = &[
     "jQuery",
     "Bootstrap",

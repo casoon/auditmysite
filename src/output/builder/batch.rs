@@ -155,7 +155,7 @@ pub fn build_batch_presentation_with_normalized(
         &localized
     };
     // One group per rule across all pages, in the order the batch JSON's
-    // `top_actions` lists them (plan 64).
+    // `top_actions` lists them.
     let top_issues: Vec<FindingGroup> =
         crate::audit::normalized::aggregate_batch_findings(normalized_reports)
             .into_iter()
@@ -259,7 +259,7 @@ pub fn build_batch_presentation_with_normalized(
             }
         })
         .collect();
-    // Accessibility ascending — the report's main score (plan 83). Ties go
+    // Accessibility ascending — the report's main score. Ties go
     // to more critical/high findings first, then the lower site-quality score,
     // then the URL, so the order never depends on audit completion order.
     url_ranking.sort_by(|a, b| {
@@ -277,7 +277,7 @@ pub fn build_batch_presentation_with_normalized(
         .iter()
         .zip(normalized_reports.iter())
         .map(|(r, nr)| {
-            // Already in the page's finding order (plan 58).
+            // Already in the page's finding order.
             let sorted = normalized_finding_groups(i18n, nr);
             let top_issue_titles: Vec<String> =
                 sorted.iter().take(3).map(|g| g.title.clone()).collect();
@@ -287,7 +287,7 @@ pub fn build_batch_presentation_with_normalized(
                 .map(|g| g.finding.rule_id.clone())
                 .collect();
 
-            // Unmeasured modules carry no comparable value (plan 86).
+            // Unmeasured modules carry no comparable value.
             let module_scores = nr
                 .module_scores
                 .iter()
@@ -599,8 +599,8 @@ pub fn build_batch_presentation_with_normalized(
             Vec::new()
         } else {
             let n = pages_with_data.len() as f64;
-            // The same file on twenty pages is one resource, not twenty
-            // (plan 93): count distinct URLs, report loads alongside.
+            // The same file on twenty pages is one resource, not twenty:
+            // count distinct URLs, report loads alongside.
             let total_loads: usize = pages_with_data
                 .iter()
                 .map(|rb| rb.blocking_scripts.len() + rb.blocking_css.len())
@@ -843,7 +843,7 @@ pub fn build_batch_presentation_with_normalized(
         .unwrap_or_default();
 
     // Same contract as the single report: the grade describes the
-    // subject of the report, which is accessibility (plan 29, D1). The
+    // subject of the report, which is accessibility. The
     // weighted `average_site_quality_score` stays visible as its own figure.
     //
     // They also go through the same two functions the single report uses.
@@ -1186,7 +1186,7 @@ fn build_missing_tag_prevalence(
     out
 }
 
-/// Pages grouped by detected page type (plan 93). The type is a heuristic
+/// Pages grouped by detected page type. The type is a heuristic
 /// classification, not a verified template; a group of one page gets no
 /// mean and no common finding. `top_issue_rule_ids[i]` holds the rule ids of
 /// `url_details[i].top_issues`, in the same order: the common finding is
@@ -1250,7 +1250,7 @@ fn build_page_type_groups(
 }
 
 /// Render-blocking resources loaded by two or more audited pages, by exact
-/// URL — query strings and versions stay part of the identity (plan 93).
+/// URL — query strings and versions stay part of the identity.
 fn build_shared_blocking_resources(
     reports: &[crate::audit::AuditReport],
 ) -> Vec<SharedBlockingResource> {
@@ -1368,7 +1368,7 @@ fn build_security_header_consistency(
 /// Detect canonical-tag conflicts per page (#423): a canonical pointing away
 /// while the page is `noindex` (mixed signals to crawlers), and a canonical
 /// that disagrees with the page's `og:url`, and a canonical target the sitemap
-/// check saw redirect or fail (plan 88). Targets outside the sitemap check
+/// check saw redirect or fail. Targets outside the sitemap check
 /// stay unchecked. Pure per-page checks aggregated across the batch; no extra
 /// network requests.
 fn build_canonical_issues(
@@ -1759,7 +1759,7 @@ mod duplicate_content_tests {
         assert!(!groups.iter().any(|g| g.value == "Unique"));
     }
 
-    /// Plan 83: equal accessibility scores rank by URL, so the order is the
+    /// Equal accessibility scores rank by URL, so the order is the
     /// same whatever order the audits finished in.
     #[test]
     fn url_ranking_does_not_depend_on_input_order() {
@@ -2374,7 +2374,7 @@ mod minification_inconsistency_tests {
         )
     }
 
-    /// Plan 93, step 5: a header missing on some pages, one with two values,
+    /// A header missing on some pages, one with two values,
     /// and the uniform ones.
     #[test]
     fn security_headers_compared_across_pages() {
@@ -2408,7 +2408,7 @@ mod minification_inconsistency_tests {
         assert!(build_security_header_consistency(&reports[..1]).is_empty());
     }
 
-    /// Plan 93: a file is counted once per page, versions stay distinct,
+    /// A file is counted once per page, versions stay distinct,
     /// a file on one page only is not "shared".
     #[test]
     fn shared_blocking_resources_by_exact_url() {
@@ -2452,7 +2452,7 @@ mod minification_inconsistency_tests {
         }
     }
 
-    /// Plan 93: group means need at least two pages; unknown types are left
+    /// Group means need at least two pages; unknown types are left
     /// out; the common finding needs two pages of the group.
     #[test]
     fn page_type_groups_have_explicit_size() {

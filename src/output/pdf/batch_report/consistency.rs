@@ -159,7 +159,7 @@ pub(super) fn render_batch_consistency(
                 ChecklistRow::new(
                     i18n.t("batch-consistency-missing-canonical"),
                     // Optional tag: without it search engines pick the
-                    // canonical URL themselves (plan 88).
+                    // canonical URL themselves.
                     i18n.t_args(
                         "batch-consistency-missing-canonical-detail",
                         &[
@@ -485,7 +485,7 @@ fn render_consistency_page_type_matrix(
     builder
 }
 
-/// Security headers across the audited pages (plan 93, step 5): deviations
+/// Security headers across the audited pages: deviations
 /// one row each, uniform headers in one summary row.
 fn render_security_header_consistency(
     builder: renderreport::engine::ReportBuilder,
@@ -568,7 +568,7 @@ fn render_security_header_consistency(
 }
 
 /// Page-type key of the schema matrix in the run language; the JSON keeps
-/// the canonical key (plan 89).
+/// the canonical key.
 fn schema_page_kind_label(key: &str, en: bool) -> String {
     serde_json::from_value::<crate::seo::schema_fit::SchemaPageKind>(serde_json::Value::String(
         key.to_string(),

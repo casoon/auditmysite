@@ -5,7 +5,7 @@
 //!
 //! Shown in the report as "technical preparation for machine processing";
 //! the JSON keeps the `source_quality` key. Two dimensions are scored, one
-//! is reported as indicators only (plan 103):
+//! is reported as indicators only:
 //! - **Structural signals** (`substance`) — headings, word count, structured
 //!   data, metadata. Indicators: they say nothing about whether the content
 //!   is substantial, so they no longer score. `substance.score` is still
@@ -18,7 +18,7 @@
 //!   links as detected.
 //!
 //! Accessibility results feed none of the scored dimensions; they are
-//! reported by the Accessibility module (plan 29, D3; plan 103).
+//! reported by the Accessibility module.
 //!
 //! **Disclaimer**: This is a purely technical assessment based on structural,
 //! semantic, and metadata signals. It does NOT evaluate whether the content
@@ -50,7 +50,7 @@ pub struct SourceQualityAnalysis {
     pub score: u32,
     /// Qualitative band for `score`, canonical English (#406). This module
     /// carries no weight in the site-quality score, so it gets a band word rather
-    /// than a letter grade (plan 29, D2).
+    /// than a letter grade.
     pub band: String,
     /// Substance dimension
     pub substance: DimensionScore,
@@ -125,7 +125,7 @@ pub enum QualitySignalKind {
     /// JSON-LD values match the visible content (`content_parity`).
     SchemaContentParity,
     // Consistency (batch / cross-page). ScoreStability and ErrorFreePages
-    // read accessibility results and are no longer emitted (plan 103).
+    // read accessibility results and are no longer emitted.
     ScoreStability,
     MetaDescriptionCoverage,
     StructuredDataCoverage,
@@ -206,7 +206,7 @@ pub struct QualitySignal {
     /// Coverage signals are proportions, and scoring them as a bool made 94 %
     /// HSTS coverage count exactly as 0 % while the report printed "94 %" next
     /// to a failed marker — a visible contradiction, and a cliff where one
-    /// page in twenty flipped a whole dimension (plan 43). For genuinely
+    /// page in twenty flipped a whole dimension. For genuinely
     /// binary signals this is 1.0 or 0.0 and nothing changes.
     #[serde(default = "default_fulfilment")]
     pub fulfilment: f32,
@@ -406,7 +406,7 @@ pub fn source_quality_signal_text(
         }
         ContentVolume => {
             // A count, not a verdict: 200 words can answer a question and
-            // 2,000 can miss it (plan 103).
+            // 2,000 can miss it.
             let word_count = values.word_count.unwrap_or(0);
             if en {
                 format!("{word_count} words")
@@ -556,7 +556,7 @@ pub fn source_quality_signal_text(
             }
         }
         TrustSignals => {
-            // Reports from before plan 103 carry the UX trust score instead.
+            // Older reports carry the UX trust score instead.
             if let Some(score) = values.score {
                 if en {
                     format!("UX trust score: {score:.0}")
@@ -742,7 +742,7 @@ pub fn analyze_source_quality(report: &AuditReport) -> SourceQualityAnalysis {
     let consistency = evaluate_single_page_consistency(report);
     let authority = evaluate_authority(report);
 
-    // Structural signals are indicators and carry no weight (plan 103). The
+    // Structural signals are indicators and carry no weight. The
     // three on-page consistency checks run only where both sides exist; the
     // dimension carries its 25 % share in proportion to the checks that ran,
     // so one passed comparison does not count like three (inros-lackner.de:
@@ -1015,11 +1015,11 @@ fn evaluate_authority(report: &AuditReport) -> DimensionScore {
     // The accessibility score used to be signal 6 here. It is reported by the
     // Accessibility module, and folding it in again made a single finding move
     // both numbers, so the report read as two independent assessments that
-    // happened to agree (plan 29, D3).
+    // happened to agree.
 
     // 6. Contact, imprint and privacy links as the UX module detected them.
     // The UX trust score used to stand here: a score derived from another
-    // derived score, with its own keyword-density penalty (plan 103).
+    // derived score, with its own keyword-density penalty.
     if let Some(ux) = &report.ux {
         use crate::ux::UxIssueKind;
         let missing: Vec<String> = [
@@ -1058,7 +1058,7 @@ fn evaluate_single_page_consistency(report: &AuditReport) -> DimensionScore {
     // Only contradictions one page can show on its own; each check runs only
     // when both sides exist. Heading hierarchy, unnamed controls and critical
     // violations used to stand here — accessibility findings counted a second
-    // time, the same seven links twice on inros-lackner.de (plan 103).
+    // time, the same seven links twice on inros-lackner.de.
     let Some(seo) = &report.discoverability.seo else {
         return build_dimension(DimensionKind::Consistency, signals);
     };
@@ -1087,8 +1087,7 @@ fn evaluate_single_page_consistency(report: &AuditReport) -> DimensionScore {
     // 2. <title> vs. og:title: two declared titles of the same page without a
     // single shared term usually mean one is a site-wide template value. The
     // H1 is deliberately not compared — a homepage titled with the company
-    // name under a slogan H1 is normal, not a contradiction (inros-lackner.de,
-    // plan 103).
+    // name under a slogan H1 is normal, not a contradiction.
     let og_title = seo
         .social
         .open_graph
@@ -1162,8 +1161,7 @@ fn evaluate_cross_page_consistency(reports: &[AuditReport]) -> DimensionScore {
     let mut signals = Vec::new();
 
     // Score stability and error-free pages used to open this list. Both read
-    // the accessibility result, which the Accessibility module reports
-    // (plan 103).
+    // the accessibility result, which the Accessibility module reports.
 
     // 2. Meta description coverage
     let with_meta: usize = reports
@@ -1355,7 +1353,7 @@ fn empty_analysis() -> SourceQualityAnalysis {
 #[cfg(test)]
 mod tests {
 
-    /// Plan 43: coverage signals are proportions. Scoring them as a bool made
+    /// Coverage signals are proportions. Scoring them as a bool made
     /// 94 % count exactly as 0 %, while the report printed "94 %" beside a
     /// failed marker — a visible contradiction and a cliff where one page in
     /// twenty flipped a dimension.
@@ -1534,7 +1532,7 @@ mod tests {
 
     #[test]
     fn band_replaces_the_letter_grade_this_module_no_longer_carries() {
-        // Plan 29, D2: an indicator of weight 0 gets a band word, not A-F.
+        // An indicator of weight 0 gets a band word, not A-F.
         let band = |s: f32| crate::registry::FIVE_BAND.label(s, true);
         assert_eq!(band(95.0), "Excellent");
         assert_eq!(band(80.0), "Good");
@@ -1646,7 +1644,7 @@ mod tests {
             false,
         );
         assert_eq!(name, "Inhaltsumfang");
-        // A count, not a recommendation (plan 103).
+        // A count, not a recommendation.
         assert_eq!(detail, "120 Wörter");
 
         // Dimension label + disclaimer localize too.
@@ -1951,8 +1949,6 @@ mod tests {
         );
     }
 
-    // ─── Plan 103 ────────────────────────────────────────────────────────────
-
     fn seo_with(
         lang: Option<&str>,
         og: Option<crate::seo::OpenGraph>,
@@ -1999,7 +1995,7 @@ mod tests {
         }
     }
 
-    /// Plan 103: consistency counted the same seven nameless links twice
+    /// Consistency counted the same seven nameless links twice
     /// (named controls + critical violations). Accessibility findings now
     /// move no scored dimension.
     #[test]

@@ -144,7 +144,7 @@ pub struct VerdictResult {
     /// language (#406).
     pub reasons: Vec<String>,
     /// The same reasons as data, so the PDF can phrase them in the run
-    /// language (plan 34). Not serialized: the JSON contract is `reasons`,
+    /// language. Not serialized: the JSON contract is `reasons`,
     /// and duplicating it would give consumers two sources for one fact.
     #[serde(skip)]
     pub reason_kinds: Vec<VerdictReasonKind>,
@@ -606,7 +606,7 @@ fn decide_batch(
 mod tests {
     use super::*;
 
-    /// Plan 34/44: the reasons the PDF prints must be readable text in the
+    /// The reasons the PDF prints must be readable text in the
     /// run language, never the canonical machine tokens the JSON carries.
     #[test]
     fn verdict_reason_text_is_localized_and_inflected() {

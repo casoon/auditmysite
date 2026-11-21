@@ -75,7 +75,7 @@ fn site_wide_terms(url_details: &[CompactUrlSummary]) -> HashSet<&str> {
 }
 
 /// The most common topic terms across pages. Site-wide terms (brand names,
-/// boilerplate) are no topic and stay out (plan 90).
+/// boilerplate) are no topic and stay out.
 pub fn derive_domain_topics(url_details: &[CompactUrlSummary]) -> Vec<(String, usize)> {
     let site_wide = site_wide_terms(url_details);
     let mut counts: HashMap<String, usize> = HashMap::new();
@@ -94,7 +94,7 @@ pub fn derive_domain_topics(url_details: &[CompactUrlSummary]) -> Vec<(String, u
 
 /// Pairs of pages with strongly overlapping topic terms. Terms found on at
 /// least 80% of five or more pages (brand names, boilerplate) tell no pages
-/// apart and are left out of the comparison (plan 90).
+/// apart and are left out of the comparison.
 pub fn derive_topic_overlap_pairs(url_details: &[CompactUrlSummary]) -> Vec<TopicOverlapPair> {
     let site_wide = site_wide_terms(url_details);
 
@@ -238,7 +238,7 @@ mod tests {
         }
     }
 
-    /// A brand term on every page does not make two pages alike (plan 90).
+    /// A brand term on every page does not make two pages alike.
     #[test]
     fn site_wide_terms_do_not_count_as_overlap() {
         let pages = vec![

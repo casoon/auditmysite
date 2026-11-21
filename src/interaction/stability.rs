@@ -77,7 +77,7 @@ pub async fn wait_for_page_stability(
     // call fell through to the defaults below — `budget_exhausted` after the
     // full budget with 0 mutations, whatever the page did. That marked
     // practically every audit `partial` (`page_stability_budget_exhausted`)
-    // and hid how long a journey click really waited (plan 53).
+    // and hid how long a journey click really waited.
     let params = match EvaluateParams::builder()
         .expression(expression)
         .await_promise(true)

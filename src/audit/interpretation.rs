@@ -410,7 +410,7 @@ impl ScoreBand {
 /// Exposed so the section's score card can be labelled with the same band as
 /// its takeaway. Labelling the card straight from the score produced "95 —
 /// Sehr gut" directly above a takeaway reading "Verbesserungswürdig": two
-/// labels from one vocabulary for one module (plan 33).
+/// labels from one vocabulary for one module.
 pub fn security_text_band(score: f32, issues: &[crate::security::SecurityIssue]) -> ScoreBand {
     let band = ScoreBand::from_score(score);
     let has_severe_issue = issues.iter().any(|i| {
@@ -431,8 +431,7 @@ pub fn security_text_band(score: f32, issues: &[crate::security::SecurityIssue])
     // wesentlichen Sicherheitsauffälligkeiten im geprüften Umfang erkannt."
     // The score is generous by design — `calculate_security_score` caps the
     // combined CSP-quality penalty at the missing-CSP penalty and then adds
-    // HSTS bonuses — so the correction belongs to the text, not the number
-    // (plan 33).
+    // HSTS bonuses — so the correction belongs to the text, not the number.
     if band == ScoreBand::Critical && !has_severe_issue {
         ScoreBand::Weak
     } else if has_severe_issue {
@@ -571,7 +570,7 @@ fn build_technical_overview_localized(
     // module's own vitals when available, so this sentence doesn't state a
     // "DOM-Knoten"/"DOM nodes" figure that contradicts the Performance
     // section's own DOM node count a few paragraphs later in the same
-    // report (plan/30-pdf-numbers-not-traceable-to-json.md). Falls back to
+    // report. Falls back to
     // `nodes_analyzed` only when no Performance data is available at all.
     let dom_display = normalized
         .raw_performance
@@ -603,7 +602,7 @@ fn build_technical_overview_localized(
         }
         // "stabil"/"stable" in parentheses read as reassurance about exactly
         // the thing the action list prioritises ("DOM-Struktur verschlanken")
-        // two blocks further up (plan 36 §6). Both facts, neither arguing
+        // two blocks further up. Both facts, neither arguing
         // with the other.
         (d, Some(p)) if d > 2000 => with_dom("audit-interpretation-overview-tech-holding", p),
         (_d, Some(p)) if p < 60 => with_dom("audit-interpretation-overview-tech-perf-critical", p),
@@ -1178,7 +1177,7 @@ mod tests {
 
     #[test]
     fn tech_complexity_bullet_uses_real_dom_count_not_wcag_nodes_analyzed() {
-        // plan/30-pdf-numbers-not-traceable-to-json.md: the WCAG engine's own
+        // The WCAG engine's own
         // checked-node count (`nodes_analyzed`, tiny by comparison) must not
         // be printed under the "DOM-Knoten"/"DOM nodes" label when the
         // Performance module's real DOM element count is available —
@@ -1380,7 +1379,7 @@ mod tests {
         }
     }
 
-    /// Plan 33: the Excellent band claims "no significant security issues
+    /// The Excellent band claims "no significant security issues
     /// found within the scope checked". Confirmed live on casoon.de
     /// (2026-09-19): security score 95 with three open CSP findings, one of
     /// them High, still printed that sentence.

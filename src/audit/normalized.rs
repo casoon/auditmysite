@@ -51,7 +51,6 @@ pub struct NormalizedReport {
     /// Korrigierter Score (nach Suppressions, gerundet)
     pub score: u32,
     /// Grade aus `score` (Barrierefreiheit) — dem Gegenstand des Berichts.
-    /// Siehe plan 29, D1.
     pub grade: String,
 
     /// Every collected problem of every domain, grouped per rule or check,
@@ -312,7 +311,7 @@ pub(super) fn finding_patterns<'a>(
 pub struct NormalizedFinding {
     /// Stable finding id (`F-` + 8 hex) from the rule alone: a finding is one
     /// rule on one page, so the id stays the same on every page and in every
-    /// run, also when an element is added (2.0 finding model, plan 100).
+    /// run, also when an element is added (2.0 finding model).
     pub id: String,
     /// The finding's id is in the findings baseline (`--baseline`, #930): it
     /// does not affect the decision. Present only when `true`.
@@ -791,7 +790,7 @@ pub struct ModuleScoreEntry {
     pub name: String,
     pub score: u32,
     /// Letter grade — **only** for modules that carry weight in the site-quality
-    /// score (plan 29, D2). A zero-weight indicator feeds nothing, so grading
+    /// score. A zero-weight indicator feeds nothing, so grading
     /// it on the same A–F scale as Accessibility gave it the same visual
     /// authority as a result that does count: "Dark Mode: F" sat next to an F
     /// for excluding screen-reader users. Those modules carry `band` instead.
@@ -807,8 +806,7 @@ pub struct ModuleScoreEntry {
     /// False for supplemental dimensions (UX, Journey) that are displayed
     /// but not part of the core weighted average.
     pub contributes_to_site_quality_score: bool,
-    /// Modules this one re-reads instead of measuring anything new (plan 29,
-    /// D3). Empty for a module that measures its own subject. A reader who
+    /// Modules this one re-reads instead of measuring anything new. Empty for a module that measures its own subject. A reader who
     /// sees Source Quality agree with SEO and Accessibility is not looking at
     /// converging independent evidence — this field says so. Canonical module
     /// keys, lowercase.
@@ -823,7 +821,7 @@ pub struct ModuleScoreEntry {
 }
 
 impl ModuleScoreEntry {
-    /// The weight decides the qualitative label (plan 29, D2): a module that
+    /// The weight decides the qualitative label: a module that
     /// carries weight in the site-quality score gets a letter grade, an indicator
     /// that feeds nothing gets the band word only. The weight is looked up
     /// from the single table rather than passed in, so the two can never
@@ -861,8 +859,7 @@ impl ModuleScoreEntry {
     }
 }
 
-/// Per-category Security score (plan/5-module-accessibility-security-driver-
-/// detail.md) for `security::SecurityCategory`: explains *why* the Security
+/// Per-category Security score for `security::SecurityCategory`: explains *why* the Security
 /// score is what it is at a finer grain than the single module number.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
@@ -1320,7 +1317,7 @@ pub const BATCH_TOP_ACTION_COUNT: usize = 8;
 
 /// Aggregates the findings of a batch per rule, in `action_order` — the one
 /// source for `top_actions` in the batch JSON and the top actions, finding
-/// list and action plan in the batch PDF (plan 64).
+/// list and action plan in the batch PDF.
 ///
 /// Each entry is the rule's finding with batch-wide `occurrence_count`,
 /// `severity` and everything derived from them (priority, complexity,
@@ -1330,7 +1327,7 @@ pub const BATCH_TOP_ACTION_COUNT: usize = 8;
 /// count-dependent fields are re-derived from the batch-wide count, so the
 /// expected impact no longer quotes one page's count next to the batch reach.
 /// A WCAG rule and an SEO check reporting the same defect under one title
-/// appear once, as the WCAG finding, as in the single report (plan 59).
+/// appear once, as the WCAG finding, as in the single report.
 pub fn aggregate_batch_findings(
     reports: &[NormalizedReport],
 ) -> Vec<(NormalizedFinding, Vec<String>)> {
@@ -1732,7 +1729,7 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
     // from what the tool is for: an accessibility score of 20 appeared on the
     // cover as a site-quality 39, because Performance 45, Mobile 80 and SEO 65
     // pulled it up. It now reads the accessibility score, the number the
-    // report is about (plan 29, D1).
+    // report is about.
     //
     // The weighted `site_quality_score` remains in the report as a labelled
     // secondary value, with the weight basis it was computed over.
@@ -2012,7 +2009,7 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
 /// The WCAG criterion a violation belongs to. A few page rules (e.g.
 /// `aria/attribute-prohibited`) carry their own slug in `Violation::rule` instead of
 /// a criterion; the taxonomy maps those, so `wcag_criterion` never holds a
-/// rule slug (plan 61).
+/// rule slug.
 pub(crate) fn wcag_criterion_of(rule: &str) -> String {
     crate::taxonomy::criterion_for_rule(rule).unwrap_or_else(|| rule.to_string())
 }
@@ -2229,7 +2226,7 @@ mod tests {
     }
 
     /// The page rules that emit their own slug as `Violation::rule` still land
-    /// on their WCAG criterion (plan 61: dm.de showed
+    /// on their WCAG criterion (a report once showed
     /// `wcag_criterion: "aria-prohibited-attr"`).
     #[test]
     fn slug_page_rules_normalize_to_their_criterion() {
@@ -2448,7 +2445,7 @@ mod tests {
 
     /// 2.0 finding model: a finding is one rule on one page; its id comes
     /// from the rule alone. Its patterns carry ids that are the same for the
-    /// same rule and pattern on any page, whatever the order (plan 100).
+    /// same rule and pattern on any page, whatever the order.
     #[test]
     fn finding_and_pattern_ids_are_stable() {
         let page = |selectors: &[&str]| {
@@ -2910,7 +2907,7 @@ mod tests {
         );
         let norm = normalize(&report);
 
-        // The grade describes the accessibility score (#233, plan 29 D1).
+        // The grade describes the accessibility score (#233).
         let expected_grade = AccessibilityScorer::calculate_grade(norm.normalized.score as f32);
         assert_eq!(norm.normalized.grade, expected_grade);
     }
@@ -2966,7 +2963,7 @@ mod tests {
         );
     }
 
-    /// Plan 69: a Best Practices run where neither collector worked keeps its
+    /// A Best Practices run where neither collector worked keeps its
     /// default 100 in the raw payload but is marked `not_measured`, and one
     /// failed collector alone still counts as measured (partial).
     #[test]
@@ -3015,7 +3012,7 @@ mod tests {
         assert_eq!(measurement(true, true), "measured");
     }
 
-    /// Reports written before plan 69 have no `collected`/`checked` and stay
+    /// Older reports have no `collected`/`checked` and stay
     /// measured when read back.
     #[test]
     fn best_practices_from_old_json_counts_as_measured() {

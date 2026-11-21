@@ -2,7 +2,7 @@
 //! how broad the damage is across the weighted modules, and the two sentences
 //! the Management Summary and the Action Plan derive from that.
 //!
-//! Extracted verbatim from `single_report.rs` (plan 27, hotspot 1), which
+//! Extracted verbatim from `single_report.rs` (hotspot 1), which
 //! mixed this with risks/strengths, the score-driver table, the subcategory
 //! breakdown, the appendix, findings, root-cause analysis and the roadmap.
 //! The cluster was the cleanest cut available: nothing in it was referenced
@@ -15,8 +15,7 @@ use crate::i18n::I18n;
 use crate::output::report_model::*;
 
 /// Number of top causes considered for the "problem concentration"
-/// percentage (plan/3-problem-concentration-diagnosis-narrative.md's
-/// suggested "kleinere, z. B. Top-4-Teilmenge" — deliberately smaller than
+/// percentage (a small subset, e.g. the top 4 — deliberately smaller than
 /// `ROOT_CAUSE_SHOWN` (6), which sizes the *list* further down, not this
 /// one-sentence diagnosis).
 const PROBLEM_CONCENTRATION_TOP_N: usize = 4;
@@ -29,14 +28,13 @@ const PROBLEM_CONCENTRATION_TOP_N: usize = 4;
 /// instead, and `build_overall_leverage_note` is suppressed entirely.
 const PROBLEM_CONCENTRATION_MIN_OCCURRENCES: usize = 3;
 
-/// The raw numbers behind the "problem concentration" diagnosis
-/// (plan/3-problem-concentration-diagnosis-narrative.md): how many
+/// The raw numbers behind the "problem concentration" diagnosis:
+/// how many
 /// occurrences exist in total, how many of the top `PROBLEM_CONCENTRATION_TOP_N`
 /// causes they concentrate into, and which cause is affected most. A single
 /// calculation shared by two different sentences on two different pages
 /// (`build_problem_concentration_note` for the Management Summary,
-/// `build_overall_leverage_note` for the Action Plan, plan/7-management-
-/// summary-consolidation.md) — same source number, not two independently
+/// `build_overall_leverage_note` for the Action Plan) — same source number, not two independently
 /// computed ones that could silently drift apart.
 struct ProblemConcentration {
     total_occurrences: usize,
@@ -83,7 +81,7 @@ fn compute_problem_concentration(vm: &ReportViewModel) -> Option<ProblemConcentr
 }
 
 /// Three-tier semantic condensation of the entire audit for the executive
-/// summary, directly beneath the overall verdict (plan/20-problemprofil-badge.md).
+/// summary, directly beneath the overall verdict.
 /// Combines breadth (count of weighted modules scoring below 75) and systemics
 /// (recurring WCAG problem concentration).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -141,8 +139,7 @@ fn critical_contributing_modules(
     critical
 }
 
-/// Pure classification function combining breadth (< 40 "Kritisch" module count) and systemics
-/// (plan/20-problemprofil-badge.md).
+/// Pure classification function combining breadth (< 40 "Kritisch" module count) and systemics.
 pub(super) fn classify_problem_profile(vm: &ReportViewModel) -> ProblemProfileKind {
     let critical = critical_contributing_modules(vm);
     let critical_count = critical.len();
@@ -322,7 +319,7 @@ pub(super) fn render_problem_profile(
 /// especially <top cause>." — a single generated (not free LLM) sentence
 /// bridging the score level above and the technical root-cause list further
 /// down. Scope is Accessibility + SEO/Optimization combined (deliberate
-/// choice, see the plan file's "Offene Frage" — broader than
+/// choice — broader than
 /// `mandatory_root_causes`, which stays WCAG-only to match the "N
 /// Accessibility-Befunde" header count it feeds).
 pub(super) fn build_problem_concentration_note(
@@ -355,7 +352,7 @@ pub(super) fn build_problem_concentration_note(
 
 /// Action-Plan-page framing of the same numbers, worded around leverage
 /// rather than diagnosis: "fixing the top causes covers most of what's
-/// listed below" (plan/7-management-summary-consolidation.md's suggested
+/// listed below" (e.g.
 /// "Die vier wichtigsten Ursachen erklären ca. 88 % der erkannten
 /// WCAG-Vorkommen").
 pub(super) fn build_overall_leverage_note(vm: &ReportViewModel, i18n: &I18n) -> Option<String> {
@@ -381,7 +378,7 @@ pub(super) fn build_overall_leverage_note(vm: &ReportViewModel, i18n: &I18n) -> 
 mod tests {
     use super::*;
     // The fixture stays where the rest of the report tests use it; only these
-    // three moved (plan 27).
+    // three moved.
     use super::super::single_report::risk_and_strength_tests::test_report_view_model;
 
     /// #952-4: the badge must not say "no structural problem" while the risk

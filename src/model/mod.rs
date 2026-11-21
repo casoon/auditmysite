@@ -1,5 +1,5 @@
 //! Shared value types named by the CLI, the audit pipeline, the analysis
-//! modules and the output layer (#934, plan 96).
+//! modules and the output layer (#934).
 //!
 //! They live here, below every other module, so none of those layers has to
 //! import from `cli` to name them. `model` imports nothing else from this crate.

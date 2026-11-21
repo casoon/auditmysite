@@ -18,14 +18,14 @@
 //!
 //! # Warum nicht über `aria-expanded` im DOM
 //!
-//! Bis Plan 53 las diese Journey per JavaScript alle `[aria-expanded]` der
+//! Früher las diese Journey per JavaScript alle `[aria-expanded]` der
 //! Seite in ein Array und verglich positionsweise. Ein Korpuslauf über 133
 //! Seiten und 692 Journey-Instanzen hat diesen Weg widerlegt: 87 der 197
 //! erzeugten `DisclosureNotOpened` waren falsch. Drei Ursachen, an
 //! Einzelseiten nachgewiesen — `document.querySelectorAll` durchdringt weder
 //! Shadow Roots noch iframe-Grenzen, und der Positionsvergleich verrutscht,
 //! sobald sich die Menge der Elemente ändert. Der Accessibility-Tree hat
-//! keine dieser Grenzen. Einzelheiten in `plan/53-journey-diff-umbau.md`.
+//! keine dieser Grenzen.
 //!
 //! # Richtung
 //!
@@ -327,7 +327,7 @@ impl Findings {
 /// The settle step starts watching only after the click and declares the page
 /// quiet after 200 ms without mutations. A reaction arriving later than that
 /// is caught only if some unrelated mutation happens to extend the window
-/// (plan 53, measured on fixtures). Waiting longer on every failing click cost
+/// (measured on fixtures). Waiting longer on every failing click cost
 /// +57 % disclosure time on live pages for one changed verdict in ~66, so the
 /// verdict is kept and marked instead: if the wait ended before the budget,
 /// a finding from it is uncertain.
@@ -774,7 +774,7 @@ mod tests {
         }
     }
 
-    /// Plan 53 (d): a wait that ended before the budget could have missed a
+    /// A wait that ended before the budget could have missed a
     /// slower reaction, so a finding from it is marked; one that ran the full
     /// budget saw everything up to it and is not.
     #[test]

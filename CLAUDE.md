@@ -3,6 +3,9 @@
 ## Project Overview
 Resource-efficient WCAG 2.2 AA Accessibility Checker written in Rust. Audits web pages using Chrome DevTools Protocol (CDP) and the browser's native Accessibility Tree. Supports single URL, sitemap batch, and URL file batch modes.
 
+## Tracking
+GitHub issues are the only tracker for this repository: open work, bugs and decisions live in issues. There is no local plan folder; do not create one or point to plan files in code, docs or comments (use the issue number).
+
 ## Architecture
 - **Language:** Rust (async with tokio)
 - **Browser:** Chrome/Chromium via `chromiumoxide` (CDP)

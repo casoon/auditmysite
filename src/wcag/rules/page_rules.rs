@@ -156,7 +156,7 @@ mod tests {
         // + aria-valid-attr DOM supplement (#567) = 35
         // + video-caption-track (1.2.2, DOM+network caption-track deepening,
         //   #video-caption-checks) = 36
-        // + redundant-role + link-as-button (plan/18, best-practice ARIA
+        // + redundant-role + link-as-button (best-practice ARIA
         //   hygiene checks, both Level A) = 38
         // - parsing (duplicate-id) und positive-tabindex: laufen seit der
         //   Umstellung als `ids/duplicate` bzw. `keyboard/positive-tabindex`
@@ -230,7 +230,7 @@ mod tests {
         // + conservative language-of-parts heuristic (3.1.2) = 45.
         // + aria-valid-attr DOM supplement (#567, Level A, counted here too since AA >= A) = 46.
         // + video-caption-track (1.2.2, Level A, counted here too since AA >= A) = 47.
-        // + redundant-role + link-as-button (plan/18, Level A, counted here
+        // + redundant-role + link-as-button (Level A, counted here
         //   too since AA >= A) = 49.
         // - parsing und positive-tabindex, beide Level A, in den geteilten
         //   Bestand abgegeben = 47.
@@ -238,7 +238,7 @@ mod tests {
         //   unter 200 % von der Begrenzung zwischen 200 und 500 %, womit die
         //   Regel als zoom/viewport-scale-limited in den geteilten Bestand
         //   wandert = 46.
-        // + accessible-authentication (3.3.8, WCAG 2.2 AA, plan 54 §3) = 47.
+        // + accessible-authentication (3.3.8, WCAG 2.2 AA) = 47.
         // + autocomplete-valid (1.3.5): moved from the AX tree to the DOM,
         //   the tree carries aria-autocomplete, not the HTML attribute = 48.
         // + form-field-group for named checkbox sets (#643, Level A) = 49.

@@ -284,7 +284,7 @@ fn bfsg_compliance(
             .collect::<Vec<_>>()
     };
     // Heuristics are no violation, and a criterion with an open heuristic is
-    // not passed either (plan 74).
+    // not passed either.
     let violations = mapped(false);
     let needs_review = mapped(true);
     let open: std::collections::HashSet<_> = violations
@@ -369,7 +369,7 @@ mod tests {
         bfsg_compliance(issues, 200, SrAuditQuality::Ok)
     }
 
-    /// Plan 74 (inros-lackner 2026-10-23): "Mehr erfahren" without context
+    /// "Mehr erfahren" without context
     /// and the heading order are heuristics — they made the sidecar
     /// "non_compliant" next to the confirmed empty links. Review items are
     /// neither violations nor passed.
@@ -550,7 +550,7 @@ mod tests {
 
     #[test]
     fn small_page_with_structural_landmarks_is_not_flagged_as_consent_wall() {
-        // plan/33-screen-reader-thresholds-unvalidated.md: a small but
+        // A small but
         // legitimate page (well under the 145-node threshold) must not be
         // mistaken for a consent-wall capture as long as it has real
         // structural landmarks — the threshold is deliberately a two-factor

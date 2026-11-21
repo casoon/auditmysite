@@ -358,7 +358,7 @@ fn apportion<const N: usize>(parts: &[f64; N], sum: f64, total: u32) -> [u32; N]
 /// mis-filing findings in shipped reports — a landmark rule whose description
 /// mentioned `'image'` was published under "Images / alternative text", and an
 /// SEO multiple-H1 finding drove the "Heading structure" area of the
-/// *accessibility* breakdown (plan 38).
+/// *accessibility* breakdown.
 ///
 /// Non-WCAG findings return `None`: `accessibility_score` is computed from
 /// WCAG violations only, so letting an SEO finding into its breakdown made the
@@ -384,7 +384,7 @@ pub(crate) fn score_area_for_finding(
 /// JSON view of the shared risk dimensions.
 ///
 /// The derivation itself lives in `audit::management_risk` so the PDF renders
-/// the same dimensions instead of a second heuristic of its own (plan 35).
+/// the same dimensions instead of a second heuristic of its own.
 /// Canonical English is baked in here (#406); the PDF re-derives the text in
 /// the run language from the same `ManagementRiskKind`.
 pub(super) fn build_management_risks(reports: &[NormalizedReport]) -> Vec<ManagementRisk> {
@@ -399,7 +399,7 @@ pub(super) fn build_management_risks(reports: &[NormalizedReport]) -> Vec<Manage
 }
 
 /// Top actions, one per rule across all pages, in the order the PDF lists
-/// them (plans 58, 64).
+/// them.
 pub(super) fn build_decision_actions(
     reports: &[NormalizedReport],
     root_causes: &[crate::audit::RootCause],
@@ -511,12 +511,12 @@ pub(super) fn average_accessibility_score(reports: &[NormalizedReport]) -> u32 {
 /// module that did not run — or that ran but could not measure, as Performance
 /// does when no Core Web Vital came back (#QA-023) — silently changes the
 /// denominator rather than the result. Publishing the basis lets a consumer
-/// see that two runs are not comparable (plan 41).
+/// see that two runs are not comparable.
 pub(super) fn site_quality_score_weight_basis(reports: &[NormalizedReport]) -> u32 {
     // Batch: the lowest basis across the audited pages, so the published value
     // never overstates how much of the model backs the average. When the pages
     // disagree, `weight_basis_is_uniform` is what says the average mixes
-    // different bases — this number alone cannot (plan 41).
+    // different bases — this number alone cannot.
     page_weight_bases(reports).into_iter().min().unwrap_or(0)
 }
 
@@ -636,7 +636,7 @@ pub(super) fn with_normalized_score(
         }
         obj.insert("score".to_string(), serde_json::json!(entry.score));
         // A letter grade only where one exists — a module of weight 0 carries
-        // the band word alone (plan 29, D2). `remove` rather than leaving the
+        // the band word alone. `remove` rather than leaving the
         // module's own grade in place: the raw module payload may carry a
         // pre-adjustment grade (UX/Journey before the a11y penalty), and a
         // stale letter is worse than none.
@@ -792,7 +792,7 @@ mod tests {
         report
     }
 
-    /// Plan 37: the breakdown must account for exactly the points the score
+    /// The breakdown must account for exactly the points the score
     /// lost. The old model produced a weighted average of 57 next to a
     /// reported score of 20.
     #[test]
@@ -861,7 +861,7 @@ mod tests {
         assert_eq!(apportion(&[0.0, 9.0], 9.0, 80), [0, 80]);
     }
 
-    /// Plan 41: the basis must reflect what actually fed the score, so a
+    /// The basis must reflect what actually fed the score, so a
     /// consumer can tell that two runs are not comparable. A module that did
     /// not measure changes the denominator, not the result (#QA-023).
     #[test]
@@ -892,7 +892,7 @@ mod tests {
         }
     }
 
-    /// Plan 41, batch: averaging `site_quality_score` across pages with different
+    /// Batch: averaging `site_quality_score` across pages with different
     /// module sets mixes incomparable numbers. The published basis must not
     /// overstate the backing, and the uniformity flag must say when they
     /// disagreed.
@@ -930,7 +930,7 @@ mod tests {
         );
     }
 
-    /// Plan 40: a single-URL run cannot know whether a template or component
+    /// A single-URL run cannot know whether a template or component
     /// is behind a repeated finding — it has seen one DOM. The claim is only
     /// made where recurrence across pages was actually observed.
     #[test]
@@ -1056,7 +1056,7 @@ mod tests {
         );
     }
 
-    /// Plan 40: "Trust / brand" was a fixed sentence citing no measurement,
+    /// "Trust / brand" was a fixed sentence citing no measurement,
     /// while its level came from the accessibility score.
     #[test]
     fn trust_risk_names_the_data_that_set_it() {
@@ -1089,7 +1089,7 @@ mod tests {
         );
     }
 
-    /// Plan 38: the areas come from the taxonomy mapping now, so the whole
+    /// The areas come from the taxonomy mapping now, so the whole
     /// class of prose-matching misfires is structurally gone. These cases are
     /// kept as the record of what used to break — each one is a real report
     /// that shipped with the wrong area.
@@ -1148,7 +1148,7 @@ mod tests {
         }
     }
 
-    /// Plan 38: `accessibility_score` counts WCAG violations only, so an SEO
+    /// `accessibility_score` counts WCAG violations only, so an SEO
     /// finding must not appear in its breakdown. `seo.headings.multiple_h1`
     /// was the `main_driver` of the "Heading structure" area in a shipped
     /// report (inros-lackner-de, 2026-09-19).

@@ -50,7 +50,7 @@ mod text_guard;
 /// Each divider produces a page break, a strong level=1 section header tagged
 /// with "TEIL N / 3" (or "PART N OF 3"), an audience callout, and a contents list.
 /// Part 3 is visually reinforced as a dedicated separator page before the technical
-/// appendix and detailed evidence modules (plan/22-report-anhang-visual-cut.md).
+/// appendix and detailed evidence modules.
 pub(super) fn render_part_divider(
     mut builder: renderreport::engine::ReportBuilder,
     part_num: u8,
@@ -157,7 +157,7 @@ fn render_module_split_dashboards(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    // plan/7-management-summary-consolidation.md ("lighter" option): the
+    // The
     // weighted, "measured" modules (Accessibility/Performance/Security/
     // Mobile/SEO) are now covered by the score-driver table above with more
     // detail (weight_pct + reasoning) — showing them a second time here as
@@ -234,11 +234,11 @@ struct DimensionRow {
 ///
 /// `verdict`/`verdict_reasons` appeared zero times in the rendered output, so
 /// the CLI printed "FAIL — legal_flags: 5, blocking_issues: 36" while the
-/// document said nothing (plan 34).
+/// document said nothing.
 ///
 /// Labelled "Einstufung Barrierefreiheit" / "Accessibility rating": the score band names a
-/// range and certifies nothing, and this document cites BFSG and EN 301 549
-/// (plan 44). The certificate itself is gone (#911).
+/// range and certifies nothing, and this document cites BFSG and EN 301 549.
+/// The certificate itself is gone (#911).
 fn render_rating(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
@@ -294,7 +294,7 @@ fn render_rating(
     }
 
     // A run that did not complete may still state a rating, but not as a
-    // settled one — and it has to say so here, not on page ~60 (plan 44).
+    // settled one — and it has to say so here, not on page ~60.
     if vm.summary.run_is_partial {
         body.push(' ');
         body.push_str(&i18n.t("single-report-rating-provisional"));
@@ -331,7 +331,7 @@ pub(super) fn render_risks_and_strengths(
     // second heuristic (`compute_dimension_rows`) over severity counts and
     // three module scores: it carried different dimensions, graded them
     // differently, and the JSON's evidence-bearing rationales never reached
-    // the PDF reader at all (plan 35). On inros-lackner-de the JSON held four
+    // the PDF reader at all. On inros-lackner-de the JSON held four
     // `high` risks while the panel showed three "bad" and two "warn", and two
     // `high` dimensions were missing entirely.
     //
@@ -852,7 +852,7 @@ pub(super) fn render_management_page(
 
     builder = render_rating(builder, vm, i18n);
 
-    // Problem profile badge (plan/20-problemprofil-badge.md)
+    // Problem profile badge
     builder = render_problem_profile(builder, vm, i18n);
 
     // Surface a partial/insufficient audit run right here, not only in the
@@ -914,14 +914,12 @@ pub(super) fn render_management_page(
 
     // 2c. Score-driver table — the radar shows *balance*, this answers
     // "why is the site-quality score X": which modules pull it down vs.
-    // stabilize it, and how much each one actually weighs
-    // (plan/2-score-driver-breakdown.md).
+    // stabilize it, and how much each one actually weighs.
     builder = render_score_driver_table(builder, vm, i18n);
 
     // 2d. Problem-concentration diagnosis — the bridge between the score
     // level above and the technical root-cause list on a later page: "how
-    // concentrated are the occurrences on a few recurring causes"
-    // (plan/3-problem-concentration-diagnosis-narrative.md).
+    // concentrated are the occurrences on a few recurring causes".
     if let Some(note) = build_problem_concentration_note(vm, i18n) {
         builder = builder.add_component(Label::new(note).with_size("10.5pt"));
     }
@@ -935,8 +933,7 @@ pub(super) fn render_management_page(
     builder = render_additional_score_drivers(builder, vm, i18n);
 
     // 2e. Accessibility/Security sub-category breakdown — a low module
-    // score explained at a finer grain than one number (plan/5-module-
-    // accessibility-security-driver-detail.md).
+    // score explained at a finer grain than one number.
     let en_label = i18n.t("module-accessibility");
     // Same areas and numbers as the JSON `accessibility_score_breakdown`: the
     // points each area cost, adding up to `100 - accessibility score` (#902
@@ -954,7 +951,7 @@ pub(super) fn render_management_page(
         })
         .collect();
     // Where each critical accessibility finding counts, from the findings'
-    // own score area (plan 70).
+    // own score area.
     let accessibility_critical: Vec<(String, String)> = vm
         .findings
         .all_findings
@@ -1182,7 +1179,7 @@ pub(super) fn render_appendix_full(
     builder
 }
 
-/// Fixed list (plan/15) of WCAG A/AA criteria that stay outside automated
+/// Fixed list of WCAG A/AA criteria that stay outside automated
 /// testing on structural grounds, not merely "not yet implemented" — the
 /// contentual sensibleness of a focus order (2.4.3), the intelligibility of
 /// an error message (3.3.1), the practical usability of 400% zoom (1.4.4/
@@ -1423,7 +1420,7 @@ fn render_findings_section(
         // not replace or alter the per-category cards rendered afterward.
         const FINDINGS_MATRIX_MAX_ROWS: usize = 30;
 
-        // In the shared finding order, like the JSON (plan 58).
+        // In the shared finding order, like the JSON.
         let matrix_findings: Vec<&FindingGroup> = all_findings.iter().collect();
 
         if !matrix_findings.is_empty() {
@@ -1433,7 +1430,7 @@ fn render_findings_section(
 
             // Four columns with the full finding title: six narrow ones cut
             // titles at 48 and actions at 72 characters. The action and the
-            // owner are in the detail card below (plan 76).
+            // owner are in the detail card below.
             let mut table = AuditTable::new(vec![
                 TableColumn::new(i18n.t("batch-col-priority")).with_width("13%"),
                 TableColumn::new(i18n.t("single-report-matrix-col-finding")).with_width("55%"),
@@ -1718,7 +1715,7 @@ fn render_positive_signals_section(
     }
 
     // A short panel follows the previous chapter under its own heading
-    // instead of opening a page for a few rows (plan 76).
+    // instead of opening a page for a few rows.
     builder =
         builder.add_component(Section::new(i18n.t("single-report-patterns-title")).with_level(2));
     let mut rows = Vec::new();
@@ -1972,7 +1969,7 @@ fn render_active_module_section(
         }
         "tech_stack" => {
             // Nothing detected: no chapter — a page for
-            // "nothing to report" (plan 76). The JSON keeps the module.
+            // "nothing to report". The JSON keeps the module.
             if let Some(ts) = vm
                 .module_details
                 .tech_stack
@@ -2165,7 +2162,7 @@ pub(super) mod risk_and_strength_tests {
     }
 
     /// #576 acceptance scenario 1, carried over to the shared risk
-    /// dimensions (plan 35): a mixed report must keep genuinely good
+    /// dimensions: a mixed report must keep genuinely good
     /// dimensions out of the risks bucket. The cited bug was a positive SEO
     /// line ("Sehr gute Auffindbarkeit …") rendered under "Wichtigste Risiken".
     #[test]
@@ -2464,7 +2461,7 @@ pub(super) mod risk_and_strength_tests {
 
     #[test]
     fn appendix_table_does_not_duplicate_interpretation_when_card_context_matches() {
-        // plan/32-appendix-duplicated-interpretation-sentence.md: Search
+        // Search
         // Experience's dashboard card falls back to `card_context ==
         // interpretation` when it has no distinct short blurb (no derived
         // warning) — the appendix row must then print the sentence once,

@@ -8,7 +8,7 @@
   "counter_examples": [
     "NoSubheadings must not be listed twice when a page trips both the >200-words/<3-headings check and the >1000-words/<5-headings check.",
     "A genuinely binary signal must score exactly as before — QualitySignal::new sets fulfilment to 1.0 or 0.0; see binary_signals_are_unchanged.",
-    "HeadingSkips is deliberately absent from the per-rule invariant test: AXTree::headings() returns HashMap order, so the detector's result is not deterministic and cannot be asserted. See plan 49 — that is a separate defect, not a gap in this invariant."
+    "HeadingSkips is deliberately absent from the per-rule invariant test: AXTree::headings() returns HashMap order, so the detector's result is not deterministic and cannot be asserted. That is a separate defect, not a gap in this invariant."
   ],
   "status": "resolved"
 }

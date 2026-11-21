@@ -1,4 +1,4 @@
-//! Classify every cached AXTree snapshot and dump the result (plan 50).
+//! Classify every cached AXTree snapshot and dump the result.
 //!
 //! Page-type classification has almost no test coverage, and the corpus in
 //! `tests/fixtures/detection_corpus/` carries no page-type ground truth — so a
@@ -88,7 +88,7 @@ fn classify_every_cached_snapshot() {
         };
         let intent = detect_page_intent(&tree);
         // Journey's entry-clarity reads the top of the page, which is the
-        // other text-measuring site plan 50 covers.
+        // other text-measuring site of the page-intent classification.
         let little_early_text = analyze_journey(&tree)
             .friction_points
             .iter()

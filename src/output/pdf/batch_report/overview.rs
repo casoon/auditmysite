@@ -152,7 +152,7 @@ pub(super) fn render_batch_cover(
         if let Some(sample) = &batch.sample {
             let source = i18n.t(&format!("batch-source-{}", sample.source));
             // Share and selection method, and that `first_n` is no
-            // representative choice (plan 80).
+            // representative choice.
             let pct = if sample.total_discovered > 0 {
                 let pct = sample.audited as f64 * 100.0 / sample.total_discovered as f64;
                 crate::i18n::number::decimal(pct, 1, is_english(i18n))
@@ -185,7 +185,7 @@ pub(super) fn render_batch_cover(
             cover_meta = cover_meta.add(i18n.t("batch-cover-frame-scope"), scope);
         }
         // The three sets a reader must not mix up: audited in the browser,
-        // failed, and only HTTP-checked (plans 80, 87).
+        // failed, and only HTTP-checked.
         if !batch.errors.is_empty() {
             cover_meta = cover_meta.add(
                 i18n.t("batch-cover-frame-failed"),
@@ -307,7 +307,7 @@ pub(super) fn render_batch_cover(
     }
 
     // The scope note used to close page 2, which it overflowed onto an
-    // otherwise empty page 3 (plan 108). It now opens the contents page; an
+    // otherwise empty page 3. It now opens the contents page; an
     // executive report has no contents page and keeps it on page 2.
     let scope_note = batch_scope_callout(
         config.level == ReportLevel::Technical && !pres.appendix.per_url.is_empty(),
@@ -504,7 +504,7 @@ pub(super) fn render_batch_status_section(
     };
     // Score overview cards
     // Both counts are WCAG occurrences: `total_violations` sums every
-    // module's findings, `dist` counts per-page groups (plan 79).
+    // module's findings, `dist` counts per-page groups.
     let score = pres
         .portfolio_summary
         .average_score

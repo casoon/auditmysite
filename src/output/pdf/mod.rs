@@ -140,7 +140,7 @@ fn build_single_report(
     let en = is_english(&i18n);
     // The headline is the accessibility score — the subject of the report.
     // The weighted site-quality score across the six modules is a different
-    // question and is reported as such, further in (plan 29, D1).
+    // question and is reported as such, further in.
     let headline_score = vm.summary.score;
     let band_phrase = self::cover::cover_band_phrase(
         headline_score,
@@ -152,7 +152,7 @@ fn build_single_report(
     // Two strips: the six modules that make up the site-quality score, and below
     // them, smaller and neutral, the indicators that only re-read them
     // (composite, UX, Journey) — one row made a derived 71 look like the
-    // SEO score the site-quality score counted as 65 (plan 105).
+    // SEO score the site-quality score counted as 65.
     let (measured, indicators): (Vec<_>, Vec<_>) = vm
         .modules
         .dashboard

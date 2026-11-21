@@ -1,4 +1,4 @@
-//! Technician-mode aggregates next to per-page JSON reports (plan 67).
+//! Technician-mode aggregates next to per-page JSON reports.
 //!
 //! A batch run with `--per-page-reports -f json` writes one single-page
 //! report per URL. For people who fix issues rather than read a report, two

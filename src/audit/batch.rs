@@ -113,7 +113,7 @@ pub async fn run_concurrent_batch(
     // No unbounded spawn — tasks are only created as slots free up.
     let mut in_flight: FuturesUnordered<_> = FuturesUnordered::new();
     // Indexed so the report lists pages in input (sitemap) order, not in the
-    // order they happened to finish (plan 60).
+    // order they happened to finish.
     let mut url_iter = urls.into_iter().take(total_urls).enumerate();
 
     let make_task = |index: usize,
@@ -326,7 +326,7 @@ pub async fn analyze_sitemap_diagnostics_with_progress(
         .iter()
         .filter_map(|r| normalize_url(&r.url))
         .collect();
-    // The homepage's own links are observed inbound links too (plan 82).
+    // The homepage's own links are observed inbound links too.
     let homepage = match homepage_url(sitemap_urls, reports) {
         Some(url) => fetch_homepage_links(&url, reports).await,
         None => None,
@@ -633,7 +633,7 @@ fn resolve_link_target(base: &Url, target: &str) -> Option<String> {
 /// for a large batch (#548).
 const MAX_CRAWL_DEPTH_LIST: usize = 20;
 
-/// The homepage BFS starts from and its outbound links (plan 81).
+/// The homepage BFS starts from and its outbound links.
 struct CrawlStart {
     /// Normalized homepage URL after redirects.
     url: String,
@@ -685,7 +685,7 @@ async fn fetch_homepage_links(url: &str, reports: &[AuditReport]) -> Option<Craw
 }
 
 /// Build crawl-depth diagnostics for a sitemap-driven batch (#548) from the
-/// homepage entry (plan 81).
+/// homepage entry.
 fn build_crawl_depth_diagnostics(
     start: &CrawlStart,
     sitemap_urls: &[String],
@@ -1598,7 +1598,7 @@ mod tests {
         }
     }
 
-    /// Plan 81: the homepage was not audited (a privacy page was the
+    /// The homepage was not audited (a privacy page was the
     /// shortest audited URL in the original); its fetched links seed the
     /// graph, it is not counted as an audited page, and the privacy page is
     /// not depth 0.

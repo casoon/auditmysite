@@ -162,7 +162,7 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
     "patterns/accordion-controls-missing",
     "keyboard/click-handler-not-focusable",
     "links/used-as-button",
-    // Linkzweck (Plan 98): beurteilt einzelne Links, läuft auch in Frames.
+    // Linkzweck: beurteilt einzelne Links, läuft auch in Frames.
     "links/generic-name",
     "links/url-name",
     "links/single-character-name",

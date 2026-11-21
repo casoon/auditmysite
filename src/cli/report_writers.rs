@@ -353,7 +353,7 @@ pub(crate) fn output_batch_as_single_reports(
 ) -> Result<()> {
     let base_dir = per_page_output_directory(args);
     // JSON per-page reports get the technician aggregates next to them:
-    // index.json and findings.jsonl (plan 67).
+    // index.json and findings.jsonl.
     let with_aggregates = args.effective_format() == OutputFormat::Json;
 
     if !args.quiet {

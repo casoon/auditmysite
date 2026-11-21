@@ -89,7 +89,7 @@ pub(super) fn detect(tree: &AXTree, out: &mut PatternAnalysis) {
     // and report every finding twice. A menu button (`aria-haspopup`) that
     // DisclosureMenu offered as MenuOpen is skipped as well: ARIA APG treats it
     // as the Menu Button pattern, and the disclosure journey would judge it by
-    // expectations it isn't meant to meet (plan 53, 2026-09-27).
+    // expectations it isn't meant to meet (2026-09-27).
     let already_offered: Vec<i64> = out
         .journey_candidates
         .iter()

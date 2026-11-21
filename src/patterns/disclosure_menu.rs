@@ -10,7 +10,7 @@
 //!
 //! # Natives `<details>`/`<summary>`
 //!
-//! Bis Plan 53 bot dieses Modul nur Elemente mit `aria-expanded` als
+//! Früher bot dieses Modul nur Elemente mit `aria-expanded` als
 //! Journey-Kandidat an — natives `<details>` erreichte die Disclosure-Journey
 //! deshalb nie, obwohl der Diff-Pfad es lesen kann.
 //!
@@ -211,7 +211,7 @@ mod tests {
     }
 
     /// Eine Seite, deren einzige aufklappbare Struktur nativ ist, erreichte die
-    /// Disclosure-Journey vor Plan 53 gar nicht.
+    /// Disclosure-Journey früher gar nicht.
     #[test]
     fn natives_summary_wird_zum_journey_kandidaten() {
         let tree = AXTree::from_nodes(vec![expanded("1", "DisclosureTriangle", 11)]);

@@ -3547,8 +3547,8 @@ entries first (unchanged order from before the extraction).
   (`ProgressPolicy`), independent of `--quiet` (which still suppresses everything).
   `run_concurrent_batch`'s signature/concurrency algorithm **unchanged** — only the
   callback body in `runners.rs` now calls `presenter.advance/notice_error` instead of touching
-  the progress bar directly. **Real bug discovered along the way and fixed**: banner/plan/
-  diagnostic/result/verdict lines in `src/cli/plan.rs` and `run_batch_mode` were
+  the progress bar directly. **Real bug discovered along the way and fixed**: banner, plan,
+  diagnostic, result and verdict lines in `src/cli/plan.rs` and `run_batch_mode` were
   throughout `println!` (stdout), gated only by `--quiet`, not by the output format — a
   batch run with `--format json` without `--output`/`--quiet` mixed plain text into the
   JSON payload on stdout. Mechanical fix: all these lines are now `eprintln!` (stderr)

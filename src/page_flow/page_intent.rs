@@ -592,7 +592,7 @@ pub fn detect_page_intent(tree: &AXTree) -> PageIntent {
     //
     // This used to read `StaticText | paragraph` through `iter()`, which drops
     // `StaticText`, while `paragraph` nodes never carry a name — so the sum
-    // was 0 on every real page and this branch could not fire (plan 50).
+    // was 0 on every real page and this branch could not fire.
     let approx_words = tree.visible_text_len() / 6;
     if approx_words > 500 && editorial_score >= 2 {
         editorial_score += 5;
@@ -623,7 +623,7 @@ pub fn detect_page_intent(tree: &AXTree) -> PageIntent {
         //
         // This used to carry a third clause, `approx_words < 300`. It never
         // once evaluated as false: `approx_words` came from a sum that was
-        // structurally 0 on every real page (plan 50). Measured over 6847
+        // structurally 0 on every real page. Measured over 6847
         // cached snapshots, reviving the word count *with* that clause moved
         // 222 pages from "Marketing" to "Not detected" — a landing-page
         // default losing to a 300-word bound that nothing calibrated.
@@ -659,7 +659,7 @@ mod tests {
         }
     }
 
-    /// Plan 50: the word count that decides "long text = editorial" came from
+    /// The word count that decides "long text = editorial" came from
     /// a sum that was structurally 0 on every real page, so this branch never
     /// fired. A long article that carries its words where real pages carry
     /// them — on `StaticText` — has to reach it.

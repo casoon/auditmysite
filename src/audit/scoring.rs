@@ -86,7 +86,7 @@ fn score_from_penalties(
     // A High failure of a Level A criterion keeps the page below the top band
     // (the 90-100 band): Level A is the conformance floor, a page failing it is
     // not conformant. Before, one missing alt text on an otherwise clean page
-    // scored 92 (plan 47, calibration decision 2026-09-26).
+    // scored 92 (calibration decision 2026-09-26).
     raw_score.min(semantic_cap(
         critical_occurrences,
         urgent_occurrences,
@@ -435,7 +435,7 @@ mod tests {
         // Rule 1.1.1: base=3.0, max=10.0, Logarithmic
         // 2 occurrences: 3.0 * (1 + ln(2)) ≈ 5.08 → 95 before the cap. A High
         // failure of a Level A criterion caps at 89: not conformant, so not
-        // the top band (plan 47).
+        // the top band.
         let score = AccessibilityScorer::calculate_score(&violations);
         assert_eq!(score, 89.0);
         assert_eq!(AccessibilityScorer::calculate_grade(score), "B");
@@ -924,8 +924,8 @@ mod tests {
     }
 }
 
-/// Properties the score must have regardless of how its constants are tuned
-/// (plan 47). None of them says what a page *should* score — that needs an
+/// Properties the score must have regardless of how its constants are tuned.
+/// None of them says what a page *should* score — that needs an
 /// outside reference — but each one is something no tuning may break, and a
 /// break would mean the score contradicts its own findings.
 #[cfg(test)]

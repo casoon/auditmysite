@@ -1,5 +1,5 @@
 # Upward imports of analysis modules: lines naming crate::cli, crate::output or crate::audit (path count).
-# `audit` imports every analysis module, so each of these closes a cycle (#932, plan 96).
+# `audit` imports every analysis module, so each of these closes a cycle (#932).
 # The baseline may only shrink: lower a count when a file loses imports, drop the line at zero.
 src/a11y_journey/add_to_cart.rs 1
 src/a11y_journey/disclosure_journey.rs 1
