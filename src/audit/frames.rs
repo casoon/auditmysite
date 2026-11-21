@@ -252,7 +252,7 @@ pub enum FrameSkipReason {
     /// The frame has a source (`src`, or a lazy-load `data-src`) but still
     /// shows its initial `about:blank` document: it never loaded, also not
     /// after the lazy frames were scrolled into view and waited for
-    /// ([`load_lazy_frames`]). Its content was not audited; the blank
+    /// (`load_lazy_frames`). Its content was not audited; the blank
     /// placeholder is no stand-in for it.
     NotLoaded,
 }
