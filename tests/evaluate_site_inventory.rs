@@ -82,9 +82,12 @@ fn known_sites() -> BTreeMap<&'static str, (usize, Coverage)> {
             "src/audit/exclusion.rs",
             (3, Via(&["accessibility.exclusion_scope"], &["src/audit/pipeline/mod.rs"])),
         ),
+        // The owner probe and the lazy-frame loader (#1109): a loader that fails leaves
+        // its frames blank, which the frame pass records as `not_loaded` (gap
+        // `frame_not_loaded` of the same collection).
         (
             "src/audit/frames.rs",
-            (1, Via(&["accessibility.frames"], &["src/audit/pipeline/mod.rs"])),
+            (2, Via(&["accessibility.frames"], &["src/audit/pipeline/mod.rs"])),
         ),
         (
             "src/browser/consent.rs",
