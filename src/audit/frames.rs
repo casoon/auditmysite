@@ -24,7 +24,7 @@
 use chromiumoxide::cdp::browser_protocol::dom::{
     BackendNodeId, Node as CdpNode, ResolveNodeParams, ShadowRootType,
 };
-use chromiumoxide::cdp::js_protocol::runtime::CallFunctionOnParams;
+use chromiumoxide::cdp::js_protocol::runtime::{CallFunctionOnParams, EvaluateParams};
 use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
@@ -249,6 +249,12 @@ pub enum FrameSkipReason {
     AxTreeFailed,
     /// The frame's DOM has no `<html>` element to run the rules on.
     DocumentUnavailable,
+    /// The frame has a source (`src`, or a lazy-load `data-src`) but still
+    /// shows its initial `about:blank` document: it never loaded, also not
+    /// after the lazy frames were scrolled into view and waited for
+    /// (`load_lazy_frames`). Its content was not audited; the blank
+    /// placeholder is no stand-in for it.
+    NotLoaded,
 }
 
 /// What one viewport pass saw of one frame.
@@ -497,6 +503,116 @@ async fn probe_owner(page: &Page, backend_id: i64) -> Option<OwnerProbe> {
     })
 }
 
+/// The source a frame is still waiting for: it has no `srcdoc` and either a
+/// `src` that is not empty, `about:blank` or `javascript:`, or `loading="lazy"`
+/// and a `data-*src*` attribute (`data-src` of lazysizes, `data-lazy-src`, ...)
+/// that a lazy-load script copies to `src` once the frame is near the viewport.
+/// Together with a document that is still `about:blank` this is a frame that
+/// never loaded. A frame without a source (an empty `<iframe>` a script fills)
+/// or with `src="about:blank"` is blank by design.
+///
+/// `src/wcag/rules/js/iframe_scan.js` applies the same test (`awaitsSource`).
+fn awaited_source(owner: &CdpNode) -> Option<String> {
+    if attribute(owner, "srcdoc").is_some() {
+        return None;
+    }
+    let real = |value: &str| {
+        let value = value.trim();
+        let lower = value.to_ascii_lowercase();
+        !(value.is_empty() || lower == "about:blank" || lower.starts_with("javascript:"))
+    };
+    if let Some(src) = attribute(owner, "src").filter(|v| real(v)) {
+        return Some(src.trim().to_string());
+    }
+    let lazy = attribute(owner, "loading").is_some_and(|v| v.trim().eq_ignore_ascii_case("lazy"));
+    if !lazy {
+        return None;
+    }
+    owner
+        .attributes
+        .as_ref()?
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .find(|pair| {
+            let name = pair[0].to_ascii_lowercase();
+            name.starts_with("data-") && name.contains("src") && real(&pair[1])
+        })
+        .map(|pair| pair[1].trim().to_string())
+}
+
+/// How long [`load_lazy_frames`] waits for the lazy frames of one page in
+/// total, all frames together. Independent of the page-stability budget.
+pub(crate) const LAZY_FRAME_BUDGET_MS: u64 = 3_000;
+
+/// What [`load_lazy_frames`] found.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct LazyFrameLoad {
+    /// Lazy frames still at `about:blank` that are rendered.
+    pub candidates: u64,
+    /// Of those, frames that left `about:blank` and fired `load`.
+    pub loaded: u64,
+    pub waited_ms: u64,
+}
+
+/// Makes the lazy-loaded iframes of the page load before the frame pass (#1109).
+///
+/// A `loading="lazy"` frame far down the page (or one a lazy-load script such
+/// as lazysizes fills from `data-src`) sits at `about:blank` until it comes
+/// near the viewport, and the audit then judged the empty placeholder — a
+/// missing `lang` on a document nobody serves. The script scrolls each such
+/// frame into view, waits for them to load together, at most
+/// [`LAZY_FRAME_BUDGET_MS`], and restores the scroll position. It does nothing
+/// on a page without a lazy blank frame.
+///
+/// It runs inside `run_rules`, after the snapshot (`extract_snapshot`) has read
+/// every module including the performance observers, and before the DOM
+/// capture the frame pass builds its documents from; the mobile pass
+/// navigates anew, so a load started here reaches neither the performance
+/// numbers of this pass nor of the other.
+pub(crate) async fn load_lazy_frames(page: &Page) -> LazyFrameLoad {
+    let expression = include_str!("js/lazy_frames.js")
+        .replace("__BUDGET_MS__", &LAZY_FRAME_BUDGET_MS.to_string());
+    let Ok(params) = EvaluateParams::builder()
+        .expression(expression)
+        .await_promise(true)
+        .return_by_value(true)
+        .build()
+    else {
+        return LazyFrameLoad::default();
+    };
+    let bound = std::time::Duration::from_millis(LAZY_FRAME_BUDGET_MS + 1_000);
+    let value = match tokio::time::timeout(bound, page.execute(params)).await {
+        Ok(Ok(result)) => result.result.result.value.clone().unwrap_or_default(),
+        Ok(Err(e)) => {
+            warn!("Loading the lazy frames failed: {e}");
+            return LazyFrameLoad::default();
+        }
+        Err(_) => {
+            warn!("Loading the lazy frames timed out");
+            return LazyFrameLoad::default();
+        }
+    };
+    let count = |key: &str| {
+        value
+            .get(key)
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(0)
+    };
+    let load = LazyFrameLoad {
+        candidates: count("candidates"),
+        loaded: count("loaded"),
+        waited_ms: count("waited_ms"),
+    };
+    if load.candidates > 0 {
+        info!(
+            "Lazy frames: {} of {} loaded after {} ms",
+            load.loaded, load.candidates, load.waited_ms
+        );
+    }
+    load
+}
+
 /// Which AX tree a frame owner belongs to: the page's, or an audited frame's.
 #[derive(Clone, Copy)]
 enum ParentTree {
@@ -546,10 +662,17 @@ pub(crate) async fn audit_frames(
             None => own_selector,
         };
         let content = owner.content_document.as_deref();
-        let url = content
-            .and_then(|c| c.document_url.clone())
-            .filter(|u| !u.is_empty())
-            .or_else(|| attribute(owner, "src").map(str::to_string));
+        let not_loaded = content
+            .filter(|c| c.document_url.as_deref() == Some("about:blank"))
+            .and_then(|_| awaited_source(owner));
+        // A frame that never loaded shows the source it waits for, not its
+        // blank placeholder.
+        let url = not_loaded.clone().or_else(|| {
+            content
+                .and_then(|c| c.document_url.clone())
+                .filter(|u| !u.is_empty())
+                .or_else(|| attribute(owner, "src").map(str::to_string))
+        });
         let mut observe = |skipped: Option<FrameSkipReason>| {
             out.frames.push(FrameObservation {
                 selector: selector.clone(),
@@ -578,6 +701,10 @@ pub(crate) async fn audit_frames(
             observe(Some(FrameSkipReason::CrossOrigin));
             continue;
         };
+        if not_loaded.is_some() {
+            observe(Some(FrameSkipReason::NotLoaded));
+            continue;
+        }
         let Some(frame_id) = owner
             .frame_id
             .as_ref()
@@ -801,6 +928,70 @@ mod tests {
         assert_eq!(r.violations.len(), 1);
         assert_eq!(r.rule_outcomes.len(), 1);
         assert_eq!(r.passes, 0);
+    }
+
+    fn owner(attributes: &[(&str, &str)]) -> CdpNode {
+        let flat: Vec<&str> = attributes.iter().flat_map(|(k, v)| [*k, *v]).collect();
+        serde_json::from_value(serde_json::json!({
+            "nodeId": 1,
+            "backendNodeId": 2,
+            "nodeType": 1,
+            "nodeName": "IFRAME",
+            "localName": "iframe",
+            "nodeValue": "",
+            "attributes": flat,
+        }))
+        .expect("a frame owner node")
+    }
+
+    /// A frame that shows `about:blank` is "not loaded" only when it has a
+    /// source it is waiting for (#1109); blank by design stays audited.
+    #[test]
+    fn a_blank_frame_awaits_a_source_only_when_it_has_one() {
+        let url = "https://widgets.example/chart?lang=en";
+        // A source the frame never got to.
+        assert_eq!(
+            awaited_source(&owner(&[("src", url), ("loading", "lazy")])),
+            Some(url.to_string())
+        );
+        assert_eq!(
+            awaited_source(&owner(&[("src", &format!("  {url} "))])),
+            Some(url.to_string())
+        );
+        // lazysizes and similar: `src` is filled from a data attribute.
+        assert_eq!(
+            awaited_source(&owner(&[("loading", "LAZY"), ("data-src", url)])),
+            Some(url.to_string())
+        );
+        assert_eq!(
+            awaited_source(&owner(&[("loading", "lazy"), ("data-lazy-src", url)])),
+            Some(url.to_string())
+        );
+        // Blank by design: nothing to wait for.
+        for blank in [
+            owner(&[]),
+            owner(&[("src", "")]),
+            owner(&[("src", "about:blank")]),
+            owner(&[("src", " ABOUT:BLANK ")]),
+            owner(&[("src", "javascript:void(0)")]),
+            owner(&[("srcdoc", "<p>hi</p>"), ("src", url)]),
+            owner(&[("srcdoc", ""), ("loading", "lazy"), ("data-src", url)]),
+            // A data attribute only counts for a lazy frame ...
+            owner(&[("data-src", url)]),
+            // ... and only when it carries a source.
+            owner(&[("loading", "lazy"), ("data-src", "")]),
+            owner(&[("loading", "lazy"), ("data-title", url)]),
+        ] {
+            assert_eq!(awaited_source(&blank), None, "{:?}", blank.attributes);
+        }
+    }
+
+    #[test]
+    fn the_not_loaded_reason_is_canonical_english_snake_case() {
+        assert_eq!(
+            serde_json::to_string(&FrameSkipReason::NotLoaded).unwrap(),
+            "\"not_loaded\""
+        );
     }
 
     #[test]

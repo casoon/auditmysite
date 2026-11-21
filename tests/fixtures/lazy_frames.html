@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Lazy frames (#1109)</title>
+    <style>
+        body { font: 16px/1.5 sans-serif; margin: 0 16px; }
+        .gap { height: 6000px; }
+        iframe { display: block; width: 300px; height: 100px; border: 1px solid #555; }
+    </style>
+</head>
+<body>
+    <!-- {{WIDGET}} serves a small document with an unnamed dialog, {{STALLED}} accepts
+         the connection and never answers (a frame that never loads). Both are placeholders
+         the test fills with another origin. -->
+    <main id="main">
+        <h1>Lazy frames</h1>
+        <div class="gap"></div>
+        <!-- Loads once it is near the viewport (native lazy loading). -->
+        <iframe id="lazy-widget" title="Widget" loading="lazy" src="{{WIDGET}}/"></iframe>
+        <div class="gap"></div>
+        <!-- Like lazysizes: no src, the script copies data-src to src when the frame is visible. -->
+        <iframe id="data-src-widget" title="Widget by script" loading="lazy" data-src="{{WIDGET}}/?by-script"></iframe>
+        <div class="gap"></div>
+        <!-- Starts loading and never finishes. -->
+        <iframe id="stalled" title="Stalled widget" loading="lazy" src="{{STALLED}}/"></iframe>
+        <!-- A data-src nothing ever turns into a src. -->
+        <iframe id="unfilled" title="Unfilled widget" loading="lazy" data-src="{{WIDGET}}/?unfilled"></iframe>
+        <!-- Blank by design: no source to wait for. -->
+        <iframe id="scratch" title="Scratch area"></iframe>
+        <iframe id="blank-src" title="Blank by src" src="about:blank"></iframe>
+    </main>
+    <script>
+        var observer = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    entry.target.src = entry.target.getAttribute('data-src');
+                    observer.unobserve(entry.target);
+                }
+            });
+        });
+        observer.observe(document.getElementById('data-src-widget'));
+    </script>
+</body>
+</html>

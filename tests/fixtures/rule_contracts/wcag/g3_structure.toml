@@ -998,8 +998,11 @@ Fails for every applicable frame document whose root html element has no
 non-empty lang: lang does not inherit across the document boundary, so the
 embedded content's language is not programmatically determinable although it
 is part of the page. A frame document with lang passes. Collapsed or hidden
-frames present nothing and do not apply. Cross-origin frames cannot be read
-(frame-tested). One finding per frame."""
+frames present nothing and do not apply. A frame that has a source (src, or the
+data-src of a lazy-load script on a loading=lazy frame) but still shows its
+initial about:blank document never loaded: the placeholder is no document to
+judge, and the frame is reported as skipped (not_loaded). Cross-origin frames
+cannot be read (frame-tested). One finding per frame."""
 page_level = false
 ambient = false
 positive = ["structure_ids_frames"]

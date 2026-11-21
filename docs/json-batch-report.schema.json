@@ -1723,9 +1723,10 @@
             "hidden",
             "excluded",
             "ax_tree_failed",
-            "document_unavailable"
+            "document_unavailable",
+            "not_loaded"
           ],
-          "description": "Why the frame was skipped (skipped frames only). cross_origin: rendered out of process (site isolation), see frame-tested; hidden: not perceivable (hidden, aria-hidden, role none/presentation, not rendered, at most 1px, or ignored in the accessibility tree); excluded: inside an audit exclusion."
+          "description": "Why the frame was skipped (skipped frames only). cross_origin: rendered out of process (site isolation), see frame-tested; hidden: not perceivable (hidden, aria-hidden, role none/presentation, not rendered, at most 1px, or ignored in the accessibility tree); excluded: inside an audit exclusion; not_loaded: the frame has a source (src, or the data-src of a lazy-load script) but still showed its initial about:blank document after the lazy frames were scrolled into view and waited for, so its content was not audited (the url is that source)."
         },
         "viewports": {
           "type": "array",

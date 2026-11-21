@@ -135,3 +135,139 @@ test("a script source with a placeholder left in does not parse as the filled on
   assert.ok(text.includes("__SELECTORS__"));
   assert.doesNotThrow(() => new vm.Script(text.replace("__SELECTORS__", "[]")));
 });
+
+/** An iframe element as the frame scripts read it. */
+function frame(attrs, doc) {
+  const names = Object.keys(attrs);
+  return {
+    tagName: "IFRAME",
+    getAttribute: (n) => (n in attrs ? attrs[n] : null),
+    hasAttribute: (n) => n in attrs,
+    attributes: names.map((name) => ({ name, value: attrs[name] })),
+    getBoundingClientRect: () => ({ width: 300, height: 100 }),
+    contentDocument: doc,
+  };
+}
+
+function frameDoc(url, lang) {
+  return {
+    URL: url,
+    body: {},
+    documentElement: { getAttribute: (n) => (n === "lang" ? lang : null) },
+  };
+}
+
+function scanFrames(iframes) {
+  const document = { querySelectorAll: () => iframes };
+  const context = withHelpers({
+    document,
+    window: { getComputedStyle: () => ({ display: "block", visibility: "visible" }) },
+  });
+  context.__amsCssSelector = (el) => `iframe#${el.getAttribute("id")}`;
+  const body = `(function () {\n${source("src/wcag/rules/js/iframe_scan.js")}\n})()`;
+  return JSON.parse(JSON.stringify(vm.runInContext(body, context)));
+}
+
+test("iframe_scan judges a loaded frame without lang but not a frame that never loaded (#1109)", () => {
+  const url = "https://widgets.example/chart";
+  const flagged = scanFrames([
+    frame({ id: "loaded", src: url }, frameDoc(url, "")),
+    frame({ id: "stalled", src: url, loading: "lazy" }, frameDoc("about:blank", "")),
+    frame({ id: "unfilled", loading: "lazy", "data-src": url }, frameDoc("about:blank", "")),
+    frame({ id: "scratch" }, frameDoc("about:blank", "")),
+    frame({ id: "blank-src", src: "about:blank" }, frameDoc("about:blank", "")),
+    frame({ id: "srcdoc", srcdoc: "<p>x</p>", src: url }, frameDoc("about:srcdoc", "")),
+    frame({ id: "with-lang", src: url }, frameDoc(url, "en")),
+  ]).map((f) => f.iframe_selector);
+  // The blank frames without a source to wait for stay judged, as before.
+  assert.deepEqual(flagged, ["iframe#loaded", "iframe#scratch", "iframe#blank-src", "iframe#srcdoc"]);
+});
+
+/** `lazy_frames.js` against stub frames, its timers driven by hand. */
+async function loadLazyFrames(frames, { loadsOnScroll }) {
+  const timers = [];
+  const scrolls = [];
+  const listeners = [];
+  const stub = frames.map((f) => ({
+    ...frame(f.attrs, null),
+    contentWindow: {
+      location: {
+        get href() {
+          if (f.href === "cross-origin") throw new Error("SecurityError");
+          return f.href;
+        },
+      },
+    },
+    addEventListener: (type, fn) => listeners.push({ type, fn, f }),
+    scrollIntoView: () => {
+      scrolls.push(f.attrs.id);
+      if (loadsOnScroll.includes(f.attrs.id)) {
+        f.href = f.loadedHref ?? "https://widgets.example/";
+        listeners.filter((l) => l.f === f).forEach((l) => l.fn());
+      }
+    },
+  }));
+  let now = 0;
+  const context = vm.createContext({
+    document: { querySelectorAll: () => stub },
+    window: {
+      scrollX: 0,
+      scrollY: 120,
+      scrollTo: (o) => scrolls.push(`restore:${o.top}`),
+      getComputedStyle: () => ({ display: "block", visibility: "visible" }),
+    },
+    Date: { now: () => now },
+    setTimeout: (fn, ms) => timers.push({ fn, at: now + ms }),
+  });
+  const filled = source("src/audit/js/lazy_frames.js").replace("__BUDGET_MS__", "3000");
+  let result;
+  vm.runInContext(filled, context).then((r) => {
+    result = JSON.parse(JSON.stringify(r));
+  });
+  for (let i = 0; i < 400 && result === undefined; i++) {
+    const next = timers.sort((a, b) => a.at - b.at).shift();
+    if (next) {
+      now = Math.max(now, next.at);
+      next.fn();
+    }
+    await Promise.resolve();
+  }
+  return { result, scrolls };
+}
+
+test("lazy_frames scrolls blank lazy frames into view, waits for their load and restores the scroll", async () => {
+  const { result, scrolls } = await loadLazyFrames(
+    [
+      { attrs: { id: "a", loading: "lazy", src: "https://widgets.example/a" }, href: "about:blank" },
+      { attrs: { id: "b", loading: "lazy", "data-src": "x" }, href: "about:blank", loadedHref: "cross-origin" },
+      // Not candidates: eager, already loaded, hidden.
+      { attrs: { id: "eager", src: "https://widgets.example/e" }, href: "about:blank" },
+      { attrs: { id: "done", loading: "lazy", src: "https://widgets.example/d" }, href: "https://widgets.example/d" },
+      { attrs: { id: "hid", loading: "lazy", hidden: "", src: "https://widgets.example/h" }, href: "about:blank" },
+    ],
+    { loadsOnScroll: ["a", "b"] },
+  );
+  assert.equal(result.candidates, 2);
+  assert.equal(result.loaded, 2);
+  assert.deepEqual(scrolls, ["a", "b", "restore:120"]);
+});
+
+test("lazy_frames gives up after its budget on a frame that never loads", async () => {
+  const { result, scrolls } = await loadLazyFrames(
+    [{ attrs: { id: "stalled", loading: "lazy", src: "https://widgets.example/s" }, href: "about:blank" }],
+    { loadsOnScroll: [] },
+  );
+  assert.equal(result.candidates, 1);
+  assert.equal(result.loaded, 0);
+  assert.ok(result.waited_ms >= 3000 && result.waited_ms < 3200, `${result.waited_ms}`);
+  assert.deepEqual(scrolls, ["stalled", "restore:120"]);
+});
+
+test("lazy_frames does nothing on a page without a blank lazy frame", async () => {
+  const { result, scrolls } = await loadLazyFrames(
+    [{ attrs: { id: "eager", src: "https://widgets.example/e" }, href: "about:blank" }],
+    { loadsOnScroll: [] },
+  );
+  assert.deepEqual(result, { candidates: 0, loaded: 0, waited_ms: 0 });
+  assert.deepEqual(scrolls, []);
+});

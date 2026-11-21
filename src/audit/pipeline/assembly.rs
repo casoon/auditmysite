@@ -817,6 +817,10 @@ mod tests {
                 crate::audit::AuditQualityStatus::Partial,
             ),
             (
+                FrameSkipReason::NotLoaded,
+                crate::audit::AuditQualityStatus::Partial,
+            ),
+            (
                 FrameSkipReason::Hidden,
                 crate::audit::AuditQualityStatus::Complete,
             ),
