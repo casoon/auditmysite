@@ -58,7 +58,7 @@ pub(in crate::output::pdf) fn render_security(
     let (header_count, header_total) = (sec.core_headers_present, sec.core_headers_total);
     builder = builder.add_component(
         MetricStrip::new(vec![
-            // Accent from the ratio, not a fixed teal: inros-lackner.de has
+            // Accent from the ratio, not a fixed teal: a corporate site has
             // 0 of 10 security headers set and the tile rendered in the
             // success colour. Same 75/40 cutoffs as every other
             // score colour in the report.

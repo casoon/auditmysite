@@ -122,7 +122,7 @@ fn weak_contributing_modules(
 /// FIVE_BAND cutoff used elsewhere in the report, e.g. `score_band_label`). This, not the
 /// broader < 75 "Good" band, decides how many modules "determine the need for action" for the
 /// Problem-Profile breadth tiering (feedback 2026-09-07: the < 75 threshold pulled in merely
-/// "Verbesserungswürdig" modules — e.g. Performance 64 / SEO 65 on inros-lackner.de — alongside
+/// "Verbesserungswürdig" modules — e.g. Performance 64 / SEO 65 on a corporate site — alongside
 /// the two genuinely critical ones (Accessibility 20 / Security 30), producing "breit &
 /// systemisch" where the real driver was two critical modules, not four weak ones).
 /// Sorted by drag impact descending, same as `weak_contributing_modules`.
@@ -450,12 +450,12 @@ mod tests {
     }
 
     #[test]
-    fn problem_profile_inros_lackner_scenario_is_konzentriert_systemisch() {
+    fn problem_profile_corporate_site_scenario_is_konzentriert_systemisch() {
         let mut vm = test_report_view_model();
         let i18n_de = I18n::new("de").unwrap();
         let i18n_en = I18n::new("en").unwrap();
 
-        // Real module scores from a live inros-lackner.de audit, 2026-09-07
+        // Real module scores from a live audit of a corporate site, 2026-09-07
         // (verified via `--debug-typ`'s "Warum ist der Gesamtwert"-table) — 4
         // of 5 weighted modules are below 75 ("Good"), but only Accessibility
         // (20) and Security (30) are actually "Kritisch" (< 40); Performance
@@ -498,12 +498,12 @@ mod tests {
     }
 
     #[test]
-    fn problem_profile_auto_birne_scenario_is_breit_systemisch() {
+    fn problem_profile_dealer_site_scenario_is_breit_systemisch() {
         let mut vm = test_report_view_model();
         let i18n_de = I18n::new("de").unwrap();
         let i18n_en = I18n::new("en").unwrap();
 
-        // Real module scores from a live auto-birne.de audit, 2026-09-07
+        // Real module scores from a live audit of a dealer site, 2026-09-07
         // (verified via `--debug-typ`'s "Warum ist der Gesamtwert"-table) — 3
         // critical (< 40) modules (Accessibility, Performance, Security); SEO
         // (82) is stable and Mobile (70) is merely "Verbesserungswürdig", so

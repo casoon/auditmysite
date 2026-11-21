@@ -745,7 +745,7 @@ pub fn analyze_source_quality(report: &AuditReport) -> SourceQualityAnalysis {
     // Structural signals are indicators and carry no weight. The
     // three on-page consistency checks run only where both sides exist; the
     // dimension carries its 25 % share in proportion to the checks that ran,
-    // so one passed comparison does not count like three (inros-lackner.de:
+    // so one passed comparison does not count like three (a corporate site:
     // one title check would have lifted the indicator from 44 to 66).
     let consistency_weight = 25
         * consistency
@@ -1058,7 +1058,7 @@ fn evaluate_single_page_consistency(report: &AuditReport) -> DimensionScore {
     // Only contradictions one page can show on its own; each check runs only
     // when both sides exist. Heading hierarchy, unnamed controls and critical
     // violations used to stand here — accessibility findings counted a second
-    // time, the same seven links twice on inros-lackner.de.
+    // time, the same seven links twice on a corporate site.
     let Some(seo) = &report.discoverability.seo else {
         return build_dimension(DimensionKind::Consistency, signals);
     };
@@ -2065,8 +2065,8 @@ mod tests {
         // Company name as title, slogan as H1: normal on a homepage.
         report.discoverability.seo = Some(seo_with(
             None,
-            Some(og("INROS LACKNER SE")),
-            Some("INROS LACKNER SE - INROS LACKNER SE"),
+            Some(og("ACME WIDGETS SE")),
+            Some("ACME WIDGETS SE - ACME WIDGETS SE"),
             Some("BIM – Visionen gestalten"),
         ));
         assert!(title_signal(&report).expect("title signal").present);

@@ -444,7 +444,7 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
     // Controls without an accessible name (WCAG 4.1.2) can be "medium"
     // severity — so they need not reach `legal_flags` — while still making a
     // control fully inoperable. Regression
-    // (satower-mosterei.de, 2026-08-31): overall risk "medium", verdict
+    // (a shop site, 2026-08-31): overall risk "medium", verdict
     // "fail", 4 blocking issues, yet every dimension read "low" because this
     // field was never consulted.
     let blocking_issues: usize = reports.iter().map(|r| r.risk.blocking_issues).sum();

@@ -1422,7 +1422,7 @@ pub struct PortfolioSummary {
     pub severity_distribution: SeverityDistribution,
     /// The same split by WCAG occurrences rather than per-page finding
     /// groups — 21 critical + 74 high groups were 21 + 124 occurrences on
-    /// inros-lackner. Counts naming "Vorkommen" use this one.
+    /// a corporate site. Counts naming "Vorkommen" use this one.
     pub occurrence_distribution: SeverityDistribution,
     /// Aggregated risk level across all URLs (worst-case)
     pub risk_level: String,

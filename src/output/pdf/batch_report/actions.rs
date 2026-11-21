@@ -177,7 +177,7 @@ pub(super) fn render_batch_top_issues(
         // `{ $selector }` interpolation, so nothing is lost.
         //
         // One entry per place: two rules at the same selector (the skip link
-        // on inros-lackner: landmark and positive tabindex) are one place
+        // on a corporate site: landmark and positive tabindex) are one place
         // with two findings, listed underneath — not two causes.
         let mut template_list = List::new().with_title(i18n.t("batch-template-section-title"));
         let mut seen: Vec<&str> = Vec::new();

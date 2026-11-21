@@ -242,13 +242,13 @@ mod tests {
     #[test]
     fn site_wide_terms_do_not_count_as_overlap() {
         let pages = vec![
-            page("a", &["inros", "lackner", "hafen", "kaikante", "sanierung"]),
-            page("b", &["inros", "lackner", "hafen", "kaikante", "terminal"]),
-            page("c", &["inros", "lackner", "karriere", "benefits", "urlaub"]),
-            page("d", &["inros", "lackner", "projekte", "energie", "umwelt"]),
+            page("a", &["acme", "widgets", "hafen", "kaikante", "sanierung"]),
+            page("b", &["acme", "widgets", "hafen", "kaikante", "terminal"]),
+            page("c", &["acme", "widgets", "karriere", "benefits", "urlaub"]),
+            page("d", &["acme", "widgets", "projekte", "energie", "umwelt"]),
             page(
                 "e",
-                &["inros", "lackner", "datenschutz", "cookies", "rechte"],
+                &["acme", "widgets", "datenschutz", "cookies", "rechte"],
             ),
         ];
         let pairs = derive_topic_overlap_pairs(&pages);
@@ -260,6 +260,6 @@ mod tests {
         assert_eq!(pairs[0].shared_terms, vec!["hafen", "kaikante"]);
         assert!(pairs[0].similarity_percent <= 100);
         let topics = derive_domain_topics(&pages);
-        assert!(!topics.iter().any(|(t, _)| t == "inros" || t == "lackner"));
+        assert!(!topics.iter().any(|(t, _)| t == "acme" || t == "widgets"));
     }
 }

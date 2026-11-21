@@ -196,7 +196,7 @@ fn render_module_split_dashboards(
         // verdict (which fails on blocking operability issues or legal flags
         // even when every module score is >= 75). An unconditional "all
         // good" claim here directly contradicted a failing verdict
-        // (confirmed live in satower-mosterei.de, 2026-08-31: verdict fail /
+        // (confirmed live in a shop site, 2026-08-31: verdict fail /
         // 4 blockers, right next to "no module needs prioritized
         // optimization"). Qualify the
         // message instead of suppressing it entirely, so the "module scores
@@ -331,7 +331,7 @@ pub(super) fn render_risks_and_strengths(
     // second heuristic (`compute_dimension_rows`) over severity counts and
     // three module scores: it carried different dimensions, graded them
     // differently, and the JSON's evidence-bearing rationales never reached
-    // the PDF reader at all. On inros-lackner-de the JSON held four
+    // the PDF reader at all. On a corporate site the JSON held four
     // `high` risks while the panel showed three "bad" and two "warn", and two
     // `high` dimensions were missing entirely.
     //

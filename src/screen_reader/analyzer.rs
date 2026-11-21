@@ -148,7 +148,7 @@ fn detect_non_descriptive_interactive_names(
 
 /// Detects an accessible name whose words split exactly into two identical
 /// halves back-to-back, e.g. "Kontakt Kontakt" or "AGB AGB" (confirmed live
-/// on shop.satower-mosterei.de, 2026-09-04: a screen reader announces such
+/// on a shop site, 2026-09-04: a screen reader announces such
 /// names twice in a row, which reads as a glitch rather than a real repeated
 /// word). This operates on the already-resolved AXTree `name` -- not on the
 /// DOM's `aria-label`/visible-text pair -- so it only fires when the *final*
@@ -274,7 +274,7 @@ fn detect_announcement_deserts(items: &[ReadingItem], en: bool, issues: &mut Vec
 /// This matters only for the announcement-desert distance measure, which asks
 /// "how much does a user hear before the next orientation point". Counting
 /// wrappers made that distance a function of markup nesting rather than of
-/// content: on www.sachsen-anhalt.de (2026-09-17) a news teaser card of four
+/// content: on a public-sector site (2026-09-17) a news teaser card of four
 /// announced items -- headline, date, teaser text, image credit -- was reported
 /// as a 23-entry desert. Name/value presence is the role-agnostic test for
 /// "has something to say", so a wrapper with an author-supplied name (an
@@ -323,7 +323,7 @@ fn detect_skipped_heading_levels(
         // Heading level as "h6" (or "an unknown level" if the AX tree didn't
         // expose one) -- `heading.level` is `Option<u8>`, so this must not be
         // formatted with `{:?}`. That previously leaked "Some(6)" verbatim
-        // into the message (confirmed live in the shop.satower-mosterei.de
+        // into the message (confirmed live in a shop site
         // report, 2026-08-31).
         let level = heading
             .level
@@ -663,7 +663,7 @@ mod tests {
         // A news teaser card as Chrome exposes it: a handful of announced texts
         // wrapped in figure/paragraph/group/generic containers that carry no
         // text of their own. Counting the wrappers turned four announcements
-        // into a 23-entry "desert" on www.sachsen-anhalt.de (2026-09-17).
+        // into a 23-entry "desert" on a public-sector site (2026-09-17).
         let mut items = vec![
             item(0, "heading", Some("News"), false, vec!["level=2"]),
             item(
@@ -678,7 +678,7 @@ mod tests {
             item(
                 4,
                 "StaticText",
-                Some("In Sachsen-Anhalt haben 100 Menschen"),
+                Some("In Beispielstadt haben 100 Menschen"),
                 false,
                 vec![],
             ),
@@ -767,7 +767,7 @@ mod tests {
 
     #[test]
     fn skipped_heading_level_is_tagged_1_3_1_not_2_4_6_and_has_no_debug_leak() {
-        // Regression (shop.satower-mosterei.de, 2026-08-31): the message
+        // Regression (a shop site, 2026-08-31): the message
         // formatted `heading.level` (Option<u8>) via `{:?}`, leaking
         // "Some(6)" verbatim, and tagged the issue as WCAG 2.4.6 (which is
         // about descriptive heading/label *text*, not heading nesting order
@@ -1069,7 +1069,7 @@ mod tests {
     #[test]
     fn detects_duplicated_accessible_name_on_footer_style_link() {
         // Regression fixture resembling the confirmed live bug
-        // (shop.satower-mosterei.de, 2026-09-04): a footer link's resolved
+        // (a shop site, 2026-09-04): a footer link's resolved
         // accessible name is the visible text repeated twice back-to-back
         // (e.g. a labelled icon glyph concatenated with adjacent visible
         // text via name-from-content), so a screen reader announces

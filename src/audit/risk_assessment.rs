@@ -62,7 +62,7 @@ pub(super) fn compute_risk_assessment(
     // control; counting them turned gov.uk's two empty status regions into
     // "controls not operable with assistive technology".
     // Only Medium+ severity — Low findings (e.g. accordion advisory) are not blockers.
-    // Counted per element: on sachsen-anhalt.de three name rules reported the
+    // Counted per element: on a public-sector site three name rules reported the
     // same menu element, which read as "3 Bedienelemente". Occurrences are
     // identified by node, or by selector where the node is a placeholder;
     // occurrences a finding counts but does not list stay counted as distinct.

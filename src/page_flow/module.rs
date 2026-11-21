@@ -22,7 +22,7 @@ use super::analyze_journey_with_page_context;
 /// The Journey module's "little visible text in the upper area" finding used
 /// to approximate this by taking the first N nodes of the accessibility tree
 /// in document order. Tree order is not vertical order — on
-/// www.inros-lackner.de the first fifty nodes are a skip link and forty
+/// a corporate site the first fifty nodes are a skip link and forty
 /// wrappers, and its `article` elements appear as empty shells before their
 /// own text. Measuring it in the page is measuring what the
 /// sentence claims.

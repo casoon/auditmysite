@@ -228,9 +228,8 @@ pub(super) fn build_wcag_coverage_for_level(level: &str) -> WcagCoverageSummary 
 /// up to the headline number. A breakdown that carried one next to the lost
 /// points disagreed with them (an area "89" beside 7 lost points, #902 item
 /// 10), and the model before that was a second scoring model of its own
-/// (inros-lackner-de 2026-09-19: areas averaging 57 under a score of 20, plan
-/// 37). So this distributes the loss the score *actually* took
-/// (`100 - accessibility_score`) across the areas in proportion to each area's
+/// (a real report, 2026-09-19: areas averaging 57 under a score of 20). So this distributes the loss
+/// the score *actually* took (`100 - accessibility_score`) across the areas in proportion to each area's
 /// share of the raw per-rule penalty.
 ///
 /// That makes one identity exact and checkable, which `lint` enforces:
@@ -1117,7 +1116,7 @@ mod tests {
             Some("Keyboard"),
         );
         // A landmark rule whose description mentions role 'image' shipped under
-        // "Images / alternative text" (inros-lackner-de, 2026-09-19).
+        // "Images / alternative text" (a corporate site, 2026-09-19).
         assert_eq!(
             score_area_for_finding(&make_finding(
                 "landmarks/content-outside",
@@ -1151,7 +1150,7 @@ mod tests {
     /// `accessibility_score` counts WCAG violations only, so an SEO
     /// finding must not appear in its breakdown. `seo.headings.multiple_h1`
     /// was the `main_driver` of the "Heading structure" area in a shipped
-    /// report (inros-lackner-de, 2026-09-19).
+    /// report (a corporate site, 2026-09-19).
     #[test]
     fn score_area_excludes_non_wcag_findings() {
         let mut seo = make_finding("seo.headings.multiple_h1", "Two H1 headings found.");

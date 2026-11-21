@@ -1409,7 +1409,7 @@ mod tests {
             critical_chain: None,
             minification: Some(crate::performance::MinificationAnalysis {
                 unminified_scripts: vec![crate::performance::UnminifiedAsset {
-                    url: "https://www.inros-lackner.de/assets/app/build/index-noncritical.js"
+                    url: "https://www.example.com/assets/app/build/index-noncritical.js"
                         .to_string(),
                     kind: "script".to_string(),
                     decoded_bytes: 305_818,
@@ -1417,7 +1417,7 @@ mod tests {
                     savings_bytes: 203_878,
                 }],
                 unminified_styles: vec![crate::performance::UnminifiedAsset {
-                    url: "https://www.inros-lackner.de/assets/app/build/index.css?v=1".to_string(),
+                    url: "https://www.example.com/assets/app/build/index.css?v=1".to_string(),
                     kind: "css".to_string(),
                     decoded_bytes: 454_810,
                     transfer_bytes: 110_000,

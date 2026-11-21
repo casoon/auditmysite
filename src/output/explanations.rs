@@ -481,7 +481,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
     // "keyboard-trap", WCAG 2.1.2). Without this entry, get_explanation()
     // returns None and the PDF fell back to the raw, English-only
     // Violation.fix_suggestion text unlocalized — confirmed live leaking
-    // into German reports (shop.satower-mosterei.de, säfte.com, 2026-08-31;
+    // into German reports (two shop sites, 2026-08-31;
     // report-quality review, 2026-09-01).
     (
         "keyboard-trap",
@@ -1946,7 +1946,7 @@ mod tests {
     /// resolving a landmark finding by `rule_id` alone returns the generic
     /// "missing semantic structure" explanation written for tables and lists.
     /// The axe-id override must win. Confirmed live on the 2026-09-19
-    /// inros-lackner report, where `detail.fix_guidance` published three
+    /// Report of a corporate site, where `detail.fix_guidance` published three
     /// landmark rules as "Missing semantic structure" with `<table><thead>`
     /// as their fix example.
     #[test]

@@ -187,7 +187,7 @@ pub(super) fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults)
     for mv in &mobile.violations {
         let mk = dedup_key(mv);
         // Only an unmatched desktop entry can pair up: several elements can
-        // share a selector (18 × `ul.link-list__list` on sachsen-anhalt.de),
+        // share a selector (18 × `ul.link-list__list` on a public-sector site),
         // and reusing the first match left the other 17 desktop entries to be
         // appended as desktop-only — 35 occurrences for 18 elements.
         let match_idx = desktop

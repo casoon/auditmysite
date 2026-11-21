@@ -14,7 +14,7 @@ use super::design::tokens;
 /// One-line "technical condition" phrase for the cover.
 ///
 /// Derived from the score alone this contradicted the run's own verdict: on
-/// inros-lackner-de (verdict `fail`, 5 legal flags)
+/// a corporate site (verdict `fail`, 5 legal flags)
 /// the cover read "Ausbaufähiger technischer Zustand". A failing
 /// run now says so on the cover, and a partial run says that it is
 /// provisional.

@@ -1078,7 +1078,7 @@ fn analyze_entry_clarity(
     //
     // The fallback counts text nodes among the first 50 in document order.
     // That is a proxy for vertical position and a poor one — on
-    // www.inros-lackner.de the first 50 nodes are a skip link and forty
+    // a corporate site the first 50 nodes are a skip link and forty
     // wrappers, while the articles further down are the actual top of the
     // page. It stands in only where no page is available: the
     // library entry point `analyze_journey`, and tests.

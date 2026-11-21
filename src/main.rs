@@ -63,18 +63,17 @@ mod tests {
     #[test]
     fn test_report_subject_from_url_strips_www_and_normalizes() {
         assert_eq!(
-            report_subject_from_url("https://www.in-punkto.com"),
-            "in-punkto-com"
+            report_subject_from_url("https://www.example.com"),
+            "example-com"
         );
     }
 
     #[test]
     fn test_default_single_pdf_output_path_uses_current_directory_filename() {
-        let path =
-            default_single_pdf_output_path("https://www.in-punkto.com", ReportLevel::Standard);
+        let path = default_single_pdf_output_path("https://www.example.com", ReportLevel::Standard);
         let rendered = path.display().to_string();
         assert!(rendered.ends_with("-single-report.pdf"));
-        assert!(rendered.contains("in-punkto-com-"));
+        assert!(rendered.contains("example-com-"));
         assert!(!rendered.contains('/'));
     }
 
@@ -117,14 +116,14 @@ mod tests {
     fn test_per_page_output_path_uses_url_slug_and_extension() {
         let path = per_page_output_path(
             std::path::Path::new("reports"),
-            "https://www.in-punkto.com/leistungen/",
+            "https://www.example.com/leistungen/",
             OutputFormat::Pdf,
             ReportLevel::Standard,
         );
         let rendered = path.display().to_string();
         assert!(rendered.starts_with("reports/"));
         assert!(rendered.ends_with("-single-report.pdf"));
-        assert!(rendered.contains("in-punkto-com-leistungen-"));
+        assert!(rendered.contains("example-com-leistungen-"));
     }
 
     #[test]
@@ -181,7 +180,7 @@ mod tests {
     fn test_per_page_output_path_uses_single_report_name_for_json() {
         let path = per_page_output_path(
             std::path::Path::new("reports"),
-            "https://www.in-punkto.com/leistungen/",
+            "https://www.example.com/leistungen/",
             OutputFormat::Json,
             ReportLevel::Standard,
         );

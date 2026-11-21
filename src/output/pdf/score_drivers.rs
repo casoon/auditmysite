@@ -106,7 +106,7 @@ pub(super) fn render_score_driver_table(
     // blend mixed with security (`score_breakdown`). Titling this table "why
     // the site-quality score is what it is" then invited arithmetic that does not
     // come out: on casoon.de the rows averaged 90.05 against a reported 92,
-    // on inros-lackner 47.05 against 45. The real derivation is
+    // on a corporate site 47.05 against 45. The real derivation is
     // rendered separately by `render_site_quality_score_derivation` below.
     let is_derivation = vm.summary.score_calculation_method != "viewport_weighted";
     let mut table = AuditTable::new(vec![
@@ -457,7 +457,7 @@ mod tests {
     /// In `viewport_weighted` mode the per-module weighting is not
     /// the computation path, so the derivation block must reproduce the
     /// headline value on its own. Confirmed live before the fix: casoon.de's
-    /// module rows averaged 90.05 against a reported 92, inros-lackner's
+    /// module rows averaged 90.05 against a reported 92, a corporate site's
     /// 47.05 against 45.
     #[test]
     fn score_derivation_reproduces_the_site_quality_score() {

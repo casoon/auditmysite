@@ -2921,7 +2921,7 @@ mod tests {
 
     /// Der Vermerk zählt nur, was als Befund übrig bleibt. Vorher trug er die
     /// Zählung des Crates weiter, und ein Report meldete für `ids/duplicate`
-    /// zehn Befunde, die es in `violations` nicht gab (inros-lackner.de,
+    /// zehn Befunde, die es in `violations` nicht gab (a corporate site,
     /// 2026-09-24).
     #[test]
     fn der_vermerk_zaehlt_verworfene_duplikate_nicht_mit() {

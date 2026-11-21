@@ -3060,8 +3060,8 @@ mod tests {
 
     /// The viewport path uses the published module weights — SEO
     /// 15, HTML conformance 5 — so with every module on one viewport it is
-    /// the module-weighted mean over the 90 non-security points. inros-
-    /// lackner mobile: (49·40 + 77·20 + 65·15 + 80·10 + 62·5) / 90 = 62.06.
+    /// the module-weighted mean over the 90 non-security points. a real
+    /// corporate site, mobile: (49·40 + 77·20 + 65·15 + 80·10 + 62·5) / 90 = 62.06.
     /// The old path (SEO 20, no HTML conformance) gave 62.2; asymmetric
     /// scores show the difference.
     #[test]

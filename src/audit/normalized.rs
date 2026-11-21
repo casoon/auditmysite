@@ -2426,7 +2426,7 @@ mod tests {
 
     /// a11y-rules 0.24.1: a zoom limit between 200 % and 500 % meets 1.4.4
     /// and is a best practice — it may raise neither a legal flag nor more
-    /// than low BFSG relevance (inros-lackner.de, `maximum-scale=2`).
+    /// than low BFSG relevance (a corporate site, `maximum-scale=2`).
     #[test]
     fn viewport_scale_limit_is_a_best_practice() {
         let mut results = WcagResults::new();

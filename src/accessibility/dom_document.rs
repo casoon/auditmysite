@@ -1749,7 +1749,7 @@ impl<'n> Walk<'_, 'n> {
         // selbst bekommt kein Gegenstück. Die Light-DOM-Kinder des Hosts
         // erscheinen nur dort, wo ein `<slot>` sie aufnimmt; ohne Slot werden
         // sie nicht dargestellt. Hingen sie neben dem Shadow-Inhalt, stand auf
-        // sachsen-anhalt.de jede `<ul><slot>` leer da und jedes per Slot
+        // einer realen Behördenseite jede `<ul><slot>` leer da und jedes per Slot
         // gelieferte `role="listitem"` ausserhalb einer Liste.
         //
         // User-Agent-Shadow-Roots bleiben aussen vor: Die Tag-/Monat-/Jahr-
@@ -3088,7 +3088,7 @@ mod tests {
         );
     }
 
-    /// Muster von sachsen-anhalt.de: Die Liste liegt im Shadow-Root, die
+    /// Muster einer realen Behördenseite: Die Liste liegt im Shadow-Root, die
     /// Eintraege kommen per Slot aus dem Light-DOM des Hosts. Im flachen Baum
     /// haengen sie unter dem `<slot>` in der `<ul>`; ein nicht zugewiesenes
     /// Light-Kind erscheint gar nicht.

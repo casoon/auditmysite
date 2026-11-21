@@ -749,7 +749,7 @@ mod tests {
     #[test]
     fn report_archetype_many_repeated_findings_is_component_pattern() {
         let report = report_with_repeated_rule(
-            "https://auto-birne.example",
+            "https://shop.example",
             "4.1.2",
             "Name, Role, Value",
             Severity::High,

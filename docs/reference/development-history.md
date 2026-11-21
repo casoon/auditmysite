@@ -26,11 +26,11 @@ entries first (unchanged order from before the extraction).
   of `aria-haspopup`, 3.2.5 AAA with its own taxonomy entry and explanation text) and
   `links/purpose-link-only` (2.4.9). All are `REVIEW`; generic link texts without context were
   violations locally. 2.4.9 and 3.2.5 thus count as "notes only", the AA numbers (30/25) stay.
-  Live inros-lackner.de: 5 × `link-name-context` → 5 × `links/generic-name` (Low); detection
+  Live on a corporate site: 5 × `link-name-context` → 5 × `links/generic-name` (Low); detection
   corpus with Chrome green.
 
-- **Unreleased — Report quality after the inros review:**
-  An external review of the single and the sitemap report for inros-lackner.de was checked point
+- **Unreleased — Report quality after an external review:**
+  An external review of the single and the sitemap report for a corporate site was checked point
   by point against code and the live site; only confirmed findings were changed, refuted ones
   remain documented. Measurement errors: Best Practices and Tech Stack reported 100 without any
   data collection (now a check status), CSS coverage had numerator = denominator (316/316 →
@@ -69,7 +69,7 @@ entries first (unchanged order from before the extraction).
   whitespace in the `<fieldset>` as invalid.
   Live before → after (2026-10-23, AA, desktop): upscale.casoon.dev/aufgaben/ score 92 → 97
   (`html-content-model` at the `<legend>` is dropped); bund.de `ids/duplicate` 1 → 0 (`#content`),
-  sachsen-anhalt.de 2 → 0 (`#panel`, `#card__heading`) — IDs from the shadow roots of the
+  a public-sector site 2 → 0 (`#panel`, `#card__heading`) — IDs from the shadow roots of the
   muse components, scores unchanged. bundesregierung.de (AAA): one new note each for 2.5.1
   (Slick carousel), 2.2.3, 2.2.4, 3.1.3 and 3.3.5; 2.2.5 and 2.5.4 silent without a trigger.
   Detection corpus (Chrome) green, expectations switched to the new IDs.
@@ -1427,7 +1427,7 @@ entries first (unchanged order from before the extraction).
   throttled temporarily (429).
 
 - **Report accuracy after the comparison with the rankinglab corpus, 2026-09-29:** Two
-  report critiques (gov.uk, sachsen-anhalt.de) against 1.3.1 found errors that distorted verdict and numbers;
+  report critiques (gov.uk, a public-sector site) against 1.3.1 found errors that distorted verdict and numbers;
   each is verified against the code or the data. (1) The merge of
   desktop and mobile paired every mobile finding with the first desktop finding of the same selector,
   even if that one was already taken: 18 empty lists per view became 35 occurrences. Now one to one. (2) `role="status"`/`alert` without a name counted as a 4.1.2 violation;
@@ -1448,11 +1448,11 @@ entries first (unchanged order from before the extraction).
   PDF builders (single and batch) insert. (8) The DOM for the shared rules is the
   flat tree: light DOM nodes assigned via slot hang under their `<slot>`, unassigned
   ones do not appear. Previously they hung next to the shadow content, and every
-  `<ul><slot>` of a web component stood there empty (sachsen-anhalt.de). (9) On exit,
+  `<ul><slot>` of a web component stood there empty (a public-sector site). (9) On exit,
   `BrowserManager::close` reported "Failed to close page: Session with given id not found" for the already
   closed audit page (5 of 15 single audits); that is now a debug message.
   Follow-up check on newly generated reports: (10) Blockers count elements, not rule hits (three
-  name rules on the same menu element on sachsen-anhalt.de were "3 Bedienelemente" (3 controls)), with
+  name rules on the same menu element on a public-sector site were "3 Bedienelemente" (3 controls)), with
   singular in the sentence. (11) The checklist "Alle Verstoesse" (all violations) also shows the shared texts
   in German. (12) Source quality: card colours by the same thresholds as the wording tier (40
   instead of 60 for red), and "all signals fine" only if every dimension is good (gov.uk: 80+
@@ -2125,12 +2125,12 @@ entries first (unchanged order from before the extraction).
   Reports from before the switch do not have the field and were based on WCAG 2.1. Both JSON
   schemas know the field, `schema_version` stays 2.0 (additive).
 
-  The reference run on www.inros-lackner.de turned up a counting error from the 4.1.1 rework:
+  The reference run on a corporate site turned up a counting error from the 4.1.1 rework:
   `rule_outcomes` reported 10 findings for `ids/duplicate`, `violations` contained none. The filter
   on referenced IDs discarded the findings, but the note from `a11y-rules` was passed on unchanged.
   It is now trimmed by the discarded findings. Checked: unit test, `cargo test --all-features`,
-  clippy for both feature sets, reference runs casoon.de (single + batch) and inros-lackner.de with
-  `wcag_version` "2.2" and without `report-lint` findings. inros-lackner.de stands at accessibility
+  clippy for both feature sets, reference runs casoon.de (single + batch) and a corporate site with
+  `wcag_version` "2.2" and without `report-lint` findings. A corporate site stands at accessibility
   47 (on 2026-09-20: 20); the ten unreferenced duplicate IDs no longer count. How much of the jump
   is due to that and how much to changes on the site was not measured in isolation.
 
@@ -2260,7 +2260,7 @@ entries first (unchanged order from before the extraction).
   `pub(super)`. `single_report.rs` drops to 3,219 lines; the diff there contains nothing but
   deletions apart from three import lines and two visibility raises.
 
-  Verified as output-neutral: the `--debug-typ` run of www.inros-lackner.de has the same line count
+  Verified as output-neutral: the `--debug-typ` run of a corporate site has the same line count
   before and after and an identical problem-profile section.
 
   The test helper `test_report_view_model` was not duplicated but made visible via
@@ -2289,7 +2289,7 @@ entries first (unchanged order from before the extraction).
     components later as its own label. New `interpretation_beyond_takeaway`: the label now only
     shows what the header has not already said.
   - **"Header 0/10" in the success color.** The accent was pinned to teal; it now comes from the
-    ratio, via the same `score_color` function as everywhere else. inros-lackner 0/10 is red,
+    ratio, via the same `score_color` function as everywhere else. A corporate site 0/10 is red,
     casoon 8/10 green.
   - **"Details im Methodik-Anhang" ("details in the methodology appendix") led nowhere.** The
     appendix repeated the same sentence; which measurements were discarded was stated nowhere,
@@ -2312,7 +2312,7 @@ entries first (unchanged order from before the extraction).
 
   After the role fix, 93 of 2731 cached pages remained flagged, and these remainders were not a
   smaller version of the same problem but the failure of the approximation. On
-  www.inros-lackner.de the first 50 nodes are a skip link and forty wrappers; the `article`
+  a corporate site the first 50 nodes are a skip link and forty wrappers; the `article`
   elements stand as empty shells *before* their own text. Tree order there is no vertical order at
   all, so even a wrapper-skipping variant (measured: 13 instead of 93) would only have swapped one
   uncalibrated constant for another.
@@ -2327,7 +2327,7 @@ entries first (unchanged order from before the extraction).
 
   Verified in both directions with three fixtures: text behind a 3000px hero is flagged, a page
   with a heading and paragraph at the top is not, and 79 characters of pure screen-reader text at
-  the top do not count as visible text. www.inros-lackner.de is no longer flagged, journey there
+  the top do not count as visible text. A corporate site is no longer flagged, journey there
   65 -> 68; www.casoon.de unchanged at 91. Two fixtures and an end-to-end test in
   `tests/integration_test.rs` pin down both directions — the old approximation could not tell them
   apart, because the heading is at the front of the tree either way.
@@ -2397,7 +2397,7 @@ entries first (unchanged order from before the extraction).
   previously passed as Corporate.
 
   **Not fixed along with it:** the time window itself. `LittleEarlyText` promises "little text in
-  the upper page area" but measures the first 50 nodes in tree order. On www.inros-lackner.de the
+  the upper page area" but measures the first 50 nodes in tree order. On a corporate site the
   skip link and forty wrappers stand there. A variant that skips pure wrappers was measured (13
   instead of 93 flagged) and rejected: the `article` nodes of this page stand as empty shells
   before their own text, so tree order there is no vertical order at all. That needs geometry
@@ -2406,7 +2406,7 @@ entries first (unchanged order from before the extraction).
 - **`AXTree` without document order, 2026-09-20:** `AXTree.nodes` is a `HashMap`, and
   `iter()`/`headings()` returned `values()` -- hash order, which Rust sets randomly per process.
   Detectors that read the tree as a document thereby contradicted themselves: two consecutive
-  audits of www.inros-lackner.de from the same binary, one reported UX 78, the other UX 81,
+  audits of a corporate site from the same binary, one reported UX 78, the other UX 81,
   without anything having changed on the page. Affected were the heading-skip detection
   (`last_level` presupposes document order) and journeys "early content" (`iter().take(50)` over a
   `HashMap` is fifty arbitrary nodes, not the start of the page).
@@ -2417,7 +2417,7 @@ entries first (unchanged order from before the extraction).
   direct write access to the public `nodes`), it is reconstructed from `child_ids` by depth-first
   search from the root, unreachable nodes appended sorted by id -- degraded, but deterministic.
 
-  Verified: three consecutive runs over www.inros-lackner.de deliver identical UX findings and
+  Verified: three consecutive runs over a corporate site deliver identical UX findings and
   module values. Journey drops from 68 to 65 in the process, because `take(50)` now actually reads
   the start of the page. The `HeadingSkips` case deliberately left out earlier is now in
   `every_penalty_states_its_own_reason_at_the_first_occurrence` -- it could not be asserted as long
@@ -2466,7 +2466,7 @@ entries first (unchanged order from before the extraction).
   - **The headline is accessibility (D1):** Grade and certificate hung on the weighted overall
     value (#233, so that they do not contradict each other). That resolved the internal
     contradiction but moved the figure away from the subject of the report:
-    inros-lackner.de with accessibility 20 appeared on the cover as 45, because performance,
+    a corporate site with accessibility 20 appeared on the cover as 45, because performance,
     mobile and SEO pulled it up; casoon.de with accessibility 100 as 92. Both now read the
     accessibility score, so they still cannot contradict each other. The weighted value remains as
     a named ScoreCard "Kombinierter technischer Wert" (combined technical value) with its weight
@@ -2479,11 +2479,11 @@ entries first (unchanged order from before the extraction).
     `BATCH_GRADE` is dropped.
 
   Verified on fresh reports of www.casoon.de (accessibility 100, combined 92, grade A) and
-  www.inros-lackner.de (accessibility 20, combined 45, grade F, certificate NICHT BESTANDEN, i.e.
+  a corporate site (accessibility 20, combined 45, grade F, certificate NICHT BESTANDEN, i.e.
   not passed); `report-lint` on both without findings.
 
 - **Report quality pass, 2026-09-19:** Result of a `report-critic` run over fresh single-URL
-  reports for www.casoon.de and www.inros-lackner.de. `auditmysite report-lint` found nothing on
+  reports for www.casoon.de and a corporate site. `auditmysite report-lint` found nothing on
   either report — all points are semantic in nature and structurally invisible to the
   deterministic linter. Six commits, one per finding.
 
@@ -2543,7 +2543,7 @@ entries first (unchanged order from before the extraction).
   - **Deductions without a stated reason:** In `ux/analysis.rs`, three checks lowered the score
     completely silently (word count 50-100, long page with fewer than five headings, fewer than
     three trust keywords), and four more deducted from the first occurrence but only reported
-    from a considerably higher threshold. **Finding:** `reports/inros-lackner-audit.json` showed
+    from a considerably higher threshold. **Finding:** `reports/example-audit.json` showed
     `content_clarity: 80` without any ContentClarity finding in the list — 80 is exactly one
     20-point deduction, the silent word-count branch. The rule was already in the code: the
     `LargeDom` branch carries the comment that the score must never drop without a stated reason —
@@ -2561,7 +2561,7 @@ entries first (unchanged order from before the extraction).
     reads that anyway — two runs of the same page produced different findings. In addition,
     `analyze_content_clarity` counted text via `iter()` and listed `StaticText` as the first role,
     although `iter()` filters out exactly this role: the branch could never trigger, and the
-    deduction was a **false finding**. With `iter_all()`, inros-lackner.de goes from
+    deduction was a **false finding**. With `iter_all()`, a corporate site goes from
     `content_clarity` 80 to 100. Fixed here because otherwise a silent false finding would have
     become a visible one.
 
@@ -2570,7 +2570,7 @@ entries first (unchanged order from before the extraction).
 
   - **The overall value was not derivable:** The table "Warum ist der Gesamtwert, was er ist" (Why
     the overall value is what it is) listed the modules with their weights; recalculated, that
-    gave 90.05 against a reported 92 (casoon) and 47.05 against 45 (inros-lackner). **Finding:**
+    gave 90.05 against a reported 92 (casoon) and 47.05 against 45 (a corporate site). **Finding:**
     there are two calculation paths, and only one of them is the module weighting. In
     `viewport_weighted` mode the value arises from a desktop/mobile blend with security mixed in —
     this is in `score_breakdown` and was rendered nowhere. The table there is now called "Die
@@ -2993,11 +2993,11 @@ entries first (unchanged order from before the extraction).
   not the content of audited web pages). A new CI job `dependency-audit` (`.github/workflows/ci.yml`)
   runs `cargo audit` on every PR.
 - **Screen reader module: reading order counted layout artifacts, 2026-09-17:** Triggered by the
-  review of a RankingLab report (Sachsen-Anhalt): the section "Screenreader-Lesereihenfolge"
+  review of a RankingLab report (a public-sector site): the section "Screenreader-Lesereihenfolge"
   (screen reader reading order) reported 237 "angekündigte Knoten" (announced nodes) and four
   findings "Langer Abschnitt ohne Landmark, Überschrift oder Fokusziel" (long section without
   landmark, heading or focus target) — with heading and landmark quality at 100/100 at the same
-  time. Reproduced exactly locally at www.sachsen-anhalt.de. Cause: `linearize` emitted every
+  time. Reproduced exactly locally at a public-sector site. Cause: `linearize` emitted every
   non-ignored AX node as a `ReadingItem`, including 67 `InlineTextBox` — Blink's line fragments
   into which a `StaticText` is split by a line break. They exist for caret/selection bounds, are
   never handed to an assistive technology, and carried the same text two to four times. As a result,
@@ -3010,7 +3010,7 @@ entries first (unchanged order from before the extraction).
   (`figure`, `paragraph`, `group`, `generic`, `Figcaption`, `list`) no longer count the same
   announcement twice — role-agnostic, a `group` with an `aria-label` still counts.
   `CONSENT_WALL_NODE_THRESHOLD` was recalibrated from 200 to 145, because the node count drops by
-  the same proportion. Result at sachsen-anhalt.de: 237 → 170 nodes, four false positives gone,
+  the same proportion. Result at a public-sector site: 237 → 170 nodes, four false positives gone,
   the one real finding (button without accessible name, 4.1.2 → § 12 No. 3 BFSGV) remains; tab stops
   and all three quality values unchanged. Verified by a before/after run and 4 new
   unit tests.
@@ -3021,18 +3021,18 @@ entries first (unchanged order from before the extraction).
   Metadata"); checked directly against a page with `og:` tags — not a single such finding.
   The actual defect was the penalty formula `error_count * 10`: it counted per *occurrence*,
   not per *cause*. One faulty template element produces one occurrence per rendering,
-  so every real page floored at 0 — at sachsen-anhalt.de, 201 of the 208 reported errors
+  so every real page floored at 0 — at a public-sector site, 201 of the 208 reported errors
   traced back to a single `<link as=…>` without `rel`, 6 distinct causes in total. New:
   `html_conform::defect_key` normalizes rule ID plus message (backtick values and
   `at line:column` removed) into one cause; `score_findings` penalizes per cause, with a
   capped accumulation surcharge (at most double the base) and rank damping (first cause full,
   second/third half, the rest a quarter), so that the score stays meaningful over the whole range
-  instead of saturating at 0. Sachsen-anhalt.de thus goes from 0 → 64. The module counts toward the
+  instead of saturating at 0. That site thus goes from 0 → 64. The module counts toward the
   overall score again (5 %, moved over from SEO: SEO 20 → 15) and reports `measurement_type: "measured"`
   instead of `"heuristic"`. Report side: new field `distinct_defect_count` in the JSON, KPI
   "Ursachen" (causes) in the PDF, findings table one row per cause with a column "Vorkommen"
   (occurrences) (instead of 20 redundant occurrence rows), `ScoreCard` with the normal grade band again,
-  the outdated RDFa note replaced by an explanation of the cause counting. Verified at sachsen-anhalt.de
+  the outdated RDFa note replaced by an explanation of the cause counting. Verified at a public-sector site
   (JSON + `--debug-typ`) and with 8 new unit tests.
 - **PDF abort due to foreign glyphs and panic in the HTML content model, 2026-09-16:** (1) A
   single icon-font character on the audited page aborted the entire PDF generation:
@@ -3098,7 +3098,7 @@ entries first (unchanged order from before the extraction).
   accuracy claim, file size confirmation, version number + module list) were small,
   independently verified fixes.
 - **Report review batch items 1–6 implemented, 2026-09-06 (external report review of
-  inros-lackner-de):** seven distilled items, six implemented (item 7 — management summary
+  a corporate site):** seven distilled items, six implemented (item 7 — management summary
   4→2 pages — deliberately deferred, a layout decision needs separate user confirmation).
   **Item 1 (P0) uncovered a considerably larger bug than reported:** the reported case (a
   `landmark-unique` finding showed the wrong, generic WCAG 1.3.1 title "Fehlende
@@ -3376,7 +3376,7 @@ entries first (unchanged order from before the extraction).
   so that future reviewers do not misread the summation as a counting error again.
 - **#406 fix: NotTestable/warning findings showed raw English text in the PDF (2026-09-05):** a localization violation
   confirmed live in DE reports (casoon-de,
-  satower-mosterei-de, inros-lackner-de) — `render_assessment_and_execution_notes`
+  two shop and corporate sites) — `render_assessment_and_execution_notes`
   (`src/output/pdf/single_report.rs`) called only `get_explanation(rule_id)` for `wcag.not_testables`
   (axe_id lookup, e.g. `"video-caption"`) and, on a miss, fell back to the raw canonical English
   `finding.fix_suggestion` instead of the safe localized fallback sentence; `wcag.warnings` (contrast on image/gradient
