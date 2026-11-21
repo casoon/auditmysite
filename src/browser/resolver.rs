@@ -19,7 +19,7 @@
 //! A full browser stays first on purpose. The headless shell never stalls
 //! (see [`parallel_journeys_stall`]), but sites with bot protection serve it
 //! a challenge page: www.hornbach.de gave it 355 nodes instead of 12,942, and
-//! the audit scored the challenge page (plan 65). Existing working browsers
+//! the audit scored the challenge page. Existing working browsers
 //! also come before a managed install.
 //!
 //! Resolution here is static (file, permission, bounded `--version`). That a
@@ -439,7 +439,7 @@ pub(super) async fn probe_candidates(
 /// events a page does not consume go through AppKit on the browser's single
 /// main thread and wait on the WindowServer. With several pages audited at
 /// once that stalled the whole browser: every open page's journeys timed out
-/// in the same second, twice it never recovered (plan 65, reference batch
+/// in the same second, twice it never recovered (reference batch
 /// with three workers: 4 of 4 runs affected). One page at a time: 2 of 2 clean,
 /// as were 6 of 6 single-URL runs. Serializing only the journeys did not help
 /// (1–10 timeouts). The headless shell has no event loop and is not affected.

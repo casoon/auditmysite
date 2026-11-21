@@ -57,7 +57,7 @@ pub struct AiVisibilityAnalysis {
     pub score: u32,
     /// Qualitative band for `score`, canonical English (#406). This module
     /// carries no weight in the site-quality score, so it gets a band word rather
-    /// than a letter grade (plan 29, D2).
+    /// than a letter grade.
     pub band: String,
     /// LLM readability dimension
     pub readability: ReadabilityAnalysis,
@@ -1153,7 +1153,7 @@ fn build_chunk_input(report: &AuditReport) -> chunks::ChunkInput {
 
     // A unique <main> region, as the SEO text extraction found it. This used
     // to be "no landmark violations" from the accessibility result — an
-    // accessibility finding moving an indicator a second time (plan 105).
+    // accessibility finding moving an indicator a second time.
     let has_main_region = seo.is_some_and(|s| s.technical.text_excerpt_source == "main");
     // article/section tags not directly available from technical SEO extraction.
     // Heuristic: if page has article schema, it likely uses <article> markup.
@@ -1664,7 +1664,7 @@ mod tests {
 
     #[test]
     fn band_replaces_the_letter_grade_this_module_no_longer_carries() {
-        // Plan 29, D2: an indicator of weight 0 gets a band word, not A-F.
+        // An indicator of weight 0 gets a band word, not A-F.
         let band = |s: f32| crate::registry::FIVE_BAND.label(s, true);
         assert_eq!(band(95.0), "Excellent");
         assert_eq!(band(80.0), "Good");

@@ -165,7 +165,7 @@ pub fn render_single_report_for(
     let mut rm_report = Report::new(&vm.meta.title, verdict)
         .with_details_hint(Some(details_hint(&i18n)))
         // Accessibility first — it is what the grade below
-        // classifies (plan 29, D1); the site-quality score follows, named.
+        // classifies; the site-quality score follows, named.
         .add_metric(Metric::new(
             i18n.t("report-builder-terminal-metric-accessibility"),
             vm.summary.score.to_string(),

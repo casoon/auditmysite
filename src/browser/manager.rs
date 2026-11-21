@@ -672,13 +672,13 @@ impl BrowserManager {
         // differently than a single-URL run of the same page. Focus
         // emulation makes every tab focused and visible; an own window per
         // page did the same but stalled Chrome with several heavy sites
-        // rendering at once (plan 62).
+        // rendering at once.
         //
         // Only for parallel pages. A lone page is the active tab anyway, and
         // with emulation a full Chrome on macOS stalled completely in 3 of 6
         // single-URL audits of www.deutschebahn.com (every CDP command timed
         // out, the audit ran past rankinglab's 12-minute limit); without it
-        // 6 of 6 finished with identical results (plan 65).
+        // 6 of 6 finished with identical results.
         if self.options.focus_emulation {
             page.execute(SetFocusEmulationEnabledParams::new(true))
                 .await

@@ -14,7 +14,7 @@
 //! unresolvable element, no special-casing needed. Their selectors aren't
 //! guaranteed valid CSS, and guessing via `document.querySelector` risks
 //! capturing the wrong element — a missing crop is preferable to a misleading
-//! one. A guarded best-effort selector path remains tracked in `plans/open-items.md`.
+//! one. A guarded best-effort selector path remains open.
 //!
 //! Every step degrades to `None` + `tracing::warn!`; this module never
 //! returns `Err` into the pipeline.

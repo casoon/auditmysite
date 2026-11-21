@@ -22,7 +22,7 @@
 //! erzeugte `MenuEscapeNotClosing` mit Severity High an Seiten, deren Menü
 //! einwandfrei schließt.
 //!
-//! Dazu die drei Grenzen aus Plan 53, Schritt 1: `querySelector` durchdringt
+//! Dazu die drei Grenzen des DOM-Wegs: `querySelector` durchdringt
 //! weder Shadow Roots noch iframes, und jeder Lesefehler wurde über
 //! `unwrap_or` still zu „bestanden".
 

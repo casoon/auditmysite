@@ -50,7 +50,7 @@ src/
 │   ├── runners.rs       # Mode runners (single, batch, compare)
 │   ├── report_writers.rs # Output dispatch (single/batch/comparison)
 │   ├── output_paths.rs  # File path generation for reports
-│   ├── plan.rs          # Pre-audit plan/banner printing
+│   ├── plan.rs          # Pre-audit plan and banner printing
 │   ├── doctor.rs        # `auditmysite doctor` diagnostics
 │   ├── url_filter.rs    # --include-path/--exclude-path glob selection of batch URLs
 │   └── sitemap_suggest.rs # Sitemap discovery (hint for a base URL; no prompt)

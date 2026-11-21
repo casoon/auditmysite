@@ -289,7 +289,7 @@ pub struct NavigationSnapshot {
     pub ready_state: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub stability: Vec<crate::interaction::stability::StabilityProvenance>,
-    /// Short meta refreshes met while loading, per viewport pass (Plan 47).
+    /// Short meta refreshes met while loading, per viewport pass.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub meta_refresh: Vec<ViewportMetaRefresh>,
     /// HTTP redirects the main document went through, in order, ending
@@ -1098,7 +1098,7 @@ impl SampleStratum {
 pub struct SitemapDiagnostics {
     /// HTTP outcome of every checked sitemap URL by class (`2xx`, `3xx`,
     /// `4xx`, `5xx`, `other`, `fetch_error`) — measured for each URL, not
-    /// inferred from the issue list (plan 87). Redirects are not followed.
+    /// inferred from the issue list. Redirects are not followed.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub status_counts: BTreeMap<String, usize>,
     /// Number of sitemap URLs checked via HTTP.
@@ -1127,7 +1127,7 @@ pub struct SitemapDiagnostics {
     pub crawl_depths: Option<CrawlDepthDiagnostics>,
     /// Why `crawl_depths` is absent when it is: `"homepage_unavailable"`
     /// when the homepage could not be fetched — the depths are then not
-    /// determined rather than measured from some other page (plan 81).
+    /// determined rather than measured from some other page.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub crawl_depths_unavailable: Option<String>,
 }
@@ -1149,13 +1149,13 @@ pub struct SitemapDiagnostics {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct CrawlDepthDiagnostics {
-    /// The site's homepage BFS started from, after redirects (plan 81), in
+    /// The site's homepage BFS started from, after redirects, in
     /// the normalised spelling (#1111).
     pub start_url: String,
     /// Where the homepage's outbound links came from: `"audited_homepage"`
     /// (it was one of the audited pages) or `"fetched_homepage"` (fetched
     /// once over HTTP for its links only — not an audit, not in any score).
-    /// Empty in reports before plan 81, whose start was the shortest audited
+    /// Empty in older reports, whose start was the shortest audited
     /// sitemap URL, not necessarily the homepage.
     #[serde(default)]
     pub start_source: String,
@@ -1294,7 +1294,7 @@ pub struct BatchError {
     /// Set when the page was a bot wall, challenge or access denial rather
     /// than the site's content (`AuditError::AccessBlocked`): why it counts as
     /// blocked. Lets per-page consumers tell "blocked" from "failed" without
-    /// parsing `error` (plan 67). Not part of the batch JSON contract.
+    /// parsing `error`. Not part of the batch JSON contract.
     #[serde(skip)]
     pub blocked_reason: Option<String>,
 }
@@ -1590,7 +1590,7 @@ impl SelectionProfile {
 
 impl BatchSummary {
     /// Grade of the batch, by the single-report rule: it describes the
-    /// average accessibility score, not the weighted site-quality score (plan 29, D1).
+    /// average accessibility score, not the weighted site-quality score.
     /// `None` when no URL was measured: a grade computed from a stand-in 0 would be an F for a site
     /// nobody looked at (#768).
     pub fn grade(&self) -> Option<String> {

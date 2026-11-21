@@ -15,7 +15,7 @@
     {
       "contract_id": "display/text-media-visible",
       "outcome": "automatic",
-      "source": "BarrierLab display-mode convention draft v0 (barrierlab/plan/03), anchored to WCAG 2.2 SC 2.2.2; best practice",
+      "source": "BarrierLab display-mode convention draft v0, anchored to WCAG 2.2 SC 2.2.2; best practice",
       "applicability": "Pages rendered in text mode (html[data-display=text]) with figure[data-viz].",
       "expectation": "A best-practice violation at the first rendered visualisation medium of a\nfigure (static/live layer, canvas, svg, img, video, iframe, object, embed)\nthat stays visible in text mode, outside the text layer. Hidden media pass;\nicons up to 32 x 32 px stay allowed (32 x 32 passes, 33 x 33 fails). Outside\ntext mode the rule does not apply.",
       "method": "page",

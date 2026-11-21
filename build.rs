@@ -5,7 +5,7 @@
 //! `cargo install` from a crates.io tarball, which has no `.git` directory).
 //! Appends a `-dirty` suffix when the working tree has uncommitted changes,
 //! so two builds off the same commit but different uncommitted local edits
-//! remain distinguishable in a report's `build_id` field (plan/21) — this
+//! remain distinguishable in a report's `build_id` field — this
 //! project's usual workflow is to work uncommitted for a while before
 //! committing, so the bare commit SHA alone previously stayed identical
 //! across builds that actually contained different fixes.

@@ -168,7 +168,7 @@ mod html_conform_recommendations_tests {
 
     #[test]
     fn recommendations_rank_errors_before_warnings_and_by_occurrence() {
-        // plan/31-html-conform-missing-fix-guidance.md: the HTML Conformance
+        // The HTML Conformance
         // module must get a "Verbesserungsvorschläge" list like every other
         // risk-driver module — built from its own distinct-defect messages,
         // errors first, then by occurrence count, capped at 4.

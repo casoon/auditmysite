@@ -549,7 +549,7 @@ pub fn criteria_with_impact() -> impl Iterator<Item = &'static str> {
 /// Security 15, Mobile 10, ohne HTML Conformance) hatte keinen einzigen
 /// Aufrufer und widersprach den tatsächlich verwendeten Gewichten. Der
 /// zugehörige Test prüfte grün, dass sich ein Modell auf 100 summiert, das
-/// nie lief (Plan 41).
+/// nie lief.
 ///
 /// Die Schlüssel sind die kanonischen, englischen Modulnamen aus
 /// `ModuleScoreEntry::name` — dieselbe Namensmenge, die auch der
@@ -566,7 +566,7 @@ pub const MODULE_WEIGHTS: &[(&str, u32)] = &[
     ("HTML Conformance", 5),
 ];
 
-/// Module this one re-reads instead of measuring anything new (plan 29, D3).
+/// Module this one re-reads instead of measuring anything new.
 ///
 /// Empty for a module that measures its own subject. One table for both the
 /// stored `ModuleScoreEntry::derived_from` and the note the PDF prints, so the
@@ -581,7 +581,7 @@ pub fn module_derived_from(name: &str) -> &'static [&'static str] {
         "AI Visibility" => &["seo"],
         // Scores SEO metadata, Security headers/HTTPS and the contact/imprint/
         // privacy links the UX module detected. Accessibility counts appear
-        // only as unscored structural indicators (plan 103).
+        // only as unscored structural indicators.
         "Source Quality" => &["seo", "security", "ux"],
         _ => &[],
     }
@@ -719,7 +719,7 @@ mod tests {
         assert_eq!(total, 100, "{MODULE_WEIGHTS:?}");
     }
 
-    /// Plan 41: the whole point of moving the weights here is that there is
+    /// The whole point of moving the weights here is that there is
     /// one table. If `build_module_scores` ever writes a literal again, the
     /// two drift apart silently — as they had, with a dead table claiming
     /// Accessibility 35 while the live one used 40.

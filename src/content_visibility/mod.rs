@@ -111,7 +111,7 @@ pub enum ContentVisibilitySignalKind {
     PublicationDate,
     PublicationDateMissing,
     // AuthorityStrong/Weak/HardlyAny and SubstanceGood/Weak re-read Source
-    // Quality scores and are no longer emitted (plan 105); they stay so older
+    // Quality scores and are no longer emitted; they stay so older
     // reports still deserialize.
     AuthorityStrong,
     AuthorityWeak,
@@ -1062,7 +1062,7 @@ fn build_local_business(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
             .contains(&SchemaType::LocalBusiness)
     {
         // Only a location page is expected to describe a local business;
-        // elsewhere its absence is no gap worth a review item (plan 89).
+        // elsewhere its absence is no gap worth a review item.
         let location_page = seo
             .structured_data
             .fit_assessment
@@ -1353,7 +1353,7 @@ fn build_eeat(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
     }
 
     // The Source Quality authority score used to stand here: a score of
-    // another indicator, read as an E-E-A-T signal (plan 105). Publisher
+    // another indicator, read as an E-E-A-T signal. Publisher
     // markup and HTTPS are read from SEO and the page directly.
 
     signals
@@ -1477,7 +1477,7 @@ fn build_content_depth(seo: &crate::seo::SeoAnalysis) -> Vec<ContentSignal> {
     });
 
     // The Source Quality substance score used to stand here. It is a count
-    // of structural signals, deprecated and removed in 2.0 (plans 103, 105);
+    // of structural signals, deprecated and removed in 2.0;
     // word count and headings are read from SEO directly above.
 
     signals
@@ -1880,8 +1880,7 @@ mod tests {
         assert_eq!(signals[0].level, AssessmentLevel::NotTestable);
     }
 
-    /// A news or corporate page without LocalBusiness is not a review item
-    /// (plan 89).
+    /// A news or corporate page without LocalBusiness is not a review item.
     #[test]
     fn local_business_absence_is_silent_outside_location_pages() {
         let seo = minimal_seo();

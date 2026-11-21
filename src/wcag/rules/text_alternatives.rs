@@ -144,7 +144,7 @@ fn is_decorative_empty_name(node: &crate::accessibility::AXNode) -> bool {
 /// exempted too; that is the known imprecision.
 ///
 /// Before, every icon in a named link was a High Level-A finding — seven on
-/// www.mit.edu alone, capping the page at 89 by themselves (plan 47 review).
+/// www.mit.edu alone, capping the page at 89 by themselves.
 fn is_graphic_in_named_control(tree: &AXTree, node: &crate::accessibility::AXNode) -> bool {
     if node.has_name() || node.has_property("url") {
         return false;

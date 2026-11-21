@@ -1,5 +1,5 @@
 //! Integration tests for easy-language ("Leichte Sprache") availability
-//! detection (plan/09-easy-language-detection.md).
+//! detection.
 //!
 //! Chrome-dependent, mirrors `tests/integration_test.rs`'s structure
 //! (`serve_fixture`/`ci_browser`/`default_config` duplicated locally rather
@@ -19,7 +19,7 @@ use auditmysite::{audit_page, BrowserManager, BrowserOptions, PipelineConfig, Wc
 /// Returns the URL (e.g. "http://127.0.0.1:PORT") and a shutdown handle.
 ///
 /// The server itself lives in `common::fixture_server` — six copies of it
-/// existed, all carrying the same race (plan 48).
+/// existed, all carrying the same race.
 fn serve_fixture(filename: &str) -> (String, Arc<std::sync::atomic::AtomicBool>) {
     let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")

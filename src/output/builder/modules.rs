@@ -432,7 +432,7 @@ pub(super) fn derive_security_recommendations(
     // (2026-09-19) a High "CSP allows unsafe-inline scripts without nonce/hash
     // protection" produced no recommendation at all, so the list fell through
     // to `recommendation-security-default` — whose text asserts the headers
-    // are cleanly set, directly below the finding (plan 33).
+    // are cleanly set, directly below the finding.
     //
     // Keyed on `SecurityIssueKind` rather than on the message text, so a
     // reworded finding cannot silently drop its recommendation.
@@ -627,7 +627,7 @@ mod tests {
         }
     }
 
-    /// Plan 33: every header present but the CSP misconfigured. The old
+    /// Every header present but the CSP misconfigured. The old
     /// derivation only tested for *absent* headers, produced nothing, and fell
     /// through to the default text — which asserts the headers are cleanly
     /// set, directly below the finding. Confirmed live on casoon.de

@@ -232,7 +232,7 @@ pub fn derive_bik_chapters(
                 // contributing its own (already sanitized, see
                 // `analyzer::analyze_reading_sequence`'s `is_real_node_id`
                 // filter) node count. Verified against a live casoon.de run
-                // (2026-09-05, plan/22): a page-level total of 200 was the
+                // (2026-09-05): a page-level total of 200 was the
                 // exact sum of 14 separate desert findings' filtered node
                 // counts, not a double-count across viewports or an
                 // overly-broad selector — `build_sr_audit_report` runs once

@@ -1,4 +1,4 @@
-//! Plan 87: the sitemap HTTP check records an outcome for every URL it
+//! The sitemap HTTP check records an outcome for every URL it
 //! fetched, not only the ones that raised an issue — so "checked minus
 //! issues" is never presented as a count of successful responses.
 

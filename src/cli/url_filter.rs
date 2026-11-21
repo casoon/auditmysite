@@ -1,5 +1,5 @@
 //! URL selection for batch inputs by path glob (`--include-path` /
-//! `--exclude-path`, plan 67).
+//! `--exclude-path`).
 //!
 //! Patterns are matched against the whole, percent-decoded URL path — no
 //! scheme, host or query:

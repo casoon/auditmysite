@@ -1,5 +1,5 @@
 //! Integration test for the WCAG 3.2.6 help-mechanism inventory
-//! (`patterns::help_mechanisms`, plan 54 §3). Chrome-dependent, run with:
+//! (`patterns::help_mechanisms`). Chrome-dependent, run with:
 //!   cargo test --test help_mechanisms_detection_test -- --ignored
 
 mod common;

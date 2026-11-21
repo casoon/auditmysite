@@ -251,7 +251,7 @@ impl UxIssue {
 ///
 /// Value-aware, because several checks penalise from the first occurrence but
 /// only used to *report* above a much higher bar — one generic link cost
-/// points silently, three named it as a medium issue (plan 43). Now every
+/// points silently, three named it as a medium issue. Now every
 /// penalty is reported, and the mild band is what distinguishes them:
 /// reporting a single skipped heading at the same severity as five would just
 /// move the problem from "silent" to "alarming".
@@ -1165,7 +1165,7 @@ mod tests {
         }
     }
 
-    /// Plan 43: a penalty must never apply without a stated reason.
+    /// A penalty must never apply without a stated reason.
     ///
     /// These checks penalised from the first occurrence but only *reported*
     /// above a much higher bar — one generic link, one skipped heading, 41
@@ -1248,7 +1248,7 @@ mod tests {
             (
                 // This case was omitted while `headings()` returned hash
                 // order: h1 -> h3 only skips if the two arrive in that order,
-                // so the assertion passed or failed per run (plan 49).
+                // so the assertion passed or failed per run.
                 "one skipped heading level",
                 vec![
                     node("root", "RootWebArea", Some("Page")),

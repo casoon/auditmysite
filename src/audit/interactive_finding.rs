@@ -136,7 +136,7 @@ pub struct InteractiveFinding {
     #[serde(default)]
     pub values: InteractiveFindingValues,
     /// Set when the observation behind the finding may have missed the
-    /// page's reaction (plan 53). Absent means no known reason for doubt.
+    /// page's reaction. Absent means no known reason for doubt.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uncertainty: Option<FindingUncertainty>,
 }
@@ -555,7 +555,7 @@ mod tests {
     /// Guard against German leaking into the canonical `InteractiveFinding`
     /// text baked with `en = true` (#406): no English message/fix_suggestion
     /// produced by `interactive_finding_text` may contain German umlauts/ß.
-    /// #406 guard for the plan-53 uncertainty note: English is umlaut-free and
+    /// #406 guard for the uncertainty note: English is umlaut-free and
     /// the German variant differs.
     #[test]
     fn finding_uncertainty_text_en_has_no_german_umlauts() {

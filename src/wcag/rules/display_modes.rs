@@ -1,6 +1,6 @@
 //! `display/*` — checks of the BarrierLab display-mode convention (#653).
 //!
-//! The convention (draft v0, `barrierlab/plan/03`) is not a WCAG requirement:
+//! The convention (draft v0) is not a WCAG requirement:
 //! every rule here is tagged `best-practice` and anchored to the nearest WCAG
 //! criterion, the same way the other own best-practice rules are modelled
 //! (`link-as-button` → 4.1.2, `prefers-reduced-motion` → 2.3.3):

@@ -1,5 +1,5 @@
 //! Diff-based accuracy test: vulnerable-library detection corpus against a
-//! real `analyze_vulnerable_libraries` run (plan/11, rest-scope of #558).
+//! real `analyze_vulnerable_libraries` run (rest-scope of #558).
 //!
 //! Needs real Chrome/CDP — `analyze_vulnerable_libraries(page: &Page)` reads
 //! `window.jQuery`/`window.angular`/etc. via `page.evaluate()` from a

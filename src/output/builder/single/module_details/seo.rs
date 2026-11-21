@@ -47,7 +47,7 @@ pub(super) fn build_seo_details(
             .map(|i| {
                 // A missing lang or page title is also an accessibility
                 // finding (WCAG 3.1.1 / 2.4.2) and costs points there too —
-                // two perspectives, stated so the overlap is visible (plan 105).
+                // two perspectives, stated so the overlap is visible.
                 let base = i.localized_message(en);
                 let criterion = match (i.field.as_str(), i.severity) {
                     ("lang", _) => Some("3.1.1"),
@@ -385,7 +385,7 @@ pub(super) fn build_seo_details(
                     (
                         cat.name.clone(),
                         // Counts, not a percentage: the denominator is the
-                        // point (plan 29, D4).
+                        // point.
                         format!("{} / {}", cat.passed, cat.total),
                         i18n.t(rating),
                     )

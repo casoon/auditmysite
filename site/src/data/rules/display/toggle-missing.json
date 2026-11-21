@@ -15,7 +15,7 @@
     {
       "contract_id": "display/toggle-missing",
       "outcome": "automatic",
-      "source": "BarrierLab display-mode convention draft v0 (barrierlab/plan/03), anchored to WCAG 2.2 SC 2.2.2; best practice",
+      "source": "BarrierLab display-mode convention draft v0, anchored to WCAG 2.2 SC 2.2.2; best practice",
       "applicability": "Pages that contain at least one figure[data-viz].",
       "expectation": "A best-practice finding at the root element when a page with visualisations\nhas no element marked [data-display-toggle] (select, button or any element).\nPages without figure[data-viz] are out of scope.",
       "method": "shared",

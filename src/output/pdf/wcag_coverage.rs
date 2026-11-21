@@ -101,14 +101,13 @@ pub(super) fn render_wcag_coverage_section(
     let (automated, total) = coverage_stats();
     // Criteria this tool checks automatically that WCAG 2.2 added (they didn't
     // exist in WCAG 2.1). They count toward `automated`/`total` like any other
-    // A/AA criterion (plan 54 §1), but stay marked as new in WCAG 2.2: they
+    // A/AA criterion, but stay marked as new in WCAG 2.2: they
     // are in EN 301 549 V4.1.1 (mapped in this report's own appendix) but not
     // in V3.2.1 (#572).
     //
     // Nur A/AA: `automated` zählt keine AAA-Kriterien, und 2.4.12 ist sowohl
     // AAA als auch neu in 2.2 — es als "N davon" in die A/AA-Quote zu zählen
-    // ergäbe wieder eine Zahl, die sich mit ihrer Bezugsgröße nicht deckt
-    // (dieselbe Klasse Fehler wie in Plan 36 §1).
+    // ergäbe wieder eine Zahl, die sich mit ihrer Bezugsgröße nicht deckt.
     let wcag22_criteria: Vec<&str> = automated_criteria()
         .iter()
         .filter(|(id, level)| *level != "AAA" && crate::wcag::coverage::is_wcag22_only(id))
@@ -140,7 +139,7 @@ pub(super) fn render_wcag_coverage_section(
     // The cloud lists every criterion this tool checks; `automated` counts
     // only the A/AA ones the ratio above is scoped to. Titling the cloud with
     // `automated` put "Automatisch geprüft (36)" above 56 entries, with
-    // nothing reconciling the two numbers (plan 36 §1).
+    // nothing reconciling the two numbers.
     let listed = automated_criteria().len();
     // Two disjoint groups, so they add up to `listed`.
     let aaa_listed = automated_criteria()

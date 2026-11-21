@@ -1,4 +1,4 @@
-//! Score bands for fixtures whose intended severity is uncontroversial (plan 47).
+//! Score bands for fixtures whose intended severity is uncontroversial.
 //!
 //! The scorer's constants were each tuned to fix a symptom, and nothing
 //! checked the result against an expectation set from outside the scorer. These

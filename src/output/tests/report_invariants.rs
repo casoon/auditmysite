@@ -94,7 +94,7 @@ fn no_experimental_block_without_experimental_indicators() {
     assert!(json["pages"][0].get("experimental").is_none());
 }
 
-/// Plan 29, D2: a letter grade claims the module's value counts. Only the
+/// A letter grade claims the module's value counts. Only the
 /// weighted modules may carry one — "Dark Mode: F" sat next to an F for
 /// excluding screen-reader users and read as the same kind of verdict.
 #[test]
@@ -125,7 +125,7 @@ fn only_weighted_modules_carry_a_letter_grade() {
     }
 }
 
-/// Plan 29, D4: "share of checks that did not complain" is not a measurement
+/// "share of checks that did not complain" is not a measurement
 /// of the page — adding a check that usually passes lifts every site. Content
 /// Visibility therefore carries no module score at all.
 #[test]
@@ -170,7 +170,7 @@ fn seo_signal_categories_publish_their_denominator() {
     }
 }
 
-/// Plan 29, D3: an indicator that re-reads another module's result says so.
+/// An indicator that re-reads another module's result says so.
 /// Without it, a reader takes SEO, AI Visibility and Source Quality agreeing
 /// for three independent assessments.
 #[test]
@@ -205,7 +205,7 @@ fn derived_indicators_name_the_modules_they_re_read() {
     assert_eq!(ux.derived_from, vec!["accessibility".to_string()]);
 }
 
-/// Plan 29, D3: the accessibility result is reported by the Accessibility
+/// The accessibility result is reported by the Accessibility
 /// module. Folding it into Source Quality's authority dimension and into the
 /// AI citability score let one finding move four displayed numbers.
 #[test]
@@ -261,7 +261,7 @@ fn security_verdict_does_not_feed_source_quality_or_ai_visibility() {
     );
 }
 
-/// Plan 105: the chunking signal read "no landmark violations" from the
+/// The chunking signal read "no landmark violations" from the
 /// accessibility result, so one landmark finding moved the AI score too. It
 /// now reads the main content region the SEO extraction found.
 #[test]
@@ -329,7 +329,7 @@ fn landmark_violations_do_not_move_ai_chunking() {
     );
 }
 
-/// Plan 29, D1: the headline classification describes accessibility. It used
+/// The headline classification describes accessibility. It used
 /// to hang off the weighted site-quality score, so an accessibility score of 20
 /// reached the cover as a 39 that five other modules had lifted.
 #[test]

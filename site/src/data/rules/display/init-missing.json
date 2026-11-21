@@ -15,7 +15,7 @@
     {
       "contract_id": "display/init-missing",
       "outcome": "automatic",
-      "source": "BarrierLab display-mode convention draft v0 (barrierlab/plan/03), anchored to WCAG 2.2 SC 2.2.2; best practice",
+      "source": "BarrierLab display-mode convention draft v0, anchored to WCAG 2.2 SC 2.2.2; best practice",
       "applicability": "Pages that use the convention: at least one figure[data-viz] or a [data-display-toggle].",
       "expectation": "A best-practice violation at html when html[data-display] is never set, or is\nset only after the body started rendering (a script at the end of body), so\nthe page can show the wrong mode first. A blocking script in head that sets\nit passes, whatever form the toggle takes. Pages without the convention are\nout of scope.",
       "method": "page",

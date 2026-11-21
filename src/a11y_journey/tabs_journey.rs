@@ -10,8 +10,7 @@
 //!
 //! Der vorherige Stand las alle `aria-selected`-Werte der Seite in ein Array
 //! und verglich `before != after` — seitenweit, also auch empfindlich für
-//! jede unbeteiligte Änderung, und blind für Shadow Roots und iframes
-//! (Plan 53, Schritt 1).
+//! jede unbeteiligte Änderung, und blind für Shadow Roots und iframes.
 //!
 //! Die Fokusprüfung war gar keine. Sie lautete
 //!

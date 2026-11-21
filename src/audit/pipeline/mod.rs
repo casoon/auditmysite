@@ -724,7 +724,7 @@ pub async fn run_single_audit(
 
     let result = audit_on_page(&page, url, browser, config, start_time).await;
     // Close it whether or not the audit succeeded: every page stays visible
-    // (focus emulation, plan 62), so one left open keeps executing its
+    // (focus emulation), so one left open keeps executing its
     // scripts and slows down every later audit on the same browser.
     if let Err(e) = page.close().await {
         warn!("Failed to close audit page for {}: {}", url, e);
@@ -1184,7 +1184,7 @@ pub async fn audit_page(
 
     // Page-level rules run once, on the mobile pass, but describe the page in
     // both viewports. Scoring desktop without them compared the two viewports
-    // over different rule sets (plan 46), so they count in both scores.
+    // over different rule sets, so they count in both scores.
     let desktop_acc = AccessibilityScorer::calculate_score(&with_shared_page_rule_violations(
         &desktop_wcag.violations,
         &mobile_wcag.violations,
@@ -1194,7 +1194,7 @@ pub async fn audit_page(
     let desktop_perf_score = desktop_snap.performance.as_ref().map(|p| p.score.overall);
     let mobile_perf_score = mobile_snap.performance.as_ref().map(|p| p.score.overall);
     // No Web Vitals measured: a 0 here is no result (#QA-023) — drop it from
-    // the blend as `module_scores` drops it from the site-quality score (plan 73).
+    // the blend as `module_scores` drops it from the site-quality score.
     // A module that lost a scoring collection is partial and drops out the
     // same way (#777).
     let measured = |p: &crate::audit::PerformanceResults| p.score.has_core_metrics();
@@ -3058,7 +3058,7 @@ mod tests {
         assert_eq!(result, 73);
     }
 
-    /// Plan 73: the viewport path uses the published module weights — SEO
+    /// The viewport path uses the published module weights — SEO
     /// 15, HTML conformance 5 — so with every module on one viewport it is
     /// the module-weighted mean over the 90 non-security points. inros-
     /// lackner mobile: (49·40 + 77·20 + 65·15 + 80·10 + 62·5) / 90 = 62.06.

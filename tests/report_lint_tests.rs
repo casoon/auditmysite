@@ -58,7 +58,7 @@ fn broken_grade_mismatch_fails_by_default() {
     );
 }
 
-/// Plan 29, D1: the grade is derived from `accessibility_score`,
+/// The grade is derived from `accessibility_score`,
 /// not from the weighted site-quality score. This fixture is clean under the old rule and
 /// broken under the new one — the two scores agree in every other fixture, so
 /// nothing else can tell the change apart.

@@ -1,4 +1,4 @@
-//! Golden-render harness (plan 66, WP0).
+//! Golden-render harness.
 //!
 //! Insta snapshots pin report *shapes*; this renders the full report *text*
 //! from a frozen set of cached audits so a refactoring PR can prove it changes

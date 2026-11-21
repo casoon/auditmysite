@@ -1291,7 +1291,7 @@ fn test_collection_errors_serialized_when_present() {
     let _ = &mut unified;
 }
 
-/// Plan 111: the batch grade describes accessibility, like the single
+/// The batch grade describes accessibility, like the single
 /// report. It used to follow the weighted site-quality score, so inros-lackner
 /// (accessibility 49, site quality 62) read "D" and report-lint failed.
 #[test]
@@ -1337,7 +1337,7 @@ fn test_batch_grade_follows_accessibility_not_site_quality() {
     );
 }
 
-/// Plan 111: blocking issues across the batch fail it, and the grade stays
+/// Blocking issues across the batch fail it, and the grade stays
 /// the grade of the average accessibility score.
 #[test]
 fn test_batch_blocking_issues_fail_without_changing_the_grade() {

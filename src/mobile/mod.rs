@@ -296,7 +296,7 @@ fn mobile_issue(
 /// Summed penalty of the mobile issues. A locked zoom is the accessibility
 /// finding for WCAG 1.4.4 under the same condition, and small targets are WCAG
 /// 2.5.8; counting them here as well lowered two weighted modules for one
-/// observation (plan 105, #921). Both stay listed with their measured values.
+/// observation (#921). Both stay listed with their measured values.
 fn mobile_penalty(issues: &[MobileIssue]) -> u32 {
     issues
         .iter()

@@ -7,7 +7,7 @@
 //! ausgelieferten Reports wiederholt falsch zugeordnet — `"Querformat"` traf
 //! `form`, `"conformance"` traf `form`, `"div.alt-service-hero-card"` traf
 //! `alt`, und das geteilte Subkategorie-Label `"Navigation & Operation"`
-//! leitete rund 26 fachfremde Regeln nach `Landmarks` um (Plan 38).
+//! leitete rund 26 fachfremde Regeln nach `Landmarks` um.
 //!
 //! Jede neue Regelmeldung konnte die Zuordnung still neu brechen, und eine
 //! falsche Zuordnung ist im Report unsichtbar — sie erscheint als plausible
@@ -96,7 +96,7 @@ use ScoreArea::*;
 /// visuelle Darstellung (1.4.x), Zeitlimits (2.2.x), Sprache (3.1.x),
 /// Tabellen-/Listensemantik und Linktext-Qualität. Dass diese Gruppe unter
 /// „Semantics" firmiert, ist eine Schwäche des Bereichsschnitts, keine
-/// Fehlzuordnung — siehe Plan 38, „Offen".
+/// Fehlzuordnung.
 static RULE_AREAS: &[(&str, ScoreArea)] = &[
     // ── 1.1.x / 1.2.x — Nicht-Text-Inhalte und Medien-Alternativen ──
     ("image-alt", ImagesAlternativeText),
@@ -235,7 +235,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("navigation/location-missing", Semantics),
     // ── 2.4.6 / 2.4.10 — Überschriften ──
     ("headings/section-without-heading", HeadingStructure),
-    // 1.3.1, aber Ueberschriften: Bis Plan 56 liefen sie ueber
+    // 1.3.1, aber Ueberschriften: Frueher liefen sie ueber
     // `a11y.structure.missing` und damit unter `Semantics`.
     ("headings/skip-level", HeadingStructure),
     ("headings/empty", HeadingStructure),
@@ -321,7 +321,7 @@ mod tests {
     use crate::taxonomy::dimensions::Dimension;
     use crate::taxonomy::rules::RULES;
 
-    /// Plan 38: die Zuordnung muss total sein. Ohne diesen Test fällt eine neu
+    /// Die Zuordnung muss total sein. Ohne diesen Test fällt eine neu
     /// registrierte Accessibility-Regel still in den Subkategorie-Rückfall und
     /// landet dort plausibel aussehend im falschen Bereich.
     #[test]

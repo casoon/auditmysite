@@ -59,7 +59,7 @@ impl ClaimLimits {
 
 /// WCAG 2.2 A/AA totals — Level A: 31, Level AA: 24, sum 55. That is WCAG 2.1's
 /// 50 criteria, minus 4.1.1 Parsing (removed in WCAG 2.2), plus the six
-/// criteria 2.2 added (plan 54 §1).
+/// criteria 2.2 added.
 ///
 /// The EN 301 549 V4.1.1 appendix (`wcag::en301549`) maps findings onto that
 /// standard's chapter 9 clauses, which require the same WCAG 2.2 A/AA set — it
@@ -69,7 +69,7 @@ pub const WCAG_AA_TOTAL: usize = 55;
 /// The WCAG version the audit and its coverage ratio are scoped to. Written
 /// into the JSON (`summary.wcag_coverage.wcag_version`) so reports from before
 /// the switch to 2.2 — which lack the field and were scoped to 2.1 — stay
-/// machine-distinguishable (plan 54 §4).
+/// machine-distinguishable.
 pub const WCAG_VERSION: &str = "2.2";
 
 /// Success criteria WCAG 2.2 added that didn't exist in 2.1. They count toward
@@ -104,8 +104,8 @@ const HINT_ONLY_CRITERIA: &[&str] = &[
     // 2.4.10 `headings/section-without-heading` and 3.1.4
     // `language/abbreviation-unexpanded` (#697), 1.4.8 `text/*` and 2.3.3
     // `motion/reduced-motion-ignored` (stylesheet rules, a11y-rules 0.19),
-    // 2.4.9 `links/purpose-link-only` and 3.2.5 `links/new-window-unannounced`
-    // (plan 98). 2.2.4 is not listed any more: `timing/meta-refresh-enhanced`
+    // 2.4.9 `links/purpose-link-only` and 3.2.5 `links/new-window-unannounced`.
+    // 2.2.4 is not listed any more: `timing/meta-refresh-enhanced`
     // reports violations. 3.2.5 stays: the rule that can fail there is filed
     // under 2.2.4.
     "1.2.8", "1.4.8", "2.2.3", "2.2.5", "2.3.3", "2.4.8", "2.4.10", "2.4.12", "3.1.3", "3.1.4",
@@ -159,13 +159,13 @@ const MANUAL_REVIEW_CRITERIA_RAW: &[(&str, &str, &str)] = &[
     ("1.2.1", "A", "Audio-only and Video-only (Prerecorded)"),
     ("1.2.2", "A", "Captions (Prerecorded)"),
     ("1.2.3", "A", "Audio Description or Media Alternative"),
-    // Live content does not exist in a page snapshot (plan 74: one of the
+    // Live content does not exist in a page snapshot (one of the
     // three A/AA criteria that sat in neither list, 55 − 30 − 22).
     ("1.2.4", "AA", "Captions (Live)"),
     ("1.2.5", "AA", "Audio Description (Prerecorded)"),
     ("1.3.2", "A", "Meaningful Sequence"),
     // Whether an instruction relies on shape, size, position or sound alone
-    // is a reading of the text (plan 74).
+    // is a reading of the text.
     ("1.3.3", "A", "Sensory Characteristics"),
     ("1.4.2", "A", "Audio Control"),
     ("1.4.5", "AA", "Images of Text"),
@@ -175,14 +175,14 @@ const MANUAL_REVIEW_CRITERIA_RAW: &[(&str, &str, &str)] = &[
     ("2.3.1", "A", "Three Flashes or Below Threshold"),
     // Cross-page: a single page cannot show a second way to reach it; the
     // batch report lists pages without an observed inbound link as
-    // candidates only (plan 74, plan 82).
+    // candidates only.
     ("2.4.5", "AA", "Multiple Ways"),
     ("2.4.11", "AA", "Focus Not Obscured (Minimum)"),
     ("2.5.1", "A", "Pointer Gestures"),
     ("2.5.2", "A", "Pointer Cancellation"),
     ("2.5.4", "A", "Motion Actuation"),
     // Whether a dragging operation has a single-pointer alternative (buttons,
-    // tap-to-select, a track click) is behaviour, not markup (plan 54 §3).
+    // tap-to-select, a track click) is behaviour, not markup.
     ("2.5.7", "AA", "Dragging Movements"),
     // `language/part-unmarked` only hints at a passage in another language
     // (a heuristic for German and English, #697); whether every change of
@@ -248,7 +248,7 @@ pub fn manual_review_criterion_name_de(id: &str, fallback_en: &'static str) -> &
 mod tests {
     use super::*;
 
-    /// Plan 74: every WCAG 2.2 A/AA criterion is either automated or listed
+    /// Every WCAG 2.2 A/AA criterion is either automated or listed
     /// for manual review, never both — the report's 30 + 22 used to leave
     /// three of the 55 (1.2.4, 1.3.3, 2.4.5) in neither group.
     #[test]
@@ -261,7 +261,7 @@ mod tests {
         }
     }
 
-    /// Plan 36 §1: the report's appendix reconciles its own totals — the A/AA
+    /// The report's appendix reconciles its own totals — the A/AA
     /// count the ratio is scoped to plus the AAA criteria this tool also
     /// checks — against the full listing.
     #[test]
@@ -280,7 +280,7 @@ mod tests {
         );
     }
 
-    /// Plan 54 §1: the ratio is scoped to WCAG 2.2's 55 A/AA criteria, so no
+    /// The ratio is scoped to WCAG 2.2's 55 A/AA criteria, so no
     /// run may report more automated A/AA criteria than that standard has.
     #[test]
     fn the_automated_aa_count_stays_within_the_wcag22_catalogue() {
@@ -292,7 +292,7 @@ mod tests {
         );
     }
 
-    /// Plan 54 §2: 4.1.1 Parsing was removed in WCAG 2.2. The duplicate-ID
+    /// 4.1.1 Parsing was removed in WCAG 2.2. The duplicate-ID
     /// checks it used to carry now report 4.1.2, so no rule may claim it
     /// again — it would count against the 2.2 denominator as a criterion that
     /// no longer exists.

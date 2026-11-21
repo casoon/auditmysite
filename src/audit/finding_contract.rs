@@ -628,7 +628,7 @@ fn collect(
             out.push(c);
         }
         // Meta: lang and canonical are charged once, in the technical
-        // checks, viewport by Mobile (plan 105) — here they are references.
+        // checks, viewport by Mobile — here they are references.
         for issue in &seo.meta_issues {
             let (scoring, cause) = match issue.field.as_str() {
                 "lang" => (FindingScoring::new("SEO", E::Reference), Some(LANG_MISSING)),

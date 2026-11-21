@@ -156,7 +156,7 @@ pub struct RecognizedPattern {
     /// How confident the detection is.
     pub confidence: PatternConfidence,
     /// What was recognized, with its raw values — the only source for
-    /// `message` and for the localized PDF text (#406, Plan 77). Not in the
+    /// `message` and for the localized PDF text (#406). Not in the
     /// JSON: `message` already carries the canonical English text there.
     #[serde(skip)]
     pub detail: Option<PatternMessage>,

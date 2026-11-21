@@ -83,7 +83,7 @@ pub struct RunOutput {
 
 /// Default journey budget per URL (ms).
 ///
-/// Gemessen an 48 Seiten ohne Grenze (Plan 53): mit 5 s liefen 22 % der Seiten
+/// Gemessen an 48 Seiten ohne Grenze: mit 5 s liefen 22 % der Seiten
 /// ins Limit und nur 55 % der Befunde wurden erfasst, weil allein der Tab-Walk
 /// rund 2 s braucht. 15 s erfassen 92 % bei im Mittel +1 s je Seite — das
 /// Budget greift nur auf schweren Seiten, der Median der Phase liegt bei 2,8 s.

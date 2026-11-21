@@ -92,7 +92,7 @@ fn localized_stopwords(locale: &str) -> HashSet<String> {
 /// teaser's "Weiterlesen"/"Read more", a row's "Details" expander — are
 /// often perfectly clear in the surrounding context they normally appear in,
 /// but that context isn't visible to this flat, already-linearized item
-/// list (plan/33-screen-reader-thresholds-unvalidated.md). Downgraded to
+/// list. Downgraded to
 /// "low" rather than suppressed, since the checker still can't verify
 /// context either way. Words that only describe the click mechanism itself
 /// ("hier klicken"/"click here", "hier"/"here", "klicken"/"click", "link")
@@ -951,7 +951,7 @@ mod tests {
 
     #[test]
     fn ambiguous_continuation_word_is_downgraded_to_low_severity() {
-        // plan/33-screen-reader-thresholds-unvalidated.md: a wizard's
+        // A wizard's
         // "Weiter" (Next) button is common and often clear from its
         // surrounding context, which this flat item list can't see — flag
         // it, but not at the same severity as a name that is never
@@ -994,7 +994,7 @@ mod tests {
         // A realistic long-form article: one heading, then paragraphs that
         // periodically contain an inline citation link — the link's
         // `tab_stop` resets the desert counter, same as a landmark/heading
-        // would (plan/33-screen-reader-thresholds-unvalidated.md, scenario
+        // would (scenario
         // "long clean single-topic article").
         let mut items = vec![item(0, "heading", Some("Artikel"), false, vec!["level=1"])];
         let mut seq = 1;

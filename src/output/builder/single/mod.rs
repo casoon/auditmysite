@@ -43,7 +43,7 @@ use super::helpers::{
 ///
 /// `audit_quality.reasons` carries only a count
 /// (`page_stability_budget_exhausted:2`), which tells a reader that something
-/// was dropped but not what (plan 36 §5).
+/// was dropped but not what.
 fn exhausted_stability_measurements(
     stability: &[crate::interaction::stability::StabilityProvenance],
     i18n: &I18n,
@@ -98,12 +98,12 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         .or_else(|_| I18n::new("de"))
         .expect("default locale must always load");
     // Findings arrive in `action_order` from the normalization — the order
-    // the JSON lists them in. The PDF keeps it rather than re-sorting (plan 58).
+    // the JSON lists them in. The PDF keeps it rather than re-sorting.
     //
     // A WCAG rule and an SEO check can report the same defect (e.g. an empty
     // heading) under the same canonical title. The PDF shows it once, as the
     // WCAG finding with its own count; the JSON keeps both rows. Distinct
-    // rules of one category are never merged (plan 59).
+    // rules of one category are never merged.
     let wcag_titles: std::collections::HashSet<String> = normalized
         .normalized
         .findings
@@ -157,7 +157,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
     let report_title = localized_report_title(&config.locale);
     let report_subtitle = localized_report_subtitle(&config.locale);
     let report_author = extract_domain(&normalized.normalized.url);
-    // Same order as `summary.top_actions` in the JSON (plan 58).
+    // Same order as `summary.top_actions` in the JSON.
     let top_findings: Vec<FindingGroup> = sorted_groups.iter().take(5).cloned().collect();
     let positive_aspects = derive_positive_aspects_from_normalized(&i18n, normalized);
     let action_plan = derive_action_plan(&i18n, &sorted_groups);
@@ -251,7 +251,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
     );
 
     // The same verdict the CLI prints and the JSON publishes — the PDF must
-    // not tell a different story than `report-lint` and CI (plan 34).
+    // not tell a different story than `report-lint` and CI.
     let verdict_result = normalized.normalized.decision.clone();
 
     let management_risks = crate::audit::management_risk::build_management_risk_kinds(
@@ -315,7 +315,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                     // deferred: the note used to end in "Details im
                     // Methodik-Anhang", and the appendix only restated the
                     // same sentence, so which measurements were dropped was
-                    // never said anywhere (plan 36 §5). The data sits in
+                    // never said anywhere. The data sits in
                     // `execution.navigation.stability`.
                     AuditQualityStatus::Partial => {
                         let exhausted = exhausted_stability_measurements(
@@ -359,8 +359,8 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                 let label_warnings = i18n.t("metric-warnings");
                 let label_not_testable = i18n.t("metric-not-testable");
                 // The headline metric is the accessibility score — what the
-                // report assesses and what the grade classifies
-                // (plan 29, D1). The weighted combined value has its own
+                // report assesses and what the grade classifies.
+                // The weighted combined value has its own
                 // named card in the score-driver section.
                 let label_accessibility_score = i18n.t("metric-accessibility-score");
                 vec![

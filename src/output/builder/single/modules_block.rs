@@ -40,7 +40,7 @@ pub(super) fn build_modules_block_from_normalized(
     }];
 
     // No Web Vitals measured: no gauge or card — a 0 there would read as
-    // "unusably slow" (plan 69, #QA-023 for the site-quality score).
+    // "unusably slow" (#QA-023 for the site-quality score).
     let performance_measured = normalized
         .normalized
         .module_scores
@@ -64,7 +64,7 @@ pub(super) fn build_modules_block_from_normalized(
     }
     // SEO is one of the six weighted modules; the "Sichtbarkeit &
     // Nutzerverständnis" composite used to stand in its place, so the cover
-    // showed 71 where the site-quality score counted 65 (plan 105). The composite
+    // showed 71 where the site-quality score counted 65. The composite
     // follows below with the indicators.
     if let Some((seo, score)) = normalized.raw_seo.and_then(|seo| {
         normalized_module_score(&normalized.normalized, "SEO").map(|score| (seo, score))

@@ -1856,7 +1856,7 @@ pub static RULES: &[Rule] = &[
         // Seit WCAG 2.2 gibt es 4.1.1 nicht mehr. Gemeldet wird nur noch die
         // doppelte ID, auf die ein IDREF zeigt (`wcag::shared`) -- das ist ein
         // Verstoss gegen 4.1.2, weil die Beziehung nicht mehr eindeutig
-        // aufloesbar ist (Plan 54 §2).
+        // aufloesbar ist.
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         // Geteilte Kennung aus `a11y-rules` statt der frueheren axe-core-Kennung
@@ -2104,8 +2104,8 @@ pub static RULES: &[Rule] = &[
         severity: Severity::Medium,
         external_ref: Some("WCAG 1.3.1"),
         external_level: Some("A"),
-        // Geteilte Kennung `lists/item-outside-list`; die leere Liste hat seit
-        // Plan 56 einen eigenen Eintrag (`a11y.list_empty.invalid`).
+        // Geteilte Kennung `lists/item-outside-list`; die leere Liste hat
+        // einen eigenen Eintrag (`a11y.list_empty.invalid`).
         axe_id: Some("lists/item-outside-list"),
         score_impact: ScoreImpact {
             base_penalty: 1.2,
@@ -2475,7 +2475,7 @@ pub static RULES: &[Rule] = &[
         severity: Severity::High,
         // 4.1.1 ist in WCAG 2.2 gestrichen; die mehrdeutige ARIA-Referenz
         // bricht Name, Rolle und Wert und faellt damit unter 4.1.2 -- dieselbe
-        // Zuordnung wie in axe-core (Plan 54 §2).
+        // Zuordnung wie in axe-core.
         external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("duplicate-id-aria"),
@@ -2923,7 +2923,7 @@ mod tests {
         }
     }
 
-    /// Plan 56: Jede geteilte Kennung hat einen eigenen Eintrag mit dem
+    /// Jede geteilte Kennung hat einen eigenen Eintrag mit dem
     /// Kriterium, das `SHARED_RULES` führt — ohne ihn fiele sie in einen
     /// Sammelbucket und verschmölze mit fremden Befunden.
     #[test]

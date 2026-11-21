@@ -150,10 +150,10 @@ pub fn is_mandatory(category: &str, wcag_level: &str) -> bool {
 
 /// The one order in which findings are presented — `findings` and
 /// `top_actions` in the JSON, the top measures, finding list and finding
-/// matrix in the PDF (plan 58). Urgency first: severity, and within a
+/// matrix in the PDF. Urgency first: severity, and within a
 /// severity the legal obligations (WCAG A/AA) ahead of the rest. Within that,
 /// the leverage (`priority_score`: severity × reach / effort), then reach;
-/// `rule_id` last so ties never depend on input order (plan 60).
+/// `rule_id` last so ties never depend on input order.
 pub fn action_order(a: &NormalizedFinding, b: &NormalizedFinding) -> std::cmp::Ordering {
     b.severity
         .cmp(&a.severity)

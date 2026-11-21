@@ -14,7 +14,7 @@
 //! # Gemessen wird an Aufnahmen, nicht an `querySelector`
 //!
 //! Die drei Signale kommen aus der Differenz zweier [`AXSnapshot`]s um den
-//! Klick herum (Plan 53): Titel und URL trägt die Aufnahme selbst, die
+//! Klick herum: Titel und URL trägt die Aufnahme selbst, die
 //! Überschrift wird aus dem Accessibility-Tree gelesen statt über
 //! `document.querySelector('h1')`, und die Fokusbewegung über die
 //! Backend-Node-ID statt über „heißt der Selektor `body`".

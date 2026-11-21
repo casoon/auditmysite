@@ -1525,7 +1525,7 @@ explanation-summary-name = Summary-Element ohne zugänglichen Namen
     .recommendation = Textinhalt im <summary>-Element ergänzen, der beschreibt, was der Aufklapp-Bereich enthält.
     .technical-note = <summary> ohne Textinhalt oder aria-label.
 
-## Missing navigation and contentinfo landmark (plan 56)
+## Missing navigation and contentinfo landmark
 
 explanation-landmark-navigation-present = Fehlender Navigations-Landmark
     .description = Die Seite hat keinen als Navigation ausgezeichneten Bereich (<nav> bzw. role="navigation").

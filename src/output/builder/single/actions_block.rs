@@ -7,7 +7,7 @@ use crate::output::report_model::{
 
 use super::super::actions::derive_user_effect_from_action;
 
-/// plan/6-remediation-leverage-metric.md: a plain-language "is this fix
+/// A plain-language "is this fix
 /// worth doing first" verdict combining reach (`occurrence_count`), cost
 /// (`effort`), and risk (`priority`) — fixed rule logic, no new score.
 /// `occurrence_count >= 10` mirrors the existing "looks like a shared

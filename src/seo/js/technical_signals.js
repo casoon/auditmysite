@@ -60,7 +60,7 @@
         result.wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
         // Excerpt from the main content where it is unambiguous and long
         // enough; header, navigation and consent texts otherwise make every
-        // page look alike (plan 90).
+        // page look alike.
         const mains = Array.from(document.querySelectorAll('main, [role="main"]'))
             .filter(m => !m.parentElement || !m.parentElement.closest('main, [role="main"]'));
         const mainText = mains.length === 1 ? (mains[0].innerText || '').trim() : '';
