@@ -950,7 +950,7 @@ pub fn analyze_journey_with_dom_check(tree: &AXTree, dom_has_main: bool) -> Jour
 ///
 /// Pass `None` when no page is available; the analysis then falls back to a
 /// document-order window over the tree, which is a weaker proxy — see
-/// `analyze_entry_clarity` (plan 51).
+/// `analyze_entry_clarity`.
 pub fn analyze_journey_with_page_context(
     tree: &AXTree,
     dom_has_main: bool,
@@ -1078,9 +1078,9 @@ fn analyze_entry_clarity(
     //
     // The fallback counts text nodes among the first 50 in document order.
     // That is a proxy for vertical position and a poor one — on
-    // www.inros-lackner.de the first 50 nodes are a skip link and forty
+    // a corporate site the first 50 nodes are a skip link and forty
     // wrappers, while the articles further down are the actual top of the
-    // page (plan 51). It stands in only where no page is available: the
+    // page. It stands in only where no page is available: the
     // library entry point `analyze_journey`, and tests.
     let early_text_len = measured_early_text.unwrap_or_else(|| {
         tree.iter_all()
@@ -1488,7 +1488,7 @@ mod tests {
         }
     }
 
-    /// Plan 51: the measurement from the rendered page wins over the
+    /// The measurement from the rendered page wins over the
     /// tree-order proxy, in both directions. Without this the proxy silently
     /// decides, and it decides badly on wrapper-heavy markup.
     #[test]
@@ -1527,7 +1527,7 @@ mod tests {
         );
     }
 
-    /// Plan 50: the page's opening text sits on `StaticText` nodes, which
+    /// The page's opening text sits on `StaticText` nodes, which
     /// `iter()` drops as browser-generated. Reading the window through it
     /// left only headings, and "little early text" fired on 1595 of 2731 real
     /// cached pages — each costing 20 points of Entry Clarity.

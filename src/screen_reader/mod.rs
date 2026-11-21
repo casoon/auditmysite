@@ -168,7 +168,7 @@ pub fn drop_excluded_nodes(
 fn detect_audit_quality(total_nodes: usize, views: &NavigationViews) -> SrAuditQuality {
     // Recalibrated from 200 when `linearize` stopped emitting `InlineTextBox`
     // layout nodes: those made up roughly a quarter to a third of the reading
-    // order (67 of 237 on www.sachsen-anhalt.de, 2026-09-17), so the old value
+    // order (67 of 237 on a public-sector site, 2026-09-17), so the old value
     // has to shrink by about the same share to keep flagging the same pages.
     const CONSENT_WALL_NODE_THRESHOLD: usize = 145;
     let has_structural_landmark = views.landmarks.iter().any(|l| {
@@ -233,7 +233,7 @@ fn percentage(passed: usize, total: usize) -> u32 {
 /// just because no violation happened to be found for them: this module
 /// never looks at contrast, keyboard operability, timing, forms, parsing,
 /// etc., so those criteria were never evaluated at all, not passed.
-/// Confirmed live in the 2026-08-31 report corpus (sauerstoffzentrum-nordost.de):
+/// Confirmed live in the 2026-08-31 report corpus (a practice site):
 /// 7 real structural issues were detected, all tagged "1.3.6" (deliberately
 /// outside the BFSG A/AA scope, see `push_desert_issue`'s doc comment), so
 /// `violations` was empty and the report claimed all 50 criteria "passed".
@@ -284,7 +284,7 @@ fn bfsg_compliance(
             .collect::<Vec<_>>()
     };
     // Heuristics are no violation, and a criterion with an open heuristic is
-    // not passed either (plan 74).
+    // not passed either.
     let violations = mapped(false);
     let needs_review = mapped(true);
     let open: std::collections::HashSet<_> = violations
@@ -369,7 +369,7 @@ mod tests {
         bfsg_compliance(issues, 200, SrAuditQuality::Ok)
     }
 
-    /// Plan 74 (inros-lackner 2026-10-23): "Mehr erfahren" without context
+    /// "Mehr erfahren" without context
     /// and the heading order are heuristics — they made the sidecar
     /// "non_compliant" next to the confirmed empty links. Review items are
     /// neither violations nor passed.
@@ -417,7 +417,7 @@ mod tests {
 
     #[test]
     fn bfsg_compliance_does_not_claim_unevaluated_criteria_as_passed() {
-        // Regression (sauerstoffzentrum-nordost.de, 2026-08-31): a page with
+        // Regression (a practice site, 2026-08-31): a page with
         // 7 real structural issues, all tagged "1.3.6" (deliberately outside
         // BFSG A/AA scope), previously still produced verdict "compliant"
         // with all 50 WCAG 2.1 A/AA criteria listed as "passed" -- most of
@@ -550,7 +550,7 @@ mod tests {
 
     #[test]
     fn small_page_with_structural_landmarks_is_not_flagged_as_consent_wall() {
-        // plan/33-screen-reader-thresholds-unvalidated.md: a small but
+        // A small but
         // legitimate page (well under the 145-node threshold) must not be
         // mistaken for a consent-wall capture as long as it has real
         // structural landmarks — the threshold is deliberately a two-factor

@@ -57,8 +57,8 @@ pub fn truncate_url(s: &str, max_len: usize) -> String {
 /// long, whole path segments in the middle replaced by `…` — the host and the
 /// last path segment always stay readable, since the end of a path is what
 /// tells sibling pages apart. `truncate_url` turned `/aktuelles/news/hafen`
-/// and `/aktuelles/news/bahn` into the same `https://www.example.de/akt...`
-/// (plan 92); cutting at a character count split host and slug mid-word
+/// and `/aktuelles/news/bahn` into the same `https://www.example.de/akt...`;
+/// cutting at a character count split host and slug mid-word
 /// (`www.casoon.…o-entwicklung-rostock/`, #1039). A URL with no segment to
 /// drop is returned whole, even above `max_len`. Safe for multi-byte UTF-8.
 #[cfg(feature = "pdf")]

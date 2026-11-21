@@ -62,7 +62,7 @@ pub fn seo_interpretation_text(seo: &SeoAnalysis, en: bool) -> String {
     // against `seo.score`, which a different function produces on a different
     // scale. The comparison also inverted for thin pages: `ThinContent` has
     // the lowest constant (28), so a thin page scoring 30 was told it met
-    // expectations for its type (plan 39).
+    // expectations for its type.
     //
     // `intent_fit_score` itself is kept — as a quality reading it is sound and
     // is still shown as the "Intent-Fit" metric and used by the
@@ -136,7 +136,7 @@ pub fn page_profile_optimization_note_text(profile: &SeoContentProfile, en: bool
     // MediaHeavy, Utility and ThinContent it is a constant keyed on the page
     // type, so gating this sentence on it would assert something about *this
     // page* on the strength of its classification alone — a media-heavy page
-    // would receive it unconditionally, however good it is (plan 39). Pages
+    // would receive it unconditionally, however good it is. Pages
     // with a genuinely poor balance are already caught by the
     // `media_text_balance_score` gate above, with a measured reason.
     if crate::seo::profile::intent_fit_is_signal_derived(&classification.primary_type)
@@ -213,7 +213,7 @@ mod tests {
         assert_eq!(classify_seo_score(34), SeoScoreBand::Critical);
     }
 
-    /// Plan 39: the page-type sentence must not claim a reference value.
+    /// The page-type sentence must not claim a reference value.
     /// `intent_fit_score` is one of eleven constants the tool defines, not an
     /// observed benchmark, and it was being compared against `seo.score`,
     /// which is produced by a different function on a different scale.
@@ -255,7 +255,7 @@ mod tests {
         );
     }
 
-    /// Plan 39: the "does not serve its page type" advice must not fire on a
+    /// The "does not serve its page type" advice must not fire on a
     /// value that is a pure page-type constant. `MediaHeavy` scores a fixed
     /// 62, so before this it received the sentence unconditionally.
     #[test]

@@ -354,7 +354,7 @@ fn finding_header(group: &FindingGroup, i18n: &I18n) -> String {
         // Flag criteria WCAG 2.2 added (e.g. 2.5.8) inline — they are inside
         // this report's audit-scope ratio and EN 301 549 V4.1.1, but were not
         // part of WCAG 2.1 / EN 301 549 V3.2.1. A finding tagged just "AA"
-        // would hide that (#572, plan 54 §1).
+        // would hide that (#572).
         let wcag22_suffix = if crate::wcag::coverage::is_wcag22_only(&group.finding.wcag_criterion)
         {
             ", WCAG 2.2"
@@ -416,7 +416,7 @@ fn add_title_and_lead_in(
 
     let lead_in = lead_in_text(group);
     // Title and lead-in stay together: alone, the title could end a page
-    // while its text starts the next (plan 76).
+    // while its text starts the next.
     if lead_in.is_empty() {
         builder = builder.add_component(title);
     } else {
@@ -830,7 +830,7 @@ fn add_structural_cause(
     let Some(ref cause) = group.structural_cause else {
         return builder;
     };
-    // plan/4-root-cause-confidence-wording.md: a single-URL audit sees
+    // A single-URL audit sees
     // only one page, so a shared-component pattern is at best a strong
     // probability, never a confirmed fact — the label (previously the
     // hardcoded English "Root Cause", unlocalized even in German

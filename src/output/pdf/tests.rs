@@ -1409,7 +1409,7 @@ mod tests {
             critical_chain: None,
             minification: Some(crate::performance::MinificationAnalysis {
                 unminified_scripts: vec![crate::performance::UnminifiedAsset {
-                    url: "https://www.inros-lackner.de/assets/app/build/index-noncritical.js"
+                    url: "https://www.example.com/assets/app/build/index-noncritical.js"
                         .to_string(),
                     kind: "script".to_string(),
                     decoded_bytes: 305_818,
@@ -1417,7 +1417,7 @@ mod tests {
                     savings_bytes: 203_878,
                 }],
                 unminified_styles: vec![crate::performance::UnminifiedAsset {
-                    url: "https://www.inros-lackner.de/assets/app/build/index.css?v=1".to_string(),
+                    url: "https://www.example.com/assets/app/build/index.css?v=1".to_string(),
                     kind: "css".to_string(),
                     decoded_bytes: 454_810,
                     transfer_bytes: 110_000,
@@ -1982,7 +1982,7 @@ mod tests {
         );
     }
 
-    /// Plan 54 §3: a 3.2.6 deviation reaches the batch PDF as a localized
+    /// A 3.2.6 deviation reaches the batch PDF as a localized
     /// sentence next to the affected URL, and the cross-page table carries
     /// the German assessment basis instead of the English JSON text.
     #[test]
@@ -2264,7 +2264,7 @@ mod tests {
         // The SEO score is set explicitly here. `pdf_fixture_report_rich` has
         // no SEO module, and the panel used to invent one: it looked the score
         // up with `unwrap_or(100)` and rendered "Sehr gute Auffindbarkeit" as
-        // a strength for a module that never ran (plan/29, plan 35). An unrun
+        // a strength for a module that never ran. An unrun
         // module is now excluded from both panels, so a test about a *good*
         // SEO score has to supply one.
         let Some(pdftotext) = find_executable("pdftotext") else {
@@ -2313,7 +2313,7 @@ mod tests {
 
     #[test]
     fn test_management_summary_low_seo_score_is_not_shown_as_a_strength() {
-        // plan/29-pdf-dashboard-module-lookup-by-name.md: `render_risks_and_strengths`
+        // `render_risks_and_strengths`
         // used to look up the SEO/Performance/Mobile score by matching a
         // *display label* substring ("SEO") against `modules.dashboard` —
         // whose cards are relabeled for narrative presentation and no longer
@@ -2348,7 +2348,7 @@ mod tests {
 
         // #1139: the score alone is no cause. Without an SEO finding of
         // medium severity or higher there is no SEO row at all, so a poor
-        // score is neither shown as a risk nor, as before plan/29, invented
+        // score is neither shown as a risk nor, as it once was, invented
         // into a strength.
         assert!(
             !text.contains("SEO & Sichtbarkeit"),

@@ -22,7 +22,7 @@ pub(super) fn finding_group_from_normalized(
     let en = locale == "en";
     // Shared axe_id -> rule_id -> wcag_criterion order; see
     // `explanations::resolve_explanation` for why it must not be reordered
-    // (#571, #357, plan 32).
+    // (#571, #357).
     let explanation = resolve_explanation(f.axe_id.as_deref(), &f.rule_id, &f.wcag_criterion);
     // How widespread the finding is, for the "Frequent:" prefix of the
     // business impact: the pages it occurs on in a batch, its occurrences on
@@ -56,8 +56,7 @@ pub(super) fn finding_group_from_normalized(
         (
             // The rule's own taxonomy title, as in the JSON — never the
             // explanation's, which may be the criterion's fallback text and
-            // would rename e.g. an invalid ARIA value to "missing name/role"
-            // (plan 59).
+            // would rename e.g. an invalid ARIA value to "missing name/role".
             localized_finding_text(locale, &f).0,
             expl.customer_description(en),
             expl.user_impact(en),
@@ -341,7 +340,7 @@ mod fallback_tests {
     /// "WCAG 1.3.1", so `get_explanation`'s internal WCAG-id fallback would otherwise
     /// silently resolve to the generic 1.3.1 explanation written for
     /// tables/lists/forms — same bug class as #571 (region.rs), confirmed
-    /// live against a real report (plan/1-root-cause-title-occurrence-mismatch.md).
+    /// live against a real report.
     fn landmark_unique_finding() -> NormalizedFinding {
         NormalizedFinding {
             known: false,
@@ -359,7 +358,7 @@ mod fallback_tests {
         }
     }
 
-    /// Regression for plan/1: a `landmark-unique` finding must get its own
+    /// Regression: a `landmark-unique` finding must get its own
     /// title ("Landmarks nicht eindeutig benannt"), not the generic WCAG 1.3.1
     /// fallback title ("Fehlende semantische Struktur") that belongs to a
     /// different, unrelated check (tables/lists/forms structure).

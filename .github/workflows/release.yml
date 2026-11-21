@@ -86,7 +86,7 @@ jobs:
 
       - name: Install cross (for cross-compilation)
         if: matrix.cross
-        # Pinned to a reviewed commit (plan 94): cross has had no release
+        # Pinned to a reviewed commit: cross has had no release
         # since v0.2.5 (2023-02-04), which is why it is installed from git;
         # unpinned, every new commit on cross-rs/main went straight into the
         # signed aarch64 binary. 526d03dd = main on 2026-10-14 ("Bump musl

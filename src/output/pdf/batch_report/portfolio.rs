@@ -55,8 +55,7 @@ pub(super) fn render_batch_module_portfolio(
     builder = builder.add_component(grid);
 
     // Average, then the spread over the pages that measured the module —
-    // no "clean pages" from score ≥ 90, which says nothing about findings
-    // (plan 86).
+    // no "clean pages" from score ≥ 90, which says nothing about findings.
     let mut table = AuditTable::new(vec![
         TableColumn::new(i18n.t("batch-col-module")).with_width("20%"),
         TableColumn::new(i18n.t("batch-col-score")).with_width("14%"),
@@ -243,7 +242,7 @@ pub(super) fn render_batch_impact_summary(
     let user_impact = i18n.t(batch_user_impact_key(a11y_avg, reasons));
     let business_impact = i18n.t(if dist.critical > 0 {
         // About the audited pages: how far beyond the sample the barriers
-        // reach is not measured (plan 80).
+        // reach is not measured.
         "batch-report-impact-business-critical"
     } else if dist.high > 0 {
         "batch-report-impact-business-high"
@@ -500,7 +499,7 @@ mod tests {
     use crate::model::WcagLevel;
     use crate::wcag::WcagResults;
 
-    /// Plan 86: identical scores read as one value on all measured pages,
+    /// Identical scores read as one value on all measured pages,
     /// and a module no page measured has no spread at all.
     #[test]
     fn module_spread_reports_min_max_over_measured_pages() {

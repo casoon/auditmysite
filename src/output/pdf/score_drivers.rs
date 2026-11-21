@@ -2,8 +2,8 @@
 //! note, the `viewport_weighted` derivation, the additional score drivers and
 //! the per-module subcategory breakdown of the Management Summary.
 //!
-//! Extracted verbatim from `single_report.rs` (plan 66, WP3; same cut as
-//! `problem_profile.rs` in plan 27). Only visibility widened to `pub(super)`
+//! Extracted verbatim from `single_report.rs` , like
+//! `problem_profile.rs`. Only visibility widened to `pub(super)`
 //! where `single_report.rs` calls in; no logic changed in the move.
 
 use renderreport::components::advanced::List;
@@ -24,7 +24,7 @@ mod text_guard;
 /// "Why is the site-quality score X" — one compact row per module that actually
 /// feeds the weighted `site_quality_score`, showing its score, its weight, and a
 /// plain-language classification of whether it drags the site-quality score down
-/// or stabilizes it (plan/2-score-driver-breakdown.md). Deliberately reads
+/// or stabilizes it. Deliberately reads
 /// `vm.modules.module_scores` (the canonical `ModuleScoreEntry` list, same
 /// numbers `site_quality_score` is computed from) rather than
 /// `vm.modules.dashboard` — the dashboard's cards are reshaped for
@@ -43,7 +43,7 @@ pub(super) fn render_score_driver_table(
         .filter(|m| m.contributes_to_site_quality_score)
         .collect();
     // The site-quality score, named as what it is. It is no longer the
-    // headline — that is the accessibility score (plan 29, D1) — so the
+    // headline — that is the accessibility score — so the
     // report has to say once what this second number averages, otherwise a
     // reader meets it in the derivation table with no introduction.
     let basis: u32 = contributing.iter().map(|m| m.weight_pct).sum();
@@ -75,7 +75,7 @@ pub(super) fn render_score_driver_table(
     // weighted module at 40/100 drags the site-quality score down far more than
     // a 10%-weighted module at 30/100, even though the latter's raw score
     // looks worse in isolation (the exact case this table exists to make
-    // legible, see plan/2-score-driver-breakdown.md's "Accessibility 20 /
+    // legible, e.g. "Accessibility 20 /
     // Security 30" example). Every other module scoring below the "Good"
     // band (>=75, reusing the shared FIVE_BAND cutoffs — no new threshold
     // logic) is a lesser but still real drag; everything at/above 75
@@ -106,7 +106,7 @@ pub(super) fn render_score_driver_table(
     // blend mixed with security (`score_breakdown`). Titling this table "why
     // the site-quality score is what it is" then invited arithmetic that does not
     // come out: on casoon.de the rows averaged 90.05 against a reported 92,
-    // on inros-lackner 47.05 against 45 (plan 34). The real derivation is
+    // on a corporate site 47.05 against 45. The real derivation is
     // rendered separately by `render_site_quality_score_derivation` below.
     let is_derivation = vm.summary.score_calculation_method != "viewport_weighted";
     let mut table = AuditTable::new(vec![
@@ -133,8 +133,8 @@ pub(super) fn render_score_driver_table(
         } else {
             translated
         };
-        // Security's wording band is corrected by open severe findings
-        // (plan 33); the row must say what its section and score card say.
+        // Security's wording band is corrected by open severe findings;
+        // the row must say what its section and score card say.
         let band = match vm.module_details.security.as_ref() {
             Some(sec) if m.name == "Security" => sec.band_label.as_str(),
             _ => score_band_label(m.score, i18n),
@@ -160,7 +160,7 @@ pub(super) fn render_score_driver_table(
 /// silently changes the denominator rather than the result. That is deliberate
 /// for Performance (#QA-023) but was never communicated: two runs over
 /// different module sets carry the same label, grade and rating and are not
-/// comparable (plan 41).
+/// comparable.
 fn render_weight_basis_note(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
@@ -216,7 +216,7 @@ fn render_weight_basis_note(
 /// headline value exactly — the same contract the Search Experience section's
 /// "Wie sich der Wert zusammensetzt" table already honours. Without it the
 /// report showed a weighting that does not add up to the number beside it and
-/// no other explanation anywhere (plan 34).
+/// no other explanation anywhere.
 fn render_site_quality_score_derivation(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
@@ -234,7 +234,7 @@ fn render_site_quality_score_derivation(
     .with_title(i18n.t("score-drivers-derivation-title"));
 
     // Where the two viewport values come from: the module weights above,
-    // over the modules measured on that viewport (plan 73).
+    // over the modules measured on that viewport.
     table = table.add_row(vec![
         i18n.t("score-drivers-derivation-desktop"),
         i18n.t("score-drivers-derivation-desktop-input"),
@@ -373,16 +373,14 @@ pub(super) fn render_accessibility_loss_breakdown(
 /// Splits a list of `(label, score)` pairs into "critical weaknesses"
 /// (below the shared FIVE_BAND "Verbesserungswürdig"/"Needs improvement"
 /// cutoff at 60 — no new threshold invented), other sub-areas, and sub-areas
-/// without any assigned finding, then renders a compact callout per module
-/// (plan/5-module-accessibility-security-driver-detail.md,
-/// plan/21-accessibility-subcategory-breakdown-uniform-gap.md).
+/// without any assigned finding, then renders a compact callout per module.
 ///
 /// A sub-area score only reflects the findings assigned to it, not how much
 /// was checked there. A 100 is therefore named "no findings assigned", never
 /// a strength, and `critical` (finding title, localized sub-area) names where
 /// each critical finding is counted — an unnamed link sits under Technical
 /// Robustness (4.1.2), so "Forms & Interaction 100" must not read as
-/// "interaction is fine" (plan 70). Renders nothing for an empty input
+/// "interaction is fine". Renders nothing for an empty input
 /// (module didn't run).
 pub(super) fn render_subcategory_breakdown(
     mut builder: renderreport::engine::ReportBuilder,
@@ -456,10 +454,10 @@ pub(super) fn render_subcategory_breakdown(
 mod tests {
     use super::*;
 
-    /// Plan 34: in `viewport_weighted` mode the per-module weighting is not
+    /// In `viewport_weighted` mode the per-module weighting is not
     /// the computation path, so the derivation block must reproduce the
     /// headline value on its own. Confirmed live before the fix: casoon.de's
-    /// module rows averaged 90.05 against a reported 92, inros-lackner's
+    /// module rows averaged 90.05 against a reported 92, a corporate site's
     /// 47.05 against 45.
     #[test]
     fn score_derivation_reproduces_the_site_quality_score() {
@@ -531,7 +529,7 @@ mod tests {
         assert!(json.contains("Ohne zugeordnete Befunde (100): Formulare."));
     }
 
-    /// Plan 70 (inros-lackner 2026-10-23): seven unnamed links count under
+    /// Seven unnamed links count under
     /// Technical Robustness (4.1.2) while "Forms & Interaction" stays at 100.
     /// The callout names where the critical finding counts instead of listing
     /// the 100 as a strength.

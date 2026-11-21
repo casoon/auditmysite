@@ -41,7 +41,7 @@ pub(crate) struct CitationInput {
 /// 0.15, 0.10, 0.10, 0.07, 0.05, 0.05) implied a calibration that does not
 /// exist: no evidence says an LLM is likelier to cite a page because it
 /// carries BreadcrumbList schema. Equal weights are at least honest about
-/// that (plan 42 §3).
+/// that.
 const SIGNAL_WEIGHT: f32 = 1.0;
 
 pub(crate) fn analyze_citation(input: &CitationInput) -> CitationAnalysis {

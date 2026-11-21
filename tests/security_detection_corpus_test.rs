@@ -186,7 +186,7 @@ async fn security_detection_corpus_matches_real_analyze_security_run() {
 
         // Before reading anything into the diff: did the fixture server
         // actually answer? Without this a transport problem of the fixture
-        // arrives as a detection-accuracy mismatch (plan 48). The untrusted
+        // arrives as a detection-accuracy mismatch. The untrusted
         // certificate case is the one where the handshake must fail.
         if transport != Transport::HttpsUntrusted {
             assert!(

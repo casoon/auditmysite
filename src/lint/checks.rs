@@ -28,7 +28,7 @@ const CHECK_UNMEASURED_MODULES: &str = "unmeasured_module_carries_no_result";
 /// Module runs whose score has an entry in `module_scores`, by run name.
 const SCORED_RUNS: &[(&str, &str)] = &[("best_practices", "Best Practices")];
 
-/// A module that measured nothing must not show up as a result (plan 69): a
+/// A module that measured nothing must not show up as a result: a
 /// `not_measured` entry never feeds the site-quality score, and a run that failed
 /// outright never has a score entry claiming `measured`.
 fn check_unmeasured_modules_carry_no_result(report: &Value, findings: &mut Vec<LintFinding>) {
@@ -94,7 +94,7 @@ fn check_unmeasured_modules_carry_no_result(report: &Value, findings: &mut Vec<L
     }
 }
 
-// ─── Weighted modules vs. indicators (plan 105) ───────────────────────────
+// ─── Weighted modules vs. indicators ───────────────────────────
 
 const CHECK_INDICATOR_WEIGHT: &str = "indicator_carries_no_weight";
 
@@ -144,8 +144,8 @@ const CHECK_BREAKDOWN_RECONCILES: &str = "accessibility_breakdown_reconciles_wit
 /// The per-area breakdown must account for exactly the points the
 /// accessibility score actually lost.
 ///
-/// Guards the plan-37 regression: the breakdown used to be a second,
-/// independent scoring model, so on inros-lackner-de (2026-09-19) it described
+/// Guards a past regression: the breakdown used to be a second,
+/// independent scoring model, so on a real report (2026-09-19) it described
 /// a reported score of 20 with areas whose weighted average was 57. Nothing in
 /// the formal checks noticed, because every individual number was
 /// self-consistent.
@@ -272,7 +272,7 @@ fn check_score_consistency(report: &Value, findings: &mut Vec<LintFinding>) {
 // ─── Grade consistency ────────────────────────────────────────
 
 // Named after what they check. The basis moved from `site_quality_score` to
-// `accessibility_score` with plan 29, D1, so the old
+// `accessibility_score`, so the old
 // `*_matches_site_quality_score` ids would now name the wrong field.
 const CHECK_GRADE_MATCHES_SCORE: &str = "grade_matches_accessibility_score";
 
@@ -281,7 +281,7 @@ const CHECK_GRADE_MATCHES_SCORE: &str = "grade_matches_accessibility_score";
 /// computed from a different (e.g. stale or pre-normalization) score base.
 fn check_grade(node: &Value, evidence_prefix: &str, findings: &mut Vec<LintFinding>) {
     // Accessibility, not the weighted site-quality score: the grade describes the
-    // subject of the report (plan 29, D1).
+    // subject of the report.
     let Some(basis) = node.get("accessibility_score").and_then(Value::as_i64) else {
         return;
     };
@@ -1093,7 +1093,7 @@ mod tests {
     #[test]
     fn pdf_score_traceability_follows_the_accessibility_score_not_site_quality() {
         // dm.de, 2026-09-28: accessibility 25, overall 43. The PDF prints the
-        // accessibility score (plan 63).
+        // accessibility score.
         let mut report = clean_single_report();
         report["summary"]["accessibility_score"] = json!(25);
         report["summary"]["site_quality_score"] = json!(43);

@@ -72,7 +72,7 @@ fn test_management_risks_rationale_has_no_debug_format_leak() {
 
 #[test]
 fn test_management_risks_reflect_blocking_issues_not_just_legal_flags() {
-    // Regression (satower-mosterei.de, 2026-08-31): overall risk_level
+    // Regression (a shop site, 2026-08-31): overall risk_level
     // "medium", verdict "fail", 4 blocking
     // interaction issues (buttons without an accessible name, WCAG 4.1.2,
     // "medium" severity so legal_flags/critical/high all stayed 0) -- yet
@@ -1291,8 +1291,8 @@ fn test_collection_errors_serialized_when_present() {
     let _ = &mut unified;
 }
 
-/// Plan 111: the batch grade describes accessibility, like the single
-/// report. It used to follow the weighted site-quality score, so inros-lackner
+/// The batch grade describes accessibility, like the single
+/// report. It used to follow the weighted site-quality score, so a corporate site
 /// (accessibility 49, site quality 62) read "D" and report-lint failed.
 #[test]
 fn test_batch_grade_follows_accessibility_not_site_quality() {
@@ -1337,7 +1337,7 @@ fn test_batch_grade_follows_accessibility_not_site_quality() {
     );
 }
 
-/// Plan 111: blocking issues across the batch fail it, and the grade stays
+/// Blocking issues across the batch fail it, and the grade stays
 /// the grade of the average accessibility score.
 #[test]
 fn test_batch_blocking_issues_fail_without_changing_the_grade() {

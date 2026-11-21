@@ -104,7 +104,7 @@ pub struct StudioModuleScore {
     pub name: String,
     pub score: u32,
     /// Letter grade — only for modules that carry weight in the site-quality score.
-    /// Mirrors `ModuleScoreEntry::grade` (plan 29, D2).
+    /// Mirrors `ModuleScoreEntry::grade`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub grade: Option<String>,
     /// Canonical English qualitative band for `score`; present on every entry.

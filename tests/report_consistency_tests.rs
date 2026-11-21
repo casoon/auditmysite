@@ -1144,8 +1144,7 @@ fn test_risk_breadth_critical_without_critical_occurrences() {
     let mut results = WcagResults::new();
     for (rule, name) in [
         ("1.1.1", "Non-text Content"),
-        // Not 2.4.4: its rule needs a manual check and is no legal flag
-        // since plan 74.
+        // Not 2.4.4: its rule needs a manual check and is no legal flag.
         ("4.1.2", "Name, Role, Value"),
         ("2.4.6", "Headings"),
         ("3.3.2", "Labels"),
@@ -1735,7 +1734,7 @@ fn test_view_model_shows_journey_as_indicator_dashboard_module() {
     assert_eq!(journey.measurement_type, "heuristic");
 }
 
-// ─── JSON ↔ PDF parity (plans 58–60) ───────────────────────────────
+// ─── JSON ↔ PDF parity ───────────────────────────────
 
 /// Mirrors dm.de on 2026-09-28: a medium finding with many occurrences, and
 /// several distinct 4.1.2 rules with few. `reverse` feeds the same

@@ -1,5 +1,5 @@
 {
-  "_comment": "Live reference set for score calibration (plan 47, step 2). Each expected band comes from a manual review of the page, not from the tool's own output. `expected: null` = not reviewed yet; the test skips it. Live pages change: a drift means re-review the page or look at the tool, in that order.",
+  "_comment": "Live reference set for score calibration. Each expected band comes from a manual review of the page, not from the tool's own output. `expected: null` = not reviewed yet; the test skips it. Live pages change: a drift means re-review the page or look at the tool, in that order.",
   "sites": [
     {
       "url": "https://www.gov.uk/",

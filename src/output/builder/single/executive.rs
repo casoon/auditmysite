@@ -189,7 +189,7 @@ fn build_score_driver_note(i18n: &I18n, normalized: &NormalizedReport) -> String
 /// near-verbatim copy of the same keyword matching — its own comment recorded
 /// that it "had drifted into an unfixed, duplicated copy" — so every
 /// misclassification fixed in the JSON breakdown had to be fixed here a second
-/// time, or silently was not (plan 38).
+/// time, or silently was not.
 fn score_area_for_key_point(
     finding: &crate::audit::normalized::NormalizedFinding,
 ) -> Option<&'static str> {
@@ -261,7 +261,7 @@ mod tests {
         }
     }
 
-    /// Plan 38: the executive driver note and the JSON breakdown must agree.
+    /// The executive driver note and the JSON breakdown must agree.
     /// They used to be two copies of the same keyword matching, so a
     /// misclassification fixed in one could silently persist in the other.
     #[test]

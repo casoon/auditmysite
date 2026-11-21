@@ -1,7 +1,7 @@
 {
   "id": "batch-classification-wrong-score-base",
   "category": "Invariant",
-  "problem": "A page's or batch's grade label is derived from the weighted site_quality_score instead of the accessibility_score, the subject of the report (plan 29, D1). A batch with accessibility 49 and overall 62 read \"D\" while the accessibility score alone is an \"F\".",
+  "problem": "A page's or batch's grade label is derived from the weighted site_quality_score instead of the accessibility_score, the subject of the report. A batch with accessibility 49 and overall 62 read \"D\" while the accessibility score alone is an \"F\".",
   "evidence": "Startkorpus item from issue #511 (\"Batch-Klassifikation aus der falschen Score-Basis\"), reproduced live during the report-critic skill's dry-run eval against reports/casoon-batch-en301549.json. The certificate half of the original finding went away with the certificate itself (#911); the grade half is still checked.",
   "expected": "report-lint's grade check compares grade against the band of accessibility_score on summary and on every page, never against site_quality_score.",
   "regression": "tests/report_lint_tests.rs::grade_derived_from_the_site_quality_score_is_rejected and broken_batch_grade_fails_by_default.",

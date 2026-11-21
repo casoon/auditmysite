@@ -4,7 +4,7 @@ use crate::i18n::I18n;
 use crate::output::localized::is_english;
 use crate::output::report_model::*;
 
-/// Concrete VoiceOver/NVDA self-verification instructions (plan/16) for the
+/// Concrete VoiceOver/NVDA self-verification instructions for the
 /// handful of WCAG criteria where a non-expert can personally confirm a
 /// suspected screen-reader issue in a few minutes, rather than trusting a
 /// generic "manual review" hint. Shared across the screen-reader findings

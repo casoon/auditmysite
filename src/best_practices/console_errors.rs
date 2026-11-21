@@ -35,7 +35,7 @@ pub struct ConsoleErrorsAnalysis {
     /// Total warning count
     pub warning_count: usize,
     /// Whether the collector ran: installed before navigation and read back
-    /// after load. `false` means the empty lists are no measurement (plan 69).
+    /// after load. `false` means the empty lists are no measurement.
     /// Older reports carry no field and were always taken as collected.
     #[serde(default = "crate::best_practices::collected_by_default")]
     pub collected: bool,

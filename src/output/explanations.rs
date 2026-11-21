@@ -146,7 +146,7 @@ pub fn get_explanation(rule_id: &str) -> Option<&'static RuleExplanation> {
 /// tried first.
 ///
 /// Every caller that turns a `NormalizedFinding` into customer-facing text
-/// must go through here so the order cannot drift apart again (plan 32).
+/// must go through here so the order cannot drift apart again.
 pub fn resolve_explanation(
     axe_id: Option<&str>,
     rule_id: &str,
@@ -461,8 +461,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
     // findings (axe_id "landmark-unique"). Without this entry, get_explanation()
     // falls through to the generic WCAG 1.3.1 explanation above (written for
     // tables/lists/forms) via its internal taxonomy-rule_id → WCAG-id fallback —
-    // confirmed live (plan/1-root-cause-title-occurrence-mismatch.md,
-    // inros-lackner-de report, 2026-09-06): a 31-occurrence landmark-uniqueness
+    // confirmed live (2026-09-06): a 31-occurrence landmark-uniqueness
     // finding was titled "Fehlende semantische Struktur" instead of its own,
     // correct "Landmarks nicht eindeutig benannt" — same bug class as #571.
     (
@@ -482,7 +481,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
     // "keyboard-trap", WCAG 2.1.2). Without this entry, get_explanation()
     // returns None and the PDF fell back to the raw, English-only
     // Violation.fix_suggestion text unlocalized — confirmed live leaking
-    // into German reports (shop.satower-mosterei.de, säfte.com, 2026-08-31;
+    // into German reports (two shop sites, 2026-08-31;
     // report-quality review, 2026-09-01).
     (
         "keyboard-trap",
@@ -678,7 +677,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
     // the 2.4.4 fallback above is written for the no-context case and reads
     // as an unconditional rewrite instruction, which overclaims what an
     // automated check can confirm here (#571).
-    // Plan 98: `links/new-window-unannounced` (G201, 3.2.5 AAA).
+    // `links/new-window-unannounced` (G201, 3.2.5 AAA).
     (
         "links/new-window-unannounced",
         RuleExplanation {
@@ -806,8 +805,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
     // ── 4. Robust ───────────────────────────────────────────────────────────
     // Über die geteilte Kennung erreichbar, nicht über das Kriterium: Der
     // Befund fällt seit dem Wegfall von 4.1.1 unter 4.1.2, und die dortige
-    // Erklärung (Name, Rolle, Wert allgemein) träfe die Dopplung nicht
-    // (Plan 54 §2).
+    // Erklärung (Name, Rolle, Wert allgemein) träfe die Dopplung nicht.
     (
         "ids/duplicate",
         RuleExplanation {
@@ -919,8 +917,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             example_decorative: None,
         },
     ),
-    // ── Added to fix the WCAG-criterion grouping fallback (plan/1
-    // root-cause-title-occurrence-mismatch.md, "Mechanism 2"): each axe_id
+    // ── Added to fix the WCAG-criterion grouping fallback: each axe_id
     // below previously had no dedicated RuleExplanation and, once given its
     // own taxonomy Rule, would otherwise fall back
     // to get_explanation()'s internal WCAG-criterion lookup and surface
@@ -1267,7 +1264,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             example_decorative: None,
         },
     ),
-    // ── Geteilte Kennungen mit eigenem Taxonomie-Eintrag (Plan 56) ──
+    // ── Geteilte Kennungen mit eigenem Taxonomie-Eintrag ──
     // Ohne eigenen Text fielen diese Befunde auf die Erklaerung ihres
     // Kriteriums zurueck: eine leere Liste las sich wie „Fehlende semantische
     // Struktur", ein ungueltiger Sprachcode wie eine fehlende Sprachangabe.
@@ -1427,7 +1424,7 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
             example_decorative: None,
         },
     ),
-    // ── Fehlende Navigations-/Fußbereich-Landmark (Plan 56) ──
+    // ── Fehlende Navigations-/Fußbereich-Landmark ──
     // Eigene Befunde aus `landmarks.rs`; ohne eigenen Text liefen sie unter
     // der allgemeinen 1.3.1-Erklaerung mit Tabellen-Beispiel.
     (
@@ -1945,11 +1942,11 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
 mod tests {
     use super::*;
 
-    /// Regression for plan 32: several distinct checks share WCAG 1.3.1, so
+    /// Regression: several distinct checks share WCAG 1.3.1, so
     /// resolving a landmark finding by `rule_id` alone returns the generic
     /// "missing semantic structure" explanation written for tables and lists.
     /// The axe-id override must win. Confirmed live on the 2026-09-19
-    /// inros-lackner report, where `detail.fix_guidance` published three
+    /// Report of a corporate site, where `detail.fix_guidance` published three
     /// landmark rules as "Missing semantic structure" with `<table><thead>`
     /// as their fix example.
     #[test]
@@ -1962,7 +1959,7 @@ mod tests {
             "landmarks/banner-missing",
             "landmarks/navigation-missing",
             "landmarks/contentinfo-missing",
-            // Plan 56: an empty list must not read as "Missing semantic
+            // An empty list must not read as "Missing semantic
             // structure", an invalid lang code not as a missing one.
             "lists/empty",
             "tables/header-missing",
@@ -2043,7 +2040,7 @@ mod tests {
         // An umlaut check alone is not enough: plenty of German slipped
         // through as umlaut-free words ("Hauptnavigation", "Kontakt",
         // "Hilfetext", "Zum Inhalt") and only surfaced in the canonical
-        // English JSON once plan 32 made those overrides reachable from the
+        // English JSON once those overrides became reachable from the
         // JSON path. Case-insensitive substrings, so "kontakt" in a href is
         // caught together with "Kontakt" in link text.
         const GERMAN_MARKERS: &[&str] = &[

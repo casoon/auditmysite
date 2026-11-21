@@ -14,10 +14,10 @@ use super::design::tokens;
 /// One-line "technical condition" phrase for the cover.
 ///
 /// Derived from the score alone this contradicted the run's own verdict: on
-/// inros-lackner-de (verdict `fail`, 5 legal flags)
-/// the cover read "Ausbaufähiger technischer Zustand" (plan 34). A failing
+/// a corporate site (verdict `fail`, 5 legal flags)
+/// the cover read "Ausbaufähiger technischer Zustand". A failing
 /// run now says so on the cover, and a partial run says that it is
-/// provisional (plan 44).
+/// provisional.
 pub(super) fn cover_band_phrase(
     score: u32,
     verdict: crate::audit::verdict::Verdict,
@@ -47,7 +47,7 @@ pub(super) fn build_batch_cover_score_row(
     avg_score: u32,
     // The grade the presentation already derived. Recomputing it here meant a
     // third band table (`BATCH_GRADE`, 95/90/80/70/60) disagreeing with the
-    // one the JSON reports above 95 (plan 29, D1).
+    // one the JSON reports above 95.
     grade: &str,
     // The batch decision: a failing batch says so under its grade, as the
     // single cover does (#1039).

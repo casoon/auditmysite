@@ -2,7 +2,7 @@
   "id": "management-risk-rationale-debug-format-leak",
   "category": "Explanation",
   "problem": "summary.management_risks[].rationale for the \"Conversion / usability\" dimension (build_management_risks, src/output/json/helpers.rs) formatted the optional performance/mobile scores via `{:?}` on an Option<u32>, producing a visible Rust Debug-format leak (e.g. \"performance Some(84), mobile Some(77)\", or \"performance None\" when a module wasn't run) instead of clean numbers.",
-  "evidence": "Confirmed live in all 5 same-day single-report JSONs generated 2026-08-31 (casoon.de, satower-mosterei.de, sauerstoffzentrum-nordost.de, shop.satower-mosterei.de, säfte.com) during a report validation pass: every one of them had \"performance Some(N), mobile Some(N)\" verbatim in summary.management_risks[1].rationale. Originally also flagged by the report-critic skill's dry-run eval against reports/casoon-batch-en301549.json.",
+  "evidence": "Confirmed live in all 5 same-day single-report JSONs generated 2026-08-31 (casoon.de and four other sites) during a report validation pass: every one of them had \"performance Some(N), mobile Some(N)\" verbatim in summary.management_risks[1].rationale. Originally also flagged by the report-critic skill's dry-run eval against reports/casoon-batch-en301549.json.",
   "expected": "rationale strings must format Option<u32> values as plain numbers via map/unwrap_or, never via {:?}; a missing score should read as a clean fallback (\"not measured\"), not \"None\".",
   "regression": "output::json::tests::test_management_risks_rationale_has_no_debug_format_leak",
   "counter_examples": [

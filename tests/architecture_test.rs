@@ -1,4 +1,4 @@
-//! Direction of dependencies (#790, plan 96): analysis modules do not reach
+//! Direction of dependencies (#790): analysis modules do not reach
 //! up into `cli`, `output` or `audit`. `audit` imports every analysis module,
 //! so any import back is a cycle (#932).
 //!
@@ -139,7 +139,7 @@ fn analysis_modules_do_not_gain_imports_of_cli_output_or_audit() {
     );
     assert!(
         problems.is_empty(),
-        "dependency direction (plan 96), imports of cli/output/audit:\n{}",
+        "dependency direction, imports of cli/output/audit:\n{}",
         problems.join("\n")
     );
 }

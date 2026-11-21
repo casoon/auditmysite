@@ -80,7 +80,7 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // `duplicate-id`). Beide lesen dieselbe Quelle -- die eigene Regel wertete
     // `document.querySelectorAll('[id]')` per JavaScript aus, die geteilte
     // läuft über denselben DOM aus dem CDP-Abzug. Gleiche Erkennung; gemeldet
-    // wird davon seit Plan 54 §2 nur noch die referenzierte Dublette.
+    // wird davon nur noch die referenzierte Dublette.
     //
     // Nicht abgelöst ist `check_parsing` (axe-Kennung `duplicate-id-aria`):
     // Die prüft widersprüchliche `aria-owns`-Beziehungen im AX-Baum, also
@@ -138,7 +138,7 @@ pub const SHARED_RULES: &[SharedRule] = &[
     // gemeint ist, und Name/Rolle/Wert der referenzierenden Beziehung bricht.
     // Genau dieser Fall wird gemeldet, und zwar als 4.1.2 (seit a11y-rules
     // 0.26 als `REVIEW`, #779) — dieselbe
-    // Zuordnung, die axe-core für `duplicate-id-aria` führt (Plan 54 §2).
+    // Zuordnung, die axe-core für `duplicate-id-aria` führt.
     // Seit a11y-rules 0.12 entscheidet das die geteilte Regel selbst; bis
     // dahin filterte auditmysite hier nach, und die Kennung hieß in den
     // anderen Hosts etwas anderes.
@@ -471,7 +471,7 @@ pub const SHARED_RULES: &[SharedRule] = &[
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
     // Ersetzen `wcag::rules::link_purpose` und `link_purpose_link_only`
-    // (Plan 98, barrierlab#13). Alle fünf sind `REVIEW`; die lokale Regel
+    // (barrierlab#13). Alle fünf sind `REVIEW`; die lokale Regel
     // meldete generische Linktexte ohne Kontext als Verstoß. Der Kontext
     // (Text daneben, Absatz/Listenpunkt/Zelle, Überschrift davor) senkt dort
     // die Schwere auf Low, statt eine eigene Kennung `link-name-context` zu
@@ -2898,7 +2898,7 @@ mod tests {
     /// Der Filter greift über eine Konstante, die Tabelle schreibt die
     /// Kennung aus — beide müssen dieselbe meinen, sonst liefe der Filter ins
     /// Leere.
-    /// Plan 54 §2: Zeigt ein IDREF auf die doppelt vergebene ID, ist die
+    /// Zeigt ein IDREF auf die doppelt vergebene ID, ist die
     /// Beziehung mehrdeutig -- das fällt unter 4.1.2, nicht mehr unter das
     /// gestrichene 4.1.1. Seit a11y-rules 0.26 als `REVIEW`: Ob der Browser
     /// das gemeinte Element auflöst, zeigt das Markup nicht (#779).
@@ -2921,7 +2921,7 @@ mod tests {
 
     /// Der Vermerk zählt nur, was als Befund übrig bleibt. Vorher trug er die
     /// Zählung des Crates weiter, und ein Report meldete für `ids/duplicate`
-    /// zehn Befunde, die es in `violations` nicht gab (inros-lackner.de,
+    /// zehn Befunde, die es in `violations` nicht gab (a corporate site,
     /// 2026-09-24).
     #[test]
     fn der_vermerk_zaehlt_verworfene_duplikate_nicht_mit() {

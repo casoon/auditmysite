@@ -71,7 +71,7 @@ pub async fn analyze_best_practices(
     })
 }
 
-/// Serde default for `collected`/`checked`: reports written before plan 69
+/// Serde default for `collected`/`checked`: older reports
 /// had no such field and always counted as measured.
 pub(crate) fn collected_by_default() -> bool {
     true

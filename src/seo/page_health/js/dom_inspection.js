@@ -113,7 +113,7 @@
                     // serializes to the literal string "null" (WHATWG URL
                     // spec) -- not a real host, can't take a preconnect hint,
                     // and reads as a bug when printed in a report ("null" was
-                    // confirmed leaking into säfte.com's preconnect-origins
+                    // confirmed leaking into a shop site's preconnect-origins
                     // list, 2026-08-31).
                     if (o !== window.location.origin && o !== 'null') extOrigins.add(o);
                 } catch(e) {}

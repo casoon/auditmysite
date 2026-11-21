@@ -36,7 +36,7 @@ const MIN_DISTINCT_PAGES: usize = 3;
 const MIN_COVERAGE_PCT: f64 = 60.0;
 
 /// A rule at one element pattern that recurs on several audited pages —
-/// the batch view of a finding pattern (2.0 finding model, plan 100).
+/// the batch view of a finding pattern (2.0 finding model).
 ///
 /// `id` is the pattern id of the findings (`a11y_report::RootCauseId`), so a
 /// root cause links straight to `findings[].patterns[]` on every page.

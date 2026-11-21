@@ -3,8 +3,7 @@
 //! Vorher existierten zwei unabhängige Modelle: `build_management_risks` für
 //! das JSON und `compute_dimension_rows` in der PDF-Schicht. Sie führten
 //! unterschiedliche Dimensionen, stuften unterschiedlich ein, und die
-//! belegkräftigen Begründungen des JSON erreichten den PDF-Leser nie
-//! (Plan 35).
+//! belegkräftigen Begründungen des JSON erreichten den PDF-Leser nie.
 //!
 //! Lokalisierung folgt dem #406-Muster: die Analyse backt kanonisches Englisch
 //! in das gespeicherte JSON, die PDF-Präsentationsschicht leitet den Text zur
@@ -111,7 +110,7 @@ pub enum ManagementRiskKind {
         count: usize,
         /// `Some(n)` bei einem Mehrseiten-Lauf über `n` Seiten, `None` bei
         /// einer einzelnen URL. Nur im ersten Fall ist eine Aussage über
-        /// Template oder Komponente belegt (Plan 40).
+        /// Template oder Komponente belegt.
         pages: Option<usize>,
     },
 }
@@ -238,7 +237,7 @@ impl ManagementRiskKind {
     }
 
     /// Begründung. Einzige Quelle — nennt immer die Werte, die die Einstufung
-    /// gesetzt haben, nie eine Wirkung ohne Messgrundlage (Plan 40).
+    /// gesetzt haben, nie eine Wirkung ohne Messgrundlage.
     pub fn rationale(&self, en: bool) -> String {
         match self {
             ManagementRiskKind::Legal {
@@ -311,7 +310,7 @@ impl ManagementRiskKind {
             } => {
                 let controls = blocking_controls_text(*blocking_issues, *keyboard_blocking, en);
                 // A nameless control still works; only a keyboard blocker can
-                // stop a task, and no task was run to completion (plan 99).
+                // stop a task, and no task was run to completion.
                 text_args(
                     "audit-risk-conversion-blocking",
                     &[("controls", FluentValue::from(controls))],
@@ -445,7 +444,7 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
     // Controls without an accessible name (WCAG 4.1.2) can be "medium"
     // severity — so they need not reach `legal_flags` — while still making a
     // control fully inoperable. Regression
-    // (satower-mosterei.de, 2026-08-31): overall risk "medium", verdict
+    // (a shop site, 2026-08-31): overall risk "medium", verdict
     // "fail", 4 blocking issues, yet every dimension read "low" because this
     // field was never consulted.
     let blocking_issues: usize = reports.iter().map(|r| r.risk.blocking_issues).sum();
@@ -494,8 +493,7 @@ pub fn build_management_risk_kinds(reports: &[NormalizedReport]) -> Vec<Manageme
         .count();
 
     // A template or component defect can only be inferred from recurrence
-    // across pages; within one page, repetition is one page repeating itself
-    // (plan 40).
+    // across pages; within one page, repetition is one page repeating itself.
     // Only findings of Medium severity or higher count: a Low finding that
     // recurs on every page (fonts not preloaded, static caching) is polish and
     // no reason for "High" project risk (#1039). One predicate for both paths.
@@ -745,7 +743,7 @@ mod tests {
             .contains("1 Befund mit hohem Schweregrad"));
     }
 
-    /// Plan 99: seven nameless links are not "inoperable". The texts name the
+    /// Seven nameless links are not "inoperable". The texts name the
     /// cause that was measured and claim no blocked task.
     #[test]
     fn nameless_controls_are_not_called_inoperable() {

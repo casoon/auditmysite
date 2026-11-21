@@ -213,8 +213,7 @@ pub(super) fn render_batch_internal_comparison(
         let label = super::portfolio::localized_module_name(&module, i18n);
         let (worst_url, worst_score) = scored[0];
         let (best_url, best_score) = scored[scored.len() - 1];
-        // No variation: a best and a weakest URL would be an arbitrary pick
-        // (plan 86).
+        // No variation: a best and a weakest URL would be an arbitrary pick.
         if best_score == worst_score {
             let same = i18n.t_args(
                 "batch-management-comparison-same",
@@ -317,7 +316,7 @@ pub(super) fn render_batch_decision_actions(
         TableColumn::new(i18n.t("batch-col-risk")).with_width("12%"),
         // The WCAG level instead of the expected-impact sentence: since plan
         // 99 that sentence only repeated the reach column and "score effect
-        // not quantified" on every row (plan 108).
+        // not quantified" on every row.
         TableColumn::new("WCAG").with_width("10%"),
         TableColumn::new(i18n.t("batch-management-col-scope")).with_width("14%"),
         TableColumn::new(i18n.t("batch-management-col-reach")).with_width("20%"),
@@ -351,14 +350,14 @@ pub(super) fn render_batch_decision_actions(
                 format!("{element}: {}", cluster.decision_label)
             }
         } else if group.affected_urls.len() > 1 {
-            // Recurring is observed; a shared component is not (plan 85).
+            // Recurring is observed; a shared component is not.
             i18n.t_args(
                 "batch-management-root-recurring",
                 &[("count", FluentValue::from(group.affected_urls.len() as i64))],
             )
         } else if group.finding.occurrence_count > 1 {
             // Repetition within one page says nothing about other pages
-            // ("auf 1 Seiten, Ursache offen", plan 99).
+            // ("auf 1 Seiten, Ursache offen").
             i18n.t_args(
                 "batch-management-root-one-page",
                 &[(
@@ -446,7 +445,7 @@ pub(super) fn build_batch_key_points(
     let mut points = Vec::with_capacity(3);
 
     // Point 1: critical/high WCAG occurrences, with the per-page finding
-    // groups they form — two different counts, both named (plan 79).
+    // groups they form — two different counts, both named.
     let ch = dist.critical + dist.high;
     let occ = &pres.portfolio_summary.occurrence_distribution;
     let ch_occurrences = occ.critical + occ.high;

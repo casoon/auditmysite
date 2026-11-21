@@ -98,7 +98,7 @@ pub(super) fn evidence_quality(
 
 /// Taxonomy rules whose check detects a pattern, not the failure of the
 /// criterion itself: the pattern is found reliably, whether it fails the
-/// criterion needs a person (plan 71, #784). A declared method, reviewed per
+/// criterion needs a person (#784). A declared method, reviewed per
 /// rule — not a substring of the id.
 pub(crate) const PATTERN_RULES: &[&str] = &[
     // DOM order diverging from the visual order; whether the order is
@@ -268,7 +268,7 @@ pub(super) fn derive_complexity(
 /// Expected-score-effect classification embedded in [`ExpectedImpactKind`].
 /// A severity × count heuristic, not a simulation: it orders findings and is
 /// kept in the JSON for compatibility, but no report sentence states it as a
-/// score effect (plan 99; a simulated value is plan 107).
+/// score effect (a simulated value is tracked in #1169).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[non_exhaustive]
 pub enum ScoreEffect {
@@ -347,7 +347,7 @@ pub fn expected_impact_text(kind: &ExpectedImpactKind, en: bool) -> String {
     // Names the reach only. Whether one fix removes every occurrence (shared
     // cause unconfirmed) and how far the score moves (not simulated) are not
     // known here, so the sentence claims neither; `score_effect` stays in the
-    // kind for ordering (plan 99).
+    // kind for ordering.
     match kind {
         ExpectedImpactKind::Wcag {
             occurrence_count,
@@ -536,7 +536,7 @@ mod tests {
         );
     }
 
-    /// Plan 99: the sentence names the reach, never a fix guarantee or a
+    /// The sentence names the reach, never a fix guarantee or a
     /// score effect derived from severity × count — even for `High`.
     #[test]
     fn expected_impact_text_claims_no_fix_or_score_effect() {
@@ -564,7 +564,7 @@ mod tests {
         }
     }
 
-    /// Plan 71: a generic link text is detected reliably, the 2.4.4 failure
+    /// A generic link text is detected reliably, the 2.4.4 failure
     /// is not — even with a located element the finding asks for review.
     #[test]
     fn pattern_rules_are_never_automatically_confirmed() {

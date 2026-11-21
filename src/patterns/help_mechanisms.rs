@@ -1,4 +1,4 @@
-//! Help-mechanism inventory for WCAG 3.2.6 Consistent Help (plan 54 §3).
+//! Help-mechanism inventory for WCAG 3.2.6 Consistent Help.
 //!
 //! 3.2.6 is a cross-page criterion: a help mechanism that is repeated on
 //! several pages must appear in the same order relative to the other page

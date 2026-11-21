@@ -12,7 +12,7 @@
 //!
 //! # Warum die Ankündigung beobachtet und nicht abgefragt wird
 //!
-//! Bis Plan 53 lautete die Prüfung: existiert jetzt ein
+//! Früher lautete die Prüfung: existiert jetzt ein
 //! `[role="alert"],[aria-live]`, das vorher nicht existierte. Daraus folgte
 //! `new_live = live_after && !live_before` — und damit war sie für die
 //! **empfohlene** Umsetzung blind. Wer den Live-Container von Anfang an leer
@@ -185,7 +185,7 @@ pub async fn test(
     });
 
     // The live-region container itself was not present on initial page load
-    // and was only inserted into the DOM after submission (plan/17). This is
+    // and was only inserted into the DOM after submission. This is
     // distinct from `FormErrorInvalidWithoutLiveRegion`/the silent-failure
     // check below (both of which fire when NO live region appears at all) —
     // here a live region did end up announcing the error, but screen readers

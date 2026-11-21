@@ -15,7 +15,7 @@
     {
       "contract_id": "display/text-hidden",
       "outcome": "automatic",
-      "source": "BarrierLab display-mode convention draft v0 (barrierlab/plan/03), anchored to WCAG 2.2 SC 1.1.1; accname 1.2 (description from hidden referenced nodes); HTML inert",
+      "source": "BarrierLab display-mode convention draft v0, anchored to WCAG 2.2 SC 1.1.1; accname 1.2 (description from hidden referenced nodes); HTML inert",
       "applicability": "Pages with figure[data-viz] and a [data-viz-text], in any mode.",
       "expectation": "A best-practice violation at the text layer when it is removed from\nassistive technology while its figure is shown: hidden attribute,\naria-hidden=true, inert, or CSS (display: none) on it or an ancestor, also\nwhen set by script after load. Visually hidden but exposed (clip pattern)\npasses. A figure that is itself not shown (inactive tab panel with hidden)\nhides its statement for everyone and passes. A CSS-hidden or hidden layer\nthat a rendered element of the figure references by aria-describedby or\naria-details still reaches assistive technology as a description: a low\nreview, not a violation; inert does not get that exception.",
       "method": "page",

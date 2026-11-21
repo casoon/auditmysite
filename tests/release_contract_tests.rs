@@ -52,7 +52,7 @@ fn test_readme_documents_curl_installer() {
 
 #[test]
 fn test_release_build_requires_quality_gates_to_pass_first() {
-    // plan/25-release-workflow-quality-gate.md: a `v*` tag must not be able
+    // A `v*` tag must not be able
     // to produce release binaries without the same commit having passed
     // fmt/clippy/tests/dependency-audit first. Text-based, not a real YAML
     // parse (matches this file's existing style) — but specific enough that
@@ -83,7 +83,7 @@ fn test_release_build_requires_quality_gates_to_pass_first() {
     );
 }
 
-/// Plan 94: `cross` is installed from a pinned commit with `--locked`,
+/// `cross` is installed from a pinned commit with `--locked`,
 /// never from the moving tip of cross-rs/main.
 #[test]
 fn test_cross_is_installed_pinned() {
@@ -103,7 +103,7 @@ fn test_cross_is_installed_pinned() {
 
 #[test]
 fn test_release_build_uses_locked_lockfile() {
-    // plan/25-release-workflow-quality-gate.md: release binaries must be
+    // Release binaries must be
     // built from the exact checked-in Cargo.lock, not a silently
     // re-resolved one.
     let release_yml = read_repo_file(".github/workflows/release.yml");
@@ -196,7 +196,7 @@ fn job_condition(job_body: &str) -> Option<&str> {
 
 #[test]
 fn test_release_quality_gate_runs_browser_tests_but_not_coverage() {
-    // plan/30-release-browser-gate-for-tag-sha.md: release.yml calls ci.yml
+    // Release.yml calls ci.yml
     // as its quality gate, so every CI job that can skip itself can also skip
     // the release gate. In a called workflow the `github` context is the
     // caller's (`event_name == 'push'`, `ref == 'refs/tags/v*'`), so a guard

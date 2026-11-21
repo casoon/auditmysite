@@ -222,7 +222,7 @@ pub struct SeoSignalStrength {
     /// Weighted pass rate across the categories. Internal aggregate for the
     /// Search Experience composite — the report shows `totals()` instead,
     /// because a weighted percentage of pass rates is one derivation further
-    /// from the evidence than the counts are (plan 29, D4).
+    /// from the evidence than the counts are.
     pub overall_pct: u32,
 }
 
@@ -240,7 +240,7 @@ pub struct SignalCategory {
     pub name: String,
     /// How many of this category's checks passed, and how many there are.
     ///
-    /// Reported as counts rather than as a percentage (plan 29, D4): a bare
+    /// Reported as counts rather than as a percentage: a bare
     /// "80 %" hides its denominator, so adding a check that usually passes
     /// silently lifts every site's value. The check list per category is
     /// fixed, so `passed`/`total` is the whole truth about this category.
@@ -440,7 +440,7 @@ fn score_media_text_balance(word_count: u32, has_og: bool, has_product_schema: b
 /// `MediaHeavy`, `Utility` and `ThinContent` have a single constant each, so
 /// their intent-fit value says nothing about the page in hand — it restates
 /// its classification. A reader-facing judgement about *this page* must not be
-/// gated on such a value (plan 39).
+/// gated on such a value.
 pub fn intent_fit_is_signal_derived(page_type: &PageType) -> bool {
     match page_type {
         PageType::Editorial

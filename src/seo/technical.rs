@@ -78,7 +78,7 @@ pub struct TechnicalSeo {
     pub text_excerpt: String,
     /// Where `text_excerpt` comes from: `main` (a single main landmark with
     /// at least 200 characters) or `body` (fallback, includes header and
-    /// navigation). Empty in reports from before plan 90.
+    /// navigation). Empty in older reports.
     #[serde(default)]
     pub text_excerpt_source: String,
     /// Uses externally hosted Google Fonts assets

@@ -392,9 +392,9 @@ jobs:
           CI: "true"
         run: cargo test --test easy_language_detection_test -- --ignored --nocapture --test-threads=1
 
-      # Help-mechanism inventory (WCAG 3.2.6, plan 54) and score calibration
-      # bands (plan 47): real-Chrome `#[ignore]`-gated binaries that were not
-      # run in CI before (plan 66, WP2).
+      # Help-mechanism inventory (WCAG 3.2.6) and score calibration
+      # bands: real-Chrome `#[ignore]`-gated binaries that were not
+      # run in CI before.
       - name: Help mechanisms detection
         if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}
         env:

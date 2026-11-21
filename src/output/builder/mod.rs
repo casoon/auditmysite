@@ -226,7 +226,7 @@ mod tests {
             normalized.normalized.score
         );
         assert_eq!(pres.url_ranking[0].grade, normalized.normalized.grade);
-        // Plan 29, D1: the portfolio grade describes the subject of the
+        // The portfolio grade describes the subject of the
         // report, so it follows the accessibility average, not the weighted
         // overall one.
         let average_a11y = pres
@@ -453,7 +453,7 @@ mod tests {
         let vm = build_view_model(&normalized, &config);
 
         // Each non-Journey module must have a matching dashboard card.
-        // The weighted modules carry their own card (SEO included, plan 105);
+        // The weighted modules carry their own card (SEO included);
         // the Search Experience composite and UX follow as indicators.
         let dashboard_modules = [
             "Accessibility",
@@ -555,7 +555,7 @@ mod tests {
             "composite score should correct SEO-only score"
         );
         assert!(sx.interpretation.contains("Technisch auffindbar"));
-        // Plan 105: the composite no longer replaces the weighted SEO card —
+        // The composite no longer replaces the weighted SEO card —
         // both are shown, SEO as measured, the composite as an indicator.
         assert_eq!(sx.measurement_type, "composite");
         let seo = vm

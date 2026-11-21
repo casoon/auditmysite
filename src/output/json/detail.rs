@@ -444,7 +444,7 @@ pub(super) fn build_fix_guidance(normalized: &NormalizedReport) -> Vec<FixGuidan
             // `rule_id` alone let the many "1.3.1" checks collapse onto the
             // generic table/list explanation — e.g. every landmark finding was
             // published as "Missing semantic structure" with table markup as
-            // its fix example (plan 32).
+            // its fix example.
             let expl = resolve_explanation(
                 finding.axe_id.as_deref(),
                 &finding.rule_id,

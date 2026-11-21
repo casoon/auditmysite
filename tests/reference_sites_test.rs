@@ -1,5 +1,5 @@
 //! Live reference set: public pages with a manually reviewed expected score
-//! band (plan 47, step 2).
+//! band.
 //!
 //! The fixture bands in `score_calibration_test.rs` pin the scorer on
 //! synthetic pages; this pins it on real ones. The expected band of each page
@@ -65,7 +65,7 @@ async fn audit_once(manager: &BrowserManager, url: &str) -> Result<Run, String> 
     // Boxed: the audit future is large, and two of them inline in the test
     // body overflow the test thread's stack in a debug build.
     let audited = Box::pin(audit_page(&page, url, &config, manager)).await;
-    // Close before the next site: every page stays visible (plan 62),
+    // Close before the next site: every page stays visible,
     // and a finished live site left open keeps running its scripts.
     let _ = page.close().await;
     let (report, _) = audited.map_err(|e| format!("audit failed ({e})"))?;

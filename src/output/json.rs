@@ -283,12 +283,11 @@ pub struct UnifiedSummary {
     /// Sum of the module weights that actually fed `site_quality_score`, out of
     /// 100. Below 100 the score was renormalised over the modules that ran and
     /// measured successfully, so it is not comparable with a run over a
-    /// different module set (plan 41).
+    /// different module set.
     pub site_quality_score_weight_basis: u32,
     /// Batch only. `false` when the audited pages did not all contribute the
     /// same weight basis — their `site_quality_score` values were then averaged
-    /// across different module sets and are not directly comparable
-    /// (plan 41).
+    /// across different module sets and are not directly comparable.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub site_quality_score_weight_basis_uniform: Option<bool>,
     /// Accessibility score explanation by weighted topic.
@@ -375,8 +374,8 @@ fn artifacts_for(normalized: &NormalizedReport) -> Vec<ArtifactDescriptor> {
 
 #[derive(Debug, Serialize)]
 pub struct WcagCoverageSummary {
-    /// WCAG version the ratio is scoped to ("2.2"). Absent in reports from
-    /// before plan 54, which were scoped to WCAG 2.1.
+    /// WCAG version the ratio is scoped to ("2.2"). Absent in older reports,
+    /// which were scoped to WCAG 2.1.
     pub wcag_version: &'static str,
     pub level: String,
     pub automated_criteria: usize,
@@ -909,7 +908,7 @@ fn build_site_analysis(
             })).collect::<Vec<_>>(),
             // `shared_terms` always held the similarity (0-100), never a term
             // count; kept with that value for compatibility, deprecated in
-            // favour of `similarity_percent` (plan 90).
+            // favour of `similarity_percent`.
             "overlap_pairs": portfolio.overlap_pairs.iter().map(|pair| serde_json::json!({
                 "url_a": pair.url_a,
                 "url_b": pair.url_b,

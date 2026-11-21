@@ -1,7 +1,7 @@
 //! One local fixture HTTP server for every integration test that needs one.
 //!
 //! Six copies of this server existed, identical apart from where the HTML came
-//! from — and all six carried the same race (plan 48):
+//! from — and all six carried the same race:
 //!
 //! The listener is set non-blocking so the accept loop can poll a shutdown
 //! flag. On macOS and the BSDs the *accepted* socket inherits that flag, so

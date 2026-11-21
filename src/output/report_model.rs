@@ -134,7 +134,7 @@ pub struct ReportViewModel {
     /// Management risk dimensions, as the analysis layer derived them. Carried
     /// as `ManagementRiskKind` rather than as finished text so the PDF renders
     /// them in the run language while the JSON keeps canonical English
-    /// (#406, plan 35).
+    /// (#406).
     pub management_risks: Vec<crate::audit::management_risk::ManagementRiskKind>,
     /// External assessments of `--annotations` (#961). Set by the PDF entry
     /// point, never by the view-model builder: nothing in the view model is
@@ -213,7 +213,7 @@ pub struct SummaryBlock {
     pub score_note: Option<String>,
     /// CI verdict for this run (pass/warn/fail) and the reasons that drove it
     /// away from pass. Rendered as the "Einstufung Barrierefreiheit" block; the narrative
-    /// `verdict` field above is a prose sentence, not this (plan 34).
+    /// `verdict` field above is a prose sentence, not this.
     pub ci_verdict: crate::audit::verdict::Verdict,
     pub ci_verdict_reasons: Vec<crate::audit::verdict::VerdictReasonKind>,
     /// Known/new/fixed findings against the findings baseline (#930); `None`
@@ -221,11 +221,11 @@ pub struct SummaryBlock {
     pub baseline: Option<crate::audit::BaselineStatus>,
     /// True when the run did not complete in full. The rating is then marked
     /// provisional at the front of the report instead of only in the
-    /// methodology appendix (plan 44).
+    /// methodology appendix.
     pub run_is_partial: bool,
     /// How `site_quality_score` was actually computed. In `viewport_weighted` mode
     /// the per-module weighting is NOT the computation path, so the score
-    /// driver table must not present itself as the derivation (plan 34).
+    /// driver table must not present itself as the derivation.
     pub score_calculation_method: String,
     /// The viewport/security blend that produced `site_quality_score`, present only
     /// in `viewport_weighted` mode.
@@ -286,8 +286,7 @@ pub struct ModulesBlock {
     /// for narrative presentation (e.g. the "Search Experience" card blends
     /// SEO with heuristic AI-visibility/content-visibility signals into one
     /// composite score that is *not* the raw SEO number carrying SEO's real
-    /// weight). Used by the score-driver table (plan/2-score-driver-
-    /// breakdown.md), which must show each module's actual weight_pct.
+    /// weight). Used by the score-driver table, which must show each module's actual weight_pct.
     pub module_scores: Vec<crate::audit::normalized::ModuleScoreEntry>,
     /// Per-area Accessibility score breakdown — the same derivation as the
     /// JSON `summary.accessibility_score_breakdown`
@@ -629,8 +628,7 @@ pub struct RoadmapItemData {
     /// "Remediation leverage" tier ("Sehr hoch"/"Hoch"/"Niedrig", already
     /// localized) — a plain-language verdict combining reach
     /// (`occurrence_count`), cost (`effort`), and risk (`priority`) into one
-    /// answer to "is this fix worth doing first" (plan/6-remediation-
-    /// leverage-metric.md). Computed in `build_actions_block` where the raw
+    /// answer to "is this fix worth doing first". Computed in `build_actions_block` where the raw
     /// `Effort`/`Priority` enums are still available.
     pub leverage: String,
 }
@@ -811,7 +809,7 @@ pub struct CoveragePresentation {
     pub css_total_rules: Option<u32>,
     pub css_used_rules: Option<u32>,
     /// Not every stylesheet's text could be read: the share covers the
-    /// readable ones only (plan 78).
+    /// readable ones only.
     pub css_partial: bool,
     /// Same file served under 2+ URLs (#551), empty unless found.
     pub duplicate_assets: Vec<DuplicateAssetRow>,
@@ -1000,7 +998,7 @@ pub struct SeoProfilePresentation {
     /// Signals met and signals checked across all categories. Replaces the
     /// weighted site-quality percentage in the report: a percentage of pass rates,
     /// weighted by six invented factors, is further from the evidence than
-    /// the counts are (plan 29, D4).
+    /// the counts are.
     pub signal_passed: u32,
     pub signal_total: u32,
     // Signal Details: (category_name, [(check_label, passed, detail)])
@@ -1019,7 +1017,7 @@ pub struct SecurityPresentation {
     /// Band label for the score card. Derived from the same corrected band as
     /// `interpretation`, not from `score` — an open severe finding moves the
     /// wording without moving the number, and the card must not then contradict
-    /// the takeaway right below it (plan 33).
+    /// the takeaway right below it.
     pub band_label: String,
     /// The representative score of that corrected band; colours the card.
     pub band_score: u32,
@@ -1038,7 +1036,7 @@ pub struct SecurityPresentation {
     /// (component, classification, points) — how the score arose from 100:
     /// one row per issue with its deduction from the shared contribution
     /// list, then the HSTS bonus and the vulnerable-library penalty, so the
-    /// table adds up to `score` (plan 72).
+    /// table adds up to `score`.
     pub score_rows: Vec<(String, String, String)>,
     pub ssl_info: Vec<(String, String)>,
     pub issues: Vec<(String, Severity, String)>,
@@ -1094,7 +1092,7 @@ pub struct HtmlConformPresentation {
     pub findings: Vec<(String, String, String, String, u32)>,
     /// Top distinct-defect messages (errors before warnings before info,
     /// then by occurrence count), capped like the other modules'
-    /// recommendation lists (plan/31-html-conform-missing-fix-guidance.md).
+    /// recommendation lists.
     /// Empty when there are no findings.
     pub recommendations: Vec<String>,
     /// One written measure per rule family with an open finding:
@@ -1117,7 +1115,7 @@ pub struct MobilePresentation {
 pub struct UxPresentation {
     pub score: u32,
     /// Points the Accessibility result cost this score, and the score before
-    /// it was charged. Reported rather than folded in silently (plan 29, D3).
+    /// it was charged. Reported rather than folded in silently.
     pub a11y_penalty: u32,
     pub score_before_a11y_penalty: u32,
     pub grade: String,
@@ -1424,7 +1422,7 @@ pub struct PortfolioSummary {
     pub severity_distribution: SeverityDistribution,
     /// The same split by WCAG occurrences rather than per-page finding
     /// groups — 21 critical + 74 high groups were 21 + 124 occurrences on
-    /// inros-lackner (plan 79). Counts naming "Vorkommen" use this one.
+    /// a corporate site. Counts naming "Vorkommen" use this one.
     pub occurrence_distribution: SeverityDistribution,
     /// Aggregated risk level across all URLs (worst-case)
     pub risk_level: String,
@@ -1440,7 +1438,7 @@ pub struct PortfolioSummary {
     pub grade: String,
     pub page_type_distribution: Vec<(String, usize, u32)>,
     /// Audited pages grouped by detected page type, with group averages and
-    /// the most common finding (plan 93).
+    /// the most common finding.
     pub page_type_groups: Vec<PageTypeGroup>,
     pub distribution_insights: Vec<DistributionInsight>,
     pub strongest_content_pages: Vec<(String, String, u32)>,
@@ -1454,10 +1452,9 @@ pub struct PortfolioSummary {
     pub budget_summary: Vec<(String, String, usize, String)>,
     /// Aggregated render-blocking summary across all pages (metric_label, value_label)
     pub render_blocking_summary: Vec<(String, String)>,
-    /// Render-blocking resources (exact URL) found on two or more pages
-    /// (plan 93).
+    /// Render-blocking resources (exact URL) found on two or more pages.
     pub shared_blocking_resources: Vec<SharedBlockingResource>,
-    /// Security headers compared across the audited pages (plan 93, step 5).
+    /// Security headers compared across the audited pages.
     pub security_header_consistency: Vec<SecurityHeaderConsistency>,
     /// Schema type distribution: (schema_type_label, url_count) sorted descending
     pub schema_distribution: Vec<(String, usize)>,
@@ -1473,7 +1470,7 @@ pub struct PortfolioSummary {
     pub hreflang_issues: Vec<HreflangIssue>,
     /// Sitemap entries with HTTP/indexability issues
     pub sitemap_http_issues: Vec<crate::audit::SitemapHttpIssue>,
-    /// HTTP status class counts over every checked sitemap URL (plan 87).
+    /// HTTP status class counts over every checked sitemap URL.
     pub sitemap_status_counts: std::collections::BTreeMap<String, usize>,
     /// Sitemap entries not linked by any audited page
     pub orphan_sitemap_urls: Vec<String>,
@@ -1487,10 +1484,10 @@ pub struct PortfolioSummary {
     /// cyclical redirect chain (#546)
     pub redirect_chain_issues: Vec<RedirectChainIssue>,
     /// Crawl-depth diagnostics (BFS click-distance from the homepage
-    /// through this batch's internal link graph, #548, plan 81).
+    /// through this batch's internal link graph, #548).
     pub crawl_depth_diagnostics: Option<crate::audit::CrawlDepthDiagnostics>,
     /// Set when a sitemap batch could not fetch the homepage: depths are
-    /// then not determined (plan 81).
+    /// then not determined.
     pub crawl_depths_unavailable: bool,
 }
 
@@ -1584,7 +1581,7 @@ pub struct UrlAppendix {
     pub violations: Vec<AppendixViolation>,
 }
 
-/// Two audited pages whose topic terms overlap strongly (plan 90).
+/// Two audited pages whose topic terms overlap strongly.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TopicOverlapPair {
     pub url_a: String,

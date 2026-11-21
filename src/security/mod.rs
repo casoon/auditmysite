@@ -401,7 +401,7 @@ pub struct SecurityIssue {
     pub values: SecurityIssueValues,
     /// Points this issue took off the module score — its entry in the one
     /// contribution list behind the module and category scores
-    /// ([`issue_deductions`], plan 72). Absent in older reports.
+    /// ([`issue_deductions`]). Absent in older reports.
     #[serde(default)]
     pub score_deduction: u32,
 }
@@ -1103,8 +1103,7 @@ pub(crate) fn generate_security_issues(
     }
 
     // A CSP `frame-ancestors` supersedes X-Frame-Options (CSP Level 2;
-    // browsers ignore XFO when both are set) — missing XFO is no gap then
-    // (plan 72).
+    // browsers ignore XFO when both are set) — missing XFO is no gap then.
     if headers.x_frame_options.is_none()
         && !headers
             .content_security_policy
@@ -1512,7 +1511,7 @@ fn generate_recommendations(headers: &SecurityHeaders, https: bool) -> Vec<Strin
 
 /// Points each issue takes off the security score, in `issues` order — the
 /// one contribution list behind `calculate_security_score` and
-/// [`calculate_security_category_scores`] (plan 72).
+/// [`calculate_security_category_scores`].
 ///
 /// - Context-dependent and not-assessable headers cost nothing: whether
 ///   COOP/CORP or CORS matter depends on a deployment context a page fetch
@@ -1571,8 +1570,7 @@ pub(crate) fn calculate_security_score(
     score
 }
 
-/// Coarse security sub-category (plan/5-module-accessibility-security-
-/// driver-detail.md): Security has no per-check taxonomy registry like
+/// Coarse security sub-category: Security has no per-check taxonomy registry like
 /// WCAG's `taxonomy::Subcategory`, so this groups `SecurityIssue.header`
 /// values into the handful of categories a non-technical reader would
 /// recognize, mirroring the review's own example wording ("fehlende
@@ -1641,8 +1639,7 @@ impl SecurityCategory {
 /// scoped to the issues in each category — so a category with e.g. one
 /// missing baseline header scores the same way that single issue would
 /// deduct from the overall score, not a newly invented scale. A category
-/// with no issues scores 100 (plan/5-module-accessibility-security-driver-
-/// detail.md).
+/// with no issues scores 100.
 pub fn calculate_security_category_scores(
     issues: &[SecurityIssue],
 ) -> Vec<(SecurityCategory, u32)> {
@@ -2561,7 +2558,7 @@ mod tests {
         assert!(recs.iter().any(|r| r.contains("Strict-Transport-Security")));
     }
 
-    /// Plan 72, inros-lackner 2026-10-23: four baseline gaps, two
+    /// Four baseline gaps, two
     /// architecture-dependent and two context-dependent headers missing. COOP
     /// and CORP now cost nothing (30 → 40); the category scores come from the
     /// same contribution list and lose exactly what the total loses.

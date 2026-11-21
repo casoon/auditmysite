@@ -91,7 +91,7 @@ pub fn check_all_excluding(
     }
 
     // Level AAA hat keine Baumregeln mehr: 1.4.6 (`contrast/text-enhanced`,
-    // #698), 2.4.9 (`links/purpose-link-only`, Plan 98), 2.4.10
+    // #698), 2.4.9 (`links/purpose-link-only`), 2.4.10
     // (`headings/section-without-heading`, #697), 3.1.3/3.3.5 (`manual/*`,
     // #722) laufen im geteilten Bestand, 1.2.8 als Page-Rule
     // (`check_media_alternative_with_page`).

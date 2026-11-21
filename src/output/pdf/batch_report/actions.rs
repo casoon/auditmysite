@@ -177,8 +177,8 @@ pub(super) fn render_batch_top_issues(
         // `{ $selector }` interpolation, so nothing is lost.
         //
         // One entry per place: two rules at the same selector (the skip link
-        // on inros-lackner: landmark and positive tabindex) are one place
-        // with two findings, listed underneath — not two causes (plan 85).
+        // on a corporate site: landmark and positive tabindex) are one place
+        // with two findings, listed underneath — not two causes.
         let mut template_list = List::new().with_title(i18n.t("batch-template-section-title"));
         let mut seen: Vec<&str> = Vec::new();
         for cluster in &template_causes {
@@ -253,7 +253,7 @@ pub(super) fn render_batch_top_issues(
 
     for group in pres.top_issues.iter().take(5) {
         // Three tiers: a finding on 9 of 20 pages is neither global nor
-        // "isolated content" (plan 99).
+        // "isolated content".
         let urls = group.affected_urls.len();
         let scope = batch_reach_label(urls, pres.portfolio_summary.total_urls, i18n);
         let affected_urls_word = i18n.t_args("batch-meta-affected-urls", &[("count", urls as i64)]);
@@ -337,7 +337,7 @@ pub(super) fn render_batch_action_plan_section(
             .add_component(TextBlock::new(i18n.t("batch-render-blocking-intro")))
             .add_component(kv);
 
-        // The same files across pages (plan 93): one fix reaches every page
+        // The same files across pages: one fix reaches every page
         // listed, which the summed count above hides.
         let shared = &pres.portfolio_summary.shared_blocking_resources;
         if !shared.is_empty() {

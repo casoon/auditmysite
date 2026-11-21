@@ -1,8 +1,8 @@
 //! Root-cause analysis (letters A, B, C… for the WCAG-mandatory causes) and
 //! the timeframe roadmap that tags its systemic actions with those letters.
 //!
-//! Extracted verbatim from `single_report.rs` (plan 66, WP3; same cut as
-//! `problem_profile.rs` in plan 27). Both sections share the letter
+//! Extracted verbatim from `single_report.rs` , like
+//! `problem_profile.rs`. Both sections share the letter
 //! assignment, so they move together. No logic changed in the move.
 
 use crate::output::localized::is_english;
@@ -121,12 +121,12 @@ pub(super) fn render_root_cause_analysis(
 
     // Plain lead-in (Rule A). One page shows where findings concentrate,
     // not that they share a cause — a shared component is a possibility for
-    // the developer to check (plan 75).
+    // the developer to check.
     let lead_in = i18n.t("pdf-analysis-causes-lead-in");
     builder = builder.add_component(Label::new(lead_in).with_size("10.5pt"));
 
     // One table with the full titles. A list, a bar chart and this table
-    // used to repeat the same numbers three times (plan 75).
+    // used to repeat the same numbers three times.
     let total_occurrences: usize = findings.iter().map(|f| f.finding.occurrence_count).sum();
     // Rounded (not truncating) share so a small-but-real cause reads as "1 %"
     // rather than a self-contradictory "0 %" next to its own listed row.
@@ -227,9 +227,9 @@ pub(super) fn render_timeframe_roadmap(
             .with_level(2),
     );
 
-    // Overall-leverage sentence (plan/7-management-summary-consolidation.md):
+    // Overall-leverage sentence:
     // reuses the same problem-concentration numbers shown earlier
-    // (plan/3-problem-concentration-diagnosis-narrative.md) but framed
+    // but framed
     // around leverage rather than diagnosis — not literally the same
     // sentence twice.
     if let Some(note) = build_overall_leverage_note(vm, i18n) {
@@ -268,7 +268,7 @@ pub(super) fn render_timeframe_roadmap(
     let root_cause_by_rule = root_cause_lookup(&root_causes);
 
     // One level group per column (systemic vs. local), each action as a
-    // clean recommendation card — what to do, why, and (plan/6) a
+    // clean recommendation card — what to do, why, and a
     // remediation-leverage line instead of a separate visual effort badge.
     for col in columns {
         builder = builder.add_component(
@@ -287,10 +287,10 @@ pub(super) fn render_timeframe_roadmap(
                     format!("{}\n\n{why}", item.hint)
                 };
             }
-            // plan/6-remediation-leverage-metric.md: "is this worth doing
+            // "is this worth doing
             // first" verdict — reach (occurrences), cost (effort) and risk
-            // condensed into one line. "betroffen", not "behoben"/"beseitigt"
-            // (plan/4-root-cause-confidence-wording.md): occurrence_count is
+            // condensed into one line. "betroffen", not "behoben"/"beseitigt":
+            // occurrence_count is
             // how many elements this rule affects, not a guarantee that one
             // fix resolves every one of them.
             let leverage_tag = i18n.t_args(

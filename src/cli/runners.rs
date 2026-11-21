@@ -488,7 +488,7 @@ async fn run_batch(
         .collect();
 
     // The pages actually attempted, in input order — the technician index
-    // lists every one of them, audited or not (plan 67).
+    // lists every one of them, audited or not.
     let attempted_urls: Vec<String> = urls.iter().take(total_urls).cloned().collect();
 
     if !args.quiet {

@@ -94,7 +94,7 @@ fn test_json_report_generation() {
     assert_eq!(parsed["pages"][0]["url"], "https://example.com");
     assert_eq!(parsed["metadata"]["wcag_level"], "AA");
     assert_eq!(parsed["metadata"]["timestamp"], "2026-01-15T12:00:00Z");
-    // Plan 54 §4: reports scoped to WCAG 2.2 say so; older ones lack the field.
+    // Reports scoped to WCAG 2.2 say so; older ones lack the field.
     assert_eq!(parsed["summary"]["wcag_coverage"]["wcag_version"], "2.2");
     assert_eq!(parsed["summary"]["wcag_coverage"]["level"], "WCAG 2.2 AA");
     assert!(
@@ -452,7 +452,7 @@ fn test_studio_response_has_all_expected_fields() {
     }
 }
 
-/// Plan 67: `index.json` and every `findings.jsonl` line match their
+/// `index.json` and every `findings.jsonl` line match their
 /// published schemas, including blocked/failed index entries and
 /// html-conform rows.
 #[test]

@@ -68,7 +68,6 @@ tarpaulin-report.html
 # Temporary
 /tmp/
 *.tmp
-plan/
 todo.md
 
 # Skill eval workspaces (skill-creator convention: <skill-name>-workspace/)

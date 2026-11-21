@@ -1,4 +1,4 @@
-# cargo-audit configuration (plan/24-dependency-security-gate.md).
+# cargo-audit configuration.
 #
 # Every entry here is a currently-unfixable transitive advisory, not a
 # blanket suppression. Re-check on each CI failure whether an upstream fix

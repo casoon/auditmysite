@@ -27,7 +27,7 @@ pub(super) fn viewport_weighted_site_quality(
 
 /// Weighted site-quality score of one viewport over the modules measured there, with
 /// the weights `module_scores` publishes (`taxonomy::module_weight`), so the
-/// shown weights are the formula: before plan 73 this path weighted SEO 20
+/// shown weights are the formula: this path once weighted SEO 20
 /// instead of 15 and left HTML conformance out. Security joins after the
 /// viewport blend with its own 10 %. `None` modules (not run, or no Web
 /// Vitals measured) drop out and the rest is renormalized.
@@ -187,7 +187,7 @@ pub(super) fn merge_wcag_violations(desktop: &WcagResults, mobile: &WcagResults)
     for mv in &mobile.violations {
         let mk = dedup_key(mv);
         // Only an unmatched desktop entry can pair up: several elements can
-        // share a selector (18 × `ul.link-list__list` on sachsen-anhalt.de),
+        // share a selector (18 × `ul.link-list__list` on a public-sector site),
         // and reusing the first match left the other 17 desktop entries to be
         // appended as desktop-only — 35 occurrences for 18 elements.
         let match_idx = desktop

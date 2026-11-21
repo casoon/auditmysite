@@ -96,7 +96,7 @@ fn render_seo_weakest_pages(
     }
     // The five pages with the lowest content profile, listed as such: a low
     // profile is no observed problem, and a word count is no basis for
-    // "+300–800 words" or a guessed ranking impact (plan 84).
+    // "+300–800 words" or a guessed ranking impact.
     if !pres.portfolio_summary.weakest_content_pages.is_empty() {
         let mut list = KeyValueList::new().with_title(i18n.t("batch-seo-weakest-title"));
         for (url, page_type, score) in &pres.portfolio_summary.weakest_content_pages {
@@ -355,7 +355,7 @@ fn render_seo_sitemap_http_issues(
         builder.add_component(Section::new(i18n.t("batch-seo-sitemap-http-title")).with_level(2));
 
     // Measured distribution over every checked URL, not "all minus the
-    // issues" (plan 87).
+    // issues".
     if !counts.is_empty() {
         let checked: usize = counts.values().sum();
         let distribution = counts
@@ -468,7 +468,7 @@ fn render_seo_sitemap_orphans(
         )));
 
         // Candidates from a partial graph: a short list, not a site-wide
-        // verdict (plan 82).
+        // verdict.
         let partial = pres
             .portfolio_summary
             .crawl_depth_diagnostics
@@ -615,7 +615,7 @@ fn render_seo_crawl_depth(
         }
         // In a sample most pages have no observed path; a row each pushed
         // the measured depths off the page. The count stays, the list is in
-        // the JSON (plan 91).
+        // the JSON.
         if diag.partial_batch {
             // The JSON list is capped; the count is audited minus reached.
             let reached: usize = diag.depth_histogram.values().sum();
@@ -642,7 +642,7 @@ fn render_seo_page_type_distribution(
 ) -> renderreport::engine::ReportBuilder {
     if !pres.portfolio_summary.page_type_distribution.is_empty() {
         // Group mean and common finding instead of a relevance rating that
-        // had no data behind it (plan 93).
+        // had no data behind it.
         let mut type_table = AuditTable::new(vec![
             TableColumn::new(i18n.t("batch-col-page-type")).with_width("24%"),
             TableColumn::new(i18n.t("batch-col-pages-list")).with_width("10%"),

@@ -171,7 +171,7 @@ pub(super) fn build_security_details(
 }
 
 /// Why the card's wording band is below the band of its number. The wording
-/// band is corrected by open findings while the score stays (plan 33); without
+/// band is corrected by open findings while the score stays; without
 /// this sentence "95 — Verbesserungswürdig" reads as a contradiction (#896).
 /// `None` when the wording band is the score's own band.
 fn security_band_note(
@@ -211,7 +211,7 @@ fn security_band_note(
 
 /// The security score as a sum: 100, one row per issue with the deduction it
 /// carries in the shared contribution list, the HSTS bonus and the
-/// vulnerable-library penalty from Best Practices (plan 72).
+/// vulnerable-library penalty from Best Practices.
 fn security_score_rows(
     i18n: &I18n,
     sec: &crate::security::SecurityAnalysis,

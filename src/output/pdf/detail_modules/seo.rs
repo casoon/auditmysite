@@ -222,7 +222,7 @@ pub(in crate::output::pdf) fn render_seo(
         }
     }
 
-    // Same correction as the security section (plan 33): gating this on the
+    // Same correction as the security section: gating this on the
     // score alone printed "no significant issues found" directly below the
     // problems the section had just listed. On casoon.de (2026-09-19, SEO 85)
     // it followed a table of five oversized images.

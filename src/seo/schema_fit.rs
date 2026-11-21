@@ -526,7 +526,7 @@ mod tests {
         );
     }
 
-    /// inros-lackner.de, 2026-10-23: a news article under `/aktuelles/news/`
+    /// A corporate site, 2026-10-23: a news article under `/aktuelles/news/`
     /// was a "corporate page" expecting Organization/LocalBusiness although
     /// it carries NewsArticle. The route decides, not the visible intent.
     #[test]
@@ -537,7 +537,7 @@ mod tests {
             "headline": "Landstrompremiere"
         }));
         let fit = assess_schema_fit(
-            "https://www.inros-lackner.de/aktuelles/news/landstrompremiere",
+            "https://www.example.com/aktuelles/news/landstrompremiere",
             PageIntent::Corporate,
             &data,
         );
@@ -547,7 +547,7 @@ mod tests {
 
         // The overview route itself stays with the visible intent.
         let overview = assess_schema_fit(
-            "https://www.inros-lackner.de/aktuelles/news/",
+            "https://www.example.com/aktuelles/news/",
             PageIntent::Hub,
             &StructuredData::default(),
         );

@@ -19,7 +19,7 @@ use auditmysite::{audit_page, BrowserManager, BrowserOptions, PipelineConfig, Wc
 /// Returns the URL (e.g. "http://127.0.0.1:PORT") and a shutdown handle.
 ///
 /// The server itself lives in `common::fixture_server` — six copies of it
-/// existed, all carrying the same race (plan 48).
+/// existed, all carrying the same race.
 fn serve_fixture(filename: &str) -> (String, Arc<std::sync::atomic::AtomicBool>) {
     let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
@@ -786,7 +786,7 @@ async fn test_mobile_issues_detected() {
     );
 }
 
-/// Plan 51: "little visible text in the upper area of the page" is a claim
+/// "little visible text in the upper area of the page" is a claim
 /// about the rendered page, and is now measured there. The old proxy — the
 /// first 50 nodes of the accessibility tree in document order — said the
 /// opposite on both of these fixtures: tree order puts the heading first
@@ -1948,7 +1948,7 @@ async fn korrekter_modaler_dialog_erzeugt_keine_befunde() {
 }
 
 /// Die Skip-Link-Journey prüft, ob der Fokus am Sprungziel ankommt — nicht nur,
-/// ob er `body` verlassen hat (Plan 53).
+/// ob er `body` verlassen hat.
 ///
 /// Die vorherige Prüfung meldete ein nicht fokussierbares `<main>` als Fehler,
 /// obwohl der Browser den Startpunkt der Tab-Navigation versetzt und der
@@ -2030,7 +2030,7 @@ async fn skip_link_journey_prueft_das_sprungziel() {
 /// Natives `<details>`/`<summary>` erreicht die Disclosure-Journey — genau
 /// einmal je Auslöser, mit dem umgebenden `<details>` als gesteuertem Bereich.
 ///
-/// Vor Plan 53 bot `patterns::disclosure_menu` nur Elemente mit
+/// Früher bot `patterns::disclosure_menu` nur Elemente mit
 /// `aria-expanded` an. Danach bekam ein `<summary>` zwei Kandidaten — einen aus
 /// `disclosure_menu`, einen aus `accordion` —, und die Journey lief zweimal.
 /// `<details name>` trägt die Rolle `DisclosureTriangleGrouped`, die weder der
@@ -2136,7 +2136,7 @@ async fn natives_details_erreicht_die_disclosure_journey() {
 
 /// Batch pages run side by side in one browser. Each must be visible and
 /// focused like a single-URL run, or requestAnimationFrame never fires and
-/// focus-based checks measure something else (plan 62).
+/// focus-based checks measure something else.
 #[tokio::test]
 #[ignore = "needs Chrome"]
 async fn parallel_pages_are_visible_and_focused() {
@@ -2445,7 +2445,7 @@ fn exit_code_of_the_process_is_the_exported_verdict() {
     assert_eq!(code, expected(&verdict), "verdict {verdict}");
 }
 
-/// Plan 67: a small `--url-file` run in technician mode, through the real
+/// A small `--url-file` run in technician mode, through the real
 /// binary. The path filter drops one URL before the run; an unreachable URL
 /// is a `failed` index entry without a file; every audited page gets a JSON
 /// report and its findings in `findings.jsonl`; no screen-reader sidecar;

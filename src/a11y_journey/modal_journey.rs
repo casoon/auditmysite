@@ -11,7 +11,7 @@
 //!
 //! Der vorherige Stand las den Dialog, die Fokuszugehörigkeit und den
 //! Schließzustand per JavaScript aus dem DOM. Dieselben drei blinden Flecken
-//! wie bei der Disclosure-Journey (Plan 53, Schritt 1) gelten hier ebenso:
+//! wie bei der Disclosure-Journey gelten hier ebenso:
 //!
 //! - `querySelector('[role="dialog"]')` durchdringt weder Shadow Roots noch
 //!   iframe-Grenzen und findet **das Attribut**, nicht die Rolle — ein natives

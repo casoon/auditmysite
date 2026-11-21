@@ -16,8 +16,7 @@ pub(in crate::output::pdf) fn render_security(
             // `sec.band_label`, not `score_band_label(sec.score)`: with an
             // open severe finding the wording band is corrected while the
             // number stays, and labelling the card from the raw score printed
-            // "95 — Sehr gut" above a takeaway reading "Verbesserungswürdig"
-            // (plan 33).
+            // "95 — Sehr gut" above a takeaway reading "Verbesserungswürdig".
             {
                 // Colour from the same corrected band as the label: a score
                 // of 77 printed green above "Verbesserungswürdig" on gov.uk.
@@ -47,7 +46,7 @@ pub(in crate::output::pdf) fn render_security(
         );
     }
 
-    // Only when it says more than the chapter opener already did (plan 36 §3).
+    // Only when it says more than the chapter opener already did.
     if let Some(rest) = super::interpretation_beyond_takeaway(&sec.interpretation, &sec_takeaway) {
         builder = builder.add_component(
             Label::new(rest)
@@ -59,9 +58,9 @@ pub(in crate::output::pdf) fn render_security(
     let (header_count, header_total) = (sec.core_headers_present, sec.core_headers_total);
     builder = builder.add_component(
         MetricStrip::new(vec![
-            // Accent from the ratio, not a fixed teal: inros-lackner.de has
+            // Accent from the ratio, not a fixed teal: a corporate site has
             // 0 of 10 security headers set and the tile rendered in the
-            // success colour (plan 36 §4). Same 75/40 cutoffs as every other
+            // success colour. Same 75/40 cutoffs as every other
             // score colour in the report.
             MetricStripItem::new("Header", format!("{header_count}/{header_total}")).with_accent(
                 crate::output::pdf::design::score_color(
@@ -146,7 +145,7 @@ pub(in crate::output::pdf) fn render_security(
     // "No significant issues found within the audited scope" — only when that
     // is actually the case. This used to be gated on `sec.score >= 80` alone,
     // so on casoon.de (2026-09-19, score 95) it was printed directly above
-    // three open CSP findings, one of them High (plan 33). The score is
+    // three open CSP findings, one of them High. The score is
     // generous by design: `calculate_security_score` caps the combined
     // CSP-quality penalty and then adds HSTS bonuses, so a high score does not
     // imply an empty findings list.
@@ -189,7 +188,7 @@ pub(in crate::output::pdf) fn render_mobile(
             &mobile.interpretation,
         ));
 
-    // Only when it says more than the chapter opener already did (plan 36 §3).
+    // Only when it says more than the chapter opener already did.
     if let Some(rest) =
         super::interpretation_beyond_takeaway(&mobile.interpretation, &mobile_takeaway)
     {
