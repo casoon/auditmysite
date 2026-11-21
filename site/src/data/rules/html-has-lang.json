@@ -17,7 +17,7 @@
       "outcome": "automatic",
       "source": "WCAG 2.2 SC 3.1.1 Language of Page; H57; HTML §3.2.6.2 (lang is inherited within a document only)",
       "applicability": "Rendered same-origin iframe documents (also in open shadow roots): the frame is not display:none/visibility:hidden, not aria-hidden, not role=none/presentation, larger than 1x1 px.",
-      "expectation": "Fails for every applicable frame document whose root html element has no\nnon-empty lang: lang does not inherit across the document boundary, so the\nembedded content's language is not programmatically determinable although it\nis part of the page. A frame document with lang passes. Collapsed or hidden\nframes present nothing and do not apply. Cross-origin frames cannot be read\n(frame-tested). One finding per frame.",
+      "expectation": "Fails for every applicable frame document whose root html element has no\nnon-empty lang: lang does not inherit across the document boundary, so the\nembedded content's language is not programmatically determinable although it\nis part of the page. A frame document with lang passes. Collapsed or hidden\nframes present nothing and do not apply. A frame that has a source (src, or the\ndata-src of a lazy-load script on a loading=lazy frame) but still shows its\ninitial about:blank document never loaded: the placeholder is no document to\njudge, and the frame is reported as skipped (not_loaded). Cross-origin frames\ncannot be read (frame-tested). One finding per frame.",
       "method": "page",
       "capabilities": [
         "dom",

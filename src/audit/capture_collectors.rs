@@ -151,6 +151,7 @@ pub(crate) fn frames_collection(coverage: &super::frames::FrameCoverage) -> Coll
             Some(Skip::CrossOrigin) => "cross_origin_frame",
             Some(Skip::AxTreeFailed) => "frame_ax_tree_failed",
             Some(Skip::DocumentUnavailable) => "frame_document_unavailable",
+            Some(Skip::NotLoaded) => "frame_not_loaded",
             Some(Skip::Hidden | Skip::Excluded) => continue,
             None => "frame_skipped_without_reason",
         };
@@ -428,6 +429,13 @@ pub(crate) mod cases {
             frames_collection(&coverage(vec![entry(Some(FrameSkipReason::AxTreeFailed))])).state(),
             CollectionState::Partial
         );
+        let not_loaded =
+            frames_collection(&coverage(vec![entry(Some(FrameSkipReason::NotLoaded))]));
+        assert_eq!(not_loaded.state(), CollectionState::Partial);
+        assert!(matches!(
+            not_loaded,
+            Collected::Partial { gaps, .. } if gaps == ["frame_not_loaded"]
+        ));
         assert_eq!(
             frames_collection(&coverage(vec![entry(None)])).state(),
             CollectionState::Partial

@@ -2078,6 +2078,7 @@ fn domain_contract_distinguishes_capture_gaps_from_intentional_scope() {
         (Some(FrameSkipReason::CrossOrigin), true),
         (Some(FrameSkipReason::AxTreeFailed), true),
         (Some(FrameSkipReason::DocumentUnavailable), true),
+        (Some(FrameSkipReason::NotLoaded), true),
         (None, true),
     ] {
         let mut report = valid.clone();

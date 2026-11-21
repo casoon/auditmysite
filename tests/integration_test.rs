@@ -3040,6 +3040,155 @@ async fn frame_pass_reports_widget_findings_but_no_page_level_rules() {
     );
 }
 
+/// A server that accepts connections and never answers: a frame pointing at
+/// it stays at its initial `about:blank` document for as long as the test runs.
+fn serve_stalled() -> (String, Arc<std::sync::atomic::AtomicBool>) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+    listener.set_nonblocking(true).expect("non-blocking");
+    let url = format!("http://127.0.0.1:{}", listener.local_addr().unwrap().port());
+    let stop = Arc::new(AtomicBool::new(false));
+    let stop_thread = stop.clone();
+    std::thread::spawn(move || {
+        let mut held = Vec::new();
+        while !stop_thread.load(Ordering::Relaxed) {
+            match listener.accept() {
+                Ok((stream, _)) => held.push(stream),
+                Err(_) => std::thread::sleep(std::time::Duration::from_millis(10)),
+            }
+        }
+    });
+    (url, stop)
+}
+
+/// #1109: a lazy-loaded iframe is audited once it has loaded, not as the
+/// empty `about:blank` placeholder it is until it comes near the viewport; a
+/// frame that never loads is reported `not_loaded`, not audited blank.
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn lazy_frames_are_loaded_before_the_frame_pass_and_a_stalled_one_is_not_audited_blank() {
+    use auditmysite::audit::frames::FrameSkipReason;
+
+    let widget = common::fixture_server::serve_html(
+        "<!DOCTYPE html><html lang=\"en\"><head><title>Widget</title></head><body><div id=\"widget-dialog\" role=\"dialog\"></div></body></html>"
+            .to_string(),
+    );
+    // Another origin (localhost, not 127.0.0.1), as for any embedded widget.
+    let widget_url = widget.url.replace("127.0.0.1", "localhost");
+    let (stalled_url, stalled_stop) = serve_stalled();
+    let html = std::fs::read_to_string(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/lazy_frames.html"),
+    )
+    .expect("fixture")
+    .replace("{{WIDGET}}", &widget_url)
+    .replace("{{STALLED}}", &stalled_url);
+    let fixture = common::fixture_server::serve_html(html);
+
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &fixture.url)
+        .await
+        .expect("Navigation failed");
+    // The premise: before the audit's own load, the lazy frame far below the
+    // fold is still blank. Otherwise this test proves nothing.
+    let before: String = page
+        .evaluate("document.getElementById('lazy-widget').contentWindow.location.href")
+        .await
+        .expect("evaluate failed")
+        .into_value()
+        .expect("string");
+    assert_eq!(
+        before, "about:blank",
+        "the lazy frame loaded without being near"
+    );
+
+    let (report, _) = audit_page(&page, &fixture.url, &default_config(), &manager)
+        .await
+        .expect("Audit failed");
+    fixture.stop();
+    widget.stop();
+    stalled_stop.store(true, std::sync::atomic::Ordering::Relaxed);
+
+    let wcag = &report.accessibility.wcag_results;
+    let in_frame: Vec<String> = wcag
+        .violations
+        .iter()
+        .chain(&wcag.warnings)
+        .filter_map(|v| {
+            let selector = v.selector.as_deref().filter(|s| s.contains("[frame]"))?;
+            Some(format!(
+                "{} @ {selector}",
+                v.rule_id.as_deref().unwrap_or("")
+            ))
+        })
+        .collect();
+    eprintln!("frame findings: {in_frame:#?}");
+    let frames = report
+        .accessibility
+        .execution
+        .frames
+        .as_ref()
+        .expect("frame coverage recorded");
+    eprintln!("frame coverage: {frames:#?}");
+
+    // Loaded frames: audited with their served document, the finding is
+    // the one in the loaded content.
+    for (id, url) in [
+        ("lazy-widget", format!("{widget_url}/")),
+        ("data-src-widget", format!("{widget_url}/?by-script")),
+    ] {
+        let selector = format!("iframe#{id}");
+        let entry = frames.audited.iter().find(|f| f.selector == selector);
+        assert_eq!(
+            entry.and_then(|f| f.url.as_deref()),
+            Some(url.as_str()),
+            "{selector} not audited loaded: {frames:#?}"
+        );
+        let finding = format!("dialog/name-missing @ {selector} [frame] div#widget-dialog");
+        assert!(in_frame.contains(&finding), "{finding}: {in_frame:#?}");
+    }
+
+    // Frames that did not load: skipped with the source they wait for, no
+    // finding of any rule (html-has-lang included) for the placeholder.
+    for (id, url) in [
+        ("stalled", format!("{stalled_url}/")),
+        ("unfilled", format!("{widget_url}/?unfilled")),
+    ] {
+        let selector = format!("iframe#{id}");
+        let entry = frames.skipped.iter().find(|f| f.selector == selector);
+        assert_eq!(
+            entry.and_then(|f| f.reason),
+            Some(FrameSkipReason::NotLoaded),
+            "{selector}: {frames:#?}"
+        );
+        assert_eq!(entry.and_then(|f| f.url.as_deref()), Some(url.as_str()));
+        assert!(!frames.audited.iter().any(|f| f.selector == selector));
+        assert!(
+            !wcag.violations.iter().chain(&wcag.warnings).any(|v| v
+                .selector
+                .as_deref()
+                .is_some_and(|s| s.starts_with(&selector))),
+            "{selector} judged as a blank document: {in_frame:#?}"
+        );
+    }
+
+    // Blank by design: audited as before.
+    for id in ["scratch", "blank-src"] {
+        let selector = format!("iframe#{id}");
+        assert!(
+            frames.audited.iter().any(|f| f.selector == selector),
+            "{selector}: {frames:#?}"
+        );
+    }
+
+    // A frame that was not inspected qualifies the audit.
+    assert_eq!(
+        report.accessibility.execution.quality.status,
+        auditmysite::audit::AuditQualityStatus::Partial
+    );
+}
+
 /// #718: a client-rendered app can stay quiet behind an empty splash screen
 /// while it fetches its first view. 200 ms of DOM quiet used to count as
 /// settled, so the audit read the AX tree before any heading existed.

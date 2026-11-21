@@ -1865,6 +1865,10 @@ async fn run_rules(
     // Aus demselben Abruf entstehen die Dokumente der iframes (#715).
     // Dazu die Messungen an der laufenden Seite (Rahmen, Drehung, Einfügen,
     // Fokus, Textabstand), soweit eine Regel sie liest.
+    // Lazy frames still at `about:blank` load first, so the capture holds
+    // their documents (#1109). The snapshot above has already read the
+    // performance observers of this pass.
+    crate::audit::frames::load_lazy_frames(page).await;
     let capture = crate::accessibility::fetch_dom_capture_with_probes(
         page,
         wcag::shared::probe_selection(config.wcag_level, &config.rule_filter),

@@ -11,6 +11,25 @@
   })(document);
   var results = [];
 
+  // Mirrors `awaited_source` in src/audit/frames.rs: no `srcdoc`, and a `src`
+  // that is not empty, about:blank or javascript:, or loading=lazy with a
+  // data-*src* attribute a lazy-load script fills `src` from.
+  function realSource(value) {
+    var v = (value || '').trim().toLowerCase();
+    return v !== '' && v !== 'about:blank' && v.indexOf('javascript:') !== 0;
+  }
+  function awaitsSource(frame) {
+    if (frame.hasAttribute('srcdoc')) return false;
+    if (realSource(frame.getAttribute('src'))) return true;
+    if ((frame.getAttribute('loading') || '').trim().toLowerCase() !== 'lazy') return false;
+    var attrs = frame.attributes;
+    for (var ai = 0; ai < attrs.length; ai++) {
+      var name = attrs[ai].name.toLowerCase();
+      if (name.indexOf('data-') === 0 && name.indexOf('src') !== -1 && realSource(attrs[ai].value)) return true;
+    }
+    return false;
+  }
+
   for (var fi = 0; fi < iframes.length; fi++) {
     var iframe = iframes[fi];
     var iframeRole = (iframe.getAttribute('role') || '').toLowerCase();
@@ -29,6 +48,10 @@
     } catch(e) {
       continue;
     }
+
+    // A frame that has a source but still shows its initial blank document
+    // never loaded: its empty placeholder is no document to judge (#1109).
+    if (iframeDoc.URL === 'about:blank' && awaitsSource(iframe)) continue;
 
     var ifSel = __amsCssSelector(iframe);
     var ifSrc = iframe.getAttribute('src') || '';
