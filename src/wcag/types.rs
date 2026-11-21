@@ -6,6 +6,7 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
+use crate::model::FindingOrigin;
 use crate::wcag::WcagLevel;
 
 // Re-export Severity from taxonomy module (single source of truth)
@@ -121,6 +122,20 @@ pub struct Violation {
     /// In-memory only.
     #[serde(skip)]
     pub in_excluded_subtree: bool,
+    /// Where the element sits: the main document or a frame, and which kind
+    /// (#1109). Set by the frame passes, `FirstParty` otherwise.
+    #[serde(default, skip_serializing_if = "FindingOrigin::is_first_party")]
+    pub origin: FindingOrigin,
+    /// Canonical English name of the known third-party provider of a
+    /// cross-origin frame (`web-checks` provider list); absent for an
+    /// unknown host and for everything but a cross-origin frame.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    /// Host of the frame's source (its `src` attribute, else its document
+    /// URL) for an element inside a frame, so a label can name where an
+    /// unknown provider's frame comes from.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frame_host: Option<String>,
 }
 
 impl Violation {
@@ -158,6 +173,9 @@ impl Violation {
             evidence_viewport: None,
             backend_node_id: None,
             in_excluded_subtree: false,
+            origin: FindingOrigin::FirstParty,
+            provider: None,
+            frame_host: None,
         }
     }
 

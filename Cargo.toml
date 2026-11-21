@@ -98,6 +98,9 @@ sha2 = "0.11"
 a11y-perception = "0.2.1"
 a11y-report = "0.30.12"
 web-checks = "0.7.0"
+# Registrable domain (eTLD+1) for the same-site test of a frame against its page
+# (finding origin, #1109); neither web-checks nor the crate had one.
+psl = "2.1"
 accname = "0.30.12"
 a11y-dom = "0.30.12"
 a11y-rules = "0.30.12"

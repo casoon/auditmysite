@@ -31,7 +31,7 @@ use tracing::{info, warn};
 
 use crate::accessibility::{AXTree, DomCapture};
 use crate::audit::exclusion::ExclusionScope;
-use crate::model::WcagLevel;
+use crate::model::{FrameOrigin, WcagLevel};
 use crate::wcag::types::fold_rule_run;
 use crate::wcag::{self, RuleFilterConfig, RuleRun, Violation, WcagResults};
 
@@ -363,8 +363,18 @@ pub fn composite_selector(frame_selector: &str, inner: Option<&str>) -> String {
 }
 
 /// Ties a frame finding to its frame: composite selector, backend node id
-/// from the frame's AX tree, `frame:`-prefixed node id, `iframe-content` tag.
-fn attach_to_frame(v: &mut Violation, frame_selector: &str, frame_id: &str, ax: &AXTree) {
+/// from the frame's AX tree, `frame:`-prefixed node id, `iframe-content` tag,
+/// and the origin of the frame against the page (#1109).
+fn attach_to_frame(
+    v: &mut Violation,
+    frame_selector: &str,
+    frame_id: &str,
+    ax: &AXTree,
+    origin: &FrameOrigin,
+) {
+    v.origin = origin.origin;
+    v.provider = origin.provider.clone();
+    v.frame_host = origin.host.clone();
     if v.backend_node_id.is_none() {
         v.backend_node_id = ax.get_node(&v.node_id).and_then(|n| n.backend_dom_node_id);
     }
@@ -396,6 +406,8 @@ pub(crate) struct FramePassConfig<'a> {
     pub rule_filter: &'a RuleFilterConfig,
     pub lang: &'a str,
     pub viewport: &'static str,
+    /// The page's URL, for the origin of each frame against it (#1109).
+    pub page_url: &'a str,
 }
 
 /// The frame-owner elements (`iframe`, `frame`) of one document, in document
@@ -642,6 +654,13 @@ pub(crate) async fn audit_frames(
             &frame_ax,
         )
         .await;
+        // The iframe's `src` first: a lazy-loaded frame is still `about:blank`
+        // when it is audited (its `url` above), and only the attribute names
+        // where it comes from.
+        let origin = crate::model::frame_origin(
+            config.page_url,
+            &[attribute(owner, "src"), content.document_url.as_deref()],
+        );
         for list in [
             &mut frame_results.violations,
             &mut frame_results.warnings,
@@ -649,7 +668,7 @@ pub(crate) async fn audit_frames(
             &mut frame_results.not_testables,
         ] {
             for v in list.iter_mut() {
-                attach_to_frame(v, &selector, &frame_id, &frame_ax);
+                attach_to_frame(v, &selector, &frame_id, &frame_ax, &origin);
             }
         }
         let found = frame_results.violations.len() + frame_results.warnings.len();
@@ -686,6 +705,7 @@ pub(crate) fn merge_into(page: &mut WcagResults, mut frames: WcagResults) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::FindingOrigin;
     use crate::wcag::types::Severity;
 
     #[test]
@@ -799,10 +819,24 @@ mod tests {
     #[test]
     fn attached_finding_points_into_the_frame() {
         let mut v = finding("dialog-name").with_selector("div#dlg");
-        attach_to_frame(&mut v, "iframe#w", "F1", &AXTree::new());
+        assert_eq!(v.origin, FindingOrigin::FirstParty);
+        attach_to_frame(
+            &mut v,
+            "iframe#w",
+            "F1",
+            &AXTree::new(),
+            &FrameOrigin::of(
+                FindingOrigin::CrossOriginFrame,
+                Some("YouTube"),
+                Some("www.youtube.com"),
+            ),
+        );
         assert_eq!(v.selector.as_deref(), Some("iframe#w [frame] div#dlg"));
         assert_eq!(v.node_id, "frame:F1:7");
         assert!(v.tags.iter().any(|t| t == "iframe-content"));
+        assert_eq!(v.origin, FindingOrigin::CrossOriginFrame);
+        assert_eq!(v.provider.as_deref(), Some("YouTube"));
+        assert_eq!(v.frame_host.as_deref(), Some("www.youtube.com"));
     }
 
     #[test]

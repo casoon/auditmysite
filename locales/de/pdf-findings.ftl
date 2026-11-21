@@ -58,6 +58,15 @@ pdf-findings-hidden-occurrences = { $count } { $count ->
 pdf-findings-likely-root-cause = Wahrscheinliche Ursache
 pdf-findings-structural-cause = Strukturelle Ursache
 
+## Finding card: origin of the markup (#1109). A label, never a verdict.
+pdf-findings-origin = Herkunft
+pdf-findings-origin-cross-origin = Drittanbieter-Frame (Anbieter { $list }), Behebung beim Anbieter
+pdf-findings-origin-cross-origin-unknown = Drittanbieter-Frame, Behebung beim Anbieter des eingebetteten Inhalts
+pdf-findings-origin-cross-origin-source = Drittanbieter-Frame (Quelle { $list }), Behebung beim Anbieter des eingebetteten Inhalts
+pdf-findings-origin-same-site = Frame derselben Website, Behebung in der eingebetteten Seite
+pdf-findings-origin-mixed = Teils in eingebetteten Frames, teils in der Seite selbst
+pdf-findings-origin-mixed-provider = Teils in eingebetteten Frames (Anbieter { $list }), teils in der Seite selbst
+
 ## Finding card: customer perspective
 pdf-findings-perspective-operability = Bedienbarkeit
 pdf-findings-perspective-structure = Orientierung und Struktur

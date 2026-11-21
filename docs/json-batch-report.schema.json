@@ -941,7 +941,8 @@
           "$ref": "#/$defs/principleCoverage"
         },
         "findings": {
-          "type": "array"
+          "type": "array",
+          "description": "The page's findings, as in the single report. Each carries `origin` and, for cross-origin frames of a known provider, `providers`; per occurrence `origin` and `provider` appear for elements inside a frame (#1109, docs/json-report.schema.json)."
         },
         "audit_flags": {
           "type": "array"

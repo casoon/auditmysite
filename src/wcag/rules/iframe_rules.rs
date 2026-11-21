@@ -58,7 +58,11 @@ pub async fn check_same_origin_iframes_with_page(page: &Page) -> Vec<Violation> 
         return vec![];
     };
 
-    findings.iter().filter_map(build_violation).collect()
+    let page_url = page.url().await.ok().flatten().unwrap_or_default();
+    findings
+        .iter()
+        .filter_map(|finding| build_violation(finding, &page_url))
+        .collect()
 }
 
 /// Die 3.1.1-Kennung fuer das Dokument *im* iframe.
@@ -71,7 +75,7 @@ pub async fn check_same_origin_iframes_with_page(page: &Page) -> Vec<Violation> 
 /// Kennung melden, die im Inventar nicht vorkommt.
 const IFRAME_HTML_HAS_LANG_AXE_ID: &str = "html-has-lang";
 
-fn build_violation(finding: &serde_json::Value) -> Option<Violation> {
+fn build_violation(finding: &serde_json::Value, page_url: &str) -> Option<Violation> {
     let rule_id = finding.get("rule_id")?.as_str()?;
     let iframe_selector = finding
         .get("iframe_selector")
@@ -112,6 +116,14 @@ fn build_violation(finding: &serde_json::Value) -> Option<Violation> {
         .with_fix(fix)
         .with_help_url(help_url);
 
+    let origin = crate::model::frame_origin(
+        page_url,
+        &[finding.get("iframe_src").and_then(|v| v.as_str())],
+    );
+    violation.origin = origin.origin;
+    violation.provider = origin.provider;
+    violation.frame_host = origin.host;
+
     if let Some(snippet) = finding.get("snippet").and_then(|v| v.as_str()) {
         if !snippet.is_empty() {
             violation = violation.with_html_snippet(snippet);
@@ -119,4 +131,35 @@ fn build_violation(finding: &serde_json::Value) -> Option<Violation> {
     }
 
     Some(violation)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::FindingOrigin;
+
+    fn lang_finding(src: &str) -> serde_json::Value {
+        serde_json::json!({
+            "rule_id": "html-has-lang", "rule": "3.1.1", "severity": "medium",
+            "message": "Iframe document is missing a lang attribute on the html element",
+            "iframe_selector": "iframe#news", "iframe_src": src,
+            "selector": "html", "snippet": ""
+        })
+    }
+
+    #[test]
+    fn a_frame_document_without_lang_carries_the_origin_of_its_frame() {
+        let page = "https://www.example.com/";
+        let same =
+            build_violation(&lang_finding("https://www1.example.com/newsroom"), page).unwrap();
+        assert_eq!(same.origin, FindingOrigin::SameSiteFrame);
+        assert_eq!(same.provider, None);
+
+        let third =
+            build_violation(&lang_finding("https://www.youtube.com/embed/x"), page).unwrap();
+        assert_eq!(third.origin, FindingOrigin::CrossOriginFrame);
+        assert!(third.provider.is_some());
+        assert_eq!(third.frame_host.as_deref(), Some("www.youtube.com"));
+        assert_eq!(third.selector.as_deref(), Some("iframe#news [frame] html"));
+    }
 }

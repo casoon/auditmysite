@@ -633,7 +633,8 @@ impl PipelineConfig {
         // 34 for `viewport_scores.{desktop,mobile}.overall` becoming `site_quality` (#909).
         // 35 for the accessibility breakdown losing its per-area `score` and `detail.accessibility_subcategory_scores` (#902).
         // 36 for `accept_language` in the measurement profile and the signature (#1110).
-        const CACHE_FMT: u8 = 36;
+        // 37 for the finding origin and provider (#1109).
+        const CACHE_FMT: u8 = 37;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
@@ -1975,6 +1976,7 @@ async fn run_rules(
     // oben schon als nicht gelaufen vermerkt.
     let mut frames = Vec::new();
     if let Ok(capture) = &capture {
+        let page_url = page.url().await.ok().flatten().unwrap_or_default();
         let frame_pass = crate::audit::frames::audit_frames(
             page,
             capture,
@@ -1984,6 +1986,7 @@ async fn run_rules(
                 rule_filter: &config.rule_filter,
                 lang: &config.lang,
                 viewport: viewport_label,
+                page_url: &page_url,
             },
             exclusion,
         )
@@ -2515,7 +2518,7 @@ mod tests {
         assert_eq!(
             PipelineConfig::default().audit_signature(),
             format!(
-                "v={version};fmt=36;level=AA;perf=1;seo=1;sec=1;mobile=1;html_conform=1;\
+                "v={version};fmt=37;level=AA;perf=1;seo=1;sec=1;mobile=1;html_conform=1;\
                  privacy=0;isolate_tp_impact=0;perf_runs=1;ssr_content=0;stack=1;experimental=;\
                  consent=0;interactive=Full;state_changes=0;journey_budget_ms=15000;\
                  session=isolated;accept_language=en-US,en;state_id=;state=;lang=en;disabled=;enabled_only=;\
@@ -2532,7 +2535,7 @@ mod tests {
         assert_eq!(
             narrowed.audit_signature(),
             format!(
-                "v={version};fmt=36;level=AAA;perf=0;seo=1;sec=0;mobile=0;html_conform=0;\
+                "v={version};fmt=37;level=AAA;perf=0;seo=1;sec=0;mobile=0;html_conform=0;\
                  privacy=1;isolate_tp_impact=0;perf_runs=1;ssr_content=0;stack=0;experimental=;\
                  consent=0;interactive=Off;state_changes=0;journey_budget_ms=15000;\
                  session=isolated;accept_language=en-US,en;state_id=;state=;lang=de;disabled=;enabled_only=;\

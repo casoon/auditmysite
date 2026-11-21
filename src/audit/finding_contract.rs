@@ -1354,6 +1354,8 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
             })
             .collect(),
         contract,
+        origin: Default::default(),
+        providers: Vec::new(),
     }
 }
 
