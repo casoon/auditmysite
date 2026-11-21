@@ -127,24 +127,20 @@ pub(super) fn render_seo_distribution_insights(
     if !pres.portfolio_summary.distribution_insights.is_empty() {
         let action_label = i18n.t("batch-seo-action-needed");
         let panel_title = i18n.t("batch-seo-patterns-impact-title");
-        // The insight is stored as its run-language text; it is matched against
-        // that text, not against a German word, so the English report names the
-        // consequence too (#1039).
-        let thin_content = i18n.t("output-batch-distribution-thin-content");
         let rows: Vec<ChecklistRow> = pres
             .portfolio_summary
             .distribution_insights
             .iter()
             .map(|insight| {
-                let impact = if *insight == thin_content {
-                    i18n.t_args("batch-seo-impact-thin", &[("insight", insight.clone())])
-                } else if insight.contains("Duplikat") || insight.contains("duplicate") {
+                // The insight kind decides, not a word of its text: the text
+                // differs by language and by sample size (#1039).
+                let impact = if insight.kind == DistributionInsightKind::HighThinContentShare {
                     i18n.t_args(
-                        "batch-seo-impact-duplicate",
-                        &[("insight", insight.clone())],
+                        "batch-seo-impact-thin",
+                        &[("insight", insight.text.clone())],
                     )
                 } else {
-                    insight.clone()
+                    insight.text.clone()
                 };
                 ChecklistRow::new(action_label.clone(), &impact).with_status("warn")
             })

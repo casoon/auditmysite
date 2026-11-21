@@ -1258,6 +1258,22 @@ pub struct InteractiveJourneySummary {
     pub has_critical: bool,
 }
 
+/// Canonical kind of a page-type distribution insight (#406: the text is
+/// derived at render time; the kind is what the PDF decides on).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DistributionInsightKind {
+    HighThinContentShare,
+    NoEditorialContent,
+    MarketingDominated,
+}
+
+/// One distribution insight: its kind and its text in the run language.
+#[derive(Debug, Clone)]
+pub struct DistributionInsight {
+    pub kind: DistributionInsightKind,
+    pub text: String,
+}
+
 /// Complete presentation model for a batch audit report
 pub struct BatchPresentation {
     pub cover: CoverData,
@@ -1426,7 +1442,7 @@ pub struct PortfolioSummary {
     /// Audited pages grouped by detected page type, with group averages and
     /// the most common finding (plan 93).
     pub page_type_groups: Vec<PageTypeGroup>,
-    pub distribution_insights: Vec<String>,
+    pub distribution_insights: Vec<DistributionInsight>,
     pub strongest_content_pages: Vec<(String, String, u32)>,
     pub weakest_content_pages: Vec<(String, String, u32)>,
     pub top_topics: Vec<(String, usize)>,

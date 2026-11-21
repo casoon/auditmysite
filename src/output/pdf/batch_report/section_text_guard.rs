@@ -329,6 +329,7 @@ fn consistency_counts_agree_in_number() {
 /// page type is German in the German report.
 #[test]
 fn thin_content_insight_names_its_consequence_in_both_languages() {
+    use crate::output::report_model::{DistributionInsight, DistributionInsightKind};
     for (lang, consequence, page_type) in [
         ("en", "weaker rankings", "Thin / Minimal Content"),
         ("de", "schwächere Rankings", "Dünner / minimaler Inhalt"),
@@ -338,8 +339,10 @@ fn thin_content_insight_names_its_consequence_in_both_languages() {
             &super::text_export::batch(),
             &i18n,
         );
-        pres.portfolio_summary.distribution_insights =
-            vec![i18n.t("output-batch-distribution-thin-content")];
+        pres.portfolio_summary.distribution_insights = vec![DistributionInsight {
+            kind: DistributionInsightKind::HighThinContentShare,
+            text: i18n.t("output-batch-distribution-thin-content"),
+        }];
         let rendered = super::text_export::components(
             super::seo::render_seo_distribution_insights(super::text_export::bare(), &pres, &i18n),
         );

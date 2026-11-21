@@ -156,6 +156,15 @@ fn export_distribution(records: &mut Vec<Value>, lang: &str) {
             lang,
             json!(distribution_insight_text(kind, en)),
         );
+        for (count, total) in [(0, 5), (1, 5), (2, 1), (3, 9)] {
+            push(
+                records,
+                "distribution_insight_count_text",
+                format!("{name} {count} of {total}"),
+                lang,
+                json!(distribution_insight_count_text(kind, count, total, en)),
+            );
+        }
     }
 }
 
@@ -210,7 +219,12 @@ fn export_presentation(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
                 "cover_title": pres.cover.title,
                 "cover_url": pres.cover.url,
                 "render_blocking_summary": pres.portfolio_summary.render_blocking_summary,
-                "distribution_insights": pres.portfolio_summary.distribution_insights,
+                "distribution_insights": pres
+                    .portfolio_summary
+                    .distribution_insights
+                    .iter()
+                    .map(|insight| insight.text.clone())
+                    .collect::<Vec<_>>(),
                 "biggest_levers": pres
                     .url_details
                     .iter()
