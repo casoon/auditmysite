@@ -193,7 +193,7 @@ main() {
     echo ""
     echo "  ╔═══════════════════════════════════════╗"
     echo "  ║     auditmysite CLI Installer         ║"
-    echo "  ║     WCAG 2.1 Accessibility Checker    ║"
+    echo "  ║     WCAG 2.2 Accessibility Checker    ║"
     echo "  ╚═══════════════════════════════════════╝"
     echo ""
 
