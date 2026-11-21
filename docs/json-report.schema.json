@@ -485,6 +485,10 @@
               "description": "Name of the declared state the run started from (--state-id).",
               "type": "string"
             },
+            "accept_language": {
+              "description": "The languages the browser was launched with (--accept-language, #1110): a plain comma-separated list of language tags such as en-US,en. Required from profile version 4; absent in older reports. The header that went out is pages[].navigation.accept_language.",
+              "type": "string"
+            },
             "browser": {
               "description": "The browser that measured (#787): categories only, never paths or launch flags. Required from profile version 3; absent in older reports.",
               "type": "object",

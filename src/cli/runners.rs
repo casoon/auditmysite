@@ -139,6 +139,7 @@ async fn run_single(
         // A single run starts a browser with a fresh profile: nothing else
         // shares it.
         session: args.session,
+        accept_language: args.effective_accept_language(),
     };
 
     if !args.quiet {

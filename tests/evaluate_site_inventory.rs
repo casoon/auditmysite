@@ -182,9 +182,9 @@ fn known_sites() -> BTreeMap<&'static str, (usize, Coverage)> {
         (
             "src/browser/manager.rs",
             (
-                7,
+                8,
                 Exempt(
-                    "navigation plumbing: readyState polling, window.stop(), meta-refresh lookup and the webdriver/DNT injections on a new page; the navigation result itself is the navigation_snapshot collector",
+                    "navigation plumbing: readyState polling, window.stop(), meta-refresh lookup and the webdriver/DNT/navigator.languages injections on a new page; the navigation result itself is the navigation_snapshot collector",
                 ),
             ),
         ),

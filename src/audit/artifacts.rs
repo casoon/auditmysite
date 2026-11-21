@@ -416,6 +416,9 @@ pub struct ExpectedProfile {
     /// identity (product, version, platform, headless mode); how it was
     /// found and whether a failover happened are not compared (#787).
     pub browser: Option<crate::browser::BrowserProvenance>,
+    /// The browser languages the stored run must have been launched with
+    /// (`--accept-language`, #1110).
+    pub accept_language: Option<String>,
 }
 
 /// How two measurement profiles differ, as `(field, a, b)` in the
@@ -463,6 +466,15 @@ pub fn profile_differences(
             .map_or("none".to_string(), |b| b.identity())
     };
     check("browser", browser(a), browser(b));
+    check(
+        "accept_language",
+        a.accept_language
+            .clone()
+            .unwrap_or_else(|| "none".to_string()),
+        b.accept_language
+            .clone()
+            .unwrap_or_else(|| "none".to_string()),
+    );
     out
 }
 
@@ -500,6 +512,9 @@ impl SnapshotArtifact {
         }
         if let Some(browser) = &expected.browser {
             wanted.browser = Some(browser.clone());
+        }
+        if let Some(languages) = &expected.accept_language {
+            wanted.accept_language = Some(languages.clone());
         }
         let differences = profile_differences(&stored, &wanted);
         if differences.is_empty() {
@@ -1324,6 +1339,7 @@ mod tests {
         profile.version = crate::audit::report::MEASUREMENT_PROFILE_VERSION;
         profile.read_only = true;
         profile.browser = Some(crate::browser::BrowserProvenance::for_tests());
+        profile.accept_language = Some("en-US,en".to_string());
         report.accessibility.execution.environment.headless = true;
         snapshot_with_unlabelled_field(&[]).with_collected("https://example.com", "en", &report)
     }
@@ -1461,6 +1477,7 @@ mod tests {
                 crate::browser::HeadlessModeKind::New,
             );
             profile.browser = Some(measured_with.clone());
+            profile.accept_language = Some("en-US,en".to_string());
             profile.storage_state = Some(crate::audit::StorageStateRef {
                 sha256: "aa".repeat(32),
                 cookies: 1,
@@ -1475,6 +1492,7 @@ mod tests {
                 storage_state_sha256: Some("aa".repeat(32)),
                 extra_checks: Some(vec![]),
                 browser: Some(measured_with.clone()),
+                accept_language: Some("en-US,en".into()),
             })
             .is_ok());
             // How the browser was found and a failover are not the measurement.
@@ -1526,6 +1544,13 @@ mod tests {
                         ..Default::default()
                     },
                     "browser",
+                ),
+                (
+                    ExpectedProfile {
+                        accept_language: Some("de-DE,de".into()),
+                        ..Default::default()
+                    },
+                    "accept_language",
                 ),
             ] {
                 match ok(expected) {

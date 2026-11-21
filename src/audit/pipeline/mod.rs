@@ -14,8 +14,8 @@ use std::collections::BTreeSet;
 use std::time::Instant;
 
 use chromiumoxide::cdp::browser_protocol::network::{
-    DisableParams as NetworkDisableParams, EnableParams as NetworkEnableParams,
-    EventRequestWillBeSent, EventRequestWillBeSentExtraInfo, ResourceType,
+    EnableParams as NetworkEnableParams, EventRequestWillBeSent, EventRequestWillBeSentExtraInfo,
+    ResourceType,
 };
 use chromiumoxide::cdp::browser_protocol::page::SetBypassCspParams;
 use chromiumoxide::cdp::browser_protocol::security::{
@@ -458,6 +458,12 @@ pub struct PipelineConfig {
     /// Session policy of the browser the pages run in; part of the
     /// measurement profile (#787).
     pub session: crate::browser::SessionPolicy,
+    /// Languages the browser sends as `Accept-Language` and reports as
+    /// `navigator.languages` (`--accept-language`, #1110): a plain list of
+    /// language tags. Part of the cache signature: a result measured in
+    /// another language is another measurement. The profile records the
+    /// value of the browser that took the measurement.
+    pub accept_language: String,
     /// Declared browser state every page starts from (#787). Its values are
     /// never reported; the profile carries digest and counts.
     pub storage_state: Option<crate::browser::StorageState>,
@@ -506,6 +512,7 @@ impl Default for PipelineConfig {
             allow_state_changes: false,
             journey_budget_ms: crate::a11y_journey::DEFAULT_BUDGET_MS,
             session: crate::browser::SessionPolicy::Isolated,
+            accept_language: crate::browser::DEFAULT_ACCEPT_LANGUAGE.to_string(),
             storage_state: None,
             state_id: None,
             lang: "en".to_string(),
@@ -625,13 +632,14 @@ impl PipelineConfig {
         // 33 for `help_url` as the rule page and the new `understanding_url` (#929).
         // 34 for `viewport_scores.{desktop,mobile}.overall` becoming `site_quality` (#909).
         // 35 for the accessibility breakdown losing its per-area `score` and `detail.accessibility_subcategory_scores` (#902).
-        const CACHE_FMT: u8 = 35;
+        // 36 for `accept_language` in the measurement profile and the signature (#1110).
+        const CACHE_FMT: u8 = 36;
         let mut disabled = self.rule_filter.disabled_rules.clone();
         disabled.sort();
         let mut enabled_only = self.rule_filter.enabled_only_rules.clone();
         enabled_only.sort();
         format!(
-            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};html_conform={};privacy={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};experimental={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
+            "v={};fmt={};level={};perf={};seo={};sec={};mobile={};html_conform={};privacy={};isolate_tp_impact={};perf_runs={};ssr_content={};stack={};experimental={};consent={};interactive={:?};state_changes={};journey_budget_ms={};session={};accept_language={};state_id={};state={};lang={};disabled={};enabled_only={};exclude={};display={};indexable={:?}",
             env!("CARGO_PKG_VERSION"),
             CACHE_FMT,
             self.wcag_level,
@@ -655,6 +663,7 @@ impl PipelineConfig {
             self.allow_state_changes as u8,
             self.journey_budget_ms,
             self.session.as_str(),
+            self.accept_language,
             self.state_id.as_deref().unwrap_or(""),
             self.storage_state.as_ref().map_or("", |s| s.digest.as_str()),
             self.lang,
@@ -1002,15 +1011,16 @@ pub async fn audit_page(
         .event_listener::<EventRequestWillBeSentExtraInfo>()
         .await
         .ok();
-    if navigation_events.is_some() {
-        let _ = page.execute(NetworkEnableParams::default()).await;
-    }
+    let _ = page.execute(NetworkEnableParams::default()).await;
     let desktop_refresh = browser.navigate(page, url).await?;
     let main_document = match navigation_events.as_mut() {
         Some(events) => {
             let request =
                 drain_main_document_request(events, navigation_extra_events.as_mut()).await;
-            let _ = page.execute(NetworkDisableParams::default()).await;
+            // The domain stays enabled: the page's extra request headers
+            // (`Accept-Language`, `DNT`, `Sec-GPC`, set when the page was
+            // created) only apply while it is, so disabling it sent the
+            // mobile pass and every later reload without them (#1110).
             request
         }
         None => MainDocumentRequest::unobserved(),
@@ -1383,6 +1393,12 @@ pub async fn audit_page(
         .scope
         .measurement_profile
         .browser = Some(browser.provenance().clone());
+    report
+        .accessibility
+        .execution
+        .scope
+        .measurement_profile
+        .accept_language = Some(browser.accept_language().to_string());
     // The transport the security analysis judges is the one the browser's
     // document used, not the probe's (#775).
     let document_https = report.document_is_https();
@@ -2499,10 +2515,10 @@ mod tests {
         assert_eq!(
             PipelineConfig::default().audit_signature(),
             format!(
-                "v={version};fmt=35;level=AA;perf=1;seo=1;sec=1;mobile=1;html_conform=1;\
+                "v={version};fmt=36;level=AA;perf=1;seo=1;sec=1;mobile=1;html_conform=1;\
                  privacy=0;isolate_tp_impact=0;perf_runs=1;ssr_content=0;stack=1;experimental=;\
                  consent=0;interactive=Full;state_changes=0;journey_budget_ms=15000;\
-                 session=isolated;state_id=;state=;lang=en;disabled=;enabled_only=;\
+                 session=isolated;accept_language=en-US,en;state_id=;state=;lang=en;disabled=;enabled_only=;\
                  exclude=[data-audit-exclude];display=site_default;\
                  indexable=IndexabilityExpectation {{ expected: None, source: Undeclared }}"
             )
@@ -2516,10 +2532,10 @@ mod tests {
         assert_eq!(
             narrowed.audit_signature(),
             format!(
-                "v={version};fmt=35;level=AAA;perf=0;seo=1;sec=0;mobile=0;html_conform=0;\
+                "v={version};fmt=36;level=AAA;perf=0;seo=1;sec=0;mobile=0;html_conform=0;\
                  privacy=1;isolate_tp_impact=0;perf_runs=1;ssr_content=0;stack=0;experimental=;\
                  consent=0;interactive=Off;state_changes=0;journey_budget_ms=15000;\
-                 session=isolated;state_id=;state=;lang=de;disabled=;enabled_only=;\
+                 session=isolated;accept_language=en-US,en;state_id=;state=;lang=de;disabled=;enabled_only=;\
                  exclude=[data-audit-exclude];display=site_default;\
                  indexable=IndexabilityExpectation {{ expected: None, source: Undeclared }}"
             )

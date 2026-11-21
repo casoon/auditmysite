@@ -75,6 +75,7 @@ pub const CONTRACT_CODES: &[&str] = &[
     "frame_rule_outcome_unexpected",
     "gate_score_cap",
     "grade",
+    "measurement_profile_accept_language",
     "measurement_profile_journeys",
     "measurement_profile_read_only",
     "module_grade",
@@ -378,6 +379,20 @@ impl NormalizedReport {
                     ),
                 );
             }
+        }
+        // From profile version 4 on a measurement names the languages the
+        // browser was launched with (#1110).
+        if profile.version >= 4 {
+            let problem = match profile.accept_language.as_deref() {
+                None => Some("a measurement names the languages its browser sends".to_string()),
+                Some(languages) => crate::browser::validate_accept_language(languages).err(),
+            };
+            check(
+                problem.is_none(),
+                "measurement_profile_accept_language",
+                "execution.scope.measurement_profile.accept_language".into(),
+                problem.unwrap_or_default(),
+            );
         }
         // From profile version 3 on a live measurement names the browser
         // that took it, and the record agrees with itself, the platform
@@ -1030,6 +1045,7 @@ mod tests {
         report.accessibility.execution.environment.headless = true;
         let profile = &mut report.accessibility.execution.scope.measurement_profile;
         profile.version = crate::audit::MEASUREMENT_PROFILE_VERSION;
+        profile.accept_language = Some("en-US,en".to_string());
         profile.read_only = journeys.is_empty();
         profile.state_changing_journeys = journeys.iter().map(|id| id.to_string()).collect();
         profile.browser = Some(crate::browser::BrowserProvenance {
@@ -1095,6 +1111,35 @@ mod tests {
             .measurement_profile
             .read_only = true;
         assert_eq!(violation_codes(&report), ["measurement_profile_read_only"]);
+    }
+
+    /// A measurement of profile version 4 names a plain list of language
+    /// tags; one with a quality value or none at all is refused (#1110).
+    #[test]
+    fn a_measurement_names_the_languages_its_browser_sends() {
+        let mut report = report_with_journeys("off", &[]);
+        for languages in ["de-DE,de", "en-US"] {
+            report
+                .accessibility
+                .execution
+                .scope
+                .measurement_profile
+                .accept_language = Some(languages.to_string());
+            assert_eq!(violation_codes(&report), Vec::<&str>::new(), "{languages}");
+        }
+        for languages in [None, Some("en-US,en;q=0.9"), Some("en-US, en"), Some("")] {
+            report
+                .accessibility
+                .execution
+                .scope
+                .measurement_profile
+                .accept_language = languages.map(str::to_string);
+            assert_eq!(
+                violation_codes(&report),
+                ["measurement_profile_accept_language"],
+                "{languages:?}"
+            );
+        }
     }
 
     /// Every code the checks above can emit is listed, and every listed code

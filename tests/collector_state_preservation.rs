@@ -108,6 +108,7 @@ fn report_with(record: CollectionRecord) -> Box<AuditReport> {
     let profile = &mut report.accessibility.execution.scope.measurement_profile;
     profile.version = MEASUREMENT_PROFILE_VERSION;
     profile.read_only = true;
+    profile.accept_language = Some("en-US,en".into());
     profile.browser = Some(auditmysite::browser::BrowserProvenance {
         product: auditmysite::browser::BrowserProduct::Chrome,
         version: Some("131.0.6778.85".into()),

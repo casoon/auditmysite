@@ -42,6 +42,7 @@ fn report_with(browser: Option<BrowserProvenance>) -> AuditReport {
     let execution = &mut report.accessibility.execution;
     execution.scope.measurement_profile.version = MEASUREMENT_PROFILE_VERSION;
     execution.scope.measurement_profile.read_only = true;
+    execution.scope.measurement_profile.accept_language = Some("en-US,en".into());
     if let Some(browser) = &browser {
         execution.environment.headless = browser.headless_mode.is_headless();
         execution.environment.browser_version = browser.version.clone();

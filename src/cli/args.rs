@@ -294,6 +294,20 @@ pub struct Args {
     #[arg(long, value_enum, default_value = "isolated")]
     pub session: crate::browser::SessionPolicy,
 
+    /// Languages the browser sends as `Accept-Language` and reports as
+    /// `navigator.languages`, most preferred first: a plain comma-separated
+    /// list of language tags such as `de-DE,de` (no spaces, no quality
+    /// values; the browser adds them).
+    ///
+    /// Default `en-US,en`, or `[audit] accept_language` in the config file.
+    /// A site that redirects or renders by language answers to it, so a run
+    /// is reproducible only with the same value; it is stored in the
+    /// report's measurement profile. It is not the report language
+    /// (`--lang`) and cannot change the region a server infers from the IP
+    /// address.
+    #[arg(long = "accept-language", value_name = "TAGS")]
+    pub accept_language: Option<String>,
+
     /// Start every page from a declared browser state: a Playwright-style
     /// `storage-state` JSON (`cookies[]`, `origins[].localStorage[]`), for a
     /// reproducible login, consent or SPA state.
@@ -697,6 +711,14 @@ impl Args {
         self.timeout.unwrap_or(30)
     }
 
+    /// The browser languages of the run: `--accept-language`, else
+    /// `[audit] accept_language`, else [`crate::browser::DEFAULT_ACCEPT_LANGUAGE`].
+    pub fn effective_accept_language(&self) -> String {
+        self.accept_language
+            .clone()
+            .unwrap_or_else(|| crate::browser::DEFAULT_ACCEPT_LANGUAGE.to_string())
+    }
+
     /// Returns the effective concurrency: the CLI value, else 3 — or 1 when
     /// journeys run on a browser that stalls under parallel keyboard
     /// journeys (full browser on macOS, plan 65).
@@ -796,6 +818,7 @@ impl Args {
         }
         self.load_storage_state()?;
         self.load_baseline()?;
+        crate::browser::validate_accept_language(&self.effective_accept_language())?;
         if self.write_baseline.is_some() && self.display == Some(DisplaySelection::All) {
             return Err(
                 "--write-baseline records one run; --display all runs one audit per mode"
@@ -1057,6 +1080,7 @@ mod tests {
             exclude_selector: Vec::new(),
             interactive: InteractiveMode::Off,
             session: Default::default(),
+            accept_language: None,
             allow_state_changes: false,
             storage_state: None,
             state_id: None,
@@ -1076,6 +1100,23 @@ mod tests {
     #[test]
     fn test_validate_no_input() {
         assert!(test_args(None).validate().is_err());
+    }
+
+    /// The default stays `en-US,en`; a value with a quality is refused before
+    /// a browser starts (#1110).
+    #[test]
+    fn accept_language_defaults_and_is_validated() {
+        let args = test_args(Some("https://example.com"));
+        assert_eq!(args.effective_accept_language(), "en-US,en");
+        let mut german = test_args(Some("https://example.com"));
+        german.accept_language = Some("de-DE,de".to_string());
+        assert!(german.validate().is_ok());
+        let mut quality = test_args(Some("https://example.com"));
+        quality.accept_language = Some("en-US,en;q=0.9".to_string());
+        assert!(quality
+            .validate()
+            .unwrap_err()
+            .contains("--accept-language"));
     }
 
     #[test]

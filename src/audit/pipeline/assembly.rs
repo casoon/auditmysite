@@ -510,6 +510,8 @@ pub(crate) fn audit_scope_from_config(config: &PipelineConfig) -> crate::audit::
             // Known only once the browser has launched; the pipeline
             // fills it in next to the execution environment.
             browser: None,
+            // Likewise: the launched browser says which languages it sends.
+            accept_language: None,
             storage_state: config.storage_state.as_ref().map(|state| {
                 crate::audit::StorageStateRef {
                     sha256: state.digest.clone(),
@@ -1183,6 +1185,12 @@ mod tests {
             .scope
             .measurement_profile
             .browser = Some(crate::browser::BrowserProvenance::for_tests());
+        report
+            .accessibility
+            .execution
+            .scope
+            .measurement_profile
+            .accept_language = Some("en-US,en".to_string());
         report.accessibility.execution.environment.headless = true;
         report
             .accessibility
