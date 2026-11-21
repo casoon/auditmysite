@@ -6,8 +6,8 @@ order: 91
 ---
 
 Measurement record for issue #1109 ("Third-party and iframe content: attribute it, decide how
-it is scored and shown"). It measures only; it changes no scoring, band or behaviour and makes
-no decision. The reference bands in `tests/fixtures/reference_sites.json` are untouched.
+it is scored and shown"). It measures only; it changes no scoring, band or behaviour. The
+decision it led to (attribution only) is recorded in the output contract, "Finding origin". The reference bands in `tests/fixtures/reference_sites.json` are untouched.
 
 This record replaces the first measurement of the same day. That one audited the two lazy-loaded
 basf.com widget iframes while they were still `about:blank` and attributed their points from the
