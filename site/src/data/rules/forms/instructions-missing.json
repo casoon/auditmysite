@@ -2,7 +2,7 @@
   "id": "forms/instructions-missing",
   "url": "https://casoon.github.io/auditmysite/rules/forms/instructions-missing/",
   "domain": "wcag",
-  "title": "Missing form labels",
+  "title": "Missing input instructions",
   "outcome": "hint-only",
   "area": "Accessibility, Forms & Interaction",
   "criterion": "3.3.2",
@@ -10,7 +10,7 @@
   "axe_id": "label",
   "severity": "high",
   "user_impact": "Users do not know what input is expected.",
-  "technical_impact": "An input that expects a specific format (date, phone number, pattern) has no instruction in its <label>, in aria-describedby or in adjacent text, so a screen reader announces the field name but not the expected format.",
+  "technical_impact": "The label of a field names data that has a fixed format (such as a date, phone number, postal code, card or passport number), but the field has no aria-describedby, no format example in the label and no placeholder, so a screen reader announces the field name but not the expected format; detected from the label text, hence a review hint.",
   "checks": [
     {
       "contract_id": "forms/instructions-missing",

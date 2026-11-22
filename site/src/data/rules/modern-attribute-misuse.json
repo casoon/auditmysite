@@ -2,7 +2,7 @@
   "id": "modern-attribute-misuse",
   "url": "https://casoon.github.io/auditmysite/rules/modern-attribute-misuse/",
   "domain": "wcag",
-  "title": "Broken dialog or popover control",
+  "title": "Open popover or menu without a name, or marked inert",
   "outcome": "automatic",
   "area": "Accessibility, Technical Robustness",
   "criterion": "4.1.2",
@@ -10,7 +10,7 @@
   "axe_id": "modern-attribute-misuse",
   "severity": "high",
   "user_impact": "Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.",
-  "technical_impact": "Popover, dialog or inert attributes are combined inconsistently, for example an open popover or menu without an accessible name or focus inside an inert subtree, so assistive technology gets an unnamed or unreachable surface.",
+  "technical_impact": "An open popover ([popover] in the open state) or a visible role=\"menu\" has no accessible name (no aria-label, aria-labelledby or title), or an open popover carries the inert attribute and so cannot be focused or operated while it is visible; an unnamed surface is only a review hint, because neither HTML nor ARIA requires a name there.",
   "checks": [
     {
       "contract_id": "modern-attribute-misuse",

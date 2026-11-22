@@ -10,7 +10,7 @@
   "axe_id": "display/text-not-visible",
   "severity": "high",
   "user_impact": "In text mode the statement of the visualisation is lost.",
-  "technical_impact": "With html[data-display=\"text\"] set, the [data-viz-text] layer of a visualisation is empty or hidden by its computed style, so the text alternative is neither rendered nor exposed in text mode.",
+  "technical_impact": "With html[data-display=\"text\"] set, a visualisation has a [data-viz-text] layer with content, but none of its layers is rendered and visible (for example hidden by the CSS for text mode), so the statement does not appear in text mode and the text alternative is lost there.",
   "checks": [
     {
       "contract_id": "display/text-not-visible",

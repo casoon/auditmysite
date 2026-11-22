@@ -10,7 +10,7 @@
   "axe_id": "lists/empty",
   "severity": "low",
   "user_impact": "Screen readers announce a list without content.",
-  "technical_impact": "<ul>/<ol>/role=\"list\" without <li>/role=\"listitem\".",
+  "technical_impact": "A <ul>, <ol>, <menu> or role=\"list\" has no list item child (children that are not items are a different finding), so a screen reader announces a list with nothing in it; a best-practice finding without a WCAG criterion.",
   "checks": [
     {
       "contract_id": "lists/empty",

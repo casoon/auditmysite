@@ -10,7 +10,7 @@
   "axe_id": "display/text-media-visible",
   "severity": "medium",
   "user_impact": "Visitors who chose text mode still get graphics or moving content.",
-  "technical_impact": "[data-viz-live]/[data-viz-static] or figure media visible with html[data-display=text].",
+  "technical_impact": "With html[data-display=\"text\"] set, a visualisation still shows media: a [data-viz-live] or [data-viz-static] part, or a canvas, svg, img, video, iframe, object or embed larger than 32 × 32 px outside its text layer, so text mode shows graphics instead of only the statement as text.",
   "checks": [
     {
       "contract_id": "display/text-media-visible",

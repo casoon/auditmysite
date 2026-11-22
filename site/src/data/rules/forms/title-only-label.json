@@ -10,7 +10,7 @@
   "axe_id": "label-title-only",
   "severity": "medium",
   "user_impact": "The title attribute is read inconsistently or not at all by many screen readers; sighted users only see it on hover.",
-  "technical_impact": "Form element without <label>/aria-label, name derived only from title.",
+  "technical_impact": "A text field, combobox, listbox, slider or spin button gets its accessible name only from the title attribute (no <label>, aria-label or aria-labelledby, no placeholder), which keyboard and touch users never see and some screen readers announce inconsistently; reported as a review hint.",
   "checks": [
     {
       "contract_id": "forms/title-only-label",

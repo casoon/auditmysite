@@ -10,7 +10,7 @@
   "axe_id": "input-no-context-change",
   "severity": "medium",
   "user_impact": "Confusing changes while filling out forms.",
-  "technical_impact": "A form control has an onchange or oninput handler that submits the form or navigates without a submit button, so picking an option with the keyboard changes the context unannounced.",
+  "technical_impact": "A <select>, radio button, checkbox, combobox or listbox has an onchange handler whose code navigates, submits the form, opens a window or moves focus (or calls a function that does), so choosing an option with the keyboard changes the context without warning; a handler whose effect the markup cannot show is only a review hint.",
   "checks": [
     {
       "contract_id": "context/on-input",

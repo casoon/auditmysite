@@ -10,7 +10,7 @@
   "axe_id": "images/alt-suspicious",
   "severity": "medium",
   "user_impact": "Screen reader users hear text that does not convey the image content.",
-  "technical_impact": "alt attribute present but without descriptive content.",
+  "technical_impact": "The alt text of an <img> is shorter than three characters, a bare filler word (such as \"image\", \"photo\", \"logo\", \"icon\", \"placeholder\" or the German \"Bild\", \"Foto\", \"Grafik\") or ends in an image file extension such as .jpg or .png, so a screen reader reads out something that does not describe the image; reported as a review hint, because only a person can tell.",
   "checks": [
     {
       "contract_id": "images/alt-suspicious",

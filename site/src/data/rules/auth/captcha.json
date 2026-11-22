@@ -10,7 +10,7 @@
   "axe_id": "accessible-auth-captcha",
   "severity": "medium",
   "user_impact": "Text and puzzle CAPTCHAs lock people with cognitive impairments, dyslexia or low vision out of signing in when no alternative is offered.",
-  "technical_impact": "Interactive CAPTCHA widget (reCAPTCHA, hCaptcha, image CAPTCHA) in a form with a password or one-time-code field.",
+  "technical_impact": "A form with a password or one-time-code field contains a visible CAPTCHA widget (reCAPTCHA, hCaptcha or an image whose src, alt, id or class names a captcha), so people who cannot solve a cognitive test cannot sign in unless an alternative exists; reported as a review hint, because the kind of test and any alternative are not in the markup.",
   "checks": [
     {
       "contract_id": "auth/captcha",

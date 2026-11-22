@@ -10,7 +10,7 @@
   "axe_id": "dialog-name",
   "severity": "high",
   "user_impact": "Screen reader users are not told what the dialog is about when it opens.",
-  "technical_impact": "Dialog element without aria-label or aria-labelledby pointing to the dialog title.",
+  "technical_impact": "An open <dialog> or an element with role=\"dialog\" or \"alertdialog\" has no accessible name (no aria-label, no aria-labelledby that resolves, no title), so a screen reader announces \"dialog\" when it opens without saying what it is about.",
   "checks": [
     {
       "contract_id": "dialog/name-missing",

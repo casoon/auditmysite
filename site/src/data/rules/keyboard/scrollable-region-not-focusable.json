@@ -10,7 +10,7 @@
   "axe_id": "scrollable-region-focusable",
   "severity": "high",
   "user_impact": "Keyboard users cannot scroll the region and cannot read the hidden content.",
-  "technical_impact": "Element with overflow: auto/scroll and overflowing content, without tabindex and without focusable children.",
+  "technical_impact": "A region scrolls (more than 13 px of content beyond its box) and holds text or images with alt, but neither it nor anything inside it can be reached with the Tab key, so keyboard users cannot scroll it and never reach the cut-off part.",
   "checks": [
     {
       "contract_id": "keyboard/scrollable-region-not-focusable",

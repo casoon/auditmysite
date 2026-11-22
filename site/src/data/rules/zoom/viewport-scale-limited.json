@@ -10,7 +10,7 @@
   "axe_id": "zoom/viewport-scale-limited",
   "severity": "medium",
   "user_impact": "Users with low vision cannot magnify the page content enough.",
-  "technical_impact": "maximum-scale in the viewport meta tag set below 5.",
+  "technical_impact": "maximum-scale in the viewport meta tag is at least 2 but below 5, so pinch zoom stops short of 500%, which users with low vision may need; a best-practice finding, since 200% is still possible.",
   "checks": [
     {
       "contract_id": "zoom/viewport-scale-limited",

@@ -10,7 +10,7 @@
   "axe_id": "landmarks/not-top-level",
   "severity": "medium",
   "user_impact": "Screen reader users who jump via landmark navigation land in an unexpected context.",
-  "technical_impact": "<header>/<footer>/<main> or role=\"banner\"/\"contentinfo\"/\"main\" is a descendant of another landmark.",
+  "technical_impact": "A <main> or an element with role=\"banner\", \"contentinfo\" or \"main\" sits inside another landmark such as main, navigation, complementary or a named region, so it is not a top-level landmark and the landmark list of a screen reader shows it in an unexpected place.",
   "checks": [
     {
       "contract_id": "landmarks/not-top-level",

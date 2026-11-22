@@ -9,7 +9,7 @@
   "level": "AAA",
   "severity": "low",
   "user_impact": "Users unexpectedly lose context; the back button does not lead back.",
-  "technical_impact": "target=\"_blank\" without a notice in the accessible name.",
+  "technical_impact": "A link with target=\"_blank\" has no notice in its accessible name (a phrase such as \"new window\", \"opens in\" or \"external link\"), so a screen reader user is not told that activating it opens a new window or tab; reported as a review hint.",
   "checks": [
     {
       "contract_id": "links/new-window-unannounced",

@@ -2,7 +2,7 @@
   "id": "aria/reference-missing",
   "url": "https://casoon.github.io/auditmysite/rules/aria/reference-missing/",
   "domain": "wcag",
-  "title": "Empty reference in an ARIA relationship attribute",
+  "title": "ARIA reference without a target",
   "outcome": "automatic",
   "area": "Accessibility, Technical Robustness",
   "criterion": "4.1.2",
@@ -10,7 +10,7 @@
   "axe_id": "aria-valid-attr",
   "severity": "medium",
   "user_impact": "Assistive technologies cannot resolve the intended relationship between the elements.",
-  "technical_impact": "Relationship attribute without a valid ID reference.",
+  "technical_impact": "An ARIA relationship attribute (aria-labelledby, aria-describedby, aria-controls, aria-owns, aria-activedescendant, aria-details, aria-flowto, or aria-errormessage on a field marked invalid) names an id that does not exist, or aria-controls, aria-owns or aria-activedescendant is empty, so a screen reader cannot resolve the label, description or controlled region.",
   "checks": [
     {
       "contract_id": "aria/reference-missing",

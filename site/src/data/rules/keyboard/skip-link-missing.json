@@ -10,7 +10,7 @@
   "axe_id": "skip-link",
   "severity": "medium",
   "user_impact": "Keyboard users must tab through the entire navigation on every page change.",
-  "technical_impact": "No link with a recognizable 'skip'/'to content' text or anchor to #main/#content at the top of the page.",
+  "technical_impact": "The page has repeated blocks (links, a navigation or banner landmark) but no link that jumps past them: no fragment link to the start of the main content, no run of in-page links ahead of the first real link and no fragment link whose text or class reads as \"skip\", so keyboard users must tab through the whole header and navigation first; a review hint, because a main landmark or headings can bypass the blocks as well.",
   "checks": [
     {
       "contract_id": "keyboard/skip-link-missing",

@@ -10,7 +10,7 @@
   "axe_id": "landmark-one-main",
   "severity": "medium",
   "user_impact": "Keyboard users have no reliable target to bypass repeated navigation blocks.",
-  "technical_impact": "No element with role=\"main\" (implicit via <main> or explicit) present.",
+  "technical_impact": "The page has content but no <main> and no element with role=\"main\", so the \"jump to main content\" shortcut of a screen reader has no target and users must move through the repeated header and navigation blocks first; with a modal dialog open at measurement time the finding has low severity, because the dialog may hide the main landmark.",
   "checks": [
     {
       "contract_id": "landmarks/main-missing",

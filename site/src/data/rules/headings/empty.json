@@ -10,7 +10,7 @@
   "axe_id": "headings/empty",
   "severity": "medium",
   "user_impact": "Screen reader users find an entry without content in the list of headings.",
-  "technical_impact": "<h1>–<h6> or role=\"heading\" without text and without aria-label.",
+  "technical_impact": "A heading (<h1> to <h6> or role=\"heading\") contains no text, no image with alt, no aria-label and no resolvable aria-labelledby, so a screen reader lists an empty heading and users find nothing to navigate to; a review hint when its aria-labelledby points to a hidden or missing element.",
   "checks": [
     {
       "contract_id": "headings/empty",

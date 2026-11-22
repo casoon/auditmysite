@@ -10,7 +10,7 @@
   "axe_id": "landmark-contentinfo-present",
   "severity": "low",
   "user_impact": "Screen reader users cannot jump straight to the footer with contact and legal information.",
-  "technical_impact": "No element with role=\"contentinfo\" (implicit via a <footer> outside <main>/<article>/<section>, or explicit) present.",
+  "technical_impact": "The page has no contentinfo landmark: no <footer> outside article, aside, main, nav and section and no element with role=\"contentinfo\", so landmark navigation in a screen reader has no entry for the footer with contact and legal information; reported as a review hint, because a page may do without a footer.",
   "checks": [
     {
       "contract_id": "landmarks/contentinfo-missing",

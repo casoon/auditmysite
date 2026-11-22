@@ -10,7 +10,7 @@
   "axe_id": "svg-img-alt",
   "severity": "high",
   "user_impact": "Screen reader users receive no information about the graphic's content.",
-  "technical_impact": "SVG without a <title> child element, aria-label, or aria-labelledby.",
+  "technical_impact": "An inline <svg> (or an element with a graphics role inside it) has no accessible name (no <title> child, aria-label or aria-labelledby) and is not marked decorative (aria-hidden or role=\"none\"), so a screen reader skips it or announces an unnamed graphic; a violation when the SVG carries role=\"img\" or another graphics role, otherwise a review hint, because it may be decoration beside text.",
   "checks": [
     {
       "contract_id": "svg/name-missing",

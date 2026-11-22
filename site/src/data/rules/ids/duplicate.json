@@ -10,7 +10,7 @@
   "axe_id": "ids/duplicate",
   "severity": "critical",
   "user_impact": "Assistive technology cannot resolve the relationship unambiguously and announces the name or description of the wrong element.",
-  "technical_impact": "The same ID occurs more than once in the DOM and is referenced by a for, headers or aria attribute.",
+  "technical_impact": "The same id sits on more than one element and an IDREF attribute (for, form, list, headers or an aria-* reference such as aria-labelledby) points to it; the browser resolves the reference to the first element, so a screen reader may take a name, description or relationship from the wrong element; reported once per id as a review hint.",
   "checks": [
     {
       "contract_id": "ids/duplicate",

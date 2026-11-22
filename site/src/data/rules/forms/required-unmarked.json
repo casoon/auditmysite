@@ -2,7 +2,7 @@
   "id": "forms/required-unmarked",
   "url": "https://casoon.github.io/auditmysite/rules/forms/required-unmarked/",
   "domain": "wcag",
-  "title": "Missing form labels",
+  "title": "Required field not marked as required",
   "outcome": "hint-only",
   "area": "Accessibility, Forms & Interaction",
   "criterion": "3.3.2",

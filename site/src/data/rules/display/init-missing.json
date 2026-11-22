@@ -10,7 +10,7 @@
   "axe_id": "display/init-missing",
   "severity": "low",
   "user_impact": "The page can briefly render in the wrong mode, for example with animation, before the chosen calm mode applies.",
-  "technical_impact": "data-display not set by a blocking script in <head>.",
+  "technical_impact": "On a page that uses the display-mode convention (figure[data-viz] or [data-display-toggle]), html[data-display] is never set, or was not yet set when the page body was parsed, so the page first renders in the wrong mode, for example with animation, before the chosen calm mode applies.",
   "checks": [
     {
       "contract_id": "display/init-missing",

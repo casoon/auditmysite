@@ -10,7 +10,7 @@
   "axe_id": "language/part-invalid",
   "severity": "medium",
   "user_impact": "Screen readers cannot switch to the right pronunciation for that passage.",
-  "technical_impact": "lang below <html> that is not a valid BCP 47 tag and sets the language of text.",
+  "technical_impact": "An element below <html> has a lang that is not a valid BCP 47 tag (for example \"dutch\" or \"eng\") and carries text of its own, so a screen reader cannot switch the voice for that passage; an empty lang=\"\" is not reported.",
   "checks": [
     {
       "contract_id": "language/part-invalid",

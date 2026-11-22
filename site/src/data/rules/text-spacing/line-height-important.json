@@ -10,7 +10,7 @@
   "axe_id": "text-spacing/line-height-important",
   "severity": "medium",
   "user_impact": "Users cannot increase line height for readability.",
-  "technical_impact": "line-height below 1.5 set with !important in a style attribute.",
+  "technical_impact": "On an element with text, the style attribute sets line-height with !important to less than 1.5 times the font size, so a user style sheet or bookmarklet cannot increase it for readability; a review hint when the element is out of the flow, sits in a horizontally scrolling container or the value cannot be resolved without layout.",
   "checks": [
     {
       "contract_id": "text-spacing/line-height-important",

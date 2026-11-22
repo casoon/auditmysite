@@ -10,7 +10,7 @@
   "axe_id": "input-image-alt",
   "severity": "high",
   "user_impact": "Screen reader users are not told what action the button triggers.",
-  "technical_impact": "An <input type=\"image\"> has no alt attribute, so the image button has no accessible name and a screen reader announces only \"button\" without its function.",
+  "technical_impact": "An <input type=\"image\"> has neither alt nor title and no aria-label or aria-labelledby, so the browser falls back to a default name such as \"Submit Query\" that says nothing about the action of the image button.",
   "checks": [
     {
       "contract_id": "images/input-alt-missing",

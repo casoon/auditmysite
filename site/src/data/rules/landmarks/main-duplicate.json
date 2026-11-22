@@ -10,7 +10,7 @@
   "axe_id": "landmark-no-duplicate-main",
   "severity": "medium",
   "user_impact": "Screen reader users who jump to the main content cannot tell which region is meant.",
-  "technical_impact": "More than one element with role=\"main\" (implicit or explicit).",
+  "technical_impact": "The page has more than one main landmark (<main> or role=\"main\"); the finding points at the second one, so the \"jump to main content\" shortcut of a screen reader has several targets and users cannot tell which one holds the page content.",
   "checks": [
     {
       "contract_id": "landmarks/main-duplicate",

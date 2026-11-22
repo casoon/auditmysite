@@ -10,7 +10,7 @@
   "axe_id": "frame-tested",
   "severity": "medium",
   "user_impact": "Embedded content (maps, videos, consent widgets) may be inaccessible to screen reader users.",
-  "technical_impact": "Iframe content is unreachable via CDP — automatic rule checking is not possible.",
+  "technical_impact": "The document of a visible <iframe> could not be read by the tool (foreign origin, or its navigation had not finished), so no rule runs inside it and its content is untested; an untested coverage note, not a verdict on the frame.",
   "checks": [
     {
       "contract_id": "frames/cross-origin",

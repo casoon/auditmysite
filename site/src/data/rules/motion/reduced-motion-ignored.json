@@ -10,7 +10,7 @@
   "axe_id": "prefers-reduced-motion",
   "severity": "low",
   "user_impact": "Users with vestibular disorders or photosensitivity cannot disable motion.",
-  "technical_impact": "No @media (prefers-reduced-motion) in the stylesheets.",
+  "technical_impact": "Style rules start movement (an animation with moving @keyframes, or a transition of a motion property such as transform or position) on elements that exist on the page and are not switched off under @media (prefers-reduced-motion: reduce), so people with vestibular disorders cannot avoid the motion; reported as a review hint.",
   "checks": [
     {
       "contract_id": "motion/reduced-motion-ignored",

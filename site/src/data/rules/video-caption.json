@@ -2,7 +2,7 @@
   "id": "video-caption",
   "url": "https://casoon.github.io/auditmysite/rules/video-caption/",
   "domain": "wcag",
-  "title": "Missing captions for videos",
+  "title": "Check captions of videos",
   "outcome": "hint-only",
   "area": "Accessibility, Content & Alternatives",
   "criterion": "1.2.2",
@@ -10,7 +10,7 @@
   "axe_id": "video-caption",
   "severity": "high",
   "user_impact": "Deaf or hard-of-hearing users cannot perceive spoken content.",
-  "technical_impact": "A <video> has no <track kind=\"captions\"> or <track kind=\"subtitles\"> child, so the media element carries no timed text and spoken content has no text equivalent.",
+  "technical_impact": "At least one rendered <video> has no <track kind=\"captions\"> or kind=\"subtitles\" whose file loads from the page origin as a caption format (.vtt or .srt), or the page only embeds a third-party player (YouTube, Vimeo and similar) whose captions the tool cannot see, so spoken content may have no text equivalent; an untested manual-check note, because caption accuracy and timing cannot be checked automatically either way.",
   "checks": [
     {
       "contract_id": "video-caption",

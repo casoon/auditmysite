@@ -10,7 +10,7 @@
   "axe_id": "title-only-description",
   "severity": "medium",
   "user_impact": "The title attribute's tooltip only appears on mouse hover; with a keyboard and on touch devices the element's purpose stays invisible.",
-  "technical_impact": "The accessible name comes only from the title attribute; no text content, no aria-label, no aria-labelledby.",
+  "technical_impact": "A <button>, <a href>, <input type=\"button\"> or \"image\", or an unlabeled checkbox or radio button has a title but no text, alt, aria-label or aria-labelledby, so its accessible name comes from title alone, which keyboard and touch users never see and some screen readers announce inconsistently; reported as a review hint.",
   "checks": [
     {
       "contract_id": "names/title-only",

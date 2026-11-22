@@ -8,7 +8,7 @@
   "axe_id": "headings/h1-missing",
   "severity": "medium",
   "user_impact": "Screen reader users cannot find the start of the main content via heading navigation.",
-  "technical_impact": "The document contains no <h1> and no role=\"heading\" with aria-level=\"1\", so screen reader heading navigation has no level-1 entry and the page topic is missing from the heading outline.",
+  "technical_impact": "The document has headings but no <h1> and no role=\"heading\" with aria-level=\"1\", so screen reader heading navigation has no level-1 entry and the page topic is missing from the heading outline.",
   "checks": [
     {
       "contract_id": "headings/h1-missing",

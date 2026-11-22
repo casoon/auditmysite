@@ -10,7 +10,7 @@
   "axe_id": "zoom/viewport-missing",
   "severity": "high",
   "user_impact": "On mobile devices the text appears below any readable size; zooming in forces horizontal scrolling. Desktop browsers are not affected.",
-  "technical_impact": "No <meta name=\"viewport\"> in the document.",
+  "technical_impact": "The document has no <meta name=\"viewport\">, so mobile browsers assume a desktop width and shrink the page, and text appears below a readable size until the user zooms in; a best-practice finding without a WCAG criterion.",
   "checks": [
     {
       "contract_id": "zoom/viewport-missing",

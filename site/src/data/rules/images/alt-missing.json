@@ -10,7 +10,7 @@
   "axe_id": "image-alt",
   "severity": "high",
   "user_impact": "Screen reader users receive no image information.",
-  "technical_impact": "An <img> or role=\"img\" element has no alt attribute and no other accessible name, so it enters the accessibility tree unnamed and a screen reader announces only the file name or \"image\".",
+  "technical_impact": "An <img> has no alt attribute (or only whitespace in it) and no aria-label, aria-labelledby or title, and is not marked decorative (role=\"presentation\", aria-hidden=\"true\"), so it enters the accessibility tree without a name and a screen reader announces only the file name or \"image\".",
   "checks": [
     {
       "contract_id": "images/alt-missing",

@@ -10,7 +10,7 @@
   "axe_id": "text-spacing/word-important",
   "severity": "medium",
   "user_impact": "Users cannot increase word spacing for readability.",
-  "technical_impact": "word-spacing below 0.16em set with !important in a style attribute.",
+  "technical_impact": "On an element with text, the style attribute sets word-spacing with !important to less than 0.16 times the font size, so a user style sheet or bookmarklet cannot increase it for readability; a review hint when the element is out of the flow or the value cannot be resolved without layout.",
   "checks": [
     {
       "contract_id": "text-spacing/word-important",
