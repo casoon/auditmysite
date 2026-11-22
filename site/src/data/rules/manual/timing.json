@@ -9,8 +9,8 @@
   "level": "A",
   "axe_id": "meta-refresh",
   "severity": "high",
-  "user_impact": "Users who need more time are cut off and may lose what they entered.",
-  "technical_impact": "The page has form fields, so a time limit is conceivable; time limits set by JavaScript (setTimeout, setInterval, session expiry) are not visible in the markup, so the page gets one manual-check note that users must be able to turn such a limit off, adjust or extend it; a <meta http-equiv=\"refresh\"> is judged separately.",
+  "user_impact": "If a time limit cannot be adjusted, users who need more time are cut off and may lose what they entered.",
+  "technical_impact": "The page has form fields or a <meta http-equiv=\"refresh\">, so a time limit is conceivable; time limits set by JavaScript (setTimeout, setInterval, session expiry) are not visible in the markup, so the page gets one manual-check note that users must be able to turn such a limit off, adjust or extend it; the delay of a <meta http-equiv=\"refresh\"> is judged separately.",
   "checks": [
     {
       "contract_id": "manual/timing",

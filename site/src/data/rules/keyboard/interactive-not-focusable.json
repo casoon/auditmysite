@@ -2,7 +2,7 @@
   "id": "keyboard/interactive-not-focusable",
   "url": "https://casoon.github.io/auditmysite/rules/keyboard/interactive-not-focusable/",
   "domain": "wcag",
-  "title": "Content not operable by keyboard",
+  "title": "Check that interactive elements can receive keyboard focus",
   "outcome": "hint-only",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.1.1",

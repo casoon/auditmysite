@@ -2,7 +2,7 @@
   "id": "targets/size",
   "url": "https://casoon.github.io/auditmysite/rules/targets/size/",
   "domain": "wcag",
-  "title": "Insufficient click target size",
+  "title": "Check that click targets are large enough",
   "outcome": "hint-only",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.5.8",

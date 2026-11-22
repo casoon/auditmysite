@@ -9,7 +9,7 @@
   "level": "AAA",
   "axe_id": "help",
   "severity": "low",
-  "user_impact": "Users do not know what format or data to enter in a field.",
+  "user_impact": "If fields offer no help, users may not know what format or data to enter.",
   "technical_impact": "The page contains form fields (input, select or textarea; hidden fields and buttons do not count); whether they have context-sensitive help such as instructions, examples or a help link cannot be decided from the markup, so the page gets one manual-check note instead of a verdict.",
   "checks": [
     {

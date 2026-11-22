@@ -2,7 +2,7 @@
   "id": "keyboard/pointer-only",
   "url": "https://casoon.github.io/auditmysite/rules/keyboard/pointer-only/",
   "domain": "wcag",
-  "title": "Click handler without keyboard equivalent",
+  "title": "Check that clickable elements can be operated by keyboard",
   "outcome": "hint-only",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.1.1",

@@ -9,7 +9,7 @@
   "level": "AAA",
   "axe_id": "unusual-words",
   "severity": "low",
-  "user_impact": "Users with cognitive impairments or non-native speakers do not understand the text.",
+  "user_impact": "If unusual words are not explained, users with cognitive impairments or non-native speakers may not understand the text.",
   "technical_impact": "The page contains text, so one manual-check note asks whether jargon, idioms and unusual words are explained inline, with <dfn> or in a glossary; the markup cannot show which words are unusual to the readers.",
   "checks": [
     {

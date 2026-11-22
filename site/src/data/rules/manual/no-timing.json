@@ -9,7 +9,7 @@
   "level": "AAA",
   "axe_id": "no-timing",
   "severity": "medium",
-  "user_impact": "Users cannot complete tasks at their own pace.",
+  "user_impact": "If a task depends on timing, users who need more time cannot complete it at their own pace.",
   "technical_impact": "The page has form fields or a <meta http-equiv=\"refresh\">, so time limits are conceivable; whether any task depends on timing cannot be seen in the markup, so the page gets one manual-check note instead of a verdict, and it stays open whether users who need more time are cut off.",
   "checks": [
     {

@@ -2,7 +2,7 @@
   "id": "forms/redundant-entry",
   "url": "https://casoon.github.io/auditmysite/rules/forms/redundant-entry/",
   "domain": "wcag",
-  "title": "Missing reuse of previously entered data",
+  "title": "Check that data entered before is not requested again",
   "outcome": "hint-only",
   "area": "Accessibility, Forms & Interaction",
   "criterion": "3.3.7",

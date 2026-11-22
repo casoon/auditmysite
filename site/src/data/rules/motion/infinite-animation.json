@@ -2,7 +2,7 @@
   "id": "motion/infinite-animation",
   "url": "https://casoon.github.io/auditmysite/rules/motion/infinite-animation/",
   "domain": "wcag",
-  "title": "Missing pause/stop/hide control",
+  "title": "Check that endless motion can be paused, stopped or hidden",
   "outcome": "hint-only",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.2.2",

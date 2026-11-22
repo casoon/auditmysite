@@ -2,7 +2,7 @@
   "id": "names/symbol-only",
   "url": "https://casoon.github.io/auditmysite/rules/names/symbol-only/",
   "domain": "wcag",
-  "title": "Interactive element without a meaningful name",
+  "title": "Check that symbol-only names describe the function",
   "outcome": "hint-only",
   "area": "Accessibility, Technical Robustness",
   "criterion": "4.1.2",

@@ -2,7 +2,7 @@
   "id": "text/line-height-tight",
   "url": "https://casoon.github.io/auditmysite/rules/text/line-height-tight/",
   "domain": "wcag",
-  "title": "Limited visual presentation of text (AAA)",
+  "title": "Check that paragraphs have a line height of at least 1.5 (AAA)",
   "outcome": "hint-only",
   "area": "Accessibility, Visual Presentation",
   "criterion": "1.4.8",

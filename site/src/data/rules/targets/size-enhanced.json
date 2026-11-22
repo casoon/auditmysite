@@ -2,7 +2,7 @@
   "id": "targets/size-enhanced",
   "url": "https://casoon.github.io/auditmysite/rules/targets/size-enhanced/",
   "domain": "wcag",
-  "title": "Insufficient click target size (AAA)",
+  "title": "Check that click targets are large enough (AAA)",
   "outcome": "hint-only",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.5.5",

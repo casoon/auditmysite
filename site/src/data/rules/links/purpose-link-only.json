@@ -2,7 +2,7 @@
   "id": "links/purpose-link-only",
   "url": "https://casoon.github.io/auditmysite/rules/links/purpose-link-only/",
   "domain": "wcag",
-  "title": "Unclear link label without context (AAA)",
+  "title": "Check that link text names the purpose without its context (AAA)",
   "outcome": "hint-only",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.4.9",

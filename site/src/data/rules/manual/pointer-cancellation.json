@@ -9,7 +9,7 @@
   "level": "A",
   "axe_id": "pointer-cancellation",
   "severity": "medium",
-  "user_impact": "Users may trigger actions accidentally without being able to cancel them.",
+  "user_impact": "If an action fires on the down event alone, users may trigger it accidentally without being able to cancel it.",
   "technical_impact": "An element carries an onmousedown, onpointerdown or ontouchstart handler attribute, so an action may fire on the down event alone; whether it can be aborted, undone or fires on release instead is not visible in the markup, so the page gets one manual-check note; handlers added by script are not inspected.",
   "checks": [
     {
