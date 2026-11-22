@@ -10,7 +10,7 @@
   "axe_id": "image-alt",
   "severity": "high",
   "user_impact": "Screen reader users receive no image information.",
-  "technical_impact": "An <img> element has no alt attribute, so the accessibility tree gives it no name and a screen reader reads out the file name or skips the image.",
+  "technical_impact": "A graphic in the accessibility tree that is neither an <img> nor an inline <svg>, typically an element with role=\"img\", has no accessible name, so a screen reader announces an unnamed image; graphics marked decorative and icons inside a named link or button are exempt.",
   "checks": [
     {
       "contract_id": "image-alt",

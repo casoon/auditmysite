@@ -10,7 +10,7 @@
   "axe_id": "td-headers-attr",
   "severity": "high",
   "user_impact": "Screen readers cannot associate the cell with its correct column/row header, or none at all.",
-  "technical_impact": "headers attribute does not reference a valid th cell in the same table.",
+  "technical_impact": "The headers attribute of a cell is empty or names an id that is not a header cell (<th> or a header role) of the same table, or the cell itself, so a screen reader announces no header or the wrong one for that cell.",
   "checks": [
     {
       "contract_id": "tables/headers-attr-invalid",

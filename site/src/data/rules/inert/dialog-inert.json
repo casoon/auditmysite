@@ -10,7 +10,7 @@
   "axe_id": "modern-attribute-misuse",
   "severity": "high",
   "user_impact": "Screen reader and keyboard users cannot reliably access dialogs, popovers, or disabled regions.",
-  "technical_impact": "An open <dialog> or one of its ancestors carries the inert attribute, which removes the dialog from the accessibility tree and focus order while it is visible, so keyboard and screen reader users cannot reach it.",
+  "technical_impact": "An open <dialog> (a violation) or an element with role=\"dialog\" or \"alertdialog\" (a review hint, as CSS may have closed it) is inert itself or sits inside an inert ancestor, so it cannot be focused or operated and assistive technology does not get it although it is visible.",
   "checks": [
     {
       "contract_id": "inert/dialog-inert",

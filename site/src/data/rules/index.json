@@ -134,7 +134,7 @@
     },
     {
       "id": "video-caption",
-      "title": "Missing captions for videos",
+      "title": "Check captions of videos",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.2.2",
@@ -1030,7 +1030,7 @@
     },
     {
       "id": "forms/group-name-missing",
-      "title": "Missing form labels",
+      "title": "Form group without a name",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.3.2",
@@ -1038,7 +1038,7 @@
     },
     {
       "id": "forms/instructions-missing",
-      "title": "Missing form labels",
+      "title": "Missing input instructions",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.3.2",
@@ -1062,7 +1062,7 @@
     },
     {
       "id": "forms/required-unmarked",
-      "title": "Missing form labels",
+      "title": "Required field not marked as required",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.3.2",
@@ -1166,7 +1166,7 @@
     },
     {
       "id": "aria/reference-missing",
-      "title": "Empty reference in an ARIA relationship attribute",
+      "title": "ARIA reference without a target",
       "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",
@@ -1326,7 +1326,7 @@
     },
     {
       "id": "modern-attribute-misuse",
-      "title": "Broken dialog or popover control",
+      "title": "Open popover or menu without a name, or marked inert",
       "domain": "wcag",
       "outcome": "automatic",
       "criterion": "4.1.2",

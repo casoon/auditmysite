@@ -10,7 +10,7 @@
   "axe_id": "aria-hidden-focus",
   "severity": "high",
   "user_impact": "Keyboard users reach elements that screen readers do not announce — invisible traps.",
-  "technical_impact": "aria-hidden=\"true\" on a focusable element or its ancestor.",
+  "technical_impact": "A tab-reachable element (natively focusable, or tabindex of 0 or more) sits in a subtree marked aria-hidden=\"true\" and is not inert, so keyboard focus lands on it while a screen reader announces nothing; behind an open modal dialog this is only a review hint.",
   "checks": [
     {
       "contract_id": "keyboard/hidden-focusable",

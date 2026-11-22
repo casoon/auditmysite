@@ -10,7 +10,7 @@
   "axe_id": "form-field-group",
   "severity": "medium",
   "user_impact": "Screen reader users cannot tell that several fields belong to one question/group.",
-  "technical_impact": "Radio buttons/checkboxes without an enclosing <fieldset> with <legend>.",
+  "technical_impact": "Radio buttons, or checkboxes that share a name within a form, have no ancestor <fieldset>, <details> or role=\"group\"/\"radiogroup\", so a screen reader announces each option without the question the whole set answers; reported as a review hint, because clear labels can make the grouping unnecessary.",
   "checks": [
     {
       "contract_id": "forms/group-missing",

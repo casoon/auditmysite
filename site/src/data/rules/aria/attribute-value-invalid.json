@@ -10,7 +10,7 @@
   "axe_id": "aria-valid-attr-value",
   "severity": "high",
   "user_impact": "Assistive technologies cannot correctly convey the element's state or relationship.",
-  "technical_impact": "Attribute value does not match the value type defined in the ARIA specification.",
+  "technical_impact": "An aria-* attribute holds a value its type does not allow (for example aria-expanded=\"yes\", a non-integer aria-level or two IDs where one is expected), or a combobox or scrollbar has a required aria-controls that references no existing element, so browsers fall back to the default and a screen reader announces the state wrongly or not at all; empty values are not reported.",
   "checks": [
     {
       "contract_id": "aria/attribute-value-invalid",

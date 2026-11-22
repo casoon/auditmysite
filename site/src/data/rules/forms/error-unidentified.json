@@ -10,7 +10,7 @@
   "axe_id": "input-error-message",
   "severity": "medium",
   "user_impact": "Screen reader users learn that an error exists, but not what it is.",
-  "technical_impact": "aria-invalid=\"true\" without a description/aria-describedby pointing to a visible error element.",
+  "technical_impact": "A field has aria-invalid (any value except false) but neither aria-describedby nor aria-errormessage with text, so a screen reader announces \"invalid\" without saying what is wrong; reported as a review hint, because a visible error message next to the field can serve as the description.",
   "checks": [
     {
       "contract_id": "forms/error-unidentified",

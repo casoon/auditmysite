@@ -10,7 +10,7 @@
   "axe_id": "autocomplete-valid",
   "severity": "medium",
   "user_impact": "No autofill possible, data entry more error-prone.",
-  "technical_impact": "An input that collects data about the person (name, e-mail address, address, phone number) has no autocomplete attribute, so the browser cannot autofill it and its purpose is not programmatically determinable.",
+  "technical_impact": "A text, e-mail, phone, URL or password field that seems to ask about the person (guessed from its label, id, name or type) has no autocomplete token, or only on, off or an empty one, so the browser cannot autofill it and its purpose is not programmatically determinable; reported as a review hint, because the guess can be wrong.",
   "checks": [
     {
       "contract_id": "forms/purpose-missing",

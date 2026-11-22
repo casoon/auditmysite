@@ -10,7 +10,7 @@
   "axe_id": "tables/header-missing",
   "severity": "high",
   "user_impact": "Screen reader users hear cell values without their row or column label.",
-  "technical_impact": "No <th> and no cell with role=\"columnheader\"/\"rowheader\".",
+  "technical_impact": "A table (<table>, role=\"table\" or role=\"grid\") that is not marked presentational has no header cell (no <th> and no role=\"columnheader\" or \"rowheader\"), so a screen reader cannot announce a row or column label with a cell value; reported as a review hint, because the table may be a layout table.",
   "checks": [
     {
       "contract_id": "tables/header-missing",

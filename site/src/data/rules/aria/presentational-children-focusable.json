@@ -10,7 +10,7 @@
   "axe_id": "aria/presentational-children-focusable",
   "severity": "high",
   "user_impact": "Keyboard users reach an element that screen readers do not announce.",
-  "technical_impact": "Focusable descendant of button, checkbox, tab, menu item or another role whose children are presentational.",
+  "technical_impact": "A focusable element sits inside a button, checkbox, radio, tab, switch, slider, option, image or another role whose children are presentational (native <button> and <option> included), so keyboard focus stops on something that has no role or name in the accessibility tree.",
   "checks": [
     {
       "contract_id": "aria/presentational-children-focusable",

@@ -10,7 +10,7 @@
   "axe_id": "tables/presentational-with-headers",
   "severity": "medium",
   "user_impact": "Screen reader users receive contradictory signals about whether this is a data table.",
-  "technical_impact": "role=\"presentation\"/\"none\" on a table with <th>.",
+  "technical_impact": "A table with role=\"presentation\" or \"none\" contains header cells (<th> or role=\"columnheader\"/\"rowheader\"), so the role removes the table semantics while the header cells still announce them, and a screen reader receives contradictory information.",
   "checks": [
     {
       "contract_id": "tables/presentational-with-headers",

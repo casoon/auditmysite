@@ -10,7 +10,7 @@
   "axe_id": "landmark-navigation-present",
   "severity": "low",
   "user_impact": "Screen reader users cannot jump straight to the navigation.",
-  "technical_impact": "No element with role=\"navigation\" (implicit via <nav> or explicit) present.",
+  "technical_impact": "The page has no <nav> and no element with role=\"navigation\", so landmark navigation in a screen reader has no entry for the site menu; reported as a review hint, because a page may do without navigation.",
   "checks": [
     {
       "contract_id": "landmarks/navigation-missing",

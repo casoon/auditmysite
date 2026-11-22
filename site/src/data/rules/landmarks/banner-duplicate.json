@@ -10,7 +10,7 @@
   "axe_id": "landmark-no-duplicate-banner",
   "severity": "medium",
   "user_impact": "Screen reader users cannot uniquely identify the page's 'header' region.",
-  "technical_impact": "More than one element with role=\"banner\" (implicit or explicit).",
+  "technical_impact": "The page has more than one banner landmark (a <header> outside article, aside, main, nav and section, or role=\"banner\"); the finding points at the second one, so the landmark list of a screen reader shows several banners and users cannot tell which is the page header.",
   "checks": [
     {
       "contract_id": "landmarks/banner-duplicate",

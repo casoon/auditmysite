@@ -10,7 +10,7 @@
   "axe_id": "headings/skip-level",
   "severity": "medium",
   "user_impact": "Screen reader users navigating by headings assume that sections are missing.",
-  "technical_impact": "Heading levels do not follow each other without gaps.",
+  "technical_impact": "A heading is more than one level deeper than the heading before it (for example an h2 followed by an h4; role=\"heading\" with aria-level counts too), so the outline has a gap and screen reader users who navigate by heading level suspect a missing section; a best-practice finding without a WCAG criterion.",
   "checks": [
     {
       "contract_id": "headings/skip-level",

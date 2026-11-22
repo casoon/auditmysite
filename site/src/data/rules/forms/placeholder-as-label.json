@@ -10,7 +10,7 @@
   "axe_id": "label",
   "severity": "high",
   "user_impact": "Users do not know what input is expected.",
-  "technical_impact": "A form control has a placeholder but no <label>, aria-label or aria-labelledby, so its name is at best a browser fallback and disappears as soon as the user starts typing.",
+  "technical_impact": "A text field has a placeholder but no <label for>, no wrapping <label> and no aria-labelledby (an aria-label alone does not help, as it is not visible), so its name comes from the placeholder, which disappears as soon as the user types; reported as a review hint.",
   "checks": [
     {
       "contract_id": "forms/placeholder-as-label",

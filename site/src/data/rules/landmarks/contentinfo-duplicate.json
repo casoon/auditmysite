@@ -10,7 +10,7 @@
   "axe_id": "landmark-no-duplicate-contentinfo",
   "severity": "medium",
   "user_impact": "Screen reader users cannot uniquely identify the page's 'footer' region.",
-  "technical_impact": "More than one element with role=\"contentinfo\" (implicit or explicit).",
+  "technical_impact": "The page has more than one contentinfo landmark (a <footer> outside article, aside, main, nav and section, or role=\"contentinfo\"); the finding points at the second one, so the landmark list of a screen reader shows several footers and users cannot tell which is the page footer.",
   "checks": [
     {
       "contract_id": "landmarks/contentinfo-duplicate",

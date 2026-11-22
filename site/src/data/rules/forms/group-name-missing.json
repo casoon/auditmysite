@@ -2,7 +2,7 @@
   "id": "forms/group-name-missing",
   "url": "https://casoon.github.io/auditmysite/rules/forms/group-name-missing/",
   "domain": "wcag",
-  "title": "Missing form labels",
+  "title": "Form group without a name",
   "outcome": "hint-only",
   "area": "Accessibility, Forms & Interaction",
   "criterion": "3.3.2",

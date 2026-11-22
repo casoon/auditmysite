@@ -10,7 +10,7 @@
   "axe_id": "tables/name-missing",
   "severity": "low",
   "user_impact": "Screen reader users are not told what the table is about when entering it.",
-  "technical_impact": "No <caption> and no aria-label on the table.",
+  "technical_impact": "A table that is not marked presentational has no <caption> as a direct child, no aria-label, aria-labelledby or title, so a screen reader entering it or listing the tables of the page announces only \"table\"; reported as a review hint, because not every table needs a name.",
   "checks": [
     {
       "contract_id": "tables/name-missing",

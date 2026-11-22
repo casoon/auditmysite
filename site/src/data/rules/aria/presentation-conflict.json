@@ -10,7 +10,7 @@
   "axe_id": "aria/presentation-conflict",
   "severity": "medium",
   "user_impact": "Screen reader users meet an element the author meant to hide, without a name or purpose.",
-  "technical_impact": "role=none/presentation or <img alt=\"\"> with a global ARIA attribute or focusable, so the role is ignored.",
+  "technical_impact": "An element with role=\"none\" or \"presentation\", or an <img alt=\"\">, also carries a global ARIA attribute (such as aria-label or aria-describedby) or is focusable, so browsers ignore the decorative role and a screen reader announces the element anyway.",
   "checks": [
     {
       "contract_id": "aria/presentation-conflict",

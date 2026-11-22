@@ -10,7 +10,7 @@
   "axe_id": "description-duplicates-name",
   "severity": "low",
   "user_impact": "Screen readers announce the same text twice without adding information.",
-  "technical_impact": "aria-describedby or title yields the same text as the name.",
+  "technical_impact": "An interactive element (button, link, form control, menu item, tab and similar) has an accessible description in the browser's accessibility tree that is identical to its accessible name, typically a title or aria-describedby repeating the visible text, so a screen reader announces the same text twice.",
   "checks": [
     {
       "contract_id": "description-duplicates-name",

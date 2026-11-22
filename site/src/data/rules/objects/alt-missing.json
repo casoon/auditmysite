@@ -10,7 +10,7 @@
   "axe_id": "object-alt",
   "severity": "high",
   "user_impact": "Screen reader users receive no information about the embedded object's content.",
-  "technical_impact": "<object> without text content or aria-label.",
+  "technical_impact": "An <object> has no text alternative: no fallback text between its tags, no title and no aria-label or aria-labelledby, and it is not marked presentational, so a screen reader announces an unnamed embedded object and its content stays unavailable.",
   "checks": [
     {
       "contract_id": "objects/alt-missing",

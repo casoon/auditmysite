@@ -10,7 +10,7 @@
   "axe_id": "server-side-image-map",
   "severity": "medium",
   "user_impact": "Keyboard and screen reader users cannot target the individual image regions.",
-  "technical_impact": "ismap attribute on an image without an equivalent client-side alternative.",
+  "technical_impact": "An <img ismap> inside a link with href is a server-side image map: the click position, not a link target, selects the destination, so keyboard and screen reader users cannot choose a region; reported as a review hint, because equivalent text links beside the image satisfy the criterion.",
   "checks": [
     {
       "contract_id": "images/server-side-map",

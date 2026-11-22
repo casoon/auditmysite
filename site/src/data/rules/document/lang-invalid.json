@@ -10,7 +10,7 @@
   "axe_id": "document/lang-invalid",
   "severity": "high",
   "user_impact": "Screen readers choose a wrong or the default pronunciation.",
-  "technical_impact": "Invalid value in the html element's lang attribute.",
+  "technical_impact": "The lang attribute of <html> is set but is not a valid BCP 47 tag (for example \"english\", \"de_DE\" or the three-letter \"eng\"), so a screen reader cannot choose a voice for the page and falls back to its default pronunciation.",
   "checks": [
     {
       "contract_id": "document/lang-invalid",

@@ -10,7 +10,7 @@
   "axe_id": "html-xml-lang-mismatch",
   "severity": "medium",
   "user_impact": "Assistive technologies receive conflicting information about the content's language.",
-  "technical_impact": "lang and xml:lang do not agree on the primary subtag.",
+  "technical_impact": "The <html> element carries lang and xml:lang with different primary languages (for example lang=\"en\" and xml:lang=\"de\"), so a screen reader may pick either one and read the page in the wrong language.",
   "checks": [
     {
       "contract_id": "document/lang-mismatch",

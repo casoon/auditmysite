@@ -10,7 +10,7 @@
   "axe_id": "focus-visible-outline-none",
   "severity": "high",
   "user_impact": "Keyboard users cannot see which element currently has focus.",
-  "technical_impact": "outline: none/0 in :focus rules without an alternative visible focus indicator.",
+  "technical_impact": "A stylesheet removes the outline (outline: none or 0) under :focus or :focus-visible and no rule on the page replaces it (a :focus-visible rule that keeps the outline, or another visible style such as box-shadow on :focus), so keyboard users cannot see where focus is; a review hint when onfocus handlers could show another indicator.",
   "checks": [
     {
       "contract_id": "focus/outline-removed",

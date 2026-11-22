@@ -10,7 +10,7 @@
   "axe_id": "focus-no-context-change",
   "severity": "high",
   "user_impact": "Confusing page changes for keyboard users.",
-  "technical_impact": "An element carries the autofocus attribute, so focus moves there on page load and a screen reader skips the content before it; reported for review, as autofocus alone does not change the context.",
+  "technical_impact": "An element that is not an input field (<input>, <select>, <textarea> or a text role) carries the autofocus attribute, so focus jumps there on page load and a screen reader starts in the middle of the page, skipping the content before it; reported as a review hint, as autofocus alone does not change the context.",
   "checks": [
     {
       "contract_id": "context/autofocus",

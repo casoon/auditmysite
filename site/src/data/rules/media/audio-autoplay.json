@@ -10,7 +10,7 @@
   "axe_id": "media/audio-autoplay",
   "severity": "medium",
   "user_impact": "Audio that starts on its own drowns out screen reader speech.",
-  "technical_impact": "<audio autoplay> without muted; whether it plays longer than three seconds and can be paused is not in the markup.",
+  "technical_impact": "An <audio> or <video> has autoplay but neither muted nor visible controls and no media fragment of at most three seconds, so it may start sound on load over screen reader speech; reported as a review hint, because the markup does not show how long the sound plays.",
   "checks": [
     {
       "contract_id": "media/audio-autoplay",

@@ -10,7 +10,7 @@
   "axe_id": "landmark-banner-present",
   "severity": "medium",
   "user_impact": "Assistive technologies cannot identify the site header.",
-  "technical_impact": "No element with role=\"banner\" (implicit via <header> or explicit) present.",
+  "technical_impact": "The page has no banner landmark: no <header> outside article, aside, main, nav and section and no element with role=\"banner\", so landmark navigation in a screen reader has no entry for the site header; reported as a review hint, because a page may do without a header.",
   "checks": [
     {
       "contract_id": "landmarks/banner-missing",

@@ -10,7 +10,7 @@
   "axe_id": "aria/tab-selected-missing",
   "severity": "low",
   "user_impact": "Screen reader users are not told which tab is active and which one the visible content belongs to.",
-  "technical_impact": "tablist without a tab carrying aria-selected=\"true\".",
+  "technical_impact": "A role=\"tablist\" with tabs has no tab with aria-selected=\"true\" (a tablist with aria-multiselectable is exempt), so a screen reader does not announce which tab is active; reported as a review hint, because ARIA only recommends it.",
   "checks": [
     {
       "contract_id": "aria/tab-selected-missing",

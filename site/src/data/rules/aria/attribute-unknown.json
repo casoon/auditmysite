@@ -10,7 +10,7 @@
   "axe_id": "aria-attr-name-invalid",
   "severity": "high",
   "user_impact": "Assistive technologies ignore the attribute entirely.",
-  "technical_impact": "Attribute name does not exist in the ARIA specification.",
+  "technical_impact": "An element carries an attribute starting with aria- that WAI-ARIA does not define (for example the typo aria-labeledby; the aria-* attributes of the 1.3 draft that browsers already support count as known), so browsers ignore it and the intended name, relationship or state never reaches assistive technology.",
   "checks": [
     {
       "contract_id": "aria/attribute-unknown",

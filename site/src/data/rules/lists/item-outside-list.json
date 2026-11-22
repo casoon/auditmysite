@@ -10,7 +10,7 @@
   "axe_id": "lists/item-outside-list",
   "severity": "medium",
   "user_impact": "Screen reader users receive no announcement of the list's length/structure.",
-  "technical_impact": "A <li> or role=\"listitem\" element has no <ul>, <ol> or role=\"list\" parent, so the accessibility tree contains no list and a screen reader announces neither the item count nor the position within the list.",
+  "technical_impact": "An <li> has no list above it (<ul>, <ol>, <menu> or role=\"list\"), or the list around it carries a role that is not a list, so the accessibility tree has no list around the item and a screen reader announces neither the item count nor the position; an element with role=\"listitem\" is checked by the ARIA required-parent rule.",
   "checks": [
     {
       "contract_id": "lists/item-outside-list",

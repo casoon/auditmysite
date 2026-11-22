@@ -10,7 +10,7 @@
   "axe_id": "landmark-unique",
   "severity": "medium",
   "user_impact": "Screen reader users cannot distinguish similar regions.",
-  "technical_impact": "Repeated landmark roles without unique aria-label/aria-labelledby values.",
+  "technical_impact": "Two or more landmarks with the same role also have the same accessible name, or none (for example two <nav> without aria-label), so the landmark list of a screen reader shows identical entries and users cannot tell the regions apart; reported on every affected element as a review hint.",
   "checks": [
     {
       "contract_id": "landmarks/not-unique",

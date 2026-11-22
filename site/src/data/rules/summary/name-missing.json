@@ -10,7 +10,7 @@
   "axe_id": "summary-name",
   "severity": "high",
   "user_impact": "Screen reader users are not told what the disclosure section contains before opening it.",
-  "technical_impact": "<summary> without text content or aria-label.",
+  "technical_impact": "The <summary> that operates its <details> (the first <summary> child) has no accessible name from text, aria-label, aria-labelledby or title, so a screen reader announces an unnamed disclosure button and users cannot tell what the section holds before opening it.",
   "checks": [
     {
       "contract_id": "summary/name-missing",

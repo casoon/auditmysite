@@ -10,7 +10,7 @@
   "axe_id": "lists/invalid-structure",
   "severity": "medium",
   "user_impact": "Screen reader users hear a wrong number of list items or lose content.",
-  "technical_impact": "Direct children of <ul>/<ol>/role=\"list\" are not <li>/role=\"listitem\".",
+  "technical_impact": "A <ul>, <ol>, <menu> or role=\"list\" has a direct child that is not a list item (<li> or role=\"listitem\"; <script> and <template> are allowed), for example a wrapper <div> or an <li> with another role, so the accessibility tree does not count it as an entry and a screen reader announces a wrong item count or reads that content outside the list.",
   "checks": [
     {
       "contract_id": "lists/invalid-structure",

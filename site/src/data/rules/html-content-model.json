@@ -10,7 +10,7 @@
   "axe_id": "html-content-model",
   "severity": "medium",
   "user_impact": "Screen readers cannot reliably parse the structure, even when it appears superficially valid.",
-  "technical_impact": "Unexpected child element inside a structural container (e.g. <ul>, <table>, <select>).",
+  "technical_impact": "The HTML5 schema validation of the page source reports an error inside a <dl>, <table> (or its row groups), <select>, <optgroup>, <fieldset>, <ul> or <ol>, for example a child element the content model does not allow; browsers repair such markup silently when building the accessibility tree, so what a screen reader gets can differ from the source.",
   "checks": [
     {
       "contract_id": "html-content-model",
