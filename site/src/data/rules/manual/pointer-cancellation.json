@@ -2,7 +2,7 @@
   "id": "manual/pointer-cancellation",
   "url": "https://casoon.github.io/auditmysite/rules/manual/pointer-cancellation/",
   "domain": "wcag",
-  "title": "Action possibly triggered on pointer down",
+  "title": "Check that pointer actions can be cancelled",
   "outcome": "manual",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.5.2",

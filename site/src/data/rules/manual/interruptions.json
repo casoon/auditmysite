@@ -2,7 +2,7 @@
   "id": "manual/interruptions",
   "url": "https://casoon.github.io/auditmysite/rules/manual/interruptions/",
   "domain": "wcag",
-  "title": "Non-suppressible interruptions (AAA)",
+  "title": "Check that interruptions can be postponed or turned off (AAA)",
   "outcome": "manual",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.2.4",

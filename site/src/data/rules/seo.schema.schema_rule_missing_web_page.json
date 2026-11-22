@@ -3,12 +3,12 @@
   "url": "https://casoon.github.io/auditmysite/rules/seo.schema.schema_rule_missing_web_page/",
   "domain": "schema",
   "title": "WebPage: missing recommended properties",
-  "outcome": "automatic",
+  "outcome": "hint-only",
   "area": "SEO, structured data",
   "checks": [
     {
       "contract_id": "web_page",
-      "outcome": "automatic",
+      "outcome": "hint-only",
       "source": "https://schema.org/WebPage (no Google rich result; profile recommends name, url, description, inLanguage, isPartOf)",
       "applicability": "Applies to JSON-LD nodes of type WebPage in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method.",
       "expectation": "No required properties exist, so there is no violation state. Missing profiled recommendations are needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)); all present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean.",

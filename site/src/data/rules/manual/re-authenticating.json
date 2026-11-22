@@ -2,7 +2,7 @@
   "id": "manual/re-authenticating",
   "url": "https://casoon.github.io/auditmysite/rules/manual/re-authenticating/",
   "domain": "wcag",
-  "title": "No data preservation on re-authentication (AAA)",
+  "title": "Check that entered data survives re-authentication (AAA)",
   "outcome": "manual",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.2.5",

@@ -2,7 +2,7 @@
   "id": "manual/no-timing",
   "url": "https://casoon.github.io/auditmysite/rules/manual/no-timing/",
   "domain": "wcag",
-  "title": "Timing present (AAA)",
+  "title": "Check that no task depends on timing (AAA)",
   "outcome": "manual",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.2.3",

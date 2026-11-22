@@ -3,12 +3,12 @@
   "url": "https://casoon.github.io/auditmysite/rules/seo.schema.schema_rule_missing_organization/",
   "domain": "schema",
   "title": "Organization: missing recommended properties",
-  "outcome": "automatic",
+  "outcome": "hint-only",
   "area": "SEO, structured data",
   "checks": [
     {
       "contract_id": "organization",
-      "outcome": "automatic",
+      "outcome": "hint-only",
       "source": "https://developers.google.com/search/docs/appearance/structured-data/organization (no required properties; recommended: name, url, logo, address, telephone, sameAs, among others)",
       "applicability": "Applies to JSON-LD nodes of type Organization in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method.",
       "expectation": "Google defines no required Organization properties, so there is no violation state. Missing recommended properties are needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)); all present passes. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean.",

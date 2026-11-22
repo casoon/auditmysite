@@ -2,7 +2,7 @@
   "id": "manual/timing",
   "url": "https://casoon.github.io/auditmysite/rules/manual/timing/",
   "domain": "wcag",
-  "title": "Time limit possibly not adjustable",
+  "title": "Check that time limits can be adjusted",
   "outcome": "manual",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.2.1",

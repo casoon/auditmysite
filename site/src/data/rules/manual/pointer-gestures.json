@@ -2,7 +2,7 @@
   "id": "manual/pointer-gestures",
   "url": "https://casoon.github.io/auditmysite/rules/manual/pointer-gestures/",
   "domain": "wcag",
-  "title": "Missing alternative for pointer gestures",
+  "title": "Check that gestures have a single-pointer alternative",
   "outcome": "manual",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.5.1",

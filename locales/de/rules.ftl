@@ -145,7 +145,7 @@ rule-label-in-name-mismatch = Sichtbarer Text ≠ zugänglicher Name
     .user-impact = Sprachsteuerungsnutzer können Element nicht ansprechen.
     .technical-impact = Der zugängliche Name, den aria-label oder aria-labelledby einem Button, Link oder anderem aus seinem Inhalt benannten Bedienelement gibt, enthält dessen sichtbare Beschriftung nicht, daher kann ein Sprachsteuerungs-Nutzer, der sagt, was zu sehen ist, es nicht auslösen; ein Prüfhinweis, wenn dieselben Wörter nur in anderer Reihenfolge stehen oder der sichtbare Text mehr als doppelt so lang ist wie der Name; reine Symbol- und Ein-Zeichen-Beschriftungen sind ausgenommen.
 
-rule-manual-timing = Zeitbegrenzung möglicherweise nicht anpassbar
+rule-manual-timing = Prüfen, ob sich Zeitbegrenzungen anpassen lassen
     .user-impact = Nutzer, die mehr Zeit brauchen, werden abgebrochen und können Eingaben verlieren.
     .technical-impact = Die Seite hat Formularfelder, daher ist eine Zeitbegrenzung denkbar; Zeitbegrenzungen per JavaScript (setTimeout, setInterval, Sitzungsablauf) sind im Markup nicht erkennbar, daher erhält die Seite einen Hinweis zur manuellen Prüfung, dass Nutzer eine solche Frist abschalten, anpassen oder verlängern können müssen; ein <meta http-equiv="refresh"> wird getrennt bewertet.
 
@@ -166,15 +166,15 @@ rule-motion-infinite-animation = Fehlende Pause-/Stopp-/Ausblenden-Kontrolle
     .user-impact = Nutzer mit Aufmerksamkeits- oder kognitiven Einschränkungen sowie Screenreader-Nutzer werden durch dauerhaft laufende Bewegung abgelenkt oder gestört und können sie nicht deaktivieren.
     .technical-impact = Ein <marquee> oder ein Element, dessen Animation sich endlos wiederholt (animation-iteration-count: infinite), ist vorhanden und die Seite hat keinen Schalter oder Button, dessen Beschriftung anbietet, sie anzuhalten, zu stoppen oder auszublenden; als Prüfhinweis gemeldet, weil die Dauer der Bewegung und die Wirkung eines solchen Bedienelements nicht gemessen werden.
 
-rule-manual-no-timing = Zeitbegrenzung vorhanden (AAA)
+rule-manual-no-timing = Prüfen, ob keine Aufgabe von Zeit abhängt (AAA)
     .user-impact = Nutzer können Aufgaben nicht in ihrem eigenen Tempo abschließen.
     .technical-impact = Die Seite hat Formularfelder oder ein <meta http-equiv="refresh">, daher sind Zeitbegrenzungen denkbar; ob eine Aufgabe von Zeit abhängt, ist im Markup nicht erkennbar, die Seite erhält deshalb einen Hinweis zur manuellen Prüfung statt eines Urteils, und offen bleibt, ob Nutzer, die mehr Zeit brauchen, abgebrochen werden.
 
-rule-manual-interruptions = Nicht unterdrückbare Unterbrechungen (AAA)
+rule-manual-interruptions = Prüfen, ob sich Unterbrechungen aufschieben oder abschalten lassen (AAA)
     .user-impact = Nutzer mit kognitiven Einschränkungen oder Screenreader-Nutzer werden abgelenkt.
     .technical-impact = Die Seite enthält ein <dialog>, ein <meta http-equiv="refresh"> oder ein Element mit der Rolle alert, alertdialog, status, log, marquee oder timer oder mit einem aria-live-Wert ungleich off; solche Inhalte können die Screenreader-Ausgabe und das Lesen unterbrechen, ob sie sich aufschieben oder abschalten lassen, ist im Markup nicht erkennbar, daher erhält die Seite einen Hinweis zur manuellen Prüfung.
 
-rule-manual-re-authenticating = Keine Datenspeicherung bei Reauthentifizierung (AAA)
+rule-manual-re-authenticating = Prüfen, ob Eingaben die erneute Anmeldung überstehen (AAA)
     .user-impact = Nutzer müssen alle Formulardaten erneut eingeben.
     .technical-impact = Die Seite hat ein Passwortfeld oder ein CAPTCHA, daher ist eine Anmeldung nach abgelaufener Sitzung wahrscheinlich; ob die eingegebenen Daten die erneute Anmeldung überstehen, ist im Markup nicht erkennbar, die Seite erhält deshalb einen Hinweis zur manuellen Prüfung statt eines Urteils.
 
@@ -195,15 +195,15 @@ rule-links-new-window-unannounced = Neues Fenster ohne Ankündigung (AAA)
     .recommendation = Im Linktext ankündigen, z. B. "(öffnet in neuem Fenster)", oder auf target="_blank" verzichten.
     .technical-note = Ein sichtbares Symbol reicht nur mit Textalternative im zugänglichen Namen (Technik G201).
 
-rule-manual-pointer-gestures = Fehlende Alternative für Zeigergesten
+rule-manual-pointer-gestures = Prüfen, ob Gesten eine Bedienung mit einem einzelnen Zeiger haben
     .user-impact = Nutzer mit motorischen Einschränkungen können die Funktionen nicht bedienen.
     .technical-impact = Die Seite enthält ein Element, das nach Gestensteuerung aussieht: ein Handler-Attribut für touchstart, touchmove, pointermove, gesturestart oder dragstart, draggable="true" oder eine Klasse einer Karussell- oder Kartenbibliothek wie swiper, slick, splide, leaflet oder mapboxgl; ob dieselbe Funktion auch mit einem einzelnen Tippen oder Klick geht, ist nicht erkennbar, daher erhält die Seite einen Hinweis zur manuellen Prüfung.
 
-rule-manual-pointer-cancellation = Aktion möglicherweise bei Zeigerberührung ausgelöst
+rule-manual-pointer-cancellation = Prüfen, ob sich Zeigeraktionen abbrechen lassen
     .user-impact = Nutzer können versehentlich Aktionen auslösen, ohne diese abbrechen zu können.
     .technical-impact = Ein Element trägt ein Handler-Attribut onmousedown, onpointerdown oder ontouchstart, daher löst eine Aktion womöglich schon beim Herunterdrücken aus; ob sie sich abbrechen oder zurücknehmen lässt oder erst beim Loslassen auslöst, ist im Markup nicht erkennbar, daher erhält die Seite einen Hinweis zur manuellen Prüfung; per Skript angehängte Handler werden nicht untersucht.
 
-rule-manual-motion-actuation = Fehlende Alternative für Bewegungseingabe
+rule-manual-motion-actuation = Prüfen, ob Steuerung per Gerätebewegung eine Alternative hat
     .user-impact = Nutzer, die das Gerät nicht bewegen können, sind von den Funktionen ausgeschlossen.
     .technical-impact = Ein Inline-<script> nennt devicemotion oder deviceorientation, daher reagiert eine Funktion womöglich auf Schütteln oder Neigen des Geräts; ob sie auch über ein Bedienelement auf der Seite geht und ob sich die Reaktion abschalten lässt, ist nicht erkennbar, daher erhält die Seite einen Hinweis zur manuellen Prüfung; externe Skripte werden nicht untersucht.
 
@@ -268,15 +268,15 @@ rule-auth-captcha = CAPTCHA im Anmeldeformular prüfen
     .technical-note = Prüfhinweis: Art des Tests und Alternativen stehen nicht im Markup. Ein Captcha im Kontaktformular gehört nicht zu 3.3.8.
 
 rule-forms-no-submit = Formular ohne Absende-Button
-    .user-impact = Tastatur- und Screenreader-Nutzer erkennen den Abschluss der Eingabe schwerer.
-    .technical-impact = Ein <form> besitzt mindestens ein aktives input, select, textarea oder button (auch über das form-Attribut), aber kein Absende-Element, also keinen <button> außer mit type button oder reset und kein <input type="submit"> oder type "image"; immer ein Prüfbefund, weil 3.2.2 erst verletzt ist, wenn eine Feldänderung den Kontext wechselt, und mit niedriger Schwere, wenn das Formular weder action noch Textfeld hat und nur ein Skript es absenden kann.
+    .user-impact = Tastatur- und Screenreader-Nutzer erkennen nicht, wann ihre Eingabe gilt, und ein Skript, das beim Ändern abschickt, versetzt sie unangekündigt in einen neuen Kontext.
+    .technical-impact = Ein <form> besitzt mindestens ein aktives input (außer hidden), select, textarea oder button (auch über das form-Attribut), aber kein aktives Absende-Element, also keinen <button> außer mit type button oder reset, kein <input type="submit"> oder type "image" und kein role="button"-Element mit data-submit oder einer Beschriftung mit submit, send oder search; immer ein Prüfbefund, weil 3.2.2 erst verletzt ist, wenn eine Feldänderung den Kontext wechselt, und mit niedriger Schwere, wenn das Formular weder action noch ein einzeiliges Eingabefeld hat (textarea, Checkbox, Radio, Datei, Schieberegler und Farbfeld zählen nicht), in dem die Eingabetaste es absenden würde, und nur ein Skript es absenden kann.
     .description = Ein Formular sammelt Eingaben, hat aber keinen Button und kein anderes Element, mit dem es ausdrücklich abgeschickt wird.
     .explanation-user-impact = Ohne Absende-Element bleibt unklar, wann die Eingabe gilt. Wird das Formular stattdessen beim Ändern eines Felds abgeschickt, wechselt der Kontext unangekündigt.
     .typical-cause = Filter- und Suchformulare, die per Skript beim Ändern eines Felds abgeschickt werden, oder ein Button außerhalb des Formulars ohne form-Attribut.
     .recommendation = Einen Button type="submit" ins Formular setzen oder per form-Attribut zuordnen. Ändert ein Formular nur Inhalte auf der Seite, genügt eine Prüfung, dass dabei kein Kontextwechsel passiert.
-    .technical-note = Ohne action und ohne Textfeld kann nur ein Skript das Formular abschicken; dann ist der Befund ein Prüfhinweis (#728).
+    .technical-note = Ohne action und ohne einzeiliges Eingabefeld kann nur ein Skript das Formular abschicken; dann ist der Befund ein Prüfhinweis (#728).
 
-rule-manual-help = Fehlende Ausfüllhilfe (AAA)
+rule-manual-help = Prüfen, ob Formularfelder Hilfe bieten (AAA)
     .user-impact = Nutzer wissen nicht, welches Format oder welche Daten in ein Feld eingegeben werden müssen.
     .technical-impact = Die Seite enthält Formularfelder (input, select oder textarea; versteckte Felder und Schaltflächen zählen nicht); ob sie kontextbezogene Hilfe wie Anleitung, Beispiele oder einen Hilfelink haben, lässt sich aus dem Markup nicht entscheiden, daher erhält die Seite einen Hinweis zur manuellen Prüfung statt eines Urteils.
 
@@ -302,7 +302,7 @@ rule-context-on-input = Unerwartete Kontextänderung bei Eingabe
     .user-impact = Verwirrende Änderungen beim Ausfüllen.
     .technical-impact = Ein <select>, Optionsfeld, Kontrollkästchen, eine Combobox oder Listbox hat einen onchange-Handler, dessen Code navigiert, das Formular absendet, ein Fenster öffnet oder den Fokus verschiebt (oder eine Funktion aufruft, die das tut), daher wechselt schon das Auswählen einer Option per Tastatur den Kontext ohne Vorwarnung; ein Handler, dessen Wirkung das Markup nicht zeigt, ist nur ein Prüfhinweis.
 
-rule-manual-unusual-words = Fehlende Erklärung unüblicher Wörter (AAA)
+rule-manual-unusual-words = Prüfen, ob ungewöhnliche Wörter erklärt werden (AAA)
     .user-impact = Nutzer mit kognitiven Einschränkungen oder Fremdsprachler verstehen den Text nicht.
     .technical-impact = Die Seite enthält Text, daher fragt ein Hinweis zur manuellen Prüfung, ob Fachbegriffe, Redewendungen und ungewöhnliche Wörter im Text, mit <dfn> oder in einem Glossar erklärt werden; aus dem Markup lässt sich nicht erkennen, welche Wörter für die Leser ungewöhnlich sind.
 
@@ -1161,8 +1161,8 @@ explanation-2-1-1 = Inhalte nicht per Tastatur bedienbar
     .technical-note = Native HTML-Elemente bevorzugen. Bei Custom-Widgets: tabindex="0", keydown/keyup-Handler, ARIA-Rollen und -Zustände.
 
 explanation-focusable-no-role = Fokussierbares Element ohne interaktive Rolle
-    .description = Ein Element kann per Tastatur fokussiert werden, trägt aber keine (oder eine nicht-interaktive) ARIA-Rolle. Assistive Technologien wissen dadurch nicht, was beim Fokussieren dieses Elements möglich ist.
-    .user-impact = Screenreader-Nutzer hören beim Fokussieren keine oder eine irreführende Rollenangabe (z. B. "Bereich" statt "Dialog" oder "Schaltfläche") und können nicht einschätzen, welche Interaktion erwartet wird.
+    .description = Ein Element liegt in der Tabfolge (tabindex ab 0), ohne von sich aus fokussierbar zu sein, trägt aber keine (oder eine nicht-interaktive) ARIA-Rolle. Assistive Technologien wissen dadurch nicht, was beim Fokussieren dieses Elements möglich ist.
+    .user-impact = Screenreader-Nutzer hören beim Fokussieren keine oder nur eine allgemeine Rollenangabe wie "Gruppe" und können nicht einschätzen, welche Interaktion erwartet wird.
     .typical-cause = Ein Container — etwa ein Consent-Banner oder ein Drittanbieter-Widget — erhält technisch bedingt Tastaturfokus, ohne dass ihm eine passende ARIA-Rolle oder ein natives interaktives Element zugrunde liegt.
     .recommendation = Dem Element eine passende ARIA-Rolle geben, die seine tatsächliche Funktion beschreibt, oder es durch ein natives interaktives HTML-Element ersetzen. Ein Element lediglich fokussierbar zu machen, ohne seine Funktion für Screenreader erkennbar zu machen, behebt das Problem nicht.
     .technical-note = Prüfen, warum das Element fokussierbar ist (tabindex, Drittanbieter-Skript). Ist es tatsächlich interaktiv: passende Rolle (z. B. role="dialog", role="button") und zugänglichen Namen ergänzen. Hat es keine eigene Interaktion: Fokussierbarkeit entfernen (tabindex="-1" oder tabindex-Attribut löschen).

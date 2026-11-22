@@ -2,7 +2,7 @@
   "id": "manual/motion-actuation",
   "url": "https://casoon.github.io/auditmysite/rules/manual/motion-actuation/",
   "domain": "wcag",
-  "title": "Missing alternative for motion actuation",
+  "title": "Check that device-motion controls have an alternative",
   "outcome": "manual",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.5.4",

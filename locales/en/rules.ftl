@@ -145,7 +145,7 @@ rule-label-in-name-mismatch = Visible text ≠ accessible name
     .user-impact = Voice-control users cannot address the element.
     .technical-impact = The accessible name that aria-label or aria-labelledby gives a button, link or other control named from its content does not contain its visible label text, so a voice control user who says what is shown cannot activate it; a review hint when the same words only appear in another order or the visible text is more than twice as long as the name; symbol-only and single-character labels are exempt.
 
-rule-manual-timing = Time limit possibly not adjustable
+rule-manual-timing = Check that time limits can be adjusted
     .user-impact = Users who need more time are cut off and may lose what they entered.
     .technical-impact = The page has form fields, so a time limit is conceivable; time limits set by JavaScript (setTimeout, setInterval, session expiry) are not visible in the markup, so the page gets one manual-check note that users must be able to turn such a limit off, adjust or extend it; a <meta http-equiv="refresh"> is judged separately.
 
@@ -166,15 +166,15 @@ rule-motion-infinite-animation = Missing pause/stop/hide control
     .user-impact = Users with attention or cognitive impairments, and screen reader users, are distracted or disrupted by continuously running motion they cannot turn off.
     .technical-impact = A <marquee> or an element whose animation repeats endlessly (animation-iteration-count: infinite) is present and the page has no switch or button whose label offers to pause, stop or hide it; reported as a review hint, because the duration of the motion and whether such a control works are not measured.
 
-rule-manual-no-timing = Timing present (AAA)
+rule-manual-no-timing = Check that no task depends on timing (AAA)
     .user-impact = Users cannot complete tasks at their own pace.
     .technical-impact = The page has form fields or a <meta http-equiv="refresh">, so time limits are conceivable; whether any task depends on timing cannot be seen in the markup, so the page gets one manual-check note instead of a verdict, and it stays open whether users who need more time are cut off.
 
-rule-manual-interruptions = Non-suppressible interruptions (AAA)
+rule-manual-interruptions = Check that interruptions can be postponed or turned off (AAA)
     .user-impact = Users with cognitive impairments or screen reader users are distracted.
     .technical-impact = The page contains a <dialog>, a <meta http-equiv="refresh"> or an element with role alert, alertdialog, status, log, marquee or timer or with an aria-live value other than off; such content can interrupt screen reader output and reading, but whether it can be postponed or turned off cannot be seen in the markup, so the page gets one manual-check note.
 
-rule-manual-re-authenticating = No data preservation on re-authentication (AAA)
+rule-manual-re-authenticating = Check that entered data survives re-authentication (AAA)
     .user-impact = Users must re-enter all form data.
     .technical-impact = The page has a password field or a CAPTCHA, so a sign-in after an expired session is likely; whether the entered data survives re-authentication cannot be seen in the markup, so the page gets one manual-check note instead of a verdict.
 
@@ -195,15 +195,15 @@ rule-links-new-window-unannounced = New window without notice (AAA)
     .recommendation = Announce it in the link text, e.g. "(opens in a new window)", or drop target="_blank".
     .technical-note = A visible icon only counts with a text alternative in the accessible name (technique G201).
 
-rule-manual-pointer-gestures = Missing alternative for pointer gestures
+rule-manual-pointer-gestures = Check that gestures have a single-pointer alternative
     .user-impact = Users with motor impairments cannot operate the functionality.
     .technical-impact = The page contains an element that looks gesture-driven: a touchstart, touchmove, pointermove, gesturestart or dragstart handler attribute, draggable="true", or a class of a carousel or map library such as swiper, slick, splide, leaflet or mapboxgl; whether the same function also works with a single tap or click cannot be detected, so the page gets one manual-check note.
 
-rule-manual-pointer-cancellation = Action possibly triggered on pointer down
+rule-manual-pointer-cancellation = Check that pointer actions can be cancelled
     .user-impact = Users may trigger actions accidentally without being able to cancel them.
     .technical-impact = An element carries an onmousedown, onpointerdown or ontouchstart handler attribute, so an action may fire on the down event alone; whether it can be aborted, undone or fires on release instead is not visible in the markup, so the page gets one manual-check note; handlers added by script are not inspected.
 
-rule-manual-motion-actuation = Missing alternative for motion actuation
+rule-manual-motion-actuation = Check that device-motion controls have an alternative
     .user-impact = Users who cannot move the device are excluded from the functionality.
     .technical-impact = An inline <script> mentions devicemotion or deviceorientation, so a function may react to shaking or tilting the device; whether it also works through a control on the page and whether the reaction can be turned off cannot be detected, so the page gets one manual-check note; external scripts are not inspected.
 
@@ -268,15 +268,15 @@ rule-auth-captcha = Review CAPTCHA in authentication form
     .technical-note = Review hint: the kind of test and any alternatives are not in the markup. A CAPTCHA on a contact form is outside 3.3.8.
 
 rule-forms-no-submit = Form without submit button
-    .user-impact = Keyboard and screen reader users have a harder time completing the form.
-    .technical-impact = A <form> owns at least one enabled input, select, textarea or button (also through the form attribute) but no submit control, meaning no <button> other than type button or reset and no <input type="submit"> or type "image"; always a review finding, because 3.2.2 is only violated when changing a field changes the context, and low severity when the form has no action and no text field, so that only a script can submit it.
+    .user-impact = Keyboard and screen reader users cannot tell when their input takes effect, and a script that submits on change moves them to a new context unannounced.
+    .technical-impact = A <form> owns at least one enabled input (other than hidden), select, textarea or button (also through the form attribute) but no enabled submit control, meaning no <button> other than type button or reset, no <input type="submit"> or type "image" and no role="button" element marked data-submit or labelled submit, send or search; always a review finding, because 3.2.2 is only violated when changing a field changes the context, and low severity when the form has no action and no single-line input (a textarea, checkbox, radio, file, range or color field does not count) in which Enter would submit it, so that only a script can submit it.
     .description = A form collects input but has no button or other control that explicitly submits it.
     .explanation-user-impact = Without a submit control it is unclear when the input takes effect. If the form submits when a field changes instead, the context changes without warning.
     .typical-cause = Filter and search forms submitted by script when a field changes, or a button outside the form without a form attribute.
     .recommendation = Add a button type="submit" to the form or associate one via the form attribute. If a form only changes content on the page, check that no change of context happens.
-    .technical-note = Without an action and without a text field only script can submit the form; the finding is then a review hint (#728).
+    .technical-note = Without an action and without a single-line input only script can submit the form; the finding is then a review hint (#728).
 
-rule-manual-help = Missing input help (AAA)
+rule-manual-help = Check that form fields offer help (AAA)
     .user-impact = Users do not know what format or data to enter in a field.
     .technical-impact = The page contains form fields (input, select or textarea; hidden fields and buttons do not count); whether they have context-sensitive help such as instructions, examples or a help link cannot be decided from the markup, so the page gets one manual-check note instead of a verdict.
 
@@ -302,7 +302,7 @@ rule-context-on-input = Unexpected context change on input
     .user-impact = Confusing changes while filling out forms.
     .technical-impact = A <select>, radio button, checkbox, combobox or listbox has an onchange handler whose code navigates, submits the form, opens a window or moves focus (or calls a function that does), so choosing an option with the keyboard changes the context without warning; a handler whose effect the markup cannot show is only a review hint.
 
-rule-manual-unusual-words = Missing explanation of unusual words (AAA)
+rule-manual-unusual-words = Check that unusual words are explained (AAA)
     .user-impact = Users with cognitive impairments or non-native speakers do not understand the text.
     .technical-impact = The page contains text, so one manual-check note asks whether jargon, idioms and unusual words are explained inline, with <dfn> or in a glossary; the markup cannot show which words are unusual to the readers.
 
@@ -1161,8 +1161,8 @@ explanation-2-1-1 = Content not operable by keyboard
     .technical-note = Prefer native HTML elements. For custom widgets: tabindex="0", keydown/keyup handlers, ARIA roles and states.
 
 explanation-focusable-no-role = Focusable element without an interactive role
-    .description = An element can receive keyboard focus, but carries no (or a non-interactive) ARIA role. Assistive technologies therefore cannot tell what is possible once the element receives focus.
-    .user-impact = Screen reader users hear no role, or a misleading one (e.g. "region" instead of "dialog" or "button"), when the element receives focus, and cannot tell what interaction is expected.
+    .description = An element is in the tab order (tabindex 0 or more) without being natively focusable, but carries no (or a non-interactive) ARIA role. Assistive technologies therefore cannot tell what is possible once the element receives focus.
+    .user-impact = Screen reader users hear no role, or only a generic one such as "group", when the element receives focus, and cannot tell what interaction is expected.
     .typical-cause = A container — such as a consent banner or a third-party widget — technically receives keyboard focus, without a matching ARIA role or native interactive element behind it.
     .recommendation = Give the element an ARIA role that matches its actual function, or replace it with a native interactive HTML element. Making an element merely focusable without exposing its function to screen readers does not fix the underlying issue.
     .technical-note = Check why the element is focusable (tabindex, third-party script). If it is genuinely interactive: add a matching role (e.g. role="dialog", role="button") and an accessible name. If it has no interaction of its own: remove focusability (tabindex="-1" or delete the tabindex attribute).

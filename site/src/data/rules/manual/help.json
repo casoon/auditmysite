@@ -2,7 +2,7 @@
   "id": "manual/help",
   "url": "https://casoon.github.io/auditmysite/rules/manual/help/",
   "domain": "wcag",
-  "title": "Missing input help (AAA)",
+  "title": "Check that form fields offer help (AAA)",
   "outcome": "manual",
   "area": "Accessibility, Forms & Interaction",
   "criterion": "3.3.5",

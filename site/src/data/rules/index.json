@@ -20,8 +20,8 @@
     {
       "domain": "schema",
       "label": "Structured data",
-      "automatic": 17,
-      "hint_only": 0,
+      "automatic": 12,
+      "hint_only": 5,
       "manual": 0,
       "total": 17
     },
@@ -598,7 +598,7 @@
     },
     {
       "id": "manual/timing",
-      "title": "Time limit possibly not adjustable",
+      "title": "Check that time limits can be adjusted",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.2.1",
@@ -654,7 +654,7 @@
     },
     {
       "id": "manual/no-timing",
-      "title": "Timing present (AAA)",
+      "title": "Check that no task depends on timing (AAA)",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.2.3",
@@ -662,7 +662,7 @@
     },
     {
       "id": "manual/interruptions",
-      "title": "Non-suppressible interruptions (AAA)",
+      "title": "Check that interruptions can be postponed or turned off (AAA)",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.2.4",
@@ -678,7 +678,7 @@
     },
     {
       "id": "manual/re-authenticating",
-      "title": "No data preservation on re-authentication (AAA)",
+      "title": "Check that entered data survives re-authentication (AAA)",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.2.5",
@@ -862,7 +862,7 @@
     },
     {
       "id": "manual/pointer-gestures",
-      "title": "Missing alternative for pointer gestures",
+      "title": "Check that gestures have a single-pointer alternative",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.5.1",
@@ -870,7 +870,7 @@
     },
     {
       "id": "manual/pointer-cancellation",
-      "title": "Action possibly triggered on pointer down",
+      "title": "Check that pointer actions can be cancelled",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.5.2",
@@ -886,7 +886,7 @@
     },
     {
       "id": "manual/motion-actuation",
-      "title": "Missing alternative for motion actuation",
+      "title": "Check that device-motion controls have an alternative",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.5.4",
@@ -966,7 +966,7 @@
     },
     {
       "id": "manual/unusual-words",
-      "title": "Missing explanation of unusual words (AAA)",
+      "title": "Check that unusual words are explained (AAA)",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "3.1.3",
@@ -1070,7 +1070,7 @@
     },
     {
       "id": "manual/help",
-      "title": "Missing input help (AAA)",
+      "title": "Check that form fields offer help (AAA)",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "3.3.5",
@@ -1490,7 +1490,7 @@
       "id": "seo.schema.schema_rule_missing_article",
       "title": "Article: missing recommended properties",
       "domain": "schema",
-      "outcome": "automatic"
+      "outcome": "hint-only"
     },
     {
       "id": "seo.schema.schema_rule_missing_breadcrumb",
@@ -1538,13 +1538,13 @@
       "id": "seo.schema.schema_rule_missing_organization",
       "title": "Organization: missing recommended properties",
       "domain": "schema",
-      "outcome": "automatic"
+      "outcome": "hint-only"
     },
     {
       "id": "seo.schema.schema_rule_missing_person",
       "title": "Person: missing recommended properties",
       "domain": "schema",
-      "outcome": "automatic"
+      "outcome": "hint-only"
     },
     {
       "id": "seo.schema.schema_rule_missing_product_snippet",
@@ -1580,13 +1580,13 @@
       "id": "seo.schema.schema_rule_missing_web_page",
       "title": "WebPage: missing recommended properties",
       "domain": "schema",
-      "outcome": "automatic"
+      "outcome": "hint-only"
     },
     {
       "id": "seo.schema.schema_rule_missing_web_site",
       "title": "WebSite: missing recommended properties",
       "domain": "schema",
-      "outcome": "automatic"
+      "outcome": "hint-only"
     },
     {
       "id": "best_practices.vulnerable_libraries.angularjs",
