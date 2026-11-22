@@ -2,7 +2,7 @@
   "id": "images/alt-suspicious",
   "url": "https://casoon.github.io/auditmysite/rules/images/alt-suspicious/",
   "domain": "wcag",
-  "title": "Alternative text probably not descriptive",
+  "title": "Check that alternative text describes the image",
   "outcome": "hint-only",
   "area": "Accessibility, Content & Alternatives",
   "criterion": "1.1.1",

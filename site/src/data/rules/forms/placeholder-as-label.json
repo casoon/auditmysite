@@ -2,7 +2,7 @@
   "id": "forms/placeholder-as-label",
   "url": "https://casoon.github.io/auditmysite/rules/forms/placeholder-as-label/",
   "domain": "wcag",
-  "title": "Missing form labels",
+  "title": "Check that fields have a label besides the placeholder",
   "outcome": "hint-only",
   "area": "Accessibility, Forms & Interaction",
   "criterion": "3.3.2",

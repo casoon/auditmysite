@@ -2,7 +2,7 @@
   "id": "context/autofocus",
   "url": "https://casoon.github.io/auditmysite/rules/context/autofocus/",
   "domain": "wcag",
-  "title": "Unexpected context change on focus",
+  "title": "Check that autofocus does not move the focus unexpectedly",
   "outcome": "hint-only",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "3.2.1",

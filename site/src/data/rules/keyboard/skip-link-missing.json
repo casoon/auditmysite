@@ -2,7 +2,7 @@
   "id": "keyboard/skip-link-missing",
   "url": "https://casoon.github.io/auditmysite/rules/keyboard/skip-link-missing/",
   "domain": "wcag",
-  "title": "Missing skip link",
+  "title": "Check that the page has a skip link",
   "outcome": "hint-only",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.4.1",

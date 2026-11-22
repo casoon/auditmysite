@@ -2,7 +2,7 @@
   "id": "landmarks/contentinfo-missing",
   "url": "https://casoon.github.io/auditmysite/rules/landmarks/contentinfo-missing/",
   "domain": "wcag",
-  "title": "Missing contentinfo landmark",
+  "title": "Check that the page has a contentinfo landmark",
   "outcome": "hint-only",
   "area": "Accessibility, Structure & Semantics",
   "criterion": "1.3.1",

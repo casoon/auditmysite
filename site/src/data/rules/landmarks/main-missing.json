@@ -2,7 +2,7 @@
   "id": "landmarks/main-missing",
   "url": "https://casoon.github.io/auditmysite/rules/landmarks/main-missing/",
   "domain": "wcag",
-  "title": "No main-content region as a bypass target",
+  "title": "Check that the page has a main region to jump to",
   "outcome": "hint-only",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.4.1",

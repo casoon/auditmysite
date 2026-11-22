@@ -2,7 +2,7 @@
   "id": "forms/purpose-missing",
   "url": "https://casoon.github.io/auditmysite/rules/forms/purpose-missing/",
   "domain": "wcag",
-  "title": "Missing input purpose identification",
+  "title": "Check that input fields identify their purpose",
   "outcome": "hint-only",
   "area": "Accessibility, Forms & Interaction",
   "criterion": "1.3.5",
