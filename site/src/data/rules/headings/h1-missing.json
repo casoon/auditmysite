@@ -2,7 +2,7 @@
   "id": "headings/h1-missing",
   "url": "https://casoon.github.io/auditmysite/rules/headings/h1-missing/",
   "domain": "wcag",
-  "title": "Missing main heading (h1)",
+  "title": "Check that the page has a main heading (h1)",
   "outcome": "hint-only",
   "area": "Accessibility, Structure & Semantics",
   "axe_id": "headings/h1-missing",

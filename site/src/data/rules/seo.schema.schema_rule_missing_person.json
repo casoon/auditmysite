@@ -3,12 +3,12 @@
   "url": "https://casoon.github.io/auditmysite/rules/seo.schema.schema_rule_missing_person/",
   "domain": "schema",
   "title": "Person: missing recommended properties",
-  "outcome": "automatic",
+  "outcome": "hint-only",
   "area": "SEO, structured data",
   "checks": [
     {
       "contract_id": "person",
-      "outcome": "automatic",
+      "outcome": "hint-only",
       "source": "https://schema.org/Person (no Google rich result; profile recommends name, url, image, jobTitle, worksFor, sameAs)",
       "applicability": "Applies to JSON-LD nodes of type Person in the audited document (top level, top-level arrays, @graph entries; full schema.org IRIs count as the short type). Microdata and RDFa are outside this method.",
       "expectation": "No required properties exist, so there is no violation state. Missing profiled recommendations are needs_review (Google's Rich Results Test reports missing recommended properties as non-critical issues (eligible, but a human should decide whether the data exists)); all present passes. A Person nested as a property value (an author) is not a node of its own. Nested property values (an author Person, a provider Organization) are not nodes of their own and are not assessed; a page without a node of the type is not applicable. A page whose structured-data collection fails is not run for every feature, never clean.",

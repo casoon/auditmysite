@@ -2,14 +2,14 @@
   "id": "manual/interruptions",
   "url": "https://casoon.github.io/auditmysite/rules/manual/interruptions/",
   "domain": "wcag",
-  "title": "Non-suppressible interruptions (AAA)",
+  "title": "Check that interruptions can be postponed or turned off (AAA)",
   "outcome": "manual",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.2.4",
   "level": "AAA",
   "axe_id": "no-interruptions",
   "severity": "low",
-  "user_impact": "Users with cognitive impairments or screen reader users are distracted.",
+  "user_impact": "If interruptions cannot be postponed or turned off, users with cognitive impairments and screen reader users are distracted.",
   "technical_impact": "The page contains a <dialog>, a <meta http-equiv=\"refresh\"> or an element with role alert, alertdialog, status, log, marquee or timer or with an aria-live value other than off; such content can interrupt screen reader output and reading, but whether it can be postponed or turned off cannot be seen in the markup, so the page gets one manual-check note.",
   "checks": [
     {

@@ -20,8 +20,8 @@
     {
       "domain": "schema",
       "label": "Structured data",
-      "automatic": 17,
-      "hint_only": 0,
+      "automatic": 12,
+      "hint_only": 5,
       "manual": 0,
       "total": 17
     },
@@ -70,7 +70,7 @@
     },
     {
       "id": "images/alt-suspicious",
-      "title": "Alternative text probably not descriptive",
+      "title": "Check that alternative text describes the image",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.1.1",
@@ -150,7 +150,7 @@
     },
     {
       "id": "forms/group-missing",
-      "title": "Missing grouping for related form fields",
+      "title": "Check that related form fields are grouped",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
@@ -198,7 +198,7 @@
     },
     {
       "id": "landmarks/banner-missing",
-      "title": "Missing banner landmark",
+      "title": "Check that the page has a banner landmark",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
@@ -222,7 +222,7 @@
     },
     {
       "id": "landmarks/contentinfo-missing",
-      "title": "Missing contentinfo landmark",
+      "title": "Check that the page has a contentinfo landmark",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
@@ -238,7 +238,7 @@
     },
     {
       "id": "landmarks/navigation-missing",
-      "title": "Missing navigation landmark",
+      "title": "Check that the page has a navigation landmark",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
@@ -302,7 +302,7 @@
     },
     {
       "id": "tables/header-missing",
-      "title": "Data table without header cells",
+      "title": "Check that data tables have header cells",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
@@ -326,7 +326,7 @@
     },
     {
       "id": "tables/name-missing",
-      "title": "Data table without a name",
+      "title": "Check that data tables have a name",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.1",
@@ -350,7 +350,7 @@
     },
     {
       "id": "order/visual-mismatch",
-      "title": "Visual order diverges from the reading order",
+      "title": "Check that the visual order matches the reading order",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.2",
@@ -358,7 +358,7 @@
     },
     {
       "id": "orientation/content-hidden",
-      "title": "Restricted screen orientation",
+      "title": "Check that content stays available in both screen orientations",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.4",
@@ -390,7 +390,7 @@
     },
     {
       "id": "forms/purpose-missing",
-      "title": "Missing input purpose identification",
+      "title": "Check that input fields identify their purpose",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.3.5",
@@ -430,7 +430,7 @@
     },
     {
       "id": "contrast/text-undetermined",
-      "title": "Insufficient color contrast",
+      "title": "Check the contrast of text that could not be measured",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.4.3",
@@ -454,7 +454,7 @@
     },
     {
       "id": "zoom/viewport-scale-limited",
-      "title": "Viewport meta tag prevents zooming to 500%",
+      "title": "Check that the viewport allows zooming to 500%",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.4.4",
@@ -470,7 +470,7 @@
     },
     {
       "id": "text/justified",
-      "title": "Limited visual presentation of text (AAA)",
+      "title": "Check that text is not set justified (AAA)",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.4.8",
@@ -478,7 +478,7 @@
     },
     {
       "id": "text/line-height-tight",
-      "title": "Limited visual presentation of text (AAA)",
+      "title": "Check that paragraphs have a line height of at least 1.5 (AAA)",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.4.8",
@@ -502,7 +502,7 @@
     },
     {
       "id": "contrast/control-undetermined",
-      "title": "Insufficient contrast for UI elements",
+      "title": "Check the contrast of UI elements that could not be measured",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "1.4.11",
@@ -566,7 +566,7 @@
     },
     {
       "id": "keyboard/interactive-not-focusable",
-      "title": "Content not operable by keyboard",
+      "title": "Check that interactive elements can receive keyboard focus",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.1.1",
@@ -574,7 +574,7 @@
     },
     {
       "id": "keyboard/pointer-only",
-      "title": "Click handler without keyboard equivalent",
+      "title": "Check that clickable elements can be operated by keyboard",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.1.1",
@@ -598,7 +598,7 @@
     },
     {
       "id": "manual/timing",
-      "title": "Time limit possibly not adjustable",
+      "title": "Check that time limits can be adjusted",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.2.1",
@@ -638,7 +638,7 @@
     },
     {
       "id": "motion/infinite-animation",
-      "title": "Missing pause/stop/hide control",
+      "title": "Check that endless motion can be paused, stopped or hidden",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.2.2",
@@ -654,7 +654,7 @@
     },
     {
       "id": "manual/no-timing",
-      "title": "Timing present (AAA)",
+      "title": "Check that no task depends on timing (AAA)",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.2.3",
@@ -662,7 +662,7 @@
     },
     {
       "id": "manual/interruptions",
-      "title": "Non-suppressible interruptions (AAA)",
+      "title": "Check that interruptions can be postponed or turned off (AAA)",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.2.4",
@@ -678,7 +678,7 @@
     },
     {
       "id": "manual/re-authenticating",
-      "title": "No data preservation on re-authentication (AAA)",
+      "title": "Check that entered data survives re-authentication (AAA)",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.2.5",
@@ -710,7 +710,7 @@
     },
     {
       "id": "keyboard/skip-link-missing",
-      "title": "Missing skip link",
+      "title": "Check that the page has a skip link",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.1",
@@ -718,7 +718,7 @@
     },
     {
       "id": "landmarks/main-missing",
-      "title": "No main-content region as a bypass target",
+      "title": "Check that the page has a main region to jump to",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.1",
@@ -766,7 +766,7 @@
     },
     {
       "id": "links/generic-name",
-      "title": "Unclear or generic link text",
+      "title": "Check that link text names the link purpose",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.4",
@@ -774,7 +774,7 @@
     },
     {
       "id": "links/single-character-name",
-      "title": "Unclear or generic link text",
+      "title": "Check that link text names the link purpose",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.4",
@@ -782,7 +782,7 @@
     },
     {
       "id": "links/url-name",
-      "title": "Unclear or generic link text",
+      "title": "Check that link text names the link purpose",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.4",
@@ -822,7 +822,7 @@
     },
     {
       "id": "navigation/location-missing",
-      "title": "Missing location indication (AAA)",
+      "title": "Check that the current location is shown (AAA)",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.8",
@@ -830,7 +830,7 @@
     },
     {
       "id": "links/purpose-link-only",
-      "title": "Unclear link label without context (AAA)",
+      "title": "Check that link text names the purpose without its context (AAA)",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.9",
@@ -838,7 +838,7 @@
     },
     {
       "id": "headings/section-without-heading",
-      "title": "Missing section headings",
+      "title": "Check that sections have a heading",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.4.10",
@@ -862,7 +862,7 @@
     },
     {
       "id": "manual/pointer-gestures",
-      "title": "Missing alternative for pointer gestures",
+      "title": "Check that gestures have a single-pointer alternative",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.5.1",
@@ -870,7 +870,7 @@
     },
     {
       "id": "manual/pointer-cancellation",
-      "title": "Action possibly triggered on pointer down",
+      "title": "Check that pointer actions can be cancelled",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.5.2",
@@ -886,7 +886,7 @@
     },
     {
       "id": "manual/motion-actuation",
-      "title": "Missing alternative for motion actuation",
+      "title": "Check that device-motion controls have an alternative",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "2.5.4",
@@ -894,7 +894,7 @@
     },
     {
       "id": "targets/size-enhanced",
-      "title": "Insufficient click target size (AAA)",
+      "title": "Check that click targets are large enough (AAA)",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.5.5",
@@ -902,7 +902,7 @@
     },
     {
       "id": "targets/size",
-      "title": "Insufficient click target size",
+      "title": "Check that click targets are large enough",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.5.8",
@@ -966,7 +966,7 @@
     },
     {
       "id": "manual/unusual-words",
-      "title": "Missing explanation of unusual words (AAA)",
+      "title": "Check that unusual words are explained (AAA)",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "3.1.3",
@@ -974,7 +974,7 @@
     },
     {
       "id": "language/abbreviation-unexpanded",
-      "title": "Missing explanation of abbreviations (AAA)",
+      "title": "Check that abbreviations are explained (AAA)",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.1.4",
@@ -982,7 +982,7 @@
     },
     {
       "id": "context/autofocus",
-      "title": "Unexpected context change on focus",
+      "title": "Check that autofocus does not move the focus unexpectedly",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.2.1",
@@ -990,7 +990,7 @@
     },
     {
       "id": "context/on-focus",
-      "title": "Unexpected context change on focus",
+      "title": "Check that receiving focus does not change the context",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.2.1",
@@ -1038,7 +1038,7 @@
     },
     {
       "id": "forms/instructions-missing",
-      "title": "Missing input instructions",
+      "title": "Check that fields have input instructions",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.3.2",
@@ -1054,7 +1054,7 @@
     },
     {
       "id": "forms/placeholder-as-label",
-      "title": "Missing form labels",
+      "title": "Check that fields have a label besides the placeholder",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.3.2",
@@ -1070,7 +1070,7 @@
     },
     {
       "id": "manual/help",
-      "title": "Missing input help (AAA)",
+      "title": "Check that form fields offer help (AAA)",
       "domain": "wcag",
       "outcome": "manual",
       "criterion": "3.3.5",
@@ -1078,7 +1078,7 @@
     },
     {
       "id": "forms/redundant-entry",
-      "title": "Missing reuse of previously entered data",
+      "title": "Check that data entered before is not requested again",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "3.3.7",
@@ -1342,7 +1342,7 @@
     },
     {
       "id": "names/symbol-only",
-      "title": "Interactive element without a meaningful name",
+      "title": "Check that symbol-only names describe the function",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "4.1.2",
@@ -1398,7 +1398,7 @@
     },
     {
       "id": "headings/h1-missing",
-      "title": "Missing main heading (h1)",
+      "title": "Check that the page has a main heading (h1)",
       "domain": "wcag",
       "outcome": "hint-only"
     },
@@ -1490,7 +1490,7 @@
       "id": "seo.schema.schema_rule_missing_article",
       "title": "Article: missing recommended properties",
       "domain": "schema",
-      "outcome": "automatic"
+      "outcome": "hint-only"
     },
     {
       "id": "seo.schema.schema_rule_missing_breadcrumb",
@@ -1538,13 +1538,13 @@
       "id": "seo.schema.schema_rule_missing_organization",
       "title": "Organization: missing recommended properties",
       "domain": "schema",
-      "outcome": "automatic"
+      "outcome": "hint-only"
     },
     {
       "id": "seo.schema.schema_rule_missing_person",
       "title": "Person: missing recommended properties",
       "domain": "schema",
-      "outcome": "automatic"
+      "outcome": "hint-only"
     },
     {
       "id": "seo.schema.schema_rule_missing_product_snippet",
@@ -1580,13 +1580,13 @@
       "id": "seo.schema.schema_rule_missing_web_page",
       "title": "WebPage: missing recommended properties",
       "domain": "schema",
-      "outcome": "automatic"
+      "outcome": "hint-only"
     },
     {
       "id": "seo.schema.schema_rule_missing_web_site",
       "title": "WebSite: missing recommended properties",
       "domain": "schema",
-      "outcome": "automatic"
+      "outcome": "hint-only"
     },
     {
       "id": "best_practices.vulnerable_libraries.angularjs",

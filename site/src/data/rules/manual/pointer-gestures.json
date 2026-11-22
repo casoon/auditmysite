@@ -2,14 +2,14 @@
   "id": "manual/pointer-gestures",
   "url": "https://casoon.github.io/auditmysite/rules/manual/pointer-gestures/",
   "domain": "wcag",
-  "title": "Missing alternative for pointer gestures",
+  "title": "Check that gestures have a single-pointer alternative",
   "outcome": "manual",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.5.1",
   "level": "A",
   "axe_id": "pointer-gestures",
   "severity": "medium",
-  "user_impact": "Users with motor impairments cannot operate the functionality.",
+  "user_impact": "If a gesture has no single-pointer alternative, users with motor impairments cannot operate the functionality.",
   "technical_impact": "The page contains an element that looks gesture-driven: a touchstart, touchmove, pointermove, gesturestart or dragstart handler attribute, draggable=\"true\", or a class of a carousel or map library such as swiper, slick, splide, leaflet or mapboxgl; whether the same function also works with a single tap or click cannot be detected, so the page gets one manual-check note.",
   "checks": [
     {

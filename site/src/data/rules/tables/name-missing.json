@@ -2,7 +2,7 @@
   "id": "tables/name-missing",
   "url": "https://casoon.github.io/auditmysite/rules/tables/name-missing/",
   "domain": "wcag",
-  "title": "Data table without a name",
+  "title": "Check that data tables have a name",
   "outcome": "hint-only",
   "area": "Accessibility, Structure & Semantics",
   "criterion": "1.3.1",

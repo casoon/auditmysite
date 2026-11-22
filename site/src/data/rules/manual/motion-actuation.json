@@ -2,14 +2,14 @@
   "id": "manual/motion-actuation",
   "url": "https://casoon.github.io/auditmysite/rules/manual/motion-actuation/",
   "domain": "wcag",
-  "title": "Missing alternative for motion actuation",
+  "title": "Check that device-motion controls have an alternative",
   "outcome": "manual",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.5.4",
   "level": "A",
   "axe_id": "motion-actuation",
   "severity": "medium",
-  "user_impact": "Users who cannot move the device are excluded from the functionality.",
+  "user_impact": "If a function works only by moving the device, users who cannot move it are excluded from the functionality.",
   "technical_impact": "An inline <script> mentions devicemotion or deviceorientation, so a function may react to shaking or tilting the device; whether it also works through a control on the page and whether the reaction can be turned off cannot be detected, so the page gets one manual-check note; external scripts are not inspected.",
   "checks": [
     {

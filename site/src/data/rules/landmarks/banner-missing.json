@@ -2,7 +2,7 @@
   "id": "landmarks/banner-missing",
   "url": "https://casoon.github.io/auditmysite/rules/landmarks/banner-missing/",
   "domain": "wcag",
-  "title": "Missing banner landmark",
+  "title": "Check that the page has a banner landmark",
   "outcome": "hint-only",
   "area": "Accessibility, Structure & Semantics",
   "criterion": "1.3.1",

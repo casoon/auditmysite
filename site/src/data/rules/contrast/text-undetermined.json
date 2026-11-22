@@ -2,7 +2,7 @@
   "id": "contrast/text-undetermined",
   "url": "https://casoon.github.io/auditmysite/rules/contrast/text-undetermined/",
   "domain": "wcag",
-  "title": "Insufficient color contrast",
+  "title": "Check the contrast of text that could not be measured",
   "outcome": "hint-only",
   "area": "Accessibility, Visual Presentation",
   "criterion": "1.4.3",

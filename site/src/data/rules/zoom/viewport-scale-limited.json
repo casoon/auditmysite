@@ -2,7 +2,7 @@
   "id": "zoom/viewport-scale-limited",
   "url": "https://casoon.github.io/auditmysite/rules/zoom/viewport-scale-limited/",
   "domain": "wcag",
-  "title": "Viewport meta tag prevents zooming to 500%",
+  "title": "Check that the viewport allows zooming to 500%",
   "outcome": "hint-only",
   "area": "Accessibility, Visual Presentation",
   "criterion": "1.4.4",

@@ -2,14 +2,14 @@
   "id": "manual/re-authenticating",
   "url": "https://casoon.github.io/auditmysite/rules/manual/re-authenticating/",
   "domain": "wcag",
-  "title": "No data preservation on re-authentication (AAA)",
+  "title": "Check that entered data survives re-authentication (AAA)",
   "outcome": "manual",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.2.5",
   "level": "AAA",
   "axe_id": "re-authenticate",
   "severity": "low",
-  "user_impact": "Users must re-enter all form data.",
+  "user_impact": "If entered data is lost on re-authentication, users must re-enter all form data.",
   "technical_impact": "The page has a password field or a CAPTCHA, so a sign-in after an expired session is likely; whether the entered data survives re-authentication cannot be seen in the markup, so the page gets one manual-check note instead of a verdict.",
   "checks": [
     {

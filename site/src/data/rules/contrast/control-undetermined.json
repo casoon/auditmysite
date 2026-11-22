@@ -2,7 +2,7 @@
   "id": "contrast/control-undetermined",
   "url": "https://casoon.github.io/auditmysite/rules/contrast/control-undetermined/",
   "domain": "wcag",
-  "title": "Insufficient contrast for UI elements",
+  "title": "Check the contrast of UI elements that could not be measured",
   "outcome": "hint-only",
   "area": "Accessibility, Visual Presentation",
   "criterion": "1.4.11",

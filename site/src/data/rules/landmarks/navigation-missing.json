@@ -2,7 +2,7 @@
   "id": "landmarks/navigation-missing",
   "url": "https://casoon.github.io/auditmysite/rules/landmarks/navigation-missing/",
   "domain": "wcag",
-  "title": "Missing navigation landmark",
+  "title": "Check that the page has a navigation landmark",
   "outcome": "hint-only",
   "area": "Accessibility, Structure & Semantics",
   "criterion": "1.3.1",

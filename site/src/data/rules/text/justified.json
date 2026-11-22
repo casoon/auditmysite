@@ -2,7 +2,7 @@
   "id": "text/justified",
   "url": "https://casoon.github.io/auditmysite/rules/text/justified/",
   "domain": "wcag",
-  "title": "Limited visual presentation of text (AAA)",
+  "title": "Check that text is not set justified (AAA)",
   "outcome": "hint-only",
   "area": "Accessibility, Visual Presentation",
   "criterion": "1.4.8",

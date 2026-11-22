@@ -2,7 +2,7 @@
   "id": "navigation/location-missing",
   "url": "https://casoon.github.io/auditmysite/rules/navigation/location-missing/",
   "domain": "wcag",
-  "title": "Missing location indication (AAA)",
+  "title": "Check that the current location is shown (AAA)",
   "outcome": "hint-only",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.4.8",

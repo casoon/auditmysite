@@ -2,7 +2,7 @@
   "id": "links/url-name",
   "url": "https://casoon.github.io/auditmysite/rules/links/url-name/",
   "domain": "wcag",
-  "title": "Unclear or generic link text",
+  "title": "Check that link text names the link purpose",
   "outcome": "hint-only",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.4.4",

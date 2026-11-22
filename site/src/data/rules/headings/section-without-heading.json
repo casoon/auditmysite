@@ -2,7 +2,7 @@
   "id": "headings/section-without-heading",
   "url": "https://casoon.github.io/auditmysite/rules/headings/section-without-heading/",
   "domain": "wcag",
-  "title": "Missing section headings",
+  "title": "Check that sections have a heading",
   "outcome": "hint-only",
   "area": "Accessibility, Structure & Semantics",
   "criterion": "2.4.10",

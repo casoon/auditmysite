@@ -2,7 +2,7 @@
   "id": "forms/instructions-missing",
   "url": "https://casoon.github.io/auditmysite/rules/forms/instructions-missing/",
   "domain": "wcag",
-  "title": "Missing input instructions",
+  "title": "Check that fields have input instructions",
   "outcome": "hint-only",
   "area": "Accessibility, Forms & Interaction",
   "criterion": "3.3.2",
