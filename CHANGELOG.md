@@ -9,6 +9,7 @@ and verification for each change is in the
 
 ### Added
 
+- **report-lint:** `top_action_finding_resolves`, `root_cause_id_resolves` and `root_cause_url_resolves` (all high) fail a report whose `summary.top_actions[]` or `summary.root_causes[]` point at a finding, pattern or page that is not in the report; [Reports](https://casoon.github.io/auditmysite/docs/guides/reports/#report-lint) lists every check (Refs #1168).
 - **Report:** every finding carries its origin (Refs #1109): `findings[].origin` is `first_party`, `same_site_frame`, `cross_origin_frame` or `mixed`, `findings[].providers` names the known third-party providers (`web-checks` provider list) of the cross-origin frames it sits in, and occurrences inside a frame carry `origin` and `provider`. The PDF finding card and the batch top-issue card show a neutral label ("Third-party frame (provider X), fix at the provider"), the provider once per finding, not once per URL. Attribution only: scores, grades, verdicts and finding ids are unchanged; the measurement ([record](https://casoon.github.io/auditmysite/docs/reference/third-party-scoring-measurement/)) does not support a separate weight, so scoring stays unchanged. Cached results are misses (cache `fmt` 37). Details: [output contract](https://casoon.github.io/auditmysite/docs/OUTPUT_CONTRACT/#finding-origin-1109).
 
 ### Changed

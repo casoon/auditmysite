@@ -85,8 +85,30 @@ cargo run --features dev-tools --bin auditmysite-dev -- report-lint report.json 
 `report-lint` is a maintainer command of the `auditmysite-dev` binary, which `cargo install
 auditmysite` does not install (see [Development](../development/)).
 
-Deterministic consistency checks on a finished JSON report (single or batch): scores, grades and
-count sums that must agree. No network, no Chrome. The default `--fail-on` is `high`; a finding
+Deterministic consistency checks on a finished JSON report (single or batch): scores, grades,
+count sums and references that must agree. No network, no Chrome. The default `--fail-on` is `high`; a finding
 at or above it exits with code `3`. With `--typst-source <file.typ>` (the PDF's Typst source,
 written by `auditmysite-dev --debug-typ`) it also checks that the accessibility score shown in the PDF
 traces back to the report.
+
+| Check | Severity | Fails when |
+| --- | --- | --- |
+| `grade_matches_accessibility_score` | critical | a `grade` is not the band of its `accessibility_score` |
+| `single_summary_matches_page` | critical | a single report's summary scores differ from its page |
+| `score_alias_removed` | high | `summary.score` is present |
+| `severity_counts_total_matches_sum`, `occurrence_counts_total_matches_sum` | high | a counts block's `total` is not the sum of its four severities |
+| `violated_rule_count_matches_severity_total`, `violation_count_matches_occurrence_total` | medium | a scoped count disagrees with its counts block |
+| `metric_context_matches_registry` | medium | `metric_context` differs from the current metric registry |
+| `registry_docs_url_well_formed` | low | a registry entry's `docs_url` is not `<path>#<anchor>` |
+| `source_quality_signal_contradicts_findings` | high | a source-quality signal claims `present` next to findings that contradict it |
+| `accessibility_breakdown_reconciles_with_score` | high | the breakdown's lost points do not sum to `100 - accessibility_score`, or an area carries its own score |
+| `unmeasured_module_carries_no_result` | high | a `not_measured` module feeds the score, or a failed run has a measured score |
+| `indicator_carries_no_weight` | high | a module is neither weighted nor an ungraded indicator |
+| `top_action_finding_resolves` | high | `summary.top_actions[].finding_id` is not the `id` of a finding in `pages[].findings[]` (batch: of any page) |
+| `root_cause_id_resolves` | high | `summary.top_actions[].root_cause_id` or `summary.root_causes[].id` is not the `id` of a pattern in `pages[].findings[].patterns[]` |
+| `root_cause_url_resolves` | high | a URL in `summary.root_causes[].urls` is not the `url` of a page in `pages[]` |
+| `audit_completeness_matches_execution` | high | the audit is `complete` although URLs failed or a check did not run |
+| `site_quality_score_matches_module_weights` | high | `site_quality_score` is not the weighted mean of the contributing modules |
+| `requested_module_has_outcome` | high | a requested module has no entry in `module_runs` |
+| `rule_findings_preserved` | high | a rule's measured occurrences are not accounted for by findings, assessments or exclusions |
+| `pdf_score_traceable_to_json` | low | with `--typst-source`: `<accessibility_score>/100` is not in the Typst source |

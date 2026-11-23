@@ -143,3 +143,35 @@ fn pdf_score_traceable_flags_missing_score_but_stays_low_severity() {
         "output: {output}"
     );
 }
+
+/// Finding, root cause and action references resolve inside the report
+/// (#1168): a single report's action points at its page's finding, a batch's
+/// action and root cause at a finding and pattern of the pages, the root
+/// cause's URLs at audited pages.
+#[test]
+fn resolving_references_pass() {
+    for fixture in [
+        "clean_references_single.json",
+        "clean_references_batch.json",
+    ] {
+        let (code, output) = run_report_lint_fixture(fixture, &["--fail-on", "low"]);
+        assert_eq!(code, 0, "{fixture}: {output}");
+        assert!(output.contains("no findings"), "{fixture}: {output}");
+    }
+}
+
+#[test]
+fn dangling_references_fail_by_default() {
+    for (fixture, check_id) in [
+        (
+            "broken_top_action_finding_id.json",
+            "top_action_finding_resolves",
+        ),
+        ("broken_root_cause_id.json", "root_cause_id_resolves"),
+        ("broken_root_cause_url.json", "root_cause_url_resolves"),
+    ] {
+        let (code, output) = run_report_lint_fixture(fixture, &[]);
+        assert_eq!(code, 3, "{fixture}: {output}");
+        assert!(output.contains(check_id), "{fixture}: {output}");
+    }
+}

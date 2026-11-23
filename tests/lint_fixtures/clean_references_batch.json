@@ -1,0 +1,80 @@
+{
+  "schema_version": "2.2",
+  "report_type": "batch",
+  "summary": {
+    "accessibility_score": 90,
+    "site_quality_score": 90,
+    "grade": "A",
+    "root_causes": [
+      {
+        "id": "RC-0a1b2c3d",
+        "rule_id": "image-alt",
+        "selector": "img.hero",
+        "confidence": "open",
+        "url_count": 2,
+        "page_coverage_pct": 100,
+        "occurrence_count": 2,
+        "urls": [
+          "https://example.com/",
+          "https://example.com/about"
+        ]
+      }
+    ],
+    "top_actions": [
+      {
+        "rule_id": "image-alt",
+        "title": "Images need a text alternative",
+        "risk": "high",
+        "priority": "high",
+        "complexity": "low",
+        "occurrence_count": 2,
+        "url_count": 2,
+        "finding_id": "F-1a2b3c4d",
+        "root_cause_id": "RC-0a1b2c3d",
+        "expected_impact": "Screen reader users learn what the images show."
+      }
+    ]
+  },
+  "pages": [
+    {
+      "url": "https://example.com/",
+      "accessibility_score": 90,
+      "site_quality_score": 90,
+      "grade": "A",
+      "findings": [
+        {
+          "id": "F-1a2b3c4d",
+          "rule_id": "image-alt",
+          "occurrence_count": 1,
+          "patterns": [
+            {
+              "id": "RC-0a1b2c3d",
+              "selector": "img.hero",
+              "occurrence_count": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "url": "https://example.com/about",
+      "accessibility_score": 90,
+      "site_quality_score": 90,
+      "grade": "A",
+      "findings": [
+        {
+          "id": "F-1a2b3c4d",
+          "rule_id": "image-alt",
+          "occurrence_count": 1,
+          "patterns": [
+            {
+              "id": "RC-0a1b2c3d",
+              "selector": "img.hero",
+              "occurrence_count": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
