@@ -339,7 +339,7 @@ mod blocking_tests {
             "aria/role-redundant",
             "aria/attribute-value-invalid",
             "aria/combobox-popup-missing",
-            "description-duplicates-name",
+            "names/description-duplicates-name",
             "names/title-only",
         ] {
             assert!(!is_missing_name_or_role(id), "{id}");

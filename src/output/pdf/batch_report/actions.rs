@@ -285,6 +285,14 @@ pub(super) fn render_batch_top_issues(
             kv = kv.add(&fix_label, &group.recommendation);
         }
         kv = kv.add(&meta_label, meta_line);
+        // Contrast measured under opacity: name the cause, not only the
+        // ratio (#1112).
+        if let Some(opacity) = super::super::findings::opacity_pattern_text(
+            &group.finding.occurrences,
+            is_english(i18n),
+        ) {
+            kv = kv.add(i18n.t("pdf-findings-opacity"), opacity);
+        }
         // The provider is named once on the cross-page card, not once per URL (#1109).
         if let Some(origin) = super::super::findings::origin_text(&group.finding, i18n) {
             kv = kv.add(i18n.t("pdf-findings-origin"), origin);

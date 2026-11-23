@@ -335,7 +335,7 @@ rule-contrast-text-insufficient = Unzureichender Farbkontrast
 
 rule-contrast-text-undetermined = Prüfen, ob der Kontrast von nicht messbarem Text ausreicht
     .user-impact = Text bei Sehschwäche oder ungünstigen Lichtverhältnissen schwer lesbar.
-    .technical-impact = Der Kontrast dieses Textes ließ sich nicht entscheiden: Die Vorder- oder Hintergrundfarbe war nicht auflösbar (etwa bei einem Bild- oder Verlaufshintergrund), ein fixiertes oder klebendes Element überdeckt den Text, oder das gemessene Verhältnis liegt nahe an der Grenze oder schwankt über den Text, daher bleibt das geforderte Verhältnis von 4,5:1 (3:1 bei großem Text) ungeprüft und braucht eine manuelle Prüfung.
+    .technical-impact = Der Kontrast dieses Textes ließ sich nicht entscheiden: Die Vorder- oder Hintergrundfarbe war nicht auflösbar (etwa bei einem Bild- oder Verlaufshintergrund), ein fixiertes oder klebendes Element überdeckt den Text, das gemessene Verhältnis liegt nahe an der Grenze oder schwankt über den Text, oder der Text unterschreitet es in einer aria-hidden-svg-Illustration, wo nur ein Mensch Dekoration (ausgenommen) von Information unterscheiden kann, daher bleibt das geforderte Verhältnis von 4,5:1 (3:1 bei großem Text) ungeprüft und braucht eine manuelle Prüfung.
 
 rule-contrast-text-enhanced = Erhöhter Farbkontrast nicht erreicht (AAA)
     .user-impact = Für Menschen mit deutlich eingeschränktem Sehvermögen bleibt der Text schwer lesbar.
@@ -773,9 +773,9 @@ rule-lists-term-without-definition = Begriff ohne Definition in Definitionsliste
     .recommendation = Zu jedem <dt> mindestens ein <dd> ausgeben, oder den Begriff weglassen, wenn es keine Beschreibung gibt.
     .technical-note = Geprüft wird unter demselben Elternelement, auch innerhalb von <div>-Gruppen in der <dl>.
 
-rule-tables-header-missing = Prüfen, ob Datentabellen Kopfzellen haben
+rule-tables-header-missing = Tabelle ohne Kopfzellen
     .user-impact = Screenreader-Nutzer hören Zellwerte ohne die zugehörige Zeilen- oder Spaltenbeschriftung.
-    .technical-impact = Eine Tabelle (<table>, role="table" oder role="grid"), die nicht als präsentational ausgezeichnet ist, hat keine Kopfzelle (kein <th> und kein role="columnheader" oder "rowheader"), daher kann ein Screenreader zu einem Zellwert keine Zeilen- oder Spaltenbeschriftung ansagen; als Prüfhinweis gemeldet, weil es sich um eine Layouttabelle handeln kann.
+    .technical-impact = Eine Tabelle (<table>, role="table" oder role="grid"), die nicht als präsentational ausgezeichnet ist, hat keine Kopfzelle (kein <th> und kein role="columnheader" oder "rowheader"), daher kann ein Screenreader zu einem Zellwert keine Zeilen- oder Spaltenbeschriftung ansagen; als Prüfhinweis gemeldet, weil es sich um eine Layouttabelle handeln kann, und als Verstoß (F91), wenn die erste Zeile nur aus fetten <td>-Zellen (<b>, <strong>) über weiteren Zeilen besteht und die Tabelle kein <th> hat.
     .description = Eine Tabelle hat keine Kopfzellen, die ihre Zeilen oder Spalten beschriften.
     .explanation-user-impact = Screenreader-Nutzer hören beim Durchgehen der Zellen nur Werte, ohne zu erfahren, zu welcher Spalte oder Zeile sie gehören.
     .typical-cause = Die Kopfzeile ist mit <td> und fetter Schrift gestaltet statt mit <th>, oder die Tabelle dient nur dem Layout.
@@ -884,14 +884,14 @@ rule-names-title-only = Natives title-Attribut als einzige Beschreibung
     .user-impact = Der Tooltip des title-Attributs erscheint nur bei Mauszeiger-Hover; per Tastatur und auf Touchgeräten bleibt der Zweck des Elements unsichtbar.
     .technical-impact = Ein <button>, <a href>, <input type="button"> oder "image" oder eine unbeschriftete Checkbox oder ein Optionsfeld hat einen title, aber weder Text, alt, aria-label noch aria-labelledby, daher stammt sein zugänglicher Name allein aus title, den Tastatur- und Touch-Nutzer nie sehen und den manche Screenreader uneinheitlich ansagen; als Prüfhinweis gemeldet.
 
-rule-description-duplicates-name = Beschreibung wiederholt den Namen
+rule-names-description-duplicates-name = Prüfen, ob Beschreibungen mehr sagen als der Name
     .user-impact = Screenreader sagen denselben Text zweimal an, ohne zusätzliche Information.
-    .technical-impact = Ein interaktives Element (Button, Link, Formularelement, Menüpunkt, Tab und Ähnliches) hat im Accessibility-Tree des Browsers eine zugängliche Beschreibung, die seinem zugänglichen Namen gleicht, typischerweise ein title oder aria-describedby, das den sichtbaren Text wiederholt, daher sagt ein Screenreader denselben Text doppelt an.
-    .description = Zugänglicher Name und zugängliche Beschreibung eines Elements sind identisch. Das Element hat einen Namen; die doppelte Ansage ist Best Practice, kein fehlender Name.
+    .technical-impact = Ein interaktives Element (Button, Link, Formularelement, Menüpunkt, Tab und Ähnliches) hat im Accessibility-Tree des Browsers eine zugängliche Beschreibung, die nach Angleichen der Leerzeichen seinem zugänglichen Namen gleicht, typischerweise ein aria-describedby oder aria-description, das den sichtbaren Text wiederholt, daher sagt ein Screenreader denselben Text doppelt an; als Prüfhinweis gemeldet.
+    .description = Zugänglicher Name und zugängliche Beschreibung eines Elements sind identisch. Das Element hat einen Namen; die doppelte Ansage ist überflüssig, kein fehlender Name.
     .explanation-user-impact = Screenreader sagen denselben Text zweimal an, ohne zusätzliche Information.
-    .typical-cause = title oder aria-describedby wiederholt den sichtbaren Text oder das aria-label, etwa title="Schließen" an einem Button „Schließen“.
+    .typical-cause = aria-describedby oder aria-description wiederholt den sichtbaren Text oder das aria-label, etwa ein Button „Schließen“, beschrieben durch ein verstecktes „Schließen“.
     .recommendation = Die Beschreibung entfernen oder mit einer Information füllen, die über den Namen hinausgeht.
-    .technical-note = Best Practice, verankert an WCAG 4.1.2. Verglichen werden Name und Beschreibung aus dem Accessibility-Baum des Browsers.
+    .technical-note = Prüfhinweis unter WCAG 4.1.2, kein Verstoß: Das Kriterium verlangt einen Namen, keine Beschreibung, die sich von ihm unterscheidet. Verglichen werden Name und Beschreibung aus dem Accessibility-Baum des Browsers.
 
 rule-aria-required-children-missing = Erforderliche Bestandteile einer ARIA-Rolle fehlen
     .user-impact = Assistierende Technologien können die Beziehung zwischen den Widget-Teilen nicht auswerten.
@@ -1114,7 +1114,7 @@ explanation-1-4-3 = Unzureichender Farbkontrast
     .user-impact = Menschen mit Sehbeeinträchtigung, ältere Nutzer und alle Nutzer bei ungünstigen Bildschirmbedingungen (Sonnenlicht, schlechte Displays) können Texte schlecht oder gar nicht lesen.
     .typical-cause = Helle Schriftfarbe auf hellem Hintergrund, graue Texte auf weißem Grund, Designentscheidungen ohne Kontrastprüfung. Auch verringerte `opacity` am Text oder an einem Elternelement (ein abgedunkelter inaktiver Zustand, ein Einblendeffekt): Die Textfarbe wird mit dem Hintergrund gemischt, das Verhältnis liegt dann unter dem, was die Farbwerte vermuten lassen.
     .recommendation = Schriftfarben anpassen, sodass normaler Text mindestens ein Kontrastverhältnis von 4,5:1 und großer Text von 3:1 zum Hintergrund hat. Dämpft `opacity` den Text, die Deckkraft erhöhen oder die Farbe abdunkeln, bis auch der gedämpfte Zustand das Verhältnis erreicht. Kontrastwerte mit Tools wie dem WebAIM Contrast Checker prüfen.
-    .technical-note = WCAG 2.1 Level AA: 4.5:1 für normalen Text (<18pt / <14pt bold), 3:1 für großen Text (≥18pt / ≥14pt bold). Deckkraft wird in die gemessene Farbe eingerechnet, und ein Zustand wird so gemessen, wie er gerendert ist: Eine mit `opacity: .55` abgedunkelte Zeile wird in diesem Zustand beurteilt, nicht in ihrem aktiven. Auch Text in einer `aria-hidden`-Illustration wird gemessen, weil das Kriterium sich auf das Gesehene bezieht. CSS-Variablen für konsistente Farbpalette verwenden.
+    .technical-note = WCAG 2.1 Level AA: 4.5:1 für normalen Text (<18pt / <14pt bold), 3:1 für großen Text (≥18pt / ≥14pt bold). Deckkraft wird in die gemessene Farbe eingerechnet, und ein Zustand wird so gemessen, wie er gerendert ist: Eine mit `opacity: .55` abgedunkelte Zeile wird in diesem Zustand beurteilt, nicht in ihrem aktiven, und der Befund nennt die Deckkraft und die Textfarbe danach. Text in einer `aria-hidden`-svg-Illustration ist ein Prüfhinweis, kein Verstoß: Reine Dekoration ist ausgenommen, Text mit Information braucht den Kontrast. Text in anderen `aria-hidden`-Elementen wird wie üblich gemessen, weil das Kriterium sich auf das Gesehene bezieht. CSS-Variablen für konsistente Farbpalette verwenden.
 
 explanation-1-4-4 = Text nicht ausreichend skalierbar
     .description = Texte auf der Website können nicht ohne Verlust von Inhalt oder Funktion auf 200% vergrößert werden. Nutzer, die auf größere Schrift angewiesen sind, verlieren dadurch Inhalte.

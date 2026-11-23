@@ -2535,7 +2535,7 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_STANDARD,
     },
     Rule {
-        id: "description-duplicates-name",
+        id: "names/description-duplicates-name",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::TechnicalRobustness,
         issue_class: IssueClass::Weak,

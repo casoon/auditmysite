@@ -335,7 +335,7 @@ rule-contrast-text-insufficient = Insufficient color contrast
 
 rule-contrast-text-undetermined = Check the contrast of text that could not be measured
     .user-impact = Text is hard to read for people with low vision or under poor lighting conditions.
-    .technical-impact = The contrast of this text could not be decided: the foreground or background colour could not be resolved (for example an image or gradient background), a fixed or sticky element covers the text, or the measured ratio sits close to the threshold or varies across the text, so the required 4.5:1 (3:1 for large text) stays unverified and needs a manual check.
+    .technical-impact = The contrast of this text could not be decided: the foreground or background colour could not be resolved (for example an image or gradient background), a fixed or sticky element covers the text, the measured ratio sits close to the threshold or varies across the text, or the text falls short inside an aria-hidden svg illustration, where only a person can tell decoration (exempt) from information, so the required 4.5:1 (3:1 for large text) stays unverified and needs a manual check.
 
 rule-contrast-text-enhanced = Enhanced color contrast not met (AAA)
     .user-impact = Text remains hard to read for people with substantially reduced vision.
@@ -773,9 +773,9 @@ rule-lists-term-without-definition = Term without definition in a description li
     .recommendation = Output at least one <dd> for every <dt>, or leave the term out when there is no description.
     .technical-note = Checked within the same parent, including <div> groups inside the <dl>.
 
-rule-tables-header-missing = Check that data tables have header cells
+rule-tables-header-missing = Table without header cells
     .user-impact = Screen reader users hear cell values without their row or column label.
-    .technical-impact = A table (<table>, role="table" or role="grid") that is not marked presentational has no header cell (no <th> and no role="columnheader" or "rowheader"), so a screen reader cannot announce a row or column label with a cell value; reported as a review hint, because the table may be a layout table.
+    .technical-impact = A table (<table>, role="table" or role="grid") that is not marked presentational has no header cell (no <th> and no role="columnheader" or "rowheader"), so a screen reader cannot announce a row or column label with a cell value; reported as a review hint, because the table may be a layout table, and as a violation (F91) when the first row consists only of bold <td> cells (<b>, <strong>) above further rows and the table has no <th>.
     .description = A table has no header cells that label its rows or columns.
     .explanation-user-impact = Screen reader users hear only values when moving through the cells, without learning which column or row they belong to.
     .typical-cause = The header row is built from bold <td> cells instead of <th>, or the table is used for layout only.
@@ -884,14 +884,14 @@ rule-names-title-only = Native title attribute as the only description
     .user-impact = The title attribute's tooltip only appears on mouse hover; with a keyboard and on touch devices the element's purpose stays invisible.
     .technical-impact = A <button>, <a href>, <input type="button"> or "image", or an unlabeled checkbox or radio button has a title but no text, alt, aria-label or aria-labelledby, so its accessible name comes from title alone, which keyboard and touch users never see and some screen readers announce inconsistently; reported as a review hint.
 
-rule-description-duplicates-name = Description repeats the name
+rule-names-description-duplicates-name = Check that descriptions add to the name
     .user-impact = Screen readers announce the same text twice without adding information.
-    .technical-impact = An interactive element (button, link, form control, menu item, tab and similar) has an accessible description in the browser's accessibility tree that is identical to its accessible name, typically a title or aria-describedby repeating the visible text, so a screen reader announces the same text twice.
-    .description = An element's accessible name and accessible description are identical. The element has a name; the repeated announcement is best practice, not a missing name.
+    .technical-impact = An interactive element (button, link, form control, menu item, tab and similar) has an accessible description in the browser's accessibility tree that equals its accessible name after whitespace normalisation, typically an aria-describedby or aria-description repeating the visible text, so a screen reader announces the same text twice; reported as a review hint.
+    .description = An element's accessible name and accessible description are identical. The element has a name; the repeated announcement is redundant, not a missing name.
     .explanation-user-impact = Screen readers announce the same text twice without adding information.
-    .typical-cause = title or aria-describedby repeats the visible text or the aria-label, e.g. title="Close" on a "Close" button.
+    .typical-cause = aria-describedby or aria-description repeats the visible text or the aria-label, e.g. a "Close" button described by a hidden "Close".
     .recommendation = Remove the description, or fill it with information that goes beyond the name.
-    .technical-note = Best practice, anchored to WCAG 4.1.2. Compares name and description from the browser's accessibility tree.
+    .technical-note = Review hint under WCAG 4.1.2, not a violation: the criterion asks for a name, not for a description that differs from it. Compares name and description from the browser's accessibility tree.
 
 rule-aria-required-children-missing = Required owned elements of an ARIA role are missing
     .user-impact = Assistive technologies cannot resolve the relationship between the widget's parts.
@@ -1114,7 +1114,7 @@ explanation-1-4-3 = Insufficient color contrast
     .user-impact = People with visual impairments, older users, and any user under poor screen conditions (sunlight, low-quality displays) can read the text only with difficulty or not at all.
     .typical-cause = Light font color on a light background, gray text on white, design decisions made without contrast checking. Also reduced `opacity` on the text or a parent (a dimmed inactive state, a fade effect): the text colour is blended with the background, so the ratio is lower than the colour values suggest.
     .recommendation = Adjust font colors so normal text has a contrast ratio of at least 4.5:1 and large text at least 3:1 against the background. If `opacity` dims the text, raise the opacity or darken the colour until the dimmed state reaches the ratio too. Verify contrast values with tools such as the WebAIM Contrast Checker.
-    .technical-note = WCAG 2.1 Level AA: 4.5:1 for normal text (<18pt / <14pt bold), 3:1 for large text (≥18pt / ≥14pt bold). Opacity is blended into the measured colour and a state is measured as rendered: a row dimmed with `opacity: .55` is judged in that state, not in its active one. Text inside an `aria-hidden` illustration is measured as well, because the criterion is about what is seen. Use CSS variables for a consistent color palette.
+    .technical-note = WCAG 2.1 Level AA: 4.5:1 for normal text (<18pt / <14pt bold), 3:1 for large text (≥18pt / ≥14pt bold). Opacity is blended into the measured colour and a state is measured as rendered: a row dimmed with `opacity: .55` is judged in that state, not in its active one, and the finding names the opacity and the text colour after it. Text inside an `aria-hidden` svg illustration is a review, not a violation: pure decoration is exempt, text that carries information needs the contrast. Text in other `aria-hidden` elements is measured as usual, because the criterion is about what is seen. Use CSS variables for a consistent color palette.
 
 explanation-1-4-4 = Text cannot be sufficiently resized
     .description = Text on the website cannot be enlarged to 200% without loss of content or functionality. Users who depend on larger text lose information.

@@ -451,6 +451,27 @@ fn export_pure_functions(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
             contrast_measured_text(&evidence, en)
         ]));
     }
+    let dimmed = vec![
+        Evidence::computed("opacity", "0.55"),
+        Evidence::computed("effective_foreground", "#8c8c8c"),
+        Evidence::computed("state_dependent", "true"),
+    ];
+    records.push(json!([
+        "opacity_text",
+        "opacity=0.55",
+        lang,
+        opacity_text(&dimmed, en)
+    ]));
+    let occurrence = crate::audit::normalized::OccurrenceDetail {
+        evidence: dimmed,
+        ..Default::default()
+    };
+    records.push(json!([
+        "opacity_pattern_text",
+        "opacity=0.55",
+        lang,
+        opacity_pattern_text(&[occurrence], en)
+    ]));
     for code in CODES {
         records.push(json!([
             "report_code_label",

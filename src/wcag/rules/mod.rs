@@ -2,7 +2,6 @@
 //!
 //! Contains individual WCAG rule implementations.
 
-mod accessible_name;
 mod display_modes;
 mod focus_visible;
 mod html_content_model;
@@ -17,7 +16,6 @@ mod page_titled;
 mod reflow;
 mod text_alternatives;
 
-pub use accessible_name::check_accessible_name;
 pub use display_modes::{
     check_display_modes_with_page, DISPLAY_INIT_MISSING_RULE, DISPLAY_TEXT_HIDDEN_RULE,
     DISPLAY_TEXT_MEDIA_VISIBLE_RULE, DISPLAY_TEXT_NOT_VISIBLE_RULE,

@@ -217,7 +217,6 @@ id = "tables/header-missing"
 errored = ["error_dom_too_deep"]
 shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=tables/header-missing)"]
 automation = "automated"
-review_only = true
 method = "shared"
 source = "WCAG 2.2 SC 1.3.1 Info and Relationships (H51, H39, H63, H43, F91, F92); HTML §4.9 tabular data; WAI-ARIA 1.2 table/grid/row/cell roles"
 capabilities = ["dom", "computed_style"]
@@ -226,10 +225,13 @@ Every rendered, not aria-hidden table: <table> or role table/grid, not presentat
 expectation = """
 A table without any header cell (<th>, role columnheader/rowheader) is a
 failure only for a data table whose headers are visual (F91); a layout table or
-a table without visible headers is allowed. Markup cannot tell which, so the
-rule reports REVIEW at the table, never a confirmed violation. Presentational,
-hidden and aria-hidden tables are not judged."""
-positive = ["content_tables_broken", "misc_content_checks"]
+a table without visible headers is allowed. Markup usually cannot tell which, so
+the rule reports REVIEW at the table. It fails (F91) when the markup shows the
+header row: the first row consists only of <td> cells whose whole content is bold
+(<b>, <strong>), more rows follow and the table has no <th> anywhere. Bold set by
+a stylesheet stays a review. Presentational, hidden and aria-hidden tables are
+not judged."""
+positive = ["content_tables_broken", "misc_content_checks", "content_table_bold_header_row"]
 negative = ["content_tables_ok"]
 not_applicable = ["content_plain_article"]
 

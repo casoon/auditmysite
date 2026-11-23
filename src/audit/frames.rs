@@ -39,8 +39,9 @@ use crate::wcag::{self, RuleFilterConfig, RuleRun, Violation, WcagResults};
 
 /// Tree rules that run inside frames, by the axe id that gates them in
 /// `wcag::engine`. Only rules that judge single elements or their
-/// relationships: names (images, links), redundant descriptions and the
-/// keyboard-trap note. Roles, their required parents and children and
+/// relationships: image names and the keyboard-trap note. The redundant
+/// description runs as the shared `names/description-duplicates-name` since
+/// a11y-rules 0.31 (#919). Roles, their required parents and children and
 /// ambiguous `aria-owns` run as shared rules since #691, the names of
 /// dialogs, summaries and role-based widgets, label-in-name and live-region
 /// roles since #692, form labels, structure and errors since #693, keyboard
@@ -50,8 +51,7 @@ use crate::wcag::{self, RuleFilterConfig, RuleRun, Violation, WcagResults};
 /// Left out on purpose — they judge the document as a whole and belong to
 /// the top frame only: `focus-visible` (fires only when the whole page has
 /// nothing focusable), `unusual-words` and `help`.
-pub const FRAME_TREE_RULES: &[&str] =
-    &["image-alt", "keyboard-trap", "description-duplicates-name"];
+pub const FRAME_TREE_RULES: &[&str] = &["image-alt", "keyboard-trap"];
 
 /// Shared rules (`wcag::shared::SHARED_RULES`) that run inside frames — the
 /// element-level ones. Left out, as page-level: `document/lang-*` (the
@@ -132,6 +132,7 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
     "aria/required-children-missing",
     "names/required-missing",
     "names/symbol-only",
+    "names/description-duplicates-name",
     "dialog/name-missing",
     "dialog/modal-unmarked",
     "summary/name-missing",
@@ -870,7 +871,7 @@ mod tests {
         for page_level in ["focus-visible", "heading-order", "unusual-words", "help"] {
             assert!(!filter.should_run(page_level), "{page_level}");
         }
-        for element in ["description-duplicates-name", "image-alt"] {
+        for element in ["keyboard-trap", "image-alt"] {
             assert!(filter.should_run(element), "{element}");
         }
     }

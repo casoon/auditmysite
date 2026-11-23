@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Branch opening hours</title>
+    <style>
+        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }
+        .head-row td { font-weight: 700; }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header>
+        <p>City Library</p>
+        <nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/catalogue">Catalogue</a> <a href="/visit">Visit</a></nav>
+    </header>
+    <main id="main">
+        <h1>Branch opening hours</h1>
+        <!-- F91: the first row is a header row made of bold <td> cells, more rows follow,
+             and the table has no <th> at all: the visual headers are not marked up. -->
+        <table id="bold-row">
+            <caption>Opening hours by branch</caption>
+            <tr><td><b>Branch</b></td><td><strong>Weekdays</strong></td></tr>
+            <tr><td>North</td><td>9:00 to 18:00</td></tr>
+            <tr><td>South</td><td>10:00 to 16:00</td></tr>
+        </table>
+        <!-- Bold only through the stylesheet: the markup does not show the header row,
+             so this stays a review. -->
+        <table id="styled-row">
+            <caption>Holiday hours by branch</caption>
+            <tr class="head-row"><td>Branch</td><td>Holidays</td></tr>
+            <tr><td>North</td><td>Closed</td></tr>
+            <tr><td>South</td><td>10:00 to 14:00</td></tr>
+        </table>
+    </main>
+    <footer><p>City Library, 1 Market Square</p></footer>
+</body>
+</html>

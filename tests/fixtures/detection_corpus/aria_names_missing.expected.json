@@ -8,7 +8,7 @@
     {"rule_id": "names/title-only", "verdict": "needs_review", "selector": "button#share", "occurrences": 1},
     {"rule_id": "label-in-name/mismatch", "verdict": "violation", "selector": "button#play", "occurrences": 1},
     {"rule_id": "label-in-name/mismatch", "verdict": "violation", "selector": "button#skip", "occurrences": 1},
-    {"rule_id": "description-duplicates-name", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "names/description-duplicates-name", "verdict": "needs_review", "occurrences": 1},
     {"rule_id": "summary/name-missing", "verdict": "violation", "selector": "summary#lyrics-summary", "occurrences": 1},
     {"rule_id": "svg/name-missing", "verdict": "violation", "selector": "svg#cover", "occurrences": 1},
     {"rule_id": "svg/name-missing", "verdict": "needs_review", "selector": "svg#waveform", "occurrences": 1},

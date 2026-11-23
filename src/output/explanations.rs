@@ -247,7 +247,10 @@ static RULE_ENTRIES: &[(&str, &str)] = &[
     ("keyboard/positive-tabindex", "keyboard/positive-tabindex"),
     ("zoom/viewport-scale-limited", "zoom/viewport-scale-limited"),
     ("aria/owns-conflict", "aria/owns-conflict"),
-    ("description-duplicates-name", "description-duplicates-name"),
+    (
+        "names/description-duplicates-name",
+        "names/description-duplicates-name",
+    ),
     (
         "aria/required-children-missing",
         "aria/required-children-missing",
@@ -1188,12 +1191,14 @@ static EXPLANATIONS: &[(&str, RuleExplanation)] = &[
         },
     ),
     (
-        "description-duplicates-name",
+        "names/description-duplicates-name",
         RuleExplanation {
-            key: "description-duplicates-name",
+            key: "names/description-duplicates-name",
             responsible_role: Role::Development,
             effort_estimate: Effort::Quick,
-            example_bad: Some("<button title=\"Close\">Close</button>"),
+            example_bad: Some(
+                "<button aria-describedby=\"d\">Close</button><span id=\"d\" hidden>Close</span>",
+            ),
             example_good: Some("<button>Close</button>"),
             example_decorative: None,
         },

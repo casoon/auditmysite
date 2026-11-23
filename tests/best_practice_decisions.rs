@@ -123,7 +123,7 @@ fn convention_rule_is_unchanged_for_every_rule_id() {
             || id.starts_with("viz/")
             || [
                 "names/title-only",
-                "description-duplicates-name",
+                "names/description-duplicates-name",
                 "zoom/viewport-scale-limited",
             ]
             .contains(&id)

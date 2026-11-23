@@ -67,6 +67,9 @@ struct AxFacts {
     role: Option<String>,
     name: Option<String>,
     name_source: Option<SharedNameSource>,
+    /// Chromes Accessible Description (`aria-describedby`, `aria-description`,
+    /// `title` als Rückfall), für `names/description-duplicates-name`.
+    description: Option<String>,
     /// Chromes eigene, feinere Angabe der Namensquelle, sofern mitgegeben
     /// (siehe [`CdpDocument::with_chrome_name_sources`]).
     chrome_name_source: Option<String>,
@@ -1432,6 +1435,10 @@ impl Semantics for RenderedCdpDocument<'_> {
         self.doc.name_source(node)
     }
 
+    fn accessible_description<'n>(&'n self, node: Self::N<'n>) -> Option<String> {
+        self.doc.accessible_description(node)
+    }
+
     fn is_ignored<'n>(&'n self, node: Self::N<'n>) -> bool {
         self.doc.is_ignored(node)
     }
@@ -1600,6 +1607,12 @@ impl Semantics for CdpDocument {
         self.facts(node)?.name_source
     }
 
+    /// Chromes berechnete Beschreibung aus dem AX-Baum, wie zuvor die lokale
+    /// Regel sie las (#919).
+    fn accessible_description<'n>(&'n self, node: Self::N<'n>) -> Option<String> {
+        self.facts(node)?.description.clone()
+    }
+
     /// Ein Element ohne Gegenstück im Accessibility-Tree hat Chrome gar nicht
     /// erst exponiert — etwa der Inhalt eines geschlossenen `<details>`, den
     /// Chrome über `content-visibility` ausblendet, während der DOMSnapshot
@@ -1671,6 +1684,7 @@ fn index_ax_tree(ax_tree: &AXTree) -> HashMap<i64, AxFacts> {
                 role: node.role.clone(),
                 name: node.name.clone(),
                 name_source: node.name_source.and_then(map_name_source),
+                description: node.description.clone(),
                 chrome_name_source: None,
                 ignored: node.ignored,
                 excludes_subtree: node.ignored

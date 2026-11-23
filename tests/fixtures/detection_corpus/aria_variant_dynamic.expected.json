@@ -26,7 +26,7 @@
     {"rule_id": "names/symbol-only", "verdict": "needs_review", "selector": "button#break-symbol", "occurrences": 1},
     {"rule_id": "names/title-only", "verdict": "needs_review", "selector": "button#break-title", "occurrences": 1},
     {"rule_id": "label-in-name/mismatch", "verdict": "violation", "selector": "button#break-lin", "occurrences": 1},
-    {"rule_id": "description-duplicates-name", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "names/description-duplicates-name", "verdict": "needs_review", "occurrences": 1},
     {"rule_id": "summary/name-missing", "verdict": "violation", "selector": "summary#break-summary", "occurrences": 1},
     {"rule_id": "svg/name-missing", "verdict": "violation", "selector": "svg#break-svg", "occurrences": 1},
     {"rule_id": "status/live-overridden", "verdict": "violation", "selector": "div#break-status", "occurrences": 1},

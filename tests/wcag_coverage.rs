@@ -13,9 +13,7 @@
 use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::{check_all_with_config, RuleFilterConfig};
-use auditmysite::wcag::rules::{
-    check_accessible_name, check_focus_visible, check_keyboard, check_text_alternatives,
-};
+use auditmysite::wcag::rules::{check_focus_visible, check_keyboard, check_text_alternatives};
 use auditmysite::wcag::WcagResults;
 
 // ---------------------------------------------------------------------------
@@ -69,7 +67,6 @@ macro_rules! rule_smoke_test {
 
 rule_smoke_test!(smoke_check_text_alternatives, check_text_alternatives);
 rule_smoke_test!(smoke_check_keyboard, check_keyboard);
-rule_smoke_test!(smoke_check_accessible_name, check_accessible_name);
 // non_text_contrast.rs was replaced by non_text_contrast_css.rs (a `_with_page`
 // CDP-based check) — like the other `_with_page` rules, it has no smoke test
 // here (this file is browser-free/AXTree-only); it has its own unit tests.

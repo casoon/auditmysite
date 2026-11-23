@@ -1,0 +1,8 @@
+{
+  "case": "content_table_bold_header_row",
+  "expectations": [
+    {"rule_id": "tables/header-missing", "verdict": "violation", "selector": "table#bold-row"},
+    {"rule_id": "tables/header-missing", "verdict": "needs_review", "selector": "table#styled-row"},
+    {"rule_id": "tables/name-missing", "verdict": "pass"}
+  ]
+}

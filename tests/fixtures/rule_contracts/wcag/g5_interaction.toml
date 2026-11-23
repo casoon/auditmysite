@@ -1078,8 +1078,11 @@ background change and a shadow each count as an indicator. A control that
 cannot take focus, or that is not reachable with Tab (tabindex=-1), is not a
 candidate. Transitions are suspended during the measurement so a transition
 on the focus style does not hide the change. Review, not violation: whether
-the change is perceivable is a human judgement. A page whose scripts break the
-probe records the rule as not run (CapabilityMissing)."""
+the change is perceivable is a human judgement. a11y-rules 0.31 fails the
+control (F78) only when the host reports Layout::focus_outline_removed, which
+needs the cascade for the focused state; this host measures focus in the browser
+and leaves the field unset, so the rule stays a review here. A page whose scripts
+break the probe records the rule as not run (CapabilityMissing)."""
 positive = ["interaction_focus_indicator", "interaction_outline_removed", "interaction_outline_removed_mobile", "interaction_outline_removed_dynamic"]
 negative = ["interaction_focus_indicator"]
 not_applicable = ["interaction_static_text"]

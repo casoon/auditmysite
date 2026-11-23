@@ -95,7 +95,7 @@
       "selector": "button#h-lin"
     },
     {
-      "rule_id": "description-duplicates-name",
+      "rule_id": "names/description-duplicates-name",
       "verdict": "pass"
     },
     {

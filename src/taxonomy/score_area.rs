@@ -275,7 +275,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("names/required-missing", Aria),
     ("names/symbol-only", Aria),
     ("names/title-only", Aria),
-    ("description-duplicates-name", Aria),
+    ("names/description-duplicates-name", Aria),
     ("links/used-as-button", Aria),
     ("inert/dialog-inert", Aria),
     ("modern-attribute-misuse", Aria),

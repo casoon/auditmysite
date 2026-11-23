@@ -5,9 +5,7 @@
 use tracing::{debug, info};
 
 pub use super::rules::check_reflow_with_page;
-use super::rules::{
-    check_accessible_name, check_focus_visible, check_keyboard, check_text_alternatives,
-};
+use super::rules::{check_focus_visible, check_keyboard, check_text_alternatives};
 use super::types::{Violation, WcagResults};
 use crate::accessibility::AXTree;
 use crate::wcag::WcagLevel;
@@ -157,12 +155,6 @@ pub const TREE_RULES: &[TreeRule] = &[
         axe_id: "keyboard-trap",
         min_level: WcagLevel::A,
         check: check_keyboard,
-    },
-    // 4.1.2 Description repeats the name (best practice, #713).
-    TreeRule {
-        axe_id: "description-duplicates-name",
-        min_level: WcagLevel::A,
-        check: check_accessible_name,
     },
     // 2.4.7 Focus Visible
     TreeRule {

@@ -24,7 +24,12 @@ large text (at least 18pt = 24px, or 14pt = 18.66px bold). WCAG forbids
 rounding up: 4.48:1 fails, 2.96:1 fails for large text; 4.54:1 and 3.03:1
 pass. Text that is not rendered or only visually hidden is not visible text
 and is not measured. Text under aria-hidden is still visible text and is
-measured (1.4.3 is about what is seen, not the accessibility tree). Text in
+measured (1.4.3 is about what is seen, not the accessibility tree), except
+below the threshold inside an aria-hidden svg illustration: pure decoration
+is exempt and the tree cannot tell it from information, so that is a review
+under contrast/text-undetermined (casoon/barrierlab#262). Under opacity below
+1 the finding carries the opacity, the composited text colour and a
+state-dependent mark as evidence (casoon/barrierlab#261). Text in
 a shadow root or a frame is part of the page. A viewport-specific colour
 counts in the viewport where it applies; a colour set by script after load
 counts as rendered. When the background cannot be resolved (gradient,
@@ -93,7 +98,9 @@ applicability = "Elements carrying rendered, visible text whose foreground or ba
 expectation = """
 Reports a review (UNTESTED) instead of a pass or fail when the contrast cannot
 be measured: glyphs painted transparent over a gradient (background-clip:
-text), no resolvable colour, or the text covered by a fixed/sticky overlay
+text), no resolvable colour, text below the threshold inside an aria-hidden
+svg illustration (decoration is exempt, information is not; #262), or the
+text covered by a fixed/sticky overlay
 such as a cookie banner (the overlay's own text is measurable and not
 reported). Over an image or gradient that can be sampled, a median that
 passes with a 40th percentile that fails is a borderline review under this
