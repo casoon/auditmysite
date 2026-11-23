@@ -200,6 +200,13 @@ mod tests {
     }
 
     #[test]
+    fn the_score_is_rounded_to_the_nearest_point_before_the_band_lookup() {
+        assert_eq!(LETTER_GRADE.label(89.5, false), "A");
+        assert_eq!(LETTER_GRADE.label(89.4, false), "B");
+        assert_eq!(LETTER_GRADE.label(79.6, false), "B");
+    }
+
+    #[test]
     fn five_band_letters_matches_module_score_grade_edges() {
         assert_eq!(FIVE_BAND_LETTERS.label(100.0, false), "A");
         assert_eq!(FIVE_BAND_LETTERS.label(90.0, false), "A");
