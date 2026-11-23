@@ -11,10 +11,6 @@
 
 ## Content & alternatives
 
-rule-image-alt = Fehlende Alternativtexte bei Bildern
-    .user-impact = Screenreader-Nutzer erhalten keine Bildinformation.
-    .technical-impact = Eine Grafik im Accessibility-Tree, die weder ein <img> noch ein Inline-<svg> ist, meist ein Element mit role="img", hat keinen zugänglichen Namen, daher sagt ein Screenreader ein unbenanntes Bild an; als dekorativ ausgezeichnete Grafiken und Icons in einem benannten Link oder Button sind ausgenommen.
-
 rule-images-alt-missing = Fehlende Alternativtexte bei Bildern
     .user-impact = Screenreader-Nutzer erhalten keine Bildinformation.
     .technical-impact = Ein <img> hat kein alt-Attribut (oder nur Leerraum darin) und weder aria-label, aria-labelledby noch title und ist nicht als dekorativ ausgezeichnet (role="presentation", aria-hidden="true"), daher steht es ohne Namen im Accessibility-Tree und ein Screenreader sagt nur den Dateinamen oder „Grafik“ an.

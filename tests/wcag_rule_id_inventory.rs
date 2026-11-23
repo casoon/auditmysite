@@ -48,7 +48,7 @@ fn wcag_rule_id_inventory_contains_a_known_id_from_each_shape() {
     // `RuleMetadata`-driven — the common case, works regardless of whether
     // the rule is invoked as a tree rule, a DOM page rule, or wired directly
     // into the pipeline.
-    assert!(ids.contains("image-alt"), "text_alternatives.rs");
+    assert!(ids.contains("keyboard-trap"), "keyboard.rs");
 
     // The `SHARED_RULES` table in `wcag/shared.rs`.
     assert!(ids.contains("aria/role-invalid"), "shared.rs");

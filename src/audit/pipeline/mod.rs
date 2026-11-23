@@ -1856,12 +1856,6 @@ async fn run_rules(
     // Mit Layout-Stilen, damit die Regeln per CSS Verstecktes nicht pruefen.
     // Scheitert nur der Snapshot, laufen sie ohne Stile statt gar nicht.
     //
-    // Geholt vor den Baum-Regeln: `image-alt` meldet ein `<svg>` mit, weil
-    // es im AX-Baum nicht von einem `<div role="img">` zu unterscheiden ist,
-    // und `svg/name-missing` meldet es schon. Nur wenn der DOM da ist -- also
-    // die geteilten Regeln laufen --, fallen diese Befunde weg; sonst bleiben
-    // sie, statt dass das `<svg>` gar nicht geprueft wird.
-    //
     // Aus demselben Abruf entstehen die Dokumente der iframes (#715).
     // Dazu die Messungen an der laufenden Seite (Rahmen, Drehung, Einfügen,
     // Fokus, Textabstand), soweit eine Regel sie liest.
@@ -1888,25 +1882,16 @@ async fn run_rules(
         .as_ref()
         .map_err(|e| e.to_string())
         .and_then(|c| c.document(&snapshot.ax_tree).map_err(|e| e.to_string()));
-    let svg_nodes = match &doc {
-        Ok(doc) => crate::audit::frames::svg_image_nodes(page, doc, &snapshot.ax_tree).await,
-        Err(_) => Default::default(),
-    };
-    let superseded = |v: &Violation| wcag::rules::is_svg_finding(v, &svg_nodes);
 
     // Audit exclusions (#645) are applied per rule, before each rule's
     // outcome is counted — so `rule_outcomes[].findings` matches the report,
-    // and neither enrichment nor evidence capture is spent on them. The
-    // superseded `<svg>` findings ride the same mechanism so the outcome
-    // does not count them either, but they are no audit exclusion and are
-    // dropped from that list again.
-    let (mut wcag_results, excluded) = wcag::check_all_excluding(
+    // and neither enrichment nor evidence capture is spent on them.
+    let (mut wcag_results, mut excluded) = wcag::check_all_excluding(
         &snapshot.ax_tree,
         config.wcag_level,
         &config.rule_filter,
-        &|v| superseded(v) || exclusion.excludes_located(v, &snapshot.ax_tree),
+        &|v| exclusion.excludes_located(v, &snapshot.ax_tree),
     );
-    let mut excluded: Vec<Violation> = excluded.into_iter().filter(|v| !superseded(v)).collect();
     for outcome in &mut wcag_results.rule_outcomes {
         outcome.viewport = Some(viewport_label.to_string());
     }
@@ -2679,7 +2664,7 @@ mod tests {
             Violation::new(rule, rule, WcagLevel::A, Severity::High, "msg", "node-1")
                 .with_rule_id(axe_id)
         };
-        let desktop = [v("1.1.1", "image-alt")];
+        let desktop = [v("2.1.2", "keyboard-trap")];
         let mobile = [
             v("4.1.1", wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id),
             v("1.4.10", wcag::rules::REFLOW_RULE.axe_id),
@@ -2694,7 +2679,7 @@ mod tests {
         assert_eq!(
             ids,
             [
-                "image-alt",
+                "keyboard-trap",
                 wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id,
                 wcag::rules::REFLOW_RULE.axe_id,
             ]

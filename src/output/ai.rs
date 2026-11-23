@@ -341,14 +341,14 @@ mod tests {
         .with_selector("img.hero")
         .with_fix("Add alt attribute")
         .with_help_url("https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html")
-        .with_rule_id("image-alt")
+        .with_rule_id("images/alt-missing")
         .with_tags(vec!["wcag2a".to_string(), "wcag111".to_string()]);
 
         let report = make_report_with_violations(vec![v]);
         let output = format_ai_json(&report).unwrap();
 
-        assert!(output.contains("\"task_id\": \"image-alt-001\""));
-        assert!(output.contains("\"rule_id\": \"image-alt\""));
+        assert!(output.contains("\"task_id\": \"images/alt-missing-001\""));
+        assert!(output.contains("\"rule_id\": \"images/alt-missing\""));
         assert!(output.contains("\"wcag\": \"1.1.1\""));
         assert!(output.contains("\"selector\": \"img.hero\""));
         assert!(output.contains("\"node_id\": \"node-99\""));

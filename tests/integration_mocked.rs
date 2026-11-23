@@ -9,37 +9,44 @@ use auditmysite::browser::mock::MockAXSession;
 use auditmysite::wcag::{check_all, check_all_with_config, RuleFilterConfig};
 use auditmysite::WcagLevel;
 
+fn trap_notes(results: &auditmysite::wcag::WcagResults) -> usize {
+    results
+        .warnings
+        .iter()
+        .filter(|v| v.rule == "2.1.2")
+        .count()
+}
+
 #[test]
-fn valid_page_has_no_image_alt_violation() {
+fn valid_page_has_no_keyboard_trap_note() {
     let session = MockAXSession::minimal_valid();
     let results = check_all(&session.tree, WcagLevel::AA);
-    assert!(
-        results.violations.iter().all(|v| v.rule != "1.1.1"),
-        "No 1.1.1 violation expected on a page without images"
-    );
+    assert_eq!(trap_notes(&results), 0, "No modal dialog, no 2.1.2 note");
 }
 
 #[test]
-fn image_missing_alt_triggers_violation() {
-    let session = MockAXSession::image_missing_alt();
+fn modal_dialog_triggers_review_note() {
+    let session = MockAXSession::modal_dialog();
     let results = check_all(&session.tree, WcagLevel::A);
-    assert!(
-        results.violations.iter().any(|v| v.rule == "1.1.1"),
-        "Expected 1.1.1 violation for image without alt text"
+    assert_eq!(
+        trap_notes(&results),
+        1,
+        "Expected a 2.1.2 note for the dialog"
     );
 }
 
 #[test]
-fn disabled_rule_suppresses_violation() {
+fn disabled_rule_suppresses_finding() {
     let filter = RuleFilterConfig {
-        disabled_rules: vec!["image-alt".to_string()],
+        disabled_rules: vec!["keyboard-trap".to_string()],
         enabled_only_rules: vec![],
     };
-    let session = MockAXSession::image_missing_alt();
+    let session = MockAXSession::modal_dialog();
     let results = check_all_with_config(&session.tree, WcagLevel::A, &filter);
-    assert!(
-        results.violations.iter().all(|v| v.rule != "1.1.1"),
-        "1.1.1 should be suppressed when image-alt rule is disabled"
+    assert_eq!(
+        trap_notes(&results),
+        0,
+        "2.1.2 should be suppressed when keyboard-trap is disabled"
     );
 }
 
@@ -47,13 +54,16 @@ fn disabled_rule_suppresses_violation() {
 fn enabled_only_runs_just_that_rule() {
     let filter = RuleFilterConfig {
         disabled_rules: vec![],
-        enabled_only_rules: vec!["image-alt".to_string()],
+        enabled_only_rules: vec!["keyboard-trap".to_string()],
     };
-    let session = MockAXSession::image_missing_alt();
-    let results = check_all_with_config(&session.tree, WcagLevel::A, &filter);
-    // Only image-alt runs, so only 1.1.1 violations are possible.
+    let session = MockAXSession::modal_dialog();
+    let results = check_all_with_config(&session.tree, WcagLevel::AA, &filter);
+    assert_eq!(trap_notes(&results), 1);
     assert!(
-        results.violations.iter().all(|v| v.rule == "1.1.1"),
-        "Only image-alt rule should produce violations"
+        results
+            .rule_outcomes
+            .iter()
+            .all(|o| o.rule_id == "keyboard-trap"),
+        "Only keyboard-trap should run"
     );
 }

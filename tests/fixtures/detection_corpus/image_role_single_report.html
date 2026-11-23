@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gallery opening hours</title>
+    <style>
+        .icon { display: inline-block; width: 16px; height: 16px; background: #446; }
+        .pseudo::before { content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect width='16' height='16' fill='%23446'/%3E%3C/svg%3E"); }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Gallery opening hours</h1>
+        <p>Open Tuesday to Sunday, 10:00 to 18:00.</p>
+        <div id="stamp" role="img" class="icon"></div>
+        <span id="empty-label" role="img" aria-label="" class="icon"></span>
+        <p><a href="/visit"><span id="link-icon" role="img" class="icon"></span> Plan your visit</a></p>
+        <div id="seal" role="img" aria-label="Gallery seal" class="icon"></div>
+        <img id="no-alt" src="/hall.jpg" width="120" height="80">
+        <img id="no-src" width="120" height="80">
+        <img id="explicit-role" role="img" src="/garden.jpg" width="120" height="80">
+        <svg id="logo" role="img" width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#a22"></circle></svg>
+        <p><span id="css-image" class="pseudo"></span> Audio guide available</p>
+    </main>
+</body>
+</html>

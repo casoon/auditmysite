@@ -35,7 +35,7 @@ async fn security_unreachable_server_is_not_measured() {
     assert_eq!(headers.reason_code.as_deref(), Some("http_connect_failed"));
 }
 
-/// The tree rules (`image-alt`, `keyboard-trap`) read the
+/// The tree rules (`keyboard-trap`, `focus-visible`) read the
 /// accessibility tree. When the page's target is gone before the audit —
 /// a crashed or closed tab — no tree can be taken: the audit must fail as a
 /// whole instead of reporting the tree rules as clean.

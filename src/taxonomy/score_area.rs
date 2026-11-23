@@ -99,7 +99,6 @@ use ScoreArea::*;
 /// Fehlzuordnung.
 static RULE_AREAS: &[(&str, ScoreArea)] = &[
     // ── 1.1.x / 1.2.x — Nicht-Text-Inhalte und Medien-Alternativen ──
-    ("image-alt", ImagesAlternativeText),
     ("images/alt-missing", ImagesAlternativeText),
     ("images/alt-suspicious", ImagesAlternativeText),
     ("images/area-alt-missing", ImagesAlternativeText),

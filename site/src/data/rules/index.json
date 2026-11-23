@@ -53,14 +53,6 @@
       "level": "A"
     },
     {
-      "id": "image-alt",
-      "title": "Missing alternative text on images",
-      "domain": "wcag",
-      "outcome": "automatic",
-      "criterion": "1.1.1",
-      "level": "A"
-    },
-    {
       "id": "images/alt-missing",
       "title": "Missing alternative text on images",
       "domain": "wcag",

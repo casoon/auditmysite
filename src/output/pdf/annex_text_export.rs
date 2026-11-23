@@ -164,7 +164,7 @@ fn export_en301549(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
             "unmeasured criteria",
             vec![finding("1.1.1", "images/alt-missing", 3)],
             vec![
-                unmeasured("image-alt", &["1.1.1"], NotRun::Errored),
+                unmeasured("svg/name-missing", &["1.1.1"], NotRun::Errored),
                 unmeasured("color-contrast", &["1.4.3", "1.4.11"], NotRun::Errored),
                 unmeasured("link-name", &["2.4.4"], NotRun::CapabilityMissing),
                 RuleRun::ran("label", 0),

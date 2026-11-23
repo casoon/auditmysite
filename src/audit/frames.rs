@@ -21,8 +21,6 @@
 //! in the execution block (`execution.frames`), so a skipped frame never
 //! reads as a clean one.
 
-use std::collections::HashSet;
-
 use chromiumoxide::cdp::browser_protocol::dom::{
     BackendNodeId, Node as CdpNode, ResolveNodeParams, ShadowRootType,
 };
@@ -31,7 +29,7 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
-use crate::accessibility::{AXTree, CdpDocument, DomCapture};
+use crate::accessibility::{AXTree, DomCapture};
 use crate::audit::exclusion::ExclusionScope;
 use crate::model::{FrameOrigin, WcagLevel};
 use crate::wcag::types::fold_rule_run;
@@ -39,7 +37,8 @@ use crate::wcag::{self, RuleFilterConfig, RuleRun, Violation, WcagResults};
 
 /// Tree rules that run inside frames, by the axe id that gates them in
 /// `wcag::engine`. Only rules that judge single elements or their
-/// relationships: image names and the keyboard-trap note. The redundant
+/// relationships: the keyboard-trap note. The names of image-role elements
+/// run as the shared `names/required-missing` since #1181. The redundant
 /// description runs as the shared `names/description-duplicates-name` since
 /// a11y-rules 0.31 (#919). Roles, their required parents and children and
 /// ambiguous `aria-owns` run as shared rules since #691, the names of
@@ -51,7 +50,7 @@ use crate::wcag::{self, RuleFilterConfig, RuleRun, Violation, WcagResults};
 /// Left out on purpose — they judge the document as a whole and belong to
 /// the top frame only: `focus-visible` (fires only when the whole page has
 /// nothing focusable), `unusual-words` and `help`.
-pub const FRAME_TREE_RULES: &[&str] = &["image-alt", "keyboard-trap"];
+pub const FRAME_TREE_RULES: &[&str] = &["keyboard-trap"];
 
 /// Shared rules (`wcag::shared::SHARED_RULES`) that run inside frames — the
 /// element-level ones. Left out, as page-level: `document/lang-*` (the
@@ -744,16 +743,13 @@ pub(crate) async fn audit_frames(
         observe(None);
         let observed = out.frames.len() - 1;
 
-        let svg_nodes = svg_image_nodes(page, &doc, &frame_ax).await;
-        let superseded = |v: &Violation| wcag::rules::is_svg_finding(v, &svg_nodes);
         let mut frame_results = WcagResults::new();
         if let Some(filter) = &tree_filter {
             let (tree, dropped) =
                 wcag::check_all_excluding(&frame_ax, config.level, filter, &|v| {
-                    superseded(v) || exclusion.excludes_located(v, &frame_ax)
+                    exclusion.excludes_located(v, &frame_ax)
                 });
-            out.excluded
-                .extend(dropped.into_iter().filter(|v| !superseded(v)));
+            out.excluded.extend(dropped);
             frame_results.merge(tree);
         }
         let mut shared = wcag::shared::run_shared_rules(&doc, config.lang);
@@ -827,33 +823,6 @@ pub(crate) async fn audit_frames(
     out
 }
 
-/// The AX ids of the SVG elements whose `image-alt` findings give way to
-/// `svg/name-missing` ([`wcag::rules::is_svg_finding`]): those of the DOM
-/// capture, plus the image nodes of the AX tree the capture does not hold,
-/// which the browser itself reports as SVG. A frame whose content renders
-/// after its `load` is captured without it, while its AX tree, read later,
-/// has it; without the second part every unnamed `<svg>` there became an
-/// `image-alt` failure (#1165).
-pub(crate) async fn svg_image_nodes(
-    page: &Page,
-    doc: &CdpDocument,
-    ax: &AXTree,
-) -> HashSet<String> {
-    let mut ids = wcag::shared::svg_ax_node_ids(doc);
-    let missing = wcag::shared::image_nodes_missing_from(doc, ax);
-    if !missing.is_empty() {
-        let backend: Vec<i64> = missing.iter().map(|(_, b)| *b).collect();
-        let svg = crate::accessibility::svg_backend_nodes(page, &backend).await;
-        ids.extend(
-            missing
-                .into_iter()
-                .filter(|(_, b)| svg.contains(b))
-                .map(|(id, _)| id),
-        );
-    }
-    ids
-}
-
 /// Merges the frame pass into the page's results: findings by kind, rule
 /// outcomes into the page's `(rule_id, viewport)` entries.
 pub(crate) fn merge_into(page: &mut WcagResults, mut frames: WcagResults) {
@@ -874,9 +843,7 @@ mod tests {
         for page_level in ["focus-visible", "heading-order", "unusual-words", "help"] {
             assert!(!filter.should_run(page_level), "{page_level}");
         }
-        for element in ["keyboard-trap", "image-alt"] {
-            assert!(filter.should_run(element), "{element}");
-        }
+        assert!(filter.should_run("keyboard-trap"));
     }
 
     #[test]
@@ -887,7 +854,7 @@ mod tests {
         };
         let filter = frame_rule_filter(&user).unwrap();
         assert!(!filter.should_run("link-name"));
-        assert!(filter.should_run("image-alt"));
+        assert!(filter.should_run("keyboard-trap"));
 
         // Only page-level rules enabled: nothing to run in frames. An empty
         // `enabled_only_rules` would run every rule.
@@ -1107,12 +1074,12 @@ mod tests {
         // The user's filter removes tree rules from the frame scope, and
         // `enabled_only` of a page-level rule leaves only the shared ones.
         let disabled = RuleFilterConfig {
-            disabled_rules: vec!["image-alt".into()],
+            disabled_rules: vec!["keyboard-trap".into()],
             enabled_only_rules: Vec::new(),
         };
         assert!(!expected_frame_rules(WcagLevel::AA, &disabled)
             .iter()
-            .any(|r| r == "image-alt"));
+            .any(|r| r == "keyboard-trap"));
         let page_level_only = RuleFilterConfig {
             disabled_rules: Vec::new(),
             enabled_only_rules: vec!["focus-visible".into()],
@@ -1127,7 +1094,7 @@ mod tests {
             selector: "iframe#w".into(),
             url: None,
             skipped: None,
-            outcomes: vec![RuleRun::ran("image-alt", findings).in_viewport(viewport)],
+            outcomes: vec![RuleRun::ran("keyboard-trap", findings).in_viewport(viewport)],
         };
         let mut c = FrameCoverage::default();
         c.record("desktop", &[obs("desktop", 1)]);
@@ -1147,7 +1114,10 @@ mod tests {
             5
         );
         let json = serde_json::to_value(&c).unwrap();
-        assert_eq!(json["audited"][0]["outcomes"][0]["rule_id"], "image-alt");
+        assert_eq!(
+            json["audited"][0]["outcomes"][0]["rule_id"],
+            "keyboard-trap"
+        );
     }
 
     #[test]

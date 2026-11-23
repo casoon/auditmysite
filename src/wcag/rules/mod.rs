@@ -14,7 +14,6 @@ mod on_input;
 mod page_rules;
 mod page_titled;
 mod reflow;
-mod text_alternatives;
 
 pub use display_modes::{
     check_display_modes_with_page, DISPLAY_INIT_MISSING_RULE, DISPLAY_TEXT_HIDDEN_RULE,
@@ -34,4 +33,3 @@ pub use on_input::check_on_input_with_page;
 pub use page_rules::{PageRuleEntry, PAGE_RULES};
 pub use page_titled::check_page_titled_with_page;
 pub use reflow::{check_reflow_with_page, REFLOW_RULE};
-pub use text_alternatives::{check_text_alternatives, is_svg_finding};

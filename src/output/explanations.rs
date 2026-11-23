@@ -330,7 +330,6 @@ static RULE_ENTRIES: &[(&str, &str)] = &[
     ("keyboard/focusable-no-role", "focusable-no-role"),
     // Criterion entry: the explanation is written for the rule's WCAG
     // criterion, not for the rule.
-    ("image-alt", "1.1.1"),
     ("images/alt-missing", "1.1.1"),
     ("video-caption", "1.2.2"),
     ("media/video-captions-missing", "1.2.2"),
@@ -2310,8 +2309,8 @@ mod tests {
                 None => none += 1,
             }
         }
-        assert_eq!((own, other, none), (64, 85, 23));
-        assert_eq!(RULE_ENTRIES.len(), 64 + 85);
+        assert_eq!((own, other, none), (64, 84, 23));
+        assert_eq!(RULE_ENTRIES.len(), 64 + 84);
     }
 
     /// The lookup the reports use resolves for every entry: a missing message

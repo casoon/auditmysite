@@ -86,11 +86,6 @@
       "occurrences": 1
     },
     {
-      "rule_id": "image-alt",
-      "verdict": "violation",
-      "occurrences": 2
-    },
-    {
       "rule_id": "manual/no-timing",
       "verdict": "needs_review"
     },

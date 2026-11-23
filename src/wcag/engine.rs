@@ -5,7 +5,7 @@
 use tracing::{debug, info};
 
 pub use super::rules::check_reflow_with_page;
-use super::rules::{check_focus_visible, check_keyboard, check_text_alternatives};
+use super::rules::{check_focus_visible, check_keyboard};
 use super::types::{Violation, WcagResults};
 use crate::accessibility::AXTree;
 use crate::wcag::WcagLevel;
@@ -143,12 +143,6 @@ pub struct TreeRule {
 /// The tree rules that remain. Everything else that once ran here moved to
 /// the shared rules (`wcag::shared::SHARED_RULES`) or the page rules.
 pub const TREE_RULES: &[TreeRule] = &[
-    // 1.1.1 Non-text Content
-    TreeRule {
-        axe_id: "image-alt",
-        min_level: WcagLevel::A,
-        check: check_text_alternatives,
-    },
     // 2.1.2 No Keyboard Trap: whether focus gets out again shows only real
     // operation -- one note per modal dialog and one page-wide.
     TreeRule {
@@ -167,41 +161,43 @@ pub const TREE_RULES: &[TreeRule] = &[
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::accessibility::{AXNode, AXTree};
+    use crate::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 
+    /// A page with one modal dialog: `keyboard-trap` notes the dialog for
+    /// review (node "2").
     fn create_test_tree() -> AXTree {
-        let nodes = vec![
-            AXNode {
-                node_id: "1".to_string(),
-                ignored: false,
-                ignored_reasons: vec![],
-                role: Some("WebArea".to_string()),
-                name: Some("Test Page".to_string()),
-                name_source: None,
-                description: None,
-                value: None,
-                properties: vec![],
-                child_ids: vec!["2".to_string()],
-                parent_id: None,
-                backend_dom_node_id: None,
-            },
-            AXNode {
-                node_id: "2".to_string(),
-                ignored: false,
-                ignored_reasons: vec![],
-                role: Some("image".to_string()),
-                name: None, // Missing alt text!
-                name_source: None,
-                description: None,
-                value: None,
-                properties: vec![],
-                child_ids: vec![],
-                parent_id: Some("1".to_string()),
-                backend_dom_node_id: None,
-            },
-        ];
+        let node = |id: &str, role: &str, parent: Option<&str>, children: &[&str]| AXNode {
+            node_id: id.to_string(),
+            ignored: false,
+            ignored_reasons: vec![],
+            role: Some(role.to_string()),
+            name: Some("Test".to_string()),
+            name_source: None,
+            description: None,
+            value: None,
+            properties: vec![],
+            child_ids: children.iter().map(|c| c.to_string()).collect(),
+            parent_id: parent.map(String::from),
+            backend_dom_node_id: None,
+        };
+        let mut dialog = node("2", "dialog", Some("1"), &[]);
+        dialog.properties.push(AXProperty {
+            name: "modal".to_string(),
+            value: AXValue::Bool(true),
+        });
+        AXTree::from_nodes(vec![node("1", "RootWebArea", None, &["2"]), dialog])
+    }
 
-        AXTree::from_nodes(nodes)
+    fn trap_notes(results: &WcagResults) -> usize {
+        results
+            .warnings
+            .iter()
+            .filter(|v| v.rule_id.as_deref() == Some("keyboard-trap"))
+            .count()
+    }
+
+    fn ran(results: &WcagResults, id: &str) -> bool {
+        results.rule_outcomes.iter().any(|o| o.rule_id == id)
     }
 
     #[test]
@@ -209,31 +205,22 @@ mod tests {
         let tree = create_test_tree();
         let results = check_all(&tree, WcagLevel::A);
 
-        // Should find the missing alt text
-        assert!(!results.violations.is_empty());
-        assert!(results.violations.iter().any(|v| v.rule == "1.1.1"));
+        assert_eq!(trap_notes(&results), 1);
+        assert!(ran(&results, "keyboard-trap"));
+        assert!(!ran(&results, "focus-visible"));
     }
 
     #[test]
-    fn check_all_excluding_drops_per_rule_and_counts_what_remains() {
+    fn check_all_excluding_drops_per_rule_and_keeps_the_outcome() {
         let tree = create_test_tree();
-        let full = check_all(&tree, WcagLevel::A);
-        let alt_run = |r: &WcagResults| {
-            r.rule_outcomes
-                .iter()
-                .find(|o| o.rule_id == "image-alt")
-                .map(|o| o.findings)
-        };
-        assert!(alt_run(&full).unwrap() > 0);
-
         let (kept, dropped) =
             check_all_excluding(&tree, WcagLevel::A, &RuleFilterConfig::default(), &|v| {
                 v.node_id == "2"
             });
-        assert!(kept.violations.iter().all(|v| v.node_id != "2"));
-        assert!(dropped.iter().any(|v| v.rule == "1.1.1"));
-        // The outcome counts what the report shows, not the raw rule output.
-        assert_eq!(alt_run(&kept), Some(0));
+        assert_eq!(trap_notes(&kept), 0);
+        assert!(dropped.iter().any(|v| v.rule == "2.1.2"));
+        // The rule still ran; only its finding was excluded.
+        assert!(ran(&kept, "keyboard-trap"));
     }
 
     #[test]
@@ -242,31 +229,29 @@ mod tests {
         let results = check_all(&tree, WcagLevel::AA);
 
         // Should run both A and AA rules
-        assert!(!results.violations.is_empty());
+        assert!(ran(&results, "keyboard-trap"));
+        assert!(ran(&results, "focus-visible"));
     }
 
     #[test]
     fn test_rule_filter_disabled_rules() {
         let tree = create_test_tree();
         let filter = RuleFilterConfig {
-            disabled_rules: vec!["image-alt".to_string()],
+            disabled_rules: vec!["keyboard-trap".to_string()],
             enabled_only_rules: vec![],
         };
         let results = check_all_with_config(&tree, WcagLevel::A, &filter);
-        // image-alt disabled → no 1.1.1 violation from text_alternatives
-        assert!(results.violations.iter().all(|v| v.rule != "1.1.1"));
+        assert_eq!(trap_notes(&results), 0);
+        assert!(!ran(&results, "keyboard-trap"));
     }
 
     #[test]
     fn test_rule_filter_wcag_level() {
         let tree = create_test_tree();
-        let results_a = check_all(&tree, WcagLevel::A);
-        let results_aa = check_all(&tree, WcagLevel::AA);
-        // AA scan runs at least as many checks as A scan
-        assert!(results_aa.violations.len() >= results_a.violations.len());
-        // AAA-only rule (section-headings) is absent in an A-only scan
-        let results_aaa = check_all(&tree, WcagLevel::AAA);
-        assert!(results_aaa.violations.len() >= results_aa.violations.len());
+        let runs = |level| check_all(&tree, level).rule_outcomes.len();
+        // A higher level runs at least as many rules as a lower one.
+        assert!(runs(WcagLevel::AA) >= runs(WcagLevel::A));
+        assert!(runs(WcagLevel::AAA) >= runs(WcagLevel::AA));
     }
 
     #[test]
@@ -276,6 +261,7 @@ mod tests {
         let filtered = check_all_with_config(&tree, WcagLevel::A, &default_filter);
         let unfiltered = check_all(&tree, WcagLevel::A);
         // Default (empty) filter behaves identically to no filter
-        assert_eq!(filtered.violations.len(), unfiltered.violations.len());
+        assert_eq!(filtered.warnings.len(), unfiltered.warnings.len());
+        assert_eq!(filtered.rule_outcomes.len(), unfiltered.rule_outcomes.len());
     }
 }

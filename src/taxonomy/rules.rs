@@ -116,22 +116,6 @@ impl RuleLookup {
 pub static RULES: &[Rule] = &[
     // ── Inhalte & Alternativen ────────────────────────────────────────────
     Rule {
-        id: "image-alt",
-        dimension: Dimension::Accessibility,
-        subcategory: Subcategory::ContentAlternatives,
-        issue_class: IssueClass::Missing,
-        severity: Severity::High,
-        external_ref: Some("WCAG 1.1.1"),
-        external_level: Some("A"),
-        axe_id: Some("image-alt"),
-        score_impact: ScoreImpact {
-            base_penalty: 3.0,
-            max_penalty: 10.0,
-            occurrence_scaling: Scaling::Logarithmic,
-        },
-        report_visibility: VIS_ALL,
-    },
-    Rule {
         id: "images/alt-missing",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::ContentAlternatives,

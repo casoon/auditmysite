@@ -169,11 +169,11 @@ mod tests {
     #[test]
     fn filter_removes_tree_rules_but_not_shared_ones() {
         let filter = RuleFilterConfig {
-            disabled_rules: vec!["image-alt".into(), SHARED_RULES[0].id.into()],
+            disabled_rules: vec!["keyboard-trap".into(), SHARED_RULES[0].id.into()],
             enabled_only_rules: vec![],
         };
         let expected = expected_rules(WcagLevel::AA, &filter, false);
-        assert!(!ids(&expected).contains("image-alt"));
+        assert!(!ids(&expected).contains("keyboard-trap"));
         assert!(ids(&expected).contains(SHARED_RULES[0].id));
     }
 
