@@ -11,7 +11,7 @@
 
 `auditmysite` is a Rust CLI that audits accessibility against fully rendered pages in Chrome. Instead of scanning raw HTML only, it uses Chrome DevTools Protocol (CDP) and the browser's native Accessibility Tree, so it can evaluate dynamic DOM, computed styles, and JavaScript-heavy applications more realistically.
 
-It is designed for teams that want a fast local check, stable JSON for automation, and a single binary that can be dropped into CI.
+It is designed for teams that want stable JSON for automation and a single binary that can be dropped into CI. The Rust process itself stays around 44 MB; Chrome takes most of the memory of a run, and with the WCAG rules only (`--modules a11y`) a page takes about as long as with pa11y ([measured comparison](docs/reference/comparison.md#speed-and-memory)).
 
 ## Why use it
 
@@ -181,6 +181,8 @@ A default run is the full analysis set (desktop and mobile accessibility, thrott
 | WCAG rules only | `--interactive off --modules a11y` | 7.0 (2.5 – 8.9) |
 
 In batch runs pages share one browser and run in parallel: six URLs took 99 s with `-c 1`, 47 s with `-c 3` and 34 s with `-c 6`. `--max-pages` caps the page count and is the main lever on total time. How `--concurrency`, `--timeout`, `--max-pages` and the module flags interact, the full batch table and the measuring conditions: [CLI and output contract](docs/reference/cli-and-output.md#runtime-per-page).
+
+The figures above are one run per live site with every module of the run. Against pa11y and Lighthouse on the same six pages and the same Chrome (median of five runs, peak memory of the whole process tree, `scripts/bench-compare.py`), the WCAG-only run took 2.4 s per page against 1.8 s for pa11y and 9.8 s for Lighthouse's accessibility category, at a peak of 972 MB against 829 MB and 1160 MB; Chrome is most of it in every tool. Method, per-page numbers and the finding overlap: [Compared to typical setups](docs/reference/comparison.md#speed-and-memory).
 
 ## SARIF output
 
