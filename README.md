@@ -182,6 +182,8 @@ A default run is the full analysis set (desktop and mobile accessibility, thrott
 
 In batch runs pages share one browser and run in parallel: six URLs took 99 s with `-c 1`, 47 s with `-c 3` and 34 s with `-c 6`. `--max-pages` caps the page count and is the main lever on total time. How `--concurrency`, `--timeout`, `--max-pages` and the module flags interact, the full batch table and the measuring conditions: [CLI and output contract](docs/reference/cli-and-output.md#runtime-per-page).
 
+The figures above are one run per live site with every module of the run. Against pa11y and Lighthouse on the same six pages and the same Chrome (median of five runs, peak memory of the whole process tree, `scripts/bench-compare.py`), the WCAG-only run took 2.4 s per page against 1.8 s for pa11y and 9.8 s for Lighthouse's accessibility category, at a peak of 972 MB against 829 MB and 1160 MB; Chrome is most of it in every tool. Method, per-page numbers and the finding overlap: [Compared to typical setups](docs/reference/comparison.md#speed-and-memory).
+
 ## SARIF output
 
 `-f sarif` writes SARIF 2.1.0 for single pages and batches: one result per finding occurrence, one rule per rule ID, `level` from the severity, a stable `partialFingerprints` entry per result, and a pseudo-path derived from the page URL as the location (there is no source file and no line number). Checks that did not run are listed as invocation notifications, never as results.
