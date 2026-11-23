@@ -1,6 +1,7 @@
 {
   "case": "content_video_ten_tracks",
   "expectations": [
-    {"rule_id": "video-caption", "verdict": "pass"}
+    {"rule_id": "video-caption", "verdict": "pass"},
+    {"rule_id": "media/video-captions-missing", "verdict": "pass"}
   ]
 }

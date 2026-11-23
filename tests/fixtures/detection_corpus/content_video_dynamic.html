@@ -19,7 +19,9 @@
         <div id="player-slot"></div>
         <script>
             document.getElementById('player-slot').innerHTML =
-                '<video id="featured" controls width="320" height="180" src="/featured.mp4"></video>';
+                '<video id="featured" controls width="320" height="180" src="/featured.mp4"></video>' +
+                '<video id="talk" controls width="320" height="180" src="/talk.mp4">' +
+                '<track kind="subtitles" src="/talk-subtitles" srclang="en" label="English"></video>';
         </script>
     </main>
     <footer><p>City Library, 1 Market Square</p></footer>

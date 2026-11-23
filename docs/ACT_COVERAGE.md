@@ -127,7 +127,7 @@ One id per rule: the detector id (`contrast/text-insufficient`) is also the `rul
 | `oj04fd` | Element in sequential focus order has visible focus | `focus/outline-removed` | Internal rule inspects stylesheets (outline removed without replacement); ACT compares pixels of focused and unfocused element. Heuristic. |
 | `d0f69e` | Table header cell has assigned cells | `tables/header-without-data` | Internal rule fails headers in a table without any data cell; ACT assigns cells per header by scope and position. |
 | `a25f45` | Headers attribute specified on a cell refers to cells in the same table element | `tables/headers-attr-invalid` | Internal rule requires header cells of the same table; ACT requires any cell of the same table and not the cell itself. |
-| `f51b46` | Video element auditory content has captions | `video-caption` | Internal rule only checks for a same-origin caption track and otherwise reports untested; it does not decide whether the audio needs captions. |
+| `f51b46` | Video element auditory content has captions | `media/video-captions-missing`, `video-caption` | `media/video-captions-missing` reports a video without a caption or subtitle track as a review; `video-caption` checks that an existing track file loads same-origin as a caption file and notes third-party embeds as untested. Neither decides whether the audio needs captions. |
 
 ## Unclear
 

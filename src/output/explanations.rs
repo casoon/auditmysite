@@ -333,6 +333,7 @@ static RULE_ENTRIES: &[(&str, &str)] = &[
     ("image-alt", "1.1.1"),
     ("images/alt-missing", "1.1.1"),
     ("video-caption", "1.2.2"),
+    ("media/video-captions-missing", "1.2.2"),
     ("media-alt", "1.2.8"),
     ("headings/section-without-heading", "2.4.10"),
     ("keyboard/interactive-not-focusable", "2.1.1"),
@@ -2309,8 +2310,8 @@ mod tests {
                 None => none += 1,
             }
         }
-        assert_eq!((own, other, none), (64, 84, 23));
-        assert_eq!(RULE_ENTRIES.len(), 64 + 84);
+        assert_eq!((own, other, none), (64, 85, 23));
+        assert_eq!(RULE_ENTRIES.len(), 64 + 85);
     }
 
     /// The lookup the reports use resolves for every entry: a missing message

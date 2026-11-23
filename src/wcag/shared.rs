@@ -1270,6 +1270,21 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Audio Control (Measured Playback)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/audio-control.html",
     },
+    // Übernimmt aus `video-caption` (`wcag::rules::media_rules`) den Fall
+    // „`<video>` ohne `<track kind="captions">`/`subtitles`", ab a11y-rules
+    // 0.31 (#1182). Gewollt anders: ein `REVIEW` je Video statt einer
+    // ungeprüften Notiz je Seite; ein stummes Video ohne `controls` und ein
+    // Video unter `hidden`/`aria-hidden` bleiben ohne Befund. Im Host bleibt,
+    // was nur der Browser weiß: ob die Datei einer vorhandenen Spur lädt und
+    // eingebettete Player (YouTube, Vimeo); `video-caption` prüft nur noch
+    // Videos mit einer solchen Spur, sodass kein Video zweimal gemeldet wird.
+    SharedRule {
+        id: "media/video-captions-missing",
+        criterion: "1.2.2",
+        level: WcagLevel::A,
+        name: "Captions (Prerecorded)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/captions-prerecorded.html",
+    },
     // Ersetzt `frame-title` aus `wcag::rules::media_rules`. `a11y-rules`
     // führt 2.4.1 und 4.1.2 (H64); auditmysite meldete unter 2.4.1 und
     // bleibt dabei. Gewollt anders: nur `<iframe>`; unsichtbar heißt
@@ -1951,6 +1966,7 @@ pub const LEGACY_RULE_IDS: &[(&str, &str)] = &[
         "scrollable-region-focusable",
     ),
     ("lists/role-redundant", "redundant-role"),
+    ("media/video-captions-missing", "video-caption"),
     ("targets/size", "target-size-minimum"),
     ("manual/pointer-gestures", "pointer-gestures"),
     ("manual/motion-actuation", "motion-actuation"),

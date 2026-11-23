@@ -1,6 +1,8 @@
 {
   "case": "content_video_dynamic",
   "expectations": [
-    {"rule_id": "video-caption", "verdict": "needs_review", "occurrences": 1}
+    {"rule_id": "video-caption", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "media/video-captions-missing", "selector": "video#featured", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "media/video-captions-missing", "selector": "video#talk", "verdict": "pass"}
   ]
 }

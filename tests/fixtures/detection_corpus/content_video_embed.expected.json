@@ -1,0 +1,7 @@
+{
+  "case": "content_video_embed",
+  "expectations": [
+    {"rule_id": "video-caption", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "media/video-captions-missing", "verdict": "pass"}
+  ]
+}
