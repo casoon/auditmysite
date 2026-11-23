@@ -21,6 +21,8 @@
 //! in the execution block (`execution.frames`), so a skipped frame never
 //! reads as a clean one.
 
+use std::collections::HashSet;
+
 use chromiumoxide::cdp::browser_protocol::dom::{
     BackendNodeId, Node as CdpNode, ResolveNodeParams, ShadowRootType,
 };
@@ -29,7 +31,7 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
-use crate::accessibility::{AXTree, DomCapture};
+use crate::accessibility::{AXTree, CdpDocument, DomCapture};
 use crate::audit::exclusion::ExclusionScope;
 use crate::model::{FrameOrigin, WcagLevel};
 use crate::wcag::types::fold_rule_run;
@@ -738,7 +740,7 @@ pub(crate) async fn audit_frames(
         observe(None);
         let observed = out.frames.len() - 1;
 
-        let svg_nodes = wcag::shared::svg_ax_node_ids(&doc);
+        let svg_nodes = svg_image_nodes(page, &doc, &frame_ax).await;
         let superseded = |v: &Violation| wcag::rules::is_svg_finding(v, &svg_nodes);
         let mut frame_results = WcagResults::new();
         if let Some(filter) = &tree_filter {
@@ -819,6 +821,33 @@ pub(crate) async fn audit_frames(
         );
     }
     out
+}
+
+/// The AX ids of the SVG elements whose `image-alt` findings give way to
+/// `svg/name-missing` ([`wcag::rules::is_svg_finding`]): those of the DOM
+/// capture, plus the image nodes of the AX tree the capture does not hold,
+/// which the browser itself reports as SVG. A frame whose content renders
+/// after its `load` is captured without it, while its AX tree, read later,
+/// has it; without the second part every unnamed `<svg>` there became an
+/// `image-alt` failure (#1165).
+pub(crate) async fn svg_image_nodes(
+    page: &Page,
+    doc: &CdpDocument,
+    ax: &AXTree,
+) -> HashSet<String> {
+    let mut ids = wcag::shared::svg_ax_node_ids(doc);
+    let missing = wcag::shared::image_nodes_missing_from(doc, ax);
+    if !missing.is_empty() {
+        let backend: Vec<i64> = missing.iter().map(|(_, b)| *b).collect();
+        let svg = crate::accessibility::svg_backend_nodes(page, &backend).await;
+        ids.extend(
+            missing
+                .into_iter()
+                .filter(|(_, b)| svg.contains(b))
+                .map(|(id, _)| id),
+        );
+    }
+    ids
 }
 
 /// Merges the frame pass into the page's results: findings by kind, rule

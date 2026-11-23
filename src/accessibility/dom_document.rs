@@ -2018,6 +2018,31 @@ async fn get_document(page: &Page) -> Result<CdpNode> {
     Ok(response.result.root.clone())
 }
 
+/// Welche der Backend-Knoten der Browser als SVG-Element führt
+/// (`DOM.describeNode`, `isSVG`). Für Bildknoten des AX-Baums, die der
+/// DOM-Abzug nicht kennt (`wcag::shared::image_nodes_missing_from`, #1165).
+/// Ein Knoten, den der Browser nicht mehr beschreiben kann, zählt nicht dazu.
+pub async fn svg_backend_nodes(page: &Page, backend_ids: &[i64]) -> HashSet<i64> {
+    let describes = backend_ids.iter().map(|&id| {
+        page.execute(
+            DescribeNodeParams::builder()
+                .backend_node_id(chromiumoxide::cdp::browser_protocol::dom::BackendNodeId::new(id))
+                .build(),
+        )
+    });
+    backend_ids
+        .iter()
+        .zip(futures::future::join_all(describes).await)
+        .filter_map(|(&id, described)| match described {
+            Ok(d) => (d.result.node.is_svg == Some(true)).then_some(id),
+            Err(e) => {
+                debug!("describeNode fuer Backend-Knoten {id} fehlgeschlagen: {e}");
+                None
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

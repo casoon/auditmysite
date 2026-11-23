@@ -16,7 +16,7 @@
       "contract_id": "svg/name-missing",
       "outcome": "automatic",
       "source": "WCAG 2.2 SC 1.1.1 Non-text Content; SVG-AAM; ACT 7d6734 (svg element with explicit role has non-empty accessible name)",
-      "applicability": "<svg> elements in the accessibility tree that are not marked decorative (role none/presentation, aria-hidden) and not an icon inside a named link or button.",
+      "applicability": "<svg> elements, and elements inside an SVG with an explicit image role (ACT 7d6734), in the accessibility tree that are not marked decorative (role none/presentation, aria-hidden) and not an icon inside a named link or button.",
       "expectation": "Fails for an <svg> with an explicit image role (img, graphics-document, graphics-symbol)\nand no name. Without a role the graphic may be decoration next to text: review. Names from <title>\nor aria-label pass, decorative SVGs pass, and an icon in a named button passes. Hidden subtrees are\nout of scope.",
       "method": "shared",
       "capabilities": [

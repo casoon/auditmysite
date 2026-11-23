@@ -5,15 +5,15 @@
 //!
 //! Seit #690 prüft der geteilte Bestand die beiden häufigsten Fälle selbst:
 //! `<img>` als `images/alt-missing`/`images/alt-suspicious` und `<svg>` als
-//! `svg/name-missing` (siehe `wcag::shared`). Hier bleibt, was dort kein
-//! Gegenstück hat — Elemente mit `role="img"`, die weder `<img>` noch `<svg>`
-//! sind, und die Icon-Heuristik.
+//! `svg/name-missing` (siehe `wcag::shared`). Hier bleiben Elemente mit
+//! `role="img"`, die weder `<img>` noch im SVG sind.
 //!
 //! `<img>` ist im AX-Baum eindeutig: Chrome setzt die Eigenschaft `url`.
-//! `<svg>` dagegen ist dort vom `<div role="img">` nicht zu unterscheiden
-//! (beide Rolle `image`, keine `url`). Befunde an `<svg>` nimmt deshalb die
-//! Pipeline heraus, die den DOM kennt — über [`is_svg_finding`], und nur,
-//! wenn die geteilten Regeln tatsächlich gelaufen sind.
+//! `<svg>` und Elemente darin (`<g role="img">`) sind dort dagegen vom
+//! `<div role="img">` nicht zu unterscheiden (Rolle `image`, keine `url`).
+//! Befunde an ihnen nimmt deshalb die Pipeline heraus, die den DOM kennt —
+//! über [`is_svg_finding`], und nur, wenn die geteilten Regeln tatsächlich
+//! gelaufen sind (#1165).
 
 use std::collections::HashSet;
 
@@ -53,10 +53,6 @@ pub fn check_text_alternatives(tree: &AXTree) -> WcagResults {
         .collect();
     results.nodes_checked = images.len();
 
-    // Node IDs already evaluated as images, so check_icons does not flag the same
-    // role="img" node a second time (#487 false-positive double counting).
-    let mut flagged_image_ids: HashSet<&str> = HashSet::new();
-
     for image in images {
         // Skip ignored nodes (they're intentionally hidden from AT)
         if image.ignored {
@@ -80,7 +76,6 @@ pub fn check_text_alternatives(tree: &AXTree) -> WcagResults {
 
         // Check if image has an accessible name
         if !image.has_name() {
-            flagged_image_ids.insert(image.node_id.as_str());
             let violation = Violation::new(
                 RULE_META.id,
                 RULE_META.name,
@@ -102,9 +97,6 @@ pub fn check_text_alternatives(tree: &AXTree) -> WcagResults {
         }
     }
 
-    // Also check for other non-text content
-    check_icons(tree, &flagged_image_ids, &mut results);
-
     results
 }
 
@@ -114,9 +106,10 @@ fn is_img_element(node: &crate::accessibility::AXNode) -> bool {
     node.has_property("url")
 }
 
-/// Ob ein Befund dieser Regel an einem `<svg>` steht.
+/// Ob ein Befund dieser Regel an einem SVG-Element steht.
 ///
-/// `svg_nodes` sind die AX-Kennungen der `<svg>`-Elemente im DOM. Die
+/// `svg_nodes` sind die AX-Kennungen der Elemente im SVG-Namensraum
+/// (`audit::frames::svg_image_nodes`): `<svg>` und Elemente darin. Die
 /// Pipeline nimmt solche Befunde heraus, sobald die geteilten Regeln gelaufen
 /// sind — `svg/name-missing` meldet denselben Fall, mit derselben Ausnahme
 /// für das Icon im benannten Link oder Button.
@@ -163,57 +156,6 @@ fn is_graphic_in_named_control(tree: &AXTree, node: &crate::accessibility::AXNod
             .and_then(|id| tree.get_node(id));
     }
     false
-}
-
-/// Check icon elements for text alternatives
-fn check_icons(tree: &AXTree, flagged_image_ids: &HashSet<&str>, results: &mut WcagResults) {
-    // Icons might have role="img" but different implementation
-    for node in tree.iter() {
-        if node.ignored {
-            continue;
-        }
-
-        // Skip nodes already flagged by the main image loop (#487 dedup) and
-        // explicitly-decorative empty-name nodes.
-        if flagged_image_ids.contains(node.node_id.as_str())
-            || is_img_element(node)
-            || is_decorative_empty_name(node)
-            || is_graphic_in_named_control(tree, node)
-        {
-            continue;
-        }
-
-        // Check for icon patterns
-        let is_icon = node.role.as_deref() == Some("img")
-            || node
-                .name
-                .as_ref()
-                .is_some_and(|n| n.contains("icon") || n.contains("Icon"));
-
-        if is_icon && !node.has_name() {
-            // Only flag if it seems meaningful (not decorative)
-            let likely_decorative = node.get_property_str("hidden").is_some();
-
-            if !likely_decorative {
-                let violation = Violation::new(
-                    RULE_META.id,
-                    RULE_META.name,
-                    RULE_META.level,
-                    Severity::Medium,
-                    "Icon element may need alternative text",
-                    &node.node_id,
-                )
-                .with_role(node.role.clone())
-                .with_fix(
-                    "Add aria-label for meaningful icons, or aria-hidden=\"true\" for decorative",
-                )
-                .with_help_url(RULE_META.help_url)
-                .with_rule_id(RULE_META.axe_id);
-
-                results.add_violation(violation);
-            }
-        }
-    }
 }
 
 #[cfg(test)]

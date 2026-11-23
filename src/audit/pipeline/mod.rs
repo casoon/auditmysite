@@ -1889,10 +1889,10 @@ async fn run_rules(
         .as_ref()
         .map_err(|e| e.to_string())
         .and_then(|c| c.document(&snapshot.ax_tree).map_err(|e| e.to_string()));
-    let svg_nodes = doc
-        .as_ref()
-        .map(wcag::shared::svg_ax_node_ids)
-        .unwrap_or_default();
+    let svg_nodes = match &doc {
+        Ok(doc) => crate::audit::frames::svg_image_nodes(page, doc, &snapshot.ax_tree).await,
+        Err(_) => Default::default(),
+    };
     let superseded = |v: &Violation| wcag::rules::is_svg_finding(v, &svg_nodes);
 
     // Audit exclusions (#645) are applied per rule, before each rule's
