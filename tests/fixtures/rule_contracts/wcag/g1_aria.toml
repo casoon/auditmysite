@@ -1007,14 +1007,14 @@ automation = "automated"
 method = "shared"
 source = "WCAG 2.2 SC 1.1.1 Non-text Content; SVG-AAM; ACT 7d6734 (svg element with explicit role has non-empty accessible name)"
 capabilities = ["dom", "ax_tree"]
-applicability = "<svg> elements in the accessibility tree that are not marked decorative (role none/presentation, aria-hidden) and not an icon inside a named link or button."
+applicability = "<svg> elements, and elements inside an SVG with an explicit image role (ACT 7d6734), in the accessibility tree that are not marked decorative (role none/presentation, aria-hidden) and not an icon inside a named link or button."
 expectation = """
 Fails for an <svg> with an explicit image role (img, graphics-document, graphics-symbol)
 and no name. Without a role the graphic may be decoration next to text: review. Names from <title>
 or aria-label pass, decorative SVGs pass, and an icon in a named button passes. Hidden subtrees are
 out of scope."""
 page_level = false
-positive = ["aria_names_missing", "svg_graphics_role_no_name", "svg_no_title"]
+positive = ["aria_names_missing", "svg_graphics_role_no_name", "svg_no_title", "svg_part_image_role"]
 negative = ["aria_names_valid"]
 not_applicable = ["aria_na_plain_article"]
 
@@ -1022,7 +1022,7 @@ not_applicable = ["aria_na_plain_article"]
 visibility = { cases = ["aria_variant_hidden"] }
 native_vs_aria = { cases = ["aria_names_missing"] }
 alternative_labels = { cases = ["aria_names_valid"] }
-frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
+frames_shadow_dom = { cases = ["aria_variant_shadow_frame", "svg_part_image_role"] }
 responsive = { cases = ["aria_variant_responsive"] }
 dynamic = { cases = ["aria_variant_dynamic"] }
 thresholds = { not_relevant = "Presence or membership check against the WAI-ARIA tables; no numeric limit to sit on either side of." }

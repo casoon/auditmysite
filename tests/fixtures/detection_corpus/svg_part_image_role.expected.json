@@ -1,0 +1,22 @@
+{
+  "case": "svg_part_image_role",
+  "expectations": [
+    {
+      "rule_id": "svg/name-missing",
+      "selector": "g#map-marker",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {
+      "rule_id": "svg/name-missing",
+      "selector": "iframe#frame-map [frame] g#frame-marker",
+      "verdict": "violation",
+      "occurrences": 1
+    },
+    {"rule_id": "image-alt", "verdict": "not_applicable"},
+    {"rule_id": "focus-visible", "verdict": "needs_review"},
+    {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"}
+  ]
+}
