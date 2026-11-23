@@ -303,6 +303,7 @@ fn export_render_finding_blocks(records: &mut Vec<Value>, lang: &str, i18n: &I18
                 occurrence_count: 3,
                 score_effect: Default::default(),
                 wcag_level: "AA".to_string(),
+                score_gain: None,
             },
         ),
         (

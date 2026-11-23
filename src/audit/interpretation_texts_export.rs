@@ -735,6 +735,7 @@ fn derive_texts(records: &mut Vec<Value>) {
                     occurrence_count: count,
                     score_effect: ScoreEffect::Low,
                     wcag_level: "AA".to_string(),
+                    score_gain: None,
                 },
                 ExpectedImpactKind::Other {
                     occurrence_count: count,

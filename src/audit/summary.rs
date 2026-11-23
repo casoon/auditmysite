@@ -582,6 +582,7 @@ mod tests {
                 occurrence_count: count,
                 score_effect: ScoreEffect::Low,
                 wcag_level: "A".into(),
+                score_gain: None,
             },
             bfsg_relevance: "medium".into(),
             remediation_priority: "normal".into(),

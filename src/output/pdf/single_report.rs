@@ -1843,9 +1843,9 @@ fn render_dual_viewport_summary_section(
             // from, which include the shared page rules that run once, on the
             // mobile pass: otherwise two equal scores sit next to "1 on
             // desktop and 2 on mobile" (#902-11).
-            let desktop = crate::audit::with_shared_page_rule_violations(
-                &dual.desktop.wcag_results.violations,
-                &dual.mobile.wcag_results.violations,
+            let desktop = crate::audit::shared_page_rule_refs(
+                dual.desktop.wcag_results.violations.iter(),
+                dual.mobile.wcag_results.violations.iter(),
             )
             .len();
             let mobile = dual.mobile.wcag_results.violations.len();

@@ -91,7 +91,7 @@ pub use baseline::{Baseline, BaselineStatus, BASELINE_CONTRACT, FINDING_ID_SCHEM
 #[cfg(test)]
 pub(crate) use pipeline::audit_scope_from_config;
 #[cfg(feature = "pdf")]
-pub(crate) use pipeline::with_shared_page_rule_violations;
+pub(crate) use pipeline::shared_page_rule_refs;
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
 pub use report::{
     compute_worst_risk, count_violated_rules, AccessibilitySection, AuditExecution, AuditQuality,
@@ -107,7 +107,8 @@ pub use report::{
     ViewportScoreSet, ViewportScores, ViewportScreenshot, MEASUREMENT_PROFILE_VERSION,
 };
 pub use scoring::{
-    AccessibilityScorer, CoverageRatio, CriterionState, PrincipleCoverage, ViolationStatistics,
+    AccessibilityScorer, CoverageRatio, CriterionState, PrincipleCoverage, ScoreGain,
+    ScoreGainBasis, ViolationStatistics,
 };
 pub use template_dedup::{detect_root_causes, RootCause};
 pub use validation::{

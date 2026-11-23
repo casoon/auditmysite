@@ -387,6 +387,50 @@ fn test_single_score_matches_normalized() {
     );
 }
 
+/// #1169: a WCAG action carries its simulated score gain; the value is the
+/// one on the finding, and it serializes as the schema describes.
+#[test]
+fn test_top_action_carries_the_simulated_score_gain() {
+    use crate::taxonomy::Severity;
+    use crate::wcag::Violation;
+
+    let mut results = WcagResults::new();
+    results.add_violation(
+        Violation::new(
+            "1.1.1",
+            "Alt",
+            WcagLevel::A,
+            Severity::High,
+            "Missing",
+            "n1",
+        )
+        .with_rule_id("images/alt-missing"),
+    );
+    let report = AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        results,
+        500,
+    );
+    let normalized = normalize(&report);
+    let unified = UnifiedReport::single(&normalized, &report);
+    let json = serde_json::to_value(&unified).unwrap();
+    let action = &json["summary"]["top_actions"][0];
+    assert_eq!(action["rule_id"], "images/alt-missing");
+    // The only finding: fixing it restores 100.
+    assert_eq!(
+        action["score_gain"],
+        serde_json::json!({
+            "accessibility": 100 - normalized.normalized.score,
+            "basis": "simulated"
+        })
+    );
+    assert!(action["expected_impact"]
+        .as_str()
+        .unwrap()
+        .ends_with("on the accessibility score (simulated)."));
+}
+
 #[test]
 fn test_single_violations_match_severity_counts() {
     use crate::taxonomy::Severity;

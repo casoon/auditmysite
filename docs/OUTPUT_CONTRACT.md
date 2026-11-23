@@ -457,6 +457,20 @@ A consumer must not assume a fixed list of dimensions: before this change all se
 
 `Project risk` counts only findings of Medium severity or higher (#1039): in a batch the rules that recur on two or more pages (three or more such rules are `high`), in a single report the findings with 10 or more occurrences or a structural fix. Low findings, such as fonts not preloaded or static resources without efficient caching, no longer raise it. The values of `summary.management_risks` move for unchanged input; no field is added or removed, so `schema_version` stays, and no score, finding or verdict moves, so `EVALUATION_VERSION` stays (the risks are derived from the normalized report when the JSON is built, not stored in snapshots or the cache).
 
+<a id="score-gain"></a>
+### score_gain — `summary.top_actions[].score_gain`
+
+What an action is worth on the accessibility score (#1169), computed by simulation, not estimated: the scorer runs again on the page's violations without the violations of the action's rule, through the same steps as the page score (per-criterion penalties, diversity factor, compression, soft floor, the 49/89/92 caps, and in a dual-viewport audit the 70 % mobile / 30 % desktop blend with each violation in the viewport passes its `desktop-only` / `mobile-only` / `both-viewports` tag names). `accessibility` is that score minus `summary.accessibility_score`, in whole points.
+
+- **Marginal, not additive.** Each figure answers "if only this action is done, against the findings as they are". The caps, the diversity factor and the compression depend on the finding set as a whole, so the gains of two actions do not add up to the gain of doing both: two critical findings each read `0` while the other keeps the cap at 49, together they lift it. There is no combined figure.
+- `capped_at` (single report only) is the cap that still bounds the simulated score because other critical or high findings remain; absent when no cap binds. A `0` with `capped_at: 49` means the action does not move the score until the other critical findings are fixed too.
+- `basis` is `simulated` for one page and `simulated_mean` in a batch, where each page is simulated without the rule (pages without it keep their score) and the gain is the rounded average of those scores minus the rounded `summary.accessibility_score` (the average of the page scores).
+- **Absent means not quantified:** the action's finding is not a WCAG finding (SEO, performance, security, mobile, HTML conformance, interactive checks: nothing of the accessibility score), no violation of the page carries the rule, or the recomputation of the unchanged violations does not reproduce the stated score (then no gain is stated for the page, and a batch action on that page has none either). `expected_impact` then ends in "Score effect not quantified." as before.
+- `expected_impact` states the same figure in words ("If only this action is done: up to +N points on the accessibility score (simulated)."); "up to" because the gain assumes every occurrence of the rule is fixed. The PDF shows the sentence under "Expected effect" of a finding and the figure in the "Score effect" column of the batch top actions; the terminal table shows neither.
+- The simulation reads only persisted data (the merged violations with their viewport tags), so a replay of a snapshot states the same gains as the fresh run. No score, finding or verdict moves.
+
+Compatibility: additive. `score_gain` is optional on `summary.top_actions[]` in both schemas; the same object sits in `pages[].findings[].expected_impact_kind.Wcag.score_gain`, and the expected-impact sentence of a quantified finding replaces "Score effect not quantified." with the gain. `schema_version`, `SNAPSHOT_SCHEMA_VERSION` and `EVALUATION_VERSION` stay; cache entries need no `fmt` change because a cache hit is answered by replaying the snapshot, which computes the gains.
+
 <a id="risk-score"></a>
 ### risk_score — `pages[].risk.score`
 

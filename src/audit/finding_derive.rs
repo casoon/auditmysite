@@ -7,6 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::audit::scoring::{ScoreGain, ScoreGainBasis};
 use crate::i18n::{count_text, text, text_args};
 use crate::taxonomy::{RuleLookup, Severity};
 use fluent_bundle::FluentValue;
@@ -299,6 +300,10 @@ pub enum ExpectedImpactKind {
         occurrence_count: usize,
         score_effect: ScoreEffect,
         wcag_level: String,
+        /// Simulated accessibility score gain of fixing this rule (#1169);
+        /// `None` reads "not quantified".
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        score_gain: Option<ScoreGain>,
     },
     Other {
         occurrence_count: usize,
@@ -316,6 +321,15 @@ impl Default for ExpectedImpactKind {
 }
 
 impl ExpectedImpactKind {
+    /// The simulated accessibility score gain, where one stands behind the
+    /// sentence (#1169).
+    pub fn score_gain(&self) -> Option<&ScoreGain> {
+        match self {
+            ExpectedImpactKind::Wcag { score_gain, .. } => score_gain.as_ref(),
+            ExpectedImpactKind::Other { .. } => None,
+        }
+    }
+
     /// Update the embedded occurrence count after a post-hoc finding merge
     /// (title-based dedup in the PDF builder) — keeps `expected_impact`
     /// consistent with the merged `occurrence_count`.
@@ -324,11 +338,13 @@ impl ExpectedImpactKind {
             ExpectedImpactKind::Wcag {
                 score_effect,
                 wcag_level,
+                score_gain,
                 ..
             } => ExpectedImpactKind::Wcag {
                 occurrence_count,
                 score_effect,
                 wcag_level,
+                score_gain,
             },
             ExpectedImpactKind::Other { score_effect, .. } => ExpectedImpactKind::Other {
                 occurrence_count,
@@ -344,31 +360,66 @@ impl ExpectedImpactKind {
 /// calls it with `en = true` to bake canonical English; the PDF layer
 /// re-derives in the run language (#406).
 pub fn expected_impact_text(kind: &ExpectedImpactKind, en: bool) -> String {
-    // Names the reach only. Whether one fix removes every occurrence (shared
-    // cause unconfirmed) and how far the score moves (not simulated) are not
-    // known here, so the sentence claims neither; `score_effect` stays in the
-    // kind for ordering.
+    // Names the reach and, where the scorer could be re-run without the
+    // rule's findings, the simulated score gain (#1169). Whether one fix
+    // removes every occurrence (shared cause unconfirmed) is not known, so
+    // the gain is "up to"; `score_effect` stays in the kind for ordering.
     match kind {
         ExpectedImpactKind::Wcag {
             occurrence_count,
             wcag_level,
+            score_gain,
             ..
-        } => text_args(
-            "audit-interpretation-expected-impact-wcag",
-            &[
-                ("count", FluentValue::from(*occurrence_count as i64)),
-                ("level", FluentValue::from(wcag_level.clone())),
-            ],
-            en,
-        ),
+        } => {
+            let reach = text_args(
+                "audit-interpretation-expected-impact-wcag",
+                &[
+                    ("count", FluentValue::from(*occurrence_count as i64)),
+                    ("level", FluentValue::from(wcag_level.clone())),
+                ],
+                en,
+            );
+            format!("{reach} {}", score_gain_text(score_gain.as_ref(), en))
+        }
         ExpectedImpactKind::Other {
             occurrence_count, ..
-        } => count_text(
-            "audit-interpretation-expected-impact-other",
-            *occurrence_count,
-            en,
-        ),
+        } => {
+            let reach = count_text(
+                "audit-interpretation-expected-impact-other",
+                *occurrence_count,
+                en,
+            );
+            format!("{reach} {}", score_gain_text(None, en))
+        }
     }
+}
+
+/// The score-effect sentence of an action (#1169): the simulated gain, the
+/// cap that still binds after it, or "not quantified" where no simulation
+/// stands behind it; the second sentence of [`expected_impact_text`].
+pub(crate) fn score_gain_text(gain: Option<&ScoreGain>, en: bool) -> String {
+    let Some(gain) = gain else {
+        return text("audit-interpretation-score-effect-not-quantified", en);
+    };
+    let key = match (gain.basis, gain.accessibility, gain.capped_at) {
+        (ScoreGainBasis::SimulatedMean, 0, _) => "audit-interpretation-score-gain-mean-none",
+        (ScoreGainBasis::SimulatedMean, _, _) => "audit-interpretation-score-gain-mean",
+        (_, 0, Some(_)) => "audit-interpretation-score-gain-none-capped",
+        (_, 0, None) => "audit-interpretation-score-gain-none",
+        (_, _, Some(_)) => "audit-interpretation-score-gain-capped",
+        (_, _, None) => "audit-interpretation-score-gain",
+    };
+    text_args(
+        key,
+        &[
+            ("points", FluentValue::from(i64::from(gain.accessibility))),
+            (
+                "cap",
+                FluentValue::from(i64::from(gain.capped_at.unwrap_or(100))),
+            ),
+        ],
+        en,
+    )
 }
 
 pub(super) fn derive_expected_impact(
@@ -383,6 +434,7 @@ pub(super) fn derive_expected_impact(
             occurrence_count,
             score_effect: effect,
             wcag_level: wcag_level.to_string(),
+            score_gain: None,
         }
     } else {
         ExpectedImpactKind::Other {
@@ -495,6 +547,7 @@ mod tests {
                 occurrence_count: 1,
                 score_effect: ScoreEffect::High,
                 wcag_level: "A".to_string(),
+                score_gain: None,
             },
             ExpectedImpactKind::Other {
                 occurrence_count: 1,
@@ -544,6 +597,7 @@ mod tests {
             occurrence_count: 20,
             score_effect: ScoreEffect::High,
             wcag_level: "A".to_string(),
+            score_gain: None,
         };
         let en = expected_impact_text(&kind, true);
         let de = expected_impact_text(&kind, false);
@@ -562,6 +616,75 @@ mod tests {
             );
             assert!(!text.contains("high") && !text.contains("hoch"), "{text}");
         }
+    }
+
+    /// #1169: the score-effect sentence in every shape, EN without German
+    /// letters and DE different from EN; no gain reads "not quantified".
+    #[test]
+    fn score_gain_text_covers_every_shape_in_both_languages() {
+        use crate::audit::scoring::{ScoreGain, ScoreGainBasis};
+        let gain = |accessibility, basis, capped_at| ScoreGain {
+            accessibility,
+            basis,
+            capped_at,
+        };
+        let cases = [
+            (
+                Some(gain(7, ScoreGainBasis::Simulated, None)),
+                "up to +7 points",
+            ),
+            (
+                Some(gain(1, ScoreGainBasis::Simulated, None)),
+                "up to +1 point ",
+            ),
+            (
+                Some(gain(3, ScoreGainBasis::Simulated, Some(89))),
+                "stays capped at 89",
+            ),
+            (
+                Some(gain(0, ScoreGainBasis::Simulated, Some(49))),
+                "does not change (simulated): it stays capped at 49",
+            ),
+            (
+                Some(gain(0, ScoreGainBasis::Simulated, None)),
+                "does not change",
+            ),
+            (
+                Some(gain(4, ScoreGainBasis::SimulatedMean, None)),
+                "on every page: up to +4 points on the average",
+            ),
+            (
+                Some(gain(0, ScoreGainBasis::SimulatedMean, None)),
+                "average accessibility score does not change",
+            ),
+            (None, "Score effect not quantified."),
+        ];
+        for (gain, expected) in cases {
+            let en = score_gain_text(gain.as_ref(), true);
+            let de = score_gain_text(gain.as_ref(), false);
+            assert!(en.contains(expected), "{en}");
+            assert!(
+                !en.chars().any(|c| "äöüÄÖÜß".contains(c)),
+                "EN score-effect text contains German letters: {en}"
+            );
+            assert_ne!(en, de);
+        }
+        let kind = ExpectedImpactKind::Wcag {
+            occurrence_count: 2,
+            score_effect: ScoreEffect::Medium,
+            wcag_level: "AA".to_string(),
+            score_gain: Some(gain(5, ScoreGainBasis::Simulated, None)),
+        };
+        assert_eq!(
+            expected_impact_text(&kind, true),
+            "Addresses 2 occurrences; WCAG level: AA. If only this action is done: up to +5 \
+             points on the accessibility score (simulated)."
+        );
+        assert_eq!(
+            expected_impact_text(&kind, false),
+            "Betrifft 2 Vorkommen; WCAG-Level: AA. Wenn nur diese Maßnahme umgesetzt wird: bis \
+             zu +5 Punkte für den Barrierefreiheits-Score (simuliert)."
+        );
     }
 
     /// A generic link text is detected reliably, the 2.4.4 failure

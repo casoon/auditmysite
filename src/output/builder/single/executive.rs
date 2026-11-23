@@ -254,6 +254,7 @@ mod tests {
                 occurrence_count: 1,
                 score_effect: ScoreEffect::Low,
                 wcag_level: "AA".into(),
+                score_gain: None,
             },
             bfsg_relevance: "medium".into(),
             remediation_priority: "normal".into(),

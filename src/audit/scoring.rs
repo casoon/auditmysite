@@ -222,6 +222,10 @@ impl AccessibilityScorer {
     /// Apply the same safety limits after aggregating viewport scores.
     /// A barrier in one supported viewport remains a barrier in the page.
     pub(crate) fn cap_aggregated_score(score: u32, violations: &[Violation]) -> u32 {
+        Self::cap_of(score, &violations.iter().collect::<Vec<_>>())
+    }
+
+    fn cap_of(score: u32, violations: &[&Violation]) -> u32 {
         let critical = violations
             .iter()
             .filter(|v| v.severity == Severity::Critical)
@@ -245,6 +249,12 @@ impl AccessibilityScorer {
     /// Groups violations by success criterion, looks up the criterion's
     /// `ScoreImpact` and applies occurrence-based penalty scaling.
     pub fn calculate_score(violations: &[Violation]) -> f32 {
+        Self::score_of(&violations.iter().collect::<Vec<_>>())
+    }
+
+    /// [`Self::calculate_score`] over borrowed violations, so a simulation
+    /// can leave some out without cloning the rest.
+    fn score_of(violations: &[&Violation]) -> f32 {
         if violations.is_empty() {
             return 100.0;
         }
@@ -293,6 +303,80 @@ impl AccessibilityScorer {
             urgent_count,
             level_a_urgent_count,
         )
+    }
+
+    /// The raw desktop and mobile accessibility scores of a dual-viewport
+    /// audit. The page-level rules run once, on the mobile pass, but describe
+    /// the page in both viewports, so they count in the desktop score too.
+    pub(crate) fn viewport_scores(desktop: &[&Violation], mobile: &[&Violation]) -> (f32, f32) {
+        let desktop_input =
+            super::pipeline::shared_page_rule_refs(desktop.iter().copied(), mobile.iter().copied());
+        (Self::score_of(&desktop_input), Self::score_of(mobile))
+    }
+
+    /// A raw score as the report shows it: whole points, at least 1.
+    pub(crate) fn displayed_score(score: f32) -> u32 {
+        score.round().max(1.0) as u32
+    }
+
+    /// The canonical dual-viewport accessibility score: 70 % mobile, 30 %
+    /// desktop, over the displayed viewport scores.
+    pub(crate) fn weighted_viewport_score(mobile: u32, desktop: u32) -> u32 {
+        (mobile as f64 * 0.7 + desktop as f64 * 0.3).round() as u32
+    }
+
+    /// The page's accessibility score recomputed from its merged violations,
+    /// the way the pipeline and normalization reach it (#1169). In a
+    /// dual-viewport audit each violation's viewport tag (`desktop-only`,
+    /// `mobile-only`, `both-viewports`) puts it back into the passes it was
+    /// scored in; an untagged violation (the pattern pass, added after the
+    /// viewport scores) bounds the page only through the semantic cap, as it
+    /// does in the pipeline.
+    pub(crate) fn page_score(violations: &[&Violation], dual_viewport: bool) -> u32 {
+        let blended = if dual_viewport {
+            let pass = |tag: &str| -> Vec<&Violation> {
+                violations
+                    .iter()
+                    .copied()
+                    .filter(|v| v.tags.iter().any(|t| t == tag || t == "both-viewports"))
+                    .collect()
+            };
+            let (desktop, mobile) =
+                Self::viewport_scores(&pass("desktop-only"), &pass("mobile-only"));
+            Self::weighted_viewport_score(
+                Self::displayed_score(mobile),
+                Self::displayed_score(desktop),
+            )
+        } else {
+            Self::displayed_score(Self::score_of(violations))
+        };
+        Self::cap_of(blended, violations)
+    }
+
+    /// The simulated gain of fixing the violations `removed` selects
+    /// (#1169): the page score recomputed without them, minus `actual`.
+    ///
+    /// `None` when nothing is removed, or when the recomputation of the
+    /// unchanged set does not reproduce `actual`: a gain is only stated where
+    /// the simulation stands on the score the report shows.
+    pub(crate) fn simulate_gain(
+        violations: &[Violation],
+        dual_viewport: bool,
+        actual: u32,
+        removed: impl Fn(&Violation) -> bool,
+    ) -> Option<ScoreGain> {
+        let all: Vec<&Violation> = violations.iter().collect();
+        let remaining: Vec<&Violation> = all.iter().copied().filter(|v| !removed(v)).collect();
+        if remaining.len() == all.len() || Self::page_score(&all, dual_viewport) != actual {
+            return None;
+        }
+        let simulated = Self::page_score(&remaining, dual_viewport);
+        let cap = Self::cap_of(100, &remaining);
+        Some(ScoreGain {
+            accessibility: simulated.saturating_sub(actual),
+            basis: ScoreGainBasis::Simulated,
+            capped_at: (cap < 100 && simulated >= cap).then_some(cap),
+        })
     }
 
     /// Calculate letter grade (A-F) based on score
@@ -384,6 +468,36 @@ pub struct PrincipleCoverage {
     pub operable: CoverageRatio,
     pub understandable: CoverageRatio,
     pub robust: CoverageRatio,
+}
+
+/// Simulated effect of one action on the accessibility score (#1169): the
+/// score recomputed by the scorer without the action's findings, minus the
+/// score the report shows. The marginal gain of this action alone against the
+/// current findings; the caps, the diversity factor and the compression make
+/// the gains of several actions not add up.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct ScoreGain {
+    /// Whole points the accessibility score rises by.
+    pub accessibility: u32,
+    pub basis: ScoreGainBasis,
+    /// The semantic cap (49, 89 or 92) that still bounds the simulated
+    /// score because other critical or high findings remain; absent when
+    /// no cap binds, and in a batch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capped_at: Option<u32>,
+}
+
+/// What a [`ScoreGain`] was simulated on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum ScoreGainBasis {
+    /// One page: its score recomputed without the rule's violations.
+    Simulated,
+    /// A batch: the average accessibility score of the audited pages, each
+    /// page simulated without the rule's violations.
+    SimulatedMean,
 }
 
 /// Detailed statistics about violations
@@ -1139,5 +1253,183 @@ mod score_invariants {
             .collect();
         assert_eq!(cap(&five_aa), 92);
         assert_eq!(cap(&five_aa[..4]), 100);
+    }
+}
+
+/// The simulated score gain of an action (#1169): the scorer re-run without
+/// the action's violations, against the score the report shows.
+#[cfg(test)]
+mod score_gain {
+    use super::*;
+    use crate::model::WcagLevel;
+
+    fn v(criterion: &str, rule_id: &str, level: WcagLevel, severity: Severity) -> Violation {
+        Violation::new(criterion, criterion, level, severity, "m", rule_id).with_rule_id(rule_id)
+    }
+
+    fn actual(violations: &[Violation]) -> u32 {
+        AccessibilityScorer::cap_aggregated_score(
+            AccessibilityScorer::displayed_score(AccessibilityScorer::calculate_score(violations)),
+            violations,
+        )
+    }
+
+    fn gain(violations: &[Violation], rules: &[&str]) -> Option<ScoreGain> {
+        AccessibilityScorer::simulate_gain(violations, false, actual(violations), |v| {
+            rules.contains(&v.rule_id.as_deref().unwrap_or(""))
+        })
+    }
+
+    fn page() -> Vec<Violation> {
+        vec![
+            v(
+                "1.1.1",
+                "images/alt-missing",
+                WcagLevel::A,
+                Severity::Critical,
+            ),
+            v(
+                "1.4.3",
+                "contrast/text-insufficient",
+                WcagLevel::AA,
+                Severity::Medium,
+            ),
+            v(
+                "1.4.3",
+                "contrast/text-insufficient",
+                WcagLevel::AA,
+                Severity::Medium,
+            ),
+            v(
+                "2.4.4",
+                "links/generic-name",
+                WcagLevel::A,
+                Severity::Medium,
+            ),
+        ]
+    }
+
+    #[test]
+    fn removing_nothing_reproduces_the_actual_score() {
+        let page = page();
+        let all: Vec<&Violation> = page.iter().collect();
+        assert_eq!(AccessibilityScorer::page_score(&all, false), actual(&page));
+        assert_eq!(gain(&page, &[]), None, "nothing removed, nothing to state");
+        // A stated score the recomputation does not reach gets no gain.
+        assert_eq!(
+            AccessibilityScorer::simulate_gain(&page, false, actual(&page) + 1, |_| true),
+            None
+        );
+    }
+
+    #[test]
+    fn the_gain_is_the_score_of_the_set_without_the_rule() {
+        let page = page();
+        let without: Vec<Violation> = page
+            .iter()
+            .filter(|v| v.rule_id.as_deref() != Some("contrast/text-insufficient"))
+            .cloned()
+            .collect();
+        let gain = gain(&page, &["contrast/text-insufficient"]).unwrap();
+        assert_eq!(gain.accessibility, actual(&without) - actual(&page));
+        assert_eq!(gain.basis, ScoreGainBasis::Simulated);
+    }
+
+    #[test]
+    fn removing_the_only_critical_finding_lifts_the_cap() {
+        let page = page();
+        assert_eq!(actual(&page), 49);
+        let gain = gain(&page, &["images/alt-missing"]).unwrap();
+        assert!(gain.accessibility > 0, "{gain:?}");
+        assert_eq!(gain.capped_at, None);
+    }
+
+    #[test]
+    fn a_critical_finding_left_keeps_the_cap() {
+        let mut page = page();
+        page.push(v(
+            "4.1.2",
+            "buttons/name-missing",
+            WcagLevel::A,
+            Severity::Critical,
+        ));
+        assert_eq!(actual(&page), 49);
+        let gain = gain(&page, &["images/alt-missing"]).unwrap();
+        assert_eq!(gain.accessibility, 0);
+        assert_eq!(gain.capped_at, Some(49));
+    }
+
+    /// Two rules of one criterion: the criterion's penalty grows slower
+    /// than its count, and the Level A cap holds while either remains, so
+    /// the two marginal gains do not add up to the gain of doing both.
+    #[test]
+    fn gains_of_two_actions_on_one_criterion_do_not_add_up() {
+        let page = vec![
+            v("1.1.1", "images/alt-missing", WcagLevel::A, Severity::High),
+            v("1.1.1", "images/alt-missing", WcagLevel::A, Severity::High),
+            v("1.1.1", "svg/name-missing", WcagLevel::A, Severity::High),
+            v(
+                "1.4.3",
+                "contrast/text-insufficient",
+                WcagLevel::AA,
+                Severity::Medium,
+            ),
+        ];
+        let a = gain(&page, &["images/alt-missing"]).unwrap().accessibility;
+        let b = gain(&page, &["svg/name-missing"]).unwrap().accessibility;
+        let both = gain(&page, &["images/alt-missing", "svg/name-missing"])
+            .unwrap()
+            .accessibility;
+        assert_ne!(a + b, both, "a {a}, b {b}, both {both}");
+    }
+
+    /// Dual viewport: the tags put each violation back into the passes it
+    /// was scored in; an untagged one (the pattern pass) only caps.
+    #[test]
+    fn dual_viewport_reproduces_the_blend() {
+        let tagged = |mut v: Violation, tag: &str| {
+            v.tags.push(tag.to_string());
+            v
+        };
+        let desktop = [v(
+            "1.4.3",
+            "contrast/text-insufficient",
+            WcagLevel::AA,
+            Severity::Medium,
+        )];
+        let mobile = [
+            v(
+                "1.4.3",
+                "contrast/text-insufficient",
+                WcagLevel::AA,
+                Severity::Medium,
+            ),
+            v("2.5.8", "targets/size", WcagLevel::AA, Severity::Medium),
+        ];
+        let (d, m) = AccessibilityScorer::viewport_scores(
+            &desktop.iter().collect::<Vec<_>>(),
+            &mobile.iter().collect::<Vec<_>>(),
+        );
+        let merged = [
+            tagged(mobile[0].clone(), "both-viewports"),
+            tagged(mobile[1].clone(), "mobile-only"),
+            v("1.3.1", "patterns/pattern", WcagLevel::A, Severity::High),
+        ];
+        let expected = AccessibilityScorer::cap_aggregated_score(
+            AccessibilityScorer::weighted_viewport_score(
+                AccessibilityScorer::displayed_score(m),
+                AccessibilityScorer::displayed_score(d),
+            ),
+            &merged,
+        );
+        let refs: Vec<&Violation> = merged.iter().collect();
+        assert_eq!(AccessibilityScorer::page_score(&refs, true), expected);
+        // Without the untagged pattern violation the Level A cap goes.
+        let gain = AccessibilityScorer::simulate_gain(&merged, true, expected, |v| {
+            v.rule_id.as_deref() == Some("patterns/pattern")
+        })
+        .unwrap();
+        assert_eq!(expected, 89);
+        assert!(gain.accessibility > 0, "{gain:?}");
     }
 }

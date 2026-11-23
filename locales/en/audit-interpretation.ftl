@@ -184,12 +184,32 @@ audit-interpretation-expected-impact-wcag =
     Addresses { $count ->
         [one] 1 occurrence
        *[other] { $count } occurrences
-    }; WCAG level: { $level }. Score effect not quantified.
+    }; WCAG level: { $level }.
 audit-interpretation-expected-impact-other =
     Addresses { $count ->
         [one] 1 occurrence
        *[other] { $count } occurrences
-    }; affects visibility/structure. Score effect not quantified.
+    }; affects visibility/structure.
+# Score effect of an action (#1169): the score recomputed without the action's findings, against the current findings
+audit-interpretation-score-effect-not-quantified = Score effect not quantified.
+audit-interpretation-score-gain =
+    If only this action is done: up to +{ $points } { $points ->
+        [one] point
+       *[other] points
+    } on the accessibility score (simulated).
+audit-interpretation-score-gain-capped =
+    If only this action is done: up to +{ $points } { $points ->
+        [one] point
+       *[other] points
+    } on the accessibility score (simulated); it stays capped at { $cap } while other critical or high findings remain.
+audit-interpretation-score-gain-none = If only this action is done, the accessibility score does not change (simulated).
+audit-interpretation-score-gain-none-capped = If only this action is done, the accessibility score does not change (simulated): it stays capped at { $cap } while other critical or high findings remain.
+audit-interpretation-score-gain-mean =
+    If only this action is done on every page: up to +{ $points } { $points ->
+        [one] point
+       *[other] points
+    } on the average accessibility score (simulated per page).
+audit-interpretation-score-gain-mean-none = If only this action is done on every page, the average accessibility score does not change (simulated per page).
 
 ## Audit summary narrative (`audit::summary`); `$cross` is the cross-impact note with its leading space or empty
 audit-interpretation-summary-groups =
