@@ -1,11 +1,11 @@
-//! AuditMySite - Resource-efficient WCAG 2.2 AA Accessibility Checker
+//! AuditMySite - WCAG 2.2 AA accessibility checker
 //!
 //! **Stability:** the CLI, the JSON report and the curated library surface listed in
 //! `docs/reference/api.md` are stable; every other `pub` item, and every `#[doc(hidden)]` one, is
 //! public only for the binaries, the integration tests and Studio and may change in any release.
 //! Modules are narrowed to `pub(crate)` one by one (#940).
 //!
-//! A fast, accurate accessibility auditing tool written in Rust.
+//! An accessibility auditing tool written in Rust.
 //! Uses Chrome DevTools Protocol (CDP) to extract the Accessibility Tree
 //! and analyze it for WCAG violations.
 //!

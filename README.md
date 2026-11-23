@@ -11,7 +11,7 @@
 
 `auditmysite` is a Rust CLI that audits accessibility against fully rendered pages in Chrome. Instead of scanning raw HTML only, it uses Chrome DevTools Protocol (CDP) and the browser's native Accessibility Tree, so it can evaluate dynamic DOM, computed styles, and JavaScript-heavy applications more realistically.
 
-It is designed for teams that want a fast local check, stable JSON for automation, and a single binary that can be dropped into CI.
+It is designed for teams that want stable JSON for automation and a single binary that can be dropped into CI. The Rust process itself stays around 44 MB; Chrome takes most of the memory of a run, and with the WCAG rules only (`--modules a11y`) a page takes about as long as with pa11y ([measured comparison](docs/reference/comparison.md#speed-and-memory)).
 
 ## Why use it
 
