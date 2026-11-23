@@ -1,23 +1,47 @@
 ---
 import { readFile } from 'node:fs/promises';
 import {
+  AudienceList,
   Badge,
   Badges,
   CodeBlock,
-  Facts,
+  ElementList,
   Faq,
-  Features,
   Hero,
   Install,
   Keymap,
   Quickstart,
   ReleaseHighlights,
+  SectionIntro,
+  Showcase,
+  Split,
+  StatBand,
+  Tradeoffs,
 } from '@casoon/pages-theme/components';
 import Base from '@casoon/pages-theme/layouts/Base.astro';
 import { url } from '@casoon/pages-theme/url';
 import config from 'virtual:casoon-pages/config';
 import { parseChangelog } from '@casoon/pages-theme/lib/changelog';
 import { castDemo } from '../showcase';
+
+// The frozen WCAG numbers come from the parity contract, not from this page.
+const contract = JSON.parse(
+  (await readFile('../docs/PARITY_CONTRACT.jsonc', 'utf8')).replace(
+    /^\s*\/\/.*$/gm,
+    ''
+  )
+).frozen_numbers;
+const total = contract.wcag_aa_total_criteria;
+const automated = contract.automated_wcag_aa_criteria;
+const manual = contract.manual_review_criteria;
+
+const coverage = `{
+  "wcag_version": "2.2",
+  "level": "WCAG 2.2 AA",
+  "total_wcag_aa_criteria": ${total},
+  "automated_criteria": ${automated},
+  "manual_review_criteria": ${manual}
+}`;
 
 // Skip "Unreleased": it has no version to show as "New in v…" yet.
 const latestRelease = config.changelog
@@ -65,67 +89,118 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
     />
   </Hero>
 
-  <Facts
+  <StatBand
     items={[
-      { value: '55', label: 'WCAG 2.2 A/AA success criteria in scope' },
-      { value: '30', label: 'of them covered by automated checks' },
-      { value: '25', label: 'listed for manual review, never silently passed' },
+      { value: String(total), label: 'WCAG 2.2 A/AA success criteria in scope' },
+      { value: String(automated), label: 'of them covered by automated checks' },
+      { value: String(manual), label: 'listed for manual review, never silently passed' },
       { value: '4', label: 'prebuilt release targets (macOS arm64, Linux x64/arm64, Windows x64)' },
     ]}
   />
 
-  <Features
+  <SectionIntro
+    title="The rendered page, not the source."
+    lead="auditmysite audits what Chrome actually builds: JavaScript-rendered content, computed styles and the browser’s own accessible names."
+  />
+
+  <Split
+    index="01"
+    title="Chrome's accessibility tree, not a static guess"
+    lead="Pages are rendered in Chrome and audited through the DevTools Protocol, so JavaScript-rendered content, computed styles and the browser’s own accessible names are what gets checked."
+    note="Common WCAG rules, accessible name computation and HTML conformance come from the [barrierlab](https://github.com/casoon/barrierlab) crates, so the same rule IDs apply in auditmysite, astro-post-audit and liveaudit."
+  >
+    <Fragment set:html={castDemo('single-table', 'cw-single', 'auditmysite on casoon.de')} />
+  </Split>
+
+  <Split
+    index="02"
+    reverse
+    numbered
+    title="Honest WCAG coverage"
+    lead="A criterion counts as automated only if a rule can report a violation. The numbers are frozen in `docs/PARITY_CONTRACT.jsonc` and guarded by a test."
+    points={[
+      'Total criteria in scope.',
+      'Covered by an automated rule.',
+      'Listed for manual review, never silently passed.',
+    ]}
+  >
+    <CodeBlock
+      code={coverage}
+      lang="json"
+      title="summary.wcag_coverage"
+      label="JSON"
+      marks={[
+        { line: 4, n: 1 },
+        { line: 5, n: 2 },
+        { line: 6, n: 3 },
+      ]}
+    />
+  </Split>
+
+  <Split
+    index="03"
+    title="JSON contract, PDF for people"
+    lead="The JSON report is canonical English and schema-backed for automation. The PDF is tagged PDF/UA-1 and rendered in English or German (`--lang en|de`)."
+  >
+    <ElementList
+      items={[
+        { term: '-f json', body: 'Canonical English, schema-backed, for automation and CI.' },
+        { term: '-f pdf', body: 'Tagged PDF/UA-1 for people, in English or German.' },
+        { term: '-f table', body: 'The compact terminal summary; the default, nothing is written.' },
+      ]}
+    />
+  </Split>
+
+  <Split
+    index="04"
+    reverse
+    title="Single pages and whole sites"
+    lead="Audit one URL in depth, or a sitemap, a URL list or a same-domain crawl as one aggregated batch report with averages, ranking and recurring issues."
+  >
+    <ElementList
+      items={[
+        { term: '<url>', body: 'One page, in depth.' },
+        { term: '--sitemap', body: 'A sitemap as one aggregated batch report.' },
+        { term: '--url-file', body: 'A list of URLs from a file.' },
+        { term: '--crawl', body: 'A same-domain crawl from a seed URL.' },
+        { term: '--per-page-reports', body: 'Technician mode: one JSON per page plus a flat `findings.jsonl`.' },
+      ]}
+    />
+  </Split>
+
+  <Showcase
+    title="Results from real audits"
+    lead="Public rankings produced with auditmysite, of publicly reachable pages. Captured on 2026-09-16."
+    link={{ label: 'rankinglab.casoon.dev', href: 'https://rankinglab.casoon.dev/' }}
+  >
+    <img
+      src={url('screens/rankinglab-start-700.webp')}
+      srcset={`${url('screens/rankinglab-start-700.webp')} 700w, ${url('screens/rankinglab-start.webp')} 1400w`}
+      sizes="(min-width: 760px) 720px, 100vw"
+      width="1400"
+      height="875"
+      loading="lazy"
+      alt="RankingLab: start page with public accessibility rankings"
+    />
+  </Showcase>
+
+  <AudienceList
+    heading="Three ways to a report"
     items={[
       {
-        title: "Chrome's accessibility tree, not a static guess",
-        body: 'Pages are rendered in Chrome and audited through the DevTools Protocol, so JavaScript-rendered content, computed styles and the browser’s own accessible names are what gets checked.',
+        title: 'The CLI',
+        body: 'The Rust binary on this page: a single URL, a sitemap, a URL list or a same-domain crawl, on macOS, Linux and Windows.',
       },
       {
-        title: 'Honest WCAG coverage',
-        body: 'A criterion counts as automated only if a rule can report a violation. The numbers are frozen in docs/PARITY_CONTRACT.jsonc and guarded by a test; every report carries them in summary.wcag_coverage.',
+        title: 'AuditMySite Studio',
+        body: 'A desktop app (Tauri) on the same audit logic: audits grouped per domain, compared over time, reports written locally as PDF. Alpha, latest release 0.2.13 (21 May 2026). The source is not public; the installers are in the auditmysite_downloads repository.',
       },
       {
-        title: 'JSON contract, PDF for people',
-        body: 'The JSON report is canonical English and schema-backed for automation. The PDF is tagged PDF/UA-1 and rendered in English or German (--lang en|de).',
-      },
-      {
-        title: 'Single pages and whole sites',
-        body: 'Audit one URL in depth, or a sitemap, a URL list or a same-domain crawl as one aggregated batch report with averages, ranking and recurring issues. Technician mode writes one JSON per page plus a flat findings.jsonl instead.',
-      },
-      {
-        title: 'Shared rules with barrierlab',
-        body: 'Common WCAG rules, accessible name computation and HTML conformance come from the barrierlab crates, so the same rule IDs apply in auditmysite, astro-post-audit and liveaudit.',
+        title: 'The report engine',
+        body: 'The PDF reports are rendered with renderreport and Typst, as tagged PDF/UA-1. If rendering fails, there is a diagnostic instead of a silent fallback.',
       },
     ]}
   />
-
-  <section class="ways" aria-labelledby="ways-title">
-    <h2 class="cp-label" id="ways-title">Three ways to a report</h2>
-    <ul>
-      <li>
-        <h3><a href="https://github.com/casoon/auditmysite">The CLI</a></h3>
-        <p>
-          The Rust binary on this page: a single URL, a sitemap, a URL list or a same-domain crawl,
-          on macOS, Linux and Windows.
-        </p>
-      </li>
-      <li>
-        <h3><a href="https://github.com/casoon/auditmysite_downloads/releases">AuditMySite Studio</a></h3>
-        <p>
-          A desktop app (Tauri) on the same audit logic: audits grouped per domain, compared over
-          time, reports written locally as PDF. Alpha, latest release 0.2.13 (21 May 2026). The
-          source is not public; the installers are in the downloads repository.
-        </p>
-      </li>
-      <li>
-        <h3><a href="https://casoon.github.io/renderreport/">The report engine</a></h3>
-        <p>
-          The PDF reports are rendered with renderreport and Typst, as tagged PDF/UA-1. If
-          rendering fails, there is a diagnostic instead of a silent fallback.
-        </p>
-      </li>
-    </ul>
-  </section>
 
   <Keymap
     heading="Common flags"
@@ -187,43 +262,18 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
     </figure>
   </section>
 
-  <section class="limits" aria-labelledby="limits-title">
-    <h2 class="cp-label" id="limits-title">What an automated audit does not do</h2>
-    <p class="lead">
-      Automated checking covers part of accessibility. The rest needs human judgement, and the
-      report says so.
-    </p>
-    <dl>
-      <dt>Not every criterion can be automated</dt>
-      <dd>
-        Keyboard traps, timed content and captions cannot be verified reliably by machine. They are
-        flagged <code>not_testable</code> in the JSON and listed in the report's audit scope, never
-        silently passed.
-      </dd>
-      <dt>No accessibility statement</dt>
-      <dd>
-        The EN 301 549 appendix is a technical building block for a statement written by people. It
-        is not a statement, not legal advice and not a confirmation of conformity under BFSG or
-        BITV 2.0.
-      </dd>
-      <dt>Heuristic modules are tendencies</dt>
-      <dd>
-        Experimental indicators such as UX or AI visibility are off by default; they are estimates, not
-        measurements, and no statement of conformity.
-      </dd>
-      <dt>AAA is not fully implemented</dt>
-      <dd><code>-l AAA</code> exists, but coverage of level AAA is still incomplete.</dd>
-      <dt>A browser has to be present</dt>
-      <dd>
-        Without Chrome or Chromium the run stops with an error. A browser is only downloaded on
-        request, with <code>auditmysite browser install</code>.
-      </dd>
-      <dt>Linked PDF documents are not checked</dt>
-      <dd>
-        Rendered web pages are audited. Linked or embedded PDF files are a documented non-goal.
-      </dd>
-    </dl>
-  </section>
+  <Tradeoffs
+    title="What an automated audit does not do"
+    lead="Automated checking covers part of accessibility. The rest needs human judgement, and the report says so."
+    items={[
+      '**Not every criterion can be automated.** Keyboard traps, timed content and captions cannot be verified reliably by machine. They are flagged `not_testable` in the JSON and listed in the report’s audit scope, never silently passed.',
+      '**No accessibility statement.** The EN 301 549 appendix is a technical building block for a statement written by people. It is not a statement, not legal advice and not a confirmation of conformity under BFSG or BITV 2.0.',
+      '**Heuristic modules are tendencies.** Experimental indicators such as UX or AI visibility are off by default; they are estimates, not measurements, and no statement of conformity.',
+      '**AAA is not fully implemented.** `-l AAA` exists, but coverage of level AAA is still incomplete.',
+      '**A browser has to be present.** Without Chrome or Chromium the run stops with an error. A browser is only downloaded on request, with `auditmysite browser install`.',
+      '**Linked PDF documents are not checked.** Rendered web pages are audited. Linked or embedded PDF files are a documented non-goal.',
+    ]}
+  />
 
   {latestRelease && <ReleaseHighlights release={latestRelease} />}
 
@@ -252,64 +302,3 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
     ]}
   />
 </Base>
-
-<style>
-  .ways,
-  .demo,
-  .limits {
-    max-width: var(--max);
-    margin: 0 auto;
-    padding: 0 24px 64px;
-  }
-  .ways ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 24px;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
-  }
-  .ways h3 {
-    margin: 0 0 6px;
-  }
-  .ways p,
-  .limits dd {
-    color: var(--muted);
-    margin: 0;
-  }
-  .demo figure {
-    margin: 0;
-    max-width: 720px;
-  }
-  .demo img {
-    display: block;
-    width: 100%;
-    height: auto;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    box-shadow: var(--shadow);
-  }
-  .demo figcaption {
-    color: var(--muted);
-    font-size: 0.9rem;
-    margin-top: 8px;
-  }
-  .demo figcaption a {
-    text-decoration: underline;
-  }
-  .limits .lead {
-    color: var(--muted);
-    margin: 0 0 20px;
-  }
-  .limits dl {
-    display: grid;
-    gap: 6px 24px;
-    grid-template-columns: minmax(0, 1fr);
-    margin: 0;
-  }
-  .limits dt {
-    font-weight: 600;
-    color: var(--heading);
-    margin-top: 14px;
-  }
-</style>
