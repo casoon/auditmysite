@@ -1016,11 +1016,15 @@ reported by both."""
 expectation = """
 Pass (positive signal, no finding) only when every such video has a caption
 track whose src resolves same-origin as a caption file (.vtt/.srt or a vtt
-content type) and the page embeds no third-party player. Anything less — a
-caption track without src, one that does not resolve or is cross-origin, more
-caption tracks than the probe budget of 10 checks, or a third-party embed — is
-one page-level UNTESTED note: captions may exist in ways the tool cannot see
-(platform players), so never a violation. A page whose videos all lack a
+content type) and the page embeds no third-party player. A video whose caption
+tracks all fail on the page origin (no src, an error status, an answer that is
+no caption file) has no working captions, the same as a missing track: one
+page-level REVIEW naming those videos (decision of 2026-11-23 on #1182). A
+track on another origin, a caption track beyond the probe budget of 10 checks,
+a request without an answer (HEAD refused with 405/501 is retried as GET) or a
+third-party embed stays undecided: one page-level UNTESTED note, since captions
+may exist in ways the tool cannot see. Never a violation. A video with one
+failed and one undecided track is undecided. A page whose videos all lack a
 caption track is not applicable here; a video in a hidden panel is not
 presented in this state."""
 page_level = true
@@ -1041,20 +1045,60 @@ thresholds = { cases = ["content_video_ten_tracks", "content_video_eleven_tracks
 status = "killed"
 [[rule.test_strength.mutations]]
 target = "src/wcag/rules/media_rules.rs"
-change = "claim a pass when any video is captioned"
-find = "if track_count > 0 && captioned_count == track_count && embed_count == 0 {"
-replace = "if track_count > 0 && captioned_count > 0 && embed_count == 0 {"
+change = "claim a pass despite a broken track"
+find = "if track_count > 0 && broken.is_empty() && unverified.is_empty() && embed_count == 0 {"
+replace = "if track_count > 0 && unverified.is_empty() && embed_count == 0 {"
 killed_by = "corpus:content_video_partly_captioned"
 [[rule.test_strength.mutations]]
 target = "src/wcag/rules/media_rules.rs"
+change = "claim a pass despite an undecided track"
+find = "if track_count > 0 && broken.is_empty() && unverified.is_empty() && embed_count == 0 {"
+replace = "if track_count > 0 && broken.is_empty() && embed_count == 0 {"
+killed_by = "corpus:content_video_eleven_tracks"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_rules.rs"
+change = "report a broken track as untested instead of review"
+find = "            .with_kind(Outcome::Review),"
+replace = "            .with_kind(Outcome::Untested),"
+killed_by = "lib:a_broken_track_is_a_review_and_undecided_ones_stay_untested"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_rules.rs"
+change = "call a video broken when any one of its tracks failed"
+find = "checks.iter().all(|c| *c == TrackCheck::Failed)"
+replace = "checks.contains(&TrackCheck::Failed)"
+killed_by = "lib:a_video_is_broken_only_when_every_caption_track_failed"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_rules.rs"
+change = "read a same-origin answer that is no caption file as undecided"
+find = """
+    } else {
+        TrackCheck::Failed
+    }"""
+replace = """
+    } else {
+        TrackCheck::Unverified
+    }"""
+killed_by = "corpus:content_video_uncaptioned"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_rules.rs"
+change = "read a cross-origin track as failed"
+find = """
+    if base_origin != Some(&track_url.origin()) {
+        return TrackCheck::Unverified;"""
+replace = """
+    if base_origin != Some(&track_url.origin()) {
+        return TrackCheck::Failed;"""
+killed_by = "corpus:content_video_uncaptioned"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_rules.rs"
 change = "claim a pass despite a third-party embed"
-find = "if track_count > 0 && captioned_count == track_count && embed_count == 0 {"
-replace = "if track_count > 0 && captioned_count == track_count {"
+find = "if track_count > 0 && broken.is_empty() && unverified.is_empty() && embed_count == 0 {"
+replace = "if track_count > 0 && broken.is_empty() && unverified.is_empty() {"
 killed_by = "corpus:content_video_embed"
 [[rule.test_strength.mutations]]
 target = "src/wcag/rules/media_rules.rs"
 change = "report videos without a caption track (the shared rule's case)"
-find = ".filter(|tracks| !tracks.is_empty())"
+find = ".filter(|(_, tracks)| !tracks.is_empty())"
 replace = ".filter(|_| true)"
 killed_by = "corpus:media_and_motion"
 [[rule.test_strength.mutations]]
@@ -1084,9 +1128,13 @@ killed_by = "corpus:content_video_captioned"
 [[rule.test_strength.mutations]]
 target = "src/wcag/rules/media_rules.rs"
 change = "report on pages without video"
-find = "if videos.is_empty() && embed_count == 0 {"
-replace = "if false {"
-killed_by = "corpus:content_plain_article"
+# The early return in check_video_caption_tracks_with_page only skips the
+# probe client; without it caption_findings gets no videos and no embeds and
+# returns nothing, so mutating it is equivalent. The mutation targets that
+# empty case in caption_findings instead.
+find = "    if !parts.is_empty() {"
+replace = "    if true {"
+killed_by = "lib:all_resolving_tracks_without_embed_pass"
 [[rule.test_strength.mutations]]
 target = "src/wcag/rules/media_rules.rs"
 change = "count description tracks as captions"

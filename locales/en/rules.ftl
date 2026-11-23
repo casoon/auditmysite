@@ -26,7 +26,7 @@ rule-images-alt-suspicious = Check that alternative text describes the image
 
 rule-video-caption = Check captions of videos
     .user-impact = Deaf or hard-of-hearing users cannot perceive spoken content.
-    .technical-impact = A rendered <video> has a <track kind="captions"> or kind="subtitles", but none of its files loads from the page origin as a caption format (.vtt or .srt), or the page embeds a third-party player (YouTube, Vimeo and similar) whose captions the tool cannot see, so spoken content may have no text equivalent; an untested manual-check note, because caption accuracy and timing cannot be checked automatically either way. A video without such a track is reported as media/video-captions-missing instead.
+    .technical-impact = A rendered <video> has a <track kind="captions"> or kind="subtitles", but none of its files loads from the page origin as a caption format (.vtt or .srt), or the page embeds a third-party player (YouTube, Vimeo and similar), so spoken content may have no text equivalent. When every track of a video has no src or the page origin answers with an error or with no caption file, the video has no working captions: a review hint, like a missing track. A track on another origin or beyond the check budget and a third-party player stay an untested manual-check note, because the tool cannot see those captions. A video without such a track is reported as media/video-captions-missing instead.
 
 rule-media-video-captions-missing = Check videos without a caption track
     .user-impact = Deaf or hard-of-hearing users cannot perceive spoken content.
