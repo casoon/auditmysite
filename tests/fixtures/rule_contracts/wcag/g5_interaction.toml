@@ -64,9 +64,13 @@ tree): keyboard users land on something that is not announced. Passes when
 the element is taken out of the tab order (tabindex="-1"), when the hidden
 subtree is inert, when it is not rendered, or when aria-hidden is "false".
 Native links and ARIA widgets with tabindex 0 count alike, as does
-aria-hidden set by a script after load."""
-positive = ["interaction_tab_order", "keyboard_hidden_focusable"]
-negative = ["interaction_tab_order", "keyboard_tab_order_clean"]
+aria-hidden set by a script after load. Behind an open modal dialog
+(aria-modal="true" or an open <dialog>) aria-hidden on the page outside the
+modal is the ARIA dialog pattern when focus stays in the dialog; that cannot be
+decided statically, so such an element is needs_review, not a violation.
+aria-hidden on a control inside the modal itself stays a violation."""
+positive = ["interaction_tab_order", "keyboard_hidden_focusable", "interaction_hidden_focusable_modal"]
+negative = ["interaction_tab_order", "keyboard_tab_order_clean", "interaction_hidden_focusable_modal"]
 not_applicable = ["interaction_static_text"]
 
 [rule.variants]
@@ -75,7 +79,7 @@ native_vs_aria = { cases = ["interaction_tab_order"] }
 alternative_labels = { not_relevant = "Hiding from the accessibility tree is independent of how the element is named." }
 frames_shadow_dom = { cases = ["interaction_tab_order"] }
 responsive = { not_relevant = "aria-hidden and tab order do not change with the viewport; an element not rendered at one viewport is the visibility dimension." }
-dynamic = { cases = ["interaction_tab_order"] }
+dynamic = { cases = ["interaction_tab_order", "interaction_hidden_focusable_modal"] }
 thresholds = { not_relevant = "Presence check on aria-hidden and tab reachability; no numeric threshold." }
 
 [rule.test_strength]
