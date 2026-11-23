@@ -1,0 +1,44 @@
+{
+  "schema_version": "2.2",
+  "report_type": "single",
+  "summary": {
+    "accessibility_score": 90,
+    "site_quality_score": 90,
+    "grade": "A",
+    "top_actions": [
+      {
+        "rule_id": "image-alt",
+        "title": "Images need a text alternative",
+        "risk": "high",
+        "priority": "high",
+        "complexity": "low",
+        "occurrence_count": 2,
+        "url_count": 1,
+        "finding_id": "F-1a2b3c4d",
+        "expected_impact": "Screen reader users learn what the images show."
+      }
+    ]
+  },
+  "pages": [
+    {
+      "url": "https://example.com/",
+      "accessibility_score": 90,
+      "site_quality_score": 90,
+      "grade": "A",
+      "findings": [
+        {
+          "id": "F-1a2b3c4d",
+          "rule_id": "image-alt",
+          "occurrence_count": 2,
+          "patterns": [
+            {
+              "id": "RC-0a1b2c3d",
+              "selector": "img.hero",
+              "occurrence_count": 2
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

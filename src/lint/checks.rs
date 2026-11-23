@@ -18,7 +18,102 @@ pub(crate) fn run_all_checks(report: &Value, findings: &mut Vec<LintFinding>) {
     check_accessibility_breakdown_reconciles(report, findings);
     check_unmeasured_modules_carry_no_result(report, findings);
     check_indicators_carry_no_weight(report, findings);
+    check_references_resolve(report, findings);
     super::invariants::check(report, findings);
+}
+
+// ─── Finding, root cause and action references (#1168) ────────────────────
+
+const CHECK_TOP_ACTION_FINDING_RESOLVES: &str = "top_action_finding_resolves";
+const CHECK_ROOT_CAUSE_ID_RESOLVES: &str = "root_cause_id_resolves";
+const CHECK_ROOT_CAUSE_URL_RESOLVES: &str = "root_cause_url_resolves";
+
+/// The pointers between the finding model's parts must land on something in
+/// the same report: `summary.top_actions[].finding_id` on a
+/// `pages[].findings[].id` (batch: of any page), `top_actions[].root_cause_id`
+/// and `summary.root_causes[].id` on a `pages[].findings[].patterns[].id`, and
+/// `summary.root_causes[].urls` on a `pages[].url`.
+///
+/// All high: a dangling `finding_id` is an action a consumer of the JSON
+/// cannot follow to its finding, a dangling root cause id is a "one fix
+/// resolves N pages" claim without the pattern behind it, and a root cause URL
+/// outside `pages[]` inflates that claim's reach. Absent pointers are left to
+/// the schema; only present ones must resolve.
+fn check_references_resolve(report: &Value, findings: &mut Vec<LintFinding>) {
+    use super::invariants::array;
+    use std::collections::HashSet;
+
+    let pages = array(report, "pages");
+    let page_findings = || pages.iter().flat_map(|page| array(page, "findings"));
+    let finding_ids: HashSet<&str> = page_findings()
+        .filter_map(|f| f.get("id").and_then(Value::as_str))
+        .collect();
+    let pattern_ids: HashSet<&str> = page_findings()
+        .flat_map(|f| array(f, "patterns"))
+        .filter_map(|p| p.get("id").and_then(Value::as_str))
+        .collect();
+    let page_urls: HashSet<&str> = pages
+        .iter()
+        .filter_map(|page| page.get("url").and_then(Value::as_str))
+        .collect();
+
+    let mut dangling = |check_id: &'static str, path: String, expected: &str, actual: &str| {
+        findings.push(LintFinding {
+            check_id,
+            evidence_path: path,
+            expected: expected.to_string(),
+            actual: format!("{actual:?}, not in the report"),
+            severity: Severity::High,
+        });
+    };
+
+    let Some(summary) = report.get("summary") else {
+        return;
+    };
+    for (i, action) in array(summary, "top_actions").iter().enumerate() {
+        if let Some(id) = action.get("finding_id").and_then(Value::as_str) {
+            if !finding_ids.contains(id) {
+                dangling(
+                    CHECK_TOP_ACTION_FINDING_RESOLVES,
+                    format!("summary.top_actions[{i}].finding_id"),
+                    "the id of a finding in pages[].findings[]",
+                    id,
+                );
+            }
+        }
+        if let Some(id) = action.get("root_cause_id").and_then(Value::as_str) {
+            if !pattern_ids.contains(id) {
+                dangling(
+                    CHECK_ROOT_CAUSE_ID_RESOLVES,
+                    format!("summary.top_actions[{i}].root_cause_id"),
+                    "the id of a pattern in pages[].findings[].patterns[]",
+                    id,
+                );
+            }
+        }
+    }
+    for (i, cause) in array(summary, "root_causes").iter().enumerate() {
+        if let Some(id) = cause.get("id").and_then(Value::as_str) {
+            if !pattern_ids.contains(id) {
+                dangling(
+                    CHECK_ROOT_CAUSE_ID_RESOLVES,
+                    format!("summary.root_causes[{i}].id"),
+                    "the id of a pattern in pages[].findings[].patterns[]",
+                    id,
+                );
+            }
+        }
+        for url in array(cause, "urls").iter().filter_map(Value::as_str) {
+            if !page_urls.contains(url) {
+                dangling(
+                    CHECK_ROOT_CAUSE_URL_RESOLVES,
+                    format!("summary.root_causes[{i}].urls"),
+                    "the url of an audited page in pages[]",
+                    url,
+                );
+            }
+        }
+    }
 }
 
 // ─── Measurement status ───────────────────────────────────────────────────
@@ -1274,5 +1369,69 @@ mod measurement_status_tests {
         let mut weighted_indicator = indicator;
         weighted_indicator["weight_pct"] = 10.into();
         assert_eq!(check(weighted_indicator), [CHECK_INDICATOR_WEIGHT]);
+    }
+
+    #[test]
+    fn references_must_resolve_within_the_report() {
+        let check = |summary: Value| {
+            let report = serde_json::json!({
+                "pages": [
+                    { "url": "https://example.com/", "findings": [
+                        { "id": "F-00000001", "patterns": [{ "id": "RC-0000000a" }] }
+                    ] },
+                    { "url": "https://example.com/b", "findings": [
+                        { "id": "F-00000001", "patterns": [{ "id": "RC-0000000a" }] }
+                    ] }
+                ],
+                "summary": summary
+            });
+            let mut findings = Vec::new();
+            check_references_resolve(&report, &mut findings);
+            findings
+                .into_iter()
+                .map(|f| (f.check_id, f.evidence_path, f.severity))
+                .collect::<Vec<_>>()
+        };
+        let resolving = serde_json::json!({
+            "top_actions": [{ "finding_id": "F-00000001", "root_cause_id": "RC-0000000a" }],
+            "root_causes": [{ "id": "RC-0000000a",
+                              "urls": ["https://example.com/", "https://example.com/b"] }]
+        });
+        assert!(check(resolving).is_empty());
+        // A single report has no root_cause_id and no root_causes.
+        assert!(
+            check(serde_json::json!({ "top_actions": [{ "finding_id": "F-00000001" }] }))
+                .is_empty()
+        );
+
+        let dangling = serde_json::json!({
+            "top_actions": [{ "finding_id": "F-ffffffff", "root_cause_id": "RC-ffffffff" }],
+            "root_causes": [{ "id": "RC-eeeeeeee", "urls": ["https://example.com/c"] }]
+        });
+        assert_eq!(
+            check(dangling),
+            [
+                (
+                    CHECK_TOP_ACTION_FINDING_RESOLVES,
+                    "summary.top_actions[0].finding_id".to_string(),
+                    Severity::High
+                ),
+                (
+                    CHECK_ROOT_CAUSE_ID_RESOLVES,
+                    "summary.top_actions[0].root_cause_id".to_string(),
+                    Severity::High
+                ),
+                (
+                    CHECK_ROOT_CAUSE_ID_RESOLVES,
+                    "summary.root_causes[0].id".to_string(),
+                    Severity::High
+                ),
+                (
+                    CHECK_ROOT_CAUSE_URL_RESOLVES,
+                    "summary.root_causes[0].urls".to_string(),
+                    Severity::High
+                ),
+            ]
+        );
     }
 }

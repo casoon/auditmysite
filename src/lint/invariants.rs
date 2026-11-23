@@ -22,7 +22,7 @@ fn failure(
     });
 }
 
-fn array<'a>(value: &'a Value, key: &str) -> &'a [Value] {
+pub(super) fn array<'a>(value: &'a Value, key: &str) -> &'a [Value] {
     value
         .get(key)
         .and_then(Value::as_array)
