@@ -25,7 +25,7 @@
     {"rule_id": "aria/role-abstract", "verdict": "violation", "selector": "div#d-abstract", "occurrences": 1},
     {"rule_id": "aria/role-redundant", "verdict": "needs_review", "selector": "button#d-redundant", "occurrences": 1},
     {"rule_id": "aria/required-children-missing", "verdict": "violation", "selector": "div#d-steps", "occurrences": 1},
-    {"rule_id": "description-duplicates-name", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "names/description-duplicates-name", "verdict": "needs_review", "occurrences": 1},
     {"rule_id": "summary/name-missing", "verdict": "violation", "selector": "summary#d-summary", "occurrences": 1},
     {"rule_id": "svg/name-missing", "verdict": "violation", "selector": "svg#d-map", "occurrences": 1},
     {"rule_id": "dialog/focusable-missing", "verdict": "needs_review", "selector": "dialog#d-dialog", "occurrences": 1},

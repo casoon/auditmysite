@@ -446,6 +446,10 @@
    "verdict": "errored"
   },
   {
+   "rule_id": "names/description-duplicates-name",
+   "verdict": "errored"
+  },
+  {
    "rule_id": "patterns/tooltip-unreferenced",
    "verdict": "errored"
   },

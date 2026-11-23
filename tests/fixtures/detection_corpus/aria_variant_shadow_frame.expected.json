@@ -17,7 +17,7 @@
     {"rule_id": "names/symbol-only", "verdict": "needs_review", "selector": "button#s-close", "occurrences": 1},
     {"rule_id": "names/title-only", "verdict": "needs_review", "selector": "button#s-print", "occurrences": 1},
     {"rule_id": "label-in-name/mismatch", "verdict": "violation", "selector": "button#s-pay", "occurrences": 1},
-    {"rule_id": "description-duplicates-name", "verdict": "violation", "occurrences": 2},
+    {"rule_id": "names/description-duplicates-name", "verdict": "needs_review", "occurrences": 2},
     {"rule_id": "summary/name-missing", "verdict": "violation", "selector": "summary#s-summary", "occurrences": 1},
     {"rule_id": "svg/name-missing", "verdict": "violation", "selector": "svg#s-map", "occurrences": 1},
     {"rule_id": "patterns/tooltip-unreferenced", "verdict": "needs_review", "selector": "div#s-tip", "occurrences": 1},

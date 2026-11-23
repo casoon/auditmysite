@@ -1036,21 +1036,22 @@ change = "1 targeted mutation(s) of the shared rule (disable, invert, shift thre
 killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id svg/name-missing)"
 
 [[rule]]
-id = "description-duplicates-name"
-error_test = "tree_rules_fail_the_audit_without_an_accessibility_tree"
+id = "names/description-duplicates-name"
+errored = ["error_dom_too_deep"]
+shared_tests = ["barrierlab:crates/a11y-rules/tests/korpus.rs::korpus_faelle (KORPUS_ID=names/description-duplicates-name)"]
 automation = "automated"
-method = "tree"
-source = "WCAG 2.2 SC 4.1.2 Name, Role, Value (best practice); accname 1.2 description computation"
-capabilities = ["ax_tree"]
-applicability = "Non-ignored nodes in Chrome's accessibility tree with an interactive role (button, link, textbox, checkbox, ... switch)."
+review_only = true
+method = "shared"
+source = "WCAG 2.2 SC 4.1.2 Name, Role, Value (does not require name and description to differ); accname 1.2 description computation"
+capabilities = ["dom", "ax_tree"]
+applicability = "Non-ignored elements with an interactive role (button, link, textbox, checkbox, ... switch) that have both an accessible name and an accessible description; the description is Chrome's from the accessibility tree."
 expectation = """
-Reports (best practice, tagged so) an interactive element whose accessible description is
-identical to its accessible name after trimming: screen readers announce the same text twice. A
-description that adds information passes; an element without description passes. Hidden elements
-are not in the tree. Applies in the top document, shadow roots and same-origin frames.
-Test strength: skipping ignored nodes is an equivalent mutation in Chrome — ignored AX nodes
-carry neither name nor description (aria_variant_hidden, button under aria-hidden), so the
-guard cannot change the outcome there; it stays for other tree sources."""
+Review when the accessible description equals the accessible name after whitespace
+normalisation: a screen reader announces the same text twice. 4.1.2 asks for a name, not for a
+description that differs from it, so this is never a violation (#919, casoon/barrierlab#260). A
+description that adds information passes; an element without description is not reported.
+Hidden elements are not in the tree. Applies in the top document, shadow roots and same-origin
+frames."""
 page_level = false
 positive = ["aria_names_missing", "name_description_best_practice"]
 negative = ["aria_names_valid"]
@@ -1063,22 +1064,16 @@ alternative_labels = { not_relevant = "The rule compares the computed name with 
 frames_shadow_dom = { cases = ["aria_variant_shadow_frame"] }
 responsive = { cases = ["aria_variant_responsive"] }
 dynamic = { cases = ["aria_variant_dynamic"] }
-thresholds = { not_relevant = "Exact equality after trimming whitespace; no tolerance to shift." }
+thresholds = { not_relevant = "Equality after whitespace normalisation; no tolerance to shift." }
 
 [rule.test_strength]
 status = "killed"
+
 [[rule.test_strength.mutations]]
-target = "src/wcag/rules/accessible_name.rs"
-change = "invert the equality condition"
-find = "if !name.trim().is_empty() && name.trim() == desc.trim() {"
-replace = "if !name.trim().is_empty() && name.trim() != desc.trim() {"
-killed_by = "corpus:aria_names_missing,aria_names_valid"
-[[rule.test_strength.mutations]]
-target = "src/wcag/rules/accessible_name.rs"
-change = "drop the finding"
-find = "                results.add_violation(violation);"
-replace = "                let _ = violation;"
-killed_by = "corpus:aria_names_missing"
+target = "barrierlab:crates/a11y-rules/tests/mutations/namen.toml"
+change = "1 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
+killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id names/description-duplicates-name)"
+
 [[rule]]
 id = "dialog/name-missing"
 errored = ["error_dom_too_deep"]

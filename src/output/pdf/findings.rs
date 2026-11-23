@@ -235,11 +235,7 @@ fn contrast_measured_text(evidence: &[Evidence], en: bool) -> Option<String> {
     // `a11y-rules` liefert die Zahl allein (`2.56`), die fruehere lokale
     // Regel mit `:1`.
     let as_ratio = |v: &str| {
-        let v = if en {
-            v.to_string()
-        } else {
-            v.replace('.', ",")
-        };
+        let v = decimal(v, en);
         if v.ends_with(":1") {
             v
         } else {
@@ -263,6 +259,74 @@ fn contrast_measured_text(evidence: &[Evidence], en: bool) -> Option<String> {
             en,
         ),
     })
+}
+
+/// The opacity a contrast occurrence was measured at, as written in the
+/// evidence (`0.55`), when the shared rule marks the ratio as state-dependent
+/// (casoon/barrierlab#261), together with the composited text colour.
+fn measured_opacity(evidence: &[Evidence]) -> Option<(&str, Option<&str>)> {
+    if evidence_value(evidence, "computed", "state_dependent") != Some("true") {
+        return None;
+    }
+    let opacity = evidence_value(evidence, "computed", "opacity")?;
+    Some((
+        opacity,
+        evidence_value(evidence, "computed", "effective_foreground"),
+    ))
+}
+
+/// A measured number as written in the evidence (`2.56`), with the decimal
+/// comma in German (#902).
+fn decimal(value: &str, en: bool) -> String {
+    if en {
+        value.to_string()
+    } else {
+        value.replace('.', ",")
+    }
+}
+
+/// "0.55: the ratio applies to this state (text colour after opacity
+/// #8c8c8c)" for a contrast occurrence measured under `opacity` below 1
+/// (#1112). `None` for every other occurrence.
+fn opacity_text(evidence: &[Evidence], en: bool) -> Option<String> {
+    let (opacity, color) = measured_opacity(evidence)?;
+    Some(crate::i18n::text_args(
+        "pdf-findings-opacity-value",
+        &[
+            ("opacity", FluentValue::from(decimal(opacity, en))),
+            ("color", FluentValue::from(color.unwrap_or("–").to_string())),
+        ],
+        en,
+    ))
+}
+
+/// The cross-page line of a contrast finding whose sampled occurrences were
+/// measured under reduced opacity, with the distinct opacity values (#1112):
+/// the site owner sees that opacity, not the colour, sets the ratio. `None`
+/// when no sampled occurrence carries the state-dependent evidence.
+pub(super) fn opacity_pattern_text(
+    occurrences: &[crate::audit::normalized::OccurrenceDetail],
+    en: bool,
+) -> Option<String> {
+    let mut values: Vec<&str> = occurrences
+        .iter()
+        .filter_map(|occ| measured_opacity(&occ.evidence).map(|(o, _)| o))
+        .collect();
+    values.sort_unstable();
+    values.dedup();
+    if values.is_empty() {
+        return None;
+    }
+    let values = values
+        .iter()
+        .map(|v| decimal(v, en))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(crate::i18n::text_args(
+        "pdf-findings-opacity-pattern",
+        &[("values", FluentValue::from(values))],
+        en,
+    ))
 }
 
 pub(super) fn render_finding_technical(
@@ -741,6 +805,10 @@ fn occurrence_snapshot(
         snapshot = snapshot.add_item(i18n.t("pdf-findings-measured-value"), measured);
     }
 
+    if let Some(opacity) = opacity_text(&occ.evidence, en) {
+        snapshot = snapshot.add_item(i18n.t("pdf-findings-opacity"), opacity);
+    }
+
     if crate::wcag::types::evidence_is_dark_color_scheme(&occ.evidence) {
         snapshot = snapshot.add_item(
             i18n.t("pdf-findings-color-scheme"),
@@ -904,6 +972,40 @@ mod tests {
             contrast_measured_text(&shared, false),
             Some("Kontrast 2,56:1 (erforderlich 4,5:1)".to_string())
         );
+    }
+
+    /// #1112: a contrast occurrence measured under opacity names the opacity
+    /// and the composited colour; the cross-page line lists each opacity once.
+    /// Without the state-dependent mark there is no line.
+    #[test]
+    fn opacity_lines_name_the_opacity_behind_the_ratio() {
+        use super::{opacity_pattern_text, opacity_text, Evidence};
+        let dimmed = vec![
+            Evidence::computed("contrast_ratio", "3.90"),
+            Evidence::computed("opacity", "0.55"),
+            Evidence::computed("effective_foreground", "#8c8c8c"),
+            Evidence::computed("state_dependent", "true"),
+        ];
+        assert_eq!(
+            opacity_text(&dimmed, true).as_deref(),
+            Some("0.55: the ratio applies to this state (text colour after opacity #8c8c8c)")
+        );
+        assert_eq!(
+            opacity_text(&dimmed, false).as_deref(),
+            Some("0,55: Das Verhältnis gilt für diesen Zustand (Textfarbe nach Deckkraft #8c8c8c)")
+        );
+        assert_eq!(opacity_text(&dimmed[..1], true), None);
+
+        let occ = |evidence: Vec<Evidence>| crate::audit::normalized::OccurrenceDetail {
+            evidence,
+            ..Default::default()
+        };
+        let mut half = dimmed.clone();
+        half[1] = Evidence::computed("opacity", "0.50");
+        let occurrences = [occ(dimmed.clone()), occ(half), occ(dimmed), occ(vec![])];
+        let line = opacity_pattern_text(&occurrences, true).unwrap();
+        assert!(line.contains("(0.50, 0.55)"), "{line}");
+        assert_eq!(opacity_pattern_text(&occurrences[3..], true), None);
     }
 
     /// #902-5: a BFSG-relevant WCAG violation must lift the screen-reader

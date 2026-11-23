@@ -2597,7 +2597,10 @@ mod tests {
     fn best_practice_name_rules_have_own_taxonomy_and_no_legal_flag() {
         for (axe_id, taxonomy_id) in [
             ("names/title-only", "names/title-only"),
-            ("description-duplicates-name", "description-duplicates-name"),
+            (
+                "names/description-duplicates-name",
+                "names/description-duplicates-name",
+            ),
         ] {
             let mut results = WcagResults::new();
             results.add_violation(

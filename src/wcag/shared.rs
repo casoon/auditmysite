@@ -769,6 +769,20 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Symbol-Only Name)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
+    // Ersetzt `wcag::rules::accessible_name` (`description-duplicates-name`,
+    // #713), ab a11y-rules 0.31 (casoon/barrierlab#260). Gewollt anders:
+    // `REVIEW` statt Verstoß -- 4.1.2 verlangt nicht, dass Name und
+    // Beschreibung verschieden sind (#919). Die Beschreibung liefert der Host
+    // aus Chromes AX-Baum (`Semantics::accessible_description`), wie zuvor
+    // die lokale Regel sie las; verglichen wird nach Normalisierung der
+    // Leerzeichen statt nur nach `trim`.
+    SharedRule {
+        id: "names/description-duplicates-name",
+        criterion: "4.1.2",
+        level: WcagLevel::A,
+        name: "Accessible Name - Redundant Description",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
+    },
     // Ersetzt `wcag::rules::dialog_rules` (`dialog-name`), den Dialog aus
     // `aria_naming_rules` (`aria-dialog-name`) und die Namensprüfung aus
     // `patterns::modal_dialog` (ebenfalls `aria-dialog-name`) -- derselbe
@@ -1955,6 +1969,10 @@ pub const LEGACY_RULE_IDS: &[(&str, &str)] = &[
     ("focus/outline-removed", "focus-visible-outline-none"),
     ("motion/reduced-motion-ignored", "prefers-reduced-motion"),
     ("links/used-as-button", "link-as-button"),
+    (
+        "names/description-duplicates-name",
+        "description-duplicates-name",
+    ),
     ("links/generic-name", "link-name"),
     ("links/url-name", "link-name"),
     ("links/single-character-name", "link-name"),

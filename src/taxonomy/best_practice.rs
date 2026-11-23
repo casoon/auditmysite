@@ -101,23 +101,10 @@ use Source::{Barrierlab, Local};
 ///
 /// `convention` is `true` for exactly the rules `is_convention_rule` exempted
 /// before this table existed (`display/*`, `viz/*`, `names/title-only`,
-/// `description-duplicates-name`, `zoom/viewport-scale-limited`); the other
-/// rows keep their classification (#919 changes no outcome).
+/// `names/description-duplicates-name`, `zoom/viewport-scale-limited`); the
+/// other rows keep their classification.
 pub const BEST_PRACTICE_DECISIONS: &[BestPracticeDecision] = &[
     row("aria/role-redundant", Review, Barrierlab, true, false, None),
-    row(
-        "description-duplicates-name",
-        Fail,
-        Local,
-        true,
-        true,
-        Some(
-            "The element has a name; a description that repeats it is redundant, not a missing \
-             name (#713). Anchored to 4.1.2 without breaching it. Decided 2026-11-20 (#919): \
-             becomes a review upstream (casoon/barrierlab#260); until the port the local rule \
-             stays a fail.",
-        ),
-    ),
     row(
         "display/init-missing",
         Fail,
@@ -220,6 +207,19 @@ pub const BEST_PRACTICE_DECISIONS: &[BestPracticeDecision] = &[
         true,
         false,
         None,
+    ),
+    row(
+        "names/description-duplicates-name",
+        Review,
+        Barrierlab,
+        false,
+        true,
+        Some(
+            "The element has a name; a description that repeats it is redundant, not a missing \
+             name (#713), and 4.1.2 does not require the two to differ. A review since \
+             a11y-rules 0.31 (casoon/barrierlab#260, decided 2026-11-20 in #919): no violation, \
+             no WCAG occurrence, no score cost. The library does not tag it best-practice.",
+        ),
     ),
     row(
         "names/title-only",

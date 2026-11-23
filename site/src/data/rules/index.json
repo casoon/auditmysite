@@ -302,9 +302,9 @@
     },
     {
       "id": "tables/header-missing",
-      "title": "Check that data tables have header cells",
+      "title": "Table without header cells",
       "domain": "wcag",
-      "outcome": "hint-only",
+      "outcome": "automatic",
       "criterion": "1.3.1",
       "level": "A"
     },
@@ -1245,14 +1245,6 @@
       "level": "A"
     },
     {
-      "id": "description-duplicates-name",
-      "title": "Description repeats the name",
-      "domain": "wcag",
-      "outcome": "automatic",
-      "criterion": "4.1.2",
-      "level": "A"
-    },
-    {
       "id": "dialog/modal-unmarked",
       "title": "Dialog not marked as modal",
       "domain": "wcag",
@@ -1329,6 +1321,14 @@
       "title": "Open popover or menu without a name, or marked inert",
       "domain": "wcag",
       "outcome": "automatic",
+      "criterion": "4.1.2",
+      "level": "A"
+    },
+    {
+      "id": "names/description-duplicates-name",
+      "title": "Check that descriptions add to the name",
+      "domain": "wcag",
+      "outcome": "hint-only",
       "criterion": "4.1.2",
       "level": "A"
     },

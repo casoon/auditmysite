@@ -1,33 +1,34 @@
 {
-  "id": "description-duplicates-name",
-  "url": "https://casoon.github.io/auditmysite/rules/description-duplicates-name/",
+  "id": "names/description-duplicates-name",
+  "url": "https://casoon.github.io/auditmysite/rules/names/description-duplicates-name/",
   "domain": "wcag",
-  "title": "Description repeats the name",
-  "outcome": "automatic",
+  "title": "Check that descriptions add to the name",
+  "outcome": "hint-only",
   "area": "Accessibility, Technical Robustness",
   "criterion": "4.1.2",
   "level": "A",
   "axe_id": "description-duplicates-name",
   "severity": "low",
   "user_impact": "Screen readers announce the same text twice without adding information.",
-  "technical_impact": "An interactive element (button, link, form control, menu item, tab and similar) has an accessible description in the browser's accessibility tree that is identical to its accessible name, typically a title or aria-describedby repeating the visible text, so a screen reader announces the same text twice.",
+  "technical_impact": "An interactive element (button, link, form control, menu item, tab and similar) has an accessible description in the browser's accessibility tree that equals its accessible name after whitespace normalisation, typically an aria-describedby or aria-description repeating the visible text, so a screen reader announces the same text twice; reported as a review hint.",
   "checks": [
     {
-      "contract_id": "description-duplicates-name",
-      "outcome": "automatic",
-      "source": "WCAG 2.2 SC 4.1.2 Name, Role, Value (best practice); accname 1.2 description computation",
-      "applicability": "Non-ignored nodes in Chrome's accessibility tree with an interactive role (button, link, textbox, checkbox, ... switch).",
-      "expectation": "Reports (best practice, tagged so) an interactive element whose accessible description is\nidentical to its accessible name after trimming: screen readers announce the same text twice. A\ndescription that adds information passes; an element without description passes. Hidden elements\nare not in the tree. Applies in the top document, shadow roots and same-origin frames.\nTest strength: skipping ignored nodes is an equivalent mutation in Chrome — ignored AX nodes\ncarry neither name nor description (aria_variant_hidden, button under aria-hidden), so the\nguard cannot change the outcome there; it stays for other tree sources.",
-      "method": "tree",
+      "contract_id": "names/description-duplicates-name",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 4.1.2 Name, Role, Value (does not require name and description to differ); accname 1.2 description computation",
+      "applicability": "Non-ignored elements with an interactive role (button, link, textbox, checkbox, ... switch) that have both an accessible name and an accessible description; the description is Chrome's from the accessibility tree.",
+      "expectation": "Review when the accessible description equals the accessible name after whitespace\nnormalisation: a screen reader announces the same text twice. 4.1.2 asks for a name, not for a\ndescription that differs from it, so this is never a violation (#919, casoon/barrierlab#260). A\ndescription that adds information passes; an element without description is not reported.\nHidden elements are not in the tree. Applies in the top document, shadow roots and same-origin\nframes.",
+      "method": "shared",
       "capabilities": [
+        "dom",
         "ax_tree"
       ],
       "page_level": false,
       "failing": {
         "case": "name_description_best_practice",
         "file": "tests/fixtures/detection_corpus/name_description_best_practice.html",
-        "verdict": "violation",
-        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Name and description best-practice corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Name and description best practice (#711, #713)</h1>\n\n        <!-- title-only-description: the title attribute is the only descriptive text -->\n        <button type=\"button\" title=\"Search\"><svg aria-hidden=\"true\" width=\"10\" height=\"10\"></svg></button>\n\n        <!-- description-duplicates-name: the button has a name, its description\n             repeats it (Chrome drops a title equal to the name, aria-describedby not) -->\n        <button type=\"button\" aria-describedby=\"close-desc\">Close</button>\n        <span id=\"close-desc\" hidden>Close</span>\n\n        <!-- neither: title adds information beyond the name -->\n        <button type=\"button\" title=\"Opens the help page in a new window\">Help</button>\n        <!-- neither: a real <label> names the field, title only adds a hint (#711) -->\n        <label for=\"kw\">Keywords</label>\n        <input id=\"kw\" type=\"search\" title=\"Search the whole portal\">\n        <input type=\"submit\" value=\"Search\" title=\"Start the search\">\n    </main>\n</body>\n</html>"
+        "verdict": "needs_review",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Name and description best-practice corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Name and description best practice (#711, #713)</h1>\n\n        <!-- title-only-description: the title attribute is the only descriptive text -->\n        <button type=\"button\" title=\"Search\"><svg aria-hidden=\"true\" width=\"10\" height=\"10\"></svg></button>\n\n        <!-- names/description-duplicates-name: the button has a name, its description\n             repeats it (Chrome drops a title equal to the name, aria-describedby not) -->\n        <button type=\"button\" aria-describedby=\"close-desc\">Close</button>\n        <span id=\"close-desc\" hidden>Close</span>\n\n        <!-- neither: title adds information beyond the name -->\n        <button type=\"button\" title=\"Opens the help page in a new window\">Help</button>\n        <!-- neither: a real <label> names the field, title only adds a hint (#711) -->\n        <label for=\"kw\">Keywords</label>\n        <input id=\"kw\" type=\"search\" title=\"Search the whole portal\">\n        <input type=\"submit\" value=\"Search\" title=\"Start the search\">\n    </main>\n</body>\n</html>"
       },
       "passing": {
         "case": "aria_names_valid",

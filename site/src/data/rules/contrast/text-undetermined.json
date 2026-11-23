@@ -10,14 +10,14 @@
   "axe_id": "color-contrast",
   "severity": "high",
   "user_impact": "Text is hard to read for people with low vision or under poor lighting conditions.",
-  "technical_impact": "The contrast of this text could not be decided: the foreground or background colour could not be resolved (for example an image or gradient background), a fixed or sticky element covers the text, or the measured ratio sits close to the threshold or varies across the text, so the required 4.5:1 (3:1 for large text) stays unverified and needs a manual check.",
+  "technical_impact": "The contrast of this text could not be decided: the foreground or background colour could not be resolved (for example an image or gradient background), a fixed or sticky element covers the text, the measured ratio sits close to the threshold or varies across the text, or the text falls short inside an aria-hidden svg illustration, where only a person can tell decoration (exempt) from information, so the required 4.5:1 (3:1 for large text) stays unverified and needs a manual check.",
   "checks": [
     {
       "contract_id": "contrast/text-undetermined",
       "outcome": "hint-only",
       "source": "WCAG 2.2 SC 1.4.3 Contrast (Minimum); a11y-rules rule 3 (not determinable is not a pass)",
       "applicability": "Elements carrying rendered, visible text whose foreground or background colour cannot be resolved, or whose centre is covered by a foreign fixed or sticky element.",
-      "expectation": "Reports a review (UNTESTED) instead of a pass or fail when the contrast cannot\nbe measured: glyphs painted transparent over a gradient (background-clip:\ntext), no resolvable colour, or the text covered by a fixed/sticky overlay\nsuch as a cookie banner (the overlay's own text is measurable and not\nreported). Over an image or gradient that can be sampled, a median that\npasses with a 40th percentile that fails is a borderline review under this\nid as well. Text on a solid background never produces this finding. It is\nnever a confirmed violation.",
+      "expectation": "Reports a review (UNTESTED) instead of a pass or fail when the contrast cannot\nbe measured: glyphs painted transparent over a gradient (background-clip:\ntext), no resolvable colour, text below the threshold inside an aria-hidden\nsvg illustration (decoration is exempt, information is not; #262), or the\ntext covered by a fixed/sticky overlay\nsuch as a cookie banner (the overlay's own text is measurable and not\nreported). Over an image or gradient that can be sampled, a median that\npasses with a 40th percentile that fails is a borderline review under this\nid as well. Text on a solid background never produces this finding. It is\nnever a confirmed violation.",
       "method": "shared",
       "capabilities": [
         "dom",
