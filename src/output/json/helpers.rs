@@ -423,6 +423,7 @@ pub(super) fn build_decision_actions(
                 url_count: urls.len(),
                 finding_id: finding.id,
                 root_cause_id,
+                score_gain: finding.expected_impact_kind.score_gain().copied(),
                 expected_impact: finding.expected_impact,
             }
         })
@@ -772,6 +773,7 @@ mod tests {
                 occurrence_count: 1,
                 score_effect: ScoreEffect::Low,
                 wcag_level: "AA".into(),
+                score_gain: None,
             },
             bfsg_relevance: "medium".into(),
             remediation_priority: "normal".into(),

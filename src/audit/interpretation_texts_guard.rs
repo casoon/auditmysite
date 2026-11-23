@@ -38,7 +38,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 160);
+    assert_eq!(en.len(), 167);
     assert!(en.iter().all(|id| id.starts_with("audit-interpretation-")));
 }
 
@@ -63,7 +63,7 @@ fn every_key_resolves_in_both_languages_without_errors() {
         bundle.add_resource(resource).expect("no duplicates");
         // `audit-join-and` is not part of this file; no message here uses it.
         let mut args = FluentArgs::new();
-        for name in ["count", "urgent"] {
+        for name in ["count", "urgent", "points", "cap"] {
             args.set(name, FluentValue::from(2_i64));
         }
         for name in [

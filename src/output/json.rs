@@ -524,6 +524,10 @@ pub struct DecisionAction {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub root_cause_id: Option<String>,
     pub expected_impact: String,
+    /// Simulated accessibility score gain if only this action is done
+    /// (#1169); absent where the effect is not quantified.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score_gain: Option<crate::audit::ScoreGain>,
 }
 
 #[derive(Debug, Serialize)]

@@ -1370,6 +1370,35 @@
         },
         "expected_impact": {
           "type": "string"
+        },
+        "score_gain": {
+          "type": "object",
+          "description": "Simulated accessibility score gain if only this action is done (#1169): the score recomputed without the rule's violations minus accessibility_score. Marginal against the current findings, not additive across actions. Absent where the effect is not quantified. See docs/OUTPUT_CONTRACT.md#score-gain.",
+          "required": [
+            "accessibility",
+            "basis"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "accessibility": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Whole points the accessibility score (batch: the average accessibility score) rises by."
+            },
+            "basis": {
+              "type": "string",
+              "enum": [
+                "simulated",
+                "simulated_mean"
+              ],
+              "description": "simulated: one page; simulated_mean: a batch, each page simulated and averaged."
+            },
+            "capped_at": {
+              "type": "integer",
+              "description": "The semantic cap (49, 89 or 92) that still bounds the simulated score because other critical or high findings remain (single page only)."
+            }
+          }
         }
       }
     },

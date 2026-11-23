@@ -57,16 +57,16 @@ const SHARED_PAGE_RULE_IDS: [&str; 2] = [
 
 /// Desktop violations plus the mobile pass's violations of the shared page
 /// rules, so both viewport scores are computed over the same rule set.
-pub(crate) fn with_shared_page_rule_violations(
-    desktop: &[Violation],
-    mobile: &[Violation],
-) -> Vec<Violation> {
-    let shared = mobile.iter().filter(|v| {
+pub(crate) fn shared_page_rule_refs<'a>(
+    desktop: impl Iterator<Item = &'a Violation>,
+    mobile: impl Iterator<Item = &'a Violation>,
+) -> Vec<&'a Violation> {
+    let shared = mobile.filter(|v| {
         v.rule_id
             .as_deref()
             .is_some_and(|id| SHARED_PAGE_RULE_IDS.contains(&id))
     });
-    desktop.iter().chain(shared).cloned().collect()
+    desktop.chain(shared).collect()
 }
 
 /// A role one viewport needs is not redundant (#783): `role="list"` on a

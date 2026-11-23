@@ -29,7 +29,7 @@ use tracing::{debug, info, warn};
 
 #[cfg(test)]
 pub(crate) use self::assembly::audit_scope_from_config;
-pub(crate) use self::assembly::with_shared_page_rule_violations;
+pub(crate) use self::assembly::shared_page_rule_refs;
 use self::assembly::{
     aggregate_report, compute_viewport_site_quality, consolidate_module_runs,
     drop_single_viewport_redundant_roles, ensure_requested_module_runs, merge_wcag_violations,
@@ -1185,11 +1185,10 @@ pub async fn audit_page(
     // Page-level rules run once, on the mobile pass, but describe the page in
     // both viewports. Scoring desktop without them compared the two viewports
     // over different rule sets, so they count in both scores.
-    let desktop_acc = AccessibilityScorer::calculate_score(&with_shared_page_rule_violations(
-        &desktop_wcag.violations,
-        &mobile_wcag.violations,
-    ));
-    let mobile_acc = AccessibilityScorer::calculate_score(&mobile_wcag.violations);
+    let (desktop_acc, mobile_acc) = AccessibilityScorer::viewport_scores(
+        &desktop_wcag.violations.iter().collect::<Vec<_>>(),
+        &mobile_wcag.violations.iter().collect::<Vec<_>>(),
+    );
 
     let desktop_perf_score = desktop_snap.performance.as_ref().map(|p| p.score.overall);
     let mobile_perf_score = mobile_snap.performance.as_ref().map(|p| p.score.overall);
@@ -1236,12 +1235,12 @@ pub async fn audit_page(
 
     let viewport_scores = ViewportScores {
         desktop: ViewportScoreSet {
-            accessibility: desktop_acc.round().max(1.0) as u32,
+            accessibility: AccessibilityScorer::displayed_score(desktop_acc),
             performance: desktop_perf_score,
             site_quality: desktop_site_quality,
         },
         mobile: ViewportScoreSet {
-            accessibility: mobile_acc.round().max(1.0) as u32,
+            accessibility: AccessibilityScorer::displayed_score(mobile_acc),
             performance: mobile_perf_score,
             site_quality: mobile_site_quality,
         },
@@ -2680,16 +2679,16 @@ mod tests {
             Violation::new(rule, rule, WcagLevel::A, Severity::High, "msg", "node-1")
                 .with_rule_id(axe_id)
         };
-        let desktop = vec![v("1.1.1", "image-alt")];
-        let mobile = vec![
+        let desktop = [v("1.1.1", "image-alt")];
+        let mobile = [
             v("4.1.1", wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id),
             v("1.4.10", wcag::rules::REFLOW_RULE.axe_id),
             v("4.1.2", "button-name"),
         ];
 
-        let ids: Vec<_> = with_shared_page_rule_violations(&desktop, &mobile)
+        let ids: Vec<_> = shared_page_rule_refs(desktop.iter(), mobile.iter())
             .into_iter()
-            .filter_map(|v| v.rule_id)
+            .filter_map(|v| v.rule_id.as_deref())
             .collect();
 
         assert_eq!(
@@ -2699,6 +2698,51 @@ mod tests {
                 wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id,
                 wcag::rules::REFLOW_RULE.axe_id,
             ]
+        );
+    }
+
+    /// #1169: the score the action simulation recomputes from the merged,
+    /// viewport-tagged violations is the score the pipeline computes from the
+    /// two passes.
+    #[test]
+    fn merged_violations_reproduce_the_viewport_blend() {
+        let v = |rule: &str, axe_id: &str, selector: &str| {
+            Violation::new(rule, rule, WcagLevel::AA, Severity::Medium, "msg", selector)
+                .with_rule_id(axe_id)
+                .with_selector(selector)
+        };
+        let mut desktop = WcagResults::new();
+        desktop.add_violation(v("1.4.3", "contrast/text-insufficient", "p.a"));
+        desktop.add_violation(v("2.4.4", "links/generic-name", "a.more"));
+        let mut mobile = WcagResults::new();
+        mobile.add_violation(v("1.4.3", "contrast/text-insufficient", "p.a"));
+        mobile.add_violation(v("2.5.8", "targets/size", "button.t"));
+        mobile.add_violation(v("2.5.8", "targets/size", "button.u"));
+        mobile.add_violation(v("1.1.1", "images/alt-missing", "img.hero"));
+        mobile.add_violation(v("4.1.2", "buttons/name-missing", "button.menu"));
+        mobile.add_violation(v(
+            "1.3.1",
+            wcag::rules::HTML_CONTENT_MODEL_RULE.axe_id,
+            "ul.nav",
+        ));
+
+        let (d, m) = AccessibilityScorer::viewport_scores(
+            &desktop.violations.iter().collect::<Vec<_>>(),
+            &mobile.violations.iter().collect::<Vec<_>>(),
+        );
+        let (d, m) = (
+            AccessibilityScorer::displayed_score(d),
+            AccessibilityScorer::displayed_score(m),
+        );
+        assert_ne!(d, m, "the blend has to matter");
+        let merged = merge_wcag_violations(&desktop, &mobile);
+        let expected = AccessibilityScorer::cap_aggregated_score(
+            AccessibilityScorer::weighted_viewport_score(m, d),
+            &merged.violations,
+        );
+        assert_eq!(
+            AccessibilityScorer::page_score(&merged.violations.iter().collect::<Vec<_>>(), true),
+            expected
         );
     }
 

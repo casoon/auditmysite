@@ -37,6 +37,7 @@ pub use crate::audit::interactive_finding::{
     InteractiveFinding, InteractiveFindingKind, InteractiveFindingValues, JourneyExecution,
     JourneyRun, JourneyStep, JourneyTrace,
 };
+use crate::audit::scoring::{ScoreGain, ScoreGainBasis};
 
 /// Normalisiertes Audit-Modell — einzige Score-Quelle für alle Output-Formate
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1403,9 +1404,59 @@ pub fn aggregate_batch_findings(
 
     for (finding, _) in &mut aggregated {
         rederive_count_dependent_fields(finding);
+        let gain = batch_score_gain(reports, &finding.aggregation_key);
+        set_score_gain(finding, gain);
     }
     aggregated.sort_by(|(a, _), (b, _)| crate::audit::prioritization::action_order(a, b));
     aggregated
+}
+
+/// The simulated gain of fixing a rule on every page of `reports` (#1169):
+/// each page's score with its simulated gain for the rule (0 where the rule
+/// does not occur), averaged and rounded the way the batch average is,
+/// against the batch average. One page keeps its own gain. `None` when a
+/// page carrying the rule has no simulated gain.
+fn batch_score_gain(reports: &[NormalizedReport], aggregation_key: &str) -> Option<ScoreGain> {
+    let mut page_gains = Vec::with_capacity(reports.len());
+    for report in reports {
+        let gain = match report
+            .findings
+            .iter()
+            .find(|f| f.aggregation_key == aggregation_key)
+        {
+            None => None,
+            Some(finding) => Some(*finding.expected_impact_kind.score_gain()?),
+        };
+        page_gains.push((report.score, gain));
+    }
+    if let [(_, gain)] = page_gains.as_slice() {
+        return *gain;
+    }
+    let pages = page_gains.len() as f64;
+    let mean = |with_gain: bool| -> u32 {
+        let sum: f64 = page_gains
+            .iter()
+            .map(|(score, gain)| {
+                let points = gain.filter(|_| with_gain).map_or(0, |g| g.accessibility);
+                f64::from(score + points)
+            })
+            .sum();
+        (sum / pages).round() as u32
+    };
+    Some(ScoreGain {
+        accessibility: mean(true).saturating_sub(mean(false)),
+        basis: ScoreGainBasis::SimulatedMean,
+        capped_at: None,
+    })
+}
+
+/// Puts the simulated score gain into a WCAG finding's expected impact and
+/// re-bakes the canonical English sentence (#1169).
+fn set_score_gain(finding: &mut NormalizedFinding, gain: Option<ScoreGain>) {
+    if let ExpectedImpactKind::Wcag { score_gain, .. } = &mut finding.expected_impact_kind {
+        *score_gain = gain;
+        finding.expected_impact = expected_impact_text(&finding.expected_impact_kind, true);
+    }
 }
 
 /// Re-derives what `build_wcag_findings`/`aggregate_seo_findings` compute
@@ -1649,8 +1700,19 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         .viewport_scores
         .as_ref()
         .map(ViewportScores::weighted_accessibility)
-        .unwrap_or_else(|| report.accessibility.score.round().max(1.0) as u32);
+        .unwrap_or_else(|| AccessibilityScorer::displayed_score(report.accessibility.score));
     let score = AccessibilityScorer::cap_aggregated_score(score, violations);
+
+    // What each WCAG rule is worth: the score re-run without its violations
+    // (#1169). Only the persisted violations go in, so a replay of the
+    // snapshot states the same gains as the fresh run.
+    let dual_viewport = report.viewport_scores.is_some();
+    for finding in findings.iter_mut().filter(|f| f.category() == "wcag") {
+        let gain = AccessibilityScorer::simulate_gain(violations, dual_viewport, score, |v| {
+            wcag_group_key(v) == finding.rule_id
+        });
+        set_score_gain(finding, gain);
+    }
 
     // Severity counts — only WCAG findings count (not SEO findings).
     // `severity_counts` zählt Findings (eine Zeile pro Regel/Severity),
@@ -2101,6 +2163,95 @@ mod tests {
             1
         );
         n.validate().unwrap();
+    }
+
+    /// #1169: an action's score gain is the score of the report without the
+    /// rule's violations, computed by the same normalization, minus the
+    /// report's score; the batch states the gain of the average score.
+    #[test]
+    fn score_gain_is_the_score_of_the_report_without_the_rule() {
+        let violation = |criterion: &str, rule: &str, severity: Severity, selector: &str| {
+            Violation::new(
+                criterion,
+                criterion,
+                crate::model::WcagLevel::A,
+                severity,
+                "m",
+                selector,
+            )
+            .with_rule_id(rule)
+            .with_selector(selector)
+        };
+        let all = [
+            violation("1.1.1", "images/alt-missing", Severity::Critical, "img.a"),
+            violation("4.1.2", "buttons/name-missing", Severity::High, "button.x"),
+            violation("4.1.2", "buttons/name-missing", Severity::High, "button.y"),
+            violation("2.4.4", "links/generic-name", Severity::Medium, "a.more"),
+        ];
+        let normalized = |keep: &dyn Fn(&Violation) -> bool| {
+            let mut results = WcagResults::new();
+            for v in all.iter().filter(|v| keep(v)) {
+                results.add_violation(v.clone());
+            }
+            let report = AuditReport::new("https://example.com".into(), WcagLevel::AA, results, 1);
+            normalize(&report).normalized
+        };
+        let page = normalized(&|_| true);
+        for rule in [
+            "images/alt-missing",
+            "buttons/name-missing",
+            "links/generic-name",
+        ] {
+            let finding = page.findings.iter().find(|f| f.rule_id == rule).unwrap();
+            let gain = finding.expected_impact_kind.score_gain().unwrap();
+            let without = normalized(&|v| v.rule_id.as_deref() != Some(rule));
+            assert_eq!(gain.accessibility, without.score - page.score, "{rule}");
+            assert!(
+                finding
+                    .expected_impact
+                    .contains("If only this action is done"),
+                "{}",
+                finding.expected_impact
+            );
+        }
+        // The critical finding caps the page; removing another rule leaves it.
+        assert_eq!(page.score, 49);
+        let buttons = page
+            .findings
+            .iter()
+            .find(|f| f.rule_id == "buttons/name-missing")
+            .unwrap();
+        assert_eq!(
+            buttons.expected_impact_kind.score_gain().unwrap().capped_at,
+            Some(49)
+        );
+
+        // Batch: the page above and a clean one. The gain of the average
+        // score is the average with each page's gain, against the average.
+        let clean = normalized(&|_| false);
+        let batch = [page.clone(), clean.clone()];
+        let aggregated = aggregate_batch_findings(&batch);
+        let (finding, _) = aggregated
+            .iter()
+            .find(|(f, _)| f.rule_id == "images/alt-missing")
+            .unwrap();
+        let gain = finding.expected_impact_kind.score_gain().unwrap();
+        let page_gain = page
+            .findings
+            .iter()
+            .find(|f| f.rule_id == "images/alt-missing")
+            .unwrap()
+            .expected_impact_kind
+            .score_gain()
+            .unwrap()
+            .accessibility;
+        let mean = |a: u32, b: u32| (f64::from(a + b) / 2.0).round() as u32;
+        assert_eq!(
+            gain.accessibility,
+            mean(page.score + page_gain, clean.score) - mean(page.score, clean.score)
+        );
+        assert_eq!(gain.basis, crate::audit::ScoreGainBasis::SimulatedMean);
+        assert!(finding.expected_impact.contains("on every page"));
     }
 
     /// #937: `category` is derived from `contract.domain`. The JSON keeps it

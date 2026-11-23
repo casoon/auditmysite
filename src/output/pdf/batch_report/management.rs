@@ -1,6 +1,7 @@
 use crate::output::localized::is_english;
 use fluent_bundle::FluentValue;
 use renderreport::components::advanced::{ChecklistPanel, ChecklistRow, KeyValueList, List};
+use renderreport::components::text::TextBlock;
 use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
 
@@ -312,16 +313,17 @@ pub(super) fn render_batch_decision_actions(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let mut table = AuditTable::new(vec![
-        TableColumn::new(i18n.t("batch-management-col-action")).with_width("44%"),
-        TableColumn::new(i18n.t("batch-col-risk")).with_width("12%"),
-        // The WCAG level instead of the expected-impact sentence: since plan
-        // 99 that sentence only repeated the reach column and "score effect
-        // not quantified" on every row.
-        TableColumn::new("WCAG").with_width("10%"),
-        TableColumn::new(i18n.t("batch-management-col-scope")).with_width("14%"),
-        TableColumn::new(i18n.t("batch-management-col-reach")).with_width("20%"),
+        TableColumn::new(i18n.t("batch-management-col-action")).with_width("36%"),
+        TableColumn::new(i18n.t("batch-col-risk")).with_width("11%"),
+        // The WCAG level instead of the expected-impact sentence, which only
+        // repeated the reach column; the score effect has its own column.
+        TableColumn::new("WCAG").with_width("8%"),
+        TableColumn::new(i18n.t("batch-management-col-scope")).with_width("13%"),
+        TableColumn::new(i18n.t("batch-management-col-reach")).with_width("19%"),
+        TableColumn::new(i18n.t("batch-management-col-score-gain")).with_width("13%"),
     ])
     .with_title(i18n.t("batch-management-actions-title"));
+    let mut any_gain = false;
 
     let mut count = 0;
     for group in pres
@@ -390,13 +392,34 @@ pub(super) fn render_batch_decision_actions(
                     ("urls", FluentValue::from(group.affected_urls.len() as i64)),
                 ],
             ),
+            score_gain_cell(group.finding.expected_impact_kind.score_gain(), i18n),
         ]);
+        any_gain |= group.finding.expected_impact_kind.score_gain().is_some();
         count += 1;
     }
     if count == 0 {
         return builder;
     }
-    builder.add_component(table)
+    let builder = builder.add_component(table);
+    if any_gain {
+        builder.add_component(TextBlock::new(i18n.t("batch-management-score-gain-note")))
+    } else {
+        builder
+    }
+}
+
+/// The score-effect cell of a batch action (#1169): the simulated gain of
+/// the average accessibility score, the same value as
+/// `top_actions[].score_gain.accessibility` in the JSON.
+fn score_gain_cell(gain: Option<&crate::audit::ScoreGain>, i18n: &I18n) -> String {
+    match gain {
+        None => i18n.t("batch-management-score-gain-not-quantified"),
+        Some(gain) if gain.accessibility == 0 => i18n.t("batch-management-score-gain-none"),
+        Some(gain) => i18n.t_args(
+            "batch-management-score-gain",
+            &[("points", FluentValue::from(i64::from(gain.accessibility)))],
+        ),
+    }
 }
 
 /// The last compound of a CSS selector — the element itself:

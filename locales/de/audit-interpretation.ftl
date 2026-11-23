@@ -172,8 +172,28 @@ audit-interpretation-complexity-high = { $count } Vorkommen deuten auf ein Kompo
 audit-interpretation-complexity-technical = Die Behebung ist technisch, betrifft aber nur wenige Muster.
 audit-interpretation-complexity-moderate = { $count } Vorkommen erfordern einheitliche Anpassungen in Inhalten oder Templates.
 audit-interpretation-complexity-low = Wenige Vorkommen und ein klar abgegrenzter Fix.
-audit-interpretation-expected-impact-wcag = Betrifft { $count } Vorkommen; WCAG-Level: { $level }. Wirkung auf den Score nicht beziffert.
-audit-interpretation-expected-impact-other = Betrifft { $count } Vorkommen; wirkt auf Sichtbarkeit/Struktur. Wirkung auf den Score nicht beziffert.
+audit-interpretation-expected-impact-wcag = Betrifft { $count } Vorkommen; WCAG-Level: { $level }.
+audit-interpretation-expected-impact-other = Betrifft { $count } Vorkommen; wirkt auf Sichtbarkeit/Struktur.
+# Score effect of an action (#1169): the score recomputed without the action's findings, against the current findings
+audit-interpretation-score-effect-not-quantified = Wirkung auf den Score nicht beziffert.
+audit-interpretation-score-gain =
+    Wenn nur diese Maßnahme umgesetzt wird: bis zu +{ $points } { $points ->
+        [one] Punkt
+       *[other] Punkte
+    } für den Barrierefreiheits-Score (simuliert).
+audit-interpretation-score-gain-capped =
+    Wenn nur diese Maßnahme umgesetzt wird: bis zu +{ $points } { $points ->
+        [one] Punkt
+       *[other] Punkte
+    } für den Barrierefreiheits-Score (simuliert); er bleibt bei { $cap } gedeckelt, solange andere kritische oder hohe Befunde offen sind.
+audit-interpretation-score-gain-none = Wenn nur diese Maßnahme umgesetzt wird, ändert sich der Barrierefreiheits-Score nicht (simuliert).
+audit-interpretation-score-gain-none-capped = Wenn nur diese Maßnahme umgesetzt wird, ändert sich der Barrierefreiheits-Score nicht (simuliert): Er bleibt bei { $cap } gedeckelt, solange andere kritische oder hohe Befunde offen sind.
+audit-interpretation-score-gain-mean =
+    Wenn nur diese Maßnahme auf allen Seiten umgesetzt wird: bis zu +{ $points } { $points ->
+        [one] Punkt
+       *[other] Punkte
+    } für den durchschnittlichen Barrierefreiheits-Score (je Seite simuliert).
+audit-interpretation-score-gain-mean-none = Wenn nur diese Maßnahme auf allen Seiten umgesetzt wird, ändert sich der durchschnittliche Barrierefreiheits-Score nicht (je Seite simuliert).
 
 ## Audit summary narrative (`audit::summary`); `$cross` is the cross-impact note with its leading space or empty
 audit-interpretation-summary-groups =

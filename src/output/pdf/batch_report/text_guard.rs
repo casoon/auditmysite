@@ -33,7 +33,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 102);
+    assert_eq!(en.len(), 107);
 }
 
 #[test]
@@ -76,6 +76,7 @@ fn every_key_resolves_in_both_languages_without_errors() {
             "occurrences",
             "urls",
             "findings",
+            "points",
         ] {
             args.set(name, FluentValue::from(2_i64));
         }

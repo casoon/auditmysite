@@ -586,8 +586,10 @@ impl ViewportScores {
     /// The calculation uses the same displayed integer viewport scores that
     /// are serialized to JSON, so readers can reproduce the result exactly.
     pub fn weighted_accessibility(&self) -> u32 {
-        (self.mobile.accessibility as f64 * 0.7 + self.desktop.accessibility as f64 * 0.3).round()
-            as u32
+        AccessibilityScorer::weighted_viewport_score(
+            self.mobile.accessibility,
+            self.desktop.accessibility,
+        )
     }
 }
 
