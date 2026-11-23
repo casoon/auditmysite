@@ -390,6 +390,10 @@
    "verdict": "errored"
   },
   {
+   "rule_id": "media/video-captions-missing",
+   "verdict": "errored"
+  },
+  {
    "rule_id": "frames/name-missing",
    "verdict": "errored"
   },

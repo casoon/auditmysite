@@ -5,9 +5,9 @@
       "domain": "wcag",
       "label": "WCAG rules",
       "automatic": 79,
-      "hint_only": 79,
+      "hint_only": 80,
       "manual": 13,
-      "total": 171
+      "total": 172
     },
     {
       "domain": "security",
@@ -34,7 +34,7 @@
       "total": 8
     }
   ],
-  "total": 210,
+  "total": 211,
   "rules": [
     {
       "id": "display/text-hidden",
@@ -130,6 +130,14 @@
       "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.1.1",
+      "level": "A"
+    },
+    {
+      "id": "media/video-captions-missing",
+      "title": "Check videos without a caption track",
+      "domain": "wcag",
+      "outcome": "hint-only",
+      "criterion": "1.2.2",
       "level": "A"
     },
     {

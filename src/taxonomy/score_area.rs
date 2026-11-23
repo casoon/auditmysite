@@ -108,6 +108,7 @@ static RULE_AREAS: &[(&str, ScoreArea)] = &[
     ("objects/alt-missing", ImagesAlternativeText),
     ("svg/name-missing", ImagesAlternativeText),
     ("video-caption", ImagesAlternativeText),
+    ("media/video-captions-missing", ImagesAlternativeText),
     ("media-alt", ImagesAlternativeText),
     ("frames/name-missing", ImagesAlternativeText),
     // Display-mode convention (#653): the visualisation's text layer.

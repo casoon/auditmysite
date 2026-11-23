@@ -1558,7 +1558,7 @@ async fn test_video_caption_track_resolving_is_a_confirmed_pass() {
 
 #[tokio::test]
 #[ignore = "needs Chrome"]
-async fn test_video_without_track_stays_manual_review() {
+async fn test_video_without_track_is_left_to_the_shared_rule() {
     let (url, shutdown) = serve_fixture("video_no_track.html");
     let manager = ci_browser().await;
     let page = manager.new_page().await.expect("New page failed");
@@ -1571,19 +1571,13 @@ async fn test_video_without_track_stays_manual_review() {
 
     shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
 
-    assert_eq!(
-        findings.len(),
-        1,
-        "expected exactly one finding: {findings:?}"
+    // A video without a caption track is media/video-captions-missing
+    // (#1182); video-caption judges only track files and embeds.
+    assert!(
+        findings.is_empty(),
+        "a video with no track element belongs to the shared rule, not video-caption: \
+         {findings:?}"
     );
-    assert_eq!(
-        findings[0].kind,
-        auditmysite::wcag::types::Outcome::Untested,
-        "a video with no track element must stay a manual-review notice, not a violation \
-         or a false pass: {:?}",
-        findings[0]
-    );
-    assert!(findings[0].message.contains("without a resolving"));
 }
 
 #[tokio::test]

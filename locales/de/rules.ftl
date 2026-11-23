@@ -30,7 +30,11 @@ rule-images-alt-suspicious = Prüfen, ob der Alternativtext das Bild beschreibt
 
 rule-video-caption = Untertitel von Videos prüfen
     .user-impact = Gehörlose oder schwerhörige Nutzer können gesprochene Inhalte nicht wahrnehmen.
-    .technical-impact = Mindestens ein dargestelltes <video> hat kein <track kind="captions"> oder kind="subtitles", dessen Datei vom Ursprung der Seite als Untertitelformat (.vtt oder .srt) geladen wird, oder die Seite bettet nur einen Player eines Drittanbieters ein (YouTube, Vimeo und ähnliche), dessen Untertitel das Werkzeug nicht sieht, daher hat gesprochener Inhalt möglicherweise kein Textäquivalent; eine ungeprüfte Hinweisnotiz zur manuellen Prüfung, weil sich Genauigkeit und Zeitsteuerung der Untertitel ohnehin nicht automatisch prüfen lassen.
+    .technical-impact = Ein dargestelltes <video> hat ein <track kind="captions"> oder kind="subtitles", aber keine seiner Dateien wird vom Ursprung der Seite als Untertitelformat (.vtt oder .srt) geladen, oder die Seite bettet einen Player eines Drittanbieters ein (YouTube, Vimeo und ähnliche), dessen Untertitel das Werkzeug nicht sieht, daher hat gesprochener Inhalt möglicherweise kein Textäquivalent; eine ungeprüfte Hinweisnotiz zur manuellen Prüfung, weil sich Genauigkeit und Zeitsteuerung der Untertitel ohnehin nicht automatisch prüfen lassen. Ein Video ohne eine solche Spur meldet stattdessen media/video-captions-missing.
+
+rule-media-video-captions-missing = Videos ohne Untertitelspur prüfen
+    .user-impact = Gehörlose oder schwerhörige Nutzer können gesprochene Inhalte nicht wahrnehmen.
+    .technical-impact = Ein <video> außerhalb von hidden- und aria-hidden-Inhalten, das nicht stumm ohne Bedienelemente ist, hat kein <track kind="captions"> oder kind="subtitles" als Kind, daher hat gesprochener Inhalt möglicherweise kein Textäquivalent; als Prüfhinweis gemeldet, weil Untertitel ins Bild eingebrannt oder vom Player angeboten sein können und das Video womöglich keine Sprache und keine informationstragenden Töne enthält.
 
 rule-media-alt = Fehlende Medienalternative (AAA)
     .user-impact = Nutzer, die keine Videos oder Audios abspielen können, erhalten keine Textalternative.

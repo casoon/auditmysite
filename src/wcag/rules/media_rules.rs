@@ -1,7 +1,9 @@
 //! WCAG 1.2.2 caption tracks - Media Rules
 //!
-//! What stays in the host after #696 (B6): whether a `<track>` caption file
-//! actually loads (a network probe). Which frames are cross-origin runs as
+//! What stays in the host after #696 (B6) and #1182: whether a `<track>`
+//! caption file actually loads (a network probe) and third-party video
+//! embeds. A video without a caption track is the shared rule
+//! `media/video-captions-missing`. Which frames are cross-origin runs as
 //! `frames/cross-origin` in the shared rules (`accessibility::probes`, #1002).
 //! Frame names, `<area>`,
 //! `<input type="image">`, `<object>`, server-side image maps and autoplaying
@@ -115,15 +117,25 @@ const MAX_TRACKS_CHECKED: usize = 10;
 
 const VIDEO_TRACK_SCAN_JS: &str = include_str!("js/video_track_scan.js");
 
-/// 1.2.2 Captions (Prerecorded) — DOM + network deepening (#video-caption-checks).
+/// 1.2.2 Captions (Prerecorded) — what needs the browser (#1182).
 ///
-/// Emits a confirmed pass (`Outcome::Pass`) only when every native
-/// `<video>` element on the page has a `<track kind="captions"|"subtitles">`
-/// whose `src` actually resolves same-origin as a real caption file.
-/// Anything short of that (no track, an unresolving track, or only
-/// third-party video embeds whose captions this tool cannot see) stays a
-/// `NotTestable` manual-review notice, same as before — this only narrows
-/// when a Pass is claimed, it never invents a stronger negative verdict.
+/// A rendered `<video>` without a `<track kind="captions"|"subtitles">` child
+/// is the shared rule `media/video-captions-missing` (one review per video).
+/// This rule judges the rest, which only a running browser can see:
+///
+/// - videos that do carry such a track: does one of its files load
+///   same-origin as a real caption file? Emits a confirmed pass
+///   (`Outcome::Pass`) only when every one of them does and the page embeds
+///   no third-party player;
+/// - third-party video embeds (YouTube, Vimeo, …) whose captions this tool
+///   cannot see.
+///
+/// Anything short of the pass (a track that does not load, is cross-origin,
+/// has no `src` or is beyond the probe budget, or an embed) is one page-level
+/// `NotTestable` manual-review notice; it never invents a stronger negative
+/// verdict. Its applicability matches the shared rule: a muted video without
+/// `controls` and a video under `aria-hidden="true"` are left out, so the two
+/// rules split the videos by track presence and no video is reported twice.
 pub async fn check_video_caption_tracks_with_page(page: &Page) -> Vec<Violation> {
     let js = [
         "(function() {",
@@ -152,11 +164,28 @@ pub async fn check_video_caption_tracks_with_page(page: &Page) -> Vec<Violation>
         )];
     };
 
-    let videos = value
+    // Videos without a caption-like track belong to the shared rule.
+    let videos: Vec<Vec<serde_json::Value>> = value
         .get("videos")
         .and_then(|v| v.as_array())
-        .cloned()
-        .unwrap_or_default();
+        .into_iter()
+        .flatten()
+        .map(|video| {
+            video
+                .get("tracks")
+                .and_then(|t| t.as_array())
+                .into_iter()
+                .flatten()
+                .filter(|track| {
+                    track_kind_is_caption_like(
+                        track.get("kind").and_then(|k| k.as_str()).unwrap_or(""),
+                    )
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .filter(|tracks| !tracks.is_empty())
+        .collect();
     let embed_count = value
         .get("embeds")
         .and_then(|v| v.as_array())
@@ -186,29 +215,19 @@ pub async fn check_video_caption_tracks_with_page(page: &Page) -> Vec<Violation>
         .build()
         .ok();
 
-    let native_count = videos.len();
+    let track_count = videos.len();
     let mut captioned_count = 0usize;
-    let mut any_track_found = false;
     let mut any_track_unresolved = false;
     let mut checked = 0usize;
 
-    for video in &videos {
-        let tracks = video
-            .get("tracks")
-            .and_then(|t| t.as_array())
-            .cloned()
-            .unwrap_or_default();
+    for tracks in &videos {
         let mut this_video_captioned = false;
-        for track in &tracks {
-            let kind = track.get("kind").and_then(|k| k.as_str()).unwrap_or("");
-            if !track_kind_is_caption_like(kind) {
-                continue;
-            }
+        for track in tracks {
             let src = track.get("src").and_then(|s| s.as_str()).unwrap_or("");
             if src.is_empty() {
+                any_track_unresolved = true;
                 continue;
             }
-            any_track_found = true;
             if checked >= MAX_TRACKS_CHECKED {
                 continue;
             }
@@ -227,18 +246,18 @@ pub async fn check_video_caption_tracks_with_page(page: &Page) -> Vec<Violation>
         }
     }
 
-    if native_count > 0 && captioned_count == native_count {
+    if track_count > 0 && captioned_count == track_count && embed_count == 0 {
         return vec![Violation::new(
             RULE_META_CAPTIONS.id,
             RULE_META_CAPTIONS.name,
             RULE_META_CAPTIONS.level,
             Severity::Low,
             format!(
-                "{native_count} video element{} with a resolving <track kind=\"captions\"> or \
-                 <track kind=\"subtitles\"> file detected. Caption presence and format are \
-                 technically confirmed — a manual check of synchronization and transcription \
-                 accuracy is still recommended.",
-                if native_count == 1 { "" } else { "s" }
+                "{track_count} video element{} with a <track kind=\"captions\"> or \
+                 <track kind=\"subtitles\">, each with a resolving caption file. Caption \
+                 presence and format are technically confirmed — a manual check of \
+                 synchronization and transcription accuracy is still recommended.",
+                if track_count == 1 { "" } else { "s" }
             ),
             "page",
         )
@@ -250,40 +269,37 @@ pub async fn check_video_caption_tracks_with_page(page: &Page) -> Vec<Violation>
         .as_positive()];
     }
 
-    let message =
-        if native_count > 0 && any_track_found {
-            format!(
-                "{captioned_count} of {native_count} video elements have a verified, resolving \
-             caption/subtitle track. The rest could not be automatically confirmed{} — review \
-             each remaining video for correct, synchronized captions.",
-                if any_track_unresolved {
-                    " (a <track> src was found but did not resolve)"
-                } else {
-                    ""
-                }
-            )
-        } else if native_count > 0 {
-            format!(
-            "{native_count} video {} detected without a resolving <track kind=\"captions\"> or \
-             <track kind=\"subtitles\"> element. Caption presence and accuracy cannot be \
-             verified automatically — review each video for correct, synchronized captions.",
-            if native_count == 1 { "element" } else { "elements" }
-        )
-        } else {
-            format!(
-                "{embed_count} embedded video player{} detected (e.g. a YouTube/Vimeo-style \
+    let mut parts = Vec::new();
+    if captioned_count < track_count {
+        parts.push(format!(
+            "{captioned_count} of {track_count} video element{} with a <track kind=\"captions\"> \
+             or <track kind=\"subtitles\"> {} a caption file that loads from the page origin. \
+             The rest could not be confirmed{} — review each of them for working, synchronized \
+             captions.",
+            if track_count == 1 { "" } else { "s" },
+            if captioned_count == 1 { "has" } else { "have" },
+            if any_track_unresolved {
+                " (a track file did not load as a caption file, or the track has no src)"
+            } else {
+                ""
+            }
+        ));
+    }
+    if embed_count > 0 {
+        parts.push(format!(
+            "{embed_count} embedded video player{} detected (e.g. a YouTube/Vimeo-style \
              iframe). Caption availability depends on the platform's own player and cannot be \
              verified automatically — check the embed's caption/subtitle settings manually.",
-                if embed_count == 1 { "" } else { "s" }
-            )
-        };
+            if embed_count == 1 { "" } else { "s" }
+        ));
+    }
 
     vec![Violation::new(
         RULE_META_CAPTIONS.id,
         RULE_META_CAPTIONS.name,
         RULE_META_CAPTIONS.level,
         Severity::High,
-        message,
+        parts.join(" "),
         "page",
     )
     .with_fix(

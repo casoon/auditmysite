@@ -180,6 +180,22 @@ pub static RULES: &[Rule] = &[
         report_visibility: VIS_ALL,
     },
     Rule {
+        id: "media/video-captions-missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::ContentAlternatives,
+        issue_class: IssueClass::Missing,
+        severity: Severity::Medium,
+        external_ref: Some("WCAG 1.2.2"),
+        external_level: Some("A"),
+        axe_id: Some("media/video-captions-missing"),
+        score_impact: ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    Rule {
         id: "media-alt",
         dimension: Dimension::Accessibility,
         subcategory: Subcategory::ContentAlternatives,

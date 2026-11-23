@@ -1,0 +1,41 @@
+{
+  "id": "media/video-captions-missing",
+  "url": "https://casoon.github.io/auditmysite/rules/media/video-captions-missing/",
+  "domain": "wcag",
+  "title": "Check videos without a caption track",
+  "outcome": "hint-only",
+  "area": "Accessibility, Content & Alternatives",
+  "criterion": "1.2.2",
+  "level": "A",
+  "axe_id": "media/video-captions-missing",
+  "severity": "medium",
+  "user_impact": "Deaf or hard-of-hearing users cannot perceive spoken content.",
+  "technical_impact": "A <video> outside hidden and aria-hidden content, and not muted without controls, has no <track kind=\"captions\"> or kind=\"subtitles\" child, so spoken content may have no text equivalent; reported as a review hint, because captions can be burned into the picture or offered by the player, and the video may carry no speech or informative sound.",
+  "checks": [
+    {
+      "contract_id": "media/video-captions-missing",
+      "outcome": "hint-only",
+      "source": "WCAG 2.2 SC 1.2.2 Captions (Prerecorded) (H95, G87, F8); HTML §4.8.11.11 track; ACT f51b46",
+      "applicability": "Every <video> not under the hidden attribute or aria-hidden=\"true\", except a\nmuted video without controls (no sound anybody can turn on).",
+      "expectation": "A video without a <track kind=\"captions\"> or kind=\"subtitles\" child is one\nREVIEW at the video: captions can be burned in or offered by the player, and\nthe video may carry no speech or informative sound, so never a violation.\nDescriptions or chapter tracks alone do not count. A video with such a track\ngets no finding here, whether its file loads or not; that question and\nthird-party embeds are video-caption's (#1182), so no video is reported by\nboth rules.",
+      "method": "shared",
+      "capabilities": [
+        "dom"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "content_video_dynamic",
+        "file": "tests/fixtures/detection_corpus/content_video_dynamic.html",
+        "verdict": "needs_review",
+        "selector": "video#featured",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Video added after load</title>\n    <style>\n        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Featured video</h1>\n        <div id=\"player-slot\"></div>\n        <script>\n            document.getElementById('player-slot').innerHTML =\n                '<video id=\"featured\" controls width=\"320\" height=\"180\" src=\"/featured.mp4\"></video>' +\n                '<video id=\"talk\" controls width=\"320\" height=\"180\" src=\"/talk.mp4\">' +\n                '<track kind=\"subtitles\" src=\"/talk-subtitles\" srclang=\"en\" label=\"English\"></video>';\n        </script>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "content_video_captioned",
+        "file": "tests/fixtures/detection_corpus/content_video_captioned.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Library tour video</title>\n    <style>\n        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }\n    </style>\n</head>\n<body>\n    <a class=\"skip-link\" href=\"#main\">Skip to main content</a>\n    <header>\n        <p>City Library</p>\n        <nav aria-label=\"Main\"><a href=\"/\" aria-current=\"page\">Home</a> <a href=\"/catalogue\">Catalogue</a> <a href=\"/visit\">Visit</a></nav>\n    </header>\n    <main id=\"main\">\n        <h1>Library tour</h1>\n        <video id=\"tour\" controls width=\"320\" height=\"180\" src=\"/tour.mp4\">\n            <track kind=\"captions\" src=\"/tour.en.vtt\" srclang=\"en\" label=\"English\">\n        </video>\n        <video id=\"workshop\" controls width=\"320\" height=\"180\" src=\"/workshop.mp4\">\n            <track kind=\"subtitles\" src=\"/workshop.de.srt\" srclang=\"de\" label=\"Deutsch\">\n            <track kind=\"chapters\" src=\"/workshop.chapters.html\" srclang=\"en\">\n        </video>\n    </main>\n    <footer><p>City Library, 1 Market Square</p></footer>\n</body>\n</html>"
+      }
+    }
+  ]
+}

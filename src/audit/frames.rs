@@ -180,6 +180,9 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
     // measured medium leaves `media/audio-autoplay`, so its measured verdict
     // has to run there too.
     "media/audio-autoplay-measured",
+    // Judges single videos; `video-caption` (track files, embeds) reads the
+    // top document only, so a video in a frame is never reported twice.
+    "media/video-captions-missing",
     "frames/name-missing",
     "tables/header-without-data",
     "tables/data-undetermined",

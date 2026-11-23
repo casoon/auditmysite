@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Library video, embedded player</title>
+    <style>
+        nav a, .skip-link { display: inline-block; min-width: 44px; min-height: 44px; }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header>
+        <p>City Library</p>
+        <nav aria-label="Main"><a href="/" aria-current="page">Home</a> <a href="/catalogue">Catalogue</a> <a href="/visit">Visit</a></nav>
+    </header>
+    <main id="main">
+        <h1>Library tour</h1>
+        <!-- A player facade: srcdoc takes precedence over src, so the frame
+             shows the placeholder and nothing loads from the platform (the
+             case runs offline), while src still names the embed's host. -->
+        <iframe id="tour-embed" src="https://www.youtube-nocookie.com/embed/library-tour" srcdoc="<!DOCTYPE html><html lang='en'><title>Library tour video</title><p>Library tour video, loading the player</p></html>" title="Library tour video" width="320" height="180"></iframe>
+        <!-- Captioned with a caption file that loads: the embed alone keeps
+             the page from a confirmed pass. -->
+        <video id="workshop" controls width="320" height="180" src="/workshop.mp4">
+            <track kind="captions" src="/workshop.en.vtt" srclang="en" label="English">
+        </video>
+    </main>
+    <footer><p>City Library, 1 Market Square</p></footer>
+</body>
+</html>

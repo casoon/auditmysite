@@ -2,7 +2,8 @@
   "case": "media_and_motion",
   "expectations": [
     {"rule_id": "media-alt", "verdict": "needs_review"},
-    {"rule_id": "video-caption", "verdict": "needs_review"},
+    {"rule_id": "video-caption", "verdict": "not_applicable"},
+    {"rule_id": "media/video-captions-missing", "verdict": "needs_review", "occurrences": 1},
     {"rule_id": "orientation/content-hidden", "verdict": "needs_review"},
     {"rule_id": "motion/reduced-motion-ignored", "verdict": "needs_review"},
     {"rule_id": "focus/outline-removed", "verdict": "violation"},
