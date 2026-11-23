@@ -2757,20 +2757,21 @@ mod action_plan_selection_tests {
     use super::*;
     use crate::audit::AuditReport;
     use crate::model::WcagLevel;
-    use crate::seo::page_health::{PageHealthAnalysis, PageHealthIssue};
+    use crate::seo::page_health::PageHealthAnalysis;
     use crate::seo::SeoAnalysis;
+    use crate::seo::SeoIssue;
     use crate::wcag::WcagResults;
 
-    const PAGE_HEALTH: &[(&str, &str)] = &[
-        ("http1_only", "medium"),
-        ("inefficient_cache", "medium"),
-        ("large_dom", "medium"),
-        ("images_without_srcset", "medium"),
-        ("oversized_images", "medium"),
-        ("fonts_not_preloaded", "low"),
-        ("inefficient_resource_cache", "low"),
-        ("missing_preconnect", "low"),
-        ("generic_404_page", "low"),
+    const PAGE_HEALTH: &[(&str, crate::taxonomy::Severity)] = &[
+        ("http1_only", crate::taxonomy::Severity::Medium),
+        ("inefficient_cache", crate::taxonomy::Severity::Medium),
+        ("large_dom", crate::taxonomy::Severity::Medium),
+        ("images_without_srcset", crate::taxonomy::Severity::Medium),
+        ("oversized_images", crate::taxonomy::Severity::Medium),
+        ("fonts_not_preloaded", crate::taxonomy::Severity::Low),
+        ("inefficient_resource_cache", crate::taxonomy::Severity::Low),
+        ("missing_preconnect", crate::taxonomy::Severity::Low),
+        ("generic_404_page", crate::taxonomy::Severity::Low),
     ];
 
     fn page(url: &str) -> AuditReport {
@@ -2778,10 +2779,10 @@ mod action_plan_selection_tests {
             page_health: Some(PageHealthAnalysis {
                 issues: PAGE_HEALTH
                     .iter()
-                    .map(|(issue_type, severity)| PageHealthIssue {
+                    .map(|(issue_type, severity)| SeoIssue {
                         issue_type: issue_type.to_string(),
                         message: issue_type.to_string(),
-                        severity: severity.to_string(),
+                        severity: *severity,
                     })
                     .collect(),
                 ..Default::default()

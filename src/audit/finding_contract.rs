@@ -777,7 +777,7 @@ fn collect(
                         D::Seo,
                         "seo.page_health",
                         issue.issue_type.clone(),
-                        severity_from(&issue.severity),
+                        issue.severity,
                         issue.message.clone(),
                         FindingScoring::none(),
                         L::Resource,
@@ -1675,8 +1675,8 @@ mod tests {
 
     use crate::audit::normalized::{normalize, NormalizedReport};
     use crate::audit::AuditReport;
-    use crate::seo::technical::TechnicalIssue;
     use crate::seo::SeoAnalysis;
+    use crate::seo::SeoIssue;
     use crate::wcag::WcagResults;
 
     /// A page with complete SEO basics, so the score reflects only what a
@@ -1693,7 +1693,7 @@ mod tests {
         seo.social.twitter_card = Some(Default::default());
         if noindex {
             seo.technical.robots_meta = Some("noindex, follow".into());
-            seo.technical.issues.push(TechnicalIssue {
+            seo.technical.issues.push(SeoIssue {
                 issue_type: "noindex".into(),
                 message: "Page has a noindex directive".into(),
                 severity: Severity::High,
@@ -1972,7 +1972,7 @@ mod tests {
         );
         let mut seo = seo(false);
         seo.technical.has_lang = false;
-        seo.technical.issues.push(TechnicalIssue {
+        seo.technical.issues.push(SeoIssue {
             issue_type: "no_lang".into(),
             message: "No lang attribute".into(),
             severity: Severity::Medium,

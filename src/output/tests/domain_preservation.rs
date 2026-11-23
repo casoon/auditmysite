@@ -132,13 +132,11 @@ fn report_with_every_domain() -> AuditReport {
         kind: None,
         values: Default::default(),
     });
-    seo.technical
-        .issues
-        .push(crate::seo::technical::TechnicalIssue {
-            issue_type: "no_canonical".to_string(),
-            message: "No canonical link.".to_string(),
-            severity: Severity::High,
-        });
+    seo.technical.issues.push(crate::seo::SeoIssue {
+        issue_type: "no_canonical".to_string(),
+        message: "No canonical link.".to_string(),
+        severity: Severity::High,
+    });
     seo.structured_data
         .schema_issues
         .push(crate::seo::schema::SchemaIssue {
@@ -148,10 +146,10 @@ fn report_with_every_domain() -> AuditReport {
             message: "Product schema lacks offers.".to_string(),
         });
     seo.page_health = Some(crate::seo::page_health::PageHealthAnalysis {
-        issues: vec![crate::seo::page_health::PageHealthIssue {
+        issues: vec![crate::seo::SeoIssue {
             issue_type: "meta_refresh".to_string(),
             message: "The page uses a meta refresh.".to_string(),
-            severity: "warning".to_string(),
+            severity: crate::taxonomy::Severity::Medium,
         }],
         ..Default::default()
     });

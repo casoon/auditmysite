@@ -5,6 +5,7 @@
 pub(crate) mod headings;
 pub mod image_efficiency;
 pub mod interpretation;
+pub mod issue;
 pub(crate) mod meta;
 pub mod module;
 pub mod page_health;
@@ -26,12 +27,13 @@ pub use headings::{
     LongHeading,
 };
 pub use image_efficiency::{analyze_image_efficiency, ImageEfficiencyAnalysis, OversizedImage};
+pub use issue::SeoIssue;
 pub use meta::{
     extract_meta_tags, meta_issue_text, MetaIssueKind, MetaIssueValues, MetaTags, MetaValidation,
 };
 pub use page_health::{
     analyze_page_health, collect_issues, HtmlValidationIssue, HtmlValidationKind,
-    PageHealthAnalysis, PageHealthIssue, UrlCanonicalizationCheck, WwwConsolidation,
+    PageHealthAnalysis, UrlCanonicalizationCheck, WwwConsolidation,
 };
 pub use profile::{build_content_profile, SeoContentProfile};
 pub use robots::{audit_robots_txt, infer_robots_policy, BotClass, RobotsAudit, RobotsGroup};
