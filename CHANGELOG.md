@@ -60,6 +60,10 @@ and verification for each change is in the
 - **Report:** the key measures of the single report come from one ranking across all modules: severity first, then WCAG A/AA obligations, reach and leverage, so a Low accessibility hint no longer ranks ahead of a High finding such as a missing CSP or HSTS. The action-plan line "Reparaturhebel" / "Remediation leverage" is now "Reichweite der Korrektur" / "Fix reach", so it cannot read as low urgency (#1133).
 - **SEO:** a heading inside a dialog or consent layer (`<dialog>`, `role="dialog"`, `aria-modal`, a known consent manager) is marked `in_dialog` and no longer counts as the page's H1 or as its first heading, so the SEO view and the keyboard journey agree that a page with an H1 only in its cookie dialog has none; the SEO heading line names such an H1 (`dialog_h1_count`, additive) (#1132).
 
+### Security
+
+- **Dependencies:** `url` 2.5.9 fixes RUSTSEC-2026-0592 (stack overflow in `Url::origin()` on nested `blob:` URLs).
+
 ## [2.1.0] - 2026-11-19
 
 ### Breaking
