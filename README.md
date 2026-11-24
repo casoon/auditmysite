@@ -102,7 +102,7 @@ Prebuilt binaries, building from source and the optional Cargo features: [Build 
 docker run --rm ghcr.io/casoon/auditmysite https://example.com -f json --quiet
 ```
 
-The `linux/amd64` and `linux/arm64` image holds the released binary and Debian's Chromium, runs as a non-root user and starts with `--no-sandbox` (the container is the isolation boundary). Tags are `X.Y.Z` (for example `2.1.0`) and `latest`. To keep a report, mount a directory as the working directory:
+The `linux/amd64` and `linux/arm64` image holds the released binary and Debian's Chromium, runs as a non-root user and starts with `--no-sandbox` (the container is the isolation boundary). Tags are `X.Y.Z` (for example `2.2.0`) and `latest`. To keep a report, mount a directory as the working directory:
 
 ```bash
 docker run --rm -v "$PWD:/work" ghcr.io/casoon/auditmysite https://example.com -f json -o report.json
@@ -211,7 +211,7 @@ jobs:
     steps:
       - name: Audit
         id: audit
-        uses: casoon/auditmysite@v2.1.0 # pin to a commit SHA for a fixed action version
+        uses: casoon/auditmysite@v2.2.0 # pin to a commit SHA for a fixed action version
         with:
           url: https://staging.example.com
           args: --full
@@ -283,6 +283,7 @@ Parts of the checks live in [barrierlab](https://github.com/casoon/barrierlab) a
 | How it differs from axe-core and Pa11y | [Compared to typical setups](docs/reference/comparison.md) |
 | Upgrading from 1.x | [Migrating to 2.0](docs/guides/migration-2.0.md) |
 | Upgrading from 2.0 | [Migrating from 2.0 to 2.1](docs/guides/migration-2.1.md) |
+| Upgrading from 2.1 | [Migrating from 2.1 to 2.2](docs/guides/migration-2.2.md) |
 | Heuristic signals and calibration | [Calibration](docs/calibration.md) |
 | Building, tests, release checks, library API | [Development](docs/guides/development.md), [API reference](docs/reference/api.md) |
 | Browser dependency | [Chrome dependency](docs/chrome-dependency.md) |

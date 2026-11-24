@@ -10,7 +10,9 @@ major one. Under strict SemVer that is a deviation, which is why this page lists
 The changelog has the same entries under `### Breaking` in the
 [2.1.0 section](https://github.com/casoon/auditmysite/blob/main/CHANGELOG.md); the contract behind
 them is the [output contract](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md)
-and the JSON schemas in `docs/`. The changes of 2.0 itself are in [Migrating to 2.0](../migration-20/).
+and the JSON schemas in `docs/`. The changes of 2.0 itself are in [Migrating to 2.0](../migration-20/); later breaking changes
+(rules moved to the shared rules, JSON members the 2.1 schemas reject) are in
+[Migrating from 2.1 to 2.2](../migration-22/).
 
 ## How to find what still reads the old shape
 
@@ -96,6 +98,7 @@ The library has a declared surface since 2.1: the CLI, the JSON report and the i
 
 ## Related
 
+- [Migrating from 2.1 to 2.2](../migration-22/)
 - [Migrating to 2.0](../migration-20/)
 - [Output contract](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md), including the decision contract and the validation codes.
 - [CLI and output contract](../../reference/cli-and-output/) for `report-lint` and the output formats.
