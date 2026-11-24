@@ -29,8 +29,8 @@ and the JSON schemas in `docs/`. The changes of 2.1 are in [Migrating from 2.0 t
   `docs/json-batch-report.schema.json`: take the 2.2.0 schemas. `schema_version` stays `2.2`
   (2.0 for 2.0.x reports; the technician index is `1.1`), because every change is an addition.
 
-Stored snapshots and cache entries written by 2.1 are cache misses (cache `fmt` 37, measurement
-profile version 4); nothing needs to be deleted.
+Stored snapshots and cache entries written by 2.1 are cache misses (cache `fmt` 37); nothing needs
+to be deleted.
 
 ## Rule ids, baseline and `[rules]` filters
 
