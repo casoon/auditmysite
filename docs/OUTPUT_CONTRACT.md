@@ -107,7 +107,7 @@ UX, Journey, AI Visibility, Content Visibility, Source Quality and Commerce are 
 
 What changes an id:
 
-- **The rule id.** A renamed rule is a new finding to every existing baseline (its old id reads as `fixed`, the new one as `new`). Renames are therefore changelog entries (the 2.0 rule catalogue, #918, was such a change).
+- **The rule id.** A renamed rule is a new finding to every existing baseline (its old id reads as `fixed`, the new one as `new`). Renames are therefore changelog entries (the 2.0 rule catalogue, #918, was such a change, and so were the rule moves of 2.2.0, listed with their baseline and `[rules]` filter effect in the [2.1 to 2.2 migration guide](https://casoon.github.io/auditmysite/docs/guides/migration-22/)).
 - **The id derivation.** A change of `FindingId`'s key moves every id. `FINDING_ID_SCHEME` (`audit::baseline`) must be raised in the same change; a baseline written under another scheme is refused, and so is a baseline whose ids this tool would not derive from the recorded rules.
 
 What follows: a baseline entry means "this rule is reported on this URL", not "these elements". A new element violating an already known rule is not a new finding; the baseline stays quiet about it. Use the pattern ids (`findings[].patterns[].id`, `RC-` and eight hex digits, rule and normalized selector) for element-level comparison; the baseline does not use them. `tests/baseline_gating.rs` pins the ids of known rules (`finding_ids_of_known_rules_are_pinned`) and checks that reordering and element changes leave an id and the baseline digest alone.
