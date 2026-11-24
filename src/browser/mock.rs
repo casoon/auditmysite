@@ -2,7 +2,7 @@
 //!
 //! Use `MockAXSession::new(nodes)` to build a test AXTree without Chrome.
 
-use crate::accessibility::{AXNode, AXTree};
+use crate::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 
 /// A pre-built AXTree + raw HTML pair that replaces a real browser session in tests.
 pub struct MockAXSession {
@@ -39,8 +39,9 @@ impl MockAXSession {
         )
     }
 
-    /// Page with an image missing alt text — triggers 1.1.1.
-    pub fn image_missing_alt() -> Self {
+    /// Page with a modal dialog — the tree rule `keyboard-trap` notes it for
+    /// review (2.1.2).
+    pub fn modal_dialog() -> Self {
         Self::new(
             vec![
                 AXNode {
@@ -61,18 +62,21 @@ impl MockAXSession {
                     node_id: "2".to_string(),
                     ignored: false,
                     ignored_reasons: vec![],
-                    role: Some("image".to_string()),
-                    name: None,
+                    role: Some("dialog".to_string()),
+                    name: Some("Newsletter".to_string()),
                     name_source: None,
                     description: None,
                     value: None,
-                    properties: vec![],
+                    properties: vec![AXProperty {
+                        name: "modal".to_string(),
+                        value: AXValue::Bool(true),
+                    }],
                     child_ids: vec![],
                     parent_id: Some("1".to_string()),
                     backend_dom_node_id: None,
                 },
             ],
-            "<html><body><img src=\"photo.jpg\"></body></html>",
+            "<html><body><div role=\"dialog\" aria-modal=\"true\" aria-label=\"Newsletter\"></div></body></html>",
         )
     }
 }

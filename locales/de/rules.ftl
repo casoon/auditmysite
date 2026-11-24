@@ -11,10 +11,6 @@
 
 ## Content & alternatives
 
-rule-image-alt = Fehlende Alternativtexte bei Bildern
-    .user-impact = Screenreader-Nutzer erhalten keine Bildinformation.
-    .technical-impact = Eine Grafik im Accessibility-Tree, die weder ein <img> noch ein Inline-<svg> ist, meist ein Element mit role="img", hat keinen zugänglichen Namen, daher sagt ein Screenreader ein unbenanntes Bild an; als dekorativ ausgezeichnete Grafiken und Icons in einem benannten Link oder Button sind ausgenommen.
-
 rule-images-alt-missing = Fehlende Alternativtexte bei Bildern
     .user-impact = Screenreader-Nutzer erhalten keine Bildinformation.
     .technical-impact = Ein <img> hat kein alt-Attribut (oder nur Leerraum darin) und weder aria-label, aria-labelledby noch title und ist nicht als dekorativ ausgezeichnet (role="presentation", aria-hidden="true"), daher steht es ohne Namen im Accessibility-Tree und ein Screenreader sagt nur den Dateinamen oder „Grafik“ an.
@@ -643,6 +639,14 @@ rule-images-server-side-map = Server-seitige Image-Map verwendet
     .user-impact = Tastatur- und Screenreader-Nutzer können die einzelnen Bildbereiche nicht ansteuern.
     .technical-impact = Ein <img ismap> in einem Link mit href ist eine serverseitige Image-Map: Die Klickposition, nicht ein Linkziel, wählt das Ziel, daher können Tastatur- und Screenreader-Nutzer keinen Bereich auswählen; als Prüfhinweis gemeldet, weil gleichwertige Textlinks neben dem Bild das Kriterium erfüllen.
 
+rule-images-role-img-name-missing = Fehlender Alternativtext bei Elementen mit Bildrolle
+    .user-impact = Screenreader-Nutzer erhalten keine Information über das Bild.
+    .technical-impact = Ein Element, das erst durch role="img" zum Bild wird (ein <div>, <span> oder <canvas>, oft ein Icon oder ein CSS-Hintergrundbild), hat keinen zugänglichen Namen aus aria-label, aria-labelledby oder title, daher sagt ein Screenreader ein unbenanntes Bild an; ein leeres aria-label ist kein Name, und ein Icon in einem benannten Link oder Button ist keine Ausnahme.
+
+rule-names-indicator-name-missing = Messanzeige oder Fortschrittsbalken ohne Namen
+    .user-impact = Screenreader-Nutzer hören einen Wert, erfahren aber nicht, was er misst.
+    .technical-impact = Ein <meter>, <progress> oder ein Element mit role="meter" oder role="progressbar" hat keinen zugänglichen Namen aus <label>, aria-label, aria-labelledby oder title, daher sagt ein Screenreader nur Rolle und Wert an; eine Anzeige ist Nicht-Text-Inhalt, und ihr Name ist die Textalternative, die sagt, was gemessen wird.
+
 rule-svg-name-missing = Fehlender Alternativtext bei SVG-Grafiken
     .user-impact = Screenreader-Nutzer erhalten keine Information über den Inhalt der Grafik.
     .technical-impact = Ein Inline-<svg> (oder ein Element mit Grafikrolle darin) hat keinen zugänglichen Namen (kein <title>-Kind, aria-label oder aria-labelledby) und ist nicht als dekorativ ausgezeichnet (aria-hidden oder role="none"), daher überspringt ein Screenreader es oder sagt eine unbenannte Grafik an; ein Verstoß, wenn das SVG role="img" oder eine andere Grafikrolle trägt, sonst ein Prüfhinweis, weil es Schmuck neben Text sein kann.
@@ -878,7 +882,7 @@ rule-aria-owns-conflict = Element gehört per aria-owns zu mehreren Elementen
 
 rule-names-required-missing = Interaktives Element ohne aussagekräftigen Namen
     .user-impact = Screenreader-Nutzer erfahren nicht, wozu das Element dient.
-    .technical-impact = Ein Element, dessen Rolle einen Namen verlangt (etwa checkbox, combobox, listbox, radio, slider, switch, tab, textbox, menuitem, eine Bildrolle oder ein Formularfeld mit leerer Beschriftung), hat keinen zugänglichen Namen aus aria-label, aria-labelledby, einem Label oder seinem Inhalt, daher sagt ein Screenreader nur die Rolle an; Buttons, Links, Dialoge, <summary> und Felder ganz ohne Beschriftung haben eigene Regeln.
+    .technical-impact = Ein Element, dessen Rolle einen Namen verlangt (etwa checkbox, combobox, listbox, radio, slider, switch, tab, textbox, menuitem oder ein Formularfeld mit leerer Beschriftung), hat keinen zugänglichen Namen aus aria-label, aria-labelledby, einem Label oder seinem Inhalt, daher sagt ein Screenreader nur die Rolle an; Buttons, Links, Dialoge, <summary>, Felder ganz ohne Beschriftung, Elemente mit Bildrolle, Messanzeigen und Fortschrittsbalken haben eigene Regeln.
 
 rule-names-symbol-only = Prüfen, ob Namen aus reinen Symbolen die Funktion beschreiben
     .user-impact = Screenreader-Nutzer erfahren nicht, wozu das Element dient.

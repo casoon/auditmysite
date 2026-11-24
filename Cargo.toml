@@ -96,14 +96,14 @@ image = { version = "0.25", default-features = false, features = ["png"], option
 # Content hashing for duplicate-asset detection (#551, performance::coverage).
 sha2 = "0.11"
 a11y-perception = "0.2.1"
-a11y-report = "0.31.0"
+a11y-report = "0.31.1"
 web-checks = "0.7.0"
 # Registrable domain (eTLD+1) for the same-site test of a frame against its page
 # (finding origin, #1109); neither web-checks nor the crate had one.
 psl = "2.1"
-accname = "0.31.0"
-a11y-dom = "0.31.0"
-a11y-rules = "0.31.0"
+accname = "0.31.1"
+a11y-dom = "0.31.1"
+a11y-rules = "0.31.1"
 csp-parse = "0.1.1"
 stylesheet-parse = "0.1.1"
 style-cascade = "0.4.0"

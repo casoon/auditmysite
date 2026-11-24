@@ -977,9 +977,9 @@ mod tests {
     #[test]
     fn backend_id_inside_scope_is_excluded_outside_kept() {
         let scope = active_scope([10, 11]);
-        let mut inside = finding("image-alt", "document");
+        let mut inside = finding("images/alt-missing", "document");
         inside.backend_node_id = Some(11);
-        let mut outside = finding("image-alt", "document");
+        let mut outside = finding("images/alt-missing", "document");
         outside.backend_node_id = Some(42);
         let (kept, excluded) = partition_findings(
             vec![inside, outside],
@@ -1155,12 +1155,16 @@ mod tests {
         };
         tally.record_scope(&m(2));
         tally.record_scope(&m(3));
-        let warn = finding("image-alt", "1").as_warning();
+        let warn = finding("images/alt-missing", "1").as_warning();
         tally.record_findings(
             Pass::Desktop,
-            &[finding("image-alt", "1"), finding("image-alt", "2"), warn],
+            &[
+                finding("images/alt-missing", "1"),
+                finding("images/alt-missing", "2"),
+                warn,
+            ],
         );
-        tally.record_findings(Pass::Mobile, &[finding("image-alt", "1")]);
+        tally.record_findings(Pass::Mobile, &[finding("images/alt-missing", "1")]);
         tally.record_findings(Pass::Mobile, &[finding("label", "3")]);
         tally.record_interactive(2);
         let report = tally.into_report();
@@ -1170,7 +1174,7 @@ mod tests {
         let alt = report
             .rules
             .iter()
-            .find(|r| r.rule_id == "image-alt")
+            .find(|r| r.rule_id == "images/alt-missing")
             .unwrap();
         assert_eq!((alt.occurrences, alt.violations), (3, 2));
         assert_eq!(report.excluded_occurrences, 4);
@@ -1219,7 +1223,7 @@ mod tests {
             excluded_occurrences: 5,
             excluded_violations: 4,
             rules: vec![ExcludedRuleCount {
-                rule_id: "image-alt".into(),
+                rule_id: "images/alt-missing".into(),
                 wcag: "1.1.1".into(),
                 occurrences: 5,
                 violations: 4,

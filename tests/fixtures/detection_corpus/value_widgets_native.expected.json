@@ -1,6 +1,7 @@
 {
   "case": "value_widgets_native",
   "expectations": [
+    {"rule_id": "names/indicator-name-missing", "verdict": "pass"},
     {"rule_id": "aria/required-attribute-missing", "verdict": "pass"},
     {"rule_id": "aria/required-children-missing", "verdict": "pass"},
     {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},

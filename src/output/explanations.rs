@@ -330,8 +330,8 @@ static RULE_ENTRIES: &[(&str, &str)] = &[
     ("keyboard/focusable-no-role", "focusable-no-role"),
     // Criterion entry: the explanation is written for the rule's WCAG
     // criterion, not for the rule.
-    ("image-alt", "1.1.1"),
     ("images/alt-missing", "1.1.1"),
+    ("images/role-img-name-missing", "1.1.1"),
     ("video-caption", "1.2.2"),
     ("media/video-captions-missing", "1.2.2"),
     ("media-alt", "1.2.8"),
@@ -2310,7 +2310,7 @@ mod tests {
                 None => none += 1,
             }
         }
-        assert_eq!((own, other, none), (64, 85, 23));
+        assert_eq!((own, other, none), (64, 85, 24));
         assert_eq!(RULE_ENTRIES.len(), 64 + 85);
     }
 

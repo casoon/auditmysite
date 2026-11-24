@@ -62,17 +62,20 @@ fn kinds(case: &ExpectedCase, obs: &Observation) -> Vec<MismatchKind> {
 }
 
 const MIXED: &str = r#"{ "case": "mixed", "expectations": [
-    { "rule_id": "image-alt", "selector": "img.a", "verdict": "violation" },
-    { "rule_id": "image-alt", "selector": "img.b", "verdict": "pass" },
+    { "rule_id": "images/alt-missing", "selector": "img.a", "verdict": "violation" },
+    { "rule_id": "images/alt-missing", "selector": "img.b", "verdict": "pass" },
     { "rule_id": "dialog/modal-unmarked", "verdict": "needs_review" },
     { "rule_id": "headings/empty", "verdict": "not_applicable" }
 ] }"#;
 
 fn exact() -> Observation {
     Observation {
-        findings: vec![fail("image-alt", "img.a"), review("dialog/modal-unmarked")],
+        findings: vec![
+            fail("images/alt-missing", "img.a"),
+            review("dialog/modal-unmarked"),
+        ],
         runs: vec![
-            ran("image-alt", 1),
+            ran("images/alt-missing", 1),
             ran("dialog/modal-unmarked", 0),
             ran("headings/empty", 0),
         ],
@@ -87,8 +90,8 @@ fn exact_observation_has_no_mismatch() {
 #[test]
 fn missing_violation_is_a_false_negative() {
     let mut obs = exact();
-    obs.findings.retain(|f| f.rule_id != "image-alt");
-    obs.runs[0] = ran("image-alt", 0);
+    obs.findings.retain(|f| f.rule_id != "images/alt-missing");
+    obs.runs[0] = ran("images/alt-missing", 0);
     assert_eq!(
         kinds(&case(MIXED), &obs),
         vec![MismatchKind::MissingExpected]
@@ -120,8 +123,8 @@ fn unexpected_review_finding_is_reported() {
 #[test]
 fn violation_on_a_pass_element_is_reported() {
     let mut obs = exact();
-    obs.findings.push(fail("image-alt", "img.b"));
-    obs.runs[0] = ran("image-alt", 2);
+    obs.findings.push(fail("images/alt-missing", "img.b"));
+    obs.runs[0] = ran("images/alt-missing", 2);
     assert_eq!(
         kinds(&case(MIXED), &obs),
         vec![MismatchKind::UnexpectedFinding]
@@ -154,19 +157,20 @@ fn review_next_to_an_escalated_fail_is_still_reported() {
 #[test]
 fn pass_without_a_run_record_is_reported() {
     let mut obs = exact();
-    obs.findings.retain(|f| f.rule_id != "image-alt");
-    obs.runs.retain(|r| r.rule_id != "image-alt");
+    obs.findings.retain(|f| f.rule_id != "images/alt-missing");
+    obs.runs.retain(|r| r.rule_id != "images/alt-missing");
     let k = kinds(&case(MIXED), &obs);
     assert!(k.contains(&MismatchKind::PassWithoutRun), "{k:?}");
 }
 
 #[test]
 fn pass_with_an_errored_run_is_reported() {
-    let c =
-        case(r#"{ "case": "p", "expectations": [{ "rule_id": "image-alt", "verdict": "pass" }] }"#);
+    let c = case(
+        r#"{ "case": "p", "expectations": [{ "rule_id": "images/alt-missing", "verdict": "pass" }] }"#,
+    );
     let obs = Observation {
         findings: vec![],
-        runs: vec![errored("image-alt")],
+        runs: vec![errored("images/alt-missing")],
     };
     assert_eq!(kinds(&c, &obs), vec![MismatchKind::PassWithoutRun]);
 }
@@ -192,10 +196,10 @@ fn not_applicable_with_a_finding_is_reported() {
 #[test]
 fn finding_without_any_run_record_is_reported() {
     let c = case(
-        r#"{ "case": "f", "expectations": [{ "rule_id": "image-alt", "verdict": "violation" }] }"#,
+        r#"{ "case": "f", "expectations": [{ "rule_id": "images/alt-missing", "verdict": "violation" }] }"#,
     );
     let obs = Observation {
-        findings: vec![fail("image-alt", "img")],
+        findings: vec![fail("images/alt-missing", "img")],
         runs: vec![],
     };
     assert_eq!(kinds(&c, &obs), vec![MismatchKind::FindingWithoutRun]);
@@ -204,7 +208,7 @@ fn finding_without_any_run_record_is_reported() {
 #[test]
 fn clean_run_next_to_a_violation_is_reported() {
     let mut obs = exact();
-    obs.runs[0] = ran("image-alt", 0);
+    obs.runs[0] = ran("images/alt-missing", 0);
     assert_eq!(
         kinds(&case(MIXED), &obs),
         vec![MismatchKind::RunContradictsFindings]
@@ -221,7 +225,7 @@ fn run_counting_review_findings_is_consistent() {
 #[test]
 fn run_counting_more_than_reported_is_reported() {
     let mut obs = exact();
-    obs.runs[0] = ran("image-alt", 3);
+    obs.runs[0] = ran("images/alt-missing", 3);
     assert_eq!(
         kinds(&case(MIXED), &obs),
         vec![MismatchKind::RunContradictsFindings]
@@ -255,11 +259,11 @@ fn page_level_violation_needs_no_location() {
 #[test]
 fn wrong_occurrence_count_is_reported() {
     let c = case(
-        r#"{ "case": "o", "expectations": [{ "rule_id": "image-alt", "verdict": "violation", "occurrences": 2 }] }"#,
+        r#"{ "case": "o", "expectations": [{ "rule_id": "images/alt-missing", "verdict": "violation", "occurrences": 2 }] }"#,
     );
     let obs = Observation {
-        findings: vec![fail("image-alt", "img")],
-        runs: vec![ran("image-alt", 1)],
+        findings: vec![fail("images/alt-missing", "img")],
+        runs: vec![ran("images/alt-missing", 1)],
     };
     assert_eq!(kinds(&c, &obs), vec![MismatchKind::WrongOccurrences]);
 }
@@ -315,18 +319,18 @@ fn ambient_rule_declared_by_the_case_follows_the_declaration() {
 #[test]
 fn technical_failure_must_be_recorded_as_not_run() {
     let c = case(
-        r#"{ "case": "e", "expectations": [{ "rule_id": "image-alt", "verdict": "errored" }] }"#,
+        r#"{ "case": "e", "expectations": [{ "rule_id": "images/alt-missing", "verdict": "errored" }] }"#,
     );
     let errored_run = Observation {
         findings: vec![],
-        runs: vec![errored("image-alt")],
+        runs: vec![errored("images/alt-missing")],
     };
     assert_eq!(kinds(&c, &errored_run), vec![]);
 
     // The same failure passed off as a clean run.
     let clean = Observation {
         findings: vec![],
-        runs: vec![ran("image-alt", 0)],
+        runs: vec![ran("images/alt-missing", 0)],
     };
     assert_eq!(kinds(&c, &clean), vec![MismatchKind::ErrorNotReported]);
 

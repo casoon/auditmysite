@@ -4,10 +4,10 @@
     {
       "domain": "wcag",
       "label": "WCAG rules",
-      "automatic": 79,
+      "automatic": 80,
       "hint_only": 80,
       "manual": 13,
-      "total": 172
+      "total": 173
     },
     {
       "domain": "security",
@@ -34,7 +34,7 @@
       "total": 8
     }
   ],
-  "total": 211,
+  "total": 212,
   "rules": [
     {
       "id": "display/text-hidden",
@@ -47,14 +47,6 @@
     {
       "id": "display/text-not-visible",
       "title": "Text layer missing in text mode",
-      "domain": "wcag",
-      "outcome": "automatic",
-      "criterion": "1.1.1",
-      "level": "A"
-    },
-    {
-      "id": "image-alt",
-      "title": "Missing alternative text on images",
       "domain": "wcag",
       "outcome": "automatic",
       "criterion": "1.1.1",
@@ -93,10 +85,26 @@
       "level": "A"
     },
     {
+      "id": "images/role-img-name-missing",
+      "title": "Missing alternative text on image-role elements",
+      "domain": "wcag",
+      "outcome": "automatic",
+      "criterion": "1.1.1",
+      "level": "A"
+    },
+    {
       "id": "images/server-side-map",
       "title": "Server-side image map used",
       "domain": "wcag",
       "outcome": "hint-only",
+      "criterion": "1.1.1",
+      "level": "A"
+    },
+    {
+      "id": "names/indicator-name-missing",
+      "title": "Meter or progress bar without a name",
+      "domain": "wcag",
+      "outcome": "automatic",
       "criterion": "1.1.1",
       "level": "A"
     },

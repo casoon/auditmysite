@@ -1029,7 +1029,7 @@ mod tests {
                 "Image is missing alternative text",
                 "img",
             )
-            .with_rule_id("image-alt"),
+            .with_rule_id("images/alt-missing"),
         );
         report.accessibility.wcag_results.add_violation(
             Violation::new(

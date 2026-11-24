@@ -737,7 +737,7 @@ mod tests {
 
         assert!(!config.rule_filter.should_run("color-contrast"));
         assert!(!config.rule_filter.should_run("css-overflow-hidden"));
-        assert!(config.rule_filter.should_run("image-alt"));
+        assert!(config.rule_filter.should_run("keyboard-trap"));
     }
 
     #[test]
@@ -786,7 +786,7 @@ exclude_selectors = [".from-config"]
         let toml_cfg = crate::cli::config::Config {
             rules: crate::cli::config::RulesConfig {
                 disabled: vec!["color-contrast".to_string()],
-                ignore: Some(vec!["image-alt".to_string()]),
+                ignore: Some(vec!["keyboard-trap".to_string()]),
                 enabled_only: vec![],
             },
             ..Default::default()
@@ -794,7 +794,7 @@ exclude_selectors = [".from-config"]
         let config = PipelineConfig::from_args_and_config(&args, Some(&toml_cfg));
 
         assert!(!config.rule_filter.should_run("color-contrast"));
-        assert!(!config.rule_filter.should_run("image-alt"));
+        assert!(!config.rule_filter.should_run("keyboard-trap"));
         assert!(config.rule_filter.should_run("landmark-one-main"));
     }
 

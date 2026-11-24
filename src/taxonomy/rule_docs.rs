@@ -47,8 +47,8 @@ mod tests {
             "https://casoon.github.io/auditmysite/rules/document/title-missing/"
         );
         assert_eq!(
-            rule_doc_url("image-alt"),
-            "https://casoon.github.io/auditmysite/rules/image-alt/"
+            rule_doc_url("keyboard-trap"),
+            "https://casoon.github.io/auditmysite/rules/keyboard-trap/"
         );
     }
 

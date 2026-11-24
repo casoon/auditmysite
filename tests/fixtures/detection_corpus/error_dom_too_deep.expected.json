@@ -230,6 +230,14 @@
    "verdict": "errored"
   },
   {
+   "rule_id": "names/indicator-name-missing",
+   "verdict": "errored"
+  },
+  {
+   "rule_id": "images/role-img-name-missing",
+   "verdict": "errored"
+  },
+  {
    "rule_id": "names/symbol-only",
    "verdict": "errored"
   },

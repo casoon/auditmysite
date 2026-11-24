@@ -13,7 +13,7 @@
 use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::{check_all_with_config, RuleFilterConfig};
-use auditmysite::wcag::rules::{check_focus_visible, check_keyboard, check_text_alternatives};
+use auditmysite::wcag::rules::{check_focus_visible, check_keyboard};
 use auditmysite::wcag::WcagResults;
 
 // ---------------------------------------------------------------------------
@@ -65,7 +65,6 @@ macro_rules! rule_smoke_test {
     };
 }
 
-rule_smoke_test!(smoke_check_text_alternatives, check_text_alternatives);
 rule_smoke_test!(smoke_check_keyboard, check_keyboard);
 // non_text_contrast.rs was replaced by non_text_contrast_css.rs (a `_with_page`
 // CDP-based check) — like the other `_with_page` rules, it has no smoke test
@@ -79,7 +78,7 @@ rule_smoke_test!(smoke_check_focus_visible, check_focus_visible);
 #[test]
 fn test_filter_config_default_runs_all_rules() {
     let filter = RuleFilterConfig::default();
-    assert!(filter.should_run("image-alt"));
+    assert!(filter.should_run("keyboard-trap"));
     assert!(filter.should_run("html-has-lang"));
     assert!(filter.should_run("link-name"));
     assert!(filter.should_run("aria-roles"));
@@ -89,11 +88,11 @@ fn test_filter_config_default_runs_all_rules() {
 #[test]
 fn test_filter_config_disabled_rule_skipped() {
     let filter = RuleFilterConfig {
-        disabled_rules: vec!["image-alt".to_string()],
+        disabled_rules: vec!["keyboard-trap".to_string()],
         enabled_only_rules: vec![],
     };
     assert!(
-        !filter.should_run("image-alt"),
+        !filter.should_run("keyboard-trap"),
         "Disabled rule should not run"
     );
     assert!(
@@ -106,9 +105,9 @@ fn test_filter_config_disabled_rule_skipped() {
 fn test_filter_config_enabled_only_restricts_to_list() {
     let filter = RuleFilterConfig {
         disabled_rules: vec![],
-        enabled_only_rules: vec!["image-alt".to_string(), "html-has-lang".to_string()],
+        enabled_only_rules: vec!["keyboard-trap".to_string(), "html-has-lang".to_string()],
     };
-    assert!(filter.should_run("image-alt"));
+    assert!(filter.should_run("keyboard-trap"));
     assert!(filter.should_run("html-has-lang"));
     assert!(
         !filter.should_run("link-name"),
@@ -117,14 +116,16 @@ fn test_filter_config_enabled_only_restricts_to_list() {
     assert!(!filter.should_run("aria-roles"));
 }
 
-#[test]
-fn test_filter_disabled_rule_does_not_produce_violations() {
-    // Tree with missing image alt — would normally produce 1.1.1 violations
-    let tree = AXTree::from_nodes(vec![AXNode {
-        node_id: "1".to_string(),
+/// A page that is not focusable, with a modal dialog and enough nodes for
+/// both remaining tree rules to react: `keyboard-trap` notes the dialog
+/// (2.1.2) and, at AA, `focus-visible` notes that nothing is focusable
+/// (2.4.7).
+fn dialog_tree() -> AXTree {
+    let node = |id: &str, role: &str| AXNode {
+        node_id: id.to_string(),
         ignored: false,
         ignored_reasons: vec![],
-        role: Some("image".to_string()),
+        role: Some(role.to_string()),
         name: None,
         name_source: None,
         description: None,
@@ -133,131 +134,87 @@ fn test_filter_disabled_rule_does_not_produce_violations() {
         child_ids: vec![],
         parent_id: None,
         backend_dom_node_id: None,
-    }]);
+    };
+    let mut dialog = node("2", "dialog");
+    dialog.properties.push(AXProperty {
+        name: "modal".to_string(),
+        value: AXValue::Bool(true),
+    });
+    AXTree::from_nodes(vec![
+        node("1", "RootWebArea"),
+        dialog,
+        node("3", "paragraph"),
+        node("4", "paragraph"),
+        node("5", "generic"),
+        node("6", "generic"),
+    ])
+}
 
+fn notes(results: &WcagResults, rule: &str) -> usize {
+    results.warnings.iter().filter(|v| v.rule == rule).count()
+}
+
+#[test]
+fn test_filter_disabled_rule_does_not_produce_findings() {
     let filter = RuleFilterConfig {
-        disabled_rules: vec!["image-alt".to_string()],
+        disabled_rules: vec!["keyboard-trap".to_string()],
         enabled_only_rules: vec![],
     };
-
+    let tree = dialog_tree();
+    assert_eq!(
+        notes(
+            &check_all_with_config(&tree, WcagLevel::A, &RuleFilterConfig::default()),
+            "2.1.2"
+        ),
+        1,
+        "the modal dialog is noted without a filter"
+    );
     let results = check_all_with_config(&tree, WcagLevel::A, &filter);
-    let alt_violations: Vec<_> = results
-        .violations
-        .iter()
-        .filter(|v| v.rule == "1.1.1")
-        .collect();
-    assert!(
-        alt_violations.is_empty(),
-        "Disabled rule should produce no violations"
+    assert_eq!(
+        notes(&results, "2.1.2"),
+        0,
+        "Disabled rule should report nothing"
     );
 }
 
 #[test]
 fn test_enabled_only_runs_exactly_those_rules() {
-    // Ein Baum, auf den ohne Filter zwei Regeln anschlagen: 1.1.1 (Bild ohne
-    // Alternativtext) und `keyboard-trap` (der seitenweite `UNTESTED`-Vermerk
-    // zur Tastaturfalle, sobald etwas fokussierbar ist).
-    //
-    // Davor war das zweite Beispiel bypass (keine einzige Ueberschrift); die
-    // Seite ohne Ueberschriften laeuft seit #694 als `headings/none` im
-    // geteilten Bestand.
-    //
-    // Davor war es landmark-main-present; die fehlende
-    // main-Landmark laeuft seit #690 als `landmarks/main-missing` im
-    // geteilten Bestand.
-    //
-    // Davor war das zweite Beispiel 2.4.2 (Dokument ohne Titel); 2.4.2 laeuft
-    // inzwischen nur noch als DOM-Seitenregel (`check_page_titled_with_page`).
-    //
-    // Frueher war das zweite Beispiel 3.1.1 (fehlendes lang). Seit 3.1.1 als
-    // geteilte Regel gegen den DOM laeuft (`document/lang-missing`, siehe
-    // `wcag::shared`), kann das AX-basierte `check_all_with_config` dazu
-    // nichts mehr finden -- der Test haette dann nur noch bestaetigt, dass
-    // die Regel verschwunden ist, statt die Filterlogik zu pruefen.
-    let tree = AXTree::from_nodes(vec![
-        AXNode {
-            node_id: "root".to_string(),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some("RootWebArea".to_string()),
-            name: None, // kein Titel -> 2.4.2
-            name_source: None,
-            description: None,
-            value: None,
-            properties: vec![],
-            child_ids: vec!["img1".to_string(), "p1".to_string()],
-            parent_id: None,
-            backend_dom_node_id: None,
-        },
-        AXNode {
-            node_id: "img1".to_string(),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some("image".to_string()),
-            name: None, // missing alt
-            name_source: None,
-            description: None,
-            value: None,
-            properties: vec![],
-            child_ids: vec![],
-            parent_id: Some("root".to_string()),
-            backend_dom_node_id: None,
-        },
-        AXNode {
-            node_id: "p1".to_string(),
-            ignored: false,
-            ignored_reasons: vec![],
-            // A focusable component: the keyboard-trap note applies only
-            // where focus can reach one (#783).
-            role: Some("button".to_string()),
-            name: Some("Send".to_string()),
-            name_source: None,
-            description: None,
-            value: None,
-            properties: vec![AXProperty {
-                name: "focusable".to_string(),
-                value: AXValue::Bool(true),
-            }],
-            child_ids: vec![],
-            parent_id: Some("root".to_string()),
-            backend_dom_node_id: None,
-        },
-    ]);
+    let tree = dialog_tree();
 
     // Ohne Filter fallen beide an. Ohne diese Haelfte waere die Zusicherung
-    // unten tautologisch: Sie wuerde auch halten, wenn `keyboard` hier gar
-    // nicht anschlaegt.
-    let ungefiltert = check_all_with_config(&tree, WcagLevel::A, &RuleFilterConfig::default());
-    assert!(
-        ungefiltert.violations.iter().any(|v| v.rule == "1.1.1"),
-        "1.1.1 muss ohne Filter anfallen"
+    // unten tautologisch.
+    let ungefiltert = check_all_with_config(&tree, WcagLevel::AA, &RuleFilterConfig::default());
+    assert_eq!(
+        notes(&ungefiltert, "2.1.2"),
+        1,
+        "keyboard-trap muss anfallen"
     );
-    assert!(
-        ungefiltert
-            .not_testables
-            .iter()
-            .any(|v| v.rule_id.as_deref() == Some("keyboard-trap")),
-        "keyboard-trap muss ohne Filter anfallen"
+    assert_eq!(
+        notes(&ungefiltert, "2.4.7"),
+        1,
+        "focus-visible muss anfallen"
     );
 
     // Mit enabled_only bleibt genau die eine Regel uebrig.
     let filter = RuleFilterConfig {
         disabled_rules: vec![],
-        enabled_only_rules: vec!["image-alt".to_string()],
+        enabled_only_rules: vec!["focus-visible".to_string()],
     };
-    let results = check_all_with_config(&tree, WcagLevel::A, &filter);
-
-    assert!(
-        results.violations.iter().any(|v| v.rule == "1.1.1"),
-        "1.1.1 steht auf der enabled_only-Liste und muss laufen"
+    let results = check_all_with_config(&tree, WcagLevel::AA, &filter);
+    assert_eq!(
+        notes(&results, "2.4.7"),
+        1,
+        "focus-visible steht auf der Liste"
     );
-    assert!(
-        !results
-            .not_testables
-            .iter()
-            .any(|v| v.rule_id.as_deref() == Some("keyboard-trap")),
-        "keyboard steht nicht auf der enabled_only-Liste und muss unterdrueckt sein"
+    assert_eq!(
+        notes(&results, "2.1.2"),
+        0,
+        "keyboard-trap ist unterdrueckt"
     );
+    assert!(results
+        .rule_outcomes
+        .iter()
+        .all(|o| o.rule_id == "focus-visible"));
 }
 
 // ---------------------------------------------------------------------------

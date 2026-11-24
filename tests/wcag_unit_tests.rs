@@ -9,7 +9,6 @@
 use auditmysite::accessibility::{AXNode, AXProperty, AXTree, AXValue};
 use auditmysite::cli::WcagLevel;
 use auditmysite::wcag::engine::check_all;
-use auditmysite::wcag::rules::check_text_alternatives;
 
 // ---------------------------------------------------------------------------
 // Helper constructors
@@ -48,57 +47,13 @@ fn heading(id: &str, level: u8, name: Option<&str>) -> AXNode {
 }
 
 // ---------------------------------------------------------------------------
-// 1.1.1 Non-text Content — check_text_alternatives
+// 1.1.1 Non-text Content
 // ---------------------------------------------------------------------------
-
-#[test]
-fn test_111_image_with_alt_passes() {
-    let tree = AXTree::from_nodes(vec![node("1", "image", Some("Company logo"))]);
-    let results = check_text_alternatives(&tree);
-    assert_eq!(results.violations.len(), 0);
-    assert_eq!(results.passes, 1);
-}
-
-#[test]
-fn test_111_image_without_alt_is_flagged() {
-    let tree = AXTree::from_nodes(vec![node("1", "image", None)]);
-    let results = check_text_alternatives(&tree);
-    assert_eq!(results.violations.len(), 1);
-    assert_eq!(results.violations[0].rule, "1.1.1");
-    assert!(results.violations[0]
-        .message
-        .contains("missing alternative text"));
-}
-
-#[test]
-fn test_111_ignored_image_not_flagged() {
-    let mut n = node("1", "image", None);
-    n.ignored = true;
-    let tree = AXTree::from_nodes(vec![n]);
-    let results = check_text_alternatives(&tree);
-    assert_eq!(results.violations.len(), 0);
-}
-
-#[test]
-fn test_111_multiple_images_partial_alt() {
-    let tree = AXTree::from_nodes(vec![
-        node("1", "image", Some("Logo")),
-        node("2", "image", None),
-        node("3", "image", Some("Banner")),
-        node("4", "image", None),
-    ]);
-    let results = check_text_alternatives(&tree);
-    assert_eq!(results.violations.len(), 2);
-    assert_eq!(results.passes, 2);
-}
-
-#[test]
-fn test_111_whitespace_only_name_treated_as_missing() {
-    let tree = AXTree::from_nodes(vec![node("1", "image", Some("   "))]);
-    let results = check_text_alternatives(&tree);
-    // Whitespace-only name is not a valid accessible name
-    assert_eq!(results.violations.len(), 1);
-}
+// Laeuft seit #1181 nur noch im geteilten Bestand gegen den DOM: `<img>` als
+// `images/alt-missing`, SVG als `svg/name-missing`, Elemente mit
+// `role="img"` als `names/required-missing` (ACT 23a2a8). Die Baumregel
+// `image-alt` ist entfernt; im AX-Baum war ein `<img>` ohne `src` vom
+// `<div role="img">` nicht zu unterscheiden.
 
 // ---------------------------------------------------------------------------
 // 2.4.6 Headings and Labels
@@ -130,52 +85,6 @@ fn test_111_whitespace_only_name_treated_as_missing() {
 // 1.4.4 Resize Text: der Viewport laeuft seit #690 als `zoom/*` im geteilten
 // Bestand (siehe `wcag::shared`) -- der AX-Baum hat keine
 // `viewport`-Eigenschaft (#QA-030).
-
-// ---------------------------------------------------------------------------
-// Engine integration: check_all runs rules on a minimal tree
-// ---------------------------------------------------------------------------
-
-#[test]
-fn test_engine_detects_missing_alt_at_level_a() {
-    let tree = AXTree::from_nodes(vec![
-        node("1", "RootWebArea", Some("Test Page")),
-        node("2", "image", None),
-    ]);
-    let results = check_all(&tree, WcagLevel::A);
-    assert!(!results.violations.is_empty());
-    assert!(results.violations.iter().any(|v| v.rule == "1.1.1"));
-}
-
-#[test]
-fn test_engine_level_aa_includes_level_a_violations() {
-    let tree = AXTree::from_nodes(vec![
-        node("1", "RootWebArea", Some("Test Page")),
-        node("2", "image", None),
-    ]);
-    let results_a = check_all(&tree, WcagLevel::A);
-    let results_aa = check_all(&tree, WcagLevel::AA);
-    // AA should catch at least as many violations as A
-    assert!(results_aa.violations.len() >= results_a.violations.len());
-}
-
-#[test]
-fn test_engine_clean_tree_has_zero_image_alt_violations() {
-    let tree = AXTree::from_nodes(vec![
-        node("1", "RootWebArea", Some("My Store - Product Page")),
-        node("2", "image", Some("Product photo of a red bicycle")),
-        node("3", "image", Some("Company logo")),
-    ]);
-    let results = check_all(&tree, WcagLevel::A);
-    let alt_violations: Vec<_> = results
-        .violations
-        .iter()
-        .filter(|v| v.rule == "1.1.1")
-        .collect();
-    assert!(
-        alt_violations.is_empty(),
-        "Clean tree should have no 1.1.1 violations"
-    );
-}
 
 // ---------------------------------------------------------------------------
 
@@ -315,88 +224,6 @@ fn scenario_clean_page_no_violations() {
     assert!(
         rules.is_empty(),
         "Clean page should produce zero violations; got: {rules:?}"
-    );
-}
-
-/// Build a complete clean page with custom main content nodes.
-///
-/// Replaces h1/img1/link1 in the main landmark with `main_children`.
-/// All landmark structure (banner, nav, contentinfo, skip link) is preserved.
-/// Call this from violation scenarios so each test adds exactly one bad element.
-fn page_with_main_content(main_children: Vec<(&str, AXNode)>) -> AXTree {
-    let child_ids: Vec<&str> = main_children.iter().map(|(id, _)| *id).collect();
-    let root = {
-        let mut n = node_with_children(
-            "root",
-            "RootWebArea",
-            Some("Test Page - My Site"),
-            vec!["skip", "banner", "nav", "main", "footer"],
-        );
-        n.properties.push(AXProperty {
-            name: "lang".to_string(),
-            value: AXValue::String("en".to_string()),
-        });
-        n
-    };
-    let skip_link = {
-        // Chrome exposes the link target as `url`; region recognises the
-        // skip link by that same-page target, not by its text (#642).
-        let mut n = focusable("skip", "link", Some("Skip to main content"));
-        n.properties.push(AXProperty {
-            name: "url".to_string(),
-            value: AXValue::String("#main".to_string()),
-        });
-        n
-    };
-    let banner = node_with_children("banner", "banner", None, vec!["logo-link"]);
-    let logo_link = {
-        let mut n = focusable("logo-link", "link", Some("Home"));
-        n.parent_id = Some("banner".to_string());
-        n
-    };
-    let nav = {
-        let mut n = node_with_children("nav", "navigation", Some("Main"), vec!["nav-link"]);
-        n.parent_id = Some("root".to_string());
-        n
-    };
-    let nav_link = {
-        let mut n = focusable("nav-link", "link", Some("About us"));
-        n.parent_id = Some("nav".to_string());
-        n
-    };
-    let main_node = node_with_children("main", "main", None, child_ids);
-    let footer = {
-        let mut n = node("footer", "contentinfo", None);
-        n.parent_id = Some("root".to_string());
-        n
-    };
-    let mut nodes = vec![
-        root, skip_link, banner, logo_link, nav, nav_link, main_node, footer,
-    ];
-    for (_, mut n) in main_children {
-        n.parent_id = Some("main".to_string());
-        nodes.push(n);
-    }
-    AXTree::from_nodes(nodes)
-}
-
-/// Page with a single image that has no alt text.
-/// Exactly rule 1.1.1 must fire — nothing else (baseline is clean).
-#[test]
-fn scenario_missing_alt_fires_only_111() {
-    let tree = page_with_main_content(vec![
-        ("h1", heading("h1", 1, Some("Catalogue"))),
-        ("img1", node("img1", "image", None)), // missing alt
-        (
-            "link1",
-            focusable("link1", "link", Some("Browse all items")),
-        ),
-    ]);
-    let rules = fired_rules(&tree, WcagLevel::AA);
-    assert_eq!(
-        rules,
-        vec!["1.1.1"],
-        "Missing alt should fire exactly 1.1.1; got: {rules:?}"
     );
 }
 

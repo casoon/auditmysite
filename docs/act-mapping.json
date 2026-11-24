@@ -735,10 +735,10 @@
       "coverage": "partial",
       "internal_rules": [
         "images/alt-missing",
-        "image-alt"
+        "images/role-img-name-missing"
       ],
       "related_rules": [],
-      "note": "Internal rules split img (images/alt-missing) and role=img (image-alt); ACT also accepts role none/presentation as pass."
+      "note": "Internal rules split img (images/alt-missing) and role=img on other HTML elements (images/role-img-name-missing); SVG images are svg/name-missing. ACT also accepts role none/presentation as pass."
     },
     {
       "act_id": "e88epe",

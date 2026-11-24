@@ -764,7 +764,7 @@ mod tests {
                 "Image has no text alternative",
                 "n1",
             )
-            .with_rule_id("image-alt")
+            .with_rule_id("images/alt-missing")
             .with_selector("img.hero"),
         );
         AuditReport::new(

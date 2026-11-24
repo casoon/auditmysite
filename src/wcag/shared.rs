@@ -27,7 +27,7 @@ use a11y_dom::{Node, NodeId};
 use a11y_report::{Finding, NotRun, Outcome};
 use a11y_rules::Locale;
 
-use crate::accessibility::{AXTree, CdpDocument, ProbeNote, ProbeSelection};
+use crate::accessibility::{CdpDocument, ProbeNote, ProbeSelection};
 use crate::wcag::types::{RuleRun, Violation, WcagResults};
 use crate::wcag::RuleFilterConfig;
 use crate::wcag::WcagLevel;
@@ -405,11 +405,9 @@ pub const SHARED_RULES: &[SharedRule] = &[
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
     // Ersetzt `wcag::rules::svg_rules` (axe-Kennung `svg-img-alt`) und den
-    // `<svg>`-Teil von `wcag::rules::text_alternatives`. Im AX-Baum ist ein
-    // `<svg>` vom `<img>` und vom `<div role="img">` nicht zu unterscheiden,
-    // deshalb meldete `image-alt` es bisher mit; die geteilte Regel prüft
-    // das Element selbst. Die Pipeline nimmt die `image-alt`-Befunde an
-    // `<svg>` heraus (`wcag::rules::is_svg_finding`).
+    // `<svg>`-Teil der früheren Baumregel `image-alt` (seit #1181 entfernt).
+    // Im AX-Baum ist ein `<svg>` vom `<img>` und vom `<div role="img">` nicht
+    // zu unterscheiden; die geteilte Regel prüft das Element selbst.
     //
     // Dieselbe Ausnahme wie bisher: das Icon in einem benannten Link oder
     // Button braucht keinen eigenen Namen. Nicht mehr erfasst ist ein
@@ -423,9 +421,10 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Non-text Content (SVG)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     },
-    // Ersetzt den `<img>`-Teil von `wcag::rules::text_alternatives`
-    // (axe-Kennung `image-alt`). Dort blieben Elemente mit `role="img"`, die
-    // weder `<img>` noch `<svg>` sind, und die Icon-Heuristik.
+    // Ersetzt den `<img>`-Teil der früheren Baumregel `image-alt`. Ihren
+    // Rest, Elemente mit `role="img"`, die weder `<img>` noch im SVG sind,
+    // meldet `images/role-img-name-missing` (ACT 23a2a8); die Baumregel ist
+    // seit #1181 entfernt.
     //
     // Die geteilte Regel liest das `alt`-Attribut statt des Accessible Name:
     // Ein `<img>` ohne `alt`, aber mit `aria-label`, `aria-labelledby` oder
@@ -437,6 +436,29 @@ pub const SHARED_RULES: &[SharedRule] = &[
         criterion: "1.1.1",
         level: WcagLevel::A,
         name: "Non-text Content",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    // Ein Element, das erst durch `role="img"` zum Bild wird (`<div>`,
+    // `<span>`, `<canvas>`, auch Chromes Rolle `image`), ohne Namen: ACT
+    // 23a2a8, allein 1.1.1. Seit a11y-rules 0.31.1 eine eigene Kennung statt
+    // `names/required-missing` (4.1.2); vorher meldete es zusätzlich die
+    // Baumregel `image-alt` (#1181).
+    SharedRule {
+        id: "images/role-img-name-missing",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Non-text Content (Image Role)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    // Eine Anzeige (`meter`, `progressbar`, nativ `<meter>`/`<progress>`
+    // oder per ARIA) ohne Namen: Nicht-Text-Inhalt, kein Bedienelement, also
+    // 1.1.1 wie axe `aria-meter-name`/`aria-progressbar-name`. Seit
+    // a11y-rules 0.31.1 eine eigene Kennung statt `names/required-missing`.
+    SharedRule {
+        id: "names/indicator-name-missing",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Non-text Content (Meter and Progress Bar)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     },
     // Neu: ein `alt`, das das Bild vermutlich nicht beschreibt -- ein
@@ -748,9 +770,10 @@ pub const SHARED_RULES: &[SharedRule] = &[
     //   keinen Namen. Ebenso die native `<option>`.
     // - Ein unbenanntes, nicht fokussierbares Element ist ein Verstoß wie in
     //   `aria_naming_rules`, nicht die Warnung aus `accessible_name`.
-    // - `meter` und `progressbar` stehen unter 4.1.2 statt 1.1.1: Die Tabelle
-    //   führt ein Kriterium je Kennung. `a11y-rules` gibt dem Befund 1.1.1
-    //   mit, auditmysite meldet ihn wie alle Namensbefunde unter 4.1.2.
+    // - `meter`, `progressbar` und `img` gehören seit a11y-rules 0.31.1 nicht
+    //   mehr hierher: Sie melden `names/indicator-name-missing` und
+    //   `images/role-img-name-missing` unter 1.1.1. Diese Kennung trägt nur
+    //   noch 4.1.2.
     SharedRule {
         id: "names/required-missing",
         criterion: "4.1.2",
@@ -1957,6 +1980,7 @@ pub fn retain_up_to_level(results: &mut WcagResults, level: WcagLevel) {
 /// vollständig abgelöste Regeln: Läuft unter der alten Kennung noch ein
 /// lokaler Teil (`css-orientation-lock`), steht sie nicht hier.
 pub const LEGACY_RULE_IDS: &[(&str, &str)] = &[
+    ("images/role-img-name-missing", "image-alt"),
     ("contrast/text-insufficient", "color-contrast"),
     ("contrast/text-undetermined", "color-contrast"),
     ("contrast/text-enhanced", "color-contrast"),
@@ -2172,49 +2196,6 @@ fn shared_rule(id: &str) -> Option<&'static SharedRule> {
     SHARED_RULES.iter().find(|r| r.id == id)
 }
 
-/// Die AX-Kennungen aller Elemente im SVG-Namensraum: das `<svg>` selbst und
-/// jedes Element darin (`<g role="img">`), ausser unter `<foreignObject>`.
-///
-/// Im AX-Baum ist ein `<svg>` von einem `<div role="img">` nicht zu
-/// unterscheiden; `svg/name-missing` prüft es aber schon, ebenso ein Element
-/// im SVG mit eigener Bildrolle (ACT 7d6734). Die Pipeline nimmt darüber die
-/// `image-alt`-Befunde an solchen Elementen heraus
-/// (`wcag::rules::is_svg_finding`), damit derselbe Fall nicht zweimal im
-/// Bericht steht (#1165).
-pub fn svg_ax_node_ids(doc: &CdpDocument) -> std::collections::HashSet<String> {
-    a11y_dom::elements(doc)
-        .filter(|n| in_svg_namespace(*n))
-        .filter_map(|n| doc.ax_node_id(n).map(str::to_string))
-        .collect()
-}
-
-/// Ob ein Element im SVG-Namensraum steht: Das nächste `<svg>` oder
-/// `<foreignObject>` auf dem Weg nach oben (es selbst eingeschlossen) ist ein
-/// `<svg>`. Unter `<foreignObject>` beginnt wieder HTML.
-fn in_svg_namespace<'a, N: Node<'a>>(n: N) -> bool {
-    std::iter::once(n)
-        .chain(a11y_dom::ancestors(n))
-        .find(|a| a.is_element("svg") || a.local_name().eq_ignore_ascii_case("foreignobject"))
-        .is_some_and(|a| a.is_element("svg"))
-}
-
-/// Bildknoten des AX-Baums ohne Gegenstück im Dokument, mit ihrer
-/// Backend-Kennung: AX-Baum und DOM stammen dann aus verschiedenen Momenten.
-/// Ein iframe, dessen Inhalt nach seinem `load` erst gerendert wird, liegt im
-/// DOM-Abzug noch ohne diese Elemente vor, im später gelesenen AX-Baum aber
-/// mit ihnen (#1165). Ob sie im SVG stehen, kann nur noch der Browser sagen
-/// (`accessibility::svg_backend_nodes`).
-pub fn image_nodes_missing_from(doc: &CdpDocument, ax: &AXTree) -> Vec<(String, i64)> {
-    let known: std::collections::HashSet<&str> = a11y_dom::elements(doc)
-        .filter_map(|n| doc.ax_node_id(n))
-        .collect();
-    ax.images()
-        .into_iter()
-        .filter(|n| !n.ignored && !known.contains(n.node_id.as_str()))
-        .filter_map(|n| Some((n.node_id.clone(), n.backend_dom_node_id?)))
-        .collect()
-}
-
 /// Ein kurzer, im Devtools-Suchfeld benutzbarer Selektor für ein Element.
 ///
 /// Wird gesetzt, damit `enrich_violations_with_page` den Befund überspringt:
@@ -2428,6 +2409,7 @@ fn run_shared_rules_inner(
 mod tests {
     use super::*;
     use crate::accessibility::build_document;
+    use crate::accessibility::AXTree;
     use crate::wcag::types::Severity;
     use chromiumoxide::cdp::browser_protocol::dom::Node as CdpNode;
 
@@ -2588,153 +2570,6 @@ mod tests {
         assert!(
             gesehen.contains("keyboard/positive-tabindex"),
             "{gesehen:?}"
-        );
-    }
-
-    /// `image-alt` sieht ein `<svg>` wie ein `<div role="img">`; nur ueber
-    /// den DOM laesst sich das `<svg>` herausnehmen, das `svg/name-missing`
-    /// schon meldet. Die Kennungen muessen die des AX-Baums sein, denn daran
-    /// haengt der `image-alt`-Befund.
-    #[test]
-    fn svg_kennungen_kommen_aus_dem_ax_baum() {
-        let kind = |id: i64, tag: &str| {
-            serde_json::json!({
-                "nodeId": id, "backendNodeId": id, "nodeType": 1,
-                "nodeName": tag.to_uppercase(), "localName": tag, "nodeValue": "",
-                "attributes": [], "children": []
-            })
-        };
-        let dom: CdpNode = serde_json::from_value(serde_json::json!({
-            "nodeId": 1, "backendNodeId": 1, "nodeType": 9,
-            "nodeName": "#document", "localName": "", "nodeValue": "",
-            "children": [{
-                "nodeId": 2, "backendNodeId": 2, "nodeType": 1,
-                "nodeName": "HTML", "localName": "html", "nodeValue": "",
-                "attributes": ["lang", "de"],
-                "children": [{
-                    "nodeId": 3, "backendNodeId": 3, "nodeType": 1,
-                    "nodeName": "BODY", "localName": "body", "nodeValue": "",
-                    "attributes": [],
-                    "children": [kind(4, "svg"), kind(5, "div")]
-                }]
-            }]
-        }))
-        .expect("CDP-Knoten");
-        let ax_knoten = |backend: i64| crate::accessibility::AXNode {
-            node_id: format!("ax-{backend}"),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some("image".to_string()),
-            name: None,
-            name_source: None,
-            description: None,
-            value: None,
-            properties: vec![],
-            child_ids: vec![],
-            parent_id: None,
-            backend_dom_node_id: Some(backend),
-        };
-        let ax = AXTree::from_nodes(vec![ax_knoten(4), ax_knoten(5)]);
-        let doc = build_document(&dom, &ax).unwrap();
-
-        let ids = svg_ax_node_ids(&doc);
-        assert_eq!(ids, ["ax-4".to_string()].into());
-    }
-
-    /// Ein Element im SVG mit eigener Bildrolle (`<g role="img">`) prüft
-    /// `svg/name-missing` wie das `<svg>` selbst (ACT 7d6734); `image-alt`
-    /// meldete es daneben ein zweites Mal (#1165). Unter `<foreignObject>`
-    /// beginnt wieder HTML: Das `<div role="img">` dort bleibt bei
-    /// `image-alt`.
-    #[test]
-    fn svg_kennungen_umfassen_den_ganzen_svg_namensraum() {
-        let el = |id: i64, tag: &str, attrs: &[&str], kinder: Vec<serde_json::Value>| {
-            serde_json::json!({
-                "nodeId": id, "backendNodeId": id, "nodeType": 1,
-                "nodeName": tag.to_uppercase(), "localName": tag, "nodeValue": "",
-                "attributes": attrs, "children": kinder
-            })
-        };
-        let dom: CdpNode = serde_json::from_value(serde_json::json!({
-            "nodeId": 1, "backendNodeId": 1, "nodeType": 9,
-            "nodeName": "#document", "localName": "", "nodeValue": "",
-            "children": [el(2, "html", &["lang", "en"], vec![el(3, "body", &[], vec![
-                el(4, "svg", &[], vec![
-                    el(5, "g", &["role", "img"], vec![]),
-                    el(6, "foreignObject", &[], vec![el(7, "div", &["role", "img"], vec![])]),
-                ]),
-                el(8, "div", &["role", "img"], vec![]),
-            ])])]
-        }))
-        .expect("CDP-Knoten");
-        let ax_knoten = |backend: i64| crate::accessibility::AXNode {
-            node_id: format!("ax-{backend}"),
-            ignored: false,
-            ignored_reasons: vec![],
-            role: Some("image".to_string()),
-            name: None,
-            name_source: None,
-            description: None,
-            value: None,
-            properties: vec![],
-            child_ids: vec![],
-            parent_id: None,
-            backend_dom_node_id: Some(backend),
-        };
-        let ax = AXTree::from_nodes([4, 5, 7, 8].map(ax_knoten).to_vec());
-        let doc = build_document(&dom, &ax).unwrap();
-
-        let ids = svg_ax_node_ids(&doc);
-        assert_eq!(ids, ["ax-4".to_string(), "ax-5".to_string()].into());
-    }
-
-    /// Ein Bildknoten, den der AX-Baum hat, der DOM-Abzug aber nicht: Das
-    /// iframe hat nach dem Abzug weitergerendert (#1165). Nur er kommt zur
-    /// Nachfrage beim Browser; ignorierte Knoten und Knoten ohne
-    /// Backend-Kennung nicht.
-    #[test]
-    fn bildknoten_ohne_gegenstueck_im_dom() {
-        let dom: CdpNode = serde_json::from_value(serde_json::json!({
-            "nodeId": 1, "backendNodeId": 1, "nodeType": 9,
-            "nodeName": "#document", "localName": "", "nodeValue": "",
-            "children": [{
-                "nodeId": 2, "backendNodeId": 2, "nodeType": 1,
-                "nodeName": "HTML", "localName": "html", "nodeValue": "",
-                "attributes": ["lang", "en"],
-                "children": [{
-                    "nodeId": 3, "backendNodeId": 3, "nodeType": 1,
-                    "nodeName": "SVG", "localName": "svg", "nodeValue": "",
-                    "attributes": [], "children": []
-                }]
-            }]
-        }))
-        .expect("CDP-Knoten");
-        let ax_knoten =
-            |id: &str, backend: Option<i64>, ignored: bool| crate::accessibility::AXNode {
-                node_id: id.to_string(),
-                ignored,
-                ignored_reasons: vec![],
-                role: Some("image".to_string()),
-                name: None,
-                name_source: None,
-                description: None,
-                value: None,
-                properties: vec![],
-                child_ids: vec![],
-                parent_id: None,
-                backend_dom_node_id: backend,
-            };
-        let ax = AXTree::from_nodes(vec![
-            ax_knoten("bekannt", Some(3), false),
-            ax_knoten("neu", Some(9), false),
-            ax_knoten("ignoriert", Some(10), true),
-            ax_knoten("ohne-backend", None, false),
-        ]);
-        let doc = build_document(&dom, &ax).unwrap();
-
-        assert_eq!(
-            image_nodes_missing_from(&doc, &ax),
-            vec![("neu".to_string(), 9)]
         );
     }
 

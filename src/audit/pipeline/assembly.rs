@@ -1236,7 +1236,7 @@ mod tests {
         let scope = &report.accessibility.execution.scope;
         assert_eq!(scope.wcag_level, "AA");
         // Tree, page and inline rules are in the scope, not only shared ones.
-        for id in ["image-alt", "focus-visible", "css-overflow-hidden"] {
+        for id in ["keyboard-trap", "focus-visible", "css-overflow-hidden"] {
             assert!(
                 scope.requested_rules.iter().any(|r| r.rule_id == id),
                 "{id}"
@@ -1253,7 +1253,7 @@ mod tests {
         let outcomes = &mut report.accessibility.wcag_results.rule_outcomes;
         let at = outcomes
             .iter()
-            .position(|o| o.rule_id == "image-alt" && o.viewport.as_deref() == Some("mobile"))
+            .position(|o| o.rule_id == "keyboard-trap" && o.viewport.as_deref() == Some("mobile"))
             .unwrap();
         outcomes.remove(at);
         assert_eq!(rejected_codes(&report), vec!["requested_rule_outcome"]);
@@ -1365,7 +1365,7 @@ mod tests {
         let outcomes = frame_outcomes(&mut report);
         let at = outcomes
             .iter()
-            .position(|o| o.rule_id == "image-alt" && o.viewport.as_deref() == Some("mobile"))
+            .position(|o| o.rule_id == "keyboard-trap" && o.viewport.as_deref() == Some("mobile"))
             .unwrap();
         outcomes.remove(at);
         assert_eq!(rejected_codes(&report), vec!["frame_rule_outcome_missing"]);
@@ -1462,10 +1462,10 @@ mod tests {
     fn a_tree_rule_that_ran_against_the_recorded_filter_is_rejected() {
         let mut report = report_with_expected_outcomes();
         report.accessibility.execution.scope.rule_filter = Some(crate::audit::RuleFilterRecord {
-            disabled_rules: vec!["image-alt".into()],
+            disabled_rules: vec!["keyboard-trap".into()],
             enabled_only_rules: vec![],
         });
-        // The filter says image-alt did not run; the outcomes say it did.
+        // The filter says keyboard-trap did not run; the outcomes say it did.
         let codes = rejected_codes(&report);
         assert_eq!(codes, vec!["rule_outcome_filtered"; 2], "both viewports");
         // The honest record: filtered out, so neither requested nor run.
@@ -1474,12 +1474,12 @@ mod tests {
             .execution
             .scope
             .requested_rules
-            .retain(|r| r.rule_id != "image-alt");
+            .retain(|r| r.rule_id != "keyboard-trap");
         report
             .accessibility
             .wcag_results
             .rule_outcomes
-            .retain(|o| o.rule_id != "image-alt");
+            .retain(|o| o.rule_id != "keyboard-trap");
         assert!(rejected_codes(&report).is_empty());
     }
 
@@ -1555,14 +1555,17 @@ mod tests {
     fn the_scope_records_the_rule_filter_and_the_frame_rules_it_leaves() {
         let mut config = crate::audit::PipelineConfig::default();
         assert!(audit_scope_from_config(&config).rule_filter.is_none());
-        config.rule_filter.disabled_rules = vec!["image-alt".into()];
+        config.rule_filter.disabled_rules = vec!["keyboard-trap".into()];
         let scope = audit_scope_from_config(&config);
         assert_eq!(
             scope.rule_filter.unwrap().disabled_rules,
-            vec!["image-alt".to_string()]
+            vec!["keyboard-trap".to_string()]
         );
-        assert!(!scope.frame_rules.iter().any(|id| id == "image-alt"));
-        assert!(scope.frame_rules.iter().any(|id| id == "keyboard-trap"));
+        assert!(!scope.frame_rules.iter().any(|id| id == "keyboard-trap"));
+        assert!(scope
+            .frame_rules
+            .iter()
+            .any(|id| id == "names/required-missing"));
     }
 
     #[test]
