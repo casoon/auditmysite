@@ -103,13 +103,13 @@
       "verdict": "needs_review"
     },
     {
-      "rule_id": "names/required-missing",
+      "rule_id": "images/role-img-name-missing",
       "selector": "div#stamp",
       "verdict": "violation",
       "occurrences": 1
     },
     {
-      "rule_id": "names/required-missing",
+      "rule_id": "images/role-img-name-missing",
       "selector": "iframe#frame-gallery [frame] div#frame-stamp",
       "verdict": "violation",
       "occurrences": 1

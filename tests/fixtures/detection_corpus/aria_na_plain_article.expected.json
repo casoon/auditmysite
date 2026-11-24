@@ -1,6 +1,7 @@
 {
   "case": "aria_na_plain_article",
   "expectations": [
+    {"rule_id": "names/indicator-name-missing", "verdict": "not_applicable"},
     {"rule_id": "aria/reference-missing", "verdict": "not_applicable"},
     {"rule_id": "aria/required-attribute-missing", "verdict": "not_applicable"},
     {"rule_id": "aria/role-invalid", "verdict": "not_applicable"},

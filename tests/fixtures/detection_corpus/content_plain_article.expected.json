@@ -1,6 +1,7 @@
 {
   "case": "content_plain_article",
   "expectations": [
+    {"rule_id": "images/role-img-name-missing", "verdict": "not_applicable"},
     {"rule_id": "lists/invalid-structure", "verdict": "not_applicable"},
     {"rule_id": "lists/empty", "verdict": "not_applicable"},
     {"rule_id": "lists/item-outside-list", "verdict": "not_applicable"},

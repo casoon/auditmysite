@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Upload status</title>
+</head>
+<body>
+    <main>
+        <h1>Upload status</h1>
+        <meter id="quota" value="0.4">40%</meter>
+        <progress id="upload" value="30" max="100">30%</progress>
+        <div id="battery" role="meter" aria-valuenow="7" aria-valuemin="0" aria-valuemax="10">7 of 10</div>
+        <div id="sync" role="progressbar" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100"></div>
+        <label for="disk">Disk usage</label>
+        <meter id="disk" value="0.6">60%</meter>
+        <progress id="backup" value="50" max="100" aria-label="Backup progress">50%</progress>
+        <p id="cpu-label">CPU load</p>
+        <div id="cpu" role="meter" aria-labelledby="cpu-label" aria-valuenow="3" aria-valuemin="0" aria-valuemax="10"></div>
+        <div id="index" role="progressbar" title="Search index build" aria-valuenow="80" aria-valuemin="0" aria-valuemax="100"></div>
+        <meter id="hidden-meter" value="0.2" style="display:none"></meter>
+        <div id="decorative" role="progressbar" aria-hidden="true" aria-valuenow="10"></div>
+    </main>
+</body>
+</html>

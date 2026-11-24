@@ -2,19 +2,19 @@
   "case": "image_role_single_report",
   "expectations": [
     {
-      "rule_id": "names/required-missing",
+      "rule_id": "images/role-img-name-missing",
       "selector": "div#stamp",
       "verdict": "violation",
       "occurrences": 1
     },
     {
-      "rule_id": "names/required-missing",
+      "rule_id": "images/role-img-name-missing",
       "selector": "span#empty-label",
       "verdict": "violation",
       "occurrences": 1
     },
     {
-      "rule_id": "names/required-missing",
+      "rule_id": "images/role-img-name-missing",
       "selector": "span#link-icon",
       "verdict": "violation",
       "occurrences": 1

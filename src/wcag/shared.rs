@@ -423,8 +423,8 @@ pub const SHARED_RULES: &[SharedRule] = &[
     },
     // Ersetzt den `<img>`-Teil der früheren Baumregel `image-alt`. Ihren
     // Rest, Elemente mit `role="img"`, die weder `<img>` noch im SVG sind,
-    // meldet `names/required-missing` (ACT 23a2a8); die Baumregel ist seit
-    // #1181 entfernt.
+    // meldet `images/role-img-name-missing` (ACT 23a2a8); die Baumregel ist
+    // seit #1181 entfernt.
     //
     // Die geteilte Regel liest das `alt`-Attribut statt des Accessible Name:
     // Ein `<img>` ohne `alt`, aber mit `aria-label`, `aria-labelledby` oder
@@ -436,6 +436,29 @@ pub const SHARED_RULES: &[SharedRule] = &[
         criterion: "1.1.1",
         level: WcagLevel::A,
         name: "Non-text Content",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    // Ein Element, das erst durch `role="img"` zum Bild wird (`<div>`,
+    // `<span>`, `<canvas>`, auch Chromes Rolle `image`), ohne Namen: ACT
+    // 23a2a8, allein 1.1.1. Seit a11y-rules 0.31.1 eine eigene Kennung statt
+    // `names/required-missing` (4.1.2); vorher meldete es zusätzlich die
+    // Baumregel `image-alt` (#1181).
+    SharedRule {
+        id: "images/role-img-name-missing",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Non-text Content (Image Role)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+    },
+    // Eine Anzeige (`meter`, `progressbar`, nativ `<meter>`/`<progress>`
+    // oder per ARIA) ohne Namen: Nicht-Text-Inhalt, kein Bedienelement, also
+    // 1.1.1 wie axe `aria-meter-name`/`aria-progressbar-name`. Seit
+    // a11y-rules 0.31.1 eine eigene Kennung statt `names/required-missing`.
+    SharedRule {
+        id: "names/indicator-name-missing",
+        criterion: "1.1.1",
+        level: WcagLevel::A,
+        name: "Non-text Content (Meter and Progress Bar)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     },
     // Neu: ein `alt`, das das Bild vermutlich nicht beschreibt -- ein
@@ -747,9 +770,10 @@ pub const SHARED_RULES: &[SharedRule] = &[
     //   keinen Namen. Ebenso die native `<option>`.
     // - Ein unbenanntes, nicht fokussierbares Element ist ein Verstoß wie in
     //   `aria_naming_rules`, nicht die Warnung aus `accessible_name`.
-    // - `meter` und `progressbar` stehen unter 4.1.2 statt 1.1.1: Die Tabelle
-    //   führt ein Kriterium je Kennung. `a11y-rules` gibt dem Befund 1.1.1
-    //   mit, auditmysite meldet ihn wie alle Namensbefunde unter 4.1.2.
+    // - `meter`, `progressbar` und `img` gehören seit a11y-rules 0.31.1 nicht
+    //   mehr hierher: Sie melden `names/indicator-name-missing` und
+    //   `images/role-img-name-missing` unter 1.1.1. Diese Kennung trägt nur
+    //   noch 4.1.2.
     SharedRule {
         id: "names/required-missing",
         criterion: "4.1.2",
@@ -1956,6 +1980,7 @@ pub fn retain_up_to_level(results: &mut WcagResults, level: WcagLevel) {
 /// vollständig abgelöste Regeln: Läuft unter der alten Kennung noch ein
 /// lokaler Teil (`css-orientation-lock`), steht sie nicht hier.
 pub const LEGACY_RULE_IDS: &[(&str, &str)] = &[
+    ("images/role-img-name-missing", "image-alt"),
     ("contrast/text-insufficient", "color-contrast"),
     ("contrast/text-undetermined", "color-contrast"),
     ("contrast/text-enhanced", "color-contrast"),

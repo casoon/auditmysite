@@ -1,0 +1,42 @@
+{
+  "id": "names/indicator-name-missing",
+  "url": "https://casoon.github.io/auditmysite/rules/names/indicator-name-missing/",
+  "domain": "wcag",
+  "title": "Meter or progress bar without a name",
+  "outcome": "automatic",
+  "area": "Accessibility, Content & Alternatives",
+  "criterion": "1.1.1",
+  "level": "A",
+  "axe_id": "aria-progressbar-name",
+  "severity": "high",
+  "user_impact": "Screen reader users hear a value without learning what it measures.",
+  "technical_impact": "A <meter>, <progress> or an element with role=\"meter\" or role=\"progressbar\" has no accessible name from a <label>, aria-label, aria-labelledby or title, so a screen reader announces only the role and the value; a gauge is non-text content, and its name is the text alternative that says what is measured.",
+  "checks": [
+    {
+      "contract_id": "names/indicator-name-missing",
+      "outcome": "automatic",
+      "source": "WCAG 2.2 SC 1.1.1 Non-text Content; WAI-ARIA 1.2 meter and progressbar (Accessible Name Required: True); HTML-AAM <meter>, <progress>; accname 1.2",
+      "applicability": "Elements in the accessibility tree with the role meter or progressbar: native <meter> and <progress>, and elements with role=\"meter\" or role=\"progressbar\".",
+      "expectation": "Fails when the computed name is empty: a gauge is non-text content, and its name is the text\nalternative that says what is measured. A <label for>, aria-label, aria-labelledby or title\npasses. The value alone (aria-valuenow, the element's content) is no name. Hidden subtrees are\nout of scope.",
+      "method": "shared",
+      "capabilities": [
+        "dom",
+        "ax_tree"
+      ],
+      "page_level": false,
+      "failing": {
+        "case": "indicator_names",
+        "file": "tests/fixtures/detection_corpus/indicator_names.html",
+        "verdict": "violation",
+        "selector": "meter#quota",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Upload status</title>\n</head>\n<body>\n    <main>\n        <h1>Upload status</h1>\n        <meter id=\"quota\" value=\"0.4\">40%</meter>\n        <progress id=\"upload\" value=\"30\" max=\"100\">30%</progress>\n        <div id=\"battery\" role=\"meter\" aria-valuenow=\"7\" aria-valuemin=\"0\" aria-valuemax=\"10\">7 of 10</div>\n        <div id=\"sync\" role=\"progressbar\" aria-valuenow=\"20\" aria-valuemin=\"0\" aria-valuemax=\"100\"></div>\n        <label for=\"disk\">Disk usage</label>\n        <meter id=\"disk\" value=\"0.6\">60%</meter>\n        <progress id=\"backup\" value=\"50\" max=\"100\" aria-label=\"Backup progress\">50%</progress>\n        <p id=\"cpu-label\">CPU load</p>\n        <div id=\"cpu\" role=\"meter\" aria-labelledby=\"cpu-label\" aria-valuenow=\"3\" aria-valuemin=\"0\" aria-valuemax=\"10\"></div>\n        <div id=\"index\" role=\"progressbar\" title=\"Search index build\" aria-valuenow=\"80\" aria-valuemin=\"0\" aria-valuemax=\"100\"></div>\n        <meter id=\"hidden-meter\" value=\"0.2\" style=\"display:none\"></meter>\n        <div id=\"decorative\" role=\"progressbar\" aria-hidden=\"true\" aria-valuenow=\"10\"></div>\n    </main>\n</body>\n</html>"
+      },
+      "passing": {
+        "case": "value_widgets_native",
+        "file": "tests/fixtures/detection_corpus/value_widgets_native.html",
+        "verdict": "pass",
+        "html": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"utf-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n    <title>Native value widgets corpus case</title>\n</head>\n<body>\n    <main>\n        <h1>Native range, number and date inputs</h1>\n        <!-- Native controls expose their value without aria-valuenow, and the\n             day/month/year fields of a date input are the browser's (#656). -->\n        <label for=\"volume\">Volume</label>\n        <input id=\"volume\" type=\"range\" min=\"0\" max=\"10\">\n        <label for=\"zoom\">Zoom</label>\n        <input id=\"zoom\" type=\"range\" role=\"slider\" value=\"3\" min=\"0\" max=\"10\">\n        <label for=\"qty\">Quantity</label>\n        <input id=\"qty\" type=\"number\">\n        <label for=\"amount\">Amount</label>\n        <input id=\"amount\" type=\"number\" value=\"4\">\n        <input type=\"date\" aria-label=\"Order date value\">\n        <label for=\"time\">Pickup time</label>\n        <input id=\"time\" type=\"time\">\n        <label for=\"month\">Billing month</label>\n        <input id=\"month\" type=\"month\">\n        <label for=\"week\">Calendar week</label>\n        <input id=\"week\" type=\"week\">\n        <label for=\"appointment\">Appointment</label>\n        <input id=\"appointment\" type=\"datetime-local\">\n        <label for=\"disk\">Disk usage</label>\n        <meter id=\"disk\" value=\"0.6\">60%</meter>\n        <hr>\n        <div role=\"slider\" tabindex=\"0\" aria-label=\"Custom with value\"\n             aria-valuenow=\"5\" aria-valuemin=\"0\" aria-valuemax=\"10\"></div>\n        <div role=\"slider\" aria-label=\"Hidden custom slider\" style=\"display:none\"></div>\n    </main>\n</body>\n</html>"
+      }
+    }
+  ]
+}

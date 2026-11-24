@@ -1,0 +1,13 @@
+{
+  "case": "indicator_names",
+  "expectations": [
+    {"rule_id": "names/indicator-name-missing", "selector": "meter#quota", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "names/indicator-name-missing", "selector": "progress#upload", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "names/indicator-name-missing", "selector": "div#battery", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "names/indicator-name-missing", "selector": "div#sync", "verdict": "violation", "occurrences": 1},
+    {"rule_id": "focus-visible", "verdict": "needs_review"},
+    {"rule_id": "landmarks/banner-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/contentinfo-missing", "verdict": "needs_review"},
+    {"rule_id": "landmarks/navigation-missing", "verdict": "needs_review"}
+  ]
+}

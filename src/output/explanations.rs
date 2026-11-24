@@ -331,6 +331,7 @@ static RULE_ENTRIES: &[(&str, &str)] = &[
     // Criterion entry: the explanation is written for the rule's WCAG
     // criterion, not for the rule.
     ("images/alt-missing", "1.1.1"),
+    ("images/role-img-name-missing", "1.1.1"),
     ("video-caption", "1.2.2"),
     ("media/video-captions-missing", "1.2.2"),
     ("media-alt", "1.2.8"),
@@ -2309,8 +2310,8 @@ mod tests {
                 None => none += 1,
             }
         }
-        assert_eq!((own, other, none), (64, 84, 23));
-        assert_eq!(RULE_ENTRIES.len(), 64 + 84);
+        assert_eq!((own, other, none), (64, 85, 24));
+        assert_eq!(RULE_ENTRIES.len(), 64 + 85);
     }
 
     /// The lookup the reports use resolves for every entry: a missing message

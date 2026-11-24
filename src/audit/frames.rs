@@ -130,6 +130,8 @@ pub const FRAME_SHARED_RULES: &[&str] = &[
     "aria/required-parent-missing",
     "aria/required-children-missing",
     "names/required-missing",
+    "names/indicator-name-missing",
+    "images/role-img-name-missing",
     "names/symbol-only",
     "names/description-duplicates-name",
     "dialog/name-missing",

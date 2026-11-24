@@ -12,6 +12,6 @@
     {"rule_id": "manual/timing", "verdict": "needs_review"},
     {"rule_id": "manual/help", "verdict": "needs_review"},
     {"rule_id": "images/input-alt-missing", "selector": "input#search-clear", "verdict": "needs_review", "occurrences": 1},
-    {"rule_id": "names/required-missing", "selector": "span#print-icon", "verdict": "violation", "occurrences": 1}
+    {"rule_id": "images/role-img-name-missing", "selector": "span#print-icon", "verdict": "violation", "occurrences": 1}
   ]
 }

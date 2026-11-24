@@ -1,6 +1,7 @@
 {
   "case": "aria_attrs_valid",
   "expectations": [
+    {"rule_id": "names/indicator-name-missing", "verdict": "pass"},
     {"rule_id": "aria/attribute-unknown", "verdict": "pass"},
     {"rule_id": "aria/reference-missing", "verdict": "pass"},
     {"rule_id": "aria/attribute-value-invalid", "verdict": "pass"},

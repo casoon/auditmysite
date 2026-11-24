@@ -639,6 +639,14 @@ rule-images-server-side-map = Server-side image map used
     .user-impact = Keyboard and screen reader users cannot target the individual image regions.
     .technical-impact = An <img ismap> inside a link with href is a server-side image map: the click position, not a link target, selects the destination, so keyboard and screen reader users cannot choose a region; reported as a review hint, because equivalent text links beside the image satisfy the criterion.
 
+rule-images-role-img-name-missing = Missing alternative text on image-role elements
+    .user-impact = Screen reader users receive no information about the image.
+    .technical-impact = An element that is an image only through role="img" (a <div>, <span> or <canvas>, often an icon or a CSS background image) has no accessible name from aria-label, aria-labelledby or title, so a screen reader announces an unnamed image; an empty aria-label is no name, and an icon inside a named link or button is no exception.
+
+rule-names-indicator-name-missing = Meter or progress bar without a name
+    .user-impact = Screen reader users hear a value without learning what it measures.
+    .technical-impact = A <meter>, <progress> or an element with role="meter" or role="progressbar" has no accessible name from a <label>, aria-label, aria-labelledby or title, so a screen reader announces only the role and the value; a gauge is non-text content, and its name is the text alternative that says what is measured.
+
 rule-svg-name-missing = Missing alternative text on SVG graphics
     .user-impact = Screen reader users receive no information about the graphic's content.
     .technical-impact = An inline <svg> (or an element with a graphics role inside it) has no accessible name (no <title> child, aria-label or aria-labelledby) and is not marked decorative (aria-hidden or role="none"), so a screen reader skips it or announces an unnamed graphic; a violation when the SVG carries role="img" or another graphics role, otherwise a review hint, because it may be decoration beside text.
@@ -874,7 +882,7 @@ rule-aria-owns-conflict = Element owned by several elements via aria-owns
 
 rule-names-required-missing = Interactive element without a meaningful name
     .user-impact = Screen reader users are not told what the element does.
-    .technical-impact = An element whose role requires a name (such as checkbox, combobox, listbox, radio, slider, switch, tab, textbox, menu item, image role, or a form field whose label is empty) has no accessible name from aria-label, aria-labelledby, a label or its content, so a screen reader announces only the role; buttons, links, dialogs, <summary> and fields without any label have their own rules.
+    .technical-impact = An element whose role requires a name (such as checkbox, combobox, listbox, radio, slider, switch, tab, textbox, menu item, or a form field whose label is empty) has no accessible name from aria-label, aria-labelledby, a label or its content, so a screen reader announces only the role; buttons, links, dialogs, <summary>, fields without any label, image-role elements, meters and progress bars have their own rules.
 
 rule-names-symbol-only = Check that symbol-only names describe the function
     .user-impact = Screen reader users are not told what the element does.

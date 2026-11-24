@@ -131,6 +131,42 @@ pub static RULES: &[Rule] = &[
         },
         report_visibility: VIS_ALL,
     },
+    // Weight of `images/alt-missing`: the same missing text alternative,
+    // carried by `role="img"` instead of `<img>` (ACT 23a2a8).
+    Rule {
+        id: "images/role-img-name-missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::ContentAlternatives,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 1.1.1"),
+        external_level: Some("A"),
+        axe_id: Some("role-img-alt"),
+        score_impact: ScoreImpact {
+            base_penalty: 3.0,
+            max_penalty: 10.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_ALL,
+    },
+    // A meter or progress bar without name: non-text content, weighed like
+    // the unnamed SVG graphic (`svg/name-missing`).
+    Rule {
+        id: "names/indicator-name-missing",
+        dimension: Dimension::Accessibility,
+        subcategory: Subcategory::ContentAlternatives,
+        issue_class: IssueClass::Missing,
+        severity: Severity::High,
+        external_ref: Some("WCAG 1.1.1"),
+        external_level: Some("A"),
+        axe_id: Some("aria-progressbar-name"),
+        score_impact: ScoreImpact {
+            base_penalty: 2.5,
+            max_penalty: 8.0,
+            occurrence_scaling: Scaling::Logarithmic,
+        },
+        report_visibility: VIS_STANDARD,
+    },
     Rule {
         id: "images/alt-suspicious",
         dimension: Dimension::Accessibility,
