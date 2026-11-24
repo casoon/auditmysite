@@ -15,7 +15,10 @@ Array.prototype.forEach.call(document.querySelectorAll('video'), function(v) {
   Array.prototype.forEach.call(v.children, function(t) {
     if (t.localName !== 'track') return;
     tracks.push({
-      kind: (t.getAttribute('kind') || '').trim().toLowerCase(),
+      // Raw value: Rust compares it ASCII case-insensitively without
+      // trimming, like the shared rule (a11y-rules 0.31.1); null when the
+      // attribute is missing, which HTML reads as subtitles.
+      kind: t.hasAttribute('kind') ? t.getAttribute('kind') : null,
       src: t.getAttribute('src') ? t.src : '',
       srclang: t.getAttribute('srclang') || '',
       label: t.getAttribute('label') || ''

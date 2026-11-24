@@ -1007,8 +1007,11 @@ method = "page"
 source = "WCAG 2.2 SC 1.2.2 Captions (Prerecorded) (H95, G87, F8); HTML §4.8.11.11 track"
 capabilities = ["dom", "network"]
 applicability = """
-Pages with a rendered native <video> that has a <track kind="captions"|"subtitles">
-child, or with a known video-platform embed iframe (YouTube, Vimeo and similar).
+Pages with a rendered native <video> that has a caption or subtitle <track>
+child (kind "captions" or "subtitles", ASCII case-insensitive and untrimmed, or
+no kind at all: the HTML missing value default is subtitles; an invalid value,
+"" or " captions" included, is metadata and does not count), or with a known
+video-platform embed iframe (YouTube, Vimeo and similar).
 A video without such a track is media/video-captions-missing (#1182); like that
 rule, a muted video without controls and a video under aria-hidden="true" are
 left out, so the two rules split the videos by track presence and none is
@@ -1028,14 +1031,14 @@ failed and one undecided track is undecided. A page whose videos all lack a
 caption track is not applicable here; a video in a hidden panel is not
 presented in this state."""
 page_level = true
-positive = ["content_video_uncaptioned", "content_video_partly_captioned", "content_video_dynamic", "content_video_eleven_tracks", "content_video_embed"]
-negative = ["content_video_captioned", "content_video_ten_tracks"]
+positive = ["content_video_uncaptioned", "content_video_partly_captioned", "content_video_dynamic", "content_video_eleven_tracks", "content_video_embed", "content_video_kind_missing"]
+negative = ["content_video_captioned", "content_video_ten_tracks", "content_video_kind_invalid"]
 not_applicable = ["content_plain_article", "content_video_hidden", "content_video_muted", "media_and_motion"]
 
 [rule.variants]
 visibility = { cases = ["content_video_hidden"] }
 native_vs_aria = { not_relevant = "Applies to native <video> and platform embeds; ARIA has no caption mechanism." }
-alternative_labels = { cases = ["content_video_captioned", "content_video_uncaptioned"] }
+alternative_labels = { cases = ["content_video_captioned", "content_video_uncaptioned", "content_video_kind_missing", "content_video_kind_invalid"] }
 frames_shadow_dom = { cases = ["content_video_embed"] }
 responsive = { not_relevant = "Caption tracks do not depend on the viewport." }
 dynamic = { cases = ["content_video_dynamic"] }
@@ -1138,9 +1141,27 @@ killed_by = "lib:all_resolving_tracks_without_embed_pass"
 [[rule.test_strength.mutations]]
 target = "src/wcag/rules/media_rules.rs"
 change = "count description tracks as captions"
-find = "matches!(kind.to_ascii_lowercase().as_str(), \"captions\" | \"subtitles\")"
-replace = "matches!(kind.to_ascii_lowercase().as_str(), \"captions\" | \"subtitles\" | \"descriptions\")"
+find = "k.eq_ignore_ascii_case(\"captions\") || k.eq_ignore_ascii_case(\"subtitles\")"
+replace = "k.eq_ignore_ascii_case(\"captions\") || k.eq_ignore_ascii_case(\"subtitles\") || k.eq_ignore_ascii_case(\"descriptions\")"
 killed_by = "lib:test_track_kind_is_caption_like"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/media_rules.rs"
+change = "do not count a track without kind (HTML missing value default: subtitles)"
+find = "kind.is_none_or("
+replace = "kind.is_some_and("
+killed_by = "corpus:content_video_kind_missing"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/js/video_track_scan.js"
+change = "send a missing kind as the empty value"
+find = "kind: t.hasAttribute('kind') ? t.getAttribute('kind') : null,"
+replace = "kind: t.getAttribute('kind') || '',"
+killed_by = "corpus:content_video_kind_missing"
+[[rule.test_strength.mutations]]
+target = "src/wcag/rules/js/video_track_scan.js"
+change = "trim the kind (an invalid value with spaces would count)"
+find = "kind: t.hasAttribute('kind') ? t.getAttribute('kind') : null,"
+replace = "kind: t.hasAttribute('kind') ? t.getAttribute('kind').trim() : null,"
+killed_by = "corpus:content_video_kind_invalid"
 
 [[rule]]
 id = "media/video-captions-missing"
@@ -1155,21 +1176,23 @@ applicability = """
 Every <video> not under the hidden attribute or aria-hidden="true", except a
 muted video without controls (no sound anybody can turn on)."""
 expectation = """
-A video without a <track kind="captions"> or kind="subtitles" child is one
-REVIEW at the video: captions can be burned in or offered by the player, and
+A video without a caption or subtitle <track> child is one REVIEW at the
+video. A track without kind counts (HTML missing value default: subtitles); an
+invalid kind, "" or " captions" included, is metadata and does not count;
+keywords match ASCII case-insensitively without trimming (a11y-rules 0.31.1): captions can be burned in or offered by the player, and
 the video may carry no speech or informative sound, so never a violation.
 Descriptions or chapter tracks alone do not count. A video with such a track
 gets no finding here, whether its file loads or not; that question and
 third-party embeds are video-caption's (#1182), so no video is reported by
 both rules."""
-positive = ["content_video_uncaptioned", "content_video_partly_captioned", "content_video_dynamic", "media_and_motion"]
-negative = ["content_video_captioned", "content_video_ten_tracks", "content_video_eleven_tracks", "content_video_embed"]
+positive = ["content_video_uncaptioned", "content_video_partly_captioned", "content_video_dynamic", "media_and_motion", "content_video_kind_invalid"]
+negative = ["content_video_captioned", "content_video_ten_tracks", "content_video_eleven_tracks", "content_video_embed", "content_video_kind_missing"]
 not_applicable = ["content_plain_article", "content_video_hidden", "content_video_muted"]
 
 [rule.variants]
 visibility = { cases = ["content_video_hidden"] }
 native_vs_aria = { not_relevant = "Only native <video> carries <track>; ARIA has no caption mechanism." }
-alternative_labels = { cases = ["content_video_captioned", "content_video_uncaptioned"] }
+alternative_labels = { cases = ["content_video_captioned", "content_video_uncaptioned", "content_video_kind_missing", "content_video_kind_invalid"] }
 frames_shadow_dom = { not_relevant = "Same element walk as images/alt-missing, whose frame and shadow cases cover it." }
 responsive = { not_relevant = "Caption tracks do not depend on the viewport." }
 dynamic = { cases = ["content_video_dynamic"] }

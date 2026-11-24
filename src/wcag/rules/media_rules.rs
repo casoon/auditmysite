@@ -60,8 +60,14 @@ fn is_video_embed_host(src: &str) -> bool {
         .any(|h| host == *h || host.ends_with(&format!(".{h}")))
 }
 
-fn track_kind_is_caption_like(kind: &str) -> bool {
-    matches!(kind.to_ascii_lowercase().as_str(), "captions" | "subtitles")
+/// Whether a `<track>` with this `kind` attribute (`None` when it is missing)
+/// is a caption or subtitle track, the same reading as the shared
+/// `media/video-captions-missing` (a11y-rules 0.31.1) so the two rules split
+/// the videos exactly. HTML: the missing value default is `subtitles`; an
+/// invalid value (also `""` or `" captions"`) is `metadata`. Keywords match
+/// ASCII case-insensitively, without trimming.
+fn track_kind_is_caption_like(kind: Option<&str>) -> bool {
+    kind.is_none_or(|k| k.eq_ignore_ascii_case("captions") || k.eq_ignore_ascii_case("subtitles"))
 }
 
 /// A `<track>` file counts as a verified caption/subtitle source only when it
@@ -236,9 +242,7 @@ pub async fn check_video_caption_tracks_with_page(page: &Page) -> Vec<Violation>
                 .into_iter()
                 .flatten()
                 .filter(|track| {
-                    track_kind_is_caption_like(
-                        track.get("kind").and_then(|k| k.as_str()).unwrap_or(""),
-                    )
+                    track_kind_is_caption_like(track.get("kind").and_then(|k| k.as_str()))
                 })
                 .cloned()
                 .collect::<Vec<_>>();
@@ -520,9 +524,15 @@ mod tests {
 
     #[test]
     fn test_track_kind_is_caption_like() {
-        assert!(track_kind_is_caption_like("captions"));
-        assert!(track_kind_is_caption_like("Subtitles"));
-        assert!(!track_kind_is_caption_like("chapters"));
-        assert!(!track_kind_is_caption_like("descriptions"));
+        assert!(track_kind_is_caption_like(Some("captions")));
+        assert!(track_kind_is_caption_like(Some("Subtitles")));
+        assert!(track_kind_is_caption_like(Some("CAPTIONS")));
+        // Missing value default: subtitles.
+        assert!(track_kind_is_caption_like(None));
+        // Invalid values are metadata: no trimming, the empty value too.
+        assert!(!track_kind_is_caption_like(Some(" captions")));
+        assert!(!track_kind_is_caption_like(Some("")));
+        assert!(!track_kind_is_caption_like(Some("chapters")));
+        assert!(!track_kind_is_caption_like(Some("descriptions")));
     }
 }
