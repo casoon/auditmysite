@@ -1,0 +1,8 @@
+{
+  "case": "content_video_kind_missing",
+  "expectations": [
+    {"rule_id": "video-caption", "verdict": "needs_review", "occurrences": 1},
+    {"rule_id": "media/video-captions-missing", "selector": "video#tour", "verdict": "pass"},
+    {"rule_id": "media/video-captions-missing", "selector": "video#workshop", "verdict": "pass"}
+  ]
+}

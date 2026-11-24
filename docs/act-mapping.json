@@ -1206,7 +1206,7 @@
         "video-caption"
       ],
       "related_rules": [],
-      "note": "media/video-captions-missing reports a video without a caption or subtitle track as a review; video-caption checks that an existing track file loads same-origin as a caption file and notes third-party embeds as untested. Neither decides whether the audio needs captions."
+      "note": "media/video-captions-missing reports a video without a caption or subtitle track as a review; video-caption checks that an existing track file loads same-origin as a caption file: a video whose tracks all fail there is a review, cross-origin tracks and third-party embeds stay untested. Neither decides whether the audio needs captions."
     },
     {
       "act_id": "f196ce",

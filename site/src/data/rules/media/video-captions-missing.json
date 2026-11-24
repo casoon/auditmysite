@@ -10,14 +10,14 @@
   "axe_id": "media/video-captions-missing",
   "severity": "medium",
   "user_impact": "Deaf or hard-of-hearing users cannot perceive spoken content.",
-  "technical_impact": "A <video> outside hidden and aria-hidden content, and not muted without controls, has no <track kind=\"captions\"> or kind=\"subtitles\" child, so spoken content may have no text equivalent; reported as a review hint, because captions can be burned into the picture or offered by the player, and the video may carry no speech or informative sound.",
+  "technical_impact": "A <video> outside hidden and aria-hidden content, and not muted without controls, has no <track kind=\"captions\"> or kind=\"subtitles\" child and no <track> without kind (HTML reads a missing kind as subtitles; an invalid one, also empty or with spaces, as metadata), so spoken content may have no text equivalent; reported as a review hint, because captions can be burned into the picture or offered by the player, and the video may carry no speech or informative sound.",
   "checks": [
     {
       "contract_id": "media/video-captions-missing",
       "outcome": "hint-only",
       "source": "WCAG 2.2 SC 1.2.2 Captions (Prerecorded) (H95, G87, F8); HTML §4.8.11.11 track; ACT f51b46",
       "applicability": "Every <video> not under the hidden attribute or aria-hidden=\"true\", except a\nmuted video without controls (no sound anybody can turn on).",
-      "expectation": "A video without a <track kind=\"captions\"> or kind=\"subtitles\" child is one\nREVIEW at the video: captions can be burned in or offered by the player, and\nthe video may carry no speech or informative sound, so never a violation.\nDescriptions or chapter tracks alone do not count. A video with such a track\ngets no finding here, whether its file loads or not; that question and\nthird-party embeds are video-caption's (#1182), so no video is reported by\nboth rules.",
+      "expectation": "A video without a caption or subtitle <track> child is one REVIEW at the\nvideo. A track without kind counts (HTML missing value default: subtitles); an\ninvalid kind, \"\" or \" captions\" included, is metadata and does not count;\nkeywords match ASCII case-insensitively without trimming (a11y-rules 0.31.1): captions can be burned in or offered by the player, and\nthe video may carry no speech or informative sound, so never a violation.\nDescriptions or chapter tracks alone do not count. A video with such a track\ngets no finding here, whether its file loads or not; that question and\nthird-party embeds are video-caption's (#1182), so no video is reported by\nboth rules.",
       "method": "shared",
       "capabilities": [
         "dom"
