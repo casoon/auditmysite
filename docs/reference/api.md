@@ -1,28 +1,35 @@
 ---
 title: Reference
 sidebarLabel: Library and contracts
-description: The stability policy of the CLI, the JSON report and the Rust library, the curated library surface, and the contracts and schemas that live in the repository.
+description: What is stable (the CLI and the JSON report) and what is not (the Rust library), the library's entry points, and the contracts and schemas that live in the repository.
 order: 1
 ---
 
 ## Rust library
 
-The crate `auditmysite` is a CLI first. It is also published as a library, because
+The crate `auditmysite` is a CLI first. **Only the CLI and the JSON report are stable; the Rust API
+is not.** It is published as a library only because
 [auditmysite Studio](https://github.com/casoon/auditmysite_studio) drives the audit pipeline from
 Rust. The generated reference is on [docs.rs/auditmysite](https://docs.rs/auditmysite), built with
 the default features.
 
 ### Stability policy
 
-What is stable, in this order of strength:
+Decision for 2.2.0 (#940): the stability promise covers the CLI and the JSON report, and nothing
+in the Rust library. A program that needs audit results should run the CLI and read the JSON
+report. Code that links the crate accepts that any `pub` item can change or disappear in any
+release, a patch release included; the tiers below say how much care a change gets, not whether
+it is allowed.
 
-1. **The CLI** (`auditmysite --help`) and **the JSON report** (schemas below,
+1. **Stable: the CLI** (`auditmysite --help`) and **the JSON report** (schemas below,
    [OUTPUT_CONTRACT.md](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md)).
    A breaking change to either is a major version and a changelog entry.
-2. **The curated library surface** listed in this page. Removing, renaming or changing the
-   signature of a listed item is a major version; adding to it is a minor one. A new field of a
-   struct or a new variant of an enum of the surface is a minor change, and the compiler enforces
-   it: these types are `#[non_exhaustive]`:
+2. **Not stable, but maintained: the curated library surface** listed in this page, the entry
+   points that Studio and the integration tests use. It is kept source-compatible where that is
+   reasonable and a change to it is announced in the changelog under `**Library:**`, but it is
+   not a semver promise: a breaking change to it can ship in a minor release. A new field of a
+   struct or a new variant of an enum of the surface does not break a consumer, and the compiler
+   enforces it: these types are `#[non_exhaustive]`:
    - the report types `AuditReport`, `BatchReport`, `NormalizedReport`, `NormalizedFinding`,
      `VerdictResult`, `BaselineStatus`, `AuditContext`, `BatchResult`, `ReportContractError`,
      `Violation` and `WcagResults`, and every struct and enum of the module `audit` that their
@@ -42,18 +49,18 @@ What is stable, in this order of strength:
    WCAG levels A, AA, AAA), `ColorPolicy` (`auto`, `always`, `never`) and `Severity` (it is
    `a11y_report::Severity` from barrierlab and changes there). The report types
    also follow the JSON contract: a field whose JSON counterpart is removed or changes meaning is
-   a major change.
+   a change the changelog announces.
 3. **Nothing else.** Every other `pub` item, and every item marked `#[doc(hidden)]`, is public
    only because the binaries, the integration tests or Studio import from it. It may change or
    disappear in any release, including a patch release, and a changelog entry under `**Library:**`
-   is the only notice. This tier is a transition: #940 narrows it module by module to
+   is the only notice, if there is one. This tier is a transition: #940 narrows it module by module to
    `pub(crate)`.
 
 The surface is declared top-down: `src/lib.rs` makes a module `pub(crate)` unless it is in the
 tables below, and the list of modules is checked by `cargo test --test library_surface` (a new
 `pub mod` without a row here fails it). The surface is narrowed module by module (#940); the table
 shows which modules are done and which are queued. Until a module is narrowed, only the items this
-page lists for it are covered, not the module as a whole.
+page lists for it are entry points, not the module as a whole.
 
 ### Proposing an item for the surface
 
@@ -66,7 +73,8 @@ next to the code instead.
 
 ### Curated surface
 
-Paths are the ones to use; a root re-export and the module path name the same item.
+The entry points of tier 2, not a stability promise (see the policy above). Paths are the ones to
+use; a root re-export and the module path name the same item.
 
 | Purpose | Items |
 | --- | --- |
@@ -83,7 +91,7 @@ Paths are the ones to use; a root re-export and the module path name the same it
 
 ### Modules
 
-Tiers: `curated` is `pub` and the items above are covered; `hidden` is `pub` with `#[doc(hidden)]`,
+Tiers: `curated` is `pub` and the items above are the maintained entry points; `hidden` is `pub` with `#[doc(hidden)]`,
 deliberately not API (public only because the consumer named drives it, not covered, not shown on
 docs.rs); `queued` is `pub` only for the consumers named, not covered, and still to be narrowed or
 hidden; `crate` is `pub(crate)`.

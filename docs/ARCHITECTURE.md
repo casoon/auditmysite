@@ -416,10 +416,10 @@ locales/                 # Fluent sources, compiled in with include_str!
 
 ## Library surface
 
-The crate is a CLI first; the library is for Studio and for programs that run the pipeline
-(#940). `src/lib.rs` declares the visibility of every module, and `docs/reference/api.md` holds the
+The crate is a CLI first; only the CLI and the JSON report are stable, the Rust API carries no
+stability promise. The library exists for Studio (#940). `src/lib.rs` declares the visibility of every module, and `docs/reference/api.md` holds the
 policy and the table: *curated* modules (`audit`, `browser`, `cli`, `error`, `model`, `output`,
-`studio`) are `pub` and only the items api.md lists are covered by the semver promise, *hidden*
+`studio`) are `pub` and only the items api.md lists are maintained entry points (not a semver promise), *hidden*
 modules are `pub` with `#[doc(hidden)]`, deliberately not API and public only because a test, a
 corpus or the dev binary drives them (`accessibility`, `annotations`, `best_practices`, `patterns`,
 `performance`, `privacy`, `registry`, `screen_reader`, `security`, `seo`, `taxonomy`, `wcag`,

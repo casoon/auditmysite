@@ -86,6 +86,8 @@ cargo install auditmysite
 
 Builds and installs the binary from source. Tested with the pinned toolchain (see [Toolchain](docs/getting-started/build-from-source.md#toolchain)); older compilers are not supported.
 
+The crate is also published as a library, for [auditmysite Studio](https://github.com/casoon/auditmysite_studio). Only the CLI and the JSON report are stable: the Rust API can change in any release, so to use audit results from another program, run the CLI and read the JSON ([stability policy](docs/reference/api.md#stability-policy)).
+
 Prebuilt binaries, building from source and the optional Cargo features: [Build from source](docs/getting-started/build-from-source.md).
 
 ### Docker (GHCR)
