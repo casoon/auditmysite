@@ -21,6 +21,11 @@
 //! in the execution block (`execution.frames`), so a skipped frame never
 //! reads as a clean one.
 
+use std::collections::BTreeSet;
+use std::future::Future;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
 use chromiumoxide::cdp::browser_protocol::dom::{
     BackendNodeId, Node as CdpNode, ResolveNodeParams, ShadowRootType,
 };
@@ -29,7 +34,7 @@ use chromiumoxide::Page;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
-use crate::accessibility::{AXTree, DomCapture};
+use crate::accessibility::{AXTree, CdpDocument, DomCapture};
 use crate::audit::exclusion::ExclusionScope;
 use crate::model::{FrameOrigin, WcagLevel};
 use crate::wcag::types::fold_rule_run;
@@ -227,6 +232,10 @@ pub struct FrameEntry {
     /// Why the frame was not audited (skipped frames only).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<FrameSkipReason>,
+    /// What the audit could not settle in this audited frame (#1180): its
+    /// findings stand, but the document may hold content they did not see.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gap: Option<FrameGap>,
     /// The viewport passes this entry applies to.
     #[serde(default)]
     pub viewports: Vec<String>,
@@ -264,6 +273,21 @@ pub enum FrameSkipReason {
     NotLoaded,
 }
 
+/// A gap in an audited frame's result (#1180): the frame's result is
+/// `partial`, the audit quality says so and the frame is listed for a manual
+/// look.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum FrameGap {
+    /// The frame's accessibility tree held elements its DOM capture lacked
+    /// (the frame kept rendering after the capture), and the DOM and layout
+    /// captured again did not catch up within the retry budget
+    /// ([`FRAME_SETTLE_BUDGET_MS`]), or could not be captured again. The
+    /// DOM-based rules judged a document older than the rendered one.
+    DomUnsettled,
+}
+
 /// What one viewport pass saw of one frame.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FrameObservation {
@@ -271,6 +295,8 @@ pub struct FrameObservation {
     pub url: Option<String>,
     /// `None` = audited.
     pub skipped: Option<FrameSkipReason>,
+    /// The gap of an audited frame, see [`FrameGap`].
+    pub gap: Option<FrameGap>,
     /// The frame's rule outcomes in this pass, tagged with its viewport.
     /// Empty for a skipped frame.
     pub outcomes: Vec<RuleRun>,
@@ -285,10 +311,12 @@ impl FrameCoverage {
                 None => &mut self.audited,
                 Some(_) => &mut self.skipped,
             };
-            match list
-                .iter_mut()
-                .find(|e| e.selector == obs.selector && e.url == obs.url && e.reason == obs.skipped)
-            {
+            match list.iter_mut().find(|e| {
+                e.selector == obs.selector
+                    && e.url == obs.url
+                    && e.reason == obs.skipped
+                    && e.gap == obs.gap
+            }) {
                 Some(entry) => {
                     if !entry.viewports.iter().any(|v| v == viewport) {
                         entry.viewports.push(viewport.to_string());
@@ -301,6 +329,7 @@ impl FrameCoverage {
                     selector: obs.selector.clone(),
                     url: obs.url.clone(),
                     reason: obs.skipped,
+                    gap: obs.gap,
                     viewports: vec![viewport.to_string()],
                     outcomes: obs.outcomes.clone(),
                 }),
@@ -620,6 +649,123 @@ pub(crate) async fn load_lazy_frames(page: &Page) -> LazyFrameLoad {
     load
 }
 
+/// How long the frame pass waits for a frame whose DOM lags behind its
+/// accessibility tree to catch up, in ms (#1180). Covers the pauses between
+/// the re-captures and the re-captures themselves.
+pub const FRAME_SETTLE_BUDGET_MS: u64 = 3_000;
+
+/// The pause before each re-capture of a lagging frame, in ms.
+const FRAME_SETTLE_STEP_MS: u64 = 250;
+
+/// One reading of a frame: its AX tree and the document built against it.
+/// After a re-capture it also holds the capture and the frame's content
+/// document it was built from, which the frames nested in it are read from.
+struct FrameRead {
+    ax: AXTree,
+    doc: CdpDocument,
+    capture: Option<Arc<DomCapture>>,
+    content: Option<CdpNode>,
+}
+
+impl FrameRead {
+    /// Elements the AX tree has and the document lacks: content the frame
+    /// rendered after the DOM was captured.
+    fn lagging(&self) -> BTreeSet<i64> {
+        self.doc.ax_elements_missing(&self.ax)
+    }
+}
+
+/// Reads a frame again until its DOM has caught up with its AX tree, within
+/// `budget` (#1180). A frame without a lagging element is returned as it is,
+/// without a single further call. Otherwise `read` captures it anew after
+/// each `step`; it is settled when nothing lags any more, or when the same
+/// elements lag in two readings in a row (a mismatch that is no lag: content
+/// the DOM capture never lists). It is a gap when the lagging elements keep
+/// changing until the budget is spent, or when no reading could be taken.
+async fn settle<S, Lag, Read, Fut>(
+    first: S,
+    lagging: Lag,
+    mut read: Read,
+    budget: Duration,
+    step: Duration,
+) -> (S, Option<FrameGap>)
+where
+    Lag: Fn(&S) -> BTreeSet<i64>,
+    Read: FnMut() -> Fut,
+    Fut: Future<Output = Option<S>>,
+{
+    let mut behind = lagging(&first);
+    if behind.is_empty() {
+        return (first, None);
+    }
+    let mut state = first;
+    let started = Instant::now();
+    while started.elapsed() < budget {
+        tokio::time::sleep(step).await;
+        let Some(next) = read().await else {
+            return (state, Some(FrameGap::DomUnsettled));
+        };
+        let now = lagging(&next);
+        state = next;
+        if now.is_empty() || now == behind {
+            return (state, None);
+        }
+        behind = now;
+    }
+    (state, Some(FrameGap::DomUnsettled))
+}
+
+/// The node with this backend id anywhere below `node`, frame documents and
+/// shadow roots included.
+fn find_by_backend(node: &CdpNode, id: i64) -> Option<&CdpNode> {
+    if *node.backend_node_id.inner() == id {
+        return Some(node);
+    }
+    node.children
+        .iter()
+        .flatten()
+        .chain(node.shadow_roots.iter().flatten())
+        .chain(node.content_document.as_deref())
+        .find_map(|child| find_by_backend(child, id))
+}
+
+/// One fresh reading of the frame behind the owner element `backend`: DOM and
+/// layout captured again, then the AX tree. `None` when any of it fails or
+/// the owner is gone from the new capture.
+async fn reread_frame(
+    page: &Page,
+    base: &DomCapture,
+    backend: i64,
+    frame_id: &str,
+) -> Option<FrameRead> {
+    let capture = match base.refreshed(page).await {
+        Ok(capture) => Arc::new(capture),
+        Err(e) => {
+            warn!("Frame re-capture failed: {e}");
+            return None;
+        }
+    };
+    let content = find_by_backend(&capture.root, backend)?
+        .content_document
+        .as_deref()?
+        .clone();
+    let ax = crate::accessibility::extract_frame_ax_tree(page, frame_id)
+        .await
+        .ok()
+        .filter(|ax| !ax.is_empty())?;
+    let doc = capture.document_at(&content, &ax).ok()?;
+    Some(FrameRead {
+        ax,
+        doc,
+        capture: Some(capture),
+        content: Some(content),
+    })
+}
+
+/// A frame owner still to audit: the element, the tree it sits in, the
+/// selector of its parent frame and the capture it was found in.
+type FrameWork = (CdpNode, ParentTree, Option<String>, Option<Arc<DomCapture>>);
+
 /// Which AX tree a frame owner belongs to: the page's, or an audited frame's.
 #[derive(Clone, Copy)]
 enum ParentTree {
@@ -646,16 +792,20 @@ pub(crate) async fn audit_frames(
 
     let mut owners = Vec::new();
     frame_owners(&capture.root, &mut owners);
-    let mut work: Vec<(&CdpNode, ParentTree, Option<String>)> = owners
+    // Owned, with the capture each was found in (`None`: the page's own): a
+    // frame captured anew (#1180) hands its nested frames on from that capture.
+    let mut work: Vec<FrameWork> = owners
         .into_iter()
-        .map(|o| (o, ParentTree::Main, None))
+        .map(|o| (o.clone(), ParentTree::Main, None, None))
         .collect();
     // AX trees of the audited frames, for the owners nested in them.
     let mut frame_trees: Vec<AXTree> = Vec::new();
     let mut next = 0;
 
     while next < work.len() {
-        let (owner, parent, prefix) = work[next].clone();
+        let (owner, parent, prefix, source) = &work[next];
+        let parent = *parent;
+        let base: &DomCapture = source.as_deref().unwrap_or(capture);
         next += 1;
         let backend = *owner.backend_node_id.inner();
         let probe = probe_owner(page, backend).await;
@@ -664,7 +814,7 @@ pub(crate) async fn audit_frames(
             .map(|p| p.selector.clone())
             .filter(|s| !s.is_empty())
             .unwrap_or_else(|| attribute_selector(owner));
-        let selector = match &prefix {
+        let selector = match prefix {
             Some(prefix) => composite_selector(prefix, Some(&own_selector)),
             None => own_selector,
         };
@@ -685,6 +835,7 @@ pub(crate) async fn audit_frames(
                 selector: selector.clone(),
                 url: url.clone(),
                 skipped,
+                gap: None,
                 outcomes: Vec::new(),
             });
         };
@@ -734,16 +885,43 @@ pub(crate) async fn audit_frames(
                 continue;
             }
         };
-        let doc = match capture.document_at(content, &frame_ax) {
-            Ok(doc) => doc,
+        let first = match base.document_at(content, &frame_ax) {
+            Ok(doc) => FrameRead {
+                ax: frame_ax,
+                doc,
+                capture: None,
+                content: None,
+            },
             Err(e) => {
                 warn!("Frame {selector}: no document: {e}");
                 observe(Some(FrameSkipReason::DocumentUnavailable));
                 continue;
             }
         };
+        // A frame that kept rendering after the DOM capture: its AX tree has
+        // elements the document lacks. Capture it anew before any DOM rule
+        // runs (#1180); no mismatch, no further call.
+        let (read, gap) = settle(
+            first,
+            FrameRead::lagging,
+            || reread_frame(page, base, backend, &frame_id),
+            Duration::from_millis(FRAME_SETTLE_BUDGET_MS),
+            Duration::from_millis(FRAME_SETTLE_STEP_MS),
+        )
+        .await;
+        if gap.is_some() {
+            warn!("Frame {selector}: DOM still behind its AX tree after re-capturing");
+        }
+        let FrameRead {
+            ax: frame_ax,
+            doc,
+            capture: settled_capture,
+            content: settled_content,
+        } = read;
+        let content = settled_content.as_ref().unwrap_or(content);
         observe(None);
         let observed = out.frames.len() - 1;
+        out.frames[observed].gap = gap;
 
         let mut frame_results = WcagResults::new();
         if let Some(filter) = &tree_filter {
@@ -814,13 +992,20 @@ pub(crate) async fn audit_frames(
         // Frames nested in this one, checked against this frame's AX tree.
         let mut nested = Vec::new();
         frame_owners(content, &mut nested);
+        let nested_source = settled_capture.or_else(|| source.clone());
+        let nested: Vec<_> = nested
+            .into_iter()
+            .map(|o| {
+                (
+                    o.clone(),
+                    ParentTree::Frame(frame_trees.len()),
+                    Some(selector.clone()),
+                    nested_source.clone(),
+                )
+            })
+            .collect();
         frame_trees.push(frame_ax);
-        let index = frame_trees.len() - 1;
-        work.extend(
-            nested
-                .into_iter()
-                .map(|o| (o, ParentTree::Frame(index), Some(selector.clone()))),
-        );
+        work.extend(nested);
     }
     out
 }
@@ -1096,6 +1281,7 @@ mod tests {
             selector: "iframe#w".into(),
             url: None,
             skipped: None,
+            gap: None,
             outcomes: vec![RuleRun::ran("keyboard-trap", findings).in_viewport(viewport)],
         };
         let mut c = FrameCoverage::default();
@@ -1128,6 +1314,7 @@ mod tests {
             selector: "iframe#w".into(),
             url: Some("https://example.org/w".into()),
             skipped,
+            gap: None,
             outcomes: Vec::new(),
         };
         let mut c = FrameCoverage::default();
@@ -1139,6 +1326,7 @@ mod tests {
                     selector: "iframe#ad".into(),
                     url: None,
                     skipped: Some(FrameSkipReason::CrossOrigin),
+                    gap: None,
                     outcomes: Vec::new(),
                 },
             ],
@@ -1150,5 +1338,112 @@ mod tests {
         let json = serde_json::to_value(&c).unwrap();
         assert_eq!(json["skipped"][0]["reason"], "cross_origin");
         assert!(json["audited"][0].get("reason").is_none());
+    }
+
+    #[test]
+    fn coverage_keeps_a_gapped_frame_apart_from_a_settled_one() {
+        let obs = |gap| FrameObservation {
+            selector: "iframe#w".into(),
+            url: None,
+            skipped: None,
+            gap,
+            outcomes: Vec::new(),
+        };
+        let mut c = FrameCoverage::default();
+        c.record("desktop", &[obs(Some(FrameGap::DomUnsettled))]);
+        c.record("mobile", &[obs(None)]);
+        assert_eq!(c.audited.len(), 2);
+        let json = serde_json::to_value(&c).unwrap();
+        assert_eq!(json["audited"][0]["gap"], "dom_unsettled");
+        assert!(json["audited"][1].get("gap").is_none());
+    }
+
+    /// A reading is the set of lagging ids it carries.
+    type Reading = BTreeSet<i64>;
+
+    async fn settled(
+        first: &[i64],
+        later: Vec<Option<Vec<i64>>>,
+        budget_ms: u64,
+    ) -> (Reading, Option<FrameGap>, usize) {
+        let mut later = later.into_iter();
+        let mut calls = 0;
+        let (state, gap) = settle(
+            first.iter().copied().collect::<Reading>(),
+            |r: &Reading| r.clone(),
+            || {
+                calls += 1;
+                let next = later.next().flatten();
+                async move { next.map(|ids| ids.into_iter().collect::<Reading>()) }
+            },
+            Duration::from_millis(budget_ms),
+            Duration::from_millis(1),
+        )
+        .await;
+        (state, gap, calls)
+    }
+
+    #[tokio::test]
+    async fn a_frame_without_a_lagging_element_is_not_read_again() {
+        let (_, gap, calls) = settled(&[], vec![Some(vec![9])], 100).await;
+        assert_eq!((gap, calls), (None, 0));
+    }
+
+    #[tokio::test]
+    async fn a_frame_that_catches_up_is_settled_on_the_new_reading() {
+        let (state, gap, calls) = settled(&[1, 2], vec![Some(vec![])], 100).await;
+        assert_eq!((gap, calls), (None, 1));
+        assert!(state.is_empty());
+    }
+
+    #[tokio::test]
+    async fn the_same_elements_lagging_twice_are_a_mismatch_not_a_lag() {
+        let (_, gap, calls) = settled(&[1, 2], vec![Some(vec![1, 2])], 100).await;
+        assert_eq!((gap, calls), (None, 1));
+    }
+
+    #[tokio::test]
+    async fn a_frame_that_keeps_growing_is_a_gap_when_the_budget_is_spent() {
+        let growing = (0..200).map(|n| Some((1..=n + 2).collect())).collect();
+        let (state, gap, calls) = settled(&[1], growing, 30).await;
+        assert_eq!(gap, Some(FrameGap::DomUnsettled));
+        assert!(calls >= 1);
+        // The last reading stands: the findings are of the newest document.
+        assert!(state.len() >= 2);
+    }
+
+    #[tokio::test]
+    async fn a_failed_recapture_is_a_gap_and_keeps_the_reading_in_hand() {
+        let (state, gap, calls) = settled(&[1], vec![None], 100).await;
+        assert_eq!((gap, calls), (Some(FrameGap::DomUnsettled), 1));
+        assert_eq!(state.into_iter().collect::<Vec<_>>(), [1]);
+    }
+
+    #[test]
+    fn a_node_below_a_frame_document_or_shadow_root_is_found_by_backend_id() {
+        let node = |id: i64, children: Vec<serde_json::Value>, extra: serde_json::Value| {
+            let mut v = serde_json::json!({
+                "nodeId": id, "backendNodeId": id, "nodeType": 1,
+                "nodeName": "DIV", "localName": "div", "nodeValue": "",
+                "children": children,
+            });
+            v.as_object_mut()
+                .unwrap()
+                .extend(extra.as_object().cloned().unwrap_or_default());
+            v
+        };
+        let inner = node(
+            3,
+            vec![node(4, vec![], serde_json::json!({}))],
+            serde_json::json!({}),
+        );
+        let owner = node(2, vec![], serde_json::json!({ "contentDocument": inner }));
+        let root: CdpNode = serde_json::from_value(node(1, vec![owner], serde_json::json!({})))
+            .expect("a CDP node");
+        assert_eq!(
+            find_by_backend(&root, 4).map(|n| *n.backend_node_id.inner()),
+            Some(4)
+        );
+        assert!(find_by_backend(&root, 99).is_none());
     }
 }

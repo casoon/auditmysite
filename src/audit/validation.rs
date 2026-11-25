@@ -10,6 +10,8 @@ use super::{AccessibilityScorer, AuditQualityStatus, ExecutionStatus};
 pub(crate) struct CaptureGaps {
     pub stability_fallbacks: usize,
     pub uninspected_frames: usize,
+    /// Audited frames whose DOM did not catch up with their AX tree (#1180).
+    pub unsettled_frames: usize,
     pub exhausted_stability_budgets: usize,
 }
 
@@ -41,6 +43,12 @@ pub(crate) fn capture_gaps(execution: &super::AuditExecution) -> CaptureGaps {
                     Some(FrameSkipReason::Hidden | FrameSkipReason::Excluded)
                 )
             })
+            .count(),
+        unsettled_frames: execution
+            .frames
+            .iter()
+            .flat_map(|frames| &frames.audited)
+            .filter(|frame| frame.gap.is_some())
             .count(),
     }
 }
@@ -861,7 +869,8 @@ impl NormalizedReport {
             !(incomplete
                 || gaps.stability_fallbacks > 0
                 || gaps.exhausted_stability_budgets > 0
-                || gaps.uninspected_frames > 0)
+                || gaps.uninspected_frames > 0
+                || gaps.unsettled_frames > 0)
                 || q.status != AuditQualityStatus::Complete,
             "execution_completeness",
             "execution.quality".into(),
