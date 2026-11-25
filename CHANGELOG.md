@@ -13,6 +13,10 @@ and verification for each change is in the
 - **SEO:** a missing canonical link and a missing `lang` attribute are reported once (Refs #939). The `seo.meta_issues[]` entries with `field` `canonical` and `lang` are gone from the JSON, as are the findings `seo.meta.canonical` and `seo.meta.lang` (they were references without score cost); `seo.technical.issues[]` keeps `no_canonical` and `no_lang`, where the SEO score charges them, and `document/lang-missing` stays the accessibility finding. Scores are unchanged.
 - **Pages:** the project site uses the current shared theme (0.18.0).
 
+### Removed
+
+- **npm:** the `npx auditmysite` wrapper package (`packages/npm`) and its publish workflow are gone; it was never published to npm. auditmysite ships as the release binaries, the container image and `cargo install auditmysite` (Refs #928).
+
 ### Fixed
 
 - **SEO:** `seo.page_health.http1_only` no longer fires on sites that serve HTTP/2: the header probe now offers HTTP/2 in its TLS handshake, where before it could only ever negotiate HTTP/1.1 (#1191).

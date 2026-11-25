@@ -79,12 +79,6 @@ todo.md
 scripts/node_modules/
 !scripts/package.json
 
-# npm wrapper (packages/npm)
-!packages/npm/package.json
-packages/npm/node_modules/
-packages/npm/vendor/
-packages/npm/*.tgz
-
 # Lint and tests for the JavaScript embedded in src/**/js (#941)
 !scripts/js/package.json
 !scripts/js/package-lock.json
