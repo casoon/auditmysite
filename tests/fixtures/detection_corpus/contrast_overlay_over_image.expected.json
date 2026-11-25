@@ -1,0 +1,40 @@
+{
+  "case": "contrast_overlay_over_image",
+  "expectations": [
+    {
+      "rule_id": "contrast/text-insufficient",
+      "selector": "p#lit",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "contrast/text-undetermined",
+      "selector": "p#lit",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "contrast/text-insufficient",
+      "selector": "p#faint",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "contrast/text-insufficient",
+      "selector": "span#deep",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "contrast/text-undetermined",
+      "selector": "span#deep",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "navigation/location-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "targets/size-enhanced",
+      "selector": "a#home",
+      "verdict": "needs_review"
+    }
+  ]
+}
