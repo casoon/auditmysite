@@ -1,9 +1,12 @@
 //! AuditMySite - WCAG 2.2 AA accessibility checker
 //!
-//! **Stability:** the CLI, the JSON report and the curated library surface listed in
-//! `docs/reference/api.md` are stable; every other `pub` item, and every `#[doc(hidden)]` one, is
-//! public only for the binaries, the integration tests and Studio and may change in any release.
-//! Modules are narrowed to `pub(crate)` one by one (#940).
+//! **Stability:** only the CLI and the JSON report (its schemas) are stable. The Rust API of this
+//! crate carries no stability promise: any `pub` item, curated or not, and every `#[doc(hidden)]`
+//! one, may change in any release, and the changelog notes it under **Library:** at best. The
+//! crate is published as a library because auditmysite Studio drives the pipeline from Rust; the
+//! entry points Studio uses are listed in `docs/reference/api.md`, and modules are narrowed to
+//! `pub(crate)` one by one (#940). To consume audit results from another program, use the CLI and
+//! the JSON report.
 //!
 //! An accessibility auditing tool written in Rust.
 //! Uses Chrome DevTools Protocol (CDP) to extract the Accessibility Tree
@@ -55,12 +58,13 @@
 //!
 //! ## Public surface
 //!
-//! The entry points are in [`audit`] (pipeline, batch, report types, normalised report),
-//! [`browser`] (browser management), [`output`] (JSON, SARIF, PDF and table writers), [`error`] and
-//! [`model`] (shared value types); [`studio`] is the contract with auditmysite_studio. The
-//! other `pub` modules are not covered by the stability promise and are being narrowed; the
-//! table of what is covered, what is queued and what is already `pub(crate)` is in
-//! `docs/reference/api.md`. See `docs/ARCHITECTURE.md` for the full module structure.
+//! None of this is a stability promise (see above). The entry points are in [`audit`] (pipeline,
+//! batch, report types, normalised report), [`browser`] (browser management), [`output`] (JSON,
+//! SARIF, PDF and table writers), [`error`] and [`model`] (shared value types); [`studio`] is the
+//! contract with auditmysite_studio. The other `pub` modules are public only for the binaries and
+//! the tests and are being narrowed; the table of which modules are entry points, which are hidden
+//! and which are already `pub(crate)` is in `docs/reference/api.md`. See `docs/ARCHITECTURE.md`
+//! for the full module structure.
 //!
 //! ## WCAG coverage
 //!

@@ -373,7 +373,9 @@ No script enforces this; the checkboxes in the release PR are the record.
 
 ## Library / Development
 
-For library development or local work from the repository:
+Only the CLI and the JSON report are stable; the Rust API of the crate carries no stability promise
+([policy](../reference/api.md#stability-policy)). For library development or local work from the
+repository:
 
 ```bash
 cargo build
