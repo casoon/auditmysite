@@ -871,6 +871,32 @@ pub(crate) mod counter_cases {
         );
     }
 
+    /// The header probe offers HTTP/2 in its TLS handshake. Without it the
+    /// server can only answer HTTP/1.1 and `http1_only` fires on every
+    /// HTTP/2 site (#1191): the ALPN list of the ClientHello must name `h2`.
+    #[tokio::test]
+    async fn header_probe_offers_http2() {
+        use tokio::io::AsyncReadExt;
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind");
+        let port = listener.local_addr().expect("addr").port();
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.expect("accept");
+            let mut hello = vec![0u8; 4096];
+            let n = socket.read(&mut hello).await.expect("read");
+            hello.truncate(n);
+            hello
+        });
+        let _ = probe_headers(&format!("https://127.0.0.1:{port}/")).await;
+        let hello = server.await.expect("server");
+        // ALPN protocol entries are length-prefixed: 0x02 "h2".
+        assert!(
+            hello.windows(3).any(|w| w == b"\x02h2"),
+            "ClientHello offers no h2 in ALPN"
+        );
+    }
+
     #[test]
     fn page_health_probe_counter_cases() {
         transport_failure();
