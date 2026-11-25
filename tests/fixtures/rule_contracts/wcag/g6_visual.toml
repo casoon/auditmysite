@@ -44,8 +44,8 @@ Text that passes on the default render but fails under the dark scheme (and
 the reverse) is judged per scheme; a failure that is identical in both
 schemes (same element, same colours) is one finding, not two. Only confirmed
 failures of the top document are carried over from the dark render."""
-positive = ["low_contrast_text", "contrast_shadow_and_inline", "text_fill_color_contrast", "gradient_text_contrast", "visual_contrast_thresholds", "visual_contrast_frame", "contrast_dark_scheme", "contrast_overlay_over_image"]
-negative = ["visual_contrast_thresholds", "text_fill_color_contrast", "gradient_text_contrast", "visual_contrast_covered", "visual_contrast_frame", "contrast_dark_scheme", "contrast_overlay_over_image"]
+positive = ["low_contrast_text", "contrast_shadow_and_inline", "text_fill_color_contrast", "gradient_text_contrast", "visual_contrast_thresholds", "visual_contrast_frame", "contrast_dark_scheme", "contrast_overlay_over_image", "contrast_unpainted_sibling"]
+negative = ["visual_contrast_thresholds", "text_fill_color_contrast", "gradient_text_contrast", "visual_contrast_covered", "visual_contrast_frame", "contrast_dark_scheme", "contrast_overlay_over_image", "contrast_unpainted_sibling"]
 not_applicable = ["visual_no_text"]
 
 [rule.variants]
@@ -107,7 +107,7 @@ passes with a 40th percentile that fails is a borderline review under this
 id as well. Text on a solid background never produces this finding. It is
 never a confirmed violation."""
 positive = ["gradient_text_contrast", "visual_contrast_covered"]
-negative = ["visual_contrast_thresholds", "visual_contrast_covered", "contrast_overlay_over_image"]
+negative = ["visual_contrast_thresholds", "visual_contrast_covered", "contrast_overlay_over_image", "contrast_unpainted_sibling"]
 not_applicable = ["visual_no_text"]
 
 [rule.variants]
@@ -126,6 +126,20 @@ status = "killed"
 target = "barrierlab:crates/a11y-rules/tests/mutations/darstellung.toml"
 change = "2 targeted mutation(s) of the shared rule (disable, invert, shift threshold, drop finding)"
 killed_by = "barrierlab:crates/a11y-rules/tests/korpus.rs (xtask/mutate.py --id contrast/text-undetermined)"
+
+[[rule.test_strength.mutations]]
+target = "src/accessibility/dom_document.rs"
+change = "host: a fully transparent sibling with a fill still counts as a layer behind the text"
+find = "                    && !faded[i]\n"
+replace = ""
+killed_by = "corpus:contrast_unpainted_sibling"
+
+[[rule.test_strength.mutations]]
+target = "src/accessibility/dom_document.rs"
+change = "host: a fully transparent sibling with a background image still counts as a layer behind the text"
+find = "            let own = !faded[i]\n                && values[i].as_ref().is_some_and(|v| {"
+replace = "            let own = values[i].as_ref().is_some_and(|v| {"
+killed_by = "corpus:contrast_unpainted_sibling"
 
 [[rule]]
 id = "contrast/text-enhanced"

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contrast beside layers that paint nothing behind the text</title>
+<style>
+  body { margin: 0; background: #ffffff; color: #111111; }
+  .spacer { height: 2400px; }
+  section { position: relative; padding: 48px 16px; }
+  section p { margin: 0; font-size: 16px; }
+  /* A hover glow and a hairline that are in the tree and overlap the text box,
+     but sit at opacity 0 until hovered: they paint nothing. */
+  .layer { position: absolute; inset: 0; }
+  .glow { position: absolute; inset: 0; opacity: 0; pointer-events: none;
+          background-image: radial-gradient(circle, rgba(234, 88, 12, 0.4), rgba(0, 0, 0, 0)); }
+  .rule { position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0;
+          background-color: #000000; }
+  /* A decorative image in the far corner; the text does not reach it. */
+  .corner { position: absolute; top: 0; right: 0; width: 40px; height: 40px;
+            background-image: linear-gradient(135deg, #cccccc, #999999); }
+  .wrap { position: relative; }
+  #ok, #apart-ok, .fill { color: #111111; }
+  #bad { color: #8a8a8a; }
+  #bad, #ok { font-size: 11px; }
+</style>
+</head>
+<body>
+<header><nav aria-label="Main"><a id="home" href="#main">Home</a></nav></header>
+<main id="main">
+  <h1>Text beside layers that paint nothing</h1>
+  <div class="spacer"></div>
+  <!-- The page background is white and no ancestor has a colour of its own.
+       The glow and the hairline overlap the text but are fully transparent, so
+       what is painted behind the text is the white page: #8a8a8a on white is
+       about 3.4:1 (fails), #111111 on white passes. Both are determined.
+       The list holds more text elements than one run samples behind
+       images (60, the largest first), and the two small ones come last: they
+       would stay undetermined if the transparent layers counted as covering. -->
+  <section>
+    <div class="layer"><div class="glow"></div></div>
+    <div class="rule"></div>
+    <div class="wrap"><div><div><div><div><div><ul><li><span class="fill">Filler line 00 of the long card list.</span></li><li><span class="fill">Filler line 01 of the long card list.</span></li><li><span class="fill">Filler line 02 of the long card list.</span></li><li><span class="fill">Filler line 03 of the long card list.</span></li><li><span class="fill">Filler line 04 of the long card list.</span></li><li><span class="fill">Filler line 05 of the long card list.</span></li><li><span class="fill">Filler line 06 of the long card list.</span></li><li><span class="fill">Filler line 07 of the long card list.</span></li><li><span class="fill">Filler line 08 of the long card list.</span></li><li><span class="fill">Filler line 09 of the long card list.</span></li><li><span class="fill">Filler line 10 of the long card list.</span></li><li><span class="fill">Filler line 11 of the long card list.</span></li><li><span class="fill">Filler line 12 of the long card list.</span></li><li><span class="fill">Filler line 13 of the long card list.</span></li><li><span class="fill">Filler line 14 of the long card list.</span></li><li><span class="fill">Filler line 15 of the long card list.</span></li><li><span class="fill">Filler line 16 of the long card list.</span></li><li><span class="fill">Filler line 17 of the long card list.</span></li><li><span class="fill">Filler line 18 of the long card list.</span></li><li><span class="fill">Filler line 19 of the long card list.</span></li><li><span class="fill">Filler line 20 of the long card list.</span></li><li><span class="fill">Filler line 21 of the long card list.</span></li><li><span class="fill">Filler line 22 of the long card list.</span></li><li><span class="fill">Filler line 23 of the long card list.</span></li><li><span class="fill">Filler line 24 of the long card list.</span></li><li><span class="fill">Filler line 25 of the long card list.</span></li><li><span class="fill">Filler line 26 of the long card list.</span></li><li><span class="fill">Filler line 27 of the long card list.</span></li><li><span class="fill">Filler line 28 of the long card list.</span></li><li><span class="fill">Filler line 29 of the long card list.</span></li><li><span class="fill">Filler line 30 of the long card list.</span></li><li><span class="fill">Filler line 31 of the long card list.</span></li><li><span class="fill">Filler line 32 of the long card list.</span></li><li><span class="fill">Filler line 33 of the long card list.</span></li><li><span class="fill">Filler line 34 of the long card list.</span></li><li><span class="fill">Filler line 35 of the long card list.</span></li><li><span class="fill">Filler line 36 of the long card list.</span></li><li><span class="fill">Filler line 37 of the long card list.</span></li><li><span class="fill">Filler line 38 of the long card list.</span></li><li><span class="fill">Filler line 39 of the long card list.</span></li><li><span class="fill">Filler line 40 of the long card list.</span></li><li><span class="fill">Filler line 41 of the long card list.</span></li><li><span class="fill">Filler line 42 of the long card list.</span></li><li><span class="fill">Filler line 43 of the long card list.</span></li><li><span class="fill">Filler line 44 of the long card list.</span></li><li><span class="fill">Filler line 45 of the long card list.</span></li><li><span class="fill">Filler line 46 of the long card list.</span></li><li><span class="fill">Filler line 47 of the long card list.</span></li><li><span class="fill">Filler line 48 of the long card list.</span></li><li><span class="fill">Filler line 49 of the long card list.</span></li><li><span class="fill">Filler line 50 of the long card list.</span></li><li><span class="fill">Filler line 51 of the long card list.</span></li><li><span class="fill">Filler line 52 of the long card list.</span></li><li><span class="fill">Filler line 53 of the long card list.</span></li><li><span class="fill">Filler line 54 of the long card list.</span></li><li><span class="fill">Filler line 55 of the long card list.</span></li><li><span class="fill">Filler line 56 of the long card list.</span></li><li><span class="fill">Filler line 57 of the long card list.</span></li><li><span class="fill">Filler line 58 of the long card list.</span></li><li><span class="fill">Filler line 59 of the long card list.</span></li><li><span class="fill">Filler line 60 of the long card list.</span></li><li><span class="fill">Filler line 61 of the long card list.</span></li><li><span class="fill">Filler line 62 of the long card list.</span></li><li><span class="fill">Filler line 63 of the long card list.</span></li><li><span class="fill">Filler line 64 of the long card list.</span></li><li><span class="fill">Filler line 65 of the long card list.</span></li><li><span class="fill">Filler line 66 of the long card list.</span></li><li><span class="fill">Filler line 67 of the long card list.</span></li><li><span class="fill">Filler line 68 of the long card list.</span></li><li><span class="fill">Filler line 69 of the long card list.</span></li><li><span id="bad">Grey text</span> <span id="ok">Dark text</span></li></ul></div></div></div></div></div></div>
+  </section>
+  <!-- A decorative image elsewhere in the section does not overlap the text,
+       so it cannot lie behind it. -->
+  <section>
+    <div class="corner"></div>
+    <div class="wrap"><div><div><div><div><div><ul><li><span id="apart-ok">Dark text far from the corner image.</span></li></ul></div></div></div></div></div></div>
+  </section>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>

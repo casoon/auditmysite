@@ -526,6 +526,8 @@ fn overlaps(a: Rect, b: Rect) -> bool {
 /// daneben liegt darunter (wetter.com). Ein Bild im
 /// Fluss neben dem Text — etwa umflossen (`float`) — zählt nicht: Der Kasten
 /// des Absatzes reicht dort unter das Bild, sein Text nicht.
+/// Ein ganz durchsichtiges Geschwister (`opacity: 0`) malt nichts und zählt
+/// nicht.
 struct Overlap<'s> {
     values: &'s [Option<SnapshotValues>],
     bounds: &'s [Option<Rect>],
@@ -559,14 +561,29 @@ impl<'s> Overlap<'s> {
                     .is_some_and(|v| matches!(v.get("position"), Some("absolute" | "fixed")))
             })
             .collect();
+        // Ganz durchsichtig (`opacity: 0` am Knoten oder einem Vorfahren): Er
+        // malt nichts, auch wenn er eine Fläche oder ein Bild trägt — das
+        // Hover-Leuchten oder der erst später eingeblendete Hintergrund eines
+        // Pseudo-Elements. Von oben nach unten: Eltern stehen vor ihren
+        // Kindern.
+        let mut faded = vec![false; n];
+        for i in 0..n {
+            let own = values[i]
+                .as_ref()
+                .and_then(|v| v.get("opacity"))
+                .and_then(|o| o.trim().parse::<f32>().ok())
+                .is_some_and(|o| o <= 0.0);
+            faded[i] = own || parent(i).filter(|p| *p < i).is_some_and(|p| faded[p]);
+        }
         // Ein Bild unter einem Knoten, von unten nach oben: Der Snapshot
         // steht in Dokumentreihenfolge, Kinder also hinter ihren Eltern.
         let mut image_below = vec![false; n];
         for i in (0..n).rev() {
-            let own = values[i].as_ref().is_some_and(|v| {
-                matches!(names[i], "IMG" | "PICTURE" | "VIDEO" | "CANVAS")
-                    || v.get("background-image").is_some_and(|img| img != "none")
-            });
+            let own = !faded[i]
+                && values[i].as_ref().is_some_and(|v| {
+                    matches!(names[i], "IMG" | "PICTURE" | "VIDEO" | "CANVAS")
+                        || v.get("background-image").is_some_and(|img| img != "none")
+                });
             if own {
                 image_below[i] = true;
             }
@@ -582,6 +599,7 @@ impl<'s> Overlap<'s> {
                     return false;
                 };
                 bounds[i].is_some_and(|b| !b.is_empty())
+                    && !faded[i]
                     && v.get("visibility") != Some("hidden")
                     && (image_below[i]
                         || v.get("background-color")
@@ -2498,6 +2516,11 @@ mod tests {
         );
         let unsichtbar = mit(bild, "visibility", "hidden");
         assert!(hintergrund_neben(unsichtbar, ganz).is_some());
+        let durchsichtig = mit(bild, "opacity", "0");
+        assert!(
+            hintergrund_neben(durchsichtig, ganz).is_some(),
+            "ein Geschwister mit opacity: 0 malt nichts"
+        );
         // Umgekehrt: der Bildnachweis absolut positioniert über dem Bild im
         // Fluss (spiegel.de `figcaption > p`).
         let caption = mit(
