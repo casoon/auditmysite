@@ -11,6 +11,7 @@ and verification for each change is in the
 
 - **Accessibility:** `frames/name-missing` and `images/server-side-map` are now reported under the criterion of the shared rule: 4.1.2 (was 2.4.1) and 2.1.1 (was 1.1.1), both level A (Refs #1119). Rule ids and finding ids are unchanged; the server-side image map finding is titled "Keyboard (Server-side Image Map)" and links to the Keyboard page. Cached results are misses, as the rule set changed.
 - **SEO:** a missing canonical link and a missing `lang` attribute are reported once (Refs #939). The `seo.meta_issues[]` entries with `field` `canonical` and `lang` are gone from the JSON, as are the findings `seo.meta.canonical` and `seo.meta.lang` (they were references without score cost); `seo.technical.issues[]` keeps `no_canonical` and `no_lang`, where the SEO score charges them, and `document/lang-missing` stays the accessibility finding. Scores are unchanged.
+- **Pages:** the project site uses the current shared theme (0.18.0).
 
 ### Fixed
 

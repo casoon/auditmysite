@@ -1,4 +1,7 @@
-# Criteria of the shared rules
+---
+title: "Criteria of the shared rules"
+description: "Which single WCAG criterion and level each shared rule reports a finding under, and where that choice is checked."
+---
 
 `a11y_rules::Meta.wcag` lists the *related* criteria of a rule (a set, no order, no level).
 A finding carries one criterion, and the taxonomy scores by it, so `SHARED_RULES`

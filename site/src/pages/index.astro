@@ -302,3 +302,11 @@ auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20`;
     ]}
   />
 </Base>
+
+<style>
+  /* A link inside the caption's text needs more than colour to stand out (axe link-in-text-block). */
+  .demo figcaption a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+</style>
