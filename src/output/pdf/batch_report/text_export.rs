@@ -8,11 +8,11 @@
 //! before and after a change of how the texts are stored and compare the two
 //! files byte for byte.
 
+use super::actions::{build_batch_decision_lines, render_batch_recurring_problems};
 use super::consistency::render_batch_consistency;
 use super::management::{
     audit_flag_batch_title, build_batch_assessment, build_batch_key_points,
-    render_batch_audit_flags, render_batch_decision_actions, render_batch_internal_comparison,
-    render_batch_management_risks,
+    render_batch_audit_flags, render_batch_internal_comparison, render_batch_management_risks,
 };
 use crate::audit::batch_consistency::{
     BatchConsistencyAnalysis, CanonicalConsistency, CrossPageCriterionAssessment,
@@ -561,7 +561,6 @@ fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
                 confidence: "confirmed".to_string(),
                 affected_pages: 3,
                 headline: "headline".to_string(),
-                decision_label: "shared component".to_string(),
             }]
         } else {
             vec![]
@@ -578,12 +577,20 @@ fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
                         group.finding.complexity = complexity.to_string();
                         group.finding.wcag_level = wcag_level.to_string();
                         records.push(json!([
-                            "render_batch_decision_actions",
+                            "render_batch_recurring_problems",
                             format!(
                                 "cluster={cluster} urls={urls} occurrences={occurrences} complexity={complexity} wcag={wcag_level:?}"
                             ),
                             lang,
-                            components(render_batch_decision_actions(bare(), &pres, i18n))
+                            components(render_batch_recurring_problems(bare(), &pres, i18n))
+                        ]));
+                        records.push(json!([
+                            "build_batch_decision_lines",
+                            format!(
+                                "cluster={cluster} urls={urls} occurrences={occurrences} complexity={complexity} wcag={wcag_level:?}"
+                            ),
+                            lang,
+                            build_batch_decision_lines(&pres, i18n)
                         ]));
                     }
                 }

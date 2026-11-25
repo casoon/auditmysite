@@ -9,57 +9,7 @@ use crate::wcag::Severity;
 
 use crate::i18n::I18n;
 
-/// Re-derive the locale-specific title / user impact / technical impact for a
-/// finding. The stored `NormalizedFinding` fields are canonical English (#406);
-/// for non-English locales we look the rule up in the taxonomy and return the
-/// German strings. Falls back to the (English) stored values when no taxonomy
-/// entry matches. Used only by the fallback branch — when an explanation exists
-/// the localized text comes from the explanation system instead.
-pub(super) fn localized_finding_text(
-    locale: &str,
-    finding: &crate::audit::normalized::NormalizedFinding,
-) -> (String, String, String) {
-    if locale == "en" {
-        return (
-            finding.title.clone(),
-            finding.user_impact.clone(),
-            finding.technical_impact.clone(),
-        );
-    }
-    // SEO heading findings are not in the WCAG taxonomy; re-derive German from
-    // their own single-source text function (#406).
-    if let Some(issue_type) = finding.rule_id.strip_prefix("seo.headings.") {
-        let (title, technical_impact) = crate::audit::normalized::seo_heading_finding_text(
-            issue_type,
-            false,
-            &finding.technical_impact,
-        );
-        return (title, finding.user_impact.clone(), technical_impact);
-    }
-    // Findings outside the WCAG engine: title per check (#898, #1039).
-    if let Some(title) = crate::audit::finding_titles::finding_title(&finding.rule_id, false) {
-        return (
-            title,
-            finding.user_impact.clone(),
-            finding.technical_impact.clone(),
-        );
-    }
-    use crate::taxonomy::RuleLookup;
-    let rule = RuleLookup::by_id(&finding.rule_id)
-        .or_else(|| RuleLookup::by_wcag(&finding.wcag_criterion));
-    match rule {
-        Some(r) => (
-            r.title(false),
-            r.user_impact(false),
-            r.technical_impact(false),
-        ),
-        None => (
-            finding.title.clone(),
-            finding.user_impact.clone(),
-            finding.technical_impact.clone(),
-        ),
-    }
-}
+pub(super) use crate::audit::finding_titles::localized_finding_text;
 
 /// Longest action text that still reads as a card title.
 const MAX_ACTION_TITLE_CHARS: usize = 100;

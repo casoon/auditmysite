@@ -45,8 +45,14 @@ single-report-risks-title-count = Wichtigste Risiken ({ $count } erkannt)
 single-report-strengths-title = Stärken im geprüften Umfang
 
 ## Key measures
-single-report-measures-title = Die 5 wichtigsten Maßnahmen
+single-report-measures-title = Wichtigste Befunde
 single-report-measures-none = Keine dringenden Maßnahmen erforderlich.
+single-report-decision-line = { $index }. { $id } · { $title } · { $reach } · Priorität { $priority }
+single-report-decision-line-reach-in-title = { $index }. { $id } · { $title } · Priorität { $priority }
+single-report-decision-reach = { $count ->
+        [one] 1 Vorkommen
+       *[other] { $count } Vorkommen
+    }
 single-report-measure-more = (+{ $count } weitere gleicher Art)
 
 ## Findings

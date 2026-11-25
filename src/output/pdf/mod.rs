@@ -486,6 +486,8 @@ mod frame_text_export;
 mod frame_text_guard;
 #[cfg(test)]
 mod rating_label_guard;
+#[cfg(test)]
+mod report_invariant;
 
 #[cfg(all(test, feature = "pdf_test"))]
 #[path = "tests.rs"]

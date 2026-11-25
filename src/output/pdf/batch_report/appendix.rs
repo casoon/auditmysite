@@ -155,6 +155,10 @@ pub(super) fn render_batch_appendix(
         SectionHeaderSplit::new(i18n.t("section-appendix"), appendix_intro).with_level(1),
     );
 
+    if super::portfolio::ranking_is_compact(pres) {
+        builder = super::portfolio::render_batch_full_ranking(builder, pres, i18n);
+    }
+
     let rule_col = i18n.t("batch-appendix-col-rule");
     let elements_col = i18n.t("batch-appendix-col-elements");
     for url_appendix in &pres.appendix.per_url {

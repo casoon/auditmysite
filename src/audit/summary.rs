@@ -91,6 +91,8 @@ impl SiteState {
 #[derive(Debug, Clone)]
 pub struct DominantIssue {
     pub rule_id: String,
+    /// Rule title in the run language: the summary texts embed it, and the
+    /// summary is built for the PDF only, never stored in the JSON (#406).
     pub title: String,
     pub severity: Severity,
     /// Number of finding groups (distinct NormalizedFinding entries) for this rule.
@@ -172,7 +174,7 @@ pub fn analyze_with_locale(normalized: &NormalizedReport, locale: &str) -> Audit
         .map(|f| f.occurrence_count)
         .sum();
 
-    let dominant_issue = detect_dominant_issue(&normalized.findings, urgent_occurrences);
+    let dominant_issue = detect_dominant_issue(&normalized.findings, urgent_occurrences, locale);
     let issue_pattern = classify_issue_pattern(total, urgent, &dominant_issue);
     let cross_impacts = detect_cross_impacts(normalized, locale);
 
@@ -245,6 +247,7 @@ fn number(value: usize) -> FluentValue<'static> {
 fn detect_dominant_issue(
     findings: &[NormalizedFinding],
     urgent_occurrences: usize,
+    locale: &str,
 ) -> Option<DominantIssue> {
     // Phase 1: dominance among critical/high findings (threshold ≥ 45 %).
     if urgent_occurrences > 0 {
@@ -262,7 +265,7 @@ fn detect_dominant_issue(
             .max_by(|a, b| a.2.cmp(&b.2).then_with(|| b.0.rule_id.cmp(&a.0.rule_id)))
             .map(|(f, count, occurrence_total)| DominantIssue {
                 rule_id: f.rule_id.clone(),
-                title: f.title.clone(),
+                title: super::finding_titles::localized_finding_text(locale, f).0,
                 severity: f.severity,
                 count,
                 occurrence_total,
@@ -291,7 +294,7 @@ fn detect_dominant_issue(
         .max_by(|a, b| a.2.cmp(&b.2).then_with(|| b.0.rule_id.cmp(&a.0.rule_id)))
         .map(|(f, count, occurrence_total)| DominantIssue {
             rule_id: f.rule_id.clone(),
-            title: f.title.clone(),
+            title: super::finding_titles::localized_finding_text(locale, f).0,
             severity: f.severity,
             count,
             occurrence_total,
@@ -767,6 +770,28 @@ mod tests {
         assert_eq!(d.rule_id, "r.dominant");
         assert!(d.share_pct >= 50.0);
         assert_eq!(summary.issue_pattern, IssuePattern::SingleDominant);
+    }
+
+    /// The dominant issue's title is stored canonical English on the finding;
+    /// the summary derives it in the run language, in the field and in the
+    /// texts that embed it (#406, #1171).
+    #[test]
+    fn dominant_issue_title_follows_the_run_language() {
+        let english = "Form control, link, or button without an accessible name";
+        let findings = vec![
+            make_finding("buttons/name-missing", english, Severity::Critical, 5),
+            make_finding("r.other", "Kontrast", Severity::High, 1),
+        ];
+        let report = make_report(60, findings);
+        let en = analyze_with_locale(&report, "en");
+        let de = analyze_with_locale(&report, "de");
+        assert_eq!(en.dominant_issue.as_ref().unwrap().title, english);
+        let german = de.dominant_issue.as_ref().unwrap().title.clone();
+        assert_ne!(german, english);
+        for text in [&de.verdict_intro, de.dominant_issue_note.as_ref().unwrap()] {
+            assert!(text.contains(&german), "{text}");
+            assert!(!text.contains(english), "{text}");
+        }
     }
 
     #[test]

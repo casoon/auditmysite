@@ -337,8 +337,31 @@ fn export_tables(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
         "render_batch_url_ranking",
         "3 ranked URLs".to_string(),
         lang,
-        components(render_batch_url_ranking(bare(), &pres, i18n)),
+        components(render_batch_url_ranking(bare(), &pres, false, i18n)),
     );
+    // More than ten pages: the lowest and the highest five, the full list in
+    // the appendix or the JSON report.
+    pres.url_ranking = (0..12)
+        .map(|i| UrlSummary {
+            url: format!("https://example.com/{i}"),
+            score: 50.0 + i as f32,
+            site_quality_score: 50 + i as u32,
+            grade: "C".to_string(),
+            critical_violations: 0,
+            total_violations: 0,
+            passed: true,
+            priority: Priority::Medium,
+        })
+        .collect();
+    for has_appendix in [false, true] {
+        push(
+            records,
+            "render_batch_url_ranking",
+            format!("12 ranked URLs, appendix={has_appendix}"),
+            lang,
+            components(render_batch_url_ranking(bare(), &pres, has_appendix, i18n)),
+        );
+    }
 
     // The technical URL matrix: word counts and titles, the page-type
     // table (all pages, or the weakest ten), and the crawl links.

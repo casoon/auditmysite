@@ -1308,8 +1308,8 @@ pub struct BatchPresentation {
 ///
 /// `confidence` is kept as the canonical `"confirmed"` / `"likely"` marker so
 /// render code can key off it (e.g. to decide whether to override a
-/// decision-action row); `headline` and `decision_label` carry the fully
-/// localized sentences for the runtime locale — the strong "resolves N pages"
+/// problem card); `headline` carries the fully
+/// localized sentence for the runtime locale — the strong "resolves N pages"
 /// claim is only ever used for `"confirmed"` clusters, `"likely"` clusters
 /// always read as unconfirmed/probable.
 pub struct TemplateClusterView {
@@ -1320,7 +1320,6 @@ pub struct TemplateClusterView {
     pub confidence: String,
     pub affected_pages: usize,
     pub headline: String,
-    pub decision_label: String,
 }
 
 pub struct ActionPlan {

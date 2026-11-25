@@ -47,7 +47,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 94);
+    assert_eq!(en.len(), 97);
 }
 
 #[test]
@@ -70,6 +70,7 @@ fn every_key_resolves_in_both_languages_without_errors() {
         let mut args = FluentArgs::new();
         for name in [
             "part",
+            "index",
             "count",
             "warnings",
             "manual",
@@ -96,6 +97,10 @@ fn every_key_resolves_in_both_languages_without_errors() {
             "reason",
             "occurrence_context",
             "list",
+            "id",
+            "title",
+            "reach",
+            "priority",
         ] {
             args.set(name, FluentValue::from("x"));
         }

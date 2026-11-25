@@ -83,7 +83,6 @@ narrative-status-title = Status der Website
 narrative-metrics-title = Executive Snapshot
 narrative-key-points-title = Kernaussagen
 narrative-impact-title = Auswirkungen
-narrative-quick-actions-title = Empfohlene Verbesserungen
 narrative-spotlight-eyebrow = HAUPTPROBLEM
 narrative-leverage-title = Wirkung einer Behebung
 narrative-findings-title = Key Findings
@@ -204,22 +203,14 @@ batch-unaudited-list-title = Nicht auditiert
 batch-unaudited-more = … und { $count } weitere
 panel-modules-overview = Modulübersicht
 section-tech-detail-metrics = Technische Detailmetriken
-column-action = Maßnahme
 column-priority = Priorität
-column-timeframe = Aufwand
 column-component = Komponente
 column-area = Bereich
-section-quick-wins = Naheliegende Verbesserungen
-section-medium-actions = Maßnahmen mit mittlerem Aufwand
-section-structural-actions = Strukturelle Maßnahmen
 section-next-steps-recommended = Empfohlene nächste Schritte
 section-next-steps-block = Weiteres Vorgehen
 
 # Batch sections
 batch-section-status = Status der Website
-batch-section-most-frequent = Häufigste Probleme
-batch-section-most-frequent-violations = Häufigste Verstöße
-batch-col-problem = Problem
 batch-col-occurrences = Vorkommen
 batch-col-pages = Seiten
 batch-col-priority = Priorität
@@ -245,7 +236,6 @@ batch-col-budget = Budget
 batch-col-links-to = Eingehende Links
 batch-col-links-from = Ausgehende Links
 batch-col-words = Wörter
-batch-action-plan-title = Maßnahmenplan
 batch-section-broken-links-internal = Interne Broken Links
 batch-section-broken-links-external = Externe Broken Links
 batch-section-external-links = Externe Links
@@ -293,8 +283,6 @@ batch-table-top-pages = Stärkste Content-Seiten
 batch-table-broken-internal = Kaputte interne Links
 batch-table-broken-external = Kaputte externe Links
 batch-section-performance-budgets = Performance Budgets
-findings-card-key-problem = Problem
-findings-card-key-cause = Ursache
 label-improvement-suggestions = Verbesserungsvorschläge
 label-recommendations = Empfehlungen
 label-severity = Schweregrad
@@ -825,30 +813,13 @@ pdf-perf-dup-title = { $count } { $count ->
        *[other] doppelte Asset-Gruppen
     } erkannt (~{ $wasted } KB verschwendet)
 
-batch-top-issues-intro = Die folgenden Problemgruppen treten über mehrere URLs hinweg auf. Durch Behebung dieser Probleme wird die größte Verbesserung erzielt, da sie viele Seiten gleichzeitig betreffen.
-batch-col-affected-urls = Betr. URLs
 batch-meta-global = Alle geprüften Seiten
 batch-meta-some-pages = { $count } von { $total } Seiten
 batch-meta-single-page = Eine Seite — seitenspezifisch
 batch-meta-occurrences = { $count } Vorkommen
-batch-meta-affected-urls = { $count ->
-    [one] betroffene URL
-   *[other] betroffene URLs
-}
-batch-meta-effort = Aufwand je Stelle (Schätzung)
-batch-meta-scope = Reichweite
-batch-meta-impact-user = Auswirkung (Nutzer)
-batch-meta-impact-business = Auswirkung (Business)
 batch-meta-fix = Empfehlung
-batch-meta-classification = Einordnung
-batch-template-section-title = Template-Ursachen
-batch-template-section-intro = Die folgenden Befunde wiederholen sich an derselben Stelle auf mehreren Seiten. Das deutet auf eine gemeinsame Komponente oder ein Template hin; dass eine Korrektur dort alle Vorkommen behebt, ist eine Annahme, bis der Quellcode sie bestätigt.
 batch-template-confirmed-headline = Identisches Markup an ‚{ $selector }‘ auf { $n } von { $total } geprüften Seiten. Stammt es aus einer gemeinsamen Komponente, wirkt eine Korrektur dort voraussichtlich auf allen { $n } Seiten — ob das so ist, zeigt der Quellcode.
 batch-template-likely-headline = Wiederkehrend an ‚{ $selector }‘ auf { $n } von { $total } geprüften Seiten; gleiches Markup ist nicht belegt — eine gemeinsame Ursache ist möglich, nicht nachgewiesen.
-batch-template-decision-confirmed = identisches Markup ({ $n } Seiten)
-batch-template-decision-likely = wiederkehrend, gleiches Markup nicht belegt ({ $n } Seiten)
-batch-template-decision-open = auf { $n } Seiten, keine gemeinsame Ursache belegt
-batch-action-plan-intro = Die folgenden Maßnahmen sind nach Aufwand und Wirkung priorisiert. Maßnahmen, die viele Seiten gleichzeitig verbessern, haben Vorrang.
 batch-budget-pages-col = Betr. Seiten
 batch-budget-table-title = Performance-Budget-Verstöße (domainweit)
 batch-budget-intro = Auf wie vielen Seiten welche Performance-Budgets überschritten wurden.
@@ -1409,7 +1380,6 @@ batch-scope-note-appendix = Dieser PDF-Report ist ein verdichteter Audit-Bericht
 batch-scope-note-json = Dieser PDF-Report ist ein verdichteter Audit-Bericht. Er zeigt die wichtigsten Befunde, Risiken und Verbesserungsfelder, enthält aber nicht jede technische Einzelstelle. Die Rohdaten stehen im JSON-Report desselben Laufs; die Report-Stufe technical (--report-level technical) ergänzt einen Anhang je URL.
 batch-next-steps-manual = Für eine vollständige WCAG-Konformitätsprüfung empfehlen wir ergänzend einen manuellen Audit mit assistiven Technologien (Screenreader, Tastaturnavigation). Dieser Audit prüft { $automated } von { $total } Erfolgskriterien der WCAG 2.2 (Stufe A/AA) automatisiert; die übrigen brauchen eine manuelle Prüfung.
 batch-next-steps-intro = Was der automatisierte Audit offen lässt.
-batch-col-role = Rolle
 batch-topics-title = Inhaltsthemen auf mehreren Seiten
 batch-table-pages-profile = Seitentyp und häufigste Befunde je Seite
 batch-seo-profiles-title = Inhaltsprofil je Seite
@@ -1465,3 +1435,30 @@ batch-interactive-some = { $count ->
         [one] 1 Seite
        *[other] { $clean } Seiten
     } ohne Befunde.
+
+# Batch: Entscheidungsebene und wiederkehrende Probleme (#1171)
+batch-decision-title = Wichtigste Befunde
+batch-decision-line = { $id } · { $title } · { $reach } · { $priority }
+batch-decision-line-reach-in-title = { $id } · { $title } · { $priority }
+batch-section-recurring = Wiederkehrende Probleme und Maßnahmen
+batch-recurring-intro = Eine Karte je Ursache, die über die geprüften Seiten wiederkehrt: wie weit sie reicht, was die Ursache ist und wie sicher der Bericht dabei ist, und was zu tun ist. Die Befund-ID verbindet die Karte mit dem JSON-Bericht; die Belege je Seite stehen in den Einzelseiten-Berichten.
+batch-recurring-key-reach = Reichweite
+batch-recurring-key-cause = Ursache und Sicherheit
+batch-recurring-key-priority = Priorität, Aufwand, Zuständigkeit
+batch-recurring-key-finding = Befund-ID
+batch-recurring-priority-effort = Priorität { $priority } · Aufwand { $effort } · { $role }
+batch-recurring-more = { $count ->
+        [one] Ein weiteres wiederkehrendes Problem steht im JSON-Bericht.
+       *[other] { $count } weitere wiederkehrende Probleme stehen im JSON-Bericht.
+    }
+batch-url-ranking-lowest = { $count ->
+        [one] Niedrigstbewertete Seite
+       *[other] { $count } niedrigstbewertete Seiten
+    }
+batch-url-ranking-highest = { $count ->
+        [one] Höchstbewertete Seite
+       *[other] { $count } höchstbewertete Seiten
+    }
+batch-url-ranking-full = Alle Seiten im Ranking
+batch-url-ranking-rest-appendix = Die Tabelle zeigt die niedrigst- und die höchstbewerteten Seiten; die vollständige Liste steht im technischen Anhang.
+batch-url-ranking-rest-json = Die Tabelle zeigt die niedrigst- und die höchstbewerteten Seiten; die vollständige Liste steht im JSON-Bericht.

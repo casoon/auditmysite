@@ -16,7 +16,7 @@ use crate::util::short_url;
 
 use super::super::cover::build_batch_cover_score_row;
 use super::super::helpers::score_quality_color;
-use super::actions::build_batch_quick_actions;
+use super::actions::build_batch_decision_lines;
 use super::management::{
     build_batch_assessment, build_batch_key_points, render_batch_internal_comparison,
     render_batch_management_risks,
@@ -544,13 +544,13 @@ pub(super) fn render_batch_status_section(
         i18n,
     );
 
-    // Quick actions: a plain list. A checklist panel reserved two thirds of
-    // its width for a diagnosis column that was empty on every row (#1039).
-    let actions = build_batch_quick_actions(pres, i18n);
-    if !actions.is_empty() {
-        let mut list = List::new().with_title(i18n.t("narrative-quick-actions-title"));
-        for action in &actions {
-            list = list.add_item(action);
+    // Decision level: the most important recurring problems, one line each.
+    // The recurring-problems section tells each of them once in full.
+    let decision_lines = build_batch_decision_lines(pres, i18n);
+    if !decision_lines.is_empty() {
+        let mut list = List::new().with_title(i18n.t("batch-decision-title"));
+        for line in &decision_lines {
+            list = list.add_item(line);
         }
         builder = builder.add_component(list);
     }
