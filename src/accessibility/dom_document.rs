@@ -518,9 +518,10 @@ fn overlaps(a: Rect, b: Rect) -> bool {
 /// über dem Bild im Fluss (spiegel.de `figcaption > p`). Welches von beiden
 /// oben liegt, sagt der Snapshot nicht; der aus den Vorfahren aufgelöste
 /// Hintergrund ist dann jedenfalls nicht der gezeichnete. Geprüft werden die
-/// Geschwister des Elements und seiner Vorfahren bis sechs Ebenen hinauf, wie
-/// `hasOverlappingPaintedSibling` der lokalen Kontrastregel, aber nur bis
-/// zum ersten deckenden Hintergrund auf dem Weg — der Dialog eines
+/// Geschwister des Elements und seiner Vorfahren, ohne Tiefengrenze (#1194:
+/// Text in einem Kartenbaum von mehr als sechs Ebenen unter dem Abschnitt mit
+/// dem Bild und der Abdeckung), aber nur bis zum ersten deckenden Hintergrund
+/// auf dem Weg — der Dialog eines
 /// Cookie-Banners hat seine eigene Fläche, die halbdurchsichtige Abdeckung
 /// daneben liegt darunter (wetter.com). Ein Bild im
 /// Fluss neben dem Text — etwa umflossen (`float`) — zählt nicht: Der Kasten
@@ -537,8 +538,6 @@ struct Overlap<'s> {
 }
 
 impl<'s> Overlap<'s> {
-    const LEVELS: usize = 6;
-
     fn new(
         values: &'s [Option<SnapshotValues>],
         bounds: &'s [Option<Rect>],
@@ -611,7 +610,7 @@ impl<'s> Overlap<'s> {
             return false;
         };
         let mut current = i;
-        for _ in 0..Self::LEVELS {
+        loop {
             // Ab einem deckenden Hintergrund auf dem Weg steht der
             // aufgelöste Hintergrund fest; was daneben liegt, liegt darunter
             // oder deckt den Text ganz ab (`Layout::obscured`).
@@ -637,7 +636,6 @@ impl<'s> Overlap<'s> {
             }
             current = parent;
         }
-        false
     }
 
     /// Siehe [`Rendering::visually_hidden`]: durchsichtig (`opacity: 0` am

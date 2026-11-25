@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contrast over a semi-transparent overlay on an image</title>
+<style>
+  body { margin: 0; background: #f5efe8; color: #111111; }
+  .spacer { height: 2400px; }
+  section { position: relative; overflow: hidden; padding: 48px 16px; }
+  section img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .overlay { position: absolute; inset: 0;
+             background-image: linear-gradient(135deg, rgba(20, 10, 8, 0.92), rgba(38, 18, 15, 0.95)); }
+  section p { position: relative; margin: 0; }
+  #lit { color: #d8c8bd; }
+  #faint { color: #6a5a50; }
+  .wrap { position: relative; z-index: 10; }
+  #deep { color: #d8c8bd; }
+</style>
+</head>
+<body>
+<header><nav aria-label="Main"><a id="home" href="#main">Home</a></nav></header>
+<main id="main">
+  <h1>Light text over a dark overlay</h1>
+  <div class="spacer"></div>
+  <!-- The section has no background colour of its own. A lazy image (never
+       loaded, the source does not exist) lies below an absolutely positioned
+       overlay of 92-95 % dark brown. Real contrast of the light text is far
+       above 4.5:1 even if the image were white, so this is no violation. -->
+  <section>
+    <img src="/does-not-exist/wood.webp" alt="" loading="lazy">
+    <div class="overlay"></div>
+    <p id="lit">Light text on the dark overlay.</p>
+  </section>
+  <!-- Same layers, but the text is dark on the dark overlay: a real failure
+       that the overlay must not hide. -->
+  <section>
+    <img src="/does-not-exist/wood.webp" alt="" loading="lazy">
+    <div class="overlay"></div>
+    <p id="faint">Dark text on the dark overlay.</p>
+  </section>
+  <!-- The text sits seven wrapper levels below the section, as in a card
+       tree: layers and text are still siblings of an ancestor. -->
+  <section>
+    <img src="/does-not-exist/wood.webp" alt="" loading="lazy">
+    <div class="overlay"></div>
+    <div class="wrap"><div><div><div><div><div><ul><li><span id="deep">Light text deep in a card tree.</span></li></ul></div></div></div></div></div></div>
+  </section>
+</main>
+<footer><p>Footer text</p></footer>
+</body>
+</html>
