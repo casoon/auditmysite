@@ -146,7 +146,7 @@ fn bfsg_eaa_label(i18n: &I18n, acronyms_expanded: &mut bool) -> String {
     i18n.t("pdf-findings-bfsg-eaa")
 }
 
-fn report_code_label(value: &str, i18n: &I18n) -> String {
+pub(super) fn report_code_label(value: &str, i18n: &I18n) -> String {
     let key = match value {
         "very_high" => "pdf-findings-code-very-high",
         "high" => "severity-high",

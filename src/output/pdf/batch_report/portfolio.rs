@@ -1,5 +1,5 @@
 use crate::output::localized::is_english;
-use renderreport::components::advanced::{Grid, KeyValueList, SectionHeaderSplit};
+use renderreport::components::advanced::{Grid, KeyValueList, PageBreak, SectionHeaderSplit};
 use renderreport::components::charts::{Gauge, GaugeThreshold};
 use renderreport::components::{AuditTable, BenchmarkRow, BenchmarkTable, TableColumn};
 use renderreport::prelude::*;
@@ -304,22 +304,30 @@ const RANKING_EXTRA_COLUMNS: &[(&str, &str)] = &[
     ("HTML Conformance", "batch-ranking-col-html-conformance"),
 ];
 
-pub(super) fn render_batch_url_ranking(
-    mut builder: renderreport::engine::ReportBuilder,
+/// How many of the lowest and the highest ranked pages the report body shows.
+const RANKING_EDGE: usize = 5;
+
+/// More pages than both edges show: the body prints the compact table.
+pub(super) fn ranking_is_compact(pres: &BatchPresentation) -> bool {
+    pres.url_ranking.len() > 2 * RANKING_EDGE
+}
+
+/// One ranking row per page of `ranking`, ranked in the order of the list.
+fn ranking_rows(
     pres: &BatchPresentation,
+    range: std::ops::Range<usize>,
     i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
+) -> Vec<BenchmarkRow> {
     let extra_headers: Vec<(&str, String)> = RANKING_EXTRA_COLUMNS
         .iter()
         .map(|(module_name, key)| (*module_name, i18n.t(key)))
         .collect();
-    let rows: Vec<BenchmarkRow> = pres
-        .url_ranking
+    pres.url_ranking[range.clone()]
         .iter()
         .enumerate()
         .map(|(i, u)| {
             let mut row = BenchmarkRow::new(
-                (i + 1) as u32,
+                (range.start + i + 1) as u32,
                 &short_url(&u.url, 35),
                 u.site_quality_score,
                 u.score as u32,
@@ -338,30 +346,84 @@ pub(super) fn render_batch_url_ranking(
             }
             row
         })
-        .collect();
+        .collect()
+}
 
-    builder = builder
-        .add_component(
-            SectionHeaderSplit::new(i18n.t("batch-url-ranking-title"), ranking_intro(i18n))
-                .with_level(1),
+/// The compact URL ranking of the report body: the five lowest and the five
+/// highest ranked pages (every page when there are ten or fewer), the full
+/// list in the technical appendix.
+pub(super) fn render_batch_url_ranking(
+    mut builder: renderreport::engine::ReportBuilder,
+    pres: &BatchPresentation,
+    has_appendix: bool,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let total = pres.url_ranking.len();
+    let compact = ranking_is_compact(pres);
+    builder = builder.add_component(
+        SectionHeaderSplit::new(
+            i18n.t("batch-url-ranking-title"),
+            ranking_intro(compact, has_appendix, i18n),
         )
-        .add_component(ranking_table(rows, i18n));
-
+        .with_level(1),
+    );
+    if compact {
+        builder = builder
+            .add_component(
+                Section::new(i18n.count("batch-url-ranking-lowest", RANKING_EDGE)).with_level(2),
+            )
+            .add_component(ranking_table(
+                ranking_rows(pres, 0..RANKING_EDGE, i18n),
+                i18n,
+            ))
+            .add_component(
+                Section::new(i18n.count("batch-url-ranking-highest", RANKING_EDGE)).with_level(2),
+            )
+            .add_component(ranking_table(
+                ranking_rows(pres, total - RANKING_EDGE..total, i18n),
+                i18n,
+            ));
+    } else {
+        builder = builder.add_component(ranking_table(ranking_rows(pres, 0..total, i18n), i18n));
+    }
     builder
+}
+
+/// The full URL ranking, one table, for the technical appendix.
+pub(super) fn render_batch_full_ranking(
+    builder: renderreport::engine::ReportBuilder,
+    pres: &BatchPresentation,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    builder
+        .add_component(Section::new(i18n.t("batch-url-ranking-full")).with_level(2))
+        .add_component(ranking_table(
+            ranking_rows(pres, 0..pres.url_ranking.len(), i18n),
+            i18n,
+        ))
 }
 
 /// The ranking intro names the columns by the labels the table prints, so
 /// it cannot speak of an "A11y" or "Score" column the table does not have
-/// (#1039).
-pub(super) fn ranking_intro(i18n: &I18n) -> String {
-    i18n.t_args(
+/// (#1039); a compact table says where the full list is.
+pub(super) fn ranking_intro(compact: bool, has_appendix: bool, i18n: &I18n) -> String {
+    let base = i18n.t_args(
         "batch-url-ranking-intro",
         &[
             ("accessibility", i18n.t("batch-ranking-col-accessibility")),
             ("critical", i18n.t("batch-ranking-col-critical-high")),
             ("site_quality", i18n.t("batch-ranking-col-site-quality")),
         ],
-    )
+    );
+    if !compact {
+        return base;
+    }
+    let rest = i18n.t(if has_appendix {
+        "batch-url-ranking-rest-appendix"
+    } else {
+        "batch-url-ranking-rest-json"
+    });
+    format!("{base} {rest}")
 }
 
 /// The ranking table without renderreport's built-in German title
@@ -388,7 +450,9 @@ pub(super) fn render_batch_tech_url_matrix(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let en = is_english(i18n);
-    builder = builder.add_component(
+    // A new page: the technical part starts here, and its header never stands
+    // alone at the foot of the page before.
+    builder = builder.add_component(PageBreak::new()).add_component(
         SectionHeaderSplit::new(
             i18n.t("batch-section-tech-url-matrix"),
             i18n.t("batch-section-tech-url-matrix-intro"),

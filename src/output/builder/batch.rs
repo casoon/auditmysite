@@ -959,24 +959,17 @@ fn build_template_cluster_view(
             ("total", total.clone()),
         ]
     };
-    let (headline, decision_label, confidence) = match cause.confidence {
+    let (headline, confidence) = match cause.confidence {
         CauseConfidence::Confirmed => (
             i18n.t_args("batch-template-confirmed-headline", &args()),
-            i18n.t_args("batch-template-decision-confirmed", &[("n", n.clone())]),
             "confirmed",
         ),
         CauseConfidence::Likely => (
             i18n.t_args("batch-template-likely-headline", &args()),
-            i18n.t_args("batch-template-decision-likely", &[("n", n.clone())]),
             "likely",
         ),
-        // No template claim: not listed under template causes, only named
-        // as recurring where the action table refers to it.
-        CauseConfidence::Open => (
-            String::new(),
-            i18n.t_args("batch-template-decision-open", &[("n", n.clone())]),
-            "open",
-        ),
+        // No template claim: the problem card names it as recurring only.
+        CauseConfidence::Open => (String::new(), "open"),
     };
 
     TemplateClusterView {
@@ -986,7 +979,6 @@ fn build_template_cluster_view(
         confidence: confidence.to_string(),
         affected_pages: cause.url_count,
         headline,
-        decision_label,
     }
 }
 

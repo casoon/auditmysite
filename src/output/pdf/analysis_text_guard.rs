@@ -1,6 +1,6 @@
 //! Guards of `locales/{de,en}/pdf-analysis.ftl` (#936): the same keys in both
 //! languages, every key defined once, used by `search_experience.rs`,
-//! `root_causes.rs`, `problem_profile.rs` or `wcag_coverage.rs` and resolving
+//! `root_causes.rs`, `analysis_card.rs`, `problem_profile.rs` or `wcag_coverage.rs` and resolving
 //! without errors, no German in the English file, the plural agreement of the
 //! structural findings tail, and no text of the export scenarios that is a
 //! key or still holds a placeholder.
@@ -12,22 +12,17 @@ use std::collections::BTreeSet;
 
 const EN: &str = include_str!("../../../locales/en/pdf-analysis.ftl");
 const DE: &str = include_str!("../../../locales/de/pdf-analysis.ftl");
-const SOURCES: [&str; 4] = [
+const SOURCES: [&str; 5] = [
     include_str!("../search_experience.rs"),
     include_str!("root_causes.rs"),
+    include_str!("analysis_card.rs"),
     include_str!("problem_profile.rs"),
     include_str!("wcag_coverage.rs"),
 ];
 
-/// The messages of other files the four modules reuse, with their text in
-/// both languages: the label "Technical SEO" and the column headings of the
-/// root cause table.
-const REUSED: [(&str, &str, &str); 4] = [
-    ("seo-score-card", "Technical SEO", "Technisches SEO"),
-    ("single-report-matrix-col-finding", "Finding", "Befund"),
-    ("batch-col-occurrences", "Occurrences", "Vorkommen"),
-    ("batch-col-share", "Share", "Anteil"),
-];
+/// The messages of other files the modules reuse, with their text in both
+/// languages: the label "Technical SEO".
+const REUSED: [(&str, &str, &str); 1] = [("seo-score-card", "Technical SEO", "Technisches SEO")];
 
 /// The message ids of a file (column-0 `id =` lines), each only once.
 fn ids(ftl: &str) -> Vec<String> {
@@ -46,7 +41,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 82);
+    assert_eq!(en.len(), 86);
 }
 
 #[test]
@@ -59,7 +54,7 @@ fn every_message_is_used_by_the_code() {
             SOURCES
                 .iter()
                 .any(|source| source.contains(&format!("\"{id}\""))),
-            "{id} is not used in search_experience.rs, root_causes.rs, problem_profile.rs or wcag_coverage.rs"
+            "{id} is not used in search_experience.rs, root_causes.rs, analysis_card.rs, problem_profile.rs or wcag_coverage.rs"
         );
     }
 }
@@ -112,6 +107,9 @@ fn every_key_resolves_in_both_languages_without_errors() {
             "list",
             "listed",
             "aaa",
+            "selector",
+            "priority",
+            "role",
         ] {
             args.set(name, FluentValue::from("x"));
         }

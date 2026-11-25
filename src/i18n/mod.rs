@@ -798,23 +798,6 @@ mod tests {
         assert!(outside(&en, 1).contains("has no normative clause in EN 301 549 V4.1.1 and is not"));
         assert!(outside(&en, 2).starts_with("2 additional WCAG findings"));
 
-        let leverage = |i18n: &I18n, count: i64| {
-            i18n.t_args(
-                "pdf-analysis-roadmap-leverage",
-                &[
-                    ("leverage", t("high")),
-                    ("count", n(count)),
-                    ("effort", t("low")),
-                ],
-            )
-        };
-        assert!(leverage(&en, 1).contains("1 occurrence affected"));
-        assert!(leverage(&en, 3).contains("3 occurrences affected"));
-        assert!(leverage(&de, 1).contains("1 Vorkommen betroffen"));
-        // The label names the reach of the fix, not urgency (#1133).
-        assert!(leverage(&en, 1).starts_with("Fix reach: "));
-        assert!(leverage(&de, 1).starts_with("Reichweite der Korrektur: "));
-
         // The EN texts take the count words the German ones already used.
         let evidence = en.t_args(
             "pdf-analysis-causes-none-evidence",

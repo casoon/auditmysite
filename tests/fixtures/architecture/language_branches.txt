@@ -31,6 +31,7 @@ src/ai_visibility/knowledge_graph.rs 11
 src/ai_visibility/mod.rs 18
 src/ai_visibility/readability.rs 27
 src/audit/finding_contract.rs 1
+src/audit/finding_titles.rs 1
 src/audit/interpretation.rs 1
 src/audit/normalized.rs 1
 src/audit/performance_interpretation.rs 1
@@ -38,7 +39,6 @@ src/commerce/mod.rs 1
 src/content_visibility/mod.rs 1
 src/html_conform/message.rs 2
 src/i18n/number.rs 2
-src/output/builder/actions.rs 1
 src/output/builder/batch.rs 1
 src/output/builder/modules.rs 1
 src/output/builder/single/diagnosis.rs 1

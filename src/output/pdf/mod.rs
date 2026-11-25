@@ -3,6 +3,7 @@
 //! Pure layout layer — receives pre-computed ViewModel blocks and maps them
 //! directly to renderreport components. Zero data transformation here.
 
+mod analysis_card;
 mod annotations;
 mod appendix;
 mod batch_report;
@@ -37,7 +38,7 @@ use renderreport::prelude::*;
 // Re-export helpers used by sibling sub-modules via `super::`.
 use self::appendix::{cover_logo_asset, register_cover_logo_asset};
 use self::helpers::create_engine;
-use self::root_causes::{render_root_cause_analysis, render_timeframe_roadmap};
+use self::root_causes::render_analysis;
 use self::single_report::{
     render_appendix_full, render_management_page, render_module_sections, render_part_divider,
     render_tech_details,
@@ -236,11 +237,9 @@ fn build_single_report(
             &i18n,
         );
 
-        // Ursachenanalyse (Table, components list, leverage)
-        builder = render_root_cause_analysis(builder, &vm, &i18n);
+        // Analysis by cause: each finding once in full
+        builder = render_analysis(builder, &vm, &i18n);
 
-        // Maßnahmenplan (Roadmap) & confidence notes
-        builder = render_timeframe_roadmap(builder, &vm, &i18n);
         builder = render_audit_confidence_notes(builder, &normalized.normalized.audit_flags, &i18n);
     }
 
@@ -486,6 +485,8 @@ mod frame_text_export;
 mod frame_text_guard;
 #[cfg(test)]
 mod rating_label_guard;
+#[cfg(test)]
+mod report_invariant;
 
 #[cfg(all(test, feature = "pdf_test"))]
 #[path = "tests.rs"]

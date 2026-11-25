@@ -65,7 +65,7 @@ pub fn generate_batch_typ_with_annotations(
     Ok(engine.render_typ(&built_report)?)
 }
 
-fn build_batch_report(
+pub(super) fn build_batch_report(
     batch: &BatchReport,
     config: &ReportConfig,
     annotations: Option<&crate::annotations::Resolved>,
@@ -128,7 +128,8 @@ fn build_batch_report(
     );
     builder = render_batch_module_portfolio(builder, &pres, &normalized_reports, &i18n);
     builder = render_batch_audit_flags(builder, batch, &i18n);
-    builder = render_batch_url_ranking(builder, &pres, &i18n);
+    let has_appendix = config.level == ReportLevel::Technical && !pres.appendix.per_url.is_empty();
+    builder = render_batch_url_ranking(builder, &pres, has_appendix, &i18n);
 
     if let Some(ref interactive) = pres.interactive_summary {
         if interactive.total_pages_tested > 0 {
@@ -141,9 +142,9 @@ fn build_batch_report(
         }
     }
 
-    builder = render_batch_top_issues(builder, &pres, &i18n);
+    builder = render_batch_recurring_problems(builder, &pres, &i18n);
     builder = render_batch_privacy(builder, batch, &i18n);
-    builder = render_batch_action_plan_section(builder, &pres, &i18n);
+    builder = render_batch_technical_signals(builder, &pres, &i18n);
     builder = render_batch_tech_url_matrix(builder, &pres, config, &i18n);
     builder = render_batch_seo_section(builder, &pres, &i18n);
 
@@ -157,7 +158,7 @@ fn build_batch_report(
 
     builder = render_next_steps_batch(builder, &i18n);
 
-    if config.level == ReportLevel::Technical && !pres.appendix.per_url.is_empty() {
+    if has_appendix {
         builder = render_batch_appendix(builder, &pres, &i18n);
     }
 
@@ -661,13 +662,24 @@ mod tests {
             let out = typ(&batch, locale);
             let all_pages = actions::batch_reach_label(3, 3, &i18n);
             assert_eq!(all_pages, i18n.t("batch-meta-global"));
-            // The plan row: the action and its measured reach.
+            // The problem card: the fix, the measured reach and the finding id.
             assert!(
-                out.contains(&format!("\"{}\", ", security.full_text())),
+                out.contains(&format!(
+                    "key: \"{}\", value: \"{fix}\"",
+                    i18n.t("pdf-analysis-card-key-fix")
+                )),
                 "{locale}"
             );
-            assert!(out.contains(&format!("\"{all_pages}\"")), "{locale}");
-            // Plan rows carry the measured reach, never a keyword guess.
+            assert!(out.contains(&format!(" · {all_pages}\"")), "{locale}");
+            assert!(
+                out.contains(&format!(
+                    "key: \"{}\", value: \"{}\"",
+                    i18n.t("pdf-analysis-card-key-finding"),
+                    group.finding.id
+                )),
+                "{locale}"
+            );
+            // The reach is measured, never a keyword guess.
             for guessed in [
                 "\"Content\"",
                 "\"component-based\"",
@@ -676,9 +688,6 @@ mod tests {
                 assert!(!out.contains(guessed), "{locale}: {guessed}");
             }
             assert!(out.contains(&i18n.t("batch-next-steps-intro")), "{locale}");
-            // The quick action keeps the whole first sentence of the fix; the
-            // German one has a "bzw." inside.
-            assert!(out.contains(&format!("content: \"{fix}\"")), "{locale}");
         }
     }
 
@@ -728,13 +737,16 @@ mod tests {
             assert!(body.contains(&format!("content: \"{band} — ")), "{locale}");
             assert!(!body.contains("Bereich —") && !body.contains("range —"));
             // The ranking intro quotes the column labels the table prints.
-            assert!(body.contains(&portfolio::ranking_intro(&i18n)), "{locale}");
+            assert!(
+                body.contains(&portfolio::ranking_intro(false, false, &i18n)),
+                "{locale}"
+            );
             for key in [
                 "batch-ranking-col-accessibility",
                 "batch-ranking-col-critical-high",
                 "batch-ranking-col-site-quality",
             ] {
-                assert!(portfolio::ranking_intro(&i18n).contains(&i18n.t(key)));
+                assert!(portfolio::ranking_intro(false, false, &i18n).contains(&i18n.t(key)));
             }
             assert!(i18n.t("batch-ranking-col-critical-high").contains("WCAG"));
             assert!(body.contains(&i18n.t("batch-section-tech-url-matrix-intro")));
@@ -906,26 +918,51 @@ mod tests {
         );
     }
 
-    /// #1039: a cross-page card prints neither one page's checker message
-    /// (with its line:column) nor the problem a second time as user impact.
+    /// #1171: the decision level names the most important recurring problems
+    /// in one line each (id, title, reach, priority), at most five, and the
+    /// compact ranking keeps the lowest and highest five with their true rank.
     #[test]
-    fn batch_cards_carry_no_page_detail_and_no_repeat() {
-        let i18n = I18n::new("en").unwrap();
+    fn batch_decision_level_and_compact_ranking() {
+        let batch = BatchReport::from_reports(
+            (0..12)
+                .map(|i| contrast_page(&format!("https://example.com/{i}")))
+                .collect(),
+            vec![],
+            100,
+        );
+        for locale in ["en", "de"] {
+            let i18n = I18n::new(locale).unwrap();
+            let pres = build_batch_presentation_with_locale(&batch, &i18n);
+            let lines = actions::build_batch_decision_lines(&pres, &i18n);
+            assert!(!lines.is_empty() && lines.len() <= 5, "{locale}");
+            let first = &pres.top_issues[0];
+            assert!(lines[0].starts_with(&first.finding.id), "{locale}");
+            assert!(lines[0].contains(&first.title), "{locale}");
+            let out = typ(&batch, locale);
+            assert!(out.contains(&i18n.t("batch-decision-title")), "{locale}");
+            assert!(out.contains(&i18n.t("batch-section-recurring")), "{locale}");
+            // Five lowest and five highest of twelve: ranks 1-5 and 8-12.
+            assert!(
+                out.contains(&i18n.count("batch-url-ranking-lowest", 5)),
+                "{locale}"
+            );
+            assert!(
+                out.contains(&i18n.count("batch-url-ranking-highest", 5)),
+                "{locale}"
+            );
+            assert!(out.contains("rank: 12"), "{locale}");
+            assert!(
+                !out.contains("rank: 6,") && !out.contains("rank: 7,"),
+                "{locale}"
+            );
+        }
+    }
+
+    /// #1039: a cross-page card prints no page's checker message (with its
+    /// line:column).
+    #[test]
+    fn batch_cards_carry_no_page_detail() {
         let batch = security_batch();
-        let pres = build_batch_presentation_with_locale(&batch, &i18n);
-        let group = |rule: &str| {
-            pres.top_issues
-                .iter()
-                .find(|g| g.finding.rule_id == rule)
-                .unwrap_or_else(|| panic!("{rule}"))
-        };
-        let security = group("security.headers.unsafe_inline_script");
-        assert_eq!(security.customer_description, security.user_impact);
-        let (problem, impact) = actions::card_problem_and_impact(security);
-        assert_eq!(problem, Some(security.customer_description.as_str()));
-        assert_eq!(impact, None);
-        let schema = group("html_conform.schema.html5");
-        assert_eq!(actions::card_problem_and_impact(schema), (None, None));
         let out = typ(&batch, "en");
         assert!(!out.contains("261:27335"));
     }

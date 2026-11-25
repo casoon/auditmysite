@@ -1,7 +1,6 @@
 use crate::output::localized::is_english;
 use fluent_bundle::FluentValue;
 use renderreport::components::advanced::{ChecklistPanel, ChecklistRow, KeyValueList, List};
-use renderreport::components::text::TextBlock;
 use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
 
@@ -9,8 +8,6 @@ use crate::audit::BatchReport;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
 use crate::util::short_url;
-
-use super::super::helpers::severity_label_i18n;
 
 // ─── Helper: Batch Report Assessment & Key Points ──────────────────────────
 
@@ -307,145 +304,57 @@ pub(super) fn compared_url_text(
     format!("{named} ({score}/100)")
 }
 
-pub(super) fn render_batch_decision_actions(
-    builder: renderreport::engine::ReportBuilder,
+/// The cause of a cross-page problem and how sure the report is about it. A
+/// verified template cluster for the rule names the place and carries the
+/// confirmed or likely claim; without one, recurrence is observed but a shared
+/// component is not, and repetition within one page says nothing about other
+/// pages.
+pub(super) fn batch_cause_text(
+    group: &FindingGroup,
     pres: &BatchPresentation,
     i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
-    let mut table = AuditTable::new(vec![
-        TableColumn::new(i18n.t("batch-management-col-action")).with_width("36%"),
-        TableColumn::new(i18n.t("batch-col-risk")).with_width("11%"),
-        // The WCAG level instead of the expected-impact sentence, which only
-        // repeated the reach column; the score effect has its own column.
-        TableColumn::new("WCAG").with_width("8%"),
-        TableColumn::new(i18n.t("batch-management-col-scope")).with_width("13%"),
-        TableColumn::new(i18n.t("batch-management-col-reach")).with_width("19%"),
-        TableColumn::new(i18n.t("batch-management-col-score-gain")).with_width("13%"),
-    ])
-    .with_title(i18n.t("batch-management-actions-title"));
-    let mut any_gain = false;
-
-    let mut count = 0;
-    for group in pres
-        .top_issues
+) -> String {
+    let cluster = pres
+        .template_clusters
         .iter()
-        .take(crate::audit::normalized::BATCH_TOP_ACTION_COUNT)
-    {
-        // A verified template cluster for this rule overrides the loose
-        // occurrence-count heuristic with the evidence-backed claim (and its
-        // confirmed/likely distinction) instead of the vague "likely shared
-        // component/template" label.
-        let cluster = pres
-            .template_clusters
-            .iter()
-            .find(|c| c.rule_id == group.finding.rule_id);
-        let root: String = if let Some(cluster) = cluster {
-            // Name the place: the element of the rule's most widespread
-            // pattern. The full CSS path stays in the template list; a long
-            // path in this narrow column broke the layout before (#518).
-            // A bare tag name ("span") names nothing a reader can find: leave
-            // it out and keep the claim.
-            let element = selector_tail(&cluster.selector);
-            if is_bare_tag(element) {
-                cluster.decision_label.clone()
-            } else {
-                format!("{element}: {}", cluster.decision_label)
-            }
-        } else if group.affected_urls.len() > 1 {
-            // Recurring is observed; a shared component is not.
-            i18n.t_args(
-                "batch-management-root-recurring",
-                &[("count", FluentValue::from(group.affected_urls.len() as i64))],
-            )
-        } else if group.finding.occurrence_count > 1 {
-            // Repetition within one page says nothing about other pages
-            // ("auf 1 Seiten, Ursache offen").
-            i18n.t_args(
-                "batch-management-root-one-page",
-                &[(
-                    "count",
-                    FluentValue::from(group.finding.occurrence_count as i64),
-                )],
-            )
-        } else {
-            i18n.t("batch-management-root-page-specific")
-        };
-        table = table.add_row(vec![
-            format!("{} — {}", group.title, root),
-            severity_label_i18n(group.finding.severity, i18n),
-            if group.finding.wcag_level.is_empty() {
-                "–".to_string()
-            } else {
-                group.finding.wcag_level.clone()
-            },
-            // The column shows the scope derived from the data, the same value
-            // as `top_actions[].complexity` in the JSON — not the per-rule
-            // effort estimate, which read "low" where the JSON said "high".
-            change_scope_label(&group.finding.complexity, i18n),
-            i18n.t_args(
-                "batch-management-reach",
-                &[
-                    (
-                        "occurrences",
-                        FluentValue::from(group.finding.occurrence_count as i64),
-                    ),
-                    ("urls", FluentValue::from(group.affected_urls.len() as i64)),
-                ],
-            ),
-            score_gain_cell(group.finding.expected_impact_kind.score_gain(), i18n),
-        ]);
-        any_gain |= group.finding.expected_impact_kind.score_gain().is_some();
-        count += 1;
+        .find(|c| c.rule_id == group.finding.rule_id && c.confidence != "open");
+    if let Some(cluster) = cluster {
+        return cluster.headline.clone();
     }
-    if count == 0 {
-        return builder;
-    }
-    let builder = builder.add_component(table);
-    if any_gain {
-        builder.add_component(TextBlock::new(i18n.t("batch-management-score-gain-note")))
+    if group.affected_urls.len() > 1 {
+        i18n.t_args(
+            "batch-management-root-recurring",
+            &[("count", FluentValue::from(group.affected_urls.len() as i64))],
+        )
+    } else if group.finding.occurrence_count > 1 {
+        i18n.t_args(
+            "batch-management-root-one-page",
+            &[(
+                "count",
+                FluentValue::from(group.finding.occurrence_count as i64),
+            )],
+        )
     } else {
-        builder
+        i18n.t("batch-management-root-page-specific")
     }
 }
 
-/// The score-effect cell of a batch action (#1169): the simulated gain of
-/// the average accessibility score, the same value as
-/// `top_actions[].score_gain.accessibility` in the JSON.
-fn score_gain_cell(gain: Option<&crate::audit::ScoreGain>, i18n: &I18n) -> String {
-    match gain {
-        None => i18n.t("batch-management-score-gain-not-quantified"),
-        Some(gain) if gain.accessibility == 0 => i18n.t("batch-management-score-gain-none"),
-        Some(gain) => i18n.t_args(
-            "batch-management-score-gain",
-            &[("points", FluentValue::from(i64::from(gain.accessibility)))],
-        ),
-    }
-}
-
-/// The last compound of a CSS selector — the element itself:
-/// `nav > div.menu a.mainnav-toggle` → `a.mainnav-toggle`.
-fn selector_tail(selector: &str) -> &str {
-    selector
-        .rsplit(|c: char| c.is_whitespace() || c == '>' || c == '+' || c == '~')
-        .find(|part| !part.is_empty())
-        .unwrap_or(selector)
-}
-
-/// A selector that is only an element name (`span`, `li`) — no class, id,
-/// attribute or pseudo-class that would identify the place.
-fn is_bare_tag(selector: &str) -> bool {
-    !selector.is_empty()
-        && selector
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '-')
-}
-
-fn change_scope_label(complexity: &str, i18n: &I18n) -> String {
-    i18n.t(match complexity {
-        "high" => "batch-management-scope-high",
-        "medium" => "batch-management-scope-medium",
-        _ => "batch-management-scope-low",
-    })
+/// The score effect of fixing one problem on every page (#1169), the same
+/// value as `top_actions[].score_gain.accessibility` in the JSON; a problem
+/// that would not move the score, or whose gain is not quantified, gets no
+/// line.
+pub(super) fn batch_score_effect(group: &FindingGroup, i18n: &I18n) -> Option<String> {
+    group
+        .finding
+        .expected_impact_kind
+        .score_gain()
+        .filter(|gain| gain.accessibility > 0)
+        .map(|gain| {
+            i18n.t_args(
+                "batch-management-score-gain",
+                &[("points", FluentValue::from(i64::from(gain.accessibility)))],
+            )
+        })
 }
 
 /// The URLs that carry at least one critical or high WCAG finding: the number
@@ -511,24 +420,4 @@ pub(super) fn build_batch_key_points(
     }));
 
     points
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{is_bare_tag, selector_tail};
-
-    #[test]
-    fn selector_tail_names_the_element() {
-        assert_eq!(
-            selector_tail("nav > div.menu a.mainnav-toggle"),
-            "a.mainnav-toggle"
-        );
-        assert_eq!(selector_tail("a#skip"), "a#skip");
-        assert_eq!(selector_tail("ul > li + li"), "li");
-        assert!(is_bare_tag("span"));
-        assert!(is_bare_tag(selector_tail("div > span")));
-        assert!(!is_bare_tag("a.mainnav-toggle"));
-        assert!(!is_bare_tag("a#skip"));
-        assert!(!is_bare_tag("input[type=text]"));
-    }
 }

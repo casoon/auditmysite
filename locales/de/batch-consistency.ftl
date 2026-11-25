@@ -153,22 +153,8 @@ batch-management-outliers-title = Ausreißer-URLs
 batch-management-outlier = { $url }: { $score } / 100 ({ $delta } Punkte unter Durchschnitt)
 
 ## Decision-oriented top actions
-batch-management-actions-title = Entscheidungsorientierte Top-Maßnahmen
-batch-management-col-action = Maßnahme / Ursache
-batch-management-col-scope = Umfang der Änderung
-batch-management-col-reach = Reichweite
-batch-management-col-score-gain = Score-Wirkung
 batch-management-score-gain = bis +{ $points }
-batch-management-score-gain-none = keine Änderung
-batch-management-score-gain-not-quantified = nicht beziffert
 batch-management-score-gain-note = Score-Wirkung: Punkte, um die der durchschnittliche Barrierefreiheits-Score steigt, wenn nur diese Maßnahme auf allen Seiten umgesetzt wird, je Seite mit der Score-Berechnung simuliert. Die Werte lassen sich nicht addieren: Deckelungen und die Gewichtung mehrerer Kriterien machen den Gewinn jeder Maßnahme davon abhängig, was sonst offen bleibt.
 batch-management-root-recurring = auf { $count } Seiten, keine gemeinsame Ursache belegt
 batch-management-root-one-page = { $count } Vorkommen auf einer Seite
 batch-management-root-page-specific = seitenspezifisch
-batch-management-scope-high = hoch
-batch-management-scope-medium = mittel
-batch-management-scope-low = gering
-batch-management-reach = { $occurrences } Vorkommen / { $urls } { $urls ->
-        [one] URL
-       *[other] URLs
-    }

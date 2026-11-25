@@ -43,8 +43,14 @@ single-report-risks-title-count = Key Risks ({ $count } identified)
 single-report-strengths-title = Strengths within the audited scope
 
 ## Key measures
-single-report-measures-title = 5 Key Measures
+single-report-measures-title = Most important findings
 single-report-measures-none = No urgent actions required.
+single-report-decision-line = { $index }. { $id } · { $title } · { $reach } · { $priority } priority
+single-report-decision-line-reach-in-title = { $index }. { $id } · { $title } · { $priority } priority
+single-report-decision-reach = { $count ->
+        [one] 1 occurrence
+       *[other] { $count } occurrences
+    }
 single-report-measure-more = (+{ $count } more of the same kind)
 
 ## Findings

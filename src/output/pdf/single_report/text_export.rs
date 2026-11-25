@@ -157,6 +157,7 @@ fn export_measures(records: &mut Vec<Value>, lang: &str) {
             title: title.to_string(),
             detail: "unsafe-inline".to_string(),
             from_findings: false,
+            finding: None,
         };
         for extra in [0, 1, 2, 1_234_567] {
             let input = format!("title={title:?} extra={extra}");
@@ -173,6 +174,27 @@ fn export_measures(records: &mut Vec<Value>, lang: &str) {
                 measure.card_parts(extra, en)
             ]));
         }
+    }
+    // A finding measure: id, title, reach and priority on one line.
+    for occurrences in [1, 2, 1_234_567] {
+        let measure = TopMeasure {
+            module: "Accessibility".to_string(),
+            title: "Images without alternative text".to_string(),
+            detail: "Add alt text".to_string(),
+            from_findings: true,
+            finding: Some(MeasureFinding {
+                id: "F-0a1b2c3d".to_string(),
+                rule_id: "buttons/name-missing".to_string(),
+                occurrences,
+                priority: Priority::High,
+            }),
+        };
+        records.push(json!([
+            "TopMeasure::render",
+            format!("finding occurrences={occurrences}"),
+            lang,
+            measure.render(1, 0, en)
+        ]));
     }
 }
 

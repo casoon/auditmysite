@@ -407,6 +407,17 @@ pub(super) struct TopMeasure {
     /// True for a WCAG/HTML finding group, which the action plan already
     /// carries as its own card; false for a module recommendation.
     pub(super) from_findings: bool,
+    /// The finding behind an accessibility measure: what the decision level
+    /// names in one line (id, title, reach, priority).
+    pub(super) finding: Option<MeasureFinding>,
+}
+
+/// Id, reach and priority of the finding group a key measure stands for.
+pub(super) struct MeasureFinding {
+    pub(super) id: String,
+    pub(super) rule_id: String,
+    pub(super) occurrences: usize,
+    pub(super) priority: Priority,
 }
 
 /// `rule — name`, with no dangling separator when the rule id is empty (a
@@ -445,15 +456,53 @@ impl TopMeasure {
         }
     }
 
+    /// The decision-level line: one line per measure, the text of the fix
+    /// stays in the analysis level. A finding is named by id, title, reach
+    /// and priority; a module measure by its module and title, and only a
+    /// measure without a title by the first sentence of its text.
     fn render(&self, index: usize, extra: usize, en: bool) -> String {
         let more = more_suffix(extra, en);
+        if let Some(finding) = &self.finding {
+            let reach_in_title = crate::audit::finding_titles::display_title_names_reach(
+                &finding.rule_id,
+                crate::audit::finding_titles::FindingReach {
+                    pages_affected: 1,
+                    pages_audited: 1,
+                    occurrences: finding.occurrences,
+                },
+            );
+            return crate::i18n::text_args(
+                if reach_in_title {
+                    "single-report-decision-line-reach-in-title"
+                } else {
+                    "single-report-decision-line"
+                },
+                &[
+                    ("index", FluentValue::from(index as i64)),
+                    ("id", FluentValue::from(finding.id.clone())),
+                    ("title", FluentValue::from(self.title.clone())),
+                    (
+                        "reach",
+                        FluentValue::from(crate::i18n::count_text(
+                            "single-report-decision-reach",
+                            finding.occurrences,
+                            en,
+                        )),
+                    ),
+                    ("priority", FluentValue::from(finding.priority.label(en))),
+                ],
+                en,
+            );
+        }
         if self.title.is_empty() {
-            format!("{}. {} — {}{more}", index, self.module, self.detail)
-        } else {
             format!(
-                "{}. {} — {}: {}{more}",
-                index, self.module, self.title, self.detail
+                "{}. {} — {}{more}",
+                index,
+                self.module,
+                super::findings::first_sentence(&self.detail)
             )
+        } else {
+            format!("{}. {} — {}{more}", index, self.module, self.title)
         }
     }
 }
@@ -534,6 +583,7 @@ fn ranked_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<RankedModule
                     title: title.clone(),
                     detail: message.clone(),
                     from_findings: false,
+                    finding: None,
                 },
             ));
         }
@@ -551,6 +601,7 @@ fn ranked_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<RankedModule
                     title: mobile_category_label(category, i18n),
                     detail: message.clone(),
                     from_findings: false,
+                    finding: None,
                 },
             ));
         }
@@ -566,6 +617,7 @@ fn ranked_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<RankedModule
                     title: title.clone(),
                     detail: message.clone(),
                     from_findings: false,
+                    finding: None,
                 },
             ));
         }
@@ -580,6 +632,7 @@ fn ranked_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<RankedModule
                     title: String::new(),
                     detail: message.clone(),
                     from_findings: false,
+                    finding: None,
                 },
             ));
         }
@@ -598,6 +651,7 @@ fn ranked_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<RankedModule
                     // The same family is a finding group of its own, so the
                     // action plan already carries it as a card.
                     from_findings: true,
+                    finding: None,
                 },
             ));
         }
@@ -615,6 +669,7 @@ fn ranked_module_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<RankedModule
                     title: String::new(),
                     detail: recommendation.clone(),
                     from_findings: false,
+                    finding: None,
                 },
             ));
         }
@@ -683,6 +738,12 @@ pub(super) fn top_measures(vm: &ReportViewModel, i18n: &I18n) -> Vec<(TopMeasure
                 title: group.title.clone(),
                 detail: group.recommendation.clone(),
                 from_findings: true,
+                finding: Some(MeasureFinding {
+                    id: group.finding.id.clone(),
+                    rule_id: group.finding.rule_id.clone(),
+                    occurrences: group.finding.occurrence_count,
+                    priority: group.priority,
+                }),
             },
             extra: 0,
         })
@@ -2031,6 +2092,7 @@ mod top_measure_tests {
             title: title.to_string(),
             detail: detail.to_string(),
             from_findings: false,
+            finding: None,
         }
     }
 
@@ -2121,7 +2183,7 @@ mod top_measure_tests {
             measure("Sicherheit", "Content-Security-Policy", "unsafe-inline").render(1, 2, false);
         assert_eq!(
             rendered,
-            "1. Sicherheit — Content-Security-Policy: unsafe-inline (+2 weitere gleicher Art)"
+            "1. Sicherheit — Content-Security-Policy (+2 weitere gleicher Art)"
         );
     }
 
@@ -2129,10 +2191,7 @@ mod top_measure_tests {
     fn single_measure_has_no_collapse_suffix() {
         let rendered =
             measure("Security", "Content-Security-Policy", "unsafe-inline").render(3, 0, true);
-        assert_eq!(
-            rendered,
-            "3. Security — Content-Security-Policy: unsafe-inline"
-        );
+        assert_eq!(rendered, "3. Security — Content-Security-Policy");
     }
 
     /// Performance and technical-SEO measures carry no separate title; the

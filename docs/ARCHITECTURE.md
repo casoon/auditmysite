@@ -222,6 +222,11 @@ src/
 │   │   ├── diagnosis.rs + diagnosis/ # System diagnosis section; texts: `diagnosis-*` in
 │   │   │                  # `locales/<lang>/diagnosis.ftl` (#936), text_export.rs (ignored test:
 │   │   │                  # exports them in both languages) and text_guard.rs (scenario guard)
+│   │   ├── root_causes.rs, analysis_card.rs # single analysis level: findings grouped by observed
+│   │   │                  # cause, one card per finding; the card is shared with the batch report
+│   │   ├── report_invariant.rs # test: per rule id, the report sections that carry its problem,
+│   │   │                  # impact or recommendation text; at most one outside the evidence level
+│   │   │                  # (single and batch, #1171)
 │   │   ├── single_report/ # text_export.rs (ignored test: exports the texts of single_report.rs
 │   │   │                  # in both languages) and text_guard.rs (guards of
 │   │   │                  # `locales/<lang>/single-report.ftl`, `single-report-*`, #936)

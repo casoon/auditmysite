@@ -1,92 +1,172 @@
-//! Root-cause analysis (letters A, B, C… for the WCAG-mandatory causes) and
-//! the timeframe roadmap that tags its systemic actions with those letters.
+//! The analysis level of the single report (#1171): each finding told once in
+//! full, grouped by the cause the audit observed. It replaces the root-cause
+//! table and the action-plan cards, which told the same findings twice.
 //!
-//! Extracted verbatim from `single_report.rs` , like
-//! `problem_profile.rs`. Both sections share the letter
-//! assignment, so they move together. No logic changed in the move.
+//! A cause is a recurring element pattern: the most frequent pattern of a
+//! finding (`NormalizedFinding::patterns`, the same normalized selectors as
+//! the root-cause ids of the JSON) when it has at least two elements.
+//! Findings that share such a pattern stand together; a finding without one
+//! has no observed cause and goes to the final group "other findings".
 
-use crate::output::localized::is_english;
-use renderreport::components::advanced::{PageBreak, RecommendationCard, SectionHeaderSplit};
+use renderreport::components::advanced::SectionHeaderSplit;
 use renderreport::components::text::Label;
-use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
 
+use super::analysis_card::{analysis_card, AnalysisCard};
 use super::design;
 use super::problem_profile::build_overall_leverage_note;
 use super::single_report::{cross_module_measures, top_measures};
 use crate::i18n::I18n;
 use crate::output::report_model::*;
-use fluent_bundle::FluentValue;
 
-/// Max number of root causes assigned a letter (A, B, C…) in the root-cause
-/// analysis section. Shared with `render_timeframe_roadmap` so both sections
-/// agree on which letter identifies which cause.
-const ROOT_CAUSE_SHOWN: usize = 6;
+/// Longest selector a cause heading prints.
+const CAUSE_SELECTOR_CHARS: usize = 70;
 
-/// WCAG-Mandatory-tier findings sorted by occurrence count (descending) — the
-/// exact pool `render_root_cause_analysis` assigns letters A, B, C… from.
-fn mandatory_root_causes(vm: &ReportViewModel) -> Vec<&FindingGroup> {
-    let mut findings: Vec<&FindingGroup> = vm
+/// A pattern of fewer elements is no recurrence.
+const MIN_PATTERN_ELEMENTS: usize = 2;
+
+/// The findings that share one observed cause.
+struct Cause<'a> {
+    /// Normalized selector of the shared pattern; `None` for the findings
+    /// without an observed cause.
+    selector: Option<String>,
+    /// Elements of the largest pattern among the findings.
+    elements: usize,
+    findings: Vec<&'a FindingGroup>,
+}
+
+/// The recurring pattern of a finding: its normalized selector and its
+/// element count.
+fn observed_cause(group: &FindingGroup) -> Option<(String, usize)> {
+    group
+        .finding
+        .patterns
+        .first()
+        .filter(|pattern| pattern.occurrence_count >= MIN_PATTERN_ELEMENTS)
+        .map(|pattern| {
+            (
+                a11y_report::normalize_selector(&pattern.selector),
+                pattern.occurrence_count,
+            )
+        })
+}
+
+/// The findings of the page grouped by cause: the causes with the most
+/// elements first, the findings without a cause last.
+fn causes(vm: &ReportViewModel) -> Vec<Cause<'_>> {
+    let mut causes: Vec<Cause> = Vec::new();
+    let mut other: Vec<&FindingGroup> = Vec::new();
+    for group in vm
         .findings
         .all_findings
         .iter()
-        .filter(|f| {
-            f.finding.occurrence_count > 0 && f.criticality_tier == CriticalityTier::Mandatory
-        })
-        .collect();
-    findings.sort_by_key(|f| std::cmp::Reverse(f.finding.occurrence_count));
-    findings
+        .filter(|f| f.finding.occurrence_count > 0)
+    {
+        match observed_cause(group) {
+            Some((selector, elements)) => {
+                match causes
+                    .iter_mut()
+                    .find(|c| c.selector.as_deref() == Some(selector.as_str()))
+                {
+                    Some(cause) => {
+                        cause.elements = cause.elements.max(elements);
+                        cause.findings.push(group);
+                    }
+                    None => causes.push(Cause {
+                        selector: Some(selector),
+                        elements,
+                        findings: vec![group],
+                    }),
+                }
+            }
+            None => other.push(group),
+        }
+    }
+    causes.sort_by_key(|c| std::cmp::Reverse(c.elements));
+    if !other.is_empty() {
+        causes.push(Cause {
+            selector: None,
+            elements: 0,
+            findings: other,
+        });
+    }
+    causes
 }
 
-/// `rule_id -> (letter, occurrence_count, share_pct)` for the top
-/// `ROOT_CAUSE_SHOWN` mandatory root causes. Used by `render_timeframe_roadmap`
-/// to tag systemic actions with the root cause they resolve, so the two
-/// sections never disagree on which letter is which.
-fn root_cause_lookup(
-    findings: &[&FindingGroup],
-) -> std::collections::HashMap<String, (char, usize, i64)> {
-    let total_occurrences: usize = findings.iter().map(|f| f.finding.occurrence_count).sum();
-    findings
-        .iter()
-        .enumerate()
-        .take(ROOT_CAUSE_SHOWN)
-        .map(|(idx, f)| {
-            let letter = (b'A' + idx as u8) as char;
-            let share_pct = if total_occurrences > 0 {
-                (f.finding.occurrence_count as f64 * 100.0 / total_occurrences as f64).round()
-                    as i64
-            } else {
-                0
-            };
-            (
-                f.finding.rule_id.clone(),
-                (letter, f.finding.occurrence_count, share_pct),
-            )
-        })
-        .collect()
+/// The cause row of a card and how sure the report is about it. A recurring
+/// pattern is observed; a shared component behind it is not.
+fn cause_text(cause: &Cause, i18n: &I18n) -> String {
+    match &cause.selector {
+        Some(selector) => i18n.t_args(
+            "pdf-analysis-cause-markup",
+            &[
+                (
+                    "selector",
+                    fluent_bundle::FluentValue::from(crate::util::truncate_url(
+                        selector,
+                        CAUSE_SELECTOR_CHARS,
+                    )),
+                ),
+                (
+                    "count",
+                    fluent_bundle::FluentValue::from(cause.elements as i64),
+                ),
+            ],
+        ),
+        None => i18n.t("pdf-analysis-cause-none"),
+    }
 }
 
-pub(super) fn render_root_cause_analysis(
+/// One card per key measure that is not a finding group of its own: module
+/// recommendations (security, mobile, performance, SEO). The key-measures list
+/// names them, so the analysis must carry them too (#902-8).
+fn render_module_measure_cards(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let title = i18n.t("pdf-analysis-causes-title");
-    let subtitle = i18n.t("pdf-analysis-causes-subtitle");
-
-    // No leading PageBreak: the preceding part divider ("Befunde nach Ursache")
-    // already opened the page — an extra break left that divider page 3/4 empty.
+    let en = crate::output::localized::is_english(i18n);
+    let measures: Vec<_> = top_measures(vm, i18n)
+        .into_iter()
+        .filter(|(measure, _)| !measure.from_findings)
+        .collect();
+    if measures.is_empty() {
+        return builder;
+    }
     builder = builder.add_component(
-        SectionHeaderSplit::new(title, subtitle)
-            .with_eyebrow(i18n.t("pdf-analysis-causes-eyebrow"))
-            .with_level(2),
+        SectionHeaderSplit::new(
+            i18n.t("pdf-analysis-roadmap-modules-title"),
+            i18n.t("pdf-analysis-roadmap-modules-subtitle"),
+        )
+        .with_level(3),
+    );
+    // These measures carry no impact or effort of their own, so they are a
+    // compact list, not cards with only a title and a sentence (#952).
+    let mut list = renderreport::components::advanced::List::new();
+    for (measure, extra) in &measures {
+        let (title, body) = measure.card_parts(*extra, en);
+        list = list.add_item(format!("{title}: {body}"));
+    }
+    builder.add_component(list)
+}
+
+pub(super) fn render_analysis(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    // No leading PageBreak: the preceding part divider already opened the page.
+    builder = builder.add_component(
+        SectionHeaderSplit::new(
+            i18n.t("pdf-analysis-title"),
+            i18n.t("pdf-analysis-subtitle"),
+        )
+        .with_eyebrow(i18n.t("pdf-analysis-eyebrow"))
+        .with_level(2),
     );
 
-    // Only WCAG/Mandatory findings — scope matches the header "N Accessibility-Befunde" count.
-    // SEO findings (Optimization tier) appear in their own section below.
-    let findings = mandatory_root_causes(vm);
-
-    if findings.is_empty() {
+    let causes = causes(vm);
+    if causes.is_empty() {
         // "No accessibility findings were detected" was false whenever the
         // journey or screen-reader modules had produced findings — they are
         // just not confirmed WCAG violations and therefore out of scope here.
@@ -116,206 +196,53 @@ pub(super) fn render_root_cause_analysis(
         } else {
             Callout::info(&msg)
         });
-        return builder;
-    }
-
-    // Plain lead-in (Rule A). One page shows where findings concentrate,
-    // not that they share a cause — a shared component is a possibility for
-    // the developer to check.
-    let lead_in = i18n.t("pdf-analysis-causes-lead-in");
-    builder = builder.add_component(Label::new(lead_in).with_size("10.5pt"));
-
-    // One table with the full titles. A list, a bar chart and this table
-    // used to repeat the same numbers three times.
-    let total_occurrences: usize = findings.iter().map(|f| f.finding.occurrence_count).sum();
-    // Rounded (not truncating) share so a small-but-real cause reads as "1 %"
-    // rather than a self-contradictory "0 %" next to its own listed row.
-    let share_pct = |occurrences: usize| -> i64 {
-        if total_occurrences > 0 {
-            (occurrences as f64 * 100.0 / total_occurrences as f64).round() as i64
-        } else {
-            0
+        // The cards below carry only findings; the other modules' measures
+        // are named instead of claiming there is none to do.
+        let module_measure_count = cross_module_measures(vm, i18n).len();
+        if module_measure_count > 0 {
+            builder = builder.add_component(
+                Label::new(i18n.t_args(
+                    "pdf-analysis-roadmap-empty-modules",
+                    &[
+                        ("count", module_measure_count.to_string()),
+                        (
+                            "recommendations",
+                            i18n.count("count-recommendations", module_measure_count),
+                        ),
+                    ],
+                ))
+                .with_color(design::tokens::NEUTRAL),
+            );
         }
-    };
-    let mut table = AuditTable::new(vec![
-        TableColumn::new(i18n.t("single-report-matrix-col-finding")).with_width("64%"),
-        TableColumn::new(i18n.t("batch-col-occurrences")).with_width("18%"),
-        TableColumn::new(i18n.t("batch-col-share")).with_width("18%"),
-    ])
-    .with_title(i18n.t("pdf-analysis-causes-table-title"));
-    let mut shown_occurrences = 0usize;
-    for finding in findings.iter().take(ROOT_CAUSE_SHOWN) {
-        shown_occurrences += finding.finding.occurrence_count;
-        table = table.add_row(vec![
-            finding.title.clone(),
-            finding.finding.occurrence_count.to_string(),
-            format!("{} %", share_pct(finding.finding.occurrence_count)),
-        ]);
+        return render_module_measure_cards(builder, vm, i18n);
     }
-    // Findings beyond the top ROOT_CAUSE_SHOWN still count in the
-    // denominator; disclose them so the shares add up to 100 % (#QA-039).
-    if findings.len() > ROOT_CAUSE_SHOWN {
-        let remaining_findings = findings.len() - ROOT_CAUSE_SHOWN;
-        let remaining_occurrences = total_occurrences - shown_occurrences;
-        table = table.add_row(vec![
-            i18n.t_args(
-                "pdf-analysis-causes-other",
-                &[
-                    ("count", remaining_findings.to_string()),
-                    (
-                        "more",
-                        i18n.count("count-more-findings", remaining_findings),
-                    ),
-                ],
-            ),
-            remaining_occurrences.to_string(),
-            format!("{} %", share_pct(remaining_occurrences)),
-        ]);
-    }
-    builder = builder.add_component(table);
 
-    builder
-}
-
-/// One card per key measure that is not a finding group of its own: module
-/// recommendations (security, mobile, performance, SEO). The key-measures list
-/// names them, so the plan must carry them too (#902-8).
-fn render_module_measure_cards(
-    mut builder: renderreport::engine::ReportBuilder,
-    vm: &ReportViewModel,
-    i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
-    let measures: Vec<_> = top_measures(vm, i18n)
-        .into_iter()
-        .filter(|(measure, _)| !measure.from_findings)
-        .collect();
-    if measures.is_empty() {
-        return builder;
-    }
-    builder = builder.add_component(
-        SectionHeaderSplit::new(
-            i18n.t("pdf-analysis-roadmap-modules-title"),
-            i18n.t("pdf-analysis-roadmap-modules-subtitle"),
-        )
-        .with_level(3),
-    );
-    // These measures carry no impact or effort of their own, so they are a
-    // compact list, not cards with only a title and a sentence (#952).
-    let mut list = renderreport::components::advanced::List::new();
-    for (measure, extra) in &measures {
-        let (title, body) = measure.card_parts(*extra, en);
-        list = list.add_item(format!("{title}: {body}"));
-    }
-    builder.add_component(list)
-}
-
-pub(super) fn render_timeframe_roadmap(
-    mut builder: renderreport::engine::ReportBuilder,
-    vm: &ReportViewModel,
-    i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
-    let title = i18n.t("pdf-analysis-roadmap-title");
-    // Disclose the scope mismatch with the root-cause section above: this plan
-    // also includes SEO/Optimization-tier actions, which are not part of the
-    // WCAG-only root-cause count (#5 fix).
-    let subtitle = i18n.t("pdf-analysis-roadmap-subtitle");
-
-    builder = builder.add_component(PageBreak::new()).add_component(
-        SectionHeaderSplit::new(title, subtitle)
-            .with_eyebrow(i18n.t("pdf-analysis-roadmap-eyebrow"))
-            .with_level(2),
-    );
-
-    // Overall-leverage sentence:
-    // reuses the same problem-concentration numbers shown earlier
-    // but framed
-    // around leverage rather than diagnosis — not literally the same
-    // sentence twice.
+    // Plain lead-in (Rule A). One page shows where findings concentrate, not
+    // that they share a cause — a shared component is a possibility for the
+    // developer to check.
+    builder = builder
+        .add_component(Label::new(i18n.t("pdf-analysis-causes-lead-in")).with_size("10.5pt"));
     if let Some(note) = build_overall_leverage_note(vm, i18n) {
         builder = builder.add_component(Label::new(note).with_size("10.5pt"));
     }
 
-    let columns = &vm.actions.roadmap_columns;
-    if columns.is_empty() {
-        // The roadmap is built from WCAG/finding groups only. Saying "no
-        // findings require remediation" here contradicted the report whenever
-        // other modules had documented work, so name where that work is
-        // instead of claiming there is none.
-        let module_measure_count = cross_module_measures(vm, i18n).len();
-        let empty_msg = if module_measure_count > 0 {
-            i18n.t_args(
-                "pdf-analysis-roadmap-empty-modules",
-                &[
-                    ("count", module_measure_count.to_string()),
-                    (
-                        "recommendations",
-                        i18n.count("count-recommendations", module_measure_count),
+    // The cards of one cause stand together; each names its cause.
+    for cause in &causes {
+        let cause_text = cause_text(cause, i18n);
+        for group in &cause.findings {
+            builder = builder.add_component(analysis_card(
+                group,
+                AnalysisCard {
+                    reach: i18n.count(
+                        "single-report-decision-reach",
+                        group.finding.occurrence_count,
                     ),
-                ],
-            )
-        } else {
-            i18n.t("pdf-analysis-roadmap-empty")
-        };
-        builder = builder.add_component(Label::new(empty_msg).with_color(design::tokens::NEUTRAL));
-        return render_module_measure_cards(builder, vm, i18n);
-    }
-
-    // Same letter assignment as `render_root_cause_analysis`, so an action
-    // tied to root cause "A" always points at the same finding the reader saw
-    // lettered "A" above (#2 fix).
-    let root_causes = mandatory_root_causes(vm);
-    let root_cause_by_rule = root_cause_lookup(&root_causes);
-
-    // One level group per column (systemic vs. local), each action as a
-    // clean recommendation card — what to do, why, and a
-    // remediation-leverage line instead of a separate visual effort badge.
-    for col in columns {
-        builder = builder.add_component(
-            SectionHeaderSplit::new(col.title.clone(), col.description.clone()).with_level(3),
-        );
-        for item in &col.items {
-            let mut why = if !item.benefit.is_empty() {
-                item.benefit.clone()
-            } else {
-                item.risk_effect.clone()
-            };
-            if !item.hint.is_empty() {
-                why = if why.is_empty() {
-                    item.hint.clone()
-                } else {
-                    format!("{}\n\n{why}", item.hint)
-                };
-            }
-            // "is this worth doing
-            // first" verdict — reach (occurrences), cost (effort) and risk
-            // condensed into one line. "betroffen", not "behoben"/"beseitigt":
-            // occurrence_count is
-            // how many elements this rule affects, not a guarantee that one
-            // fix resolves every one of them.
-            let leverage_tag = i18n.t_args(
-                "pdf-analysis-roadmap-leverage",
-                &[
-                    ("leverage", FluentValue::from(item.leverage.clone())),
-                    ("count", FluentValue::from(item.occurrence_count as i64)),
-                    ("effort", FluentValue::from(item.effort.clone())),
-                ],
-            );
-            why = format!("{why}\n\n{leverage_tag}");
-            if let Some((letter, occurrence_count, share_pct)) =
-                root_cause_by_rule.get(&item.rule_id)
-            {
-                let tag = i18n.t_args(
-                    "pdf-analysis-roadmap-root-cause",
-                    &[
-                        ("letter", letter.to_string()),
-                        ("count", occurrence_count.to_string()),
-                        ("share", share_pct.to_string()),
-                    ],
-                );
-                why = format!("{why}\n\n{tag}");
-            }
-            builder = builder.add_component(RecommendationCard::new(item.action.clone(), why));
+                    cause: Some(cause_text.clone()),
+                    context_rows: Vec::new(),
+                    score_effect: None,
+                },
+                i18n,
+            ));
         }
     }
 

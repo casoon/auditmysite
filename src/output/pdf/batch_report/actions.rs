@@ -1,5 +1,5 @@
 use crate::output::localized::is_english;
-use renderreport::components::advanced::{KeyValueList, List, SectionHeaderSplit};
+use renderreport::components::advanced::{KeyValueList, PageBreak, SectionHeaderSplit};
 use renderreport::components::text::TextBlock;
 use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
@@ -8,41 +8,50 @@ use crate::i18n::I18n;
 use crate::output::report_model::*;
 use crate::util::short_url;
 
-use super::super::findings::first_sentence;
-use super::super::helpers::{
-    effort_label_i18n, effort_short_label_i18n, priority_label_i18n, role_label_i18n,
-};
-use super::management::render_batch_decision_actions;
+use super::super::analysis_card::{analysis_card, AnalysisCard};
+use super::super::helpers::priority_label_i18n;
+use super::management::{batch_cause_text, batch_score_effect};
 
-/// Concrete quick actions for batch report
-pub(super) fn build_batch_quick_actions(pres: &BatchPresentation, _i18n: &I18n) -> Vec<String> {
-    let mut actions: Vec<String> = Vec::new();
-
-    for item in &pres.action_plan.quick_wins {
-        if actions.len() >= 3 {
-            break;
-        }
-        let action_lower = item.action.to_lowercase();
-        let scope = if action_lower.contains("alle") || action_lower.contains("global") {
-            " (global)"
-        } else {
-            ""
-        };
-        actions.push(format!("{}{}", item.full_text(), scope));
-    }
-
-    // Fallback from top issues
-    if actions.is_empty() {
-        for group in pres.top_issues.iter().take(3) {
-            let rec = first_sentence(&group.recommendation);
-            if !rec.is_empty() {
-                actions.push(rec.to_string());
-            }
-        }
-    }
-
-    actions
+/// Decision level of the batch report: the most important recurring problems
+/// as one line each (finding id, title, reach, priority). The cards of the
+/// recurring-problems section tell each of them once in full.
+pub(super) fn build_batch_decision_lines(pres: &BatchPresentation, i18n: &I18n) -> Vec<String> {
+    pres.top_issues
+        .iter()
+        .take(BATCH_DECISION_LINES)
+        .map(|group| {
+            let total_urls = pres.portfolio_summary.total_urls;
+            let urls = group.affected_urls.len();
+            let reach_in_title = crate::audit::finding_titles::display_title_names_reach(
+                &group.finding.rule_id,
+                crate::audit::finding_titles::FindingReach {
+                    pages_affected: urls.max(1),
+                    pages_audited: total_urls,
+                    occurrences: group.finding.occurrence_count,
+                },
+            );
+            i18n.t_args(
+                if reach_in_title {
+                    "batch-decision-line-reach-in-title"
+                } else {
+                    "batch-decision-line"
+                },
+                &[
+                    ("id", group.finding.id.clone()),
+                    ("title", group.title.clone()),
+                    ("reach", batch_reach_label(urls, total_urls, i18n)),
+                    ("priority", priority_label_i18n(group.priority, i18n)),
+                ],
+            )
+        })
+        .collect()
 }
+
+/// How many problems the decision level names.
+const BATCH_DECISION_LINES: usize = 5;
+
+/// How many recurring problems get a card; the rest is in the JSON report.
+const BATCH_PROBLEM_CARDS: usize = crate::audit::normalized::BATCH_TOP_ACTION_COUNT;
 
 /// How far a cross-page item reaches, in the words of the batch cards: all
 /// audited pages, some of them, or one page. The one wording for the cards
@@ -58,63 +67,6 @@ pub(super) fn batch_reach_label(urls: usize, total_urls: usize, i18n: &I18n) -> 
             &[("count", urls as i64), ("total", total_urls as i64)],
         )
     }
-}
-
-/// Action plan grouped by effort; the scope is the measured reach of the
-/// findings behind each action, not a guess from its wording (#1039).
-pub(super) fn render_batch_action_plan_enhanced(
-    mut builder: renderreport::engine::ReportBuilder,
-    plan: &ActionPlan,
-    total_urls: usize,
-    i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
-    let render_section = |mut b: renderreport::engine::ReportBuilder,
-                          title: String,
-                          items: &[crate::output::report_model::ActionItem],
-                          i18n: &I18n|
-     -> renderreport::engine::ReportBuilder {
-        if items.is_empty() {
-            return b;
-        }
-        b = b.add_component(Section::new(title).with_level(2));
-        let mut table = AuditTable::new(vec![
-            TableColumn::new(i18n.t("column-action")),
-            TableColumn::new(i18n.t("column-timeframe")),
-            TableColumn::new(i18n.t("batch-meta-scope")),
-            TableColumn::new(i18n.t("batch-col-role")),
-            TableColumn::new(i18n.t("column-priority")),
-        ]);
-        for item in items {
-            table = table.add_row(vec![
-                item.full_text(),
-                effort_label_i18n(item.effort, i18n),
-                batch_reach_label(item.affected_urls.len(), total_urls, i18n),
-                role_label_i18n(item.role, i18n),
-                priority_label_i18n(item.priority, i18n),
-            ]);
-        }
-        b.add_component(table)
-    };
-
-    builder = render_section(
-        builder,
-        i18n.t("section-quick-wins"),
-        &plan.quick_wins,
-        i18n,
-    );
-    builder = render_section(
-        builder,
-        i18n.t("section-medium-actions"),
-        &plan.medium_term,
-        i18n,
-    );
-    builder = render_section(
-        builder,
-        i18n.t("section-structural-actions"),
-        &plan.structural,
-        i18n,
-    );
-    builder
 }
 
 /// Closing section for batch report. The action plan above already lists
@@ -146,194 +98,88 @@ pub(super) fn render_next_steps_batch(
     builder
 }
 
-pub(super) fn render_batch_top_issues(
+/// The one cross-page section for recurring problems and actions: one card
+/// per problem with its reach, the cause and how sure the report is about it,
+/// and the measure, with the finding id below. It replaces the frequency
+/// table, the template list, the top-actions table, the problem blocks and
+/// the action plan, which told the same problems four times.
+pub(super) fn render_batch_recurring_problems(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let top_intro = i18n.t("batch-top-issues-intro");
-    builder = builder.add_component(
-        SectionHeaderSplit::new(i18n.t("batch-section-most-frequent"), top_intro).with_level(1),
+    // The cards are the centre of the batch report: they start a page, so
+    // the header never stands alone at the foot of the previous one.
+    builder = builder.add_component(PageBreak::new()).add_component(
+        SectionHeaderSplit::new(
+            i18n.t("batch-section-recurring"),
+            i18n.t("batch-recurring-intro"),
+        )
+        .with_level(1),
     );
 
-    // Verified template causes — evidence-backed root-cause clusters, ahead
-    // of the plain frequency table so the "one fix, N pages" claims are read
-    // before the raw occurrence counts.
-    // Template causes are the confirmed and likely root causes; an open one
-    // makes no claim about a shared component.
-    let template_causes: Vec<&TemplateClusterView> = pres
-        .template_clusters
-        .iter()
-        .filter(|c| c.confidence != "open")
-        .collect();
-    if !template_causes.is_empty() {
-        builder = builder.add_component(TextBlock::new(i18n.t("batch-template-section-intro")));
-        // A plain bullet list, not a KeyValueList: `cluster.selector` is an
-        // arbitrary-length CSS path with no natural wrap points short
-        // enough for a KeyValueList's `auto`-sized key column, which could
-        // consume nearly the full row width and squeeze `headline` into a
-        // one-word-per-line sliver spanning dozens of page-breaking rows
-        // (see #518). `headline` already embeds the selector via
-        // `{ $selector }` interpolation, so nothing is lost.
-        //
-        // One entry per place: two rules at the same selector (the skip link
-        // on a corporate site: landmark and positive tabindex) are one place
-        // with two findings, listed underneath — not two causes.
-        let mut template_list = List::new().with_title(i18n.t("batch-template-section-title"));
-        let mut seen: Vec<&str> = Vec::new();
-        for cluster in &template_causes {
-            if seen.contains(&cluster.selector.as_str()) {
-                continue;
-            }
-            seen.push(cluster.selector.as_str());
-            let children = template_causes
-                .iter()
-                .filter(|c| c.selector == cluster.selector)
-                .map(|c| renderreport::components::advanced::ListItem {
-                    content: pres
-                        .top_issues
-                        .iter()
-                        .find(|g| g.finding.rule_id == c.rule_id)
-                        .map(|g| g.title.clone())
-                        .unwrap_or_else(|| c.rule_id.clone()),
-                    icon: None,
-                    children: Vec::new(),
-                })
-                .collect();
-            template_list
-                .items
-                .push(renderreport::components::advanced::ListItem {
-                    content: cluster.headline.clone(),
-                    icon: None,
-                    children,
-                });
-        }
-        builder = builder.add_component(template_list);
-    }
-
-    // Frequency table
-    if !pres.issue_frequency.is_empty() {
-        let affected_col = i18n.t("batch-col-affected-urls");
-        let mut freq_table = AuditTable::new(vec![
-            TableColumn::new(i18n.t("batch-col-problem")),
-            TableColumn::new("WCAG"),
-            TableColumn::new(i18n.t("batch-col-occurrences")),
-            TableColumn::new(affected_col),
-            TableColumn::new(i18n.t("batch-col-priority")),
-        ])
-        .with_title(i18n.t("batch-section-most-frequent-violations"));
-
-        for issue in &pres.issue_frequency {
-            freq_table = freq_table.add_row(vec![
-                issue.problem.clone(),
-                // "–" for a finding without a WCAG criterion, as in the
-                // decision table below (#1039).
-                if issue.wcag.is_empty() {
-                    "–".to_string()
-                } else {
-                    issue.wcag.clone()
-                },
-                issue.occurrences.to_string(),
-                issue.affected_urls.to_string(),
-                super::super::helpers::priority_label_i18n(issue.priority, i18n),
-            ]);
-        }
-        builder = builder.add_component(freq_table);
-    }
-
-    builder = render_batch_decision_actions(builder, pres, i18n);
-
-    // Unified problem blocks
-    let effort_word = i18n.t("batch-meta-effort");
-    let scope_word = i18n.t("batch-meta-scope");
-    let impact_user_label = i18n.t("batch-meta-impact-user");
-    let impact_business_label = i18n.t("batch-meta-impact-business");
-    let fix_label = i18n.t("batch-meta-fix");
-    let meta_label = i18n.t("batch-meta-classification");
-
-    for group in pres.top_issues.iter().take(5) {
-        // Three tiers: a finding on 9 of 20 pages is neither global nor
-        // "isolated content".
+    let total_urls = pres.portfolio_summary.total_urls;
+    for group in pres.top_issues.iter().take(BATCH_PROBLEM_CARDS) {
         let urls = group.affected_urls.len();
-        let scope = batch_reach_label(urls, pres.portfolio_summary.total_urls, i18n);
-        let affected_urls_word = i18n.t_args("batch-meta-affected-urls", &[("count", urls as i64)]);
-        let effort_label = effort_short_label_i18n(group.effort, i18n);
-        let meta_line = format!(
-            "{} · {} {} · {}: {} · {}: {}",
+        let reach = format!(
+            "{} · {}",
             i18n.count("batch-meta-occurrences", group.finding.occurrence_count),
-            urls,
-            affected_urls_word,
-            effort_word,
-            effort_label,
-            scope_word,
-            scope
+            batch_reach_label(urls, total_urls, i18n)
         );
-
-        let (problem, user_impact) = card_problem_and_impact(group);
-        let mut kv = KeyValueList::new().with_title(&group.title);
-        if let Some(problem) = problem {
-            kv = kv.add(i18n.t("findings-card-key-problem"), problem);
-        }
-        if let Some(user_impact) = user_impact {
-            kv = kv.add(&impact_user_label, user_impact);
-        }
-        kv = kv.add(&impact_business_label, &group.business_impact);
-        if !group.typical_cause.is_empty() {
-            kv = kv.add(i18n.t("findings-card-key-cause"), &group.typical_cause);
-        }
-        if !group.recommendation.is_empty() {
-            kv = kv.add(&fix_label, &group.recommendation);
-        }
-        kv = kv.add(&meta_label, meta_line);
         // Contrast measured under opacity: name the cause, not only the
-        // ratio (#1112).
+        // ratio (#1112). The provider is named once on the cross-page card,
+        // not once per URL (#1109).
+        let mut context_rows = Vec::new();
         if let Some(opacity) = super::super::findings::opacity_pattern_text(
             &group.finding.occurrences,
             is_english(i18n),
         ) {
-            kv = kv.add(i18n.t("pdf-findings-opacity"), opacity);
+            context_rows.push((i18n.t("pdf-findings-opacity"), opacity));
         }
-        // The provider is named once on the cross-page card, not once per URL (#1109).
         if let Some(origin) = super::super::findings::origin_text(&group.finding, i18n) {
-            kv = kv.add(i18n.t("pdf-findings-origin"), origin);
+            context_rows.push((i18n.t("pdf-findings-origin"), origin));
         }
+        let kv = analysis_card(
+            group,
+            AnalysisCard {
+                reach,
+                cause: Some(batch_cause_text(group, pres, i18n)),
+                context_rows,
+                score_effect: batch_score_effect(group, i18n),
+            },
+            i18n,
+        );
         builder = builder.add_component(kv);
+    }
+    if pres.top_issues.len() > BATCH_PROBLEM_CARDS {
+        builder = builder.add_component(TextBlock::new(i18n.t_args(
+            "batch-recurring-more",
+            &[(
+                "count",
+                (pres.top_issues.len() - BATCH_PROBLEM_CARDS) as i64,
+            )],
+        )));
+    }
+    if pres
+        .top_issues
+        .iter()
+        .take(BATCH_PROBLEM_CARDS)
+        .any(|g| batch_score_effect(g, i18n).is_some())
+    {
+        builder = builder.add_component(TextBlock::new(i18n.t("batch-management-score-gain-note")));
     }
 
     builder
 }
 
-/// The problem and user-impact lines of a cross-page card. An HTML
-/// conformance finding's text is one occurrence's checker message, with its
-/// line:column — page detail, not a statement about the rule across pages.
-/// A rule without its own user-impact text repeats the problem there. Both
-/// are left out rather than printed as page detail or twice (#1039).
-pub(super) fn card_problem_and_impact(group: &FindingGroup) -> (Option<&str>, Option<&str>) {
-    if group.finding.rule_id.starts_with("html_conform.") {
-        return (None, None);
-    }
-    let problem = Some(group.customer_description.as_str()).filter(|t| !t.trim().is_empty());
-    let user_impact = Some(group.user_impact.as_str())
-        .filter(|t| !t.trim().is_empty() && Some(t.trim()) != problem.map(str::trim));
-    (problem, user_impact)
-}
-
-pub(super) fn render_batch_action_plan_section(
+/// Cross-page signals of the technical modules that no finding card carries:
+/// shared render-blocking files, minification across pages, redirect chains
+/// and performance budgets.
+pub(super) fn render_batch_technical_signals(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let action_intro = i18n.t("batch-action-plan-intro");
-    builder = builder.add_component(
-        SectionHeaderSplit::new(i18n.t("batch-action-plan-title"), action_intro).with_level(1),
-    );
-    builder = render_batch_action_plan_enhanced(
-        builder,
-        &pres.action_plan,
-        pres.portfolio_summary.total_urls,
-        i18n,
-    );
-
     // Render blocking
     if !pres.portfolio_summary.render_blocking_summary.is_empty() {
         let mut kv = KeyValueList::new().with_title(i18n.t("batch-render-blocking-kv-title"));

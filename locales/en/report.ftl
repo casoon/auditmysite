@@ -83,7 +83,6 @@ narrative-status-title = Site status
 narrative-metrics-title = Executive snapshot
 narrative-key-points-title = Key points
 narrative-impact-title = Impact
-narrative-quick-actions-title = Recommended improvements
 narrative-spotlight-eyebrow = MAIN ISSUE
 narrative-leverage-title = Effect of remediation
 narrative-findings-title = Key findings
@@ -204,22 +203,14 @@ batch-unaudited-list-title = Not audited
 batch-unaudited-more = … and { $count } more
 panel-modules-overview = Module overview
 section-tech-detail-metrics = Technical detail metrics
-column-action = Action
 column-priority = Priority
-column-timeframe = Effort
 column-component = Component
 column-area = Area
-section-quick-wins = Quick wins
-section-medium-actions = Medium-effort actions
-section-structural-actions = Structural actions
 section-next-steps-recommended = Recommended next steps
 section-next-steps-block = Next steps
 
 # Batch sections
 batch-section-status = Site status
-batch-section-most-frequent = Most frequent issues
-batch-section-most-frequent-violations = Most frequent violations
-batch-col-problem = Problem
 batch-col-occurrences = Occurrences
 batch-col-pages = Pages
 batch-col-priority = Priority
@@ -245,7 +236,6 @@ batch-col-budget = Budget
 batch-col-links-to = Inbound links
 batch-col-links-from = Outbound links
 batch-col-words = Words
-batch-action-plan-title = Action plan
 batch-section-broken-links-internal = Internal broken links
 batch-section-broken-links-external = External broken links
 batch-section-external-links = External links
@@ -293,8 +283,6 @@ batch-table-top-pages = Strongest content pages
 batch-table-broken-internal = Broken internal links
 batch-table-broken-external = Broken external links
 batch-section-performance-budgets = Performance budgets
-findings-card-key-problem = Problem
-findings-card-key-cause = Cause
 label-improvement-suggestions = Improvement suggestions
 label-recommendations = Recommendations
 label-severity = Severity
@@ -825,8 +813,6 @@ pdf-perf-dup-title = { $count } duplicate asset { $count ->
        *[other] groups
     } found (~{ $wasted } KB wasted)
 
-batch-top-issues-intro = The following problem groups occur across multiple URLs. Fixing them yields the largest improvement because they affect many pages simultaneously.
-batch-col-affected-urls = Affected URLs
 batch-meta-global = All audited pages
 batch-meta-some-pages = { $count } of { $total } pages
 batch-meta-single-page = One page — page-specific
@@ -834,24 +820,8 @@ batch-meta-occurrences = { $count ->
         [one] 1 occurrence
        *[other] { $count } occurrences
     }
-batch-meta-affected-urls = { $count ->
-    [one] affected URL
-   *[other] affected URLs
-}
-batch-meta-effort = Effort per instance (estimate)
-batch-meta-scope = Scope
-batch-meta-impact-user = Impact (user)
-batch-meta-impact-business = Impact (business)
-batch-meta-fix = Fix
-batch-meta-classification = Meta
-batch-template-section-title = Template causes
-batch-template-section-intro = The findings below recur at the same place on several pages. That points to a shared component or template; that one fix there resolves every occurrence is an assumption until the source code confirms it.
 batch-template-confirmed-headline = Identical markup at '{ $selector }' on { $n } of { $total } audited pages. If it comes from one shared component, a fix there will likely take effect on all { $n } pages — the source code tells whether it does.
 batch-template-likely-headline = Recurring at '{ $selector }' on { $n } of { $total } audited pages; identical markup is not established — a shared cause is possible, not shown.
-batch-template-decision-confirmed = identical markup ({ $n } pages)
-batch-template-decision-likely = recurring, identical markup not established ({ $n } pages)
-batch-template-decision-open = recurs on { $n } pages, no shared cause established
-batch-action-plan-intro = The following actions are prioritized by effort and impact. Actions that improve many pages simultaneously take precedence.
 batch-budget-pages-col = Affected pages
 batch-budget-table-title = Performance budget violations (domain-wide)
 batch-budget-intro = On how many pages each performance budget was exceeded.
@@ -1412,7 +1382,6 @@ batch-scope-note-appendix = This PDF is a condensed audit report. It highlights 
 batch-scope-note-json = This PDF is a condensed audit report. It highlights the most important findings, risks and improvement areas, but does not list every technical occurrence. The raw data is in the JSON report of the same run; the report level technical (--report-level technical) adds a per-URL appendix.
 batch-next-steps-manual = For a complete WCAG conformance check we additionally recommend a manual audit with assistive technologies (screen reader, keyboard navigation). This audit checks { $automated } of { $total } WCAG 2.2 Level A/AA success criteria automatically; the others need a manual review.
 batch-next-steps-intro = What the automated audit leaves open.
-batch-col-role = Role
 batch-topics-title = Content topics on several pages
 batch-table-pages-profile = Page type and top issues per page
 batch-seo-profiles-title = Content profile per page
@@ -1468,3 +1437,25 @@ batch-interactive-some = { $count ->
         [one] 1 page
        *[other] { $clean } pages
     } without issues.
+
+# Batch: decision level and recurring problems (#1171)
+batch-decision-title = Most important findings
+batch-decision-line = { $id } · { $title } · { $reach } · { $priority }
+batch-decision-line-reach-in-title = { $id } · { $title } · { $priority }
+batch-section-recurring = Recurring problems and actions
+batch-recurring-intro = One card per root cause that recurs across the audited pages: how far it reaches, what the cause is and how sure the report is about it, and what to do. The finding id links the card to the JSON report; the evidence per page is in the single-page reports.
+batch-recurring-more = { $count ->
+        [one] One further recurring problem is listed in the JSON report.
+       *[other] { $count } further recurring problems are listed in the JSON report.
+    }
+batch-url-ranking-lowest = { $count ->
+        [one] Lowest ranked page
+       *[other] { $count } lowest ranked pages
+    }
+batch-url-ranking-highest = { $count ->
+        [one] Highest ranked page
+       *[other] { $count } highest ranked pages
+    }
+batch-url-ranking-full = All pages ranked
+batch-url-ranking-rest-appendix = The table shows the lowest and the highest ranked pages; the full list is in the technical appendix.
+batch-url-ranking-rest-json = The table shows the lowest and the highest ranked pages; the full list is in the JSON report.

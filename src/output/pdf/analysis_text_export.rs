@@ -1,6 +1,6 @@
 //! Text export of the search experience and analysis sections, slice 24 of
 //! #936: everything `output/search_experience.rs`, `root_causes.rs`,
-//! `problem_profile.rs` and `wcag_coverage.rs` put into the report, across an
+//! `analysis_card.rs`, `problem_profile.rs` and `wcag_coverage.rs` put into the report, across an
 //! enumerated input space in both languages, as records in
 //! `reports/pdf-analysis-texts.json` (gitignored; the path can be set with
 //! `PDF_ANALYSIS_TEXT_EXPORT`). The search experience is built from a
@@ -12,7 +12,7 @@
 use super::problem_profile::{
     build_overall_leverage_note, build_problem_concentration_note, render_problem_profile,
 };
-use super::root_causes::{render_root_cause_analysis, render_timeframe_roadmap};
+use super::root_causes::render_analysis;
 use super::wcag_coverage::render_wcag_coverage_section;
 use crate::audit::management_risk::ManagementRiskKind;
 use crate::audit::AuditReport;
@@ -463,7 +463,7 @@ fn export_problem_profile(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
     }
 }
 
-// ─── Root causes and roadmap ────────────────────────────────────────────────
+// ─── Analysis by cause ────────────────────────────────────────────────
 
 fn security(issues: usize) -> SecurityPresentation {
     SecurityPresentation {
@@ -514,33 +514,18 @@ fn mobile_presentation(issues: usize) -> MobilePresentation {
     }
 }
 
-fn roadmap_item(
-    rule_id: &str,
-    occurrence_count: usize,
-    benefit: &str,
-    risk_effect: &str,
-    hint: &str,
-) -> RoadmapItemData {
-    RoadmapItemData {
-        action: "Do the action".to_string(),
-        hint: hint.to_string(),
-        role: "Developer".to_string(),
-        priority: "High".to_string(),
-        execution_priority: "Soon".to_string(),
-        effort: "Low".to_string(),
-        benefit: benefit.to_string(),
-        user_effect: "User effect".to_string(),
-        risk_effect: risk_effect.to_string(),
-        occurrence_count,
-        rule_id: rule_id.to_string(),
-        leverage: "High".to_string(),
+fn pattern(selector: &str, elements: usize) -> crate::audit::normalized::FindingPattern {
+    crate::audit::normalized::FindingPattern {
+        id: format!("RC-{selector}"),
+        selector: selector.to_string(),
+        occurrence_count: elements,
     }
 }
 
-fn export_root_causes(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
+fn export_analysis(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
     let (mut vm, template) = view_model(lang);
 
-    // No mandatory finding: the evidence classes decide what is said.
+    // No finding: the evidence classes decide what is said.
     vm.findings.all_findings = vec![];
     for (warnings, manual_checks) in [(0, 0), (1, 0), (0, 1), (2, 3), (1_234_567, 1_234_567)] {
         vm.findings.evidence = EvidenceClasses {
@@ -550,115 +535,93 @@ fn export_root_causes(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
         };
         push(
             records,
-            "render_root_cause_analysis",
+            "render_analysis",
             format!("no findings warnings={warnings} manual={manual_checks}"),
             lang,
-            components(render_root_cause_analysis(bare(), &vm, i18n)),
+            components(render_analysis(bare(), &vm, i18n)),
         );
     }
-    // Only an optimization finding: not a root cause.
+
+    // No finding, other modules' measures.
+    for (security_issues, mobile_issues) in [(1, 0), (1, 1), (2, 3)] {
+        vm.module_details.security = Some(security(security_issues));
+        vm.module_details.mobile = (mobile_issues > 0).then(|| mobile_presentation(mobile_issues));
+        push(
+            records,
+            "render_analysis",
+            format!("no findings security={security_issues} mobile={mobile_issues}"),
+            lang,
+            components(render_analysis(bare(), &vm, i18n)),
+        );
+    }
+    vm.module_details.security = None;
+    vm.module_details.mobile = None;
+
+    // Findings without an observed cause: every set of the problem profile.
     let optimization = finding(&template, 0, 5, CriticalityTier::Optimization);
     vm.findings.all_findings = vec![optimization];
     push(
         records,
-        "render_root_cause_analysis",
+        "render_analysis",
         "optimization only".to_string(),
         lang,
-        components(render_root_cause_analysis(bare(), &vm, i18n)),
+        components(render_analysis(bare(), &vm, i18n)),
     );
-
     for (name, counts) in FINDING_SETS {
         vm.findings.all_findings = findings(&template, counts);
         push(
             records,
-            "render_root_cause_analysis",
+            "render_analysis",
             format!("findings={name}"),
             lang,
-            components(render_root_cause_analysis(bare(), &vm, i18n)),
+            components(render_analysis(bare(), &vm, i18n)),
         );
     }
     vm.findings.all_findings = findings(&template, &[1_234_567, 2]);
     push(
         records,
-        "render_root_cause_analysis",
+        "render_analysis",
         "findings=large count".to_string(),
         lang,
-        components(render_root_cause_analysis(bare(), &vm, i18n)),
+        components(render_analysis(bare(), &vm, i18n)),
     );
-}
 
-fn export_roadmap(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
-    let (mut vm, template) = view_model(lang);
-    vm.actions.roadmap_columns = vec![];
-
-    // No column: the other modules' measures decide what is said.
-    for (security_issues, mobile_issues) in [(0, 0), (1, 0), (1, 1), (2, 3)] {
-        vm.module_details.security = (security_issues > 0).then(|| security(security_issues));
-        vm.module_details.mobile = (mobile_issues > 0).then(|| mobile_presentation(mobile_issues));
-        for (name, counts) in FINDING_SETS {
-            vm.findings.all_findings = findings(&template, counts);
-            push(
-                records,
-                "render_timeframe_roadmap",
-                format!(
-                    "no columns security={security_issues} mobile={mobile_issues} findings={name}"
-                ),
-                lang,
-                components(render_timeframe_roadmap(bare(), &vm, i18n)),
-            );
-        }
+    // Causes: one pattern shared by two findings, one per finding, a pattern
+    // of one element (no recurrence) and the findings without a pattern.
+    for elements in [1, 2, 1_234_567] {
+        let mut set = findings(&template, &[40, 20, 5]);
+        set[0].finding.patterns = vec![pattern("main > a.card", elements)];
+        set[1].finding.patterns = vec![pattern("main > a.card", 2)];
+        set[2].finding.patterns = vec![pattern("nav > button", 3)];
+        vm.findings.all_findings = set;
+        push(
+            records,
+            "render_analysis",
+            format!("causes elements={elements}"),
+            lang,
+            components(render_analysis(bare(), &vm, i18n)),
+        );
     }
+    let mut set = findings(&template, &[3, 2]);
+    set[0].finding.patterns = vec![pattern(&"div > ".repeat(30), 3)];
+    vm.findings.all_findings = set;
+    push(
+        records,
+        "render_analysis",
+        "cause with a long selector".to_string(),
+        lang,
+        components(render_analysis(bare(), &vm, i18n)),
+    );
 
-    // One column: every combination of the texts an item can carry.
-    vm.module_details.security = None;
-    vm.module_details.mobile = None;
-    for (name, counts) in [
-        ("concentrated", &[60usize, 30, 10][..]),
-        ("three occurrences", &[2, 1][..]),
-    ] {
-        vm.findings.all_findings = findings(&template, counts);
-        for benefit in ["", "Benefit."] {
-            for risk_effect in ["", "Risk effect."] {
-                for hint in ["", "Hint."] {
-                    for occurrences in [1, 5, 1_234_567] {
-                        for rule_id in ["rule/0", "rule/2", "rule/other"] {
-                            vm.actions.roadmap_columns = vec![RoadmapColumnData {
-                                title: "Column".to_string(),
-                                description: "Column description.".to_string(),
-                                accent_color: "#000000".to_string(),
-                                items: vec![roadmap_item(
-                                    rule_id,
-                                    occurrences,
-                                    benefit,
-                                    risk_effect,
-                                    hint,
-                                )],
-                            }];
-                            push(
-                                records,
-                                "render_timeframe_roadmap",
-                                format!(
-                                    "findings={name} benefit={benefit:?} risk={risk_effect:?} hint={hint:?} occurrences={occurrences} rule={rule_id}"
-                                ),
-                                lang,
-                                components(render_timeframe_roadmap(bare(), &vm, i18n)),
-                            );
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // A column and the cards of the other modules' measures.
+    // Findings and the cards of the other modules' measures.
     vm.module_details.security = Some(security(2));
     vm.module_details.mobile = Some(mobile_presentation(1));
     push(
         records,
-        "render_timeframe_roadmap",
-        "column with module measures".to_string(),
+        "render_analysis",
+        "findings with module measures".to_string(),
         lang,
-        components(render_timeframe_roadmap(bare(), &vm, i18n)),
+        components(render_analysis(bare(), &vm, i18n)),
     );
 }
 
@@ -684,8 +647,7 @@ pub(super) fn records() -> Vec<Value> {
     for lang in LANGS {
         let i18n = I18n::new(lang).unwrap();
         export_problem_profile(&mut records, lang, &i18n);
-        export_root_causes(&mut records, lang, &i18n);
-        export_roadmap(&mut records, lang, &i18n);
+        export_analysis(&mut records, lang, &i18n);
         export_wcag_coverage(&mut records, lang, &i18n);
     }
     records
