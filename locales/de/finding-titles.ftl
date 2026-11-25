@@ -13,8 +13,6 @@ finding-title-best-practices-console-error = Konsolenfehler
 finding-title-seo-meta-title = Seitentitel
 finding-title-seo-meta-description = Meta-Beschreibung
 finding-title-seo-meta-viewport = Viewport-Meta-Tag
-finding-title-seo-meta-lang = Seitensprache
-finding-title-seo-meta-canonical = Canonical-URL
 finding-title-seo-meta-twitter-card = Twitter-Card-Typ
 finding-title-seo-meta-og-image = Open-Graph-Bild
 

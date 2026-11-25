@@ -13,8 +13,6 @@ finding-title-best-practices-console-error = Console error
 finding-title-seo-meta-title = Page title
 finding-title-seo-meta-description = Meta description
 finding-title-seo-meta-viewport = Viewport meta tag
-finding-title-seo-meta-lang = Page language
-finding-title-seo-meta-canonical = Canonical URL
 finding-title-seo-meta-twitter-card = Twitter card type
 finding-title-seo-meta-og-image = Open Graph image
 

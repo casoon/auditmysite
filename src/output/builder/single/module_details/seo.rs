@@ -45,12 +45,11 @@ pub(super) fn build_seo_details(
             .meta_issues
             .iter()
             .map(|i| {
-                // A missing lang or page title is also an accessibility
-                // finding (WCAG 3.1.1 / 2.4.2) and costs points there too —
-                // two perspectives, stated so the overlap is visible.
+                // A missing page title is also an accessibility finding
+                // (WCAG 2.4.2) and costs points there too — two perspectives,
+                // stated so the overlap is visible.
                 let base = i.localized_message(en);
                 let criterion = match (i.field.as_str(), i.severity) {
-                    ("lang", _) => Some("3.1.1"),
                     ("title", crate::wcag::Severity::High) => Some("2.4.2"),
                     _ => None,
                 };

@@ -627,15 +627,14 @@ fn collect(
             }
             out.push(c);
         }
-        // Meta: lang and canonical are charged once, in the technical
-        // checks, viewport by Mobile — here they are references.
+        // Meta: lang and canonical are reported once, by the technical
+        // checks, viewport is charged by Mobile — here it is a reference.
+        // Reports of earlier versions still list lang and canonical here.
         for issue in &seo.meta_issues {
+            if matches!(issue.field.as_str(), "lang" | "canonical") {
+                continue;
+            }
             let (scoring, cause) = match issue.field.as_str() {
-                "lang" => (FindingScoring::new("SEO", E::Reference), Some(LANG_MISSING)),
-                "canonical" => (
-                    FindingScoring::new("SEO", E::Reference),
-                    Some(CANONICAL_MISSING),
-                ),
                 "viewport" => (
                     FindingScoring::new("Mobile", E::Reference),
                     Some(VIEWPORT_MISSING),
@@ -1945,10 +1944,10 @@ mod tests {
     }
 
     /// Cross-module case: a missing `lang` is a WCAG failure (screen
-    /// readers), an SEO technical issue (search language) and an SEO meta
-    /// issue. All three stay visible under one cause; Accessibility and SEO
-    /// each charge their own consequence once, the meta repeat is a
-    /// reference. Making the repeat charge too breaks the contract.
+    /// readers) and an SEO technical issue (search language). Both stay
+    /// visible under one cause; Accessibility and SEO each charge their own
+    /// consequence once. Charging the cause twice for one owner breaks the
+    /// contract.
     #[test]
     fn one_cause_across_modules_is_grouped_and_charged_once_per_score() {
         let mut results = WcagResults::new();
@@ -1976,14 +1975,6 @@ mod tests {
             issue_type: "no_lang".into(),
             message: "No lang attribute".into(),
             severity: Severity::Medium,
-        });
-        seo.meta_issues.push(crate::seo::MetaValidation {
-            field: "lang".into(),
-            message: "Missing lang attribute".into(),
-            severity: Severity::Medium,
-            suggestion: None,
-            kind: None,
-            values: Default::default(),
         });
         crate::seo::rescore(&mut seo, Default::default());
         report.discoverability.seo = Some(seo);
@@ -2013,24 +2004,23 @@ mod tests {
                 "SEO".to_string(),
                 ScoringEffect::Deduction,
             ),
-            ("seo.meta.lang", "SEO".to_string(), ScoringEffect::Reference),
         ] {
             assert!(
                 same_cause.contains(&expected),
                 "{expected:?} in {same_cause:?}"
             );
         }
-        assert_eq!(same_cause.len(), 3, "{same_cause:?}");
+        assert_eq!(same_cause.len(), 2, "{same_cause:?}");
         // Counting stays separate: only the WCAG finding is a violation.
         assert_eq!(n.severity_counts.total, 1);
 
         n.findings
             .iter_mut()
-            .find(|f| f.rule_id == "seo.meta.lang")
+            .find(|f| f.rule_id == "document/lang-missing")
             .unwrap()
             .contract
             .scoring
-            .effect = ScoringEffect::Deduction;
+            .owner = Some("SEO".to_string());
         let codes: Vec<_> = n
             .validate()
             .unwrap_err()

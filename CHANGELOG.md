@@ -16,6 +16,10 @@ and verification for each change is in the
 - **Accessibility:** a frame that keeps rendering after its DOM was captured is captured again before its DOM rules run (#1180). Per frame and viewport, the frame pass compares the elements of the frame's accessibility tree with its DOM capture; when the tree has elements the capture lacks, it captures the frame's DOM and layout again (a pause of 0.25 s before each, 3 s in all) until nothing lags any more. A frame that does not settle in that time is still audited, but listed with `gap: "dom_unsettled"` in `execution.frames.audited[]`, and the audit quality is `partial` (`unsettled_frames:N`, collection gap `frame_dom_unsettled`). Runs without a mismatch make no further call. Before, the late content of such a frame (a social-media wall) was missing from the contrast and link-colour findings of one viewport, so the same page scored differently between runs. Details: [output contract](https://casoon.github.io/auditmysite/docs/OUTPUT_CONTRACT/).
 - **SEO:** hreflang and JSON-LD are judged by `web-checks` instead of by a regex and flags in the page script (Refs #1120). A code such as `de-de` or `zh-Hant-TW` is no longer reported as `hreflang_invalid` (BCP 47: case-insensitive, optional script and region). A page that names itself only as `x-default` now gets `hreflang_no_self_reference`, as `x-default` is no language version. A page with `@graph` and a schema.org `@context` at the root no longer gets `jsonld_invalid`; a block counts as invalid when it is no JSON, has no schema.org `@context`, a node without `@type`, or an empty or malformed `@graph`.
 
+### Changed
+
+- **SEO:** a missing canonical link and a missing `lang` attribute are reported once (Refs #939). The `seo.meta_issues[]` entries with `field` `canonical` and `lang` are gone from the JSON, as are the findings `seo.meta.canonical` and `seo.meta.lang` (they were references without score cost); `seo.technical.issues[]` keeps `no_canonical` and `no_lang`, where the SEO score charges them, and `document/lang-missing` stays the accessibility finding. Scores are unchanged.
+
 ## [2.2.0] - 2026-11-24
 
 ### Breaking

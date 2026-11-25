@@ -393,7 +393,7 @@ pub(crate) fn technical_scenarios() -> Vec<(String, TechnicalSeo)> {
     v
 }
 
-pub(super) const META_KINDS: [MetaIssueKind; 11] = [
+pub(super) const META_KINDS: [MetaIssueKind; 9] = [
     MetaIssueKind::MissingTitle,
     MetaIssueKind::TitleTooShort,
     MetaIssueKind::TitleTooLong,
@@ -401,8 +401,6 @@ pub(super) const META_KINDS: [MetaIssueKind; 11] = [
     MetaIssueKind::DescriptionTooShort,
     MetaIssueKind::DescriptionTooLong,
     MetaIssueKind::MissingViewport,
-    MetaIssueKind::MissingLang,
-    MetaIssueKind::MissingCanonical,
     MetaIssueKind::InvalidTwitterCard,
     MetaIssueKind::RelativeOgImage,
 ];
