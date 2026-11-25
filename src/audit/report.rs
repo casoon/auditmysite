@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "experimental")]
 use crate::audit::experimental::ExperimentalIndicators;
 use crate::audit::scoring::{AccessibilityScorer, ViolationStatistics};
 use crate::browser::ThrottleProfile;
@@ -18,6 +19,7 @@ use crate::performance::{
 };
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
+#[cfg(feature = "experimental")]
 use crate::ux::UxAnalysis;
 use crate::wcag::WcagResults;
 
@@ -546,7 +548,9 @@ pub struct ViewportAuditData {
     pub performance: Option<PerformanceResults>,
     pub seo: Option<SeoAnalysis>,
     pub mobile: Option<MobileFriendliness>,
+    #[cfg(feature = "experimental")]
     pub ux: Option<crate::ux::UxAnalysis>,
+    #[cfg(feature = "experimental")]
     pub journey: Option<crate::page_flow::JourneyAnalysis>,
     pub screenshot: Option<ViewportScreenshot>,
     pub module_runs: Vec<ModuleRun>,
@@ -644,12 +648,15 @@ pub struct DiscoverabilitySection {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seo: Option<SeoAnalysis>,
     /// AI visibility analysis (LLM-Readability, Citation, Chunks, Knowledge Graph, Policy)
+    #[cfg(feature = "experimental")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
     /// Content visibility analysis (organic visibility, local business, E-E-A-T, depth, topical authority)
+    #[cfg(feature = "experimental")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content_visibility: Option<crate::content_visibility::ContentVisibilityAnalysis>,
     /// Source quality analysis (Substanz / Konsistenz / Autorität)
+    #[cfg(feature = "experimental")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
     /// Technology stack detection from in-page signals.
@@ -686,9 +693,11 @@ pub struct AuditReport {
     #[serde(default)]
     pub experience: ExperienceSection,
     /// UX analysis (optional)
+    #[cfg(feature = "experimental")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ux: Option<UxAnalysis>,
     /// Journey analysis (optional)
+    #[cfg(feature = "experimental")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub journey: Option<crate::page_flow::JourneyAnalysis>,
     /// Discoverability signals grouped together: SEO, AI/LLM visibility, content
@@ -718,11 +727,13 @@ pub struct AuditReport {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub best_practices: Option<crate::best_practices::BestPracticesAnalysis>,
     /// Commerce / shop schema-completeness analysis (only on product pages)
+    #[cfg(feature = "experimental")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub commerce: Option<crate::commerce::CommerceAnalysis>,
     /// Experimental indicators that ran (`--experimental`, #916). The audit
     /// assembly moves their results here out of `ux`, `journey`, `commerce`
     /// and `discoverability`, so nothing else in the report reads them.
+    #[cfg(feature = "experimental")]
     #[serde(default, skip_serializing_if = "ExperimentalIndicators::is_empty")]
     pub experimental: ExperimentalIndicators,
     /// Whether a consent banner was detected during the audit
@@ -880,12 +891,17 @@ impl AuditReport {
             security: None,
             html_conform: None,
             experience: ExperienceSection::default(),
+            #[cfg(feature = "experimental")]
             ux: None,
+            #[cfg(feature = "experimental")]
             journey: None,
             discoverability: DiscoverabilitySection {
                 seo: None,
+                #[cfg(feature = "experimental")]
                 ai_visibility: None,
+                #[cfg(feature = "experimental")]
                 content_visibility: None,
+                #[cfg(feature = "experimental")]
                 source_quality: None,
                 tech_stack: None,
             },
@@ -896,7 +912,9 @@ impl AuditReport {
             patterns: None,
             screenshot_status: ScreenshotStatus::NotRequested,
             best_practices: None,
+            #[cfg(feature = "experimental")]
             commerce: None,
+            #[cfg(feature = "experimental")]
             experimental: ExperimentalIndicators::default(),
             consent_banner_detected: false,
             consent_banner_cmp: None,
@@ -949,12 +967,14 @@ impl AuditReport {
     }
 
     /// Set UX analysis results
+    #[cfg(feature = "experimental")]
     pub fn with_ux(mut self, ux: UxAnalysis) -> Self {
         self.ux = Some(ux);
         self
     }
 
     /// Set journey analysis results
+    #[cfg(feature = "experimental")]
     pub fn with_journey(mut self, journey: crate::page_flow::JourneyAnalysis) -> Self {
         self.journey = Some(journey);
         self

@@ -19,6 +19,7 @@
 //! Phase 2: tab-walk evaluation, skip-link, disclosure, modal, tabs, menu journeys.
 //! Phase 3: form-error announcement, SPA-navigation detection, link/heading/landmark inventory.
 
+#[cfg(feature = "experimental")]
 pub mod add_to_cart;
 pub mod disclosure_journey;
 pub mod evaluate;
@@ -26,6 +27,7 @@ pub mod form_error;
 pub mod link_inventory;
 pub mod menu_journey;
 pub mod modal_journey;
+#[cfg(feature = "experimental")]
 pub mod quantity_stepper;
 pub mod skip_link;
 pub mod spa_navigation;
@@ -39,6 +41,7 @@ use chromiumoxide::Page;
 
 use crate::accessibility::AXTree;
 use crate::audit::normalized::{AccessibilityJourney, InteractiveFinding};
+#[cfg(feature = "experimental")]
 use crate::commerce::{CommerceAnalysis, CommercePageKind};
 use crate::error::Result;
 use crate::model::InteractiveMode;
@@ -68,6 +71,7 @@ pub struct RunContext<'a> {
     /// Used only to gate commerce-specific journeys (e.g. `AddToCart` to
     /// `CommercePageKind::ProductDetail`) — `patterns::analyze()` itself has
     /// no commerce context (it runs before the commerce module derives this).
+    #[cfg(feature = "experimental")]
     pub commerce: Option<&'a CommerceAnalysis>,
 }
 
@@ -142,6 +146,7 @@ fn journey_allowed(mode: InteractiveMode, journey: JourneyKind, allow_state_chan
 /// page reached cold is (almost) always empty, meaning a Cart-gated
 /// `QuantityStepper` run would essentially never find a real line item to
 /// test in practice.
+#[cfg(feature = "experimental")]
 fn commerce_gate_allows(journey: JourneyKind, commerce: Option<&CommerceAnalysis>) -> bool {
     match journey {
         JourneyKind::AddToCart | JourneyKind::QuantityStepper => commerce
@@ -149,6 +154,16 @@ fn commerce_gate_allows(journey: JourneyKind, commerce: Option<&CommerceAnalysis
             .unwrap_or(false),
         _ => true,
     }
+}
+
+/// Without the `experimental` feature there is no commerce analysis and no
+/// add-to-cart or quantity-stepper journey (#1117): both stay skipped.
+#[cfg(not(feature = "experimental"))]
+fn commerce_gate_allows(journey: JourneyKind, _commerce: Option<&()>) -> bool {
+    !matches!(
+        journey,
+        JourneyKind::AddToCart | JourneyKind::QuantityStepper
+    )
 }
 
 /// Die Reihenfolge, in der Kandidaten abgearbeitet werden: absteigend nach
@@ -247,13 +262,19 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
 
     // ── Pattern-based journeys ───────────────────────────────────────────────
     if let Some(patterns) = ctx.patterns {
+        #[cfg(feature = "experimental")]
+        let commerce = ctx.commerce;
+        #[cfg(not(feature = "experimental"))]
+        let commerce: Option<&()> = None;
         let mut skip_link_idx = 0usize;
         let mut disclosure_idx = 0usize;
         let mut modal_idx = 0usize;
         let mut tabs_idx = 0usize;
         let mut menu_idx = 0usize;
         let mut form_idx = 0usize;
+        #[cfg(feature = "experimental")]
         let mut add_to_cart_idx = 0usize;
+        #[cfg(feature = "experimental")]
         let mut quantity_stepper_idx = 0usize;
 
         out.journey.execution.candidates_detected += patterns.journey_candidates.len();
@@ -290,7 +311,7 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
                 ctx.allow_state_changes,
             ) {
                 Some("mode_excluded")
-            } else if !commerce_gate_allows(candidate.required_journey, ctx.commerce) {
+            } else if !commerce_gate_allows(candidate.required_journey, commerce) {
                 Some("commerce_gate")
             } else {
                 None
@@ -342,15 +363,24 @@ pub async fn run(ctx: RunContext<'_>) -> Result<Option<RunOutput>> {
                         form_idx += 1;
                         form_error::test(ctx.page, candidate, idx).await
                     }
+                    #[cfg(feature = "experimental")]
                     JourneyKind::AddToCart => {
                         let idx = add_to_cart_idx;
                         add_to_cart_idx += 1;
                         add_to_cart::test(ctx.page, candidate, idx).await
                     }
+                    #[cfg(feature = "experimental")]
                     JourneyKind::QuantityStepper => {
                         let idx = quantity_stepper_idx;
                         quantity_stepper_idx += 1;
                         quantity_stepper::test(ctx.page, candidate, idx).await
+                    }
+                    // `commerce_gate_allows` skips both before this point.
+                    #[cfg(not(feature = "experimental"))]
+                    JourneyKind::AddToCart | JourneyKind::QuantityStepper => {
+                        unreachable!(
+                            "commerce journeys are skipped without the experimental feature"
+                        )
                     }
                 }
             };

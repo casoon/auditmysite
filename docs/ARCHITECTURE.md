@@ -126,7 +126,7 @@ src/
 │   ├── checks.rs        # Score/grade/count-sum/metric_context checks
 │   └── invariants.rs    # Independent exported-weight, execution and finding-conservation checks
 │
-├── audit/               # Audit orchestration (`experimental.rs`: `--experimental` indicators and their `ExperimentalIndicators` result block, #916)
+├── audit/               # Audit orchestration (`experimental.rs`: `--experimental` indicator names, always compiled, and the `ExperimentalIndicators` result block, #916; the block exists only with the Cargo feature `experimental`)
 │   ├── mod.rs
 │   ├── validation.rs    # Format-independent page/batch contracts and capture-gap policy
 │   ├── baseline.rs      # Findings baseline (#930): file format, digest, known/new/fixed classification and the gate inputs the verdict reads; `BatchReport::with_baseline`
@@ -652,6 +652,8 @@ Chrome is driven), and `a11y_journey` is the only one of the three that knows
 about findings and journey budgets. A split per concept would put all three
 reasons into every module. The direction is enforced by
 `tests/architecture_test.rs` (`patterns_interaction_a11y_journey_depend_downwards_only`).
+
+The Cargo feature `experimental` (#1117, off by default; `cargo install auditmysite --features experimental`) compiles the six indicator modules `ux`, `page_flow` (without `page_intent`), `ai_visibility`, `content_visibility`, `source_quality` and `commerce`, the add-to-cart and quantity-stepper journeys (`a11y_journey/{add_to_cart,quantity_stepper}.rs`) and the result fields that carry them (`AuditReport.ux`, `.journey`, `.commerce`, `.experimental`, the discoverability fields, the `raw_*` fields of `AuditContext`). A default build compiles none of them and `--experimental` stops in `Args::validate` naming the feature. `page_flow::page_intent` stays compiled: the SEO schema-fit assessment reads the detected page intent. `pages[].experimental` stays an optional member of the JSON.
 
 `page_flow` (until #938 `journey`) is unrelated to these three: a static
 AXTree heuristic (page intent, friction points) behind the experimental

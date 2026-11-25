@@ -17,7 +17,10 @@
 //! that browser-based pattern (slow, `#[ignore]`'d) or a `PageProbe`
 //! trait abstraction. Out of scope for A6.
 //!
-//! Run with: `cargo test --test module_fixtures`
+//! Run with: `cargo test --test module_fixtures --features experimental`: all
+//! of these modules sit behind the Cargo feature `experimental` (#1117).
+
+#![cfg(feature = "experimental")]
 
 use auditmysite::accessibility::{AXNode, AXTree};
 use auditmysite::ai_visibility::AiVisibilityModule;

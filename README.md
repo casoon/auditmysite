@@ -234,13 +234,13 @@ Outputs: `report-json`, `report-sarif` (absolute paths) and `version`. The actio
   <img src="docs/img/score-weights.svg" alt="Bar chart of the module weights in the site-quality score: Accessibility 40, Performance 20, SEO 15, Security 10, Mobile 10, HTML Conformance 5 percent." width="640">
 </picture>
 
-The site-quality score is a secondary, combined figure over the modules that ran (`site_quality_score` in the JSON); the accessibility score stays the headline. Only the weighted modules enter it. Best Practices is shown next to it with weight 0; the experimental indicators (UX, Journey, …) are off unless you ask for them with `--experimental`. The charts in `docs/img/` are generated from the `.json` files next to them with [chartlet](https://github.com/casoon/chartlet) (`chartlet render <spec>.json --format svg --strict`, add `--theme dark` for the dark variant).
+The site-quality score is a secondary, combined figure over the modules that ran (`site_quality_score` in the JSON); the accessibility score stays the headline. Only the weighted modules enter it. Best Practices is shown next to it with weight 0; the experimental indicators (UX, Journey, …) are not in the default build: they need `--features experimental` at build time and `--experimental` at run time. The charts in `docs/img/` are generated from the `.json` files next to them with [chartlet](https://github.com/casoon/chartlet) (`chartlet render <spec>.json --format svg --strict`, add `--theme dark` for the dark variant).
 
 ## What it checks
 
 - **WCAG 2.2 Level A and AA** rules on the rendered page, with rule IDs that stay stable across releases. The accessibility score is the headline number: the grade and the score threshold of the verdict follow it.
 - **Optional web-quality modules**, each with its own score: Performance, SEO, Security, Mobile, HTML conformance. They run by default and `--modules` narrows them (`a11y` alone for the WCAG rules only); they feed the site-quality score (optional modules), which is secondary and never the score threshold of the verdict.
-- **Experimental indicators** (UX, Journey, AI visibility, content visibility, source quality, commerce): off by default, `--experimental <name>[,<name>]` switches them on. Unvalidated, weight 0, in the JSON `experimental` block and the terminal table, never in the PDF. Tech stack is detection only.
+- **Experimental indicators** (UX, Journey, AI visibility, content visibility, source quality, commerce): not compiled into the default build (Cargo feature `experimental`: `cargo install auditmysite --features experimental`); with it, `--experimental <name>[,<name>]` switches them on, and the default build refuses the flag with a message naming the feature. Unvalidated, weight 0, in the JSON `experimental` block and the terminal table, never in the PDF. Tech stack is detection only.
 - **Accessibility journeys:** tab walk, skip link, modals, menus, SPA navigation, form errors; clicks that can change state are an opt-in (`--allow-state-changes`).
 - **Display modes, structured data, risk assessment, rule configuration and exclusions.**
 
@@ -259,7 +259,7 @@ Key layers:
 - `wcag/`: rule engine and violations
 - `output/`: CLI, JSON, PDF, AI, summary format
 - `seo/`, `security/`, `performance/`, `mobile/`, `ux/`, `page_flow/`: optional analysis modules
-- `tech_stack/`: detection module; `ux/`, `page_flow/` (indicator `journey`), `source_quality/`, `ai_visibility/`, `content_visibility/`, `commerce/`: experimental indicators (`--experimental`)
+- `tech_stack/`: detection module; `ux/`, `page_flow/` (indicator `journey`), `source_quality/`, `ai_visibility/`, `content_visibility/`, `commerce/`: experimental indicators (`--experimental`, behind the Cargo feature `experimental`)
 
 Parts of the checks live in [barrierlab](https://github.com/casoon/barrierlab) and come in as published crates (`a11y-rules`, `a11y-dom`, `a11y-report`, `accname`, `a11y-perception`, `web-checks`, `html-conform`); fixes there are released first and then taken over here by raising the version. Details and the boundary: [Shared libraries from barrierlab](docs/concepts/barrierlab.md). Current implementation: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

@@ -33,22 +33,28 @@ impl AuditCatalog {
     /// the four post-processing modules registered in A4 (Journey via
     /// `collect`, source/AI/content visibility via `derive`).
     pub fn standard() -> Self {
+        #[cfg(feature = "experimental")]
         use crate::ai_visibility::AiVisibilityModule;
         use crate::best_practices::BestPracticesModule;
+        #[cfg(feature = "experimental")]
         use crate::commerce::CommerceModule;
+        #[cfg(feature = "experimental")]
         use crate::content_visibility::ContentVisibilityModule;
         use crate::html_conform::HtmlConformModule;
         use crate::mobile::MobileModule;
+        #[cfg(feature = "experimental")]
         use crate::page_flow::JourneyModule;
         use crate::performance::PerformanceModule;
         use crate::privacy::PrivacyModule;
         use crate::security::SecurityModule;
         use crate::seo::SeoModule;
+        #[cfg(feature = "experimental")]
         use crate::source_quality::SourceQualityModule;
         use crate::tech_stack::TechStackModule;
+        #[cfg(feature = "experimental")]
         use crate::ux::UxModule;
 
-        Self::empty()
+        let catalog = Self::empty()
             .with_module(Box::new(PerformanceModule))
             .with_module(Box::new(SeoModule))
             .with_module(Box::new(SecurityModule))
@@ -56,13 +62,18 @@ impl AuditCatalog {
             .with_module(Box::new(HtmlConformModule))
             .with_module(Box::new(PrivacyModule))
             .with_module(Box::new(TechStackModule))
+            .with_module(Box::new(BestPracticesModule));
+        // The six experimental indicators (#1117): not compiled without the
+        // feature. Topological order does not depend on registration order.
+        #[cfg(feature = "experimental")]
+        let catalog = catalog
             .with_module(Box::new(UxModule))
-            .with_module(Box::new(BestPracticesModule))
             .with_module(Box::new(JourneyModule))
             .with_module(Box::new(SourceQualityModule))
             .with_module(Box::new(AiVisibilityModule))
             .with_module(Box::new(ContentVisibilityModule))
-            .with_module(Box::new(CommerceModule))
+            .with_module(Box::new(CommerceModule));
+        catalog
     }
 
     /// Catalog with no registered modules.
@@ -261,6 +272,7 @@ impl AuditCatalog {
                     derive_module && upstream(crate::audit::ExecutionStatus::Partial);
                 match module.derive(report, &cfg.lang) {
                     Ok(()) if derive_module => {
+                        #[cfg(feature = "experimental")]
                         let available = match module.id() {
                             "source_quality" => report.discoverability.source_quality.is_some(),
                             "ai_visibility" => report.discoverability.ai_visibility.is_some(),
@@ -270,6 +282,8 @@ impl AuditCatalog {
                             "commerce" => report.commerce.is_some(),
                             _ => false,
                         };
+                        #[cfg(not(feature = "experimental"))]
+                        let available = false;
                         report
                             .accessibility
                             .execution
@@ -381,7 +395,8 @@ mod tests {
     fn standard_catalog_registers_all_modules() {
         let cat = AuditCatalog::standard();
         let ids: std::collections::BTreeSet<&'static str> = cat.iter().map(|m| m.id()).collect();
-        let expected: std::collections::BTreeSet<&'static str> = [
+        #[allow(unused_mut)]
+        let mut expected: std::collections::BTreeSet<&'static str> = [
             // A3 collection modules
             "performance",
             "seo",
@@ -390,22 +405,26 @@ mod tests {
             "html_conform",
             "privacy",
             "tech_stack",
-            "ux",
             "best_practices",
-            // A4 post-processing (+ journey collect)
+        ]
+        .into_iter()
+        .collect();
+        // The six experimental indicators (#1117) exist only with the feature.
+        #[cfg(feature = "experimental")]
+        expected.extend([
+            "ux",
             "journey",
             "source_quality",
             "ai_visibility",
             "content_visibility",
             "commerce",
-        ]
-        .into_iter()
-        .collect();
+        ]);
         assert_eq!(ids, expected);
         cat.topo_sorted().expect("standard catalog must topo-sort");
     }
 
     #[test]
+    #[cfg(feature = "experimental")]
     fn standard_catalog_orders_post_processing_after_dependencies() {
         let cat = AuditCatalog::standard();
         let sorted = cat.topo_sorted().expect("sortable");
@@ -497,6 +516,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "experimental")]
     fn derived_indicator_is_not_built_over_a_failed_upstream() {
         // #777: AI visibility over an SEO module that failed would read the
         // missing robots.txt, headings and text as absent signals.

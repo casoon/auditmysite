@@ -1,0 +1,48 @@
+---
+source: tests/snapshot_tests.rs
+expression: sort_json_keys(value)
+---
+{
+  "finding_count": 18,
+  "finding_rule_ids": [
+    "buttons/name-missing",
+    "headings/skip-level",
+    "journey.few_subheadings",
+    "journey.little_early_text",
+    "journey.main_missing",
+    "journey.navigation_missing",
+    "journey.no_breadcrumb",
+    "journey.no_call_to_action",
+    "journey.no_footer",
+    "journey.no_h1",
+    "journey.no_page_title",
+    "ux.little_text",
+    "ux.no_contact",
+    "ux.no_cta",
+    "ux.no_h1",
+    "ux.no_imprint",
+    "ux.no_privacy",
+    "ux.weak_trust_signals"
+  ],
+  "grade": "F",
+  "module_count": 7,
+  "module_names": [
+    "Accessibility",
+    "Journey",
+    "Mobile",
+    "Performance",
+    "SEO",
+    "Security",
+    "UX"
+  ],
+  "score": 49,
+  "severity_counts": {
+    "critical": 1,
+    "high": 0,
+    "low": 0,
+    "medium": 1,
+    "total": 2
+  },
+  "site_quality_score": 68,
+  "url": "https://example.com"
+}

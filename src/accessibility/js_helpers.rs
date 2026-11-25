@@ -33,4 +33,5 @@ pub(crate) const CSS_SELECTOR_JS: &str = include_str!("js/helpers_css_selector.j
 /// `clip-path: inset(50%/100%)`, and far off-screen positioned/indented text.
 /// WCAG contrast (1.4.3) does not apply to such elements — axe-core skips
 /// them too.
+#[cfg(feature = "experimental")]
 pub(crate) const IS_VISUALLY_HIDDEN_JS: &str = include_str!("js/helpers_is_visually_hidden.js");

@@ -7,22 +7,36 @@
 //! asked for with `--experimental <name>[,<name>]`, are in no `--full` run,
 //! and their results live apart from the audit result: after the audit
 //! assembled them they are moved out of the ordinary report fields into
-//! [`AuditReport::experimental`](crate::audit::AuditReport), so the PDF, the
+//! `AuditReport::experimental` (feature `experimental`), so the PDF, the
 //! findings, the scores and the decision never see them. The JSON carries
 //! them in one `experimental` block, the terminal table lists them when
 //! requested.
+//!
+//! Everything but the [`ExperimentalIndicator`] names sits behind the Cargo
+//! feature `experimental` (#1117), off by default: without it the six
+//! indicator modules are not compiled and `--experimental` stops with a
+//! message naming the feature. The names stay so that the flag parses and the
+//! message can say what was asked for.
 
 use std::collections::BTreeSet;
 
 use clap::ValueEnum;
+#[cfg(feature = "experimental")]
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "experimental")]
 use crate::ai_visibility::AiVisibilityAnalysis;
+#[cfg(feature = "experimental")]
 use crate::audit::AuditReport;
+#[cfg(feature = "experimental")]
 use crate::commerce::CommerceAnalysis;
+#[cfg(feature = "experimental")]
 use crate::content_visibility::ContentVisibilityAnalysis;
+#[cfg(feature = "experimental")]
 use crate::page_flow::JourneyAnalysis;
+#[cfg(feature = "experimental")]
 use crate::source_quality::SourceQualityAnalysis;
+#[cfg(feature = "experimental")]
 use crate::ux::{UxAnalysis, UxHeuristics};
 
 /// One experimental indicator `--experimental` can switch on.
@@ -110,6 +124,7 @@ impl ExperimentalIndicator {
 
 /// The results of the experimental indicators that ran, moved out of the
 /// ordinary report fields at the end of the audit assembly.
+#[cfg(feature = "experimental")]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct ExperimentalIndicators {
@@ -132,6 +147,7 @@ pub struct ExperimentalIndicators {
     pub commerce: Option<CommerceAnalysis>,
 }
 
+#[cfg(feature = "experimental")]
 impl ExperimentalIndicators {
     pub fn is_empty(&self) -> bool {
         self.ux.is_none()
@@ -196,6 +212,7 @@ mod tests {
         assert!(ExperimentalIndicator::closure(&[]).is_empty());
     }
 
+    #[cfg(feature = "experimental")]
     #[test]
     fn ids_match_the_module_catalog() {
         let catalog = crate::audit::catalog::AuditCatalog::standard();
@@ -217,6 +234,7 @@ mod tests {
     /// so a report from the pipeline carries none of the six results in an
     /// ordinary field. The PDF reads only ordinary fields, which is why no PDF
     /// section for these indicators, single or batch, can ever get data (#916).
+    #[cfg(feature = "experimental")]
     #[test]
     fn take_from_empties_every_ordinary_field_of_the_six_indicators() {
         let mut report = AuditReport::new(
@@ -254,6 +272,7 @@ mod tests {
         assert_eq!(experimental.present(), ExperimentalIndicator::ALL.to_vec());
     }
 
+    #[cfg(feature = "experimental")]
     #[test]
     fn take_from_moves_the_results_out_of_the_ordinary_fields() {
         let mut report = AuditReport::new(

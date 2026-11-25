@@ -166,20 +166,27 @@ pub struct AuditContext<'a> {
     pub raw_security: Option<&'a SecurityAnalysis>,
     pub raw_html_conform: Option<&'a crate::html_conform::HtmlConformAnalysis>,
     pub raw_mobile: Option<&'a MobileFriendliness>,
+    #[cfg(feature = "experimental")]
     pub raw_ux: Option<&'a crate::ux::UxAnalysis>,
+    #[cfg(feature = "experimental")]
     pub raw_journey: Option<&'a crate::page_flow::JourneyAnalysis>,
     pub raw_privacy: Option<&'a crate::privacy::PrivacyAnalysis>,
+    #[cfg(feature = "experimental")]
     pub raw_source_quality: Option<&'a crate::source_quality::SourceQualityAnalysis>,
+    #[cfg(feature = "experimental")]
     pub raw_ai_visibility: Option<&'a crate::ai_visibility::AiVisibilityAnalysis>,
     pub raw_tech_stack: Option<&'a crate::tech_stack::TechStackAnalysis>,
+    #[cfg(feature = "experimental")]
     pub raw_content_visibility: Option<&'a crate::content_visibility::ContentVisibilityAnalysis>,
     pub raw_wcag: &'a WcagResults,
     pub raw_patterns: Option<&'a crate::patterns::PatternAnalysis>,
     pub raw_throttled_performance: &'a [crate::audit::report::ThrottledPerfResult],
     pub raw_best_practices: Option<&'a crate::best_practices::BestPracticesAnalysis>,
+    #[cfg(feature = "experimental")]
     pub raw_commerce: Option<&'a crate::commerce::CommerceAnalysis>,
     /// The experimental indicators that ran (`--experimental`, #916); the
     /// `raw_ux` ... `raw_commerce` fields above stay empty for a finished audit.
+    #[cfg(feature = "experimental")]
     pub raw_experimental: &'a crate::audit::ExperimentalIndicators,
 }
 
@@ -2050,18 +2057,25 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
         raw_security: report.security.as_ref(),
         raw_html_conform: report.html_conform.as_ref(),
         raw_mobile: report.experience.mobile.as_ref(),
+        #[cfg(feature = "experimental")]
         raw_ux: report.ux.as_ref(),
+        #[cfg(feature = "experimental")]
         raw_journey: report.journey.as_ref(),
         raw_privacy: report.experience.privacy.as_ref(),
+        #[cfg(feature = "experimental")]
         raw_source_quality: report.discoverability.source_quality.as_ref(),
+        #[cfg(feature = "experimental")]
         raw_ai_visibility: report.discoverability.ai_visibility.as_ref(),
         raw_tech_stack: report.discoverability.tech_stack.as_ref(),
+        #[cfg(feature = "experimental")]
         raw_content_visibility: report.discoverability.content_visibility.as_ref(),
         raw_wcag: &report.accessibility.wcag_results,
         raw_patterns: report.patterns.as_ref(),
         raw_throttled_performance: &report.throttled_performance,
         raw_best_practices: report.best_practices.as_ref(),
+        #[cfg(feature = "experimental")]
         raw_commerce: report.commerce.as_ref(),
+        #[cfg(feature = "experimental")]
         raw_experimental: &report.experimental,
     };
     ctx.normalized.interpretation = Some(Interpretation::from_context(&ctx));

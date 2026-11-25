@@ -30,3 +30,4 @@ cargo build --release
 |---------|-------------|---------------|
 | `pdf` | PDF report generation via the `renderreport`/Typst engine | `cargo build --release --features pdf` |
 | `pdf_test` | PDF rendering integration tests | `cargo test --features pdf_test` |
+| `experimental` | The six unvalidated indicators behind `--experimental` (ux, journey, ai-visibility, content-visibility, source-quality, commerce); without it the flag is refused (#1117) | `cargo install auditmysite --features experimental` |

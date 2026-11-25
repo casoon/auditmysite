@@ -6,14 +6,18 @@ use crate::i18n::I18n;
 use crate::output::report_model::ModuleDetailsBlock;
 use crate::output::search_experience::build_search_experience;
 
+#[cfg(feature = "experimental")]
 mod commerce;
+#[cfg(feature = "experimental")]
 mod experience;
 mod html_conform;
 mod performance;
 mod platform;
 mod seo;
 
+#[cfg(feature = "experimental")]
 use commerce::build_commerce_details;
+#[cfg(feature = "experimental")]
 use experience::{build_journey_details, build_ux_details};
 use html_conform::build_html_conform_details;
 use performance::build_performance_details;
@@ -41,16 +45,22 @@ pub(super) fn build_module_details_from_normalized(
     let seo = build_seo_details(normalized, i18n);
     let security = build_security_details(normalized, i18n);
     let html_conform = build_html_conform_details(normalized, i18n);
+    #[cfg(feature = "experimental")]
     let commerce = build_commerce_details(normalized, i18n);
     let mobile = build_mobile_details(normalized, i18n);
+    #[cfg(feature = "experimental")]
     let ux = build_ux_details(normalized, i18n);
+    #[cfg(feature = "experimental")]
     let journey = build_journey_details(normalized, i18n);
 
     let privacy = normalized.raw_privacy.cloned();
 
+    #[cfg(feature = "experimental")]
     let source_quality = normalized.raw_source_quality.cloned();
+    #[cfg(feature = "experimental")]
     let ai_visibility = normalized.raw_ai_visibility.cloned();
     let tech_stack = normalized.raw_tech_stack.cloned();
+    #[cfg(feature = "experimental")]
     let content_visibility = normalized.raw_content_visibility.cloned();
     let best_practices = normalized.raw_best_practices.cloned();
     let patterns = normalized.raw_patterns.cloned();
@@ -60,17 +70,19 @@ pub(super) fn build_module_details_from_normalized(
         || seo.is_some()
         || security.is_some()
         || html_conform.is_some()
-        || commerce.is_some()
         || mobile.is_some()
-        || ux.is_some()
-        || journey.is_some()
         || privacy.is_some()
-        || source_quality.is_some()
-        || ai_visibility.is_some()
         || tech_stack.is_some()
-        || content_visibility.is_some()
         || best_practices.is_some()
         || patterns.is_some();
+    #[cfg(feature = "experimental")]
+    let has_any = has_any
+        || commerce.is_some()
+        || ux.is_some()
+        || journey.is_some()
+        || source_quality.is_some()
+        || ai_visibility.is_some()
+        || content_visibility.is_some();
 
     ModuleDetailsBlock {
         search_experience,
@@ -78,14 +90,20 @@ pub(super) fn build_module_details_from_normalized(
         seo,
         security,
         html_conform,
+        #[cfg(feature = "experimental")]
         commerce,
         mobile,
+        #[cfg(feature = "experimental")]
         ux,
+        #[cfg(feature = "experimental")]
         journey,
         privacy,
+        #[cfg(feature = "experimental")]
         source_quality,
+        #[cfg(feature = "experimental")]
         ai_visibility,
         tech_stack,
+        #[cfg(feature = "experimental")]
         content_visibility,
         best_practices,
         patterns,

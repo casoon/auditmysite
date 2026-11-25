@@ -227,12 +227,15 @@ pub fn render_single_report_for(
         ));
     }
 
-    let lines = experimental_lines(&report.experimental, &i18n);
-    if !lines.is_empty() {
-        rm_report = rm_report.add_scope_note(runemark::report::ScopeNote::new(
-            i18n.t("report-builder-terminal-experimental-title"),
-            lines,
-        ));
+    #[cfg(feature = "experimental")]
+    {
+        let lines = experimental_lines(&report.experimental, &i18n);
+        if !lines.is_empty() {
+            rm_report = rm_report.add_scope_note(runemark::report::ScopeNote::new(
+                i18n.t("report-builder-terminal-experimental-title"),
+                lines,
+            ));
+        }
     }
 
     let console = console_for(options, writing_to_file);
@@ -242,6 +245,7 @@ pub fn render_single_report_for(
 /// One line per experimental indicator that ran (`--experimental`, #916); the
 /// table lists them only when they were asked for. The only text source of
 /// these lines: `i18n` selects the language, the analysis stays English.
+#[cfg(feature = "experimental")]
 fn experimental_lines(
     experimental: &crate::audit::ExperimentalIndicators,
     i18n: &I18n,
@@ -319,6 +323,7 @@ fn experimental_lines(
 
 /// The advisory UX hints of the `ux` indicator (#1035), one line each in the
 /// run language; the analysis stored the kind and the raw value.
+#[cfg(feature = "experimental")]
 fn ux_heuristic_lines(
     experimental: &crate::audit::ExperimentalIndicators,
     i18n: &I18n,
@@ -484,6 +489,7 @@ pub fn render_batch_report(
 }
 
 #[cfg(test)]
+#[cfg(feature = "experimental")]
 pub(crate) mod text_export;
 
 #[cfg(test)]
@@ -527,6 +533,7 @@ mod tests {
 
     /// #916: the table lists experimental indicators only when they ran.
     #[test]
+    #[cfg(feature = "experimental")]
     fn table_lists_experimental_indicators_only_when_they_ran() {
         let options = test_options();
         let plain = render_single_report(&fixture_report(), &options).unwrap();
@@ -546,6 +553,7 @@ mod tests {
 
     /// Localization guard (#406): the English lines hold no German.
     #[test]
+    #[cfg(feature = "experimental")]
     fn english_experimental_lines_hold_no_german() {
         let mut report = fixture_report();
         report.experimental.ux = Some(crate::analyze_ux(&crate::AXTree::new()));
@@ -568,6 +576,7 @@ mod tests {
     /// #1035: the advisory UX hints follow the UX line, in the run language;
     /// the English lines hold no German.
     #[test]
+    #[cfg(feature = "experimental")]
     fn ux_hints_follow_the_ux_line_in_the_run_language() {
         use crate::ux::{UxHeuristicFinding, UxHeuristicKind, UxHeuristics};
         let mut report = fixture_report();

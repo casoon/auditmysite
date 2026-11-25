@@ -16,11 +16,13 @@ use auditmysite::cli::WcagLevel;
 use auditmysite::output::builder::build_view_model;
 use auditmysite::output::report_model::ReportConfig;
 use auditmysite::output::{format_ai_json, format_json_batch, UnifiedReport};
+#[cfg(feature = "experimental")]
 use auditmysite::page_flow::{analyze_journey, JourneyAnalysis};
 use auditmysite::performance::{PerformanceGrade, PerformanceScore, WebVitals};
 use auditmysite::registry::LETTER_GRADE;
 use auditmysite::security::SecurityAnalysis;
 use auditmysite::seo::SeoAnalysis;
+#[cfg(feature = "experimental")]
 use auditmysite::ux::{analyze_ux, UxAnalysis};
 use auditmysite::wcag::{Severity, Violation, WcagResults};
 use auditmysite::{AXTree, MobileFriendliness};
@@ -472,18 +474,20 @@ fn make_mobile() -> MobileFriendliness {
     }
 }
 
+#[cfg(feature = "experimental")]
 fn make_ux() -> UxAnalysis {
     let tree = AXTree::new();
     analyze_ux(&tree)
 }
 
+#[cfg(feature = "experimental")]
 fn make_journey() -> JourneyAnalysis {
     let tree = AXTree::new();
     analyze_journey(&tree)
 }
 
 fn make_full_report() -> AuditReport {
-    AuditReport::new(
+    let report = AuditReport::new(
         "https://example.com".to_string(),
         WcagLevel::AA,
         make_violations(),
@@ -493,9 +497,10 @@ fn make_full_report() -> AuditReport {
     .with_seo(make_seo())
     .with_security(make_security())
     .with_html_conform(make_html_conform())
-    .with_mobile(make_mobile())
-    .with_ux(make_ux())
-    .with_journey(make_journey())
+    .with_mobile(make_mobile());
+    #[cfg(feature = "experimental")]
+    let report = report.with_ux(make_ux()).with_journey(make_journey());
+    report
 }
 
 // ─── Module Presence Tests ─────────────────────────────────────────
@@ -536,14 +541,17 @@ fn test_all_modules_present_in_module_scores() {
         module_names.contains(&"HTML Conformance"),
         "HTML Conformance missing from module_scores"
     );
-    assert!(
-        module_names.contains(&"UX"),
-        "UX missing from module_scores"
-    );
-    assert!(
-        module_names.contains(&"Journey"),
-        "Journey missing from module_scores"
-    );
+    #[cfg(feature = "experimental")]
+    {
+        assert!(
+            module_names.contains(&"UX"),
+            "UX missing from module_scores"
+        );
+        assert!(
+            module_names.contains(&"Journey"),
+            "Journey missing from module_scores"
+        );
+    }
 }
 
 #[test]
@@ -1266,6 +1274,7 @@ fn test_risk_independent_from_score() {
 // ─── Journey Module Tests ─────────────────────────────────────────
 
 #[test]
+#[cfg(feature = "experimental")]
 fn test_journey_in_json_output() {
     // The audit assembly moves UX and Journey into `experimental` (#916).
     let mut report = make_full_report();
@@ -1364,6 +1373,7 @@ fn test_batch_json_average_score_is_accessibility_with_site_quality_separate() {
 }
 
 #[test]
+#[cfg(feature = "experimental")]
 fn test_journey_module_weight() {
     let report = make_full_report();
     let normalized = normalize(&report);
@@ -1402,6 +1412,7 @@ fn test_batch_summary_uses_normalized_primary_score() {
 }
 
 #[test]
+#[cfg(feature = "experimental")]
 fn test_journey_has_page_intent() {
     let tree = AXTree::new();
     let journey = analyze_journey(&tree);
@@ -1411,6 +1422,7 @@ fn test_journey_has_page_intent() {
 }
 
 #[test]
+#[cfg(feature = "experimental")]
 fn test_journey_dimensions_count() {
     let report = make_full_report();
     let journey = report.journey.as_ref().unwrap();
@@ -1545,6 +1557,7 @@ fn test_schema_contains_extra_module_top_level_keys() {
 }
 
 #[test]
+#[cfg(feature = "experimental")]
 fn test_json_report_includes_extra_module_keys() {
     use auditmysite::{analyze_ai_visibility, analyze_content_visibility, analyze_source_quality};
 
@@ -1720,6 +1733,7 @@ fn test_contributes_to_site_quality_score_flags_correct() {
 }
 
 #[test]
+#[cfg(feature = "experimental")]
 fn test_view_model_shows_journey_as_indicator_dashboard_module() {
     let report = make_full_report();
     let normalized = normalize(&report);

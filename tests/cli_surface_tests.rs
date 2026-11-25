@@ -49,6 +49,25 @@ fn maintainer_commands_are_unknown_to_the_user_binary() {
     }
 }
 
+/// #1117: the six indicators are compiled only with the Cargo feature
+/// `experimental`; a build without it refuses `--experimental` and says why.
+#[cfg(not(feature = "experimental"))]
+#[test]
+fn experimental_flag_without_the_feature_names_the_feature() {
+    let output = Command::new(env!("CARGO_BIN_EXE_auditmysite"))
+        .args(["https://example.com", "--experimental", "ux"])
+        .output()
+        .expect("failed to run auditmysite");
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let text = format!("{stdout}{stderr}");
+    assert!(
+        text.contains("Cargo feature `experimental`") && text.contains("--features experimental"),
+        "{text}"
+    );
+}
+
 #[cfg(feature = "dev-tools")]
 mod dev_binary {
     use std::path::Path;

@@ -145,7 +145,9 @@ fn strings<'a>(value: &'a Value, out: &mut Vec<&'a str>) {
 
 #[test]
 fn no_scenario_leaves_a_key_or_a_placeholder_in_a_text() {
-    let all = records()
+    let all = records();
+    #[cfg(feature = "experimental")]
+    let all = all
         .into_iter()
         .chain(crate::output::terminal::text_export::records());
     for record in all {

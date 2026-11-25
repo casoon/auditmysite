@@ -49,7 +49,10 @@ pub(super) fn build_page(
         score_breakdown: normalized.score_breakdown.clone(),
         risk: normalized.risk.clone(),
         principle_coverage: normalized.principle_coverage.clone(),
+        #[cfg(feature = "experimental")]
         experimental: audit_ctx.and_then(build_experimental),
+        #[cfg(not(feature = "experimental"))]
+        experimental: None,
         findings: normalized.findings.clone(),
         finding_inventory: normalized.finding_inventory.clone(),
         decision: normalized.decision.clone(),
@@ -76,6 +79,7 @@ pub(super) fn build_page(
 
 /// The experimental indicators of a single report (`--experimental`, #916),
 /// each with its signal contract (Commerce has no score and so no contract). `None` when none ran.
+#[cfg(feature = "experimental")]
 fn build_experimental(ctx: &AuditContext<'_>) -> Option<serde_json::Value> {
     let experimental = ctx.raw_experimental;
     let mut block = serde_json::Map::new();
@@ -409,7 +413,8 @@ pub(super) fn build_detail(ctx: &AuditContext<'_>, detail_ctx: DetailContext) ->
 }
 
 pub(super) fn viewport_detail_summary(data: &crate::audit::ViewportAuditData) -> serde_json::Value {
-    serde_json::json!({
+    #[allow(unused_mut)]
+    let mut summary = serde_json::json!({
         "accessibility_score": data.accessibility_score.round().max(0.0) as u32,
         "wcag": {
             "violations": data.wcag_results.violations.len(),
@@ -426,12 +431,16 @@ pub(super) fn viewport_detail_summary(data: &crate::audit::ViewportAuditData) ->
             "performance": data.performance.as_ref().map(|p| p.score.overall),
             "seo": data.seo.as_ref().map(|s| s.score),
             "mobile": data.mobile.as_ref().map(|m| m.score),
-            "ux": data.ux.as_ref().map(|u| u.score),
-            "journey": data.journey.as_ref().map(|j| j.score),
         },
         "module_runs": data.module_runs,
         "has_screenshot": data.screenshot.is_some(),
-    })
+    });
+    #[cfg(feature = "experimental")]
+    {
+        summary["modules"]["ux"] = serde_json::json!(data.ux.as_ref().map(|u| u.score));
+        summary["modules"]["journey"] = serde_json::json!(data.journey.as_ref().map(|j| j.score));
+    }
+    summary
 }
 
 /// Build fix guidance entries from normalized findings + explanation database.

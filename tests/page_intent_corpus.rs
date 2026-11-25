@@ -17,6 +17,11 @@
 //! AUDITMYSITE_SNAPSHOT_DIR=/some/dir PAGE_INTENT_OUT=/tmp/after.tsv \
 //!   cargo test --test page_intent_corpus -- --ignored
 //! ```
+//!
+//! Needs the Cargo feature `experimental` (`--features experimental`): the
+//! dump also reports the journey indicator's `LittleEarlyText` friction (#1117).
+
+#![cfg(feature = "experimental")]
 
 use std::fs;
 use std::path::{Path, PathBuf};

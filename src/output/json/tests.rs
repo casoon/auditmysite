@@ -665,9 +665,11 @@ fn test_modules_under_page_detail() {
         protection: Default::default(),
         sourcemap_leaks: Default::default(),
         fetch: Default::default(),
-    })
-    .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
-    .with_journey(crate::page_flow::analyze_journey(&crate::AXTree::new()));
+    });
+    #[cfg(feature = "experimental")]
+    let report = report
+        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
+        .with_journey(crate::page_flow::analyze_journey(&crate::AXTree::new()));
 
     let active_keys: Vec<&'static str> = active_modules(&report)
         .into_iter()
@@ -760,8 +762,6 @@ fn all_active_modules_report() -> AuditReport {
         content_sizing: ContentSizing::default(),
         issues: vec![],
     })
-    .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
-    .with_journey(crate::page_flow::analyze_journey(&crate::AXTree::new()))
     .with_best_practices(crate::best_practices::BestPracticesAnalysis {
         console_errors: crate::best_practices::ConsoleErrorsAnalysis {
             errors: vec![],
@@ -786,11 +786,17 @@ fn all_active_modules_report() -> AuditReport {
         journey_candidates: vec![],
         help_mechanisms: vec![],
     });
-    let sq = crate::source_quality::analyze_source_quality(&report);
-    let av = crate::ai_visibility::analyze_ai_visibility(&report);
     report.experience.privacy = Some(crate::privacy::fixtures::tracked());
-    report.discoverability.source_quality = Some(sq);
-    report.discoverability.ai_visibility = Some(av);
+    #[cfg(feature = "experimental")]
+    {
+        report = report
+            .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
+            .with_journey(crate::page_flow::analyze_journey(&crate::AXTree::new()));
+        let sq = crate::source_quality::analyze_source_quality(&report);
+        let av = crate::ai_visibility::analyze_ai_visibility(&report);
+        report.discoverability.source_quality = Some(sq);
+        report.discoverability.ai_visibility = Some(av);
+    }
     // content_visibility is set separately per test — its JSON emission
     // is conditional on signal_count > 0.
     report
@@ -900,7 +906,9 @@ fn test_dual_viewport_summary_serialized_in_single_detail_modules() {
             performance: None,
             seo: None,
             mobile: None,
+            #[cfg(feature = "experimental")]
             ux: None,
+            #[cfg(feature = "experimental")]
             journey: None,
             screenshot: None,
             module_runs: vec![],
@@ -911,7 +919,9 @@ fn test_dual_viewport_summary_serialized_in_single_detail_modules() {
             performance: None,
             seo: None,
             mobile: None,
+            #[cfg(feature = "experimental")]
             ux: None,
+            #[cfg(feature = "experimental")]
             journey: None,
             screenshot: None,
             module_runs: vec![],
@@ -1356,8 +1366,11 @@ fn test_batch_grade_follows_accessibility_not_site_quality() {
     report.accessibility.score = crate::audit::AccessibilityScorer::calculate_score(
         &report.accessibility.wcag_results.violations,
     );
-    report.discoverability.source_quality =
-        Some(crate::source_quality::analyze_source_quality(&report));
+    #[cfg(feature = "experimental")]
+    {
+        report.discoverability.source_quality =
+            Some(crate::source_quality::analyze_source_quality(&report));
+    }
     let batch = BatchReport::from_reports(vec![report], vec![], 100);
 
     let json: serde_json::Value =

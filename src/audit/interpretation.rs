@@ -665,6 +665,7 @@ fn build_per_module_localized(normalized: &AuditContext<'_>) -> BTreeMap<String,
         );
     }
 
+    #[cfg(feature = "experimental")]
     if let Some(ux) = normalized.raw_ux {
         map.insert(
             "ux".to_string(),
@@ -672,6 +673,7 @@ fn build_per_module_localized(normalized: &AuditContext<'_>) -> BTreeMap<String,
         );
     }
 
+    #[cfg(feature = "experimental")]
     if let Some(j) = normalized.raw_journey {
         map.insert(
             "journey".to_string(),
