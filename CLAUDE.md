@@ -20,9 +20,16 @@ Before every change, clarify which side the code belongs to:
   (`src/wcag/shared.rs` → `a11y-rules`), `accname`, `a11y-dom`, `a11y-report`, tree/snapshot/diff/
   linearization/announcement structure (`a11y-perception`), bot classification in robots.txt
   (`web-checks`), `html-conform`. Workflow: change in barrierlab → release → bump the version here.
-- **Move candidates — migrate first, then develop further:** structured data
-  (`src/seo/schema_rules.rs`), meta lengths, OpenGraph presence, render-blocking. Until the move,
-  only bug fixes here; before the move, document the duplication with astro-post-audit case by case.
+- **Already upstream (`web-checks`) — never patch, copy or work around it here:** structured-data
+  parsing and rule tables (`src/seo/schema_rules.rs` re-exports them), meta lengths, OpenGraph/
+  Twitter presence and value checks, robots grammar, third-party providers. Only wording, severity
+  and the browser collection stay here. Classification of every `src/seo` function:
+  `docs/reference/seo-web-checks-classification.md` (#1120).
+- **Move candidates — migrate first, then develop further:** the render-blocking predicate
+  (synchronous `<head>` script; written in `performance`, `seo/page_health` and astro-post-audit),
+  hreflang validity/x-default/self-reference and the JSON-LD validity count in
+  `seo/page_health` (both duplicate `web-checks` and wait for a deliberate finding change). Until
+  the move, only bug fixes here; document the duplication with astro-post-audit case by case.
 - **WCAG rules move to barrierlab (decision 2026-09-30, takes precedence over feature work here):**
   all browser-free rules in `src/wcag/rules` go to `a11y-rules`; auditmysite then consumes them via
   `SHARED_RULES`. Order and packages are in the umbrella issue casoon/barrierlab#13 — first
