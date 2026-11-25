@@ -16,6 +16,7 @@ use auditmysite::cli::Args;
 use auditmysite::{audit_page, BrowserManager, BrowserOptions, PipelineConfig};
 use clap::Parser;
 use common::routing_server::{serve_routes, Route, Transport};
+#[cfg(feature = "experimental")]
 use serde_json::Value;
 
 const PAGE: &str = "<!doctype html><html lang=\"en\"><head><title>Secure page</title>\
@@ -41,6 +42,7 @@ fn trusting_chrome(dir: &std::path::Path) -> String {
 }
 
 /// Every object in `value` whose `kind` is `kind`.
+#[cfg(feature = "experimental")]
 fn signals<'a>(value: &'a Value, kind: &str, out: &mut Vec<&'a Value>) {
     match value {
         Value::Object(map) => {
@@ -114,18 +116,21 @@ async fn http_entry_redirecting_to_https_is_judged_as_https() {
         "SEO reads the served document, not the entry URL"
     );
 
-    let ai =
-        serde_json::to_value(auditmysite::ai_visibility::analyze_ai_visibility(&report)).unwrap();
-    let mut found = Vec::new();
-    signals(&ai, "encryption", &mut found);
-    assert!(!found.is_empty(), "no encryption signal");
-    assert!(found.iter().all(|s| s["present"] == true), "{found:?}");
-    let sq =
-        serde_json::to_value(auditmysite::source_quality::analyze_source_quality(&report)).unwrap();
-    let mut found = Vec::new();
-    signals(&sq, "https", &mut found);
-    assert!(!found.is_empty(), "no https signal");
-    assert!(found.iter().all(|s| s["present"] == true), "{found:?}");
+    #[cfg(feature = "experimental")]
+    {
+        let ai = serde_json::to_value(auditmysite::ai_visibility::analyze_ai_visibility(&report))
+            .unwrap();
+        let mut found = Vec::new();
+        signals(&ai, "encryption", &mut found);
+        assert!(!found.is_empty(), "no encryption signal");
+        assert!(found.iter().all(|s| s["present"] == true), "{found:?}");
+        let sq = serde_json::to_value(auditmysite::source_quality::analyze_source_quality(&report))
+            .unwrap();
+        let mut found = Vec::new();
+        signals(&sq, "https", &mut found);
+        assert!(!found.is_empty(), "no https signal");
+        assert!(found.iter().all(|s| s["present"] == true), "{found:?}");
+    }
 }
 
 /// The other direction: an `https://` entry that the server sends to
@@ -165,16 +170,19 @@ async fn https_entry_redirecting_to_http_is_judged_as_cleartext() {
     // The security probe cannot trust the corpus CA, so there is no security
     // analysis here; the transport override is unit-tested in `security`.
 
-    let ai =
-        serde_json::to_value(auditmysite::ai_visibility::analyze_ai_visibility(&report)).unwrap();
-    let mut found = Vec::new();
-    signals(&ai, "encryption", &mut found);
-    assert!(!found.is_empty(), "no encryption signal");
-    assert!(found.iter().all(|s| s["present"] == false), "{found:?}");
-    let sq =
-        serde_json::to_value(auditmysite::source_quality::analyze_source_quality(&report)).unwrap();
-    let mut found = Vec::new();
-    signals(&sq, "https", &mut found);
-    assert!(!found.is_empty(), "no https signal");
-    assert!(found.iter().all(|s| s["present"] == false), "{found:?}");
+    #[cfg(feature = "experimental")]
+    {
+        let ai = serde_json::to_value(auditmysite::ai_visibility::analyze_ai_visibility(&report))
+            .unwrap();
+        let mut found = Vec::new();
+        signals(&ai, "encryption", &mut found);
+        assert!(!found.is_empty(), "no encryption signal");
+        assert!(found.iter().all(|s| s["present"] == false), "{found:?}");
+        let sq = serde_json::to_value(auditmysite::source_quality::analyze_source_quality(&report))
+            .unwrap();
+        let mut found = Vec::new();
+        signals(&sq, "https", &mut found);
+        assert!(!found.is_empty(), "no https signal");
+        assert!(found.iter().all(|s| s["present"] == false), "{found:?}");
+    }
 }

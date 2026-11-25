@@ -59,7 +59,9 @@ pub use budget::{evaluate_budgets, BudgetSeverity, BudgetViolation};
 pub use catalog::AuditCatalog;
 pub use crawl::{analyze_crawl_links, crawl_site, CrawlNode, CrawlResult};
 pub use duplicate::{detect_near_duplicates, DuplicatePair};
-pub use experimental::{ExperimentalIndicator, ExperimentalIndicators};
+pub use experimental::ExperimentalIndicator;
+#[cfg(feature = "experimental")]
+pub use experimental::ExperimentalIndicators;
 pub use module::{AuditModule, ModuleContext, ModuleData, Viewport};
 pub use module_set::{Module, ModuleSet};
 pub use normalized::{AuditContext, NormalizedReport};

@@ -443,21 +443,27 @@ pub const DOMAIN_POLICIES: &[(&str, DomainPolicy)] = &[
         "tech_stack",
         DomainPolicy::SignalsOnly("detection only: read-only fingerprints, no problem model"),
     ),
+    #[cfg(feature = "experimental")]
     ("ux", DomainPolicy::Findings(FindingDomain::Ux)),
     (
         "best_practices",
         DomainPolicy::Findings(FindingDomain::BestPractices),
     ),
+    #[cfg(feature = "experimental")]
     ("journey", DomainPolicy::Findings(FindingDomain::Journey)),
+    #[cfg(feature = "experimental")]
     ("commerce", DomainPolicy::Findings(FindingDomain::Commerce)),
+    #[cfg(feature = "experimental")]
     (
         "source_quality",
         DomainPolicy::SignalsOnly("derived indicator: signals with fulfilment, no problem model"),
     ),
+    #[cfg(feature = "experimental")]
     (
         "ai_visibility",
         DomainPolicy::SignalsOnly("derived indicator: signals with fulfilment, no problem model"),
     ),
+    #[cfg(feature = "experimental")]
     (
         "content_visibility",
         DomainPolicy::SignalsOnly("derived indicator: assessment signals, no problem model"),
@@ -941,6 +947,7 @@ fn collect(
         }
     }
 
+    #[cfg(feature = "experimental")]
     if let Some(ux) = &report.ux {
         for issue in &ux.issues {
             // UX issues are heuristic suspicions (signal contract `ux`,
@@ -966,6 +973,7 @@ fn collect(
         }
     }
 
+    #[cfg(feature = "experimental")]
     if let Some(journey) = &report.journey {
         for point in &journey.friction_points {
             // Friction points are heuristic (signal contract `journey`, #784).
@@ -990,6 +998,7 @@ fn collect(
         }
     }
 
+    #[cfg(feature = "experimental")]
     if let Some(commerce) = &report.commerce {
         for finding in &commerce.findings {
             let kind = finding.kind;
@@ -1492,6 +1501,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "experimental")]
     fn kind_codes_are_snake_case() {
         assert_eq!(
             kind_code(&crate::ux::UxIssueKind::CompetingCtas),
@@ -1507,6 +1517,7 @@ mod tests {
     /// collected as `fail` and, because their rule ids matched none of the
     /// old name substrings, reported as `automatically_confirmed`.
     #[test]
+    #[cfg(feature = "experimental")]
     fn heuristic_domains_are_never_automatically_confirmed() {
         let mut report = AuditReport::new(
             "https://example.com".into(),
@@ -2036,6 +2047,7 @@ mod tests {
     /// WCAG finding exists for it (best practice). Without the shared cause
     /// each looked like an independent defect.
     #[test]
+    #[cfg(feature = "experimental")]
     fn missing_h1_is_one_cause_charged_by_seo_only() {
         let mut report = AuditReport::new(
             "https://example.com".into(),

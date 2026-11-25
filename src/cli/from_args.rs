@@ -252,6 +252,7 @@ mod tests {
     /// #916: the experimental indicators are in no default run, and an
     /// indicator brings the ones it is derived from.
     #[test]
+    #[cfg(feature = "experimental")]
     fn experimental_indicators_run_only_when_asked_for() {
         use crate::audit::ExperimentalIndicator as I;
         let config =
@@ -491,6 +492,13 @@ mod tests {
             &["--modules", "performance,seo"],
         ];
         let checks = ["--isolate-third-party-impact", "--check-ssr-content"];
+        // `--check-ssr-content` needs the indicator, which a build without the
+        // Cargo feature `experimental` does not have: it is rejected there.
+        let experimental: &[&str] = if cfg!(feature = "experimental") {
+            &["--experimental", "content-visibility"]
+        } else {
+            &[]
+        };
         let (mut accepted, mut rejected) = (0, 0);
         for target in targets {
             for modules in module_sets {
@@ -499,7 +507,7 @@ mod tests {
                         .into_iter()
                         .chain(target.iter().copied())
                         .chain(modules.iter().copied())
-                        .chain(["--experimental", "content-visibility"])
+                        .chain(experimental.iter().copied())
                         .chain([check])
                         .collect();
                     let args = Args::parse_from(&argv);
@@ -555,6 +563,7 @@ mod tests {
     /// Single and batch of the same flags carry the same requested scope and
     /// the same measurement profile (#788, #787).
     #[test]
+    #[cfg(feature = "experimental")]
     fn single_and_batch_share_scope_and_measurement_profile() {
         use crate::audit::audit_scope_from_config;
         let flags = [

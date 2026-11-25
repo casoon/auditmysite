@@ -148,6 +148,10 @@ pdf = ["dep:renderreport", "dep:image"]
 # Builds the `auditmysite-dev` maintainer binary (#912). Not a default feature,
 # so a user install never contains it.
 dev-tools = []
+# The six unvalidated `--experimental` indicators (ux, journey, ai-visibility,
+# content-visibility, source-quality, commerce) and the commerce journeys
+# (#1117). Off by default: a default build does not compile them.
+experimental = []
 # Enables the heavy PDF smoke tests (Typst rendering). Run separately:
 #   cargo test --features pdf_test -- --test-threads=1
 pdf_test = ["pdf"]

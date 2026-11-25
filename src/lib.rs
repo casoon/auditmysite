@@ -78,6 +78,7 @@ pub mod a11y_journey;
 #[doc(hidden)]
 pub mod accessibility;
 #[doc(hidden)]
+#[cfg(feature = "experimental")]
 pub mod ai_visibility;
 #[doc(hidden)]
 pub mod annotations;
@@ -87,8 +88,10 @@ pub mod audit;
 pub mod best_practices;
 pub mod browser;
 pub mod cli;
+#[cfg(feature = "experimental")]
 pub(crate) mod commerce;
 #[doc(hidden)]
+#[cfg(feature = "experimental")]
 pub mod content_visibility;
 pub(crate) mod display;
 pub mod error;
@@ -117,6 +120,7 @@ pub mod security;
 #[doc(hidden)]
 pub mod seo;
 #[doc(hidden)]
+#[cfg(feature = "experimental")]
 pub mod source_quality;
 pub mod studio;
 #[doc(hidden)]
@@ -124,12 +128,14 @@ pub mod taxonomy;
 pub(crate) mod tech_stack;
 pub(crate) mod util;
 #[doc(hidden)]
+#[cfg(feature = "experimental")]
 pub mod ux;
 #[doc(hidden)]
 pub mod wcag;
 
 // Re-export commonly used types
 pub use accessibility::{AXNode, AXTree};
+#[cfg(feature = "experimental")]
 pub use ai_visibility::{analyze_ai_visibility, AiVisibilityAnalysis};
 pub use assessment::{
     signal_from_check, AssessmentLevel, ContentArea, ContentEvidence, ContentSignal,
@@ -147,6 +153,7 @@ pub use browser::{
     DetectedBrowser, InstallTarget, PoolConfig, ResolvedBrowser,
 };
 pub use cli::{Args, BrowserAction, Command, OutputFormat, WcagLevel};
+#[cfg(feature = "experimental")]
 pub use content_visibility::{analyze_content_visibility, ContentVisibilityAnalysis};
 pub use display::{AuditedDisplayMode, DisplayMode, DisplayModesInfo, VisualisationCount};
 pub use error::{AuditError, Result};
@@ -154,7 +161,9 @@ pub use html_conform::{message::SchemaDetail, HtmlConformAnalysis, HtmlConformFi
 pub use i18n::I18n;
 pub use mobile::{analyze_mobile_friendliness, MobileFriendliness};
 pub use output::format_json_normalized;
-pub use page_flow::{analyze_journey, analyze_journey_with_dom_check, JourneyAnalysis, PageIntent};
+pub use page_flow::PageIntent;
+#[cfg(feature = "experimental")]
+pub use page_flow::{analyze_journey, analyze_journey_with_dom_check, JourneyAnalysis};
 pub use performance::{
     calculate_performance_score, extract_web_vitals, PerformanceScore, WebVitals,
 };
@@ -164,7 +173,9 @@ pub use screen_reader::{
 };
 pub use security::{analyze_security, SecurityAnalysis};
 pub use seo::{analyze_seo, SeoAnalysis};
+#[cfg(feature = "experimental")]
 pub use source_quality::{analyze_source_quality, SourceQualityAnalysis};
 pub use tech_stack::{Confidence as TechConfidence, DetectedTech, TechCategory, TechStackAnalysis};
+#[cfg(feature = "experimental")]
 pub use ux::{analyze_ux, UxAnalysis};
 pub use wcag::{Severity, Violation, WcagResults};

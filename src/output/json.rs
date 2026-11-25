@@ -1121,6 +1121,7 @@ impl UnifiedReport {
                 .portfolio_summary
                 .crawl_depth_diagnostics
                 .clone(),
+            #[cfg(feature = "experimental")]
             experimental: crate::commerce::aggregate_site_commerce(
                 batch_report
                     .reports
@@ -1128,6 +1129,8 @@ impl UnifiedReport {
                     .filter_map(|r| r.experimental.commerce.as_ref()),
             )
             .map(|commerce| serde_json::json!({ "commerce": commerce })),
+            #[cfg(not(feature = "experimental"))]
+            experimental: None,
         };
 
         let mut collection_errors: Vec<ReportError> = Vec::new();

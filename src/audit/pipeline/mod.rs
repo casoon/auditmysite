@@ -58,10 +58,12 @@ use crate::error::Result;
 use crate::interaction::stability::{settle, wait_for_finite_animations, wait_for_page_stability};
 use crate::mobile::MobileFriendliness;
 use crate::model::WcagLevel;
+#[cfg(feature = "experimental")]
 use crate::page_flow::JourneyAnalysis;
 use crate::performance::{prepare_coverage_collection, prepare_vitals_collection};
 use crate::security::{analyze_security, BrowserCertificateDetails, SecurityAnalysis};
 use crate::seo::SeoAnalysis;
+#[cfg(feature = "experimental")]
 use crate::ux::UxAnalysis;
 use crate::wcag::{self, Violation, WcagResults};
 
@@ -278,7 +280,9 @@ pub struct SnapshotData {
     seo: Option<SeoAnalysis>,
     security: Option<SecurityAnalysis>,
     mobile: Option<MobileFriendliness>,
+    #[cfg(feature = "experimental")]
     ux: Option<UxAnalysis>,
+    #[cfg(feature = "experimental")]
     journey: Option<JourneyAnalysis>,
     html_conform: Option<crate::html_conform::HtmlConformAnalysis>,
     tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
@@ -330,15 +334,18 @@ impl SnapshotData {
             ModuleData::Seo(s) => self.seo = Some(*s),
             ModuleData::Security(s) => self.security = Some(*s),
             ModuleData::Mobile(m) => self.mobile = Some(*m),
+            #[cfg(feature = "experimental")]
             ModuleData::Ux(u) => self.ux = Some(*u),
+            #[cfg(feature = "experimental")]
             ModuleData::Journey(j) => self.journey = Some(*j),
             ModuleData::HtmlConform(h) => self.html_conform = Some(*h),
             ModuleData::TechStack(t) => self.tech_stack = Some(*t),
             ModuleData::BestPractices(b) => self.best_practices = Some(*b),
+            #[cfg(feature = "experimental")]
             ModuleData::SourceQuality(_)
             | ModuleData::AiVisibility(_)
-            | ModuleData::ContentVisibility(_)
-            | ModuleData::Error(_) => {}
+            | ModuleData::ContentVisibility(_) => {}
+            ModuleData::Error(_) => {}
         }
     }
 }
@@ -840,6 +847,7 @@ pub(crate) async fn run_extra_page_checks(
     // `page`, and `report.discoverability.content_visibility` (populated by
     // the catalog's derive phase inside `audit_page`) must already exist so
     // the finding can be appended to it.
+    #[cfg(feature = "experimental")]
     if config.check_ssr_content {
         let log = crate::audit::collection::CollectionLog::new();
         let gap = log
@@ -1255,7 +1263,9 @@ pub async fn audit_page(
             performance: desktop_snap.performance.clone(),
             seo: None,
             mobile: None,
+            #[cfg(feature = "experimental")]
             ux: None,
+            #[cfg(feature = "experimental")]
             journey: None,
             screenshot: desktop_screenshot.clone(),
             module_runs: consolidate_module_runs(&desktop_snap.module_runs),
@@ -1266,7 +1276,9 @@ pub async fn audit_page(
             performance: mobile_snap.performance.clone(),
             seo: mobile_snap.seo.clone(),
             mobile: mobile_snap.mobile.clone(),
+            #[cfg(feature = "experimental")]
             ux: mobile_snap.ux.clone(),
+            #[cfg(feature = "experimental")]
             journey: mobile_snap.journey.clone(),
             screenshot: mobile_screenshot.clone(),
             module_runs: consolidate_module_runs(&mobile_snap.module_runs),
@@ -1281,7 +1293,9 @@ pub async fn audit_page(
         seo: mobile_snap.seo.clone(),
         security,
         mobile: mobile_snap.mobile.clone(),
+        #[cfg(feature = "experimental")]
         ux: mobile_snap.ux.clone(),
+        #[cfg(feature = "experimental")]
         journey: mobile_snap.journey.clone(),
         html_conform: mobile_snap.html_conform.clone(),
         tech_stack: mobile_snap.tech_stack.clone(),
@@ -1515,6 +1529,7 @@ pub async fn audit_page(
         initial_url: url,
         locale: &config.lang,
         budget_ms: config.journey_budget_ms,
+        #[cfg(feature = "experimental")]
         commerce: report.experimental.commerce.as_ref(),
     };
     match crate::a11y_journey::run(journey_ctx).await {
@@ -1816,7 +1831,9 @@ async fn extract_snapshot(
         seo: None,
         security: None,
         mobile: None,
+        #[cfg(feature = "experimental")]
         ux: None,
+        #[cfg(feature = "experimental")]
         journey: None,
         html_conform: None,
         tech_stack: None,
@@ -2429,6 +2446,7 @@ mod tests {
             id(ExtraCheck::ThirdPartyIsolation),
             Some(crate::performance::third_party::ISOLATION.id)
         );
+        #[cfg(feature = "experimental")]
         assert_eq!(
             id(ExtraCheck::SsrContent),
             Some(crate::content_visibility::ssr_gap::SSR_GAP.id)
@@ -3288,7 +3306,9 @@ mod tests {
             seo: None,
             security: None,
             mobile: None,
+            #[cfg(feature = "experimental")]
             ux: None,
+            #[cfg(feature = "experimental")]
             journey: None,
             html_conform: None,
             tech_stack: None,

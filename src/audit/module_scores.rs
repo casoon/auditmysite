@@ -10,6 +10,7 @@
 use crate::audit::normalized::{ModuleScoreEntry, SeverityCounts};
 use crate::audit::report::AuditReport;
 
+#[cfg_attr(not(feature = "experimental"), allow(unused_variables))]
 pub(super) fn build_module_scores(
     report: &AuditReport,
     accessibility_score: u32,
@@ -125,6 +126,7 @@ pub(super) fn build_module_scores(
             hc.checked && !scoring_gap("html_conform"),
         ));
     }
+    #[cfg(feature = "experimental")]
     if let Some(ref ux) = report.ux {
         // Accessibility flows into UX: critical a11y issues penalize UX score
         // Rationale: for users with disabilities, Accessibility IS the UX.
@@ -137,6 +139,7 @@ pub(super) fn build_module_scores(
             false,
         ));
     }
+    #[cfg(feature = "experimental")]
     if let Some(ref journey) = report.journey {
         // Journey also gets a11y penalty — inaccessible journeys are broken journeys.
         // Threshold uses occurrence-level severity, not finding count.
@@ -171,6 +174,7 @@ pub(super) fn build_module_scores(
     // rest (#447). They appear here consistently as non-contributing
     // indicators — with a band word rather than a letter grade, because a
     // grade on a module of weight 0 claimed an authority it does not have.
+    #[cfg(feature = "experimental")]
     if let Some(ref ai) = report.discoverability.ai_visibility {
         module_scores.push(ModuleScoreEntry::new(
             "AI Visibility",
@@ -179,6 +183,7 @@ pub(super) fn build_module_scores(
             false,
         ));
     }
+    #[cfg(feature = "experimental")]
     if let Some(ref sq) = report.discoverability.source_quality {
         module_scores.push(ModuleScoreEntry::new(
             "Source Quality",
@@ -197,6 +202,7 @@ pub(super) fn build_module_scores(
     module_scores
 }
 
+#[cfg(feature = "experimental")]
 /// Points the Accessibility result costs the UX indicator.
 ///
 /// Split out of `build_module_scores` so the applied penalty can be reported
@@ -217,6 +223,7 @@ pub(crate) fn ux_a11y_penalty(occurrence_counts: &SeverityCounts) -> u32 {
     }
 }
 
+#[cfg(feature = "experimental")]
 /// Points the Accessibility result costs the Journey indicator. See
 /// [`ux_a11y_penalty`].
 pub(crate) fn journey_a11y_penalty(occurrence_counts: &SeverityCounts) -> u32 {
@@ -236,6 +243,7 @@ pub(crate) fn journey_a11y_penalty(occurrence_counts: &SeverityCounts) -> u32 {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "experimental")]
     fn counts(critical: usize, high: usize) -> SeverityCounts {
         SeverityCounts {
             critical,
@@ -248,6 +256,7 @@ mod tests {
 
     /// Exact steps of the UX penalty; every threshold and value is pinned by a mutation in
     /// tests/fixtures/mutation_contracts/module_scores.toml.
+    #[cfg(feature = "experimental")]
     #[test]
     fn ux_penalty_steps_are_exact() {
         let table = [
@@ -269,6 +278,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "experimental")]
     #[test]
     fn journey_penalty_steps_are_exact_and_ignore_high_findings() {
         let table = [

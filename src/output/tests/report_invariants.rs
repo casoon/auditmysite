@@ -52,6 +52,7 @@ fn make_security_from_headers(
 /// #916: the experimental indicators sit in one `experimental` block with
 /// their signal contract, and in no score, summary or module block.
 #[test]
+#[cfg(feature = "experimental")]
 fn experimental_indicators_are_one_block_and_in_no_score() {
     use crate::accessibility::AXTree;
     use crate::page_flow::analyze_journey;
@@ -98,6 +99,7 @@ fn no_experimental_block_without_experimental_indicators() {
 /// weighted modules may carry one — "Dark Mode: F" sat next to an F for
 /// excluding screen-reader users and read as the same kind of verdict.
 #[test]
+#[cfg(feature = "experimental")]
 fn only_weighted_modules_carry_a_letter_grade() {
     use crate::accessibility::AXTree;
     use crate::page_flow::analyze_journey;
@@ -174,6 +176,7 @@ fn seo_signal_categories_publish_their_denominator() {
 /// Without it, a reader takes SEO, AI Visibility and Source Quality agreeing
 /// for three independent assessments.
 #[test]
+#[cfg(feature = "experimental")]
 fn derived_indicators_name_the_modules_they_re_read() {
     use crate::accessibility::AXTree;
     use crate::page_flow::analyze_journey;
@@ -209,6 +212,7 @@ fn derived_indicators_name_the_modules_they_re_read() {
 /// module. Folding it into Source Quality's authority dimension and into the
 /// AI citability score let one finding move four displayed numbers.
 #[test]
+#[cfg(feature = "experimental")]
 fn accessibility_does_not_feed_source_quality_or_ai_visibility() {
     use crate::ai_visibility::analyze_ai_visibility;
     use crate::source_quality::analyze_source_quality;
@@ -235,6 +239,7 @@ fn accessibility_does_not_feed_source_quality_or_ai_visibility() {
 /// or more raised the AI citability score, so the same page scored differently
 /// depending on how the security module weighed its issues.
 #[test]
+#[cfg(feature = "experimental")]
 fn security_verdict_does_not_feed_source_quality_or_ai_visibility() {
     use crate::ai_visibility::analyze_ai_visibility;
     use crate::source_quality::analyze_source_quality;
@@ -265,6 +270,7 @@ fn security_verdict_does_not_feed_source_quality_or_ai_visibility() {
 /// accessibility result, so one landmark finding moved the AI score too. It
 /// now reads the main content region the SEO extraction found.
 #[test]
+#[cfg(feature = "experimental")]
 fn landmark_violations_do_not_move_ai_chunking() {
     use crate::ai_visibility::analyze_ai_visibility;
     use crate::seo::{HeadingInfo, HeadingStructure, SeoAnalysis, TechnicalSeo};

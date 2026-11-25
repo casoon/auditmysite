@@ -438,8 +438,11 @@ pub static COLLECTORS: &[&CollectorSpec] = &[
     &crate::patterns::easy_language::EASY_LANGUAGE,
     &crate::display::DISPLAY_MODES,
     &crate::html_conform::DOCUMENT,
+    #[cfg(feature = "experimental")]
     &crate::content_visibility::ssr_gap::SSR_GAP,
+    #[cfg(feature = "experimental")]
     &crate::page_flow::module::DOM_MAIN,
+    #[cfg(feature = "experimental")]
     &crate::page_flow::module::EARLY_TEXT,
     &crate::tech_stack::DETECTION,
     &crate::best_practices::console_errors::CONSOLE,
@@ -666,11 +669,14 @@ mod tests {
             ),
             ("accessibility.display_modes", crate::display::counter_cases),
             ("html_conform.document", crate::html_conform::counter_cases),
+            #[cfg(feature = "experimental")]
             (
                 "content_visibility.ssr_gap",
                 crate::content_visibility::ssr_gap::counter_cases,
             ),
+            #[cfg(feature = "experimental")]
             ("journey.dom_main", crate::page_flow::module::counter_cases),
+            #[cfg(feature = "experimental")]
             (
                 "journey.early_text",
                 crate::page_flow::module::counter_cases,

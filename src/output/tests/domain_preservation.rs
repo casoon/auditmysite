@@ -33,7 +33,8 @@ const fn exp(domain: FindingDomain, rule_id: &'static str, count: usize) -> Expe
 /// Every injection of `report_with_every_domain`.
 fn expected() -> Vec<Expected> {
     use FindingDomain as D;
-    vec![
+    #[allow(unused_mut)]
+    let mut expected = vec![
         exp(D::Seo, "seo.headings.multiple_h1", 2),
         exp(D::Seo, "seo.meta.description", 1),
         exp(D::Seo, "seo.technical.no_canonical", 1),
@@ -49,9 +50,6 @@ fn expected() -> Vec<Expected> {
             1,
         ),
         exp(D::BestPractices, "best_practices.console.error", 1),
-        exp(D::Ux, "ux.competing_ctas", 1),
-        exp(D::Journey, "journey.no_h1", 1),
-        exp(D::Commerce, "commerce.missing_price", 1),
         exp(D::Privacy, "privacy.tracking_request_before_consent", 1),
         exp(
             D::AccessibilityJourney,
@@ -59,7 +57,15 @@ fn expected() -> Vec<Expected> {
             1,
         ),
         exp(D::ScreenReader, "screen_reader.wcag_1_3_1", 1),
-    ]
+    ];
+    // The experimental indicators (#1117) exist only with the feature.
+    #[cfg(feature = "experimental")]
+    expected.extend([
+        exp(D::Ux, "ux.competing_ctas", 1),
+        exp(D::Journey, "journey.no_h1", 1),
+        exp(D::Commerce, "commerce.missing_price", 1),
+    ]);
+    expected
 }
 
 /// Every `FindingDomain` and whether this test injects a problem for it.
@@ -79,10 +85,9 @@ fn injected(domain: FindingDomain) -> bool {
         | D::Performance
         | D::HtmlConformance
         | D::BestPractices
-        | D::Ux
-        | D::Journey
-        | D::Commerce
         | D::Privacy => true,
+        // The experimental indicators (#1117) exist only with the feature.
+        D::Ux | D::Journey | D::Commerce => cfg!(feature = "experimental"),
     }
 }
 
@@ -256,45 +261,48 @@ fn report_with_every_domain() -> AuditReport {
         score: 80,
     });
 
-    // ── UX ────────────────────────────────────────────────────────────────
-    let mut ux = crate::ux::analyze_ux(&crate::AXTree::new());
-    ux.issues = vec![crate::ux::UxIssue {
-        kind: crate::ux::UxIssueKind::CompetingCtas,
-        dimension: "CTA Clarity".to_string(),
-        severity: "medium".to_string(),
-        problem: "Several primary calls to action compete.".to_string(),
-        impact: "Users hesitate.".to_string(),
-        recommendation: "Keep one primary CTA.".to_string(),
-        values: Default::default(),
-    }];
-    report = report.with_ux(ux);
+    #[cfg(feature = "experimental")]
+    {
+        // ── UX ────────────────────────────────────────────────────────────────
+        let mut ux = crate::ux::analyze_ux(&crate::AXTree::new());
+        ux.issues = vec![crate::ux::UxIssue {
+            kind: crate::ux::UxIssueKind::CompetingCtas,
+            dimension: "CTA Clarity".to_string(),
+            severity: "medium".to_string(),
+            problem: "Several primary calls to action compete.".to_string(),
+            impact: "Users hesitate.".to_string(),
+            recommendation: "Keep one primary CTA.".to_string(),
+            values: Default::default(),
+        }];
+        report = report.with_ux(ux);
 
-    // ── Journey ───────────────────────────────────────────────────────────
-    let mut journey = crate::page_flow::analyze_journey(&crate::AXTree::new());
-    journey.friction_points = vec![crate::page_flow::FrictionPoint {
-        kind: crate::page_flow::FrictionKind::NoH1,
-        step: "entry".to_string(),
-        severity: "high".to_string(),
-        problem: "The page has no H1.".to_string(),
-        impact: "Orientation suffers.".to_string(),
-        recommendation: "Add an H1.".to_string(),
-        values: Default::default(),
-    }];
-    report = report.with_journey(journey);
+        // ── Journey ───────────────────────────────────────────────────────────
+        let mut journey = crate::page_flow::analyze_journey(&crate::AXTree::new());
+        journey.friction_points = vec![crate::page_flow::FrictionPoint {
+            kind: crate::page_flow::FrictionKind::NoH1,
+            step: "entry".to_string(),
+            severity: "high".to_string(),
+            problem: "The page has no H1.".to_string(),
+            impact: "Orientation suffers.".to_string(),
+            recommendation: "Add an H1.".to_string(),
+            values: Default::default(),
+        }];
+        report = report.with_journey(journey);
 
-    // ── Commerce ──────────────────────────────────────────────────────────
-    report.commerce = Some(crate::commerce::CommerceAnalysis {
-        page_kind: crate::commerce::CommercePageKind::ProductDetail,
-        product: None,
-        trust_pages: Default::default(),
-        identification_function_detected: false,
-        identification_function_bfsg_reference: None,
-        findings: vec![crate::commerce::CommerceFinding {
-            kind: crate::commerce::CommerceFindingKind::MissingPrice,
-            severity: Severity::High,
-            message: "The product has no price.".to_string(),
-        }],
-    });
+        // ── Commerce ──────────────────────────────────────────────────────────
+        report.commerce = Some(crate::commerce::CommerceAnalysis {
+            page_kind: crate::commerce::CommercePageKind::ProductDetail,
+            product: None,
+            trust_pages: Default::default(),
+            identification_function_detected: false,
+            identification_function_bfsg_reference: None,
+            findings: vec![crate::commerce::CommerceFinding {
+                kind: crate::commerce::CommerceFindingKind::MissingPrice,
+                severity: Severity::High,
+                message: "The product has no price.".to_string(),
+            }],
+        });
+    }
 
     // ── Privacy ───────────────────────────────────────────────────────────
     report.experience.privacy = Some(crate::privacy::fixtures::tracked());
@@ -592,6 +600,7 @@ fn changed_occurrence_count_breaks_the_inventory() {
 /// to a report full of problems must not add, change or remove a finding, and
 /// no finding may name one of them as its source.
 #[test]
+#[cfg(feature = "experimental")]
 fn indicator_modules_create_no_findings_of_their_own() {
     use crate::audit::finding_contract::{DomainPolicy, DOMAIN_POLICIES};
 

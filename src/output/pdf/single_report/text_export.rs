@@ -550,7 +550,9 @@ fn viewport(results: WcagResults) -> ViewportAuditData {
         performance: None,
         seo: None,
         mobile: None,
+        #[cfg(feature = "experimental")]
         ux: None,
+        #[cfg(feature = "experimental")]
         journey: None,
         screenshot: None,
         module_runs: vec![],

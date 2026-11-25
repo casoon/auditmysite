@@ -689,6 +689,7 @@ pub(super) fn with_measurement_type(
 
 /// Attaches the module's heuristic signal contract (#784): what its score
 /// may and may not be read as, and that it is not externally validated.
+#[cfg(feature = "experimental")]
 pub(super) fn with_signal_contract(
     mut value: serde_json::Value,
     module_id: &str,

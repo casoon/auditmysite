@@ -155,6 +155,7 @@ pub(super) fn build_modules_block_from_normalized(
             warn_threshold: 50,
         });
     }
+    #[cfg(feature = "experimental")]
     if let Some(u) = normalized.raw_ux {
         let ux_score = normalized_module_score(&normalized.normalized, "UX").unwrap_or(u.score);
         let en = locale == "en";
@@ -193,6 +194,7 @@ pub(super) fn build_modules_block_from_normalized(
             warn_threshold: 55,
         });
     }
+    #[cfg(feature = "experimental")]
     if let Some(j) = normalized.raw_journey {
         let journey_score =
             normalized_module_score(&normalized.normalized, "Journey").unwrap_or(j.score);

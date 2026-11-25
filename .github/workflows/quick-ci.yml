@@ -89,6 +89,12 @@ jobs:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc --locked --all-features --no-deps
 
+      # The indicators behind `experimental` (#1117) are not compiled by the
+      # steps below; the full QA also tests them.
+      - name: Check (feature experimental)
+        if: steps.scope.outputs.rust == 'true'
+        run: cargo check --locked --all-targets --features experimental
+
       - name: Clippy (without optional features)
         if: steps.scope.outputs.rust == 'true'
         run: cargo clippy --locked --all-targets --no-default-features -- -D warnings

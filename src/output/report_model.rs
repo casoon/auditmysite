@@ -535,14 +535,20 @@ pub struct ModuleDetailsBlock {
     pub seo: Option<SeoPresentation>,
     pub security: Option<SecurityPresentation>,
     pub html_conform: Option<HtmlConformPresentation>,
+    #[cfg(feature = "experimental")]
     pub commerce: Option<CommercePresentation>,
     pub mobile: Option<MobilePresentation>,
+    #[cfg(feature = "experimental")]
     pub ux: Option<UxPresentation>,
+    #[cfg(feature = "experimental")]
     pub journey: Option<JourneyPresentation>,
     pub privacy: Option<crate::privacy::PrivacyAnalysis>,
+    #[cfg(feature = "experimental")]
     pub source_quality: Option<crate::source_quality::SourceQualityAnalysis>,
+    #[cfg(feature = "experimental")]
     pub ai_visibility: Option<crate::ai_visibility::AiVisibilityAnalysis>,
     pub tech_stack: Option<crate::tech_stack::TechStackAnalysis>,
+    #[cfg(feature = "experimental")]
     pub content_visibility: Option<crate::content_visibility::ContentVisibilityAnalysis>,
     pub best_practices: Option<crate::best_practices::BestPracticesAnalysis>,
     pub patterns: Option<crate::patterns::PatternAnalysis>,
@@ -1053,6 +1059,7 @@ pub struct SecurityPresentation {
 /// audit (this tool has no cross-page session state; see
 /// `crate::commerce::CommercePageKind`'s doc comment). The PDF renderer
 /// states this scope explicitly so it can't be misread as broader coverage.
+#[cfg(feature = "experimental")]
 pub struct CommercePresentation {
     pub page_kind_label: String,
     pub product: Option<CommerceProductRow>,
@@ -1063,6 +1070,7 @@ pub struct CommercePresentation {
     pub findings: Vec<(String, String)>,
 }
 
+#[cfg(feature = "experimental")]
 pub struct CommerceProductRow {
     /// Share of the 5 expected product signals exposed (0-100).
     pub score: u32,
@@ -1112,6 +1120,7 @@ pub struct MobilePresentation {
 }
 
 /// UX analysis presentation block
+#[cfg(feature = "experimental")]
 pub struct UxPresentation {
     pub score: u32,
     /// Points the Accessibility result cost this score, and the score before
@@ -1124,6 +1133,7 @@ pub struct UxPresentation {
     pub issues: Vec<UxIssuePresentation>,
 }
 
+#[cfg(feature = "experimental")]
 pub struct UxDimensionPresentation {
     pub kind: crate::ux::UxDimensionKind,
     pub name: String,
@@ -1131,6 +1141,7 @@ pub struct UxDimensionPresentation {
     pub summary: String,
 }
 
+#[cfg(feature = "experimental")]
 pub struct UxIssuePresentation {
     pub kind: crate::ux::UxIssueKind,
     pub dimension: String,
@@ -1141,6 +1152,7 @@ pub struct UxIssuePresentation {
     pub values: crate::ux::UxIssueValues,
 }
 
+#[cfg(feature = "experimental")]
 pub struct JourneyPresentation {
     pub score: u32,
     /// See [`UxPresentation::a11y_penalty`].
@@ -1153,6 +1165,7 @@ pub struct JourneyPresentation {
     pub friction_points: Vec<FrictionPointPresentation>,
 }
 
+#[cfg(feature = "experimental")]
 pub struct JourneyDimensionPresentation {
     pub kind: crate::page_flow::JourneyDimensionKind,
     pub name: String,
@@ -1161,6 +1174,7 @@ pub struct JourneyDimensionPresentation {
     pub summary: String,
 }
 
+#[cfg(feature = "experimental")]
 pub struct FrictionPointPresentation {
     pub kind: crate::page_flow::FrictionKind,
     pub step: String,

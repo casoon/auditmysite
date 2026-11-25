@@ -351,9 +351,11 @@ pub(super) fn aggregate_report(
     if let Some(mobile) = snapshot.mobile.clone() {
         report = report.with_mobile(mobile);
     }
+    #[cfg(feature = "experimental")]
     if let Some(ux) = snapshot.ux.clone() {
         report = report.with_ux(ux);
     }
+    #[cfg(feature = "experimental")]
     if let Some(journey) = snapshot.journey.clone() {
         report = report.with_journey(journey);
     }
@@ -382,13 +384,16 @@ pub(super) fn aggregate_report(
 
     // From here on the experimental results are no part of the audit result
     // (#916): the PDF, the findings and the scores never read them.
-    report.experimental =
-        crate::audit::experimental::ExperimentalIndicators::take_from(&mut report);
-    // The advisory page heuristics of the `ux` indicator (#1035) read the
-    // same accessibility tree and appear wherever the indicator does.
-    if report.experimental.ux.is_some() {
-        report.experimental.ux_heuristics =
-            Some(crate::ux::analyze_ux_heuristics(&snapshot.ax_tree));
+    #[cfg(feature = "experimental")]
+    {
+        report.experimental =
+            crate::audit::experimental::ExperimentalIndicators::take_from(&mut report);
+        // The advisory page heuristics of the `ux` indicator (#1035) read the
+        // same accessibility tree and appear wherever the indicator does.
+        if report.experimental.ux.is_some() {
+            report.experimental.ux_heuristics =
+                Some(crate::ux::analyze_ux_heuristics(&snapshot.ax_tree));
+        }
     }
 
     report
@@ -1489,6 +1494,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "experimental")]
     fn a_requested_subcheck_without_a_record_is_a_gap_once_the_extra_checks_ran() {
         use crate::audit::collection::Collected;
         let mut report = report_with_expected_outcomes();
@@ -1517,6 +1523,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "experimental")]
     fn a_batch_keeps_a_page_whose_requested_subcheck_recorded_and_rejects_one_without() {
         use crate::audit::collection::Collected;
         let spec = &crate::content_visibility::ssr_gap::SSR_GAP;

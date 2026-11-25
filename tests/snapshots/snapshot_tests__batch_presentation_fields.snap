@@ -1,6 +1,5 @@
 ---
 source: tests/snapshot_tests.rs
-assertion_line: 300
 expression: sort_json_keys(value)
 ---
 {
@@ -10,10 +9,6 @@ expression: sort_json_keys(value)
     {
       "name": "Accessibility",
       "score": 49
-    },
-    {
-      "name": "Journey",
-      "score": 48
     },
     {
       "name": "Mobile",
@@ -30,10 +25,6 @@ expression: sort_json_keys(value)
     {
       "name": "Security",
       "score": 80
-    },
-    {
-      "name": "UX",
-      "score": 44
     }
   ],
   "top_issue_count": 2,

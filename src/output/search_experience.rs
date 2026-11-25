@@ -4,9 +4,11 @@
 //! combines existing SEO, UX, AI visibility, content visibility and mobile
 //! signals so the front report does not overstate classic technical SEO.
 
+#[cfg(feature = "experimental")]
 use crate::assessment::AssessmentLevel;
 use crate::audit::normalized::AuditContext;
 use crate::i18n::I18n;
+#[cfg(feature = "experimental")]
 use crate::output::localized::is_english;
 use crate::output::report_model::{SearchExperienceComponent, SearchExperiencePresentation};
 use crate::seo::profile::PageType;
@@ -23,6 +25,7 @@ pub fn build_search_experience(
     i18n: &I18n,
 ) -> Option<SearchExperiencePresentation> {
     let seo = normalized.raw_seo?;
+    #[cfg(feature = "experimental")]
     let en = is_english(i18n);
 
     let mut components = Vec::new();
@@ -34,46 +37,11 @@ pub fn build_search_experience(
         explanation: i18n.t("pdf-analysis-search-technical-seo-explanation"),
     });
 
-    if let Some(ux) = normalized.raw_ux {
-        let has_issue_for = |kind: crate::ux::UxDimensionKind| {
-            ux.issues.iter().any(|issue| issue.kind.dimension() == kind)
-        };
-        components.push(SearchExperienceComponent {
-            label: i18n.t("pdf-analysis-search-content-clarity"),
-            score: ux.content_clarity.score,
-            weight_pct: W_CONTENT,
-            // Re-derive in the run locale; the stored summary is canonical
-            // English and would otherwise leak into the German report (#406).
-            explanation: crate::ux::ux_dimension_summary(
-                ux.content_clarity.kind,
-                ux.content_clarity.score,
-                en,
-                has_issue_for(ux.content_clarity.kind),
-            ),
-        });
-        components.push(SearchExperienceComponent {
-            label: i18n.t("pdf-analysis-search-trust"),
-            score: trust_score(normalized, ux.trust_signals.score),
-            weight_pct: W_TRUST,
-            explanation: crate::ux::ux_dimension_summary(
-                ux.trust_signals.kind,
-                ux.trust_signals.score,
-                en,
-                has_issue_for(ux.trust_signals.kind),
-            ),
-        });
-        components.push(SearchExperienceComponent {
-            label: i18n.t("pdf-analysis-search-structure"),
-            score: structure_score(normalized, ux.visual_hierarchy.score),
-            weight_pct: W_STRUCTURE,
-            explanation: crate::ux::ux_dimension_summary(
-                ux.visual_hierarchy.kind,
-                ux.visual_hierarchy.score,
-                en,
-                has_issue_for(ux.visual_hierarchy.kind),
-            ),
-        });
-    } else if let Some(profile) = seo.content_profile.as_ref() {
+    #[cfg(feature = "experimental")]
+    let ux_ran = push_ux_components(&mut components, normalized, i18n, en);
+    #[cfg(not(feature = "experimental"))]
+    let ux_ran = false;
+    if let Some(profile) = seo.content_profile.as_ref().filter(|_| !ux_ran) {
         components.push(SearchExperienceComponent {
             label: i18n.t("pdf-analysis-search-content-clarity"),
             score: profile.page_classification.content_depth_score,
@@ -88,6 +56,7 @@ pub fn build_search_experience(
         });
     }
 
+    #[cfg(feature = "experimental")]
     if let Some(ai) = normalized.raw_ai_visibility {
         let ai_score = weighted_average(&[
             (ai.readability.dimension.score, 40),
@@ -137,6 +106,60 @@ pub fn build_search_experience(
     })
 }
 
+/// The `ux` indicator's share of the composite: content clarity, trust and
+/// structure. Returns whether the indicator ran; without it the SEO content
+/// profile stands in for the estimate.
+#[cfg(feature = "experimental")]
+fn push_ux_components(
+    components: &mut Vec<SearchExperienceComponent>,
+    normalized: &AuditContext<'_>,
+    i18n: &I18n,
+    en: bool,
+) -> bool {
+    let Some(ux) = normalized.raw_ux else {
+        return false;
+    };
+    let has_issue_for = |kind: crate::ux::UxDimensionKind| {
+        ux.issues.iter().any(|issue| issue.kind.dimension() == kind)
+    };
+    components.push(SearchExperienceComponent {
+        label: i18n.t("pdf-analysis-search-content-clarity"),
+        score: ux.content_clarity.score,
+        weight_pct: W_CONTENT,
+        // Re-derive in the run locale; the stored summary is canonical
+        // English and would otherwise leak into the German report (#406).
+        explanation: crate::ux::ux_dimension_summary(
+            ux.content_clarity.kind,
+            ux.content_clarity.score,
+            en,
+            has_issue_for(ux.content_clarity.kind),
+        ),
+    });
+    components.push(SearchExperienceComponent {
+        label: i18n.t("pdf-analysis-search-trust"),
+        score: trust_score(normalized, ux.trust_signals.score),
+        weight_pct: W_TRUST,
+        explanation: crate::ux::ux_dimension_summary(
+            ux.trust_signals.kind,
+            ux.trust_signals.score,
+            en,
+            has_issue_for(ux.trust_signals.kind),
+        ),
+    });
+    components.push(SearchExperienceComponent {
+        label: i18n.t("pdf-analysis-search-structure"),
+        score: structure_score(normalized, ux.visual_hierarchy.score),
+        weight_pct: W_STRUCTURE,
+        explanation: crate::ux::ux_dimension_summary(
+            ux.visual_hierarchy.kind,
+            ux.visual_hierarchy.score,
+            en,
+            has_issue_for(ux.visual_hierarchy.kind),
+        ),
+    });
+    true
+}
+
 fn composite_score(components: &[SearchExperienceComponent]) -> u32 {
     let total_weight: u32 = components.iter().map(|c| c.weight_pct).sum();
     if total_weight == 0 {
@@ -173,6 +196,7 @@ fn apply_effective_weights(components: &mut [SearchExperienceComponent]) {
     }
 }
 
+#[cfg(feature = "experimental")]
 fn weighted_average(items: &[(u32, u32)]) -> u32 {
     let total_weight: u32 = items.iter().map(|(_, w)| *w).sum();
     if total_weight == 0 {
@@ -182,6 +206,7 @@ fn weighted_average(items: &[(u32, u32)]) -> u32 {
     ((sum as f64 / total_weight as f64).round() as u32).min(100)
 }
 
+#[cfg(feature = "experimental")]
 fn trust_score(normalized: &AuditContext<'_>, ux_score: u32) -> u32 {
     let local_business_penalty = normalized
         .raw_content_visibility
@@ -201,6 +226,7 @@ fn trust_score(normalized: &AuditContext<'_>, ux_score: u32) -> u32 {
     ux_score.saturating_sub(local_business_penalty.min(24))
 }
 
+#[cfg(feature = "experimental")]
 fn structure_score(normalized: &AuditContext<'_>, ux_score: u32) -> u32 {
     let seo_structure = normalized
         .raw_seo
@@ -220,6 +246,7 @@ fn structure_score(normalized: &AuditContext<'_>, ux_score: u32) -> u32 {
     }
 }
 
+#[cfg(feature = "experimental")]
 fn category_score(profile: &crate::seo::profile::SeoContentProfile, name: &str) -> Option<u32> {
     profile
         .signal_strength
@@ -230,6 +257,7 @@ fn category_score(profile: &crate::seo::profile::SeoContentProfile, name: &str) 
 }
 
 fn build_warnings(normalized: &AuditContext<'_>, score: u32, i18n: &I18n) -> Vec<String> {
+    #[cfg(feature = "experimental")]
     let en = is_english(i18n);
     let mut warnings = Vec::new();
     if let Some(seo) = normalized.raw_seo {
@@ -271,6 +299,7 @@ fn build_warnings(normalized: &AuditContext<'_>, score: u32, i18n: &I18n) -> Vec
         }
     }
 
+    #[cfg(feature = "experimental")]
     if let Some(ux) = normalized.raw_ux {
         if ux.content_clarity.score < 70 {
             warnings.push(format!(
@@ -302,6 +331,7 @@ fn build_warnings(normalized: &AuditContext<'_>, score: u32, i18n: &I18n) -> Vec
         }
     }
 
+    #[cfg(feature = "experimental")]
     if let Some(cv) = normalized.raw_content_visibility {
         if cv.local_business.iter().any(|s| s.level.is_problem()) {
             warnings.push(i18n.t("pdf-analysis-search-warning-local"));

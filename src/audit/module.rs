@@ -19,19 +19,24 @@ use async_trait::async_trait;
 use chromiumoxide::Page;
 
 use crate::accessibility::AXTree;
+#[cfg(feature = "experimental")]
 use crate::ai_visibility::AiVisibilityAnalysis;
 use crate::audit::pipeline::PipelineConfig;
 use crate::audit::report::{AuditReport, PerformanceResults};
 use crate::best_practices::BestPracticesAnalysis;
+#[cfg(feature = "experimental")]
 use crate::content_visibility::ContentVisibilityAnalysis;
 use crate::error::Result;
 use crate::html_conform::HtmlConformAnalysis;
 use crate::mobile::MobileFriendliness;
+#[cfg(feature = "experimental")]
 use crate::page_flow::JourneyAnalysis;
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
+#[cfg(feature = "experimental")]
 use crate::source_quality::SourceQualityAnalysis;
 use crate::tech_stack::TechStackAnalysis;
+#[cfg(feature = "experimental")]
 use crate::ux::UxAnalysis;
 
 /// Viewport pass currently driving the audit.
@@ -74,12 +79,17 @@ pub enum ModuleData {
     Seo(Box<SeoAnalysis>),
     Security(Box<SecurityAnalysis>),
     Mobile(Box<MobileFriendliness>),
+    #[cfg(feature = "experimental")]
     Ux(Box<UxAnalysis>),
+    #[cfg(feature = "experimental")]
     Journey(Box<JourneyAnalysis>),
     TechStack(Box<TechStackAnalysis>),
     BestPractices(Box<BestPracticesAnalysis>),
+    #[cfg(feature = "experimental")]
     SourceQuality(Box<SourceQualityAnalysis>),
+    #[cfg(feature = "experimental")]
     AiVisibility(Box<AiVisibilityAnalysis>),
+    #[cfg(feature = "experimental")]
     ContentVisibility(Box<ContentVisibilityAnalysis>),
     HtmlConform(Box<HtmlConformAnalysis>),
     Error(String),

@@ -12,22 +12,28 @@
 
 use serde_json::Value;
 
+#[cfg(feature = "experimental")]
 use crate::ai_visibility::AiVisibilityAnalysis;
 use crate::audit::{AuditReport, PerformanceResults};
 use crate::best_practices::BestPracticesAnalysis;
+#[cfg(feature = "experimental")]
 use crate::commerce::CommerceAnalysis;
+#[cfg(feature = "experimental")]
 use crate::content_visibility::ContentVisibilityAnalysis;
 use crate::html_conform::HtmlConformAnalysis;
 #[cfg(feature = "pdf")]
 use crate::i18n::I18n;
 use crate::mobile::MobileFriendliness;
+#[cfg(feature = "experimental")]
 use crate::page_flow::JourneyAnalysis;
 use crate::patterns::PatternAnalysis;
 use crate::privacy::PrivacyAnalysis;
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
+#[cfg(feature = "experimental")]
 use crate::source_quality::SourceQualityAnalysis;
 use crate::tech_stack::TechStackAnalysis;
+#[cfg(feature = "experimental")]
 use crate::ux::UxAnalysis;
 
 #[cfg(feature = "pdf")]
@@ -129,6 +135,7 @@ impl ReportModule for MobileFriendliness {
     }
 }
 
+#[cfg(feature = "experimental")]
 impl ReportModule for UxAnalysis {
     fn module_key(&self) -> &'static str {
         "ux"
@@ -142,6 +149,7 @@ impl ReportModule for UxAnalysis {
     }
 }
 
+#[cfg(feature = "experimental")]
 impl ReportModule for JourneyAnalysis {
     fn module_key(&self) -> &'static str {
         "journey"
@@ -168,6 +176,7 @@ impl ReportModule for PrivacyAnalysis {
     }
 }
 
+#[cfg(feature = "experimental")]
 impl ReportModule for SourceQualityAnalysis {
     fn module_key(&self) -> &'static str {
         "source_quality"
@@ -181,6 +190,7 @@ impl ReportModule for SourceQualityAnalysis {
     }
 }
 
+#[cfg(feature = "experimental")]
 impl ReportModule for AiVisibilityAnalysis {
     fn module_key(&self) -> &'static str {
         "ai_visibility"
@@ -194,6 +204,7 @@ impl ReportModule for AiVisibilityAnalysis {
     }
 }
 
+#[cfg(feature = "experimental")]
 impl ReportModule for ContentVisibilityAnalysis {
     fn module_key(&self) -> &'static str {
         "content_visibility"
@@ -220,6 +231,7 @@ impl ReportModule for BestPracticesAnalysis {
     }
 }
 
+#[cfg(feature = "experimental")]
 impl ReportModule for CommerceAnalysis {
     fn module_key(&self) -> &'static str {
         "commerce"

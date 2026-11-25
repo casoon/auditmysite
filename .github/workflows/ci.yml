@@ -85,8 +85,10 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
 
-      - name: Run tests (production features, PDF smoke excluded)
-        run: cargo test --features pdf -- --nocapture --test-threads=1
+      # `experimental` (#1117) is the second feature set: the `check` job above
+      # and Quick CI test the build without it, this one with it.
+      - name: Run tests (production features and experimental, PDF smoke excluded)
+        run: cargo test --features pdf,experimental -- --nocapture --test-threads=1
 
   pdf-smoke:
     name: PDF Smoke Tests
@@ -288,7 +290,7 @@ jobs:
         env:
           AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
           CI: "true"
-        run: cargo test --test integration_test -- --ignored --nocapture --test-threads=1
+        run: cargo test --features experimental --test integration_test -- --ignored --nocapture --test-threads=1
 
       - name: Run replay-path tests (fresh vs cache vs replay)
         env:
@@ -369,7 +371,7 @@ jobs:
         env:
           AUDITMYSITE_BROWSER: ${{ steps.setup-chrome.outputs.chrome-path }}
           CI: "true"
-        run: cargo test --test missing_h1_browser --test transport_redirect_browser -- --ignored --nocapture --test-threads=1
+        run: cargo test --features experimental --test missing_h1_browser --test transport_redirect_browser -- --ignored --nocapture --test-threads=1
 
       - name: Detection corpus (schema rules)
         if: ${{ !cancelled() && steps.setup-chrome.outcome == 'success' }}

@@ -267,10 +267,12 @@ pub struct ContentSignal {
     /// Stable kind for content-visibility signals, enabling localized
     /// re-derivation of `title`/`detail` from `cv_values` in the PDF layer.
     /// `None` for signals produced outside content-visibility analysis.
+    #[cfg(feature = "experimental")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cv_kind: Option<crate::content_visibility::ContentVisibilitySignalKind>,
     /// Interpolated values needed to reproduce `title`/`detail` in another
     /// language. Only meaningful when `cv_kind` is set.
+    #[cfg(feature = "experimental")]
     #[serde(
         default,
         skip_serializing_if = "crate::content_visibility::ContentSignalValues::is_empty"
@@ -293,13 +295,16 @@ impl ContentSignal {
             title: title.into(),
             detail: detail.into(),
             evidence: vec![],
+            #[cfg(feature = "experimental")]
             cv_kind: None,
+            #[cfg(feature = "experimental")]
             cv_values: crate::content_visibility::ContentSignalValues::default(),
         }
     }
 
     /// Attach a content-visibility kind and its interpolated values so the PDF
     /// layer can re-derive localized `title`/`detail`.
+    #[cfg(feature = "experimental")]
     pub fn with_cv(
         mut self,
         kind: crate::content_visibility::ContentVisibilitySignalKind,

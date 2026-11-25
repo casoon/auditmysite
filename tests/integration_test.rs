@@ -793,6 +793,7 @@ async fn test_mobile_issues_detected() {
 /// either way, so neither page could be told from the other.
 #[tokio::test]
 #[ignore = "needs Chrome"]
+#[cfg(feature = "experimental")]
 async fn test_early_text_is_measured_above_the_fold_not_in_tree_order() {
     async fn flagged(fixture: &'static str) -> bool {
         use auditmysite::page_flow::FrictionKind;
@@ -1111,6 +1112,7 @@ async fn test_opacity_overlay_contrast_pixel_sampling() {
 /// #343 — catalog-driven audit produces a complete report structure.
 #[tokio::test]
 #[ignore = "needs Chrome"]
+#[cfg(feature = "experimental")]
 async fn test_catalog_driven_audit_complete_structure() {
     let (url, shutdown) = serve_fixture("perfect.html");
 

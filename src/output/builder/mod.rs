@@ -202,6 +202,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "experimental")]
     fn test_batch_presentation_uses_normalized_module_scores() {
         let report = make_topic_report_with_modules(
             "https://example.com/arbeitsweise/",
@@ -428,6 +429,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "experimental")]
     fn test_module_scores_in_viewmodel_match_normalized() {
         // Module scores in NormalizedReport must all appear in vm.summary.metrics.
         // Performance, SEO, Security, Search Experience, UX each produce a dashboard card.
@@ -488,6 +490,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "experimental")]
     fn test_search_experience_dashboard_corrects_optimistic_seo_score() {
         let report = make_topic_report_with_modules(
             "https://example.com/",

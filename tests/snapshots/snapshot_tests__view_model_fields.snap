@@ -15,16 +15,14 @@ expression: sort_json_keys(value)
     "buttons/name-missing",
     "headings/skip-level"
   ],
-  "module_count": 8,
+  "module_count": 6,
   "module_names": [
     "Barrierefreiheit",
-    "Journey",
     "Mobile",
     "Performance",
     "SEO",
     "Sicherheit",
-    "Sichtbarkeit & Nutzerverständnis",
-    "UX"
+    "Sichtbarkeit & Nutzerverständnis"
   ],
   "severity": {
     "critical": 5,

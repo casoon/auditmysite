@@ -937,8 +937,6 @@ mod tests {
             content_sizing: ContentSizing::default(),
             issues: vec![],
         })
-        .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
-        .with_journey(crate::page_flow::analyze_journey(&crate::AXTree::new()))
         .with_best_practices(crate::best_practices::BestPracticesAnalysis {
             console_errors: crate::best_practices::ConsoleErrorsAnalysis {
                 errors: vec![],
@@ -963,58 +961,64 @@ mod tests {
             journey_candidates: vec![],
             help_mechanisms: vec![],
         });
-        let sq = crate::source_quality::analyze_source_quality(&report);
-        let av = crate::ai_visibility::analyze_ai_visibility(&report);
         report.experience.privacy = Some(crate::privacy::fixtures::tracked());
-        report.discoverability.source_quality = Some(sq);
-        report.discoverability.ai_visibility = Some(av);
-        report.discoverability.content_visibility = Some(
-            crate::content_visibility::analyze_content_visibility(&report),
-        );
-        report.commerce = Some(crate::commerce::CommerceAnalysis {
-            page_kind: crate::commerce::CommercePageKind::ProductDetail,
-            product: Some(crate::commerce::ProductCommerce {
-                price: Some(crate::commerce::PriceInfo {
-                    value: "19.99".to_string(),
-                    currency: Some("EUR".to_string()),
-                    valid_until: None,
+        #[cfg(feature = "experimental")]
+        {
+            report = report
+                .with_ux(crate::ux::analyze_ux(&crate::AXTree::new()))
+                .with_journey(crate::page_flow::analyze_journey(&crate::AXTree::new()));
+            let sq = crate::source_quality::analyze_source_quality(&report);
+            let av = crate::ai_visibility::analyze_ai_visibility(&report);
+            report.discoverability.source_quality = Some(sq);
+            report.discoverability.ai_visibility = Some(av);
+            report.discoverability.content_visibility = Some(
+                crate::content_visibility::analyze_content_visibility(&report),
+            );
+            report.commerce = Some(crate::commerce::CommerceAnalysis {
+                page_kind: crate::commerce::CommercePageKind::ProductDetail,
+                product: Some(crate::commerce::ProductCommerce {
+                    price: Some(crate::commerce::PriceInfo {
+                        value: "19.99".to_string(),
+                        currency: Some("EUR".to_string()),
+                        valid_until: None,
+                    }),
+                    availability: Some("InStock".to_string()),
+                    delivery_time: None,
+                    shipping: crate::commerce::ShippingInfo::default(),
+                    returns: crate::commerce::ReturnsInfo::default(),
+                    reviews: crate::commerce::ReviewInfo::default(),
+                    score: 40,
                 }),
-                availability: Some("InStock".to_string()),
-                delivery_time: None,
-                shipping: crate::commerce::ShippingInfo::default(),
-                returns: crate::commerce::ReturnsInfo::default(),
-                reviews: crate::commerce::ReviewInfo::default(),
-                score: 40,
-            }),
-            trust_pages: crate::commerce::TrustPages {
-                impressum: true,
-                agb: true,
-                widerruf: false,
-                versand: true,
-                zahlungsarten: true,
-                kontakt: true,
-            },
-            identification_function_detected: false,
-            identification_function_bfsg_reference: None,
-            findings: vec![
-                crate::commerce::CommerceFinding {
-                    kind: crate::commerce::CommerceFindingKind::MissingShippingDetails,
-                    severity: Severity::Medium,
-                    message: crate::commerce::commerce_finding_text(
-                        crate::commerce::CommerceFindingKind::MissingShippingDetails,
-                        true,
-                    ),
+                trust_pages: crate::commerce::TrustPages {
+                    impressum: true,
+                    agb: true,
+                    widerruf: false,
+                    versand: true,
+                    zahlungsarten: true,
+                    kontakt: true,
                 },
-                crate::commerce::CommerceFinding {
-                    kind: crate::commerce::CommerceFindingKind::MissingWiderrufLink,
-                    severity: Severity::High,
-                    message: crate::commerce::commerce_finding_text(
-                        crate::commerce::CommerceFindingKind::MissingWiderrufLink,
-                        true,
-                    ),
-                },
-            ],
-        });
+                identification_function_detected: false,
+                identification_function_bfsg_reference: None,
+                findings: vec![
+                    crate::commerce::CommerceFinding {
+                        kind: crate::commerce::CommerceFindingKind::MissingShippingDetails,
+                        severity: Severity::Medium,
+                        message: crate::commerce::commerce_finding_text(
+                            crate::commerce::CommerceFindingKind::MissingShippingDetails,
+                            true,
+                        ),
+                    },
+                    crate::commerce::CommerceFinding {
+                        kind: crate::commerce::CommerceFindingKind::MissingWiderrufLink,
+                        severity: Severity::High,
+                        message: crate::commerce::commerce_finding_text(
+                            crate::commerce::CommerceFindingKind::MissingWiderrufLink,
+                            true,
+                        ),
+                    },
+                ],
+            });
+        }
         report
     }
 
@@ -1093,8 +1097,11 @@ mod tests {
             "en",
             None,
         ));
-        report.discoverability.source_quality =
-            Some(crate::source_quality::analyze_source_quality(&report));
+        #[cfg(feature = "experimental")]
+        {
+            report.discoverability.source_quality =
+                Some(crate::source_quality::analyze_source_quality(&report));
+        }
         report
     }
 
@@ -1105,20 +1112,25 @@ mod tests {
     /// without properties, the case that broke 13 of 17 golden cache entries.
     #[test]
     fn cached_audit_report_round_trips_through_json() {
-        let mut report = report_with_all_report_areas();
-        report
-            .discoverability
-            .ai_visibility
-            .as_mut()
-            .expect("fixture has ai_visibility")
-            .knowledge_graph
-            .entities
-            .push(crate::ai_visibility::GraphEntity {
-                name: "Example".to_string(),
-                entity_type: "Organization".to_string(),
-                source: crate::ai_visibility::EntitySource::Heading,
-                properties: Vec::new(),
-            });
+        let report = report_with_all_report_areas();
+        #[cfg(feature = "experimental")]
+        let report = {
+            let mut report = report;
+            report
+                .discoverability
+                .ai_visibility
+                .as_mut()
+                .expect("fixture has ai_visibility")
+                .knowledge_graph
+                .entities
+                .push(crate::ai_visibility::GraphEntity {
+                    name: "Example".to_string(),
+                    entity_type: "Organization".to_string(),
+                    source: crate::ai_visibility::EntitySource::Heading,
+                    properties: Vec::new(),
+                });
+            report
+        };
 
         let json = serde_json::to_value(&report).unwrap();
         let reparsed: AuditReport =
@@ -1161,6 +1173,7 @@ mod tests {
                 "ModuleDetailsBlock.html_conform must be Some"
             );
         }
+        #[cfg(feature = "experimental")]
         if active_keys.contains("commerce") {
             assert!(
                 details.commerce.is_some(),
@@ -1173,27 +1186,32 @@ mod tests {
                 "ModuleDetailsBlock.mobile must be Some"
             );
         }
+        #[cfg(feature = "experimental")]
         if active_keys.contains("ux") {
             assert!(details.ux.is_some(), "ModuleDetailsBlock.ux must be Some");
         }
+        #[cfg(feature = "experimental")]
         if active_keys.contains("journey") {
             assert!(
                 details.journey.is_some(),
                 "ModuleDetailsBlock.journey must be Some"
             );
         }
+        #[cfg(feature = "experimental")]
         if active_keys.contains("source_quality") {
             assert!(
                 details.source_quality.is_some(),
                 "ModuleDetailsBlock.source_quality must be Some"
             );
         }
+        #[cfg(feature = "experimental")]
         if active_keys.contains("ai_visibility") {
             assert!(
                 details.ai_visibility.is_some(),
                 "ModuleDetailsBlock.ai_visibility must be Some"
             );
         }
+        #[cfg(feature = "experimental")]
         if active_keys.contains("content_visibility") {
             assert!(
                 details.content_visibility.is_some(),
@@ -1238,6 +1256,7 @@ mod tests {
     /// `page_kind: Other` and every mandatory/trust page already linked has
     /// nothing beyond "all six links exist" to add.
     #[test]
+    #[cfg(feature = "experimental")]
     fn test_commerce_details_absent_when_nothing_meaningful_to_show() {
         let mut report = AuditReport::new(
             "https://example.com".to_string(),
@@ -1315,6 +1334,7 @@ mod tests {
     /// them is reachable. The report below carries the results of all six.
     #[test]
     #[cfg(feature = "pdf")]
+    #[cfg(feature = "experimental")]
     fn test_experimental_indicators_never_reach_the_pdf_module_sections() {
         use crate::output::module::active_report_modules;
 

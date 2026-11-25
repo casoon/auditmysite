@@ -99,6 +99,7 @@ fn view_model(lang: &str) -> (ReportViewModel, FindingGroup) {
 
 // ─── Search experience ──────────────────────────────────────────────────────
 
+#[cfg(feature = "experimental")]
 fn ux_dimension(
     kind: crate::ux::UxDimensionKind,
     name: &str,
@@ -113,6 +114,7 @@ fn ux_dimension(
     }
 }
 
+#[cfg(feature = "experimental")]
 fn ux_issue(kind: crate::ux::UxIssueKind) -> crate::ux::UxIssue {
     crate::ux::UxIssue {
         kind,
@@ -127,6 +129,7 @@ fn ux_issue(kind: crate::ux::UxIssueKind) -> crate::ux::UxIssue {
 
 /// (content clarity, trust signals, visual hierarchy) scores and whether the
 /// dimensions carry an issue.
+#[cfg(feature = "experimental")]
 fn ux(name: &str) -> Option<crate::ux::UxAnalysis> {
     use crate::ux::{UxDimensionKind as K, UxIssueKind as I};
     let (content, trust, hierarchy, issues) = match name {
@@ -156,6 +159,7 @@ fn ux(name: &str) -> Option<crate::ux::UxAnalysis> {
     })
 }
 
+#[cfg(feature = "experimental")]
 fn content_profile(name: &str) -> Option<crate::seo::profile::SeoContentProfile> {
     let (page_type, categories) = match name {
         "none" => return None,
@@ -194,6 +198,7 @@ fn content_profile(name: &str) -> Option<crate::seo::profile::SeoContentProfile>
     )
 }
 
+#[cfg(feature = "experimental")]
 fn seo(score: u32, profile: &str, image_led: bool) -> crate::seo::SeoAnalysis {
     let mut seo = crate::seo::SeoAnalysis {
         score,
@@ -215,6 +220,7 @@ fn seo(score: u32, profile: &str, image_led: bool) -> crate::seo::SeoAnalysis {
     seo
 }
 
+#[cfg(feature = "experimental")]
 fn mobile(score: u32) -> crate::mobile::MobileFriendliness {
     crate::mobile::MobileFriendliness {
         score,
@@ -226,6 +232,7 @@ fn mobile(score: u32) -> crate::mobile::MobileFriendliness {
     }
 }
 
+#[cfg(feature = "experimental")]
 fn content_visibility(problem: bool) -> crate::content_visibility::ContentVisibilityAnalysis {
     use crate::assessment::{AssessmentLevel, ContentArea, ContentSignal, EvidenceConfidence as C};
     let signal =
@@ -244,6 +251,7 @@ fn content_visibility(problem: bool) -> crate::content_visibility::ContentVisibi
     }
 }
 
+#[cfg(feature = "experimental")]
 fn presentation(p: Option<SearchExperiencePresentation>) -> Value {
     match p {
         None => Value::Null,
@@ -262,6 +270,7 @@ fn presentation(p: Option<SearchExperiencePresentation>) -> Value {
     }
 }
 
+#[cfg(feature = "experimental")]
 fn export_search_experience(records: &mut Vec<Value>) {
     let (_, report) = reports().remove(1);
     let context = crate::audit::validation::normalize_checked(&report)
@@ -670,6 +679,7 @@ fn export_wcag_coverage(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
 /// Every record of the export, in both languages.
 pub(super) fn records() -> Vec<Value> {
     let mut records: Vec<Value> = Vec::new();
+    #[cfg(feature = "experimental")]
     export_search_experience(&mut records);
     for lang in LANGS {
         let i18n = I18n::new(lang).unwrap();

@@ -228,6 +228,7 @@ mod tests {
                 ids.push(format!("mobile.{issue_type}"));
             }
         }
+        #[cfg(feature = "experimental")]
         for kind in all_variants!(crate::ux::UxIssueKind:
             NoCta, CompetingCtas, GenericLinks, NoH1, MultipleH1, HeadingSkips, LargeDom,
             LittleText, NoSubheadings, NoContact, NoImprint, NoPrivacy, WeakTrustSignals,
@@ -235,6 +236,7 @@ mod tests {
         {
             ids.push(format!("ux.{}", kind_code(&kind)));
         }
+        #[cfg(feature = "experimental")]
         for kind in all_variants!(crate::page_flow::FrictionKind:
             NoH1, MultipleH1, VagueH1, NoPageTitle, LittleEarlyText, NavigationMissing,
             MainHiddenFromAx, MainMissing, FewSubheadings, NoBreadcrumb, NoFooter,
@@ -244,6 +246,7 @@ mod tests {
         {
             ids.push(format!("journey.{}", kind_code(&kind)));
         }
+        #[cfg(feature = "experimental")]
         for kind in all_variants!(crate::commerce::CommerceFindingKind:
             MissingPrice, MissingAvailability, MissingShippingDetails, MissingReturnPolicy,
             MissingReviews, MissingImpressumLink, MissingAgbLink, MissingWiderrufLink,

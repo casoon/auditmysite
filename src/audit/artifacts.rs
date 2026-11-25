@@ -954,12 +954,17 @@ pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport 
             mobile: artifacts.snapshot.mobile.clone(),
             ..Default::default()
         },
+        #[cfg(feature = "experimental")]
         ux: None,
+        #[cfg(feature = "experimental")]
         journey: None,
         discoverability: crate::audit::report::DiscoverabilitySection {
             seo: artifacts.snapshot.seo.clone(),
+            #[cfg(feature = "experimental")]
             ai_visibility: None,
+            #[cfg(feature = "experimental")]
             content_visibility: None,
+            #[cfg(feature = "experimental")]
             source_quality: None,
             tech_stack: None,
         },
@@ -970,7 +975,9 @@ pub fn to_audit_report(artifacts: &AuditArtifacts, locale: &str) -> AuditReport 
         patterns: None,
         screenshot_status: Default::default(),
         best_practices: None,
+        #[cfg(feature = "experimental")]
         commerce: None,
+        #[cfg(feature = "experimental")]
         experimental: Default::default(),
         consent_banner_detected: false,
         consent_banner_cmp: None,

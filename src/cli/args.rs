@@ -185,6 +185,9 @@ pub struct Args {
     ///
     /// Heuristics whose signal contract is unvalidated (no calibration set
     /// yet) and that feed no score. Off by default and in no `--full` run.
+    /// Only in a build with the Cargo feature `experimental` (`cargo install
+    /// auditmysite --features experimental`); the default build refuses the
+    /// flag.
     /// Results appear in the JSON under `experimental` and in the table, never
     /// in the PDF. `content-visibility` also runs `source-quality` and
     /// `ai-visibility` (and `source-quality` runs `ux`), because it is
@@ -816,6 +819,20 @@ impl Args {
         if self.command.is_some() {
             return Ok(());
         }
+        #[cfg(not(feature = "experimental"))]
+        if !self.experimental.is_empty() {
+            let names: Vec<&str> = self
+                .experimental
+                .iter()
+                .map(|indicator| indicator.flag_name())
+                .collect();
+            return Err(format!(
+                "--experimental {} needs the Cargo feature `experimental`, which this build \
+                 does not have. Install with `cargo install auditmysite --features experimental` \
+                 or build with `cargo build --features experimental`.",
+                names.join(",")
+            ));
+        }
         self.load_storage_state()?;
         self.load_baseline()?;
         crate::browser::validate_accept_language(&self.effective_accept_language())?;
@@ -1407,7 +1424,8 @@ mod tests {
             "ux,ai-visibility,commerce",
         ]);
         assert_eq!(args.experimental, vec![I::Ux, I::AiVisibility, I::Commerce]);
-        assert!(args.validate().is_ok());
+        // Without the Cargo feature the names parse but `validate` refuses them.
+        assert_eq!(args.validate().is_ok(), cfg!(feature = "experimental"));
         for old_name in ["ai_visibility", "all", "design-quality"] {
             assert!(
                 Args::try_parse_from(["auditmysite", "https://e.com", "--experimental", old_name])
@@ -1424,11 +1442,32 @@ mod tests {
         assert!(e.contains("--experimental content-visibility"), "{e}");
 
         argv.extend(["--experimental", "content-visibility"]);
-        assert!(Args::parse_from(&argv).validate().is_ok());
+        #[cfg(feature = "experimental")]
+        {
+            assert!(Args::parse_from(&argv).validate().is_ok());
 
-        // The module selection still decides whether SEO runs.
-        argv.extend(["--modules", "performance"]);
-        let e = Args::parse_from(&argv).validate().unwrap_err();
-        assert!(e.contains("SEO"), "{e}");
+            // The module selection still decides whether SEO runs.
+            argv.extend(["--modules", "performance"]);
+            let e = Args::parse_from(&argv).validate().unwrap_err();
+            assert!(e.contains("SEO"), "{e}");
+        }
+        #[cfg(not(feature = "experimental"))]
+        {
+            let e = Args::parse_from(&argv).validate().unwrap_err();
+            assert!(e.contains("`experimental`"), "{e}");
+        }
+    }
+
+    /// #1117: a build without the Cargo feature `experimental` has none of the
+    /// six indicators; `--experimental` says so and names the feature.
+    #[cfg(not(feature = "experimental"))]
+    #[test]
+    fn experimental_without_the_feature_names_the_feature() {
+        let e = Args::parse_from(["auditmysite", "https://example.com", "--experimental", "ux"])
+            .validate()
+            .unwrap_err();
+        assert!(e.contains("--experimental ux"), "{e}");
+        assert!(e.contains("Cargo feature `experimental`"), "{e}");
+        assert!(e.contains("--features experimental"), "{e}");
     }
 }

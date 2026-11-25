@@ -15,13 +15,15 @@ use auditmysite::audit::{normalize, AuditReport, BatchReport, PerformanceResults
 use auditmysite::cli::WcagLevel;
 use auditmysite::output::builder::{build_batch_presentation, build_view_model};
 use auditmysite::output::report_model::ReportConfig;
+#[cfg(feature = "experimental")]
 use auditmysite::page_flow::analyze_journey;
 use auditmysite::performance::{PerformanceGrade, PerformanceScore, WebVitals};
 use auditmysite::security::SecurityAnalysis;
 use auditmysite::seo::SeoAnalysis;
+#[cfg(feature = "experimental")]
 use auditmysite::ux::analyze_ux;
 use auditmysite::wcag::{Severity, Violation, WcagResults};
-use auditmysite::{AXTree, MobileFriendliness};
+use auditmysite::MobileFriendliness;
 
 // ─── Shared Fixtures ────────────────────────────────────────────────────────
 
@@ -109,8 +111,7 @@ fn make_performance() -> PerformanceResults {
 }
 
 fn make_full_report() -> AuditReport {
-    let tree = AXTree::new();
-    AuditReport::new(
+    let report = AuditReport::new(
         "https://example.com".to_string(),
         WcagLevel::AA,
         make_violations(),
@@ -139,9 +140,28 @@ fn make_full_report() -> AuditReport {
         font_sizes: Default::default(),
         content_sizing: Default::default(),
         issues: vec![],
-    })
-    .with_ux(analyze_ux(&tree))
-    .with_journey(analyze_journey(&tree))
+    });
+    #[cfg(feature = "experimental")]
+    let report = {
+        let tree = auditmysite::AXTree::new();
+        report
+            .with_ux(analyze_ux(&tree))
+            .with_journey(analyze_journey(&tree))
+    };
+    report
+}
+
+/// The fixture carries the UX and Journey indicators only with the Cargo
+/// feature `experimental` (#1117), so the two builds have two snapshots.
+macro_rules! assert_snapshot {
+    ($name:literal, $value:expr) => {
+        #[cfg(feature = "experimental")]
+        insta::with_settings!({ snapshot_suffix => "experimental" }, {
+            insta::assert_json_snapshot!($name, $value);
+        });
+        #[cfg(not(feature = "experimental"))]
+        insta::assert_json_snapshot!($name, $value);
+    };
 }
 
 // ─── Snapshot A: NormalizedReport key fields ────────────────────────────────
@@ -189,7 +209,7 @@ fn snapshot_normalized_report_fields() {
         "finding_rule_ids": finding_ids,
     });
 
-    insta::assert_json_snapshot!("normalized_report_fields", sort_json_keys(value));
+    assert_snapshot!("normalized_report_fields", sort_json_keys(value));
 }
 
 // ─── Snapshot B: ReportViewModel key fields ─────────────────────────────────
@@ -255,7 +275,7 @@ fn snapshot_view_model_fields() {
         "total_action_items": total_action_items,
     });
 
-    insta::assert_json_snapshot!("view_model_fields", sort_json_keys(value));
+    assert_snapshot!("view_model_fields", sort_json_keys(value));
 }
 
 // ─── Snapshot C: BatchPresentation key fields ────────────────────────────────
@@ -289,5 +309,5 @@ fn snapshot_batch_presentation_fields() {
         "url_ranking_count": pres.url_ranking.len(),
     });
 
-    insta::assert_json_snapshot!("batch_presentation_fields", sort_json_keys(value));
+    assert_snapshot!("batch_presentation_fields", sort_json_keys(value));
 }
