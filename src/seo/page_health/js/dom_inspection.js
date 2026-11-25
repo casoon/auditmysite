@@ -234,21 +234,11 @@
         const inlineText = Array.from(document.querySelectorAll('script:not([src])')).map(s => s.textContent).join('\n');
         r.deprecatedApiCount = DEPRECATED.filter(p => inlineText.includes(p)).length;
 
-        // Hreflang validation
-        const hreflangLinks = Array.from(document.querySelectorAll('link[rel="alternate"][hreflang]'));
-        r.hreflangCount = hreflangLinks.length;
-        const langPattern = /^[a-z]{2,3}(-[A-Z]{2})?$|^x-default$/;
-        r.hreflangInvalidCount = hreflangLinks.filter(l => !langPattern.test(l.getAttribute('hreflang') || '')).length;
-
-        // JSON-LD validation
-        const jsonldBlocks = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
-        r.jsonldCount = jsonldBlocks.length;
-        r.jsonldInvalidCount = jsonldBlocks.filter(s => {
-            try {
-                const data = JSON.parse(s.textContent);
-                return !data['@context'] || !data['@type'];
-            } catch(e) { return true; }
-        }).length;
+        // Raw hreflang codes and JSON-LD block texts; Rust judges them (web-checks).
+        r.hreflangCodes = Array.from(document.querySelectorAll('link[rel="alternate"][hreflang]'))
+            .map(l => l.getAttribute('hreflang') || '');
+        r.jsonldBlocks = Array.from(document.querySelectorAll('script[type="application/ld+json"]'))
+            .map(s => s.textContent || '');
 
         // Render-blocking: sync <script src> in <head> without defer/async/type=module
         r.syncHeadScripts = Array.from(document.querySelectorAll('head script[src]'))

@@ -3,18 +3,9 @@
 use fluent_bundle::FluentValue;
 
 use super::PageHealthAnalysis;
+use crate::seo::issue::{num, txt};
 use crate::seo::SeoIssue;
 use crate::taxonomy::Severity;
-
-/// A count or number as a Fluent argument (plural selectors need a number).
-fn num(n: u32) -> FluentValue<'static> {
-    FluentValue::from(i64::from(n))
-}
-
-/// Text as a Fluent argument.
-fn txt(s: &str) -> FluentValue<'static> {
-    FluentValue::from(s.to_string())
-}
 
 /// `medium` from five findings on, `low` below.
 fn medium_from_five(n: u32) -> Severity {
@@ -61,11 +52,7 @@ pub fn collect_issues(a: &PageHealthAnalysis, en: bool) -> Vec<SeoIssue> {
     let mut issues = Vec::new();
     let mut add =
         |issue_type: &str, severity: Severity, key: &str, args: &[(&str, FluentValue)]| {
-            issues.push(SeoIssue {
-                issue_type: issue_type.to_string(),
-                message: crate::i18n::text_args(key, args, en),
-                severity,
-            });
+            issues.push(SeoIssue::localized(issue_type, severity, key, args, en));
         };
 
     if !a.has_doctype && a.dom_node_count > 0 {

@@ -148,9 +148,7 @@ pub(super) fn scenarios() -> Vec<Scenario> {
     }
 
     // Meta issues: with and without a cross-module note.
-    let meta_issues: [(&str, MetaIssueKind, Severity); 7] = [
-        ("lang", MetaIssueKind::MissingLang, Severity::Medium),
-        ("lang", MetaIssueKind::MissingLang, Severity::High),
+    let meta_issues: [(&str, MetaIssueKind, Severity); 4] = [
         ("title", MetaIssueKind::MissingTitle, Severity::High),
         ("title", MetaIssueKind::TitleTooShort, Severity::Medium),
         ("viewport", MetaIssueKind::MissingViewport, Severity::High),
@@ -159,7 +157,6 @@ pub(super) fn scenarios() -> Vec<Scenario> {
             MetaIssueKind::MissingDescription,
             Severity::Medium,
         ),
-        ("canonical", MetaIssueKind::MissingCanonical, Severity::Low),
     ];
     for (field, kind, severity) in meta_issues {
         push(

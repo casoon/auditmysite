@@ -64,8 +64,6 @@ pub enum MetaIssueKind {
     DescriptionTooShort,
     DescriptionTooLong,
     MissingViewport,
-    MissingLang,
-    MissingCanonical,
     InvalidTwitterCard,
     RelativeOgImage,
 }
@@ -123,8 +121,6 @@ pub fn meta_issue_text(kind: MetaIssueKind, values: &MetaIssueValues, en: bool) 
         DescriptionTooShort => "seo-meta-description-too-short",
         DescriptionTooLong => "seo-meta-description-too-long",
         MissingViewport => "seo-meta-missing-viewport",
-        MissingLang => "seo-meta-missing-lang",
-        MissingCanonical => "seo-meta-missing-canonical",
         InvalidTwitterCard => "seo-meta-invalid-twitter-card",
         RelativeOgImage => "seo-meta-relative-og-image",
     };
@@ -146,7 +142,9 @@ pub fn meta_issue_text(kind: MetaIssueKind, values: &MetaIssueValues, en: bool) 
 }
 
 impl MetaTags {
-    /// Validate meta tags and return issues
+    /// Validate meta tags and return issues. A missing `lang` and a missing
+    /// canonical are reported once, by the technical checks (where the score
+    /// charges them).
     pub fn validate(&self) -> Vec<MetaValidation> {
         use MetaIssueKind::*;
         let mut issues = Vec::new();
@@ -226,28 +224,6 @@ impl MetaTags {
                 none(),
                 Severity::High,
                 "Add <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
-            ));
-        }
-
-        // Language validation
-        if self.lang.is_none() {
-            issues.push(MetaValidation::new(
-                "lang",
-                MissingLang,
-                none(),
-                Severity::Medium,
-                "Add lang attribute: <html lang=\"en\">",
-            ));
-        }
-
-        // Canonical validation
-        if self.canonical.is_none() {
-            issues.push(MetaValidation::new(
-                "canonical",
-                MissingCanonical,
-                none(),
-                Severity::Low,
-                "Add <link rel=\"canonical\" href=\"...\">",
             ));
         }
 
@@ -361,8 +337,6 @@ mod tests {
             DescriptionTooShort,
             DescriptionTooLong,
             MissingViewport,
-            MissingLang,
-            MissingCanonical,
             InvalidTwitterCard,
             RelativeOgImage,
         ]

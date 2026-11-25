@@ -75,8 +75,6 @@ seo-meta-missing-description = Missing meta description
 seo-meta-description-too-short = Description is too short ({ $length } chars, recommended: 120-160)
 seo-meta-description-too-long = Description is { $length } characters; it may be truncated in search results, check that the key statement comes first
 seo-meta-missing-viewport = Missing viewport meta tag
-seo-meta-missing-lang = Missing lang attribute on <html> element
-seo-meta-missing-canonical = Missing canonical URL
 seo-meta-invalid-twitter-card = Invalid twitter:card value "{ $value }" (allowed: { $allowed })
 seo-meta-relative-og-image = og:image is not an absolute URL: "{ $value }"
 

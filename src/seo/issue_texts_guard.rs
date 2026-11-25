@@ -24,8 +24,9 @@ use std::collections::BTreeSet;
 
 const EN: &str = include_str!("../../locales/en/seo-issues.ftl");
 const DE: &str = include_str!("../../locales/de/seo-issues.ftl");
-const SOURCES: [&str; 9] = [
+const SOURCES: [&str; 10] = [
     include_str!("technical.rs"),
+    include_str!("canonical.rs"),
     include_str!("meta.rs"),
     include_str!("schema.rs"),
     include_str!("robots.rs"),
@@ -53,7 +54,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 238);
+    assert_eq!(en.len(), 236);
 }
 
 #[test]
@@ -63,7 +64,7 @@ fn every_message_is_used_by_the_code() {
             SOURCES
                 .iter()
                 .any(|source| source.contains(&format!("\"{id}\""))),
-            "{id} is not used in technical.rs, meta.rs, schema.rs, robots.rs, profile.rs, serp.rs, \
+            "{id} is not used in technical.rs, canonical.rs, meta.rs, schema.rs, robots.rs, profile.rs, serp.rs, \
              schema_fit.rs, schema_parity.rs or schema_rules.rs"
         );
     }

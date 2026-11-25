@@ -61,7 +61,10 @@ page-health-hreflang-invalid = { $count ->
         [one] { $count } hreflang entry with an invalid language code
        *[other] { $count } hreflang entries with an invalid language code
     }
-page-health-jsonld-invalid = { $count } JSON-LD blocks without @context or @type
+page-health-jsonld-invalid = { $count ->
+        [one] { $count } invalid JSON-LD block (invalid JSON, missing @context or @type, or an invalid @graph)
+       *[other] { $count } invalid JSON-LD blocks (invalid JSON, missing @context or @type, or an invalid @graph)
+    }
 page-health-sync-head-scripts =
     { $count } { $count ->
         [one] script

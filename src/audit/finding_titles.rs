@@ -143,15 +143,13 @@ mod tests {
                     "description"
                 }
                 K::MissingViewport => "viewport",
-                K::MissingLang => "lang",
-                K::MissingCanonical => "canonical",
                 K::InvalidTwitterCard => "twitter:card",
                 K::RelativeOgImage => "og:image",
             };
             for kind in all_variants!(crate::seo::meta::MetaIssueKind:
                 MissingTitle, TitleTooShort, TitleTooLong, MissingDescription,
-                DescriptionTooShort, DescriptionTooLong, MissingViewport, MissingLang,
-                MissingCanonical, InvalidTwitterCard, RelativeOgImage)
+                DescriptionTooShort, DescriptionTooLong, MissingViewport,
+                InvalidTwitterCard, RelativeOgImage)
             {
                 ids.push(format!("seo.meta.{}", field(kind)));
             }

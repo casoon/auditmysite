@@ -2,6 +2,7 @@
 //!
 //! Provides meta tags validation, heading structure, social tags, and technical SEO checks.
 
+pub(crate) mod canonical;
 pub(crate) mod headings;
 pub mod image_efficiency;
 pub mod interpretation;
@@ -254,11 +255,11 @@ fn calculate_seo_score(
 
     // Meta tags — cap total penalty at 20 to avoid collapse from many minor issues.
     // A missing lang or canonical is charged once, in the technical section
-    // below; the meta list reported it a second time. A missing viewport is
+    // below, and is listed once, by the technical checks. A missing viewport is
     // charged by Mobile and Accessibility, not here as well.
     let meta_penalty: u32 = meta_issues
         .iter()
-        .filter(|issue| !matches!(issue.field.as_str(), "lang" | "canonical" | "viewport"))
+        .filter(|issue| issue.field != "viewport")
         // An overlong description is an advisory: Google truncates snippets
         // dynamically and sets no fixed maximum.
         .filter(|issue| issue.kind != Some(crate::seo::meta::MetaIssueKind::DescriptionTooLong))
@@ -363,11 +364,15 @@ mod score_tests {
         }
     }
 
-    /// A missing lang or canonical showed up in the meta list and
-    /// in the technical checks, and cost points in both. It counts once.
+    /// A missing lang or canonical is listed once, by the technical checks,
+    /// where the score charges it; the meta list does not repeat it.
     #[test]
-    fn missing_lang_and_canonical_are_charged_once() {
-        use crate::taxonomy::Severity;
+    fn missing_lang_and_canonical_are_listed_and_charged_once() {
+        let meta = MetaTags::default();
+        assert!(!meta
+            .validate()
+            .iter()
+            .any(|issue| matches!(issue.field.as_str(), "lang" | "canonical")));
         let technical = TechnicalSeo {
             https: true,
             has_canonical: false,
@@ -383,22 +388,8 @@ mod score_tests {
             h1_count: 1,
             ..Default::default()
         };
-        let meta = MetaTags::default();
-        let without_meta_issues =
-            calculate_seo_score(&meta, &[], &headings, &social, &technical, None);
-        let with_meta_issues = calculate_seo_score(
-            &meta,
-            &[
-                issue("lang", Severity::Medium),
-                issue("canonical", Severity::Low),
-            ],
-            &headings,
-            &social,
-            &technical,
-            None,
-        );
-        assert_eq!(with_meta_issues, without_meta_issues);
-        assert_eq!(without_meta_issues, 100 - 5 - 3);
+        let score = calculate_seo_score(&meta, &[], &headings, &social, &technical, None);
+        assert_eq!(score, 100 - 5 - 3);
     }
 
     /// A missing viewport is charged by Mobile and Accessibility;

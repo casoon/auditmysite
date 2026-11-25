@@ -6,6 +6,7 @@ use fluent_bundle::FluentValue;
 use serde::{Deserialize, Serialize};
 use web_checks::meta::LengthClass;
 
+use crate::seo::canonical;
 use crate::seo::SeoAnalysis;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -144,9 +145,7 @@ pub fn build_serp_analysis(seo: &SeoAnalysis, url: &str, locale: &str) -> SerpAn
     ));
 
     if let Some(canon) = &seo.technical.canonical_url {
-        let canon_clean = canon.trim_end_matches('/');
-        let url_clean = url.trim_end_matches('/');
-        if !canon_clean.is_empty() && !canon_clean.eq_ignore_ascii_case(url_clean) {
+        if canonical::points_elsewhere(canon, url) {
             signals.push(sig(
                 "Canonical",
                 t("seo-serp-label-canonical-self-reference", en),
