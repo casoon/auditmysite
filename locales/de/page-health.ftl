@@ -61,7 +61,10 @@ page-health-hreflang-invalid = { $count ->
         [one] { $count } hreflang-Eintrag mit ungültigem Sprachcode
        *[other] { $count } hreflang-Einträge mit ungültigem Sprachcode
     }
-page-health-jsonld-invalid = { $count } JSON-LD-Blöcke ohne @context oder @type
+page-health-jsonld-invalid = { $count ->
+        [one] { $count } ungültiger JSON-LD-Block (ungültiges JSON, fehlender @context oder @type oder ungültiger @graph)
+       *[other] { $count } ungültige JSON-LD-Blöcke (ungültiges JSON, fehlender @context oder @type oder ungültiger @graph)
+    }
 page-health-sync-head-scripts =
     { $count } { $count ->
         [one] Script
