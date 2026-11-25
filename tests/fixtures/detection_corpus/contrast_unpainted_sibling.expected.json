@@ -1,0 +1,45 @@
+{
+  "case": "contrast_unpainted_sibling",
+  "expectations": [
+    {
+      "rule_id": "contrast/text-insufficient",
+      "selector": "span#bad",
+      "verdict": "violation"
+    },
+    {
+      "rule_id": "contrast/text-undetermined",
+      "selector": "span#bad",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "contrast/text-insufficient",
+      "selector": "span#ok",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "contrast/text-undetermined",
+      "selector": "span#ok",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "contrast/text-insufficient",
+      "selector": "span#apart-ok",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "contrast/text-undetermined",
+      "selector": "span#apart-ok",
+      "verdict": "pass"
+    },
+    {
+      "rule_id": "navigation/location-missing",
+      "selector": "html",
+      "verdict": "needs_review"
+    },
+    {
+      "rule_id": "targets/size-enhanced",
+      "selector": "a#home",
+      "verdict": "needs_review"
+    }
+  ]
+}
