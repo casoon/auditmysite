@@ -63,28 +63,31 @@ pdf-analysis-profile-concentration = { $total } Vorkommen wurden erkannt. Rund {
 pdf-analysis-profile-leverage = Die { $top } wichtigsten Ursachen erklären rund { $pct } % der { $total } erkannten Vorkommen — ihre Behebung hat die größte Hebelwirkung auf die folgende Liste.
 
 ## Root causes
-pdf-analysis-causes-eyebrow = URSACHEN
-pdf-analysis-causes-title = Ursachenanalyse
-pdf-analysis-causes-subtitle = Viele Einzelbefunde gehen auf wenige wiederkehrende Ursachen zurück – deren Behebung wirkt gebündelt.
 pdf-analysis-causes-none = Es wurden keine Barrierefreiheits-Befunde erkannt, daher ist keine Ursachenanalyse erforderlich.
 pdf-analysis-causes-none-evidence = Keine bestätigten WCAG-Verstöße, daher ist keine Ursachenanalyse erforderlich. Offen bleiben { $warnings_text } und { $manual_text } — dokumentiert in den eigenen Abschnitten, ohne Einfluss auf den Score.
 pdf-analysis-causes-lead-in = Wo sich die Befunde ballen: Liegt ein Befund in einer wiederverwendeten Komponente oder einem Template, behebt ein Fix dort alle seine Vorkommen — ob das so ist, lässt sich an einer einzelnen Seite nicht erkennen.
-pdf-analysis-causes-table-title = Wo sich die Vorkommen ballen
-pdf-analysis-causes-other = Sonstige ({ $more })
 
 ## Action plan
-pdf-analysis-roadmap-eyebrow = MASSNAHMEN
-pdf-analysis-roadmap-title = Maßnahmenplan
-pdf-analysis-roadmap-subtitle = Empfohlene Maßnahmen, gruppiert nach Ebene des Problems — inklusive ergänzender SEO- und Qualitätsempfehlungen ohne Rechtsbezug.
 pdf-analysis-roadmap-modules-title = Weitere Module
 pdf-analysis-roadmap-modules-subtitle = Empfehlungen aus den Modulen Sicherheit, Mobile, Performance und SEO, die in den wichtigsten Maßnahmen genannt sind.
 pdf-analysis-roadmap-empty-modules = Keine priorisierten Barrierefreiheits-Maßnahmen. Zu anderen Modulen (Performance, SEO, Sicherheit, Mobile): { $recommendations } — sie stehen in den jeweiligen Modulabschnitten und in den wichtigsten Maßnahmen oben.
-pdf-analysis-roadmap-empty = Keine priorisierten Maßnahmen — keine Befunde mit Handlungsbedarf.
-pdf-analysis-roadmap-leverage = Reichweite der Korrektur: { $leverage } — { $count ->
-        [one] 1 Vorkommen
-       *[other] { $count } Vorkommen
-    } betroffen · Aufwand: { $effort }
-pdf-analysis-roadmap-root-cause = → Ursache { $letter }, { $count } Vorkommen ({ $share } %)
+
+## Analysis by cause (#1171)
+pdf-analysis-eyebrow = ANALYSE
+pdf-analysis-title = Analyse nach Ursache
+pdf-analysis-subtitle = Jeder Befund einmal vollständig: Problem, Auswirkung und wie sie belegt ist, Maßnahme und Reichweite, gruppiert nach der Ursache, die die Prüfung beobachtet hat.
+pdf-analysis-cause-markup = Wiederkehrendes Markup bei { $selector }: { $count } identische Elemente auf dieser Seite. Eine gemeinsame Komponente oder ein Template ist möglich; der Quellcode muss es bestätigen.
+pdf-analysis-cause-none = Kein wiederkehrendes Elementmuster beobachtet; der Befund steht für sich.
+pdf-analysis-card-key-reach = Reichweite
+pdf-analysis-card-key-cause = Ursache und Sicherheit
+pdf-analysis-card-key-problem = Problem
+pdf-analysis-card-key-impact = Auswirkung
+pdf-analysis-card-key-evidence = Belegstatus
+pdf-analysis-card-key-fix = Maßnahme
+pdf-analysis-card-key-priority = Priorität, Aufwand, Zuständigkeit
+pdf-analysis-card-key-score-effect = Score-Effekt
+pdf-analysis-card-key-finding = Befund-ID
+pdf-analysis-card-priority-effort = Priorität { $priority } · Aufwand { $effort } · { $role }
 
 ## WCAG coverage
 pdf-analysis-coverage-legend = Grün: auf dieser Seite geprüft und bestanden. Rot: Verstoß gefunden. Gelb: nicht bestanden oder prüfbedürftig. Grau: auf dieser Seite nichts zu prüfen.

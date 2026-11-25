@@ -666,7 +666,7 @@ mod tests {
             assert!(
                 out.contains(&format!(
                     "key: \"{}\", value: \"{fix}\"",
-                    i18n.t("batch-meta-fix")
+                    i18n.t("pdf-analysis-card-key-fix")
                 )),
                 "{locale}"
             );
@@ -674,7 +674,7 @@ mod tests {
             assert!(
                 out.contains(&format!(
                     "key: \"{}\", value: \"{}\"",
-                    i18n.t("batch-recurring-key-finding"),
+                    i18n.t("pdf-analysis-card-key-finding"),
                     group.finding.id
                 )),
                 "{locale}"

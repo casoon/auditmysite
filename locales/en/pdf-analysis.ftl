@@ -68,28 +68,31 @@ pdf-analysis-profile-concentration = { $total } occurrences were detected. About
 pdf-analysis-profile-leverage = The { $top } most significant causes account for about { $pct }% of the { $total } occurrences detected — addressing those first has the biggest leverage on the list below.
 
 ## Root causes
-pdf-analysis-causes-eyebrow = ROOT CAUSE
-pdf-analysis-causes-title = Root Cause Analysis
-pdf-analysis-causes-subtitle = Many individual findings trace back to a few recurring causes — fixing those has a compounding effect.
 pdf-analysis-causes-none = No accessibility findings were detected, so no root cause analysis is necessary.
 pdf-analysis-causes-none-evidence = No confirmed WCAG violations, so no root cause analysis is necessary. { $warnings_text } and { $manual_text } remain open — they are documented in their own sections and are not scored.
 pdf-analysis-causes-lead-in = Where the findings concentrate: if a finding sits in a reused component or template, one fix there resolves all of its occurrences — whether it does cannot be seen from a single page.
-pdf-analysis-causes-table-title = Where the occurrences concentrate
-pdf-analysis-causes-other = Other ({ $count } further findings)
 
 ## Action plan
-pdf-analysis-roadmap-eyebrow = ROADMAP
-pdf-analysis-roadmap-title = Action Plan
-pdf-analysis-roadmap-subtitle = Recommended actions grouped by where the problem lives — including supplementary SEO and quality recommendations without legal relevance.
 pdf-analysis-roadmap-modules-title = Other modules
 pdf-analysis-roadmap-modules-subtitle = Recommendations from the security, mobile, performance and SEO modules that the key measures name.
 pdf-analysis-roadmap-empty-modules = No prioritized accessibility actions. Other modules (performance, SEO, security, mobile): { $recommendations } — listed in their module sections and in the key measures above.
-pdf-analysis-roadmap-empty = No prioritized actions — no findings require remediation.
-pdf-analysis-roadmap-leverage = Fix reach: { $leverage } — { $count ->
-        [one] 1 occurrence
-       *[other] { $count } occurrences
-    } affected · effort: { $effort }
-pdf-analysis-roadmap-root-cause = → Root Cause { $letter }, { $count } occurrences ({ $share }%)
+
+## Analysis by cause (#1171)
+pdf-analysis-eyebrow = ANALYSIS
+pdf-analysis-title = Analysis by cause
+pdf-analysis-subtitle = Each finding once in full: problem, impact and how it was established, fix and reach, grouped by the cause the audit observed.
+pdf-analysis-cause-markup = Recurring markup at { $selector }: { $count } identical elements on this page. One shared component or template is possible; the source code has to confirm it.
+pdf-analysis-cause-none = No recurring element pattern observed; this finding stands for itself.
+pdf-analysis-card-key-reach = Reach
+pdf-analysis-card-key-cause = Cause and confidence
+pdf-analysis-card-key-problem = Problem
+pdf-analysis-card-key-impact = Impact
+pdf-analysis-card-key-evidence = Evidence status
+pdf-analysis-card-key-fix = Fix
+pdf-analysis-card-key-priority = Priority, effort, owner
+pdf-analysis-card-key-score-effect = Score effect
+pdf-analysis-card-key-finding = Finding id
+pdf-analysis-card-priority-effort = { $priority } priority · { $effort } effort · { $role }
 
 ## WCAG coverage
 pdf-analysis-coverage-legend = Green: checked and passed on this page. Red: violation found. Amber: not passed or needs review. Grey: nothing to check on this page.

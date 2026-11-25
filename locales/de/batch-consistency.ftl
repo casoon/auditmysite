@@ -153,7 +153,6 @@ batch-management-outliers-title = Ausreißer-URLs
 batch-management-outlier = { $url }: { $score } / 100 ({ $delta } Punkte unter Durchschnitt)
 
 ## Decision-oriented top actions
-batch-management-col-score-gain = Score-Wirkung
 batch-management-score-gain = bis +{ $points }
 batch-management-score-gain-note = Score-Wirkung: Punkte, um die der durchschnittliche Barrierefreiheits-Score steigt, wenn nur diese Maßnahme auf allen Seiten umgesetzt wird, je Seite mit der Score-Berechnung simuliert. Die Werte lassen sich nicht addieren: Deckelungen und die Gewichtung mehrerer Kriterien machen den Gewinn jeder Maßnahme davon abhängig, was sonst offen bleibt.
 batch-management-root-recurring = auf { $count } Seiten, keine gemeinsame Ursache belegt

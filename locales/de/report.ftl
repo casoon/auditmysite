@@ -817,7 +817,6 @@ batch-meta-global = Alle geprüften Seiten
 batch-meta-some-pages = { $count } von { $total } Seiten
 batch-meta-single-page = Eine Seite — seitenspezifisch
 batch-meta-occurrences = { $count } Vorkommen
-batch-meta-fix = Empfehlung
 batch-template-confirmed-headline = Identisches Markup an ‚{ $selector }‘ auf { $n } von { $total } geprüften Seiten. Stammt es aus einer gemeinsamen Komponente, wirkt eine Korrektur dort voraussichtlich auf allen { $n } Seiten — ob das so ist, zeigt der Quellcode.
 batch-template-likely-headline = Wiederkehrend an ‚{ $selector }‘ auf { $n } von { $total } geprüften Seiten; gleiches Markup ist nicht belegt — eine gemeinsame Ursache ist möglich, nicht nachgewiesen.
 batch-budget-pages-col = Betr. Seiten
@@ -1442,11 +1441,6 @@ batch-decision-line = { $id } · { $title } · { $reach } · { $priority }
 batch-decision-line-reach-in-title = { $id } · { $title } · { $priority }
 batch-section-recurring = Wiederkehrende Probleme und Maßnahmen
 batch-recurring-intro = Eine Karte je Ursache, die über die geprüften Seiten wiederkehrt: wie weit sie reicht, was die Ursache ist und wie sicher der Bericht dabei ist, und was zu tun ist. Die Befund-ID verbindet die Karte mit dem JSON-Bericht; die Belege je Seite stehen in den Einzelseiten-Berichten.
-batch-recurring-key-reach = Reichweite
-batch-recurring-key-cause = Ursache und Sicherheit
-batch-recurring-key-priority = Priorität, Aufwand, Zuständigkeit
-batch-recurring-key-finding = Befund-ID
-batch-recurring-priority-effort = Priorität { $priority } · Aufwand { $effort } · { $role }
 batch-recurring-more = { $count ->
         [one] Ein weiteres wiederkehrendes Problem steht im JSON-Bericht.
        *[other] { $count } weitere wiederkehrende Probleme stehen im JSON-Bericht.

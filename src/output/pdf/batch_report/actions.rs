@@ -8,7 +8,8 @@ use crate::i18n::I18n;
 use crate::output::report_model::*;
 use crate::util::short_url;
 
-use super::super::helpers::{effort_short_label_i18n, priority_label_i18n, role_label_i18n};
+use super::super::analysis_card::{analysis_card, AnalysisCard};
+use super::super::helpers::priority_label_i18n;
 use super::management::{batch_cause_text, batch_score_effect};
 
 /// Decision level of the batch report: the most important recurring problems
@@ -125,43 +126,29 @@ pub(super) fn render_batch_recurring_problems(
             i18n.count("batch-meta-occurrences", group.finding.occurrence_count),
             batch_reach_label(urls, total_urls, i18n)
         );
-        let mut kv = KeyValueList::new()
-            .with_title(&group.title)
-            .add(i18n.t("batch-recurring-key-reach"), reach)
-            .add(
-                i18n.t("batch-recurring-key-cause"),
-                batch_cause_text(group, pres, i18n),
-            );
         // Contrast measured under opacity: name the cause, not only the
-        // ratio (#1112).
+        // ratio (#1112). The provider is named once on the cross-page card,
+        // not once per URL (#1109).
+        let mut context_rows = Vec::new();
         if let Some(opacity) = super::super::findings::opacity_pattern_text(
             &group.finding.occurrences,
             is_english(i18n),
         ) {
-            kv = kv.add(i18n.t("pdf-findings-opacity"), opacity);
+            context_rows.push((i18n.t("pdf-findings-opacity"), opacity));
         }
-        // The provider is named once on the cross-page card, not once per URL (#1109).
         if let Some(origin) = super::super::findings::origin_text(&group.finding, i18n) {
-            kv = kv.add(i18n.t("pdf-findings-origin"), origin);
+            context_rows.push((i18n.t("pdf-findings-origin"), origin));
         }
-        if !group.recommendation.is_empty() {
-            kv = kv.add(i18n.t("batch-meta-fix"), &group.recommendation);
-        }
-        kv = kv.add(
-            i18n.t("batch-recurring-key-priority"),
-            i18n.t_args(
-                "batch-recurring-priority-effort",
-                &[
-                    ("priority", priority_label_i18n(group.priority, i18n)),
-                    ("effort", effort_short_label_i18n(group.effort, i18n)),
-                    ("role", role_label_i18n(group.responsible_role, i18n)),
-                ],
-            ),
+        let kv = analysis_card(
+            group,
+            AnalysisCard {
+                reach,
+                cause: Some(batch_cause_text(group, pres, i18n)),
+                context_rows,
+                score_effect: batch_score_effect(group, i18n),
+            },
+            i18n,
         );
-        if let Some(effect) = batch_score_effect(group, i18n) {
-            kv = kv.add(i18n.t("batch-management-col-score-gain"), effect);
-        }
-        kv = kv.add(i18n.t("batch-recurring-key-finding"), &group.finding.id);
         builder = builder.add_component(kv);
     }
     if pres.top_issues.len() > BATCH_PROBLEM_CARDS {

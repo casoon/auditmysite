@@ -156,7 +156,6 @@ batch-management-outliers-title = Outlier URLs
 batch-management-outlier = { $url }: { $score } / 100 ({ $delta } points below average)
 
 ## Decision-oriented top actions
-batch-management-col-score-gain = Score effect
 batch-management-score-gain = up to +{ $points }
 batch-management-score-gain-note = Score effect: points the average accessibility score would gain if only this action were done on every page, simulated per page with the score calculation. The figures do not add up: caps and the weighting of several criteria make the gain of each action depend on what else remains open.
 batch-management-root-recurring = recurs on { $count } pages, no shared cause established

@@ -820,7 +820,6 @@ batch-meta-occurrences = { $count ->
         [one] 1 occurrence
        *[other] { $count } occurrences
     }
-batch-meta-fix = Fix
 batch-template-confirmed-headline = Identical markup at '{ $selector }' on { $n } of { $total } audited pages. If it comes from one shared component, a fix there will likely take effect on all { $n } pages — the source code tells whether it does.
 batch-template-likely-headline = Recurring at '{ $selector }' on { $n } of { $total } audited pages; identical markup is not established — a shared cause is possible, not shown.
 batch-budget-pages-col = Affected pages
@@ -1445,11 +1444,6 @@ batch-decision-line = { $id } · { $title } · { $reach } · { $priority }
 batch-decision-line-reach-in-title = { $id } · { $title } · { $priority }
 batch-section-recurring = Recurring problems and actions
 batch-recurring-intro = One card per root cause that recurs across the audited pages: how far it reaches, what the cause is and how sure the report is about it, and what to do. The finding id links the card to the JSON report; the evidence per page is in the single-page reports.
-batch-recurring-key-reach = Reach
-batch-recurring-key-cause = Cause and confidence
-batch-recurring-key-priority = Priority, effort, owner
-batch-recurring-key-finding = Finding id
-batch-recurring-priority-effort = { $priority } priority · { $effort } effort · { $role }
 batch-recurring-more = { $count ->
         [one] One further recurring problem is listed in the JSON report.
        *[other] { $count } further recurring problems are listed in the JSON report.

@@ -44,6 +44,8 @@ struct Section {
     title: String,
     evidence: bool,
     text: String,
+    /// The text of each component of the section, in order: a card is one.
+    components: Vec<String>,
 }
 
 /// Split the components into sections at every heading of level 1 or 2.
@@ -53,6 +55,7 @@ fn sections(components: &[Value], evidence_start: &[String]) -> Vec<Section> {
         title: "(before the first heading)".to_string(),
         evidence: false,
         text: String::new(),
+        components: Vec::new(),
     }];
     let mut evidence = false;
     for component in components {
@@ -68,10 +71,15 @@ fn sections(components: &[Value], evidence_start: &[String]) -> Vec<Section> {
                 title,
                 evidence,
                 text: String::new(),
+                components: Vec::new(),
             });
         }
         let current = sections.last_mut().expect("a first section exists");
-        strings(component, &mut current.text);
+        let mut text = String::new();
+        strings(component, &mut text);
+        current.components.push(squash_whitespace(&text));
+        current.text.push(' ');
+        current.text.push_str(&text);
     }
     for section in &mut sections {
         section.text = squash_whitespace(&section.text);
@@ -141,6 +149,34 @@ fn assert_told_once(
         }
         if require_carrier && found.is_empty() {
             broken.push(format!("{rule}: no section carries its text at all"));
+        }
+    }
+    assert!(broken.is_empty(), "{label}:\n{}", broken.join("\n"));
+}
+
+/// Each text of a rule stands in at most one component outside the evidence
+/// level: a card carries it, a second card or a list entry may not repeat it.
+fn assert_each_text_in_one_component(
+    label: &str,
+    sections: &[Section],
+    rules: &[(String, Vec<String>)],
+) {
+    let mut broken = Vec::new();
+    for (rule, texts) in rules {
+        for needle in texts.iter().filter_map(|t| needle(t)) {
+            let holders: Vec<&str> = sections
+                .iter()
+                .filter(|s| !s.evidence)
+                .flat_map(|s| s.components.iter().map(move |c| (s, c)))
+                .filter(|(_, c)| c.contains(needle.as_str()))
+                .map(|(s, _)| s.title.as_str())
+                .collect();
+            if holders.len() > 1 {
+                broken.push(format!(
+                    "{rule}: \"{needle}\" is in {} components: {holders:?}",
+                    holders.len()
+                ));
+            }
         }
     }
     assert!(broken.is_empty(), "{label}:\n{}", broken.join("\n"));
@@ -221,6 +257,11 @@ fn single_report_tells_each_finding_once_outside_the_evidence_level() {
             assert!(rules.len() >= 5, "{locale}: fixture lost its rules");
             let carriers = carriers(&sections, &rules);
             assert_told_once(&format!("single {locale} {level:?}"), &carriers, true);
+            assert_each_text_in_one_component(
+                &format!("single {locale} {level:?}"),
+                &sections,
+                &rules,
+            );
         }
     }
 }
@@ -247,6 +288,11 @@ fn batch_report_tells_each_finding_once_outside_the_evidence_level() {
             assert!(rules.len() >= 5, "{locale}: fixture lost its rules");
             let carriers = carriers(&sections, &rules);
             assert_told_once(&format!("batch {locale} {level:?}"), &carriers, true);
+            assert_each_text_in_one_component(
+                &format!("batch {locale} {level:?}"),
+                &sections,
+                &rules,
+            );
         }
     }
 }
