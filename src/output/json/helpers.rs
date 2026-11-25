@@ -733,6 +733,7 @@ mod tests {
             contract: Default::default(),
             origin: Default::default(),
             providers: Default::default(),
+            observed_roles: Default::default(),
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,

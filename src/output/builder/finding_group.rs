@@ -12,11 +12,14 @@ use super::actions::{build_narrative_arc, derive_business_impact, localized_find
 /// A batch group is built from the cross-page aggregate finding
 /// (`aggregate_batch_findings`: summed `occurrence_count`, highest `severity`)
 /// and the pages it occurs on, the only value a finding does not carry; a
-/// single report passes no pages.
+/// single report passes no pages. `pages_audited` is the number of pages the
+/// report covers (1 for a single report), the reach of the display title
+/// (#1170).
 pub(super) fn finding_group_from_normalized(
     i18n: &I18n,
     f: crate::audit::normalized::NormalizedFinding,
     affected_urls: Vec<String>,
+    pages_audited: usize,
 ) -> FindingGroup {
     let locale = i18n.locale();
     let en = locale == "en";
@@ -136,6 +139,20 @@ pub(super) fn finding_group_from_normalized(
     let title = crate::audit::finding_titles::display_title(&f.rule_id, en)
         .filter(|_| f.rule_id.starts_with("html_conform.assertion."))
         .unwrap_or(title);
+    // Key measures, the action table and the cards name the kind of element and
+    // the reach; the finding keeps its rule title for the JSON and the
+    // technical part (#1170).
+    let title = crate::audit::finding_titles::finding_display_title(
+        &f.rule_id,
+        &title,
+        &f.observed_roles,
+        crate::audit::finding_titles::FindingReach {
+            pages_affected: affected_urls.len().max(1),
+            pages_audited,
+            occurrences: f.occurrence_count,
+        },
+        en,
+    );
     let execution_priority = derive_execution_priority(f.severity, effort, f.dimension.as_str());
 
     let examples = explanation.map(|e| e.examples()).unwrap_or_default();
@@ -223,6 +240,7 @@ mod fallback_tests {
             contract: Default::default(),
             origin: Default::default(),
             providers: Default::default(),
+            observed_roles: Default::default(),
             id: String::new(),
             patterns: Vec::new(),
             pattern_count: 0,
@@ -279,7 +297,7 @@ mod fallback_tests {
     fn fallback_customer_description_is_localized_not_raw_english() {
         let i18n = I18n::new("de").expect("test locale should load");
         let finding = uncovered_rule_finding();
-        let group = finding_group_from_normalized(&i18n, finding.clone(), Vec::new());
+        let group = finding_group_from_normalized(&i18n, finding.clone(), Vec::new(), 1);
 
         assert_ne!(group.customer_description, finding.description);
         assert!(!group.customer_description.is_empty());
@@ -318,11 +336,44 @@ mod fallback_tests {
     /// finding, not the generic WCAG-1.3.1 fallback (which is written for
     /// tables/lists/fieldsets and would show a `<table>` code example for a
     /// finding about a link outside a landmark).
+    /// #1170: the group's title names the element kind and the reach; the
+    /// finding keeps its rule title for the JSON.
+    #[test]
+    fn group_title_names_the_kind_and_reach_but_the_json_title_stays() {
+        let mut finding = uncovered_rule_finding();
+        finding.rule_id = "links/name-missing".to_string();
+        finding.occurrence_count = 20;
+        finding.observed_roles = [("link".to_string(), 20)].into();
+        let urls = |n: usize| (0..n).map(|i| format!("https://example.com/{i}")).collect();
+        for (en, expected) in [
+            (true, "Link without an accessible name, on 2 of 5 pages"),
+            (false, "Link ohne zugänglichen Namen, auf 2 von 5 Seiten"),
+        ] {
+            let i18n = I18n::new(if en { "en" } else { "de" }).unwrap();
+            let batch = finding_group_from_normalized(&i18n, finding.clone(), urls(2), 5);
+            assert_eq!(batch.title, expected);
+            assert_eq!(batch.finding.title, finding.title);
+        }
+        let i18n = I18n::new("en").unwrap();
+        let single = finding_group_from_normalized(&i18n, finding.clone(), Vec::new(), 1);
+        assert_eq!(
+            single.title,
+            "Link without an accessible name, 20 occurrences on this page"
+        );
+        finding.observed_roles = [("link".to_string(), 12), ("button".to_string(), 8)].into();
+        let mixed = finding_group_from_normalized(&i18n, finding, Vec::new(), 1);
+        // Mixed kinds keep the rule's title; only the reach is added.
+        assert_eq!(
+            mixed.title,
+            format!("{}, 20 occurrences on this page", mixed.finding.title)
+        );
+    }
+
     #[test]
     fn region_finding_gets_landmark_example_not_table_fallback() {
         let i18n = I18n::new("de").expect("test locale should load");
         let finding = region_finding();
-        let group = finding_group_from_normalized(&i18n, finding.clone(), Vec::new());
+        let group = finding_group_from_normalized(&i18n, finding.clone(), Vec::new(), 1);
 
         assert!(
             group.recommendation.contains("Landmark"),
@@ -366,7 +417,7 @@ mod fallback_tests {
     fn landmark_unique_finding_gets_own_title_not_generic_1_3_1_fallback() {
         let i18n = I18n::new("de").expect("test locale should load");
         let finding = landmark_unique_finding();
-        let group = finding_group_from_normalized(&i18n, finding.clone(), Vec::new());
+        let group = finding_group_from_normalized(&i18n, finding.clone(), Vec::new(), 1);
 
         assert_eq!(group.title, "Landmarks nicht eindeutig benannt");
         assert_ne!(group.title, "Fehlende semantische Struktur");
@@ -381,7 +432,7 @@ mod fallback_tests {
     fn fallback_customer_description_en_has_no_german_umlauts() {
         let i18n = I18n::new("en").expect("test locale should load");
         let finding = uncovered_rule_finding();
-        let group = finding_group_from_normalized(&i18n, finding.clone(), Vec::new());
+        let group = finding_group_from_normalized(&i18n, finding.clone(), Vec::new(), 1);
 
         assert!(!group.customer_description.is_empty());
         assert!(!group

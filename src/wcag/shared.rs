@@ -1479,6 +1479,7 @@ fn to_violation(doc: &CdpDocument, finding: &Finding, rule: &SharedRule) -> Viol
     if let Some(n) = node {
         violation = violation.with_selector(selector_for(n));
         violation.backend_node_id = doc.backend_node_id(n);
+        violation.role = doc.chrome_role(n).map(str::to_string);
     }
     if let Some(help) = &finding.help {
         violation = violation.with_fix(help.clone());

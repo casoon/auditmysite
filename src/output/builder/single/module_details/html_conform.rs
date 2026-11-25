@@ -275,6 +275,7 @@ mod html_conform_recommendations_tests {
                         &i18n,
                         f.clone(),
                         Vec::new(),
+                        1,
                     )
                 })
                 .collect();

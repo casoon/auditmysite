@@ -430,6 +430,12 @@ pub struct NormalizedFinding {
     /// Known third-party providers (canonical English names, sorted) of the
     /// cross-origin frames the occurrences sit in.
     pub providers: Vec<String>,
+    /// How many of the finding's elements have each AX role (`link`, `button`,
+    /// `textbox`, ...), over all of them and not only the listed sample, for
+    /// the rules whose display title names the element kind (#1170,
+    /// `finding_titles::tallies_roles`); empty for every other finding and
+    /// where the role is unknown.
+    pub observed_roles: std::collections::BTreeMap<String, usize>,
     /// Domain, source, outcome, applicability, cause and scoring
     /// responsibility — the contract every domain shares (#780).
     pub contract: crate::audit::finding_contract::FindingContract,
@@ -501,6 +507,8 @@ struct NormalizedFindingWire {
     origin: crate::model::FindingOrigin,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     providers: Vec<String>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    observed_roles: std::collections::BTreeMap<String, usize>,
     contract: crate::audit::finding_contract::FindingContract,
 }
 
@@ -548,6 +556,7 @@ impl From<NormalizedFinding> for NormalizedFindingWire {
             occurrences,
             origin,
             providers,
+            observed_roles,
             contract,
         } = f;
         Self {
@@ -588,6 +597,7 @@ impl From<NormalizedFinding> for NormalizedFindingWire {
             occurrences,
             origin,
             providers,
+            observed_roles,
             contract,
         }
     }
@@ -661,6 +671,7 @@ impl TryFrom<NormalizedFindingWire> for NormalizedFinding {
             occurrences: w.occurrences,
             origin: w.origin,
             providers: w.providers,
+            observed_roles: w.observed_roles,
             contract: w.contract,
         })
     }
@@ -1315,12 +1326,29 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 occurrences,
                 origin: FindingOrigin::of_occurrences(violations.iter().map(|v| v.origin)),
                 providers: providers_of(violations.iter().map(|v| v.provider.as_deref())),
+                observed_roles: if crate::audit::finding_titles::tallies_roles(rule_id) {
+                    roles_of(violations.iter().map(|v| v.role.as_deref()))
+                } else {
+                    Default::default()
+                },
                 contract,
             }
         })
         .collect();
 
     findings
+}
+
+/// How many occurrences have each role; occurrences without a role are not
+/// counted, so a tally that does not add up to the occurrence count is partial.
+fn roles_of<'a>(
+    roles: impl Iterator<Item = Option<&'a str>>,
+) -> std::collections::BTreeMap<String, usize> {
+    let mut tally = std::collections::BTreeMap::new();
+    for role in roles.flatten() {
+        *tally.entry(role.to_string()).or_insert(0) += 1;
+    }
+    tally
 }
 
 /// The distinct provider names of a finding's occurrences, sorted.
@@ -1388,6 +1416,9 @@ pub fn aggregate_batch_findings(
                         }
                     }
                     entry.providers.sort();
+                    for (role, count) in &finding.observed_roles {
+                        *entry.observed_roles.entry(role.clone()).or_insert(0) += count;
+                    }
                     if !urls.contains(&report.url) {
                         urls.push(report.url.clone());
                     }
@@ -4144,6 +4175,57 @@ mod tests {
         let read: NormalizedFinding = serde_json::from_value(json).unwrap();
         assert_eq!(read.origin, FindingOrigin::FirstParty);
         assert!(read.providers.is_empty());
+    }
+
+    /// #1170: the roles of every occurrence are tallied, not only those of
+    /// the listed sample, for the rules whose display title names the element
+    /// kind, and the batch adds the tallies of its pages.
+    #[test]
+    fn roles_are_tallied_over_all_occurrences_for_the_named_rules() {
+        let mut violations: Vec<Violation> = (0..7)
+            .map(|i| {
+                let mut v = origin_violation(
+                    "links/name-missing",
+                    &format!("n{i}"),
+                    FindingOrigin::FirstParty,
+                    None,
+                );
+                v.role = Some("link".to_string());
+                v
+            })
+            .collect();
+        let mut other =
+            origin_violation("images/alt-missing", "n9", FindingOrigin::FirstParty, None);
+        other.role = Some("image".to_string());
+        violations.push(other);
+        let page = |url: &str| origin_report(url, violations.clone());
+        let a = page("https://example.com/a");
+        let links = a
+            .findings
+            .iter()
+            .find(|f| f.rule_id == "links/name-missing")
+            .unwrap();
+        assert_eq!(links.observed_roles.get("link"), Some(&7));
+        assert!(links.occurrences.len() < 7);
+        let alt = a
+            .findings
+            .iter()
+            .find(|f| f.rule_id == "images/alt-missing")
+            .unwrap();
+        assert!(alt.observed_roles.is_empty());
+        let json = serde_json::to_value(links).unwrap();
+        assert_eq!(json["observed_roles"], serde_json::json!({ "link": 7 }));
+        assert!(serde_json::to_value(alt)
+            .unwrap()
+            .get("observed_roles")
+            .is_none());
+
+        let aggregated = aggregate_batch_findings(&[a, page("https://example.com/b")]);
+        let links = aggregated
+            .iter()
+            .find(|(f, _)| f.rule_id == "links/name-missing")
+            .unwrap();
+        assert_eq!(links.0.observed_roles.get("link"), Some(&14));
     }
 
     /// The batch names a provider finding once: the same rule in a frame of
