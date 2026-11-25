@@ -272,3 +272,20 @@ finding-title-a11y-journey-landmark-nav-without-labels = Navigation regions with
 finding-title-a11y-journey-landmark-duplicate-unique = Duplicate landmarks
 finding-title-a11y-journey-media-controls-missing-name = Media controls without name
 finding-title-a11y-journey-media-controls-not-reachable = Media controls not reachable
+
+## Display titles for decision makers (#1170, `finding_titles::finding_display_title`)
+## Never in the JSON: its `title` stays the English rule title.
+finding-kind-title-name-link = Link without an accessible name
+finding-kind-title-name-button = Button without an accessible name
+finding-kind-title-name-textbox = Text field without an accessible name
+finding-kind-title-name-combobox = Combo box without an accessible name
+finding-kind-title-name-checkbox = Checkbox without an accessible name
+finding-kind-title-name-radio = Radio button without an accessible name
+finding-kind-title-label-textbox = Text field without a label
+finding-kind-title-label-combobox = Combo box without a label
+finding-kind-title-label-checkbox = Checkbox without a label
+finding-kind-title-label-radio = Radio button without a label
+finding-title-with-reach = { $title }, { $reach }
+finding-reach-all-pages = on all { $pages } audited pages
+finding-reach-some-pages = on { $affected } of { $audited } pages
+finding-reach-this-page = { $count } occurrences on this page

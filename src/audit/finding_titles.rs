@@ -100,6 +100,120 @@ pub fn display_title(rule_id: &str, en: bool) -> Option<String> {
     finding_title(rule_id, en)
 }
 
+/// The element kinds a name or label finding names in its display title.
+/// Only roles Chrome reports for the elements those rules check; any other
+/// role leaves the rule title.
+const NAMED_KINDS: [&str; 6] = ["link", "button", "textbox", "combobox", "checkbox", "radio"];
+
+/// The kind of element a Chrome AX role stands for, if the display title names
+/// it: a search box is a text field.
+fn element_kind(role: &str) -> Option<&'static str> {
+    let role = if role == "searchbox" { "textbox" } else { role };
+    NAMED_KINDS.iter().copied().find(|kind| *kind == role)
+}
+
+/// Which family of rules carries a kind-specific display title: a missing
+/// accessible name (`name`) or a missing label (`label`); `None` for every
+/// other rule, whose title stays as it is.
+fn display_family(rule_id: &str) -> Option<&'static str> {
+    match rule_id {
+        "links/name-missing" | "buttons/name-missing" | "names/required-missing" => Some("name"),
+        "forms/label-missing" => Some("label"),
+        _ => None,
+    }
+}
+
+/// Whether the findings of `rule_id` get their element roles tallied for the
+/// display title ([`finding_display_title`]).
+pub fn tallies_roles(rule_id: &str) -> bool {
+    display_family(rule_id).is_some()
+}
+
+/// How far a finding reaches: the pages it occurs on of the pages audited, and
+/// its occurrences (on every page together).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FindingReach {
+    pub pages_affected: usize,
+    pub pages_audited: usize,
+    pub occurrences: usize,
+}
+
+/// The reach as a phrase ("on all 5 audited pages", "on 2 of 5 pages",
+/// "20 occurrences on this page"), or `None` where it says nothing: a single
+/// occurrence on the one page audited.
+fn reach_text(reach: FindingReach, en: bool) -> Option<String> {
+    use fluent_bundle::FluentValue;
+    let n = |value: usize| FluentValue::from(value as i64);
+    let (key, args): (&str, Vec<(&str, FluentValue<'_>)>) = if reach.pages_audited > 1 {
+        if reach.pages_affected >= reach.pages_audited {
+            (
+                "finding-reach-all-pages",
+                vec![("pages", n(reach.pages_audited))],
+            )
+        } else {
+            (
+                "finding-reach-some-pages",
+                vec![
+                    ("affected", n(reach.pages_affected)),
+                    ("audited", n(reach.pages_audited)),
+                ],
+            )
+        }
+    } else if reach.occurrences > 1 {
+        (
+            "finding-reach-this-page",
+            vec![("count", n(reach.occurrences))],
+        )
+    } else {
+        return None;
+    };
+    crate::i18n::try_text_args(key, &args, en)
+}
+
+/// The title a decision maker reads for a finding (#1170): the kind of
+/// element and the reach instead of the rule title alone, from measured data.
+///
+/// For the rules of a missing name or label, when every observed element is of
+/// one kind (`roles`, the tally of their AX roles), the title names that kind
+/// ("Link without an accessible name"); with mixed kinds, none or an unnamed
+/// one it is `rule_title`. The reach follows after a comma. Every other rule
+/// keeps `rule_title`. The JSON `title` is not this one: it stays the English
+/// rule title.
+pub fn finding_display_title(
+    rule_id: &str,
+    rule_title: &str,
+    roles: &std::collections::BTreeMap<String, usize>,
+    reach: FindingReach,
+    en: bool,
+) -> String {
+    use fluent_bundle::FluentValue;
+    let Some(family) = display_family(rule_id) else {
+        return rule_title.to_string();
+    };
+    let one_kind = roles
+        .keys()
+        .next()
+        .and_then(|role| element_kind(role))
+        .filter(|kind| roles.keys().all(|role| element_kind(role) == Some(*kind)));
+    let title = one_kind
+        .and_then(|kind| {
+            crate::i18n::try_text_args(&format!("finding-kind-title-{family}-{kind}"), &[], en)
+        })
+        .unwrap_or_else(|| rule_title.to_string());
+    match reach_text(reach, en) {
+        Some(reach) => crate::i18n::try_text_args(
+            "finding-title-with-reach",
+            &[
+                ("title", FluentValue::from(title.clone())),
+                ("reach", FluentValue::from(reach)),
+            ],
+            en,
+        )
+        .unwrap_or(title),
+        None => title,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -440,6 +554,142 @@ mod tests {
             ),
         ] {
             assert_eq!(finding_title(rule_id, true).as_deref(), Some(expected));
+        }
+    }
+    fn roles(entries: &[(&str, usize)]) -> std::collections::BTreeMap<String, usize> {
+        entries.iter().map(|(r, n)| (r.to_string(), *n)).collect()
+    }
+
+    fn reach(affected: usize, audited: usize, occurrences: usize) -> FindingReach {
+        FindingReach {
+            pages_affected: affected,
+            pages_audited: audited,
+            occurrences,
+        }
+    }
+
+    const RULE_TITLE: &str = "Form control, link, or button without an accessible name";
+
+    /// #1170: one kind names the element, with the reach of the finding.
+    #[test]
+    fn display_title_names_one_kind_and_the_reach_en() {
+        let title = |roles: &_, reach| {
+            finding_display_title("links/name-missing", RULE_TITLE, roles, reach, true)
+        };
+        let links = roles(&[("link", 20)]);
+        assert_eq!(
+            title(&links, reach(5, 5, 20)),
+            "Link without an accessible name, on all 5 audited pages"
+        );
+        assert_eq!(
+            title(&links, reach(2, 5, 20)),
+            "Link without an accessible name, on 2 of 5 pages"
+        );
+        assert_eq!(
+            title(&links, reach(1, 1, 20)),
+            "Link without an accessible name, 20 occurrences on this page"
+        );
+        assert_eq!(
+            title(&links, reach(1, 1, 1)),
+            "Link without an accessible name"
+        );
+        assert_eq!(
+            finding_display_title(
+                "names/required-missing",
+                "Interactive element without a meaningful name",
+                &roles(&[("textbox", 2), ("searchbox", 1)]),
+                reach(1, 1, 3),
+                true
+            ),
+            "Text field without an accessible name, 3 occurrences on this page"
+        );
+        assert_eq!(
+            finding_display_title(
+                "forms/label-missing",
+                "Missing form labels",
+                &roles(&[("checkbox", 4)]),
+                reach(3, 3, 4),
+                true
+            ),
+            "Checkbox without a label, on all 3 audited pages"
+        );
+    }
+
+    #[test]
+    fn display_title_names_one_kind_and_the_reach_de() {
+        assert_eq!(
+            finding_display_title(
+                "buttons/name-missing",
+                "Formularelement, Link oder Button ohne zugänglichen Namen",
+                &roles(&[("button", 7)]),
+                reach(2, 5, 7),
+                false
+            ),
+            "Button ohne zugänglichen Namen, auf 2 von 5 Seiten"
+        );
+        assert_eq!(
+            finding_display_title(
+                "links/name-missing",
+                "x",
+                &roles(&[("link", 20)]),
+                reach(4, 4, 20),
+                false
+            ),
+            "Link ohne zugänglichen Namen, auf allen 4 geprüften Seiten"
+        );
+        assert_eq!(
+            finding_display_title(
+                "forms/label-missing",
+                "x",
+                &roles(&[("textbox", 6)]),
+                reach(1, 1, 6),
+                false
+            ),
+            "Textfeld ohne Beschriftung, 6 Vorkommen auf dieser Seite"
+        );
+    }
+
+    /// Mixed, unknown or unmeasured kinds keep the rule title, and a rule
+    /// outside the name and label rules is never touched.
+    #[test]
+    fn display_title_never_guesses_a_kind() {
+        for en in [true, false] {
+            let one = reach(1, 1, 1);
+            let rule = |roles: &_| {
+                finding_display_title("names/required-missing", "Rule title", roles, one, en)
+            };
+            assert_eq!(rule(&roles(&[("link", 1), ("button", 1)])), "Rule title");
+            assert_eq!(rule(&roles(&[("slider", 3)])), "Rule title");
+            assert_eq!(rule(&roles(&[("link", 3), ("slider", 1)])), "Rule title");
+            assert_eq!(rule(&roles(&[])), "Rule title");
+            assert_eq!(
+                finding_display_title(
+                    "images/alt-missing",
+                    "Rule title",
+                    &roles(&[("image", 4)]),
+                    reach(5, 5, 4),
+                    en
+                ),
+                "Rule title"
+            );
+        }
+    }
+
+    /// The English texts of the display title carry no German umlaut.
+    #[test]
+    fn english_display_titles_have_no_umlauts() {
+        let en = include_str!("../../locales/en/finding-titles.ftl");
+        assert!(!en.contains(['ä', 'ö', 'ü', 'Ä', 'Ö', 'Ü', 'ß']));
+        for family in ["name", "label"] {
+            for kind in NAMED_KINDS {
+                if family == "label" && matches!(kind, "link" | "button") {
+                    continue;
+                }
+                for en in [true, false] {
+                    let key = format!("finding-kind-title-{family}-{kind}");
+                    assert!(crate::i18n::try_text_args(&key, &[], en).is_some(), "{key}");
+                }
+            }
         }
     }
 }

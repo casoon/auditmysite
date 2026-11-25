@@ -121,7 +121,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
             ReportLevel::Technical => f.report_visibility.technical,
         })
         .filter(|f| f.category() == "wcag" || !wcag_titles.contains(&f.title.trim().to_lowercase()))
-        .map(|f| finding_group_from_normalized(&i18n, f.clone(), Vec::new()))
+        .map(|f| finding_group_from_normalized(&i18n, f.clone(), Vec::new(), 1))
         .collect();
 
     let score = normalized.normalized.score;

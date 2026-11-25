@@ -1826,6 +1826,11 @@
           "items": { "type": "string" },
           "description": "Known third-party providers (canonical English names, sorted, web-checks provider list) of the cross-origin frames the occurrences sit in. Absent when there are none."
         },
+        "observed_roles": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 1 },
+          "description": "How many of the finding's elements have each AX role (`link`, `button`, `textbox`, ...), over all of them and not only the listed sample (#1170). Only on the rules of a missing accessible name or label (`links/name-missing`, `buttons/name-missing`, `names/required-missing`, `forms/label-missing`); the PDF names the element kind in the finding's display title from it. Absent when the role is unknown."
+        },
         "contract": {
           "$ref": "#/$defs/findingContract"
         },

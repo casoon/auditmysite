@@ -70,6 +70,10 @@ Every other finding (SEO, mobile, UX, the other structured-data issues, ...) has
 - `assurance.evidence` — `located` (every occurrence names its element or carries recorded evidence), `partial`, `document` (a document-wide check without an element) or `unlocated`.
 - `verification: automatically_confirmed` requires `measured` with `located`, `partial` or `document` evidence (`confidence` `very_high` for located, `high` otherwise). Everything else is `manual_review_recommended` at `medium` confidence, and a finding that needs review raises no legal flag.
 
+### Finding display title (#1170)
+
+`findings[].title` is the English rule title and never changes with the report. The PDF's key measures, action table and finding cards show a display title for the rules of a missing accessible name or label (`links/name-missing`, `buttons/name-missing`, `names/required-missing`, `forms/label-missing`): when every element is of one kind it names that kind ("Link without an accessible name"), with mixed or other kinds it keeps the rule title, and it adds the reach ("on all 5 audited pages", "on 2 of 5 pages", "20 occurrences on this page"). The kinds come from `findings[].observed_roles`, the tally of the AX roles over all occurrences of the finding; a kind is never inferred from a class name or selector.
+
 ### Finding origin (#1109)
 
 Findings in markup the site owner does not control (an embedded widget, a consent platform frame) used to read like first-party findings. Since the frame pass audits cross-origin frames too (#715, #720), every finding says where its markup comes from. Attribution only: **scoring is unchanged**.

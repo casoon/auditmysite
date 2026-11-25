@@ -272,3 +272,20 @@ finding-title-a11y-journey-landmark-nav-without-labels = Navigationen ohne Bezei
 finding-title-a11y-journey-landmark-duplicate-unique = Doppelte Landmarken
 finding-title-a11y-journey-media-controls-missing-name = Mediensteuerung ohne Namen
 finding-title-a11y-journey-media-controls-not-reachable = Mediensteuerung nicht erreichbar
+
+## Display titles for decision makers (#1170, `finding_titles::finding_display_title`)
+## Never in the JSON: its `title` stays the English rule title.
+finding-kind-title-name-link = Link ohne zugänglichen Namen
+finding-kind-title-name-button = Button ohne zugänglichen Namen
+finding-kind-title-name-textbox = Textfeld ohne zugänglichen Namen
+finding-kind-title-name-combobox = Auswahlfeld ohne zugänglichen Namen
+finding-kind-title-name-checkbox = Kontrollkästchen ohne zugänglichen Namen
+finding-kind-title-name-radio = Optionsfeld ohne zugänglichen Namen
+finding-kind-title-label-textbox = Textfeld ohne Beschriftung
+finding-kind-title-label-combobox = Auswahlfeld ohne Beschriftung
+finding-kind-title-label-checkbox = Kontrollkästchen ohne Beschriftung
+finding-kind-title-label-radio = Optionsfeld ohne Beschriftung
+finding-title-with-reach = { $title }, { $reach }
+finding-reach-all-pages = auf allen { $pages } geprüften Seiten
+finding-reach-some-pages = auf { $affected } von { $audited } Seiten
+finding-reach-this-page = { $count } Vorkommen auf dieser Seite
