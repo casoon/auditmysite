@@ -728,6 +728,7 @@ pub(super) fn update_audit_quality(report: &mut AuditReport) {
         || missing_capabilities > 0
         || gaps.stability_fallbacks > 0
         || gaps.uninspected_frames > 0
+        || gaps.unsettled_frames > 0
     {
         crate::audit::AuditQualityStatus::Partial
     } else {
@@ -742,6 +743,9 @@ pub(super) fn update_audit_quality(report: &mut AuditReport) {
     }
     if gaps.uninspected_frames > 0 {
         reasons.push(format!("uninspected_frames:{}", gaps.uninspected_frames));
+    }
+    if gaps.unsettled_frames > 0 {
+        reasons.push(format!("unsettled_frames:{}", gaps.unsettled_frames));
     }
     if missing_capabilities > 0 {
         reasons.push(format!("missing_rule_capabilities:{missing_capabilities}"));
@@ -1335,6 +1339,7 @@ mod tests {
                 selector: "iframe#w".into(),
                 url: Some("https://example.org/w".into()),
                 reason: None,
+                gap: None,
                 viewports: vec!["desktop".into(), "mobile".into()],
                 outcomes,
             }],

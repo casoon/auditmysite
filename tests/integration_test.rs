@@ -3183,6 +3183,130 @@ async fn lazy_frames_are_loaded_before_the_frame_pass_and_a_stalled_one_is_not_a
     );
 }
 
+/// A frame document whose script adds unnamed buttons after the load. `script`
+/// runs once the frame has its `wall` container and the `add(n)` helper.
+fn late_frame_widget(script: &str) -> common::fixture_server::Fixture {
+    common::fixture_server::serve_html(format!(
+        "<!DOCTYPE html><html lang=\"en\"><head><title>Late widget</title></head><body><main>\
+         <h1>Late widget</h1><div id=\"wall\"></div></main><script>\
+         var wall = document.getElementById('wall');\
+         function add(n) {{ var b = document.createElement('button'); b.id = 'late-' + n; wall.appendChild(b); }}\
+         {script}</script></body></html>"
+    ))
+}
+
+/// Audits a page whose only content is the frame at `widget_url`; returns the
+/// report and the selectors of the frame's `buttons/name-missing` findings.
+async fn audit_late_frame(widget_url: &str) -> (auditmysite::audit::AuditReport, Vec<String>) {
+    // Another origin (localhost, not 127.0.0.1), as for any embedded widget.
+    let page_html = format!(
+        "<!DOCTYPE html><html lang=\"en\"><head><title>Late frame</title></head><body><main>\
+         <h1>Late frame</h1><iframe id=\"late\" title=\"Late widget\" src=\"{}/\" \
+         width=\"400\" height=\"200\"></iframe></main></body></html>",
+        widget_url.replace("127.0.0.1", "localhost")
+    );
+    let fixture = common::fixture_server::serve_html(page_html);
+    let manager = ci_browser().await;
+    let page = manager.new_page().await.expect("New page failed");
+    manager
+        .navigate(&page, &fixture.url)
+        .await
+        .expect("Navigation failed");
+    let (report, _) = audit_page(&page, &fixture.url, &default_config(), &manager)
+        .await
+        .expect("Audit failed");
+    fixture.stop();
+    let wcag = &report.accessibility.wcag_results;
+    let findings = wcag
+        .violations
+        .iter()
+        .chain(&wcag.warnings)
+        .filter(|v| v.rule_id.as_deref() == Some("buttons/name-missing"))
+        .filter_map(|v| v.selector.clone())
+        .filter(|s| s.starts_with("iframe#late [frame] "))
+        .collect();
+    (report, findings)
+}
+
+/// #1180: a frame that renders after the DOM capture has the content in its
+/// AX tree but not in the captured document. The frame pass captures it anew
+/// before the DOM rules run, so they judge the rendered frame.
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn a_frame_that_renders_after_the_dom_capture_is_captured_again() {
+    // A button every few ms for the first 2.4 s of the frame, then a last one.
+    // The frame pass starts well inside that, so the DOM it captures first is
+    // older than the frame's AX tree.
+    let widget = late_frame_widget(
+        "var n = 0; (function tick() { if (performance.now() < 2400) { add(n++); setTimeout(tick, 0); } else { add('final'); } })();",
+    );
+    let (report, findings) = audit_late_frame(&widget.url).await;
+    widget.stop();
+    let frames = report
+        .accessibility
+        .execution
+        .frames
+        .as_ref()
+        .expect("frame coverage recorded");
+    eprintln!("frame coverage: {frames:#?}");
+
+    assert!(
+        findings
+            .iter()
+            .any(|s| s == "iframe#late [frame] button#late-final"),
+        "the frame's last element is missing, its DOM was judged before it rendered: {} findings",
+        findings.len()
+    );
+    let entry = frames
+        .audited
+        .iter()
+        .find(|f| f.selector == "iframe#late")
+        .expect("frame audited");
+    assert_eq!(entry.gap, None, "the frame settled: {frames:#?}");
+}
+
+/// #1180: a frame that never stops rendering does not settle within the
+/// budget. It is audited, its result is marked with a gap and the audit is
+/// `partial`, instead of passing for a frame judged in full.
+#[tokio::test]
+#[ignore = "needs Chrome"]
+async fn a_frame_that_never_stops_rendering_is_marked_partial() {
+    use auditmysite::audit::frames::FrameGap;
+
+    let widget = late_frame_widget(
+        "var n = 0; (function tick() { add(n++); if (n < 1500) setTimeout(tick, 0); })();",
+    );
+    let (report, _) = audit_late_frame(&widget.url).await;
+    widget.stop();
+    let frames = report
+        .accessibility
+        .execution
+        .frames
+        .as_ref()
+        .expect("frame coverage recorded");
+    eprintln!("frame coverage: {frames:#?}");
+
+    let entry = frames
+        .audited
+        .iter()
+        .find(|f| f.selector == "iframe#late")
+        .expect("frame audited");
+    assert_eq!(entry.gap, Some(FrameGap::DomUnsettled));
+    let quality = &report.accessibility.execution.quality;
+    assert_eq!(
+        quality.status,
+        auditmysite::audit::AuditQualityStatus::Partial
+    );
+    assert!(
+        quality
+            .reasons
+            .iter()
+            .any(|r| r.starts_with("unsettled_frames:")),
+        "{:?}",
+        quality.reasons
+    );
+}
+
 /// #718: a client-rendered app can stay quiet behind an empty splash screen
 /// while it fetches its first view. 200 ms of DOM quiet used to count as
 /// settled, so the audit read the AX tree before any heading existed.

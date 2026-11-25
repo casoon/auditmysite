@@ -159,6 +159,10 @@ pub(crate) fn frames_collection(coverage: &super::frames::FrameCoverage) -> Coll
             gaps.push(gap);
         }
     }
+    // An audited frame whose DOM did not catch up with its AX tree (#1180).
+    if coverage.audited.iter().any(|entry| entry.gap.is_some()) {
+        gaps.push("frame_dom_unsettled");
+    }
     if gaps.is_empty() {
         Collected::Measured(())
     } else {
@@ -440,6 +444,16 @@ pub(crate) mod cases {
             frames_collection(&coverage(vec![entry(None)])).state(),
             CollectionState::Partial
         );
+        // An audited frame whose DOM did not settle is a gap too (#1180).
+        let mut unsettled = coverage(Vec::new());
+        unsettled.audited.push(FrameEntry {
+            gap: Some(crate::audit::frames::FrameGap::DomUnsettled),
+            ..Default::default()
+        });
+        assert!(matches!(
+            frames_collection(&unsettled),
+            Collected::Partial { gaps, .. } if gaps == ["frame_dom_unsettled"]
+        ));
     }
 
     pub(crate) fn page_stability() {

@@ -27,7 +27,7 @@
 //! verbunden — nicht über Position oder Tagnamen, die bei Shadow DOM und
 //! ignorierten Knoten auseinanderlaufen.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 
 use a11y_dom::{
@@ -51,7 +51,7 @@ use tracing::{debug, warn};
 use super::extractor::ChromeNameSources;
 use super::probes::{run_probes, ProbeNote, ProbeSelection, Probes};
 use crate::error::{AuditError, Result};
-use a11y_perception::{AXTree, NameSource};
+use a11y_perception::{AXNode, AXTree, NameSource};
 
 /// DOM-Knotentypen, die hier vorkommen. Die Zahlen sind die des DOM-Standards,
 /// die CDP unverändert durchreicht.
@@ -136,6 +136,54 @@ impl CdpDocument {
     /// Befund (der nur den Arena-Index kennt) auf das Element.
     pub fn node_at(&self, id: a11y_dom::NodeId) -> Option<ArenaNode<'_>> {
         self.arena.get(id)
+    }
+
+    /// Die Backend-IDs der Elemente, die der AX-Baum führt und dieses Dokument
+    /// nicht: Inhalt, der nach dem DOM-Abzug entstanden ist (#1180). Gezählt
+    /// werden nur nicht ignorierte Elementknoten, nicht die Textläufe, die
+    /// Wurzel und die Listenmarken: Sie hängen an Textknoten, erzeugtem Inhalt
+    /// und dem Dokumentknoten, die der DOM-Abzug anders führt. Auch nicht, was
+    /// unter einem Element mit eigenem Browser-Schattenbaum hängt (Datums- und
+    /// Zahlenfelder, Medienleisten, das Popup eines `<select>`): Dessen
+    /// Knoten kennt der DOM-Abzug nie.
+    pub fn ax_elements_missing(&self, ax_tree: &AXTree) -> BTreeSet<i64> {
+        let known: HashMap<i64, usize> = self
+            .backend_ids
+            .iter()
+            .enumerate()
+            .filter_map(|(index, id)| Some((((*id)?), index)))
+            .collect();
+        let under_shadow_host = |node: &AXNode| {
+            let mut parent = node.parent_id.as_deref();
+            while let Some(ancestor) = parent.and_then(|id| ax_tree.get_node(id)) {
+                if let Some(index) = ancestor.backend_dom_node_id.and_then(|id| known.get(&id)) {
+                    return self
+                        .arena
+                        .get(a11y_dom::NodeId(*index as u32))
+                        .is_some_and(|host| BROWSER_SHADOW_HOSTS.contains(&host.local_name()));
+                }
+                parent = ancestor.parent_id.as_deref();
+            }
+            false
+        };
+        ax_tree
+            .iter_all()
+            .filter(|n| !n.ignored)
+            .filter(|n| {
+                !matches!(
+                    n.role.as_deref(),
+                    None | Some(
+                        "RootWebArea" | "StaticText" | "InlineTextBox" | "LineBreak" | "ListMarker"
+                    )
+                )
+            })
+            .filter(|n| {
+                n.backend_dom_node_id
+                    .is_some_and(|id| !known.contains_key(&id))
+            })
+            .filter(|n| !under_shadow_host(n))
+            .filter_map(|n| n.backend_dom_node_id)
+            .collect()
     }
 
     /// Die AXTree-Knotenkennung zu einem Knoten, sofern er im
@@ -249,6 +297,13 @@ pub struct LayoutStyles {
     /// angefordert hat -- dann sind die Regeln darauf `CapabilityMissing`.
     probes: Probes,
 }
+
+/// Elements whose own shadow tree the browser builds (input controls, media
+/// bars, the popup of a `select`): the DOM capture does not list its nodes,
+/// the AX tree does.
+const BROWSER_SHADOW_HOSTS: &[&str] = &[
+    "input", "textarea", "select", "video", "audio", "meter", "progress", "img", "object", "embed",
+];
 
 #[derive(Debug, Clone, PartialEq)]
 struct LayoutStyle {
@@ -1182,6 +1237,22 @@ async fn fetch_element_ids(
     result
 }
 
+/// Der `DOMSnapshot` der ganzen Seite als [`LayoutStyles`], ohne die
+/// Durchgänge und Messungen, die [`fetch_layout_styles`] danach ergänzt.
+async fn fetch_snapshot_styles(page: &Page) -> Result<LayoutStyles> {
+    let mut params =
+        CaptureSnapshotParams::new(SNAPSHOT_STYLES.iter().map(|p| p.to_string()).collect());
+    // `scrollRects` und `clientRects` für den Scroll-Überhang.
+    params.include_dom_rects = Some(true);
+    let response = page
+        .execute(params)
+        .await
+        .map_err(|e| AuditError::AXTreeExtractionFailed {
+            reason: format!("DOMSnapshot.captureSnapshot fehlgeschlagen: {e}"),
+        })?;
+    Ok(LayoutStyles::from_snapshot(&response.result))
+}
+
 /// Holt [`LayoutStyles`] für die ganze Seite in einem CDP-Aufruf.
 async fn fetch_layout_styles(page: &Page, selection: ProbeSelection) -> Result<LayoutStyles> {
     // Vor dem Snapshot, damit alle denselben Stand sehen. Scheitert ein
@@ -1197,17 +1268,7 @@ async fn fetch_layout_styles(page: &Page, selection: ProbeSelection) -> Result<L
         pass(fetch_element_ids(page, "Überdeckungsdurchgang", OBSCURED_JS, "ams-obscured").await);
     let animating =
         pass(fetch_element_ids(page, "Animationsdurchgang", ANIMATING_JS, "ams-animating").await);
-    let mut params =
-        CaptureSnapshotParams::new(SNAPSHOT_STYLES.iter().map(|p| p.to_string()).collect());
-    // `scrollRects` und `clientRects` für den Scroll-Überhang.
-    params.include_dom_rects = Some(true);
-    let response = page
-        .execute(params)
-        .await
-        .map_err(|e| AuditError::AXTreeExtractionFailed {
-            reason: format!("DOMSnapshot.captureSnapshot fehlgeschlagen: {e}"),
-        })?;
-    let mut styles = LayoutStyles::from_snapshot(&response.result);
+    let mut styles = fetch_snapshot_styles(page).await?;
     styles.obscured = obscured;
     styles.animating = animating;
     styles.backdrops = backdrops_or_none(
@@ -1952,6 +2013,32 @@ impl DomCapture {
     /// `DOMSnapshot` scheiterte und es deshalb keine Layout-Stile gibt.
     pub fn probes(&self) -> Option<&Probes> {
         self.layout.as_deref().map(|l| &l.probes)
+    }
+
+    /// Ein frischer Abzug von DOM und Layout derselben Seite, für ein iframe,
+    /// das nach dem ersten Abzug weitergerendert hat (#1180). Es sind nur der
+    /// `DOM.getDocument` und der `DOMSnapshot` neu; die Durchgänge und
+    /// Messungen an der laufenden Seite (überdeckt, animiert, abgetastete
+    /// Hintergründe, `probes`) bleiben die des ersten Abzugs, sie berühren die
+    /// Seite oder gelten dem Hauptdokument.
+    pub async fn refreshed(&self, page: &Page) -> Result<DomCapture> {
+        let root = get_document(page).await?;
+        let layout = match fetch_snapshot_styles(page).await {
+            Ok(mut fresh) => {
+                if let Some(old) = &self.layout {
+                    fresh.obscured = old.obscured.clone();
+                    fresh.animating = old.animating.clone();
+                    fresh.backdrops = old.backdrops.clone();
+                    fresh.probes = old.probes.clone();
+                }
+                Some(Arc::new(fresh))
+            }
+            Err(e) => {
+                warn!("DOMSnapshot fuer den erneuten Abzug fehlgeschlagen: {e}");
+                None
+            }
+        };
+        Ok(DomCapture { root, layout })
     }
 
     /// Das Hauptdokument, verbunden mit dessen AXTree.
@@ -3441,5 +3528,55 @@ mod tests {
             !elements(&doc).any(|n| n.is_element("p")),
             "Inhalt des iframe-Dokuments darf nicht im Baum stehen"
         );
+    }
+
+    /// Was der AX-Baum führt und der DOM-Abzug nicht, ist Inhalt, der nach dem
+    /// Abzug entstand (#1180) -- bis auf das, was der Browser selbst unter
+    /// einem Element baut (Schattenbaum) und die Knoten, die der Abzug
+    /// anders führt.
+    #[test]
+    fn ax_elemente_ohne_dom_knoten_sind_nachgerenderter_inhalt() {
+        let kind = |backend: i64, role: &str, parent: i64, ignored: bool| {
+            let mut n = ax_knoten(backend, role, None, ignored);
+            n.parent_id = Some(format!("ax-{parent}"));
+            n
+        };
+        let mut wurzel = ax_knoten(1, "RootWebArea", None, false);
+        wurzel.child_ids = vec!["ax-7".into(), "ax-8".into()];
+        let mut bild = ax_knoten(7, "image", None, false);
+        bild.parent_id = Some("ax-1".into());
+        bild.child_ids = vec!["ax-60".into(), "ax-61".into()];
+        let mut link = ax_knoten(8, "link", None, false);
+        link.parent_id = Some("ax-1".into());
+        link.child_ids = vec![
+            "ax-50".into(),
+            "ax-51".into(),
+            "ax-52".into(),
+            "ax-53".into(),
+        ];
+        let ax = AXTree::from_nodes(vec![
+            wurzel,
+            bild,
+            link,
+            // Neu unter dem Link: gezählt, außer Text, Listenmarke, Ignoriertes.
+            kind(50, "button", 8, false),
+            kind(51, "StaticText", 8, false),
+            kind(52, "ListMarker", 8, false),
+            kind(53, "generic", 8, true),
+            // Unter dem Bild baut der Browser selbst: nicht gezählt.
+            kind(60, "generic", 7, false),
+            kind(61, "button", 60, false),
+        ]);
+        let doc = build_document(&beispielseite(), &ax).unwrap();
+        assert_eq!(
+            doc.ax_elements_missing(&ax).into_iter().collect::<Vec<_>>(),
+            [50]
+        );
+        // Ein Dokument, das alles führt, hat nichts nachzuholen.
+        assert!(doc
+            .ax_elements_missing(&AXTree::from_nodes(vec![ax_knoten(
+                7, "image", None, false
+            )]))
+            .is_empty());
     }
 }
