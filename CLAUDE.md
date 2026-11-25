@@ -259,7 +259,7 @@ Whenever a new module is added, renamed, or removed, update `docs/ARCHITECTURE.m
   `cli` rule is strict, and `tests/fixtures/architecture/backward_imports.txt` counts the
   analysis-module imports as a baseline that may only shrink.
 
-## Current State (v2.2.0)
+## Current State (v2.3.0)
 `CHANGELOG.md` follows Keep a Changelog (skill `keep-a-changelog`): every user-facing change gets
 a short entry under `## [Unreleased]` in the same commit, `**Area:**` first, English; at a release
 `[Unreleased]` becomes `## [x.y.z] - YYYY-MM-DD`. The detailed development log up to 2026-10-24
