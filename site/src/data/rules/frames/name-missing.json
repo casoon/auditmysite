@@ -5,7 +5,7 @@
   "title": "Iframe without accessible name",
   "outcome": "automatic",
   "area": "Accessibility, Content & Alternatives",
-  "criterion": "2.4.1",
+  "criterion": "4.1.2",
   "level": "A",
   "axe_id": "frame-title",
   "severity": "high",

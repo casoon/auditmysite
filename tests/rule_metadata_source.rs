@@ -4,20 +4,12 @@
 //! the criterion a finding is reported under and its level stay local; this
 //! test makes sure they cannot drift from `Meta` or from each other unnoticed.
 //!
-//! Every deviation is pinned below together with the `Meta` value it deviates
-//! from: when barrierlab changes the criteria of such a rule, the test fails
-//! and the deviation has to be decided again.
+//! A shared rule is reported under a criterion `Meta` lists. The exceptions
+//! pinned below are the rules whose `Meta.wcag` is empty or whose taxonomy
+//! entry carries no criterion on purpose.
 
 use auditmysite::taxonomy::RuleLookup;
 use auditmysite::wcag::shared::SHARED_RULES;
-
-/// The criterion a finding is reported under is deliberately not one of the
-/// criteria `Meta` lists: `(id, reported criterion, Meta.wcag)`. Reasons in
-/// `docs/reference/shared-rule-criteria.md`.
-const DEVIATES_FROM_META: &[(&str, &str, &[&str])] = &[
-    ("frames/name-missing", "2.4.1", &["4.1.2"]),
-    ("images/server-side-map", "1.1.1", &["2.1.1"]),
-];
 
 /// `Meta.wcag` is empty (best-practice rules), the criterion is auditmysite's
 /// own assignment.
@@ -53,36 +45,21 @@ fn the_reported_criterion_is_one_of_the_criteria_of_meta() {
         let Some(meta) = a11y_rules::meta_for(rule.id) else {
             continue;
         };
-        let pinned_deviation = DEVIATES_FROM_META.iter().find(|(id, ..)| *id == rule.id);
-        let pinned_empty = META_WITHOUT_CRITERIA.contains(&rule.id);
-        match (pinned_deviation, pinned_empty) {
-            (Some((_, criterion, wcag)), false) => {
-                assert_eq!(rule.criterion, *criterion, "{}: pinned criterion", rule.id);
-                assert_eq!(
-                    meta.wcag, *wcag,
-                    "{}: Meta.wcag changed, decide the deviation again",
-                    rule.id
-                );
-                assert!(
-                    !meta.wcag.contains(&rule.criterion),
-                    "{}: no deviation any more, drop it from DEVIATES_FROM_META",
-                    rule.id
-                );
-            }
-            (None, true) => assert!(
+        if META_WITHOUT_CRITERIA.contains(&rule.id) {
+            assert!(
                 meta.wcag.is_empty(),
                 "{}: Meta.wcag now lists {:?}, drop it from META_WITHOUT_CRITERIA and compare",
                 rule.id,
                 meta.wcag
-            ),
-            (None, false) => assert!(
+            );
+        } else {
+            assert!(
                 meta.wcag.contains(&rule.criterion),
                 "{}: reported under {} but Meta.wcag is {:?}",
                 rule.id,
                 rule.criterion,
                 meta.wcag
-            ),
-            (Some(_), true) => panic!("{}: pinned twice", rule.id),
+            );
         }
     }
 }
@@ -93,7 +70,6 @@ fn the_pinned_exceptions_name_shared_ids() {
         .iter()
         .chain(TAXONOMY_WITHOUT_CRITERION)
         .copied()
-        .chain(DEVIATES_FROM_META.iter().map(|(id, ..)| *id))
     {
         assert!(
             SHARED_RULES.iter().any(|r| r.id == id),

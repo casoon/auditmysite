@@ -16,12 +16,12 @@ The picks that are not self-evident:
 | `ids/duplicate` | 4.1.2 | 4.1.2 | WCAG 2.2 dropped 4.1.1; a duplicate id only breaks something where an IDREF points to it (axe `duplicate-id-aria`). |
 | `keyboard/hidden-focusable` | 4.1.2 | 1.3.1, 4.1.2 | Same as axe `aria-hidden-focus`. |
 | `zoom/viewport-*` | 1.4.4 | 1.4.4 | All viewport findings sit together under 1.4.4. |
-| `frames/name-missing` | 2.4.1 | 4.1.2 | **Deviation.** Reported under 2.4.1 since the rule `frame-title` it replaced; `Meta` moved to 4.1.2 only. |
-| `images/server-side-map` | 1.1.1 | 2.1.1 | **Deviation.** Reported under 1.1.1 since the rule `server_side_image_map` it replaced. |
 | `headings/h1-missing` | 1.3.1 | 1.3.1, 2.4.1, 2.4.6 | The finding names 1.3.1 but is a best practice; the taxonomy entry carries no criterion on purpose (#779). |
 
-Deviations are pinned in the test together with the `Meta` value they deviate from; when
-barrierlab changes that value the test fails and the deviation is decided again.
+Every shared rule is reported under a criterion `Meta.wcag` lists (the maintainer adopted
+barrierlab's criteria for `frames/name-missing`, now 4.1.2, and `images/server-side-map`, now
+2.1.1). The only exceptions are rules whose `Meta.wcag` is empty; the test pins those, so a
+criterion added in barrierlab fails the test until it is compared.
 
 Differences in behaviour from the auditmysite rules the shared rules replaced (for example
 multiple `h1` is a `REVIEW`, a missing navigation/banner/contentinfo landmark is a `REVIEW`,

@@ -2809,11 +2809,11 @@ mod tests {
     }
 
     #[test]
-    fn test_frame_title_keeps_wcag_241_and_specific_taxonomy() {
+    fn test_frame_title_keeps_wcag_412_and_specific_taxonomy() {
         let mut results = WcagResults::new();
         results.add_violation(
             Violation::new(
-                "2.4.1",
+                "4.1.2",
                 "Frame title",
                 WcagLevel::A,
                 Severity::High,
@@ -2848,7 +2848,7 @@ mod tests {
             .iter()
             .find(|f| f.rule_id == "frames/name-missing")
             .expect("frame-title finding should keep its own taxonomy rule");
-        assert_eq!(frame.wcag_criterion, "2.4.1");
+        assert_eq!(frame.wcag_criterion, "4.1.2");
         assert_eq!(frame.axe_id.as_deref(), Some("frames/name-missing"));
 
         assert!(norm

@@ -719,10 +719,10 @@ pub const SHARED_RULES: &[SharedRule] = &[
     },
     SharedRule {
         id: "images/server-side-map",
-        criterion: "1.1.1",
+        criterion: "2.1.1",
         level: WcagLevel::A,
-        name: "Non-text Content (Server-side Image Map)",
-        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+        name: "Keyboard (Server-side Image Map)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
     },
     SharedRule {
         id: "media/audio-autoplay",
@@ -747,7 +747,7 @@ pub const SHARED_RULES: &[SharedRule] = &[
     },
     SharedRule {
         id: "frames/name-missing",
-        criterion: "2.4.1",
+        criterion: "4.1.2",
         level: WcagLevel::A,
         name: "Frame title",
         help_url: "https://www.w3.org/WAI/WCAG22/Techniques/html/H64",
