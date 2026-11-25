@@ -22,13 +22,10 @@
                 url: el.getAttribute('href')
             });
         });
-        result.hreflangHasXDefault = result.hreflang.some(h => h.lang === 'x-default');
-        result.hreflangHasSelfReference = result.hreflang.some(h => {
-            try {
-                const norm = u => new URL(u, window.location.href).href.replace(/\/$/, '');
-                return norm(h.url) === norm(window.location.href);
-            } catch(e) { return false; }
-        });
+        // Resolved hrefs and the page URL, for the self-reference check in Rust.
+        result.hreflangAbsolute = Array.from(document.querySelectorAll('link[rel="alternate"][hreflang]'))
+            .map(el => ({ lang: el.getAttribute('hreflang') || '', href: el.href }));
+        result.pageUrl = window.location.href;
 
         // Pagination
         const relHref = rel => {

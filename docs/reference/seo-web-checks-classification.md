@@ -23,15 +23,12 @@ Rows below (an item is a function or a closely coupled group of them):
 
 | Class | Rows |
 |---|---|
-| (a) already from `web-checks` | 8 |
-| (b) duplicates `web-checks` | 3 (outside the listed files, not removed) |
+| (a) already from `web-checks` | 11 |
+| (b) duplicates `web-checks` | 0 (the 3 found were switched to `web-checks`) |
 | (c) auditmysite's own | 34 |
 | (d) missing in `web-checks` | 1 |
 
-No (b) exists inside the four files named in the issue or in the meta, social
-and render-blocking code. The (b) rows are in `page_health`/`technical` signals
-outside them; they are listed so the boundary section is true, and not removed
-because removing them changes findings (see "Open (b)").
+No (b) is left. The three that existed were outside the four listed files and are described below.
 
 ## `src/seo/schema_rules.rs`
 
@@ -113,25 +110,24 @@ two places:
 | `syncHeadScripts` in `src/seo/page_health/js/dom_inspection.js`, `sync_head_scripts` finding in `page_health/issues.rs` | (c) | Count of synchronous head scripts for the SEO page-health finding. |
 | Predicate "`head script[src]` without `async`, `defer` or `type=module`" | (d) | Written three times: the two scripts above and `astro-post-audit` `checks/render_blocking.rs` (`sync-head-scripts`). It is pure HTML (markup in, count out) and fits `web-checks` next to `social` and `meta`. |
 
-## Hreflang and JSON-LD validity in page health (outside the listed files)
+## Hreflang and JSON-LD validity in page health (done, #1120)
 
-Found while checking whether anything else in `src/seo/` repeats an upstream function.
+These three duplicated upstream and were switched to `web-checks`: the page
+scripts (`page_health/js/dom_inspection.js`, `js/technical_signals.js`) now only
+collect raw values (hreflang codes, resolved hrefs with the page URL, raw
+JSON-LD block texts); Rust judges them in `page_health/dom.rs` and
+`technical.rs`.
 
 | Item | Class | Note |
 |---|---|---|
-| `hreflangInvalidCount` regex in `src/seo/page_health/js/dom_inspection.js` (`^[a-z]{2,3}(-[A-Z]{2})?$\|^x-default$`) | (b) | `web_checks::hreflang::is_valid_code` answers the same question; upstream accepts `de-de` and `zh-Hant-TW`, the regex flags them. |
-| `hreflangHasXDefault`, `hreflangHasSelfReference` in `src/seo/js/technical_signals.js`, `hreflang_has_x_default`/`hreflang_missing_self_reference` in `technical.rs` | (b) | `has_x_default` (case-insensitive) and `has_self_reference` (ignores `x-default`, keeps the query) upstream; the script counts `x-default` as a self reference. |
-| `jsonldInvalidCount` in `dom_inspection.js` (`!data['@context'] \|\| !data['@type']`) | (b) | A second, weaker JSON-LD structure check next to `web_checks::structured_data::parse_block`; it flags every `@graph` container as invalid and double-reports what `schema_issues` already holds. |
+| `hreflang_invalid` count | (a) | `web_checks::hreflang::is_valid_code`. |
+| `hreflang_no_x_default`, `hreflang_no_self_reference` | (a) | `has_x_default`, `has_self_reference`. |
+| `jsonld_invalid` count | (a) | `web_checks::structured_data::parse_blocks`: a block with any `StructuralIssue`. |
 | `hreflang` collection, `HreflangTag`, `serp.rs` x-default row | (c) | Browser collection and presentation of the tags. |
 
-### Open (b): why they are not removed
-
-Switching to the upstream functions is correct but changes findings on real
-sites: `de-de` and `zh-Hant-TW` stop being `hreflang_invalid`; a page that only
-names itself as `x-default` gains `hreflang_no_self_reference`; `@graph` pages
-lose `jsonld_invalid`. #1120 requires unchanged reports, so this needs a
-maintainer decision (rule contracts, CHANGELOG entry as a fix) and is left to
-its own change.
+Finding changes (intended, listed in the CHANGELOG): `de-de` and `zh-Hant-TW`
+are valid; a page naming itself only as `x-default` gains
+`hreflang_no_self_reference`; `@graph` pages lose `jsonld_invalid`.
 
 ## Boundary result
 
@@ -140,7 +136,5 @@ its own change.
   third-party providers.
 - Stays here: everything classified (c), including the report wording around
   the upstream functions.
-- Open for barrierlab: the render-blocking predicate (d). Hreflang and the
-  JSON-LD validity check are (b) and wait for the finding change above.
-  Canonical, headings and the page-intent fit have no counterpart upstream and
+- Open for barrierlab: the render-blocking predicate (d). Canonical, headings and the page-intent fit have no counterpart upstream and
   are not move candidates.

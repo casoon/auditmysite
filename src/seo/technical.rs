@@ -336,11 +336,10 @@ pub async fn analyze_technical_seo(
         })
         .unwrap_or_default();
 
-    let hreflang_has_x_default = parsed["hreflangHasXDefault"].as_bool().unwrap_or(false);
-    let hreflang_missing_self_reference = !hreflang.is_empty()
-        && !parsed["hreflangHasSelfReference"]
-            .as_bool()
-            .unwrap_or(false);
+    let (hreflang_has_x_default, hreflang_missing_self_reference) = judge_hreflang(
+        &parsed["hreflangAbsolute"],
+        parsed["pageUrl"].as_str().unwrap_or(url),
+    );
     let pagination_prev = parsed["paginationPrev"].as_str().map(String::from);
     let pagination_next = parsed["paginationNext"].as_str().map(String::from);
     let pagination_link_count = parsed["paginationLinkCount"].as_u64().unwrap_or(0) as u32;
@@ -849,6 +848,28 @@ async fn check_www_redirect(
             canonical_matches_primary: canonical::matches_host(&primary_host, canonical),
         }),
         None,
+    )
+}
+
+/// `x-default` present, and no own-language self reference, over the page's
+/// `hreflang` links (`{lang, href}` with resolved hrefs), judged by
+/// `web_checks::hreflang`. Nothing is missing when the page has no links.
+fn judge_hreflang(links: &serde_json::Value, page_url: &str) -> (bool, bool) {
+    let alternates: Vec<web_checks::hreflang::Alternate> = links
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .map(|item| web_checks::hreflang::Alternate {
+                    hreflang: item["lang"].as_str().unwrap_or_default().to_string(),
+                    href: item["href"].as_str().unwrap_or_default().to_string(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    (
+        web_checks::hreflang::has_x_default(&alternates),
+        !alternates.is_empty() && !web_checks::hreflang::has_self_reference(&alternates, page_url),
     )
 }
 
@@ -1635,6 +1656,36 @@ fn detect_zaraz(
 
 #[cfg(test)]
 mod tests {
+    // hreflang (Google: every language version names itself under its own
+    // language code; `x-default` is no language version) judged by web-checks.
+    #[test]
+    fn a_page_naming_itself_only_as_x_default_has_no_self_reference() {
+        let links = serde_json::json!([
+            {"lang": "x-default", "href": "https://example.com/"},
+            {"lang": "en", "href": "https://example.com/en/"},
+        ]);
+        assert_eq!(
+            super::judge_hreflang(&links, "https://example.com/"),
+            (true, true)
+        );
+    }
+
+    #[test]
+    fn a_page_naming_itself_under_its_language_code_is_complete() {
+        let links = serde_json::json!([
+            {"lang": "X-Default", "href": "https://example.com/"},
+            {"lang": "de-de", "href": "https://example.com/de/"},
+        ]);
+        assert_eq!(
+            super::judge_hreflang(&links, "https://example.com/de"),
+            (true, false)
+        );
+        assert_eq!(
+            super::judge_hreflang(&serde_json::json!([]), "https://example.com/"),
+            (false, false)
+        );
+    }
+
     use super::*;
 
     #[test]

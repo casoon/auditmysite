@@ -107,10 +107,12 @@ pub(super) async fn run_dom_inspection(
     a.lcp_image_lazy_loaded = parsed["lcpImageLazyLoaded"].as_bool().unwrap_or(false);
     a.lcp_image_url = parsed["lcpImageUrl"].as_str().map(String::from);
     a.deprecated_api_count = parsed["deprecatedApiCount"].as_u64().unwrap_or(0) as u32;
-    a.hreflang_count = parsed["hreflangCount"].as_u64().unwrap_or(0) as u32;
-    a.hreflang_invalid_count = parsed["hreflangInvalidCount"].as_u64().unwrap_or(0) as u32;
-    a.jsonld_count = parsed["jsonldCount"].as_u64().unwrap_or(0) as u32;
-    a.jsonld_invalid_count = parsed["jsonldInvalidCount"].as_u64().unwrap_or(0) as u32;
+    let hreflang_codes = string_array(&parsed["hreflangCodes"]);
+    a.hreflang_count = hreflang_codes.len() as u32;
+    a.hreflang_invalid_count = invalid_hreflang_count(&hreflang_codes);
+    let jsonld_blocks = string_array(&parsed["jsonldBlocks"]);
+    a.jsonld_count = jsonld_blocks.len() as u32;
+    a.jsonld_invalid_count = invalid_jsonld_count(&jsonld_blocks);
     a.sync_head_scripts = parsed["syncHeadScripts"].as_u64().unwrap_or(0) as u32;
     a.external_scripts_without_sri =
         parsed["externalScriptsWithoutSri"].as_u64().unwrap_or(0) as u32;
@@ -198,6 +200,36 @@ pub(super) fn build_html_issues(
     html_issues
 }
 
+fn string_array(value: &serde_json::Value) -> Vec<String> {
+    value
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// hreflang values that are not a code search engines evaluate (BCP 47 subset:
+/// language, optional script, optional region, or `x-default`).
+fn invalid_hreflang_count(codes: &[String]) -> u32 {
+    codes
+        .iter()
+        .filter(|code| !web_checks::hreflang::is_valid_code(code))
+        .count() as u32
+}
+
+/// JSON-LD blocks with a structural problem: not JSON, not an object, no
+/// schema.org `@context`, a node without `@type`, an empty or malformed `@graph`.
+fn invalid_jsonld_count(blocks: &[String]) -> u32 {
+    web_checks::structured_data::parse_blocks(blocks)
+        .iter()
+        .filter(|block| !block.issues.is_empty())
+        .count() as u32
+}
+
 fn nonzero_u64(value: &serde_json::Value) -> Option<u64> {
     value.as_u64().filter(|v| *v > 0)
 }
@@ -207,4 +239,64 @@ fn nonzero_u64(value: &serde_json::Value) -> Option<u64> {
 #[cfg(test)]
 pub(crate) fn counter_cases() {
     crate::audit::collection::assert_js_contract::<JsObject>(serde_json::json!({}));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn strings(values: &[&str]) -> Vec<String> {
+        values.iter().map(|v| v.to_string()).collect()
+    }
+
+    // RFC 5646 (BCP 47): language subtags are case-insensitive, an optional
+    // four-letter script and a two-letter region follow; Google documents
+    // `x-default` besides.
+    #[test]
+    fn hreflang_codes_follow_bcp_47_case_insensitively() {
+        let codes = strings(&[
+            "en",
+            "de-de",
+            "de-DE",
+            "zh-Hant-TW",
+            "x-default",
+            "X-Default",
+            "fil",
+        ]);
+        assert_eq!(invalid_hreflang_count(&codes), 0);
+    }
+
+    #[test]
+    fn hreflang_codes_that_are_no_language_tags_are_invalid() {
+        // underscore separator, one-letter language, region of three letters,
+        // empty value, free text
+        let codes = strings(&["en_US", "e", "en-USA", "", "english", "de-DE-DE"]);
+        assert_eq!(invalid_hreflang_count(&codes), 6);
+    }
+
+    // JSON-LD 1.1: an `@context` at the root of a document with `@graph`
+    // applies to the nodes of the graph; the graph container itself is no node
+    // and needs no `@type`.
+    #[test]
+    fn a_graph_document_with_a_context_and_typed_nodes_is_valid() {
+        let blocks = strings(&[
+            r#"{"@context":"https://schema.org","@graph":[{"@type":"WebSite","name":"A"},{"@type":"Organization","name":"B"}]}"#,
+            r#"{"@context":"https://schema.org","@type":"Article","headline":"H"}"#,
+        ]);
+        assert_eq!(invalid_jsonld_count(&blocks), 0);
+    }
+
+    #[test]
+    fn jsonld_blocks_that_break_the_format_are_counted_once_each() {
+        let blocks = strings(&[
+            "{not json",                                            // not JSON
+            "",                                                     // empty script
+            r#"{"@type":"Article"}"#,                               // no @context
+            r#"{"@context":"https://schema.org","name":"x"}"#,      // node without @type
+            r#"{"@graph":[{"@type":"WebSite"}]}"#,                  // graph without @context
+            r#"{"@context":"https://schema.org","@graph":"nope"}"#, // @graph not an array
+            r#"[1]"#,                                               // root entry no object
+        ]);
+        assert_eq!(invalid_jsonld_count(&blocks), 7);
+    }
 }
