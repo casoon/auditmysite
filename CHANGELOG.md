@@ -11,6 +11,10 @@ and verification for each change is in the
 
 - **Accessibility:** `frames/name-missing` and `images/server-side-map` are now reported under the criterion of the shared rule: 4.1.2 (was 2.4.1) and 2.1.1 (was 1.1.1), both level A (Refs #1119). Rule ids and finding ids are unchanged; the server-side image map finding is titled "Keyboard (Server-side Image Map)" and links to the Keyboard page. Cached results are misses, as the rule set changed.
 
+### Removed
+
+- **npm:** the `npx auditmysite` wrapper package (`packages/npm`) and its publish workflow are gone; it was never published to npm. auditmysite ships as the release binaries, the container image and `cargo install auditmysite` (Refs #928).
+
 ### Fixed
 
 - **SEO:** `seo.page_health.http1_only` no longer fires on sites that serve HTTP/2: the header probe now offers HTTP/2 in its TLS handshake, where before it could only ever negotiate HTTP/1.1 (#1191).
