@@ -24,8 +24,9 @@ use std::collections::BTreeSet;
 
 const EN: &str = include_str!("../../locales/en/seo-issues.ftl");
 const DE: &str = include_str!("../../locales/de/seo-issues.ftl");
-const SOURCES: [&str; 9] = [
+const SOURCES: [&str; 10] = [
     include_str!("technical.rs"),
+    include_str!("canonical.rs"),
     include_str!("meta.rs"),
     include_str!("schema.rs"),
     include_str!("robots.rs"),
@@ -63,7 +64,7 @@ fn every_message_is_used_by_the_code() {
             SOURCES
                 .iter()
                 .any(|source| source.contains(&format!("\"{id}\""))),
-            "{id} is not used in technical.rs, meta.rs, schema.rs, robots.rs, profile.rs, serp.rs, \
+            "{id} is not used in technical.rs, canonical.rs, meta.rs, schema.rs, robots.rs, profile.rs, serp.rs, \
              schema_fit.rs, schema_parity.rs or schema_rules.rs"
         );
     }

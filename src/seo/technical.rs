@@ -2,7 +2,8 @@
 //!
 //! Checks HTTPS, canonical URLs, language, sitemap, robots.txt.
 
-use super::issue::SeoIssue;
+use super::canonical;
+use super::issue::{num, txt, SeoIssue};
 use chromiumoxide::cdp::js_protocol::runtime::EvaluateParams;
 use chromiumoxide::Page;
 use fluent_bundle::FluentValue;
@@ -502,16 +503,6 @@ pub async fn analyze_technical_seo(
     Ok(technical)
 }
 
-/// A number as a Fluent argument (plural selectors need a number).
-fn num(n: usize) -> FluentValue<'static> {
-    FluentValue::from(n as i64)
-}
-
-/// Text as a Fluent argument.
-fn txt(s: &str) -> FluentValue<'static> {
-    FluentValue::from(s.to_string())
-}
-
 /// Add the technical issue `issue_type`: its message is `key` of
 /// `locales/{en,de}/seo-issues.ftl` with `args`.
 fn push_issue(
@@ -522,11 +513,7 @@ fn push_issue(
     args: &[(&str, FluentValue)],
     en: bool,
 ) {
-    issues.push(SeoIssue {
-        issue_type: issue_type.to_string(),
-        message: crate::i18n::text_args(key, args, en),
-        severity,
-    });
+    issues.push(SeoIssue::localized(issue_type, severity, key, args, en));
 }
 
 /// Build the technical-SEO issue list in the requested language.
@@ -550,14 +537,7 @@ pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<SeoIssue> {
     }
 
     if t.canonical_url.is_none() {
-        push_issue(
-            &mut issues,
-            "no_canonical",
-            Severity::Medium,
-            "seo-technical-no-canonical",
-            &[],
-            en,
-        );
+        issues.push(canonical::missing_issue(en));
     }
 
     if t.lang.is_none() {
@@ -750,11 +730,7 @@ pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<SeoIssue> {
 
     if let Some(ref check) = t.www_redirect {
         if !check.redirects_to_primary && check.alternative_status == 200 {
-            let canonical_note = match check.canonical_matches_primary {
-                Some(true) => "seo-technical-www-note-canonical-ok",
-                Some(false) => "seo-technical-www-note-canonical-other",
-                None => "seo-technical-www-note-canonical-none",
-            };
+            let canonical_note = canonical::www_note_key(check.canonical_matches_primary);
             push_issue(
                 &mut issues,
                 "www_no_redirect",
@@ -769,14 +745,7 @@ pub fn collect_technical_issues(t: &TechnicalSeo, en: bool) -> Vec<SeoIssue> {
             );
         }
         if let Some(false) = check.canonical_matches_primary {
-            push_issue(
-                &mut issues,
-                "canonical_domain_mismatch",
-                Severity::Medium,
-                "seo-technical-canonical-domain-mismatch",
-                &[("primary", txt(&check.primary))],
-                en,
-            );
+            issues.push(canonical::domain_mismatch_issue(&check.primary, en));
         }
     }
 
@@ -877,18 +846,10 @@ async fn check_www_redirect(
             alternative,
             alternative_status: status,
             redirects_to_primary,
-            canonical_matches_primary: canonical_matches(&primary_host, canonical),
+            canonical_matches_primary: canonical::matches_host(&primary_host, canonical),
         }),
         None,
     )
-}
-
-/// Returns Some(true) if canonical points to primary_host, Some(false) if it points elsewhere,
-/// None if no canonical.
-fn canonical_matches(primary_host: &str, canonical: Option<&str>) -> Option<bool> {
-    let canon = canonical?;
-    let parsed = url::Url::parse(canon).ok()?;
-    Some(parsed.host_str() == Some(primary_host))
 }
 
 fn parse_string_array(value: &serde_json::Value) -> Vec<String> {

@@ -2,6 +2,7 @@
 //!
 //! Provides meta tags validation, heading structure, social tags, and technical SEO checks.
 
+pub(crate) mod canonical;
 pub(crate) mod headings;
 pub mod image_efficiency;
 pub mod interpretation;

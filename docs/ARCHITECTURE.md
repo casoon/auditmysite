@@ -317,7 +317,8 @@ src/
 │
 ├── seo/                 # Meta, headings, schema, social, technical SEO
 │   ├── mod.rs, module.rs
-│   ├── issue.rs         # `SeoIssue`, the one issue type of the technical and page-health collectors (#939)
+│   ├── issue.rs         # `SeoIssue` (+ `SeoIssue::localized`, Fluent `num`/`txt` helpers), the one issue type of the technical and page-health collectors (#939)
+│   ├── canonical.rs     # Everything that judges the canonical link: www match, `no_canonical`/`canonical_domain_mismatch` issues, meta validation, SERP self-reference check (#939)
 │   ├── meta.rs          # Meta tags (the finding texts: `seo-meta-*` in `locales/<lang>/seo-issues.ftl`)
 │   ├── headings.rs      # Heading structure
 │   ├── profile.rs       # SEO content profile (maturity and page-type labels, content type, page attributes and signal-check texts: `seo-profile-*` in `locales/<lang>/seo-issues.ftl`, #936; `profile_texts_export.rs` beside it is the ignored text-export test of these texts)

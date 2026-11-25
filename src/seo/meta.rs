@@ -9,6 +9,7 @@ use tracing::info;
 use web_checks::meta::LengthClass;
 
 use crate::error::Result;
+use crate::seo::canonical;
 use crate::taxonomy::Severity;
 
 /// Extracted meta tags
@@ -242,13 +243,7 @@ impl MetaTags {
 
         // Canonical validation
         if self.canonical.is_none() {
-            issues.push(MetaValidation::new(
-                "canonical",
-                MissingCanonical,
-                none(),
-                Severity::Low,
-                "Add <link rel=\"canonical\" href=\"...\">",
-            ));
+            issues.push(canonical::missing_meta_validation());
         }
 
         issues
