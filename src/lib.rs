@@ -77,8 +77,8 @@
 pub mod a11y_journey;
 #[doc(hidden)]
 pub mod accessibility;
-#[doc(hidden)]
 #[cfg(feature = "experimental")]
+#[doc(hidden)]
 pub mod ai_visibility;
 #[doc(hidden)]
 pub mod annotations;
@@ -90,8 +90,8 @@ pub mod browser;
 pub mod cli;
 #[cfg(feature = "experimental")]
 pub(crate) mod commerce;
-#[doc(hidden)]
 #[cfg(feature = "experimental")]
+#[doc(hidden)]
 pub mod content_visibility;
 pub(crate) mod display;
 pub mod error;
@@ -119,16 +119,16 @@ pub mod screen_reader;
 pub mod security;
 #[doc(hidden)]
 pub mod seo;
-#[doc(hidden)]
 #[cfg(feature = "experimental")]
+#[doc(hidden)]
 pub mod source_quality;
 pub mod studio;
 #[doc(hidden)]
 pub mod taxonomy;
 pub(crate) mod tech_stack;
 pub(crate) mod util;
-#[doc(hidden)]
 #[cfg(feature = "experimental")]
+#[doc(hidden)]
 pub mod ux;
 #[doc(hidden)]
 pub mod wcag;
