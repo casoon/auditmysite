@@ -33,6 +33,15 @@ Before every change, clarify which side the code belongs to:
 - **Stays here:** WCAG rules that need a running browser (interaction, frames, paste, focus
   measurement), the manual check hints, journeys, CDP capture, scoring/taxonomy, PDF, CLI,
   report texts (incl. `screen_reader/announcer.rs`).
+- **Two text sources, one rule each (#1119):** `locales/{de,en}/rules.ftl` holds the auditmysite
+  report texts (title, impacts, explanations of a rule); `Meta.help`/`help_de` of `a11y-rules` is
+  the short rule hint for barrierlab's own surfaces and is not read here. The feature `de` of
+  `a11y-rules` stays on nonetheless: it also compiles the German *finding* messages, which
+  `wcag::shared::run_shared_rules` collects for the PDF (`localized_texts`); without it a German
+  report would show English finding texts. Criterion and level of a shared rule: `Meta.wcag` is
+  only a set of related criteria and has no level, so `SHARED_RULES` names the reported criterion
+  and level; `tests/rule_metadata_source.rs` fails when they or the taxonomy drift from `Meta`
+  (`docs/reference/shared-rule-criteria.md`).
 - **Development loop:** for simultaneous work on both sides, use `[patch.crates-io]` with
   `path = "../barrierlab/crates/<crate>"` in `.cargo/config.toml` (gitignored). Never commit
   while the patch is active — `Cargo.lock` included; commit only against the published version.

@@ -1,25 +1,18 @@
-//! Die geteilten Regeln aus `a11y-rules` in auditmysites Befundfluss.
+//! The shared rules from `a11y-rules` in auditmysite's finding flow.
 //!
-//! # Wozu
+//! [`a11y_rules::run_with_semantics`] runs the whole shared inventory;
+//! [`SHARED_RULES`] lists the ids auditmysite adopts. Every other id of the
+//! inventory is not dropped silently but recorded as [`NotRun::Disabled`], so
+//! the report says what it did not check instead of letting silence read as a
+//! pass. An id may only be listed once the auditmysite rule it replaces is
+//! deleted, otherwise the same finding would appear twice.
 //!
-//! Ein Regelbestand soll drei Oberflächen bedienen — astro-post-audit zur
-//! Build-Zeit, auditmysite in CI und Crawl, LiveAudit in der laufenden Seite —
-//! und derselbe Befund soll überall **dieselbe Kennung** tragen. Solange
-//! auditmysite eigene Regeln mit eigenen (axe-core-nahen) Kennungen führt,
-//! heißt derselbe Befund eben nicht überall gleich.
-//!
-//! # Warum eine Liste statt „alles an"
-//!
-//! [`a11y_rules::run_with_semantics`] lässt den gesamten geteilten Bestand
-//! laufen. Würde auditmysite alle Befunde daraus übernehmen, gäbe es jeden
-//! doppelt, solange die entsprechende auditmysite-Regel noch existiert — und
-//! die lassen sich nicht alle in einem Zug ablösen.
-//!
-//! [`SHARED_RULES`] führt deshalb genau die Kennungen, deren auditmysite-
-//! Gegenstück **bereits gelöscht** ist. Alles andere aus dem geteilten Bestand
-//! wird nicht etwa stillschweigend verworfen, sondern als
-//! [`NotRun::Disabled`] vermerkt: Der Bericht sagt damit aus, was er nicht
-//! geprüft hat, statt Schweigen wie ein Bestehen aussehen zu lassen.
+//! Static facts of a rule: ids, related criteria and default severity come
+//! from `a11y_rules::Meta` (barrierlab); the report texts live in
+//! `locales/{de,en}/rules.ftl`; the table below holds only what `Meta` does
+//! not carry. `tests/rule_metadata_source.rs` guards the table and the
+//! taxonomy against `Meta` (#1119). Where a reported criterion deliberately
+//! differs from `Meta`, `docs/reference/shared-rule-criteria.md` says why.
 //!
 //! [`NotRun::Disabled`]: a11y_report::NotRun::Disabled
 
@@ -32,35 +25,25 @@ use crate::wcag::types::{RuleRun, Violation, WcagResults};
 use crate::wcag::RuleFilterConfig;
 use crate::wcag::WcagLevel;
 
-/// Was auditmysite über eine geteilte Regel zusätzlich wissen muss.
+/// What auditmysite needs to know about a shared rule beyond its `Meta`.
 ///
-/// `a11y-rules` führt Kennung, WCAG-Kriterium und Schwere, aber weder die
-/// Konformitätsstufe noch eine Fundstellen-URL — beides braucht auditmysites
-/// Ausgabe. Diese Tabelle ergänzt genau das und nichts weiter.
+/// `a11y_rules::Meta` carries the ids and a *set* of related criteria, but
+/// neither the one criterion a finding is reported under, nor its conformance
+/// level, nor a reference URL.
 pub struct SharedRule {
-    /// Die geteilte Kennung, identisch auf allen drei Oberflächen.
+    /// The shared id, identical on all three surfaces.
     pub id: &'static str,
-    /// WCAG-Erfolgskriterium, z. B. `"3.1.1"`.
+    /// The WCAG success criterion the finding is reported under, e.g. `"3.1.1"`.
     pub criterion: &'static str,
     pub level: WcagLevel,
-    /// Anzeigename, entspricht dem vormaligen `RuleMetadata::name`.
+    /// Display name of the finding (`Violation::rule_name`).
     pub name: &'static str,
+    /// W3C page the finding links to.
     pub help_url: &'static str,
 }
 
-/// Die geteilten Kennungen, die auditmysite bereits führt.
-///
-/// Eine Kennung darf hier erst stehen, wenn die auditmysite-eigene Regel
-/// dazu gelöscht ist — sonst stünde derselbe Befund zweimal im Bericht.
+/// The shared ids auditmysite adopts.
 pub const SHARED_RULES: &[SharedRule] = &[
-    // Ersetzt `wcag::rules::language::check_language` samt der
-    // DOM-Nachbesserung `audit::pipeline::apply_lang_attribute_check`.
-    // Die AX-Eigenschaft `language` synthetisiert Chrome aus Locale und
-    // Kontext, auch wenn der Autor nie ein `lang` gesetzt hat — die
-    // AX-basierte Prüfung war für den häufigsten Fall also blind, und
-    // auditmysite hat das mit einer zweiten, per JavaScript nachgeschobenen
-    // Prüfung ausgeglichen. Die geteilte Regel liest das `lang`-Attribut
-    // direkt aus dem DOM und braucht beides nicht.
     SharedRule {
         id: "document/lang-missing",
         criterion: "3.1.1",
@@ -68,7 +51,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Language of Page",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-page.html",
     },
-    // Neu gegenüber der abgelösten Regel: Sie kannte nur „da oder nicht da".
     SharedRule {
         id: "document/lang-invalid",
         criterion: "3.1.1",
@@ -76,36 +58,8 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Language of Page",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-page.html",
     },
-    // Ersetzt `wcag::rules::parsing::check_parsing_with_page` (axe-Kennung
-    // `duplicate-id`). Beide lesen dieselbe Quelle -- die eigene Regel wertete
-    // `document.querySelectorAll('[id]')` per JavaScript aus, die geteilte
-    // läuft über denselben DOM aus dem CDP-Abzug. Gleiche Erkennung; gemeldet
-    // wird davon nur noch die referenzierte Dublette.
-    //
-    // Nicht abgelöst ist `check_parsing` (axe-Kennung `duplicate-id-aria`):
-    // Die prüft widersprüchliche `aria-owns`-Beziehungen im AX-Baum, also
-    // etwas anderes als doppelte IDs, und bleibt.
-    // Ersetzt `wcag::rules::headings` vollständig — alle vier Prüfungen haben
-    // seit a11y-rules 0.8.0 ein geteiltes Gegenstück; `headings/h1-multiple`
-    // war die letzte Lücke.
-    //
-    // Drei Unterschiede, alle gewollt:
-    //
-    // - Die geteilte Fassung läuft in Dokumentreihenfolge über den DOM. Die
-    //   AX-basierte sortierte nach `node_id` als Text, womit „h10" vor „h2"
-    //   kam und Sprünge in langen Seiten falsch bewertet wurden.
-    // - Mehrere `h1` sind dort `REVIEW` statt `Violation` und melden einmal
-    //   statt je überzähliger Überschrift. In HTML sind mehrere `h1`
-    //   zulässig; das ist eine Erwartung, kein Verstoß.
-    // - „Leer" heißt dort: kein Text im Teilbaum und kein `aria-label`. Die
-    //   AX-Fassung fragte den Accessible Name und übersah damit nichts, was
-    //   über `aria-labelledby` oder ein `alt` im Bild benannt ist. Diese
-    //   beiden Fälle meldet die geteilte Fassung zu Unrecht — ein Befund für
-    //   `a11y-core`, keine Rückausnahme hier.
     SharedRule {
         id: "headings/empty",
-        // Die geteilte Regel führt 1.3.1 und 2.4.6; auditmysite meldete leere
-        // Überschriften bisher unter 2.4.6, und dabei bleibt es.
         criterion: "2.4.6",
         level: WcagLevel::AA,
         name: "Headings and Labels (Empty Heading)",
@@ -132,16 +86,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Info and Relationships (Multiple Main Headings)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
-    // WCAG 2.2 hat 4.1.1 (Parsing) gestrichen — eine doppelte ID ist für sich
-    // genommen kein Erfolgskriterium mehr. Ein Verstoß bleibt sie dort, wo ein
-    // IDREF auf sie zeigt: Dann ist nicht mehr bestimmbar, welches Element
-    // gemeint ist, und Name/Rolle/Wert der referenzierenden Beziehung bricht.
-    // Genau dieser Fall wird gemeldet, und zwar als 4.1.2 (seit a11y-rules
-    // 0.26 als `REVIEW`, #779) — dieselbe
-    // Zuordnung, die axe-core für `duplicate-id-aria` führt.
-    // Seit a11y-rules 0.12 entscheidet das die geteilte Regel selbst; bis
-    // dahin filterte auditmysite hier nach, und die Kennung hieß in den
-    // anderen Hosts etwas anderes.
     SharedRule {
         id: "ids/duplicate",
         criterion: "4.1.2",
@@ -149,16 +93,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Referenced Duplicate ID)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `wcag::rules::focus_order::check_positive_tabindex_with_page`.
-    // Auch hier las die eigene Regel den DOM per JavaScript; die geteilte
-    // liest dasselbe Attribut aus dem Abzug.
-    //
-    // Die eigene Regel deckelte die Zahl der Befunde bei 250
-    // (`POSITIVE_TABINDEX_CAP`) -- die geteilte tut das nicht und meldet
-    // damit eher mehr als weniger.
-    //
-    // `check_focus_order` (aria-hidden und trotzdem fokussierbar) ist seit
-    // #690 ebenfalls abgelöst, siehe `keyboard/hidden-focusable`.
     SharedRule {
         id: "keyboard/positive-tabindex",
         criterion: "2.4.3",
@@ -166,10 +100,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Focus Order",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/focus-order.html",
     },
-    // Ersetzt `wcag::rules::list_structure` vollständig. Die geteilte Fassung
-    // deckt seit a11y-rules 0.5.0 alle drei Prüfungen ab — Fremdkinder, leere
-    // Listen und Begriffe ohne Definition — und erkennt zusätzlich
-    // `role="list"`/`role="listitem"`, wofür die AX-basierte Regel blind war.
     SharedRule {
         id: "lists/invalid-structure",
         criterion: "1.3.1",
@@ -184,9 +114,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Info and Relationships (Empty List)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
-    // Der Fall, den die geteilte Fassung bis 0.6.0 nicht kannte: ein <li>
-    // ganz ohne Liste darüber. Ohne ihn hätte die Ablösung eine Prüfung
-    // verloren statt sie zu teilen.
     SharedRule {
         id: "lists/item-outside-list",
         criterion: "1.3.1",
@@ -201,11 +128,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Info and Relationships (Definition Term)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
-    // Ersetzt `wcag::rules::table_rules`. Kopfzellen, Name und die
-    // widersprüchlich ausgezeichnete Layouttabelle sind seit 0.5.0 alle
-    // abgedeckt. Ein Unterschied bleibt und ist gewollt: Die fehlende
-    // Tabellenbenennung ist dort `REVIEW`, nicht `Violation` — ob eine
-    // Tabelle einen Namen braucht, hängt vom Kontext ab.
     SharedRule {
         id: "tables/header-missing",
         criterion: "1.3.1",
@@ -227,10 +149,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Info and Relationships (Presentational Table)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
-    // Ersetzt `wcag::rules::meta_viewport_large`. Die geteilte Regel trennt
-    // seit 0.5.0, was auditmysite auf zwei Regeln verteilt hatte:
-    // `zoom/viewport-locked` ist der Verstoß unter 200 %,
-    // `zoom/viewport-scale-limited` die Begrenzung zwischen 200 % und 500 %.
     SharedRule {
         id: "zoom/viewport-scale-limited",
         criterion: "1.4.4",
@@ -238,19 +156,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Resize Text (Viewport Scale)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html",
     },
-    // Ersetzt `wcag::rules::resize_text` (axe-Kennung `meta-viewport`)
-    // vollständig -- die Regel prüfte trotz ihres Namens nur den Viewport,
-    // nicht die Textvergrößerung selbst.
-    //
-    // Zwei Unterschiede, beide gewollt:
-    //
-    // - Die eigene Regel suchte `user-scalable=no` und `maximum-scale=` als
-    //   Teilzeichenkette. Die geteilte zerlegt `content` nach CSS Viewport
-    //   (Komma, Semikolon, Leerraum als Trenner, Leerraum um `=`) und erkennt
-    //   damit auch `maximum-scale = 1` oder `user-scalable=0`.
-    // - `maximum-scale` unter 2 war dort `Medium`, `user-scalable=no`
-    //   `High`. Die geteilte Regel meldet beides als `High`: Beides sperrt
-    //   die Vergrößerung auf 200 %, einmal ganz und einmal teilweise.
     SharedRule {
         id: "zoom/viewport-locked",
         criterion: "1.4.4",
@@ -258,12 +163,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Resize Text (Viewport Zoom Locked)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html",
     },
-    // Neu, und bewusst jetzt übernommen: Ohne Viewport-Angabe legen mobile
-    // Browser eine Desktop-Breite zugrunde und verkleinern die Seite, der
-    // Text landet unter jeder lesbaren Größe. `resize_text` sah darin keinen
-    // Befund -- ohne Meta-Tag gab es nichts zu prüfen. Die geteilte Regel
-    // führt 1.4.4 und 1.4.10; auditmysite meldet sie unter 1.4.4, wie den
-    // Rest der Viewport-Befunde.
     SharedRule {
         id: "zoom/viewport-missing",
         criterion: "1.4.4",
@@ -271,14 +170,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Resize Text (Viewport Missing)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html",
     },
-    // Ersetzt den Fall „fehlt oder leer" aus
-    // `wcag::rules::page_titled::check_page_titled_with_page`. Beide lesen
-    // den DOM; die eigene Regel meldete fehlenden, leeren und nichtssagenden
-    // Titel unter einer Kennung und einem Text. Jetzt sind es drei Aussagen:
-    // `document/title-missing`, `document/title-empty` und die eigene
-    // Heuristik für den nichtssagenden Titel („Untitled", „Home"), die
-    // weiter unter `document-title` läuft -- für fehlende und leere Titel
-    // aber nicht mehr anschlägt.
     SharedRule {
         id: "document/title-missing",
         criterion: "2.4.2",
@@ -293,21 +184,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Page Titled",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/page-titled.html",
     },
-    // Ersetzt `wcag::rules::aria_relationships` vollständig (axe-Kennung
-    // `aria-valid-attr`), die AX-Prüfung und die DOM-Ergänzung.
-    //
-    // Die DOM-Ergänzung prüfte `aria-controls`, `aria-owns` und
-    // `aria-activedescendant` auf leere Werte und auf IDs, die es nicht gibt.
-    // Genau das tut die geteilte Regel auch, und zusätzlich
-    // `aria-labelledby`/`aria-describedby` auf nicht vorhandene IDs -- ein
-    // leeres `aria-labelledby` lässt sie durch, weil die Namensberechnung
-    // dann auf die übrigen Quellen zurückfällt.
-    //
-    // Nicht übernommen, und gewollt: Die AX-Prüfung meldete eine Beziehung,
-    // deren Ziel im DOM steht, aber im AX-Baum fehlt (versteckt). Auf ein
-    // verstecktes Element zu verweisen ist zulässig -- ein ausgeklapptes
-    // Menü zeigt per `aria-controls` auf seinen eingeklappten Zustand.
-    // Ebenso entfällt der Deckel von 250 Befunden.
     SharedRule {
         id: "aria/reference-missing",
         criterion: "4.1.2",
@@ -315,20 +191,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (ARIA Reference)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `wcag::rules::aria_required_attr` vollständig (axe-Kennung
-    // `aria-required-attr`): die AX-Prüfung (combobox, heading, scrollbar)
-    // und die DOM-Prüfungen `check_checked_state_with_page` (checkbox, radio,
-    // switch) und `check_value_now_with_page` (meter, scrollbar, separator,
-    // slider, spinbutton). Die geteilte Regel führt dieselbe Tabelle, nimmt
-    // dieselben nativen Elemente aus (`<input type=checkbox|radio|range|
-    // number>`, `<meter>`, `<progress>`), verlangt `aria-valuenow` am
-    // `separator` ebenso nur, wenn er fokussierbar ist, und sieht wie
-    // `check_value_now_with_page` in offene Shadow-Roots.
-    //
-    // Ein Unterschied, gewollt: `heading` ohne `aria-level` ist kein Befund
-    // mehr. ARIA 1.2 gibt der Rolle die Vorgabe 2, das Attribut ist nicht
-    // mehr erforderlich -- und Chrome füllt `level` im AX-Baum ohnehin, die
-    // Prüfung schlug in der Praxis nie an.
     SharedRule {
         id: "aria/required-attribute-missing",
         criterion: "4.1.2",
@@ -336,17 +198,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Required ARIA Attribute)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `wcag::rules::aria_hidden_focus` (DOM, axe-Kennung
-    // `aria-hidden-focus`) und `wcag::rules::focus_order::check_focus_order`
-    // (AX-Baum, `focus-order-semantics`). Beide meldeten denselben Fall --
-    // fokussierbar unter `aria-hidden` --, einmal unter 4.1.2 und einmal
-    // unter 2.4.3; jetzt steht er einmal im Bericht, unter 4.1.2 wie bei axe.
-    //
-    // Wie die DOM-Regel nimmt die geteilte aus, was `inert`, per
-    // `tabindex="-1"` aus der Tabfolge genommen oder nicht dargestellt ist;
-    // Letzteres über die berechneten Stile (`run_full_in`). Fehlen die --
-    // der Layout-Abzug ist gescheitert --, sieht sie nur das
-    // `hidden`-Attribut und meldet ein per CSS verstecktes Element mit.
     SharedRule {
         id: "keyboard/hidden-focusable",
         criterion: "4.1.2",
@@ -354,21 +205,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Focusable in aria-hidden)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `wcag::rules::landmarks` vollständig und aus
-    // `wcag::rules::landmark_granular` die Prüfungen `landmark-main-present`,
-    // `landmark-banner-present` und `landmark-no-duplicate-main`. Die übrigen
-    // granularen Prüfungen (eindeutige Namen, Verschachtelung, doppelte
-    // banner/contentinfo) sind seit #694 ebenfalls geteilt, siehe unten.
-    //
-    // Die fehlende main-Landmark meldeten bisher zwei Regeln, einmal unter
-    // 2.4.1 (`landmark-one-main`) und einmal unter 1.3.1
-    // (`landmark-main-present`). Jetzt einmal, unter 2.4.1 wie bei axe
-    // `landmark-one-main`: Die main-Landmark ist das Sprungziel.
-    //
-    // Ein Unterschied, gewollt: Fehlende navigation-, banner- und
-    // contentinfo-Landmark sind dort `REVIEW`, nicht `Violation`. Eine Seite
-    // darf ohne Navigation oder Fußzeile auskommen -- das ist eine
-    // Erwartung, kein beweisbarer Verstoß.
     SharedRule {
         id: "landmarks/main-missing",
         criterion: "2.4.1",
@@ -404,16 +240,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Info and Relationships (Navigation Landmark)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
-    // Ersetzt `wcag::rules::svg_rules` (axe-Kennung `svg-img-alt`) und den
-    // `<svg>`-Teil der früheren Baumregel `image-alt` (seit #1181 entfernt).
-    // Im AX-Baum ist ein `<svg>` vom `<img>` und vom `<div role="img">` nicht
-    // zu unterscheiden; die geteilte Regel prüft das Element selbst.
-    //
-    // Dieselbe Ausnahme wie bisher: das Icon in einem benannten Link oder
-    // Button braucht keinen eigenen Namen. Nicht mehr erfasst ist ein
-    // Nicht-`<svg>`-Element mit `role="graphics-document"` oder
-    // `"graphics-symbol"` -- etwa ein `<g>` im SVG. Die Rollen kommen in der
-    // Praxis am `<svg>` selbst vor, und dort prüft die geteilte Regel.
     SharedRule {
         id: "svg/name-missing",
         criterion: "1.1.1",
@@ -421,16 +247,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Non-text Content (SVG)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     },
-    // Ersetzt den `<img>`-Teil der früheren Baumregel `image-alt`. Ihren
-    // Rest, Elemente mit `role="img"`, die weder `<img>` noch im SVG sind,
-    // meldet `images/role-img-name-missing` (ACT 23a2a8); die Baumregel ist
-    // seit #1181 entfernt.
-    //
-    // Die geteilte Regel liest das `alt`-Attribut statt des Accessible Name:
-    // Ein `<img>` ohne `alt`, aber mit `aria-label`, `aria-labelledby` oder
-    // `title`, ist benannt und kein Befund (ARIA6, ARIA10, H67); eines mit
-    // `role="presentation"` oder `aria-hidden="true"` ist erklärt dekorativ.
-    // Das deckt sich mit der AX-Prüfung.
     SharedRule {
         id: "images/alt-missing",
         criterion: "1.1.1",
@@ -438,11 +254,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Non-text Content",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     },
-    // Ein Element, das erst durch `role="img"` zum Bild wird (`<div>`,
-    // `<span>`, `<canvas>`, auch Chromes Rolle `image`), ohne Namen: ACT
-    // 23a2a8, allein 1.1.1. Seit a11y-rules 0.31.1 eine eigene Kennung statt
-    // `names/required-missing` (4.1.2); vorher meldete es zusätzlich die
-    // Baumregel `image-alt` (#1181).
     SharedRule {
         id: "images/role-img-name-missing",
         criterion: "1.1.1",
@@ -450,10 +261,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Non-text Content (Image Role)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     },
-    // Eine Anzeige (`meter`, `progressbar`, nativ `<meter>`/`<progress>`
-    // oder per ARIA) ohne Namen: Nicht-Text-Inhalt, kein Bedienelement, also
-    // 1.1.1 wie axe `aria-meter-name`/`aria-progressbar-name`. Seit
-    // a11y-rules 0.31.1 eine eigene Kennung statt `names/required-missing`.
     SharedRule {
         id: "names/indicator-name-missing",
         criterion: "1.1.1",
@@ -461,9 +268,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Non-text Content (Meter and Progress Bar)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     },
-    // Neu: ein `alt`, das das Bild vermutlich nicht beschreibt -- ein
-    // Dateiname, „Bild", „Logo", ein oder zwei Zeichen. Heuristisch und
-    // deshalb `REVIEW`. Die AX-Prüfung kannte nur „Name da oder nicht da".
     SharedRule {
         id: "images/alt-suspicious",
         criterion: "1.1.1",
@@ -471,20 +275,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Non-text Content (Suspicious Alt Text)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     },
-    // Ersetzt `check_link` und `check_button` aus `wcag::rules::labels`
-    // (axe-Kennung `control-missing-label`); `check_form_control` ist seit
-    // #693 `forms/label-missing` und `names/required-missing`.
-    // Beide Seiten fragen den Accessible Name: die eigene Regel den aus
-    // Chromes AX-Baum, die geteilte den aus `CdpDocument`, der auf denselben
-    // AX-Baum zurückgreift.
-    //
-    // Zwei Unterschiede, beide gewollt:
-    //
-    // - Als Link zählt dort nur `<a href>`, nicht jedes Element mit der
-    //   AX-Rolle `link`. Ein unbenanntes `<span role="link">` meldet
-    //   `names/required-missing` (#692).
-    // - Beide sind dort `Critical` statt `High`: Ein unbenanntes
-    //   Bedienelement ist für Screenreader-Nutzer nicht bedienbar.
     SharedRule {
         id: "links/name-missing",
         criterion: "4.1.2",
@@ -492,13 +282,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Link Name)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzen `wcag::rules::link_purpose` und `link_purpose_link_only`
-    // (barrierlab#13). Alle fünf sind `REVIEW`; die lokale Regel
-    // meldete generische Linktexte ohne Kontext als Verstoß. Der Kontext
-    // (Text daneben, Absatz/Listenpunkt/Zelle, Überschrift davor) senkt dort
-    // die Schwere auf Low, statt eine eigene Kennung `link-name-context` zu
-    // vergeben. Das neue Fenster prüft `target="_blank"` statt
-    // `aria-haspopup` und gehört zu 3.2.5 (AAA), nicht zu 2.4.4.
     SharedRule {
         id: "links/generic-name",
         criterion: "2.4.4",
@@ -541,15 +324,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Button Name)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt die Sprunglink-Erkennung aus `wcag::rules::bypass_blocks`.
-    // Die eigene Regel suchte im Linknamen eine Liste von Wendungen in
-    // vierzehn Sprachen; die geteilte erkennt den Sprunglink wie axe am Ziel
-    // -- Links vor dem ersten, der die Seite verlässt, springen innerhalb
-    // der Seite, in jeder Sprache (auditmysite#642) -- und nur ergänzend am
-    // Text. Sie ist `REVIEW`: Kein Merkmal weist einen Sprunglink sicher aus.
-    //
-    // Die bisherige Sammelmeldung „weder Sprunglink noch main" entfällt: Sie
-    // war die Verknüpfung dieser Prüfung mit `landmarks/main-missing`.
     SharedRule {
         id: "keyboard/skip-link-missing",
         criterion: "2.4.1",
@@ -557,21 +331,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Bypass Blocks (Skip Link)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/bypass-blocks.html",
     }, // ── ARIA-Regeln aus #691 (B1) ──
-    //
-    // Alle unter 4.1.2 A wie die abgelösten Regeln, auch wo `a11y-rules`
-    // zusätzlich 1.3.1 oder 2.1.1 führt. Kontext und Bestandteile prüft die
-    // geteilte Fassung am DOM statt am AX-Baum; die Rolle eines Elements ohne
-    // `role` kommt dabei aus Chromes AX-Baum, übersetzt in
-    // `accessibility::dom_document` (`LayoutTable*` und andere
-    // Chrome-Namen → keine Rolle, `image` → `img`).
-
-    // Ersetzt `wcag::rules::aria_roles::check_invalid_role_with_page`
-    // (axe-Kennung `aria-roles`, DOM per JavaScript). Zwei Unterschiede,
-    // beide gewollt: Die geteilte Regel meldet jede ungültige Rolle der
-    // Liste, nicht nur die erste, und vergleicht ohne Kleinschreibung --
-    // `role="Button"` ist keine ARIA-Rolle. Neu ist die abstrakte Rolle
-    // (`role="widget"`) als eigene Aussage; die eigene Regel hielt sie
-    // ebenfalls für ungültig, nannte aber den Grund nicht.
     SharedRule {
         id: "aria/role-invalid",
         criterion: "4.1.2",
@@ -586,10 +345,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Abstract ARIA Role)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `aria_roles::check_invalid_aria_attribute_name_with_page`
-    // (`aria-attr-name-invalid`). Dieselbe Liste, ARIA 1.2 und die
-    // Entwurfsattribute aus 1.3, die Browser schon umsetzen. Der Deckel von
-    // 250 Befunden entfällt.
     SharedRule {
         id: "aria/attribute-unknown",
         criterion: "4.1.2",
@@ -597,16 +352,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Unknown ARIA Attribute)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt die Wertebereiche aus `wcag::rules::aria_valid_attr_value`
-    // (`aria-valid-attr-value`); die IDREF-Hälfte der Regel ist
-    // `aria/reference-missing`. Drei Unterschiede, alle gewollt:
-    //
-    // - `aria-current` und `aria-invalid` mit unbekanntem Wert sind kein
-    //   Befund: ARIA 1.2 legt fest, dass er als `true` gilt.
-    // - Geprüft werden auch Ganzzahlen und Zahlen (`aria-level`,
-    //   `aria-valuenow`, …) und `undefined` bei `aria-expanded`/`-selected`/
-    //   `-hidden`/`-checked`/`-pressed` ist gültig.
-    // - Vergleich ohne Groß-/Kleinschreibung, leere Werte ohne Befund.
     SharedRule {
         id: "aria/attribute-value-invalid",
         criterion: "4.1.2",
@@ -614,10 +359,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Invalid ARIA Attribute Value)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `wcag::rules::parsing::check_parsing` (`duplicate-id-aria`):
-    // dieselbe ID in mehreren `aria-owns`. Die eigene Regel las die
-    // Beziehung aus dem AX-Baum, die geteilte aus dem DOM, und meldet den
-    // zweiten Besitzer statt des ersten.
     SharedRule {
         id: "aria/owns-conflict",
         criterion: "4.1.2",
@@ -625,13 +366,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Conflicting aria-owns)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `widget_rules::check_tab_selected_state_with_page`
-    // (`aria-tab-selected-state`) und die Tab-Prüfung aus
-    // `patterns::tab_list` (`tab-no-aria-selected`) -- beide meldeten
-    // denselben Fall, je Tab und zweimal. Ein Unterschied, gewollt: Die
-    // geteilte Regel ist `REVIEW` und steht einmal an der Tabliste, wenn
-    // **kein** Tab `aria-selected="true"` trägt; ein Tab ohne das Attribut
-    // hat mit der Vorgabe `false` den richtigen Zustand (ARIA 1.2: SHOULD).
     SharedRule {
         id: "aria/tab-selected-missing",
         criterion: "4.1.2",
@@ -639,9 +373,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Selected Tab)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `widget_rules::check_tablist_has_tabpanel`
-    // (`aria-tablist-tabpanel`). Jetzt `REVIEW` statt Verstoß: ARIA 1.2
-    // beschreibt das Panel nur als üblich.
     SharedRule {
         id: "aria/tabpanel-missing",
         criterion: "4.1.2",
@@ -649,11 +380,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Tab Panel)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `widget_rules::check_combobox_has_options`
-    // (`aria-combobox-options`). Gleiche Ausnahmen -- zugeklappt,
-    // `aria-controls`, Popup im Teilbaum --, dazu `aria-owns`. Geprüft wird
-    // nur eine explizite `role="combobox"`; ein natives `<select>` hat sein
-    // Popup immer.
     SharedRule {
         id: "aria/combobox-popup-missing",
         criterion: "4.1.2",
@@ -661,9 +387,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Combobox Popup)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzen die Popover-Prüfung aus `wcag::rules::modern_attributes`
-    // (`modern-attribute-misuse`, `popover_target_missing` und
-    // `popover_target_invalid`) ohne Unterschied.
     SharedRule {
         id: "popover/target-missing",
         criterion: "4.1.2",
@@ -678,16 +401,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Popover Target)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt aus `modern_attributes` den Fall `active_surface_inert` für
-    // Dialoge. Zwei Unterschiede, beide gewollt: Die geteilte Regel sieht
-    // auch ein `inert` an einem Vorfahren, und `role="dialog"` ist `REVIEW`
-    // (ohne Stile ist ein geschlossener Dialog nicht von einem offenen zu
-    // unterscheiden), nur `<dialog open>` ein Verstoß. Ein sichtbares
-    // `role="menu"` mit `inert` ist kein Befund mehr -- ein aus dem Bild
-    // geschobenes Menü ist so richtig gebaut. Das offene Popover mit
-    // `inert` und den fehlenden Namen offener Menüs und Popover (als
-    // Prüfhinweis) prüft `modern_attributes` weiter; Fokus in einem inerten
-    // Teilbaum lässt HTMLs Fokus-Fixup nicht zu (#783).
     SharedRule {
         id: "inert/dialog-inert",
         criterion: "4.1.2",
@@ -695,13 +408,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Inert Dialog)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `wcag::rules::aria_allowed_attr` (`aria-allowed-attr`). Zwei
-    // Unterschiede, beide gewollt: Die geteilte Regel urteilt über die Rolle
-    // des Elements, explizit oder implizit -- `<div aria-expanded>` ist ein
-    // Befund, die eigene Regel sah nur explizite `role`-Angaben. Und sie
-    // kennt die „MUST NOT"-Fälle aus ARIA in HTML (`aria-checked` an einer
-    // nativen Checkbox, `aria-valuemax` neben `max`, …). Die implizite Rolle
-    // kommt aus Chromes AX-Baum; Chrome-eigene Rollen bleiben ohne Urteil.
     SharedRule {
         id: "aria/attribute-not-allowed",
         criterion: "4.1.2",
@@ -709,9 +415,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (ARIA Attribute Not Allowed)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `wcag::rules::aria_prohibited_attr` (`aria-prohibited-attr`).
-    // Dieselbe Tabelle; die eigene Regel urteilte über explizite Rollen und
-    // `div`/`span`, die geteilte über jede Rolle, die der Host meldet.
     SharedRule {
         id: "aria/attribute-prohibited",
         criterion: "4.1.2",
@@ -719,14 +422,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Prohibited ARIA Attribute)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `wcag::rules::aria_required_parent` (`aria-required-parent`).
-    // Die eigene Regel ging im AX-Baum alle Vorfahren durch, die geteilte
-    // nimmt den nächsten Vorfahren mit einer Rolle (durchlässig sind
-    // `generic`, `none`/`presentation` und Ignoriertes). Damit meldet sie wie
-    // axe den Fall aus #715: `ul[role=tablist] > li > a[role=tab]` -- Chrome
-    // glättet das `<li>` im AX-Baum, im DOM steht es als `listitem` zwischen
-    // Tabliste und Tab. Stößt der Weg auf eine Rolle außerhalb von ARIA 1.2,
-    // entsteht kein Befund.
     SharedRule {
         id: "aria/required-parent-missing",
         criterion: "4.1.2",
@@ -734,12 +429,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Required Parent Role)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt die Bestandteilprüfung aus `wcag::rules::aria_roles`
-    // (`aria-roles`). Ein Unterschied, gewollt: Geprüft werden nur Behälter
-    // mit expliziter Rolle; native Tabellen und Listen geben ihre
-    // Bestandteile per HTML vor (#659, #674). Eine native Tabelle nur mit
-    // `<caption>` ist deshalb kein Befund mehr (Korpus
-    // `table_required_rows_tbody`).
     SharedRule {
         id: "aria/required-children-missing",
         criterion: "4.1.2",
@@ -747,33 +436,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Required Owned Elements)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // ── Namensregeln aus #692 (B2) ──
-    //
-    // Kriterium und Stufe wie bei den abgelösten Regeln, die Schwere setzt
-    // `a11y-rules` gleich der bisherigen. Die geteilte Fassung fragt den
-    // Accessible Name aus `CdpDocument`, der auf Chromes AX-Baum zurückgreift
-    // -- dieselbe Quelle wie bisher.
-
-    // Ersetzt `wcag::rules::aria_naming_rules` ohne den Dialog
-    // (`aria-command-name` ohne `button` und `a[href]`,
-    // `aria-input-field-name`, `aria-meter-name`, `aria-progressbar-name`,
-    // `aria-toggle-field-name`, `aria-treeitem-name`) und aus
-    // `wcag::rules::accessible_name` den Fall „kein Name" (`aria-label`).
-    // Beide meldeten dasselbe Element bisher doppelt. Unterschiede, alle
-    // gewollt:
-    //
-    // - Unbenannte Buttons und Links melden `buttons/name-missing` und
-    //   `links/name-missing`, ein Formularfeld ganz ohne Beschriftung
-    //   `forms/label-missing`; hier steht nur das Feld, dessen Beschriftung
-    //   behauptet ist, aber leer ausgeht (`<label for>` ohne Text).
-    // - `menu` und `tab` sind kein Befund mehr: ARIA 1.2 verlangt für beide
-    //   keinen Namen. Ebenso die native `<option>`.
-    // - Ein unbenanntes, nicht fokussierbares Element ist ein Verstoß wie in
-    //   `aria_naming_rules`, nicht die Warnung aus `accessible_name`.
-    // - `meter`, `progressbar` und `img` gehören seit a11y-rules 0.31.1 nicht
-    //   mehr hierher: Sie melden `names/indicator-name-missing` und
-    //   `images/role-img-name-missing` unter 1.1.1. Diese Kennung trägt nur
-    //   noch 4.1.2.
     SharedRule {
         id: "names/required-missing",
         criterion: "4.1.2",
@@ -781,10 +443,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Accessible Name)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt aus `accessible_name` den Fall „Icon Only" (`aria-label`): ein
-    // Name aus einem Attribut, der nur ein Symbol ist. Jetzt `REVIEW` statt
-    // Verstoß -- 4.1.2 verlangt einen Namen, über seine Güte sagt es nichts.
-    // Buchstaben zählen nach Unicode, „Ä" ist kein Symbol mehr.
     SharedRule {
         id: "names/symbol-only",
         criterion: "4.1.2",
@@ -792,13 +450,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Symbol-Only Name)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `wcag::rules::accessible_name` (`description-duplicates-name`,
-    // #713), ab a11y-rules 0.31 (casoon/barrierlab#260). Gewollt anders:
-    // `REVIEW` statt Verstoß -- 4.1.2 verlangt nicht, dass Name und
-    // Beschreibung verschieden sind (#919). Die Beschreibung liefert der Host
-    // aus Chromes AX-Baum (`Semantics::accessible_description`), wie zuvor
-    // die lokale Regel sie las; verglichen wird nach Normalisierung der
-    // Leerzeichen statt nur nach `trim`.
     SharedRule {
         id: "names/description-duplicates-name",
         criterion: "4.1.2",
@@ -806,11 +457,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Accessible Name - Redundant Description",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `wcag::rules::dialog_rules` (`dialog-name`), den Dialog aus
-    // `aria_naming_rules` (`aria-dialog-name`) und die Namensprüfung aus
-    // `patterns::modal_dialog` (ebenfalls `aria-dialog-name`) -- derselbe
-    // Fall stand bisher bis zu dreimal im Bericht. Ein geschlossenes
-    // `<dialog>` ohne `open` wird nicht geprüft.
     SharedRule {
         id: "dialog/name-missing",
         criterion: "4.1.2",
@@ -818,11 +464,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Dialog Name)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt aus `dialog_rules` den Fall „Dialog Modal". Zwei Unterschiede,
-    // beide gewollt: `REVIEW` statt Verstoß -- ARIA verlangt `aria-modal`
-    // nicht, ein nicht modaler Dialog trägt es zu Recht nicht --, und nur
-    // `role="dialog"`: Ob ein natives `<dialog>` per `showModal()` offen ist,
-    // sieht der Abzug nicht.
     SharedRule {
         id: "dialog/modal-unmarked",
         criterion: "4.1.2",
@@ -830,11 +471,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Dialog Modal)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `wcag::rules::summary_name` (`summary-name`). Gemeldet wird nur
-    // die `<summary>`, die ihr `<details>` bedient; die abgelöste Regel
-    // meldete zusätzlich das `<details>`, dessen Name aus derselben
-    // `<summary>` stammt. `buttons/name-missing` meldet die `<summary>` mit
-    // derselben a11y-rules-Version nicht mehr mit.
     SharedRule {
         id: "summary/name-missing",
         criterion: "4.1.2",
@@ -842,13 +478,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Summary Name)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `wcag::rules::status_messages` (`aria-live-region-role`).
-    // Schwere wie bisher (`alert` hoch, `status` und `log` mittel). Ein
-    // Unterschied, gewollt: Verstoß ist nur noch `aria-live="off"`, die
-    // Region wird dann nicht angesagt. Eine andere Dringlichkeit (`alert` mit
-    // `polite`, `status` mit `assertive`) ist `REVIEW` -- ARIA erlaubt das
-    // Überschreiben, angesagt wird weiterhin. Implizite Rollen zählen mit
-    // (`<output>` ist `status`).
     SharedRule {
         id: "status/live-overridden",
         criterion: "4.1.3",
@@ -856,15 +485,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Status Messages",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html",
     },
-    // Ersetzt `wcag::rules::label_in_name` (`label-content-name-mismatch`,
-    // DOM per JavaScript, höchstens 50 Buttons). Gleich geblieben: kein
-    // Befund, wenn der Name im sichtbaren Text steht, und `REVIEW`, wenn der
-    // sichtbare Text mehr als doppelt so lang ist wie der Name (#513).
-    // Unterschiede, alle gewollt: geprüft werden alle Rollen mit Namen aus
-    // dem Inhalt (Link, Menüeintrag, Tab, Checkbox, …) und Namen aus
-    // `aria-labelledby`, nicht nur Buttons mit `aria-label`; verglichen wird
-    // der berechnete Name, Buchstaben nach Unicode statt nur ASCII; ohne
-    // Deckel. Visuell versteckter Text (`.sr-only`) zählt als sichtbar.
     SharedRule {
         id: "label-in-name/mismatch",
         criterion: "2.5.3",
@@ -872,21 +492,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Label in Name",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/label-in-name.html",
     },
-    // ── Formularregeln aus #693 (B3) ──
-    //
-    // Kriterium und Stufe wie bei den abgelösten Regeln, auch wo
-    // `a11y-rules` mehrere Kriterien führt; die Schwere setzt `a11y-rules`.
-    // Einzelheiten und alle Abweichungen im Changelog von `a11y-rules`
-    // (casoon/barrierlab#16).
-
-    // Ersetzt aus `wcag::rules::instructions` den Fall „no accessible label"
-    // (`label`, 3.3.2, kritisch) und `wcag::rules::labels::check_form_control`
-    // (`control-missing-label`, 4.1.2, hoch) -- dasselbe Feld stand bisher
-    // zweimal im Bericht, jetzt einmal unter 3.3.2. Ein Unterschied, gewollt:
-    // Die geteilte Regel prüft native Felder auf eine Beschriftungsquelle
-    // (`<label>`, `aria-label`, `aria-labelledby`, `title`). ARIA-Widgets
-    // ohne Namen, ein leeres oder ins Leere zeigendes `aria-labelledby` und
-    // ein leeres `<label for>` meldet `names/required-missing`.
     SharedRule {
         id: "forms/label-missing",
         criterion: "3.3.2",
@@ -894,11 +499,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Labels or Instructions (Missing Label)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/labels-or-instructions.html",
     },
-    // Ersetzt aus `instructions` den Fall „Placeholder used as only label".
-    // Die eigene Regel las Chromes `name_source`, die geteilte das Markup:
-    // `placeholder` ohne `<label>`, `aria-label` oder `aria-labelledby`. Ein
-    // Feld mit `title` und `placeholder` meldet sie hier, nicht unter
-    // `forms/title-only-label`.
     SharedRule {
         id: "forms/placeholder-as-label",
         criterion: "3.3.2",
@@ -906,11 +506,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Labels or Instructions (Placeholder as Label)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/labels-or-instructions.html",
     },
-    // Ersetzt aus `wcag::rules::input_purpose` (`autocomplete-valid`) den
-    // ungültigen Wert. Gewollt anders: Geprüft wird die ganze Grammatik des
-    // HTML-Standards (`section-*`, `shipping`/`billing`, Kontaktart,
-    // `webauthn`), nicht nur das letzte Token, und die Schwere ist niedrig
-    // statt mittel.
     SharedRule {
         id: "forms/autocomplete-invalid",
         criterion: "1.3.5",
@@ -918,14 +513,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Identify Input Purpose (Invalid Autocomplete)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/identify-input-purpose.html",
     },
-    // Ersetzt aus `input_purpose` das fehlende `autocomplete`
-    // (`autocomplete-valid`, Verstoß) und `wcag::rules::identify_purpose`
-    // (`identify-purpose`, 1.3.6 AAA, niedrig), die dieselben Felder nach
-    // `id`/`name` ein zweites Mal meldete. Gewollt anders: `REVIEW` statt
-    // Verstoß -- ob ein Feld die Person betrifft, ist aus Beschriftung, `id`
-    // und `name` geraten --, und einmal unter 1.3.5 AA. Der seitenweite
-    // `UNTESTED`-Vermerk aus `identify_purpose` (1.3.6 für Symbole und
-    // Bereiche) entfällt.
     SharedRule {
         id: "forms/purpose-missing",
         criterion: "1.3.5",
@@ -933,12 +520,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Identify Input Purpose",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/identify-input-purpose.html",
     },
-    // Ersetzt `input-error-message` aus `wcag::rules::form_rules` und
-    // `wcag::rules::error_identification` (`aria-invalid-without-describedby`),
-    // die dasselbe Feld zweimal meldeten. Als Beschreibung zählen
-    // `aria-describedby` und `aria-errormessage` mit Text; ein verstecktes
-    // oder fehlendes Ziel gilt als Beschreibung (das Fehlen meldet
-    // `aria/reference-missing`).
     SharedRule {
         id: "forms/error-unidentified",
         criterion: "3.3.1",
@@ -946,10 +527,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Error Identification",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/error-identification.html",
     },
-    // Ersetzt `form-field-group` aus `form_rules`, den AX-Teil (Optionsfelder)
-    // und den DOM-Teil (gleichnamige Kontrollkästchen, #643). Gruppe ist ein
-    // `<fieldset>`, `<details>` oder `role="group"`/`"radiogroup"` als
-    // Vorfahre.
     SharedRule {
         id: "forms/group-missing",
         criterion: "1.3.1",
@@ -957,9 +534,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Info and Relationships (Form Field Group)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
-    // Ersetzt aus `instructions` den Fall „Form group has no legend or label"
-    // (`label`). Ein unbenanntes `radiogroup` meldet nicht mehr diese Regel,
-    // sondern `names/required-missing`.
     SharedRule {
         id: "forms/group-name-missing",
         criterion: "3.3.2",
@@ -967,11 +541,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Labels or Instructions (Group Name)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/labels-or-instructions.html",
     },
-    // Ersetzt „Required field not clearly indicated" aus `instructions` und
-    // „may not indicate required status" aus `form_rules` (beide `label`),
-    // die dasselbe Feld zweimal meldeten. Gewollt anders: `REVIEW` statt
-    // Verstoß und einmal -- der Screenreader sagt das Pflichtfeld an; ob es
-    // sichtbar gekennzeichnet ist, sieht nur ein Mensch.
     SharedRule {
         id: "forms/required-unmarked",
         criterion: "3.3.2",
@@ -979,8 +548,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Labels or Instructions (Required Field)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/labels-or-instructions.html",
     },
-    // Ersetzt „may require format instructions" aus `instructions` (`label`,
-    // `REVIEW`) samt den Korrekturen aus #643 und #656.
     SharedRule {
         id: "forms/instructions-missing",
         criterion: "3.3.2",
@@ -988,9 +555,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Labels or Instructions (Format Instructions)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/labels-or-instructions.html",
     },
-    // Ersetzt `wcag::rules::label_title_only` (`label-title-only`). Gewollt
-    // anders: `REVIEW` statt Verstoß -- `title` ist eine zulässige Technik
-    // (H65).
     SharedRule {
         id: "forms/title-only-label",
         criterion: "1.3.1",
@@ -998,9 +562,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Info and Relationships (Title-Only Label)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
-    // Ersetzt `form-no-submit` aus `form_rules`, samt der Korrektur aus #728
-    // (ohne `action` und ohne Textfeld nur `REVIEW`, niedrig). Neu: Felder
-    // und Buttons, die per `form`-Attribut außerhalb stehen, zählen mit.
     SharedRule {
         id: "forms/no-submit",
         criterion: "3.2.2",
@@ -1008,8 +569,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "On Input (Form Without Submit)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/on-input.html",
     },
-    // Ersetzt `wcag::rules::redundant_entry` (`redundant-entry`), `REVIEW`
-    // wie bisher.
     SharedRule {
         id: "forms/redundant-entry",
         criterion: "3.3.7",
@@ -1017,11 +576,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Redundant Entry",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/redundant-entry.html",
     },
-    // Ersetzt aus `wcag::rules::on_input` (`input-no-context-change`) das
-    // Urteil über den Handlertext im Markup. Neu: auch Optionsfelder mit
-    // `onchange` (F37). In `on_input` bleiben, weil sie die laufende Seite
-    // brauchen: der Quelltext einer aufgerufenen Funktion über `window` und
-    // die Namensvermutung („Language") ohne Absende-Button.
     SharedRule {
         id: "context/on-input",
         criterion: "3.2.2",
@@ -1029,11 +583,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "On Input",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/on-input.html",
     },
-    // Ersetzen `wcag::rules::on_focus` (`focus-no-context-change`), das
-    // `onfocus` und das `autofocus` jetzt unter je eigener Kennung. Gewollt
-    // anders: beide `REVIEW` statt Verstoß -- ob ein `onfocus` den Kontext
-    // wechselt, steht nicht im Markup, und `autofocus` wechselt ihn für sich
-    // genommen nicht. Schwere wie bisher (hoch, mittel).
     SharedRule {
         id: "context/on-focus",
         criterion: "3.2.1",
@@ -1048,9 +597,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "On Focus (Autofocus)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/on-focus.html",
     },
-    // Ersetzt das Captcha aus `wcag::rules::accessible_authentication`
-    // (`accessible-auth-captcha`, `REVIEW`). Der Einfüge-Test an Passwort-
-    // und Einmalcode-Feldern braucht die laufende Seite und bleibt dort.
     SharedRule {
         id: "auth/captcha",
         criterion: "3.3.8",
@@ -1059,20 +605,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         help_url:
             "https://www.w3.org/WAI/WCAG22/Understanding/accessible-authentication-minimum.html",
     },
-    // ── Landmark-, Tastatur- und Strukturregeln aus #694 (B4) ──
-    //
-    // Kriterium und Stufe wie bei den abgelösten Regeln, die Schwere setzt
-    // `a11y-rules`. Einzelheiten und alle Abweichungen im Changelog von
-    // `a11y-rules` (casoon/barrierlab#17). Die Landmark-Rolle bestimmt die
-    // geteilte Fassung aus dem Markup, nicht aus Chromes Rolle: Ein
-    // unbenanntes `<form>`/`<section>` ist keine Landmark (#727), ein
-    // `<header>`/`<footer>` in `main`, `article` oder unter `role="main"`
-    // kein banner/contentinfo (#639).
-
-    // Ersetzt `landmark-unique` aus `wcag::rules::landmark_granular`. Gewollt
-    // anders: `REVIEW` statt Verstoß -- WAI-ARIA und die APG verlangen
-    // unterscheidbare Namen nur als SHOULD. Ein `<aside>` in einem Abschnitt
-    // zählt nur mit Namen als `complementary`.
     SharedRule {
         id: "landmarks/not-unique",
         criterion: "1.3.1",
@@ -1080,9 +612,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Info and Relationships (Landmark Unique)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
-    // Ersetzt `landmark-banner-is-top-level`,
-    // `landmark-contentinfo-is-top-level` und `landmark-main-is-top-level`
-    // aus `landmark_granular` -- eine Kennung, die Rolle steht im Text.
     SharedRule {
         id: "landmarks/not-top-level",
         criterion: "1.3.1",
@@ -1090,10 +619,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Info and Relationships (Landmark Not Top Level)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
-    // Ersetzen `landmark-no-duplicate-banner` und
-    // `landmark-no-duplicate-contentinfo` aus `landmark_granular`. Gewollt
-    // anders: Der Befund steht wie bei `landmarks/main-duplicate` an der
-    // zweiten Landmark, nicht an der ersten.
     SharedRule {
         id: "landmarks/banner-duplicate",
         criterion: "1.3.1",
@@ -1108,11 +633,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Info and Relationships (Multiple Contentinfo Landmarks)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
-    // Ersetzt `wcag::rules::region` (`region`). Gewollt anders: gemeldet wird
-    // das äußerste Element ohne Landmark darin, einmal je Block wie axe
-    // `region` -- nicht jeder Textknoten und jedes benannte Element einzeln.
-    // Die Befundzahl je Seite sinkt damit. Sprunglinks erkennt die geteilte
-    // Fassung wie bisher am Ziel (#642).
     SharedRule {
         id: "landmarks/content-outside",
         criterion: "1.3.1",
@@ -1120,10 +640,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Info and Relationships (Content Outside Landmarks)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
-    // Ersetzt `wcag::rules::bypass_blocks` (`bypass`, „No headings found")
-    // samt der Ausnahme aus #709: hinter einem offenen Dialog `REVIEW`,
-    // niedrig. Neu: `role="heading"` zählt mit, versteckte Überschriften
-    // nicht.
     SharedRule {
         id: "headings/none",
         criterion: "2.4.1",
@@ -1131,11 +647,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Bypass Blocks (No Headings)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/bypass-blocks.html",
     },
-    // Ersetzt aus `wcag::rules::keyboard` `focusable-no-role`. Gewollt
-    // anders: nur die Tabfolge (`tabindex` ≥ 0) zählt -- ein `tabindex="-1"`
-    // am Ziel eines Sprunglinks erreicht niemand per Tab --, und ein
-    // benannter Bereich mit `tabindex="0"` (scrollbarer Bereich) ist kein
-    // Befund.
     SharedRule {
         id: "keyboard/focusable-no-role",
         criterion: "2.1.1",
@@ -1143,12 +654,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Keyboard (Focusable Without Role)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
     },
-    // Ersetzt aus `keyboard` „appears not keyboard-focusable" (`keyboard`).
-    // `REVIEW`, hoch wie bisher. Gewollt anders: Fokussierbarkeit kommt aus
-    // dem Markup statt aus Chromes `focusable`; ausgenommen sind
-    // deaktivierte Felder, native `<option>`, Elemente unter
-    // `aria-activedescendant` und Inertes. Die Tastaturfalle (2.1.2) braucht
-    // echte Bedienung und bleibt in `keyboard`.
     SharedRule {
         id: "keyboard/interactive-not-focusable",
         criterion: "2.1.1",
@@ -1156,9 +661,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Keyboard (Interactive Not Focusable)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
     },
-    // Ersetzt `dialog-no-focusable` aus `patterns::modal_dialog`. Gewollt
-    // anders: Gesucht wird in allen Nachfahren, nicht nur in den direkten
-    // Kindern, und ein geschlossenes `<dialog>` zählt nicht.
     SharedRule {
         id: "dialog/focusable-missing",
         criterion: "2.4.3",
@@ -1166,19 +668,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Focus Order (Dialog Without Focusable Element)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/focus-order.html",
     },
-    // Ersetzt `accordion-no-controls` aus `patterns::accordion`. Gewollt
-    // anders: `REVIEW` statt Verstoß -- WAI-ARIA verlangt `aria-controls` am
-    // Button nicht, die APG nennt es beim Disclosure-Muster optional.
-    // Ausgenommen wie bisher: zugeklappte Buttons, `<summary>` und Buttons in
-    // `navigation`/`banner`.
-    //
-    // Nicht übernommen und ersatzlos gelöscht: `accordion-trigger-not-button`
-    // (meldet an Rollen ohne `aria-expanded` schon
-    // `aria/attribute-not-allowed`, an `link`/`tab`/`treeitem` erlaubt
-    // WAI-ARIA den Zustand, fehlender Fokus ist
-    // `keyboard/interactive-not-focusable`) und `aria-expanded-required`
-    // aus `patterns::disclosure_menu` (riet ein Aufklappmenü aus dem Wort
-    // „menu"/„Menü" im Namen, ohne Norm dahinter).
     SharedRule {
         id: "patterns/accordion-controls-missing",
         criterion: "4.1.2",
@@ -1186,16 +675,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Accordion Controls)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // ── Links- und Zeigerregeln aus #695 (B5) ──
-    //
-    // Einzelheiten und Abweichungen im Changelog von `a11y-rules` 0.18.0
-    // (casoon/barrierlab#18). Gewollt anders für alle drei: keine Obergrenze
-    // je Seite mehr (bisher 10 bzw. 20 Befunde).
-
-    // Ersetzt `wcag::rules::click_handlers` (`click-events-have-key-events`).
-    // Gewollt anders: Ein `<a onclick>` ohne `href` landet hier statt bei
-    // `links/used-as-button` -- ohne `href` ist es kein Link und nicht
-    // fokussierbar.
     SharedRule {
         id: "keyboard/click-handler-not-focusable",
         criterion: "2.1.1",
@@ -1203,7 +682,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Keyboard",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
     },
-    // Ersetzt `wcag::rules::fake_navigation_link` (`link-as-button`).
     SharedRule {
         id: "links/used-as-button",
         criterion: "4.1.2",
@@ -1211,10 +689,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `wcag::rules::location` (`location`). Gewollt anders: `REVIEW`
-    // statt Verstoß -- 2.4.8 lässt sich auch mit Titel, Überschriften oder
-    // einer Sitemap erfüllen. AAA: läuft wie bisher nur mit `--level aaa`
-    // ([`retain_up_to_level`]).
     SharedRule {
         id: "navigation/location-missing",
         criterion: "2.4.8",
@@ -1222,21 +696,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Location",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/location.html",
     },
-    // ── Bild- und Medienregeln aus #696 (B6) ──
-    //
-    // Einzelheiten und Abweichungen im Changelog von `a11y-rules` 0.18.0
-    // (casoon/barrierlab#19). Im Host bleiben, weil nur der Browser es weiß:
-    // ob eine `<track>`-Datei lädt (`video-caption`, Netzabruf) und welche
-    // Rahmen fremd sind (`frame-tested`), dazu der Hinweis `media-alt`
-    // (1.2.8) -- `a11y-rules` verweist dafür auf `manual/media-alternatives`,
-    // und die manuelle Checkliste führt auditmysite noch nicht.
-
-    // Ersetzen `area-alt`, `input-image-alt` und `object-alt` aus
-    // `wcag::rules::image_input_rules`. Gewollt anders: `aria-labelledby`
-    // zählt an allen dreien, `aria-label` auch an `<area>`; `<embed>` prüft
-    // `objects/alt-missing` nicht (kein Beleg). `images/area-alt-missing`
-    // erst ab a11y-rules 0.19: davor nahm die Sicht mit berechneten Stilen
-    // `<area>` heraus (UA `display: none`, Korpus `misc_content_checks`).
     SharedRule {
         id: "images/area-alt-missing",
         criterion: "1.1.1",
@@ -1258,20 +717,13 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Non-text Content (Object)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     },
-    // Ersetzt `wcag::rules::server_side_image_map`.
     SharedRule {
         id: "images/server-side-map",
-        criterion: "1.1.1",
+        criterion: "2.1.1",
         level: WcagLevel::A,
-        name: "Non-text Content (Server-side Image Map)",
-        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
+        name: "Keyboard (Server-side Image Map)",
+        help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
     },
-    // Ersetzt `wcag::rules::background_audio` (`background-audio`, 1.4.7
-    // AAA), ab a11y-rules 0.19 (davor fehlte `<audio>` ohne `controls` in
-    // der Sicht, Korpus `media_and_visual`). Gewollt anders: `REVIEW` und
-    // 1.4.2 (Audio Control, A) statt 1.4.7 -- selbststartender Ton ist
-    // Gegenstand von 1.4.2, ob er länger als drei Sekunden läuft, steht
-    // nicht im Markup. Läuft damit schon ab Stufe A.
     SharedRule {
         id: "media/audio-autoplay",
         criterion: "1.4.2",
@@ -1279,13 +731,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Audio Control",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/audio-control.html",
     },
-    // Neu aus a11y-rules 0.30.9, keine abgelöste Regel: die Wiedergabe eines
-    // `autoplay`-Mediums gemessen (`Rendering::media_playback`, Messung
-    // `media` in `accessibility::probes`). Spielt es mit Ton länger als drei
-    // Sekunden ohne nutzbare `controls`, ist es ein Verstoß (ACT 80f0bf);
-    // ein gemessenes Element verlässt `media/audio-autoplay`. Damit Chrome
-    // ohne Nutzergeste mit Ton abspielt, startet der Browser mit
-    // `--autoplay-policy=no-user-gesture-required`.
     SharedRule {
         id: "media/audio-autoplay-measured",
         criterion: "1.4.2",
@@ -1293,14 +738,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Audio Control (Measured Playback)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/audio-control.html",
     },
-    // Übernimmt aus `video-caption` (`wcag::rules::media_rules`) den Fall
-    // „`<video>` ohne `<track kind="captions">`/`subtitles`", ab a11y-rules
-    // 0.31 (#1182). Gewollt anders: ein `REVIEW` je Video statt einer
-    // ungeprüften Notiz je Seite; ein stummes Video ohne `controls` und ein
-    // Video unter `hidden`/`aria-hidden` bleiben ohne Befund. Im Host bleibt,
-    // was nur der Browser weiß: ob die Datei einer vorhandenen Spur lädt und
-    // eingebettete Player (YouTube, Vimeo); `video-caption` prüft nur noch
-    // Videos mit einer solchen Spur, sodass kein Video zweimal gemeldet wird.
     SharedRule {
         id: "media/video-captions-missing",
         criterion: "1.2.2",
@@ -1308,38 +745,13 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Captions (Prerecorded)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/captions-prerecorded.html",
     },
-    // Ersetzt `frame-title` aus `wcag::rules::media_rules`. `a11y-rules`
-    // führt 2.4.1 und 4.1.2 (H64); auditmysite meldete unter 2.4.1 und
-    // bleibt dabei. Gewollt anders: nur `<iframe>`; unsichtbar heißt
-    // `hidden`/`aria-hidden`, per Stil ausgeblendet (mit Layout-Stilen) oder
-    // Breite und Höhe als Attribut 0/1 -- die gerenderte Größe ≤ 1 px kennt
-    // die Regel ohne Geometrie nicht.
     SharedRule {
         id: "frames/name-missing",
-        criterion: "2.4.1",
+        criterion: "4.1.2",
         level: WcagLevel::A,
         name: "Frame title",
         help_url: "https://www.w3.org/WAI/WCAG22/Techniques/html/H64",
     },
-    // ── Tabellen-, Dokument-, Sprach- und Rollenregeln aus #697 (B7) ──
-    //
-    // Einzelheiten und Abweichungen im Changelog von `a11y-rules` 0.18.0
-    // (casoon/barrierlab#20). Für alle gilt: keine Obergrenze je Seite mehr
-    // (bisher 5, 10 bzw. 20 Befunde).
-    //
-    // Nicht übernommen und gelöscht: `presentation-semantic-children`
-    // (`info_relationships`) -- nach WAI-ARIA 1.2 nimmt
-    // `role="presentation"`/`"none"` nur dem Element selbst die Semantik,
-    // nicht seinen Nachfahren; die Regel hätte das APG-Menüleistenmuster
-    // (`<li role="none">` um Menülinks) als Fehler gemeldet. Den
-    // Tabellenfall meldet `tables/presentational-with-headers`. Aus
-    // `section_headings` die Gliederungslücken (meldet
-    // `headings/skip-level`) und „mehr als 10 Absätze, weniger als 3
-    // Überschriften" (kein Beleg).
-
-    // Ersetzt `th-has-data-cells` aus `wcag::rules::table_extended` samt
-    // #638, #654 und #659. Ein noch nicht dargestellter Zeilenvorrat ist
-    // `tables/data-undetermined` (`UNTESTED`), nicht `FAIL`.
     SharedRule {
         id: "tables/header-without-data",
         criterion: "1.3.1",
@@ -1354,8 +766,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Info and Relationships (Header Without Data)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
-    // Ersetzt `td-headers-attr` aus `table_extended`. Gewollt anders: nur an
-    // Zellen geprüft, wo HTML das Attribut definiert.
     SharedRule {
         id: "tables/headers-attr-invalid",
         criterion: "1.3.1",
@@ -1363,7 +773,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Info and Relationships (Headers Attribute)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
-    // Ersetzt `wcag::rules::language_extended` (`html-xml-lang-mismatch`).
     SharedRule {
         id: "document/lang-mismatch",
         criterion: "3.1.1",
@@ -1371,10 +780,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Language of Page (lang/xml:lang Mismatch)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-page.html",
     },
-    // Ersetzt `wcag::rules::language_of_parts`. Gewollt anders: der innerste
-    // Textblock, ohne `<script>`/`<style>`/`<template>`; auf Seiten, die
-    // weder Deutsch noch Englisch sind, `language/part-undetermined`
-    // (`UNTESTED`) statt nichts.
     SharedRule {
         id: "language/part-unmarked",
         criterion: "3.1.2",
@@ -1389,8 +794,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Language of Parts",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-parts.html",
     },
-    // Neu aus a11y-rules 0.30.3, keine abgelöste Regel: `lang` unterhalb von
-    // `<html>`, das kein gültiges BCP-47-Kürzel ist (ACT de46e4).
     SharedRule {
         id: "language/part-invalid",
         criterion: "3.1.2",
@@ -1398,8 +801,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Language of Parts (Invalid Code)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/language-of-parts.html",
     },
-    // Ersetzt `wcag::rules::abbreviations`. Gewollt anders: `REVIEW` statt
-    // Verstoß, ein leeres `title` zählt als fehlend.
     SharedRule {
         id: "language/abbreviation-unexpanded",
         criterion: "3.1.4",
@@ -1407,9 +808,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Abbreviations",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/abbreviations.html",
     },
-    // Ersetzt aus `wcag::rules::timing_adjustable` die Erkennung von
-    // `<meta http-equiv="refresh">`. Gewollt anders: `0` s ist keine Frist
-    // (H76), eine Anweisung ohne Ziffern führt der Browser nicht aus.
     SharedRule {
         id: "timing/meta-refresh",
         criterion: "2.2.1",
@@ -1417,9 +815,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Timing Adjustable",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/timing-adjustable.html",
     },
-    // Neu aus a11y-rules 0.30.9, keine abgelöste Regel: jede verzögerte
-    // Refresh-Anweisung, auch über 20 Stunden (ACT bisz58). Der Befund trägt
-    // 2.2.4 und 3.2.5; geführt unter 2.2.4.
     SharedRule {
         id: "timing/meta-refresh-enhanced",
         criterion: "2.2.4",
@@ -1427,10 +822,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Interruptions (Meta Refresh)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/interruptions.html",
     },
-    // Ersetzt die Abschnittszählung aus `wcag::rules::section_headings`
-    // (`heading-order`, 2.4.10). Gewollt anders: Artikel und benannte
-    // Abschnitte ohne eigene Überschrift statt aller Abschnitte gegen alle
-    // Überschriften; `REVIEW` statt Verstoß.
     SharedRule {
         id: "headings/section-without-heading",
         criterion: "2.4.10",
@@ -1438,9 +829,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Section Headings",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/section-headings.html",
     },
-    // Ersetzt `wcag::rules::redundant_role` bis auf `<ul>`/`<ol>` (dafür
-    // `lists/role-redundant`, siehe unten). `<li role="listitem">` meldet es
-    // nur in einer Liste ohne eigene Rolle.
     SharedRule {
         id: "aria/role-redundant",
         criterion: "4.1.2",
@@ -1448,9 +836,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Neu aus a11y-rules 0.30.3, keine abgelösten Regeln: schmückend
-    // ausgezeichnet, aber doch im Accessibility-Tree (ACT 46ca7f), und
-    // Fokussierbares in präsentationalen Kindern (ACT 307n5z).
     SharedRule {
         id: "aria/presentation-conflict",
         criterion: "4.1.2",
@@ -1465,11 +850,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Focusable Presentational Child)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzen `title-only-description` und `content-on-hover-focus` aus
-    // `wcag::rules::content_on_hover`. Gewollt anders: `names/title-only` ist
-    // `REVIEW` (`title` ist eine gültige Namensquelle, H65), Textfelder
-    // meldet `forms/title-only-label`; `patterns/tooltip-unreferenced` lässt
-    // auch `aria-labelledby` als Verweis gelten.
     SharedRule {
         id: "names/title-only",
         criterion: "4.1.2",
@@ -1484,24 +864,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Content on Hover or Focus",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html",
     },
-    // ── Regeln über Stylesheets (a11y-rules 0.19, barrierlab#21 erster Teil,
-    // Host-Seite von #698) ──
-    //
-    // Laufen nur mit den Sheets der Seite (`run_shared_rules_with_stylesheets`,
-    // gelesen über `document.styleSheets` wie die abgelösten
-    // JavaScript-Regeln); ohne sie `NotRun::CapabilityMissing`. In Frames
-    // laufen sie nicht -- sie urteilen über die Seite, die abgelösten Regeln
-    // liefen ebenfalls nur im obersten Dokument. Abweichungen im Changelog
-    // von `a11y-rules` 0.19.0.
-
-    // Darstellungsregeln mit berechneten Stilen und Geometrie aus dem
-    // DOMSnapshot (`RenderedCdpDocument`, #698). Fehlt einer Seite ein Feld
-    // -- etwa weil der Snapshot scheiterte --, meldet die Regel das als
-    // `UNTESTED` für die Seite statt zu schweigen.
-    //
-    // Ersetzt aus `wcag::rules::redundant_role` das Paar `<ul>`/`<ol>` mit
-    // `role="list"`: überflüssig nur, wenn `list-style-type` nicht `none` ist
-    // (#644).
     SharedRule {
         id: "lists/role-redundant",
         criterion: "4.1.2",
@@ -1509,10 +871,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `wcag::rules::use_of_color` (`link-in-text-block`) samt #710:
-    // nur Links im Fließtext, ohne Navigation, Menüs, Logo-Links und
-    // Listeneinträge aus nur dem Link. Gewollt anders: auch Schriftfamilie,
-    // Unterkante und Hintergrund zählen als Unterscheidung.
     SharedRule {
         id: "color/link-indistinct",
         criterion: "1.4.1",
@@ -1520,9 +878,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Use of Color",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html",
     },
-    // Ersetzt `wcag::rules::scrollable_region` (`scrollable-region-focusable`,
-    // #717): Überhang aus den DOM-Rechtecken des Snapshots, 13 px Puffer wie
-    // axe.
     SharedRule {
         id: "keyboard/scrollable-region-not-focusable",
         criterion: "2.1.1",
@@ -1530,16 +885,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Keyboard",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
     },
-    // Ersetzen `wcag::rules::contrast` (`color-contrast`, #698): Farben,
-    // effektiver Hintergrund, optisch verborgener und überdeckter Text aus
-    // dem DOMSnapshot (`RenderedCdpDocument`). Verglichen am Korpus und an
-    // fünf Live-Seiten, AA und AAA (barrierlab#47). Ein nicht bestimmbarer
-    // Hintergrund (Bild, Verlauf, positioniertes Bild darunter) wird wie
-    // zuvor am Bildschirmfoto abgetastet (`Rendering::sampled_backdrop`).
-    // Gewollt anders: Text, den ein fixiertes oder klebendes Element verdeckt
-    // (Cookie-Banner), ist `UNTESTED` (#716 Fall 7); Text unter `aria-hidden` wird
-    // gemessen (#395 nahm ihn aus — 1.4.3 gilt für sichtbaren Text). AAA
-    // (1.4.6) steht unter eigener Kennung und meldet nur, was 1.4.3 besteht.
     SharedRule {
         id: "contrast/text-insufficient",
         criterion: "1.4.3",
@@ -1561,9 +906,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Contrast (Enhanced)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/contrast-enhanced.html",
     },
-    // Ersetzt `wcag::rules::focus_visible_css` (`focus-visible-outline-none`).
-    // Gewollt anders: Ein in einer `:focus`-Regel wieder gesetzter Rahmen
-    // zählt als Ersatz (sueddeutsche.de setzt ihn für die Tastatur neu).
     SharedRule {
         id: "focus/outline-removed",
         criterion: "2.4.7",
@@ -1571,12 +913,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Focus Visible (CSS outline suppression)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html",
     },
-    // Ersetzt `wcag::rules::reduced_motion` (`prefers-reduced-motion`), ab
-    // a11y-rules 0.19.1: 0.19.0 las aus Chromes serialisierter Kurzform
-    // `animation` (`2s linear 0s infinite normal none running spin`) `none`
-    // als Namen. Gewollt anders: `REVIEW` statt Verstoß; eine allein
-    // stehende `transition-duration` ist kein Übergang. AAA: nur mit
-    // `--level aaa`.
     SharedRule {
         id: "motion/reduced-motion-ignored",
         criterion: "2.3.3",
@@ -1584,12 +920,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Animation from Interactions",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions.html",
     },
-    // Ersetzt den Stylesheet-Teil von `wcag::rules::orientation`
-    // (`css-orientation-lock`). Gewollt anders: `REVIEW` statt Verstoß, nur
-    // Selektoren, die ein Element der Seite treffen, ohne Pseudo-Elemente
-    // (Breakpoint-Marker `body:before` auf bundesregierung.de). Seit
-    // a11y-rules 0.30.7 nur noch Ausblenden; Drehen prüft
-    // `orientation/locked`.
     SharedRule {
         id: "orientation/content-hidden",
         criterion: "1.3.4",
@@ -1597,9 +927,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Orientation",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/orientation.html",
     },
-    // Neu aus a11y-rules 0.30.7, keine abgelöste Regel: Drehung eines
-    // Elements unter `@media (orientation: …)` in beiden Ausrichtungen
-    // verglichen, eine Vierteldrehung Unterschied sperrt eine (ACT b33eff).
     SharedRule {
         id: "orientation/locked",
         criterion: "1.3.4",
@@ -1607,11 +934,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Orientation (Locked by Rotation)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/orientation.html",
     },
-    // Ersetzen Blocksatz und Zeilenabstand aus
-    // `wcag::rules::visual_presentation` (`visual-presentation`). Gewollt
-    // anders: gemessen an den `<p>` der Seite statt an Selektoren, die mit
-    // `body`, `p`, `div` … beginnen (sonst meldete normalize.css jede
-    // Seite); `REVIEW` statt Verstoß. AAA.
     SharedRule {
         id: "text/justified",
         criterion: "1.4.8",
@@ -1626,15 +948,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Visual Presentation (Line Height)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/visual-presentation.html",
     },
-    // Die statischen Regeln der Darstellungskonvention (barrierlab#22, #699):
-    // Best Practice, keine WCAG-Anforderung, am nächsten Kriterium verankert
-    // wie die lokalen `display/*` in `wcag::rules::display_modes`. Dort
-    // bleibt, was die laufende Seite misst (`display/init-missing` per
-    // Beobachter, `display/text-hidden` samt berechneter Sichtbarkeit, die
-    // Textmodus-Prüfungen); diese Kennungen aus `a11y-rules` übernimmt
-    // auditmysite nicht.
-    // Ersetzt `display/toggle-missing` aus `display_modes`: derselbe Text,
-    // dieselbe Prüfung am DOM nach JavaScript.
     SharedRule {
         id: "display/toggle-missing",
         criterion: "2.2.2",
@@ -1642,10 +955,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Display modes: toggle",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html",
     },
-    // Ersetzt den `missing`-Fall von `display/text-not-visible`: eine
-    // Visualisierung ohne `[data-viz-text]` oder nur mit leeren, in jedem
-    // Modus. Ob eine vorhandene Textschicht im Textmodus auch erscheint,
-    // misst `display_modes` weiter an der laufenden Seite.
     SharedRule {
         id: "viz/text-missing",
         criterion: "1.1.1",
@@ -1653,7 +962,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Display modes: text layer",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     },
-    // Neu mit der Konvention: `<figcaption>` als Kind der `figure[data-viz]`.
     SharedRule {
         id: "viz/caption-missing",
         criterion: "1.1.1",
@@ -1661,8 +969,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Display modes: caption",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-content.html",
     },
-    // Neu: `data-viz="3d"`/`"interactive"` ohne Standbild `[data-viz-static]`
-    // -- im ruhigen Modus ersetzt nichts die Bewegung.
     SharedRule {
         id: "viz/static-missing",
         criterion: "2.2.2",
@@ -1670,8 +976,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Display modes: still image",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html",
     },
-    // Neu: `data-viz="chart"` ohne `<table>`; `REVIEW`, weil wenige Werte
-    // auch ein Satz trägt.
     SharedRule {
         id: "viz/table-missing",
         criterion: "1.3.1",
@@ -1679,16 +983,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Display modes: values as table",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/info-and-relationships.html",
     },
-    // Heuristiken über die Layout-Angaben aus dem DOMSnapshot (#698,
-    // casoon/barrierlab#49). Sie urteilen mit `REVIEW`, nie `FAIL`; fehlt ein
-    // Feld, steht `UNTESTED` für die Seite.
-    //
-    // Ersetzt `wcag::rules::target_size_minimum` (`target-size-minimum`).
-    // Gewollt anders: `REVIEW` statt `FAIL`; keine Obergrenze von fünf
-    // Befunden und 1000 Zielen; gemessen wird, was per Tab erreichbar ist.
-    // Mitgebracht: Ausnahmen „inline", „Equivalent" und Abstand, Nachbarn
-    // unter `inert` oder mit `pointer-events: none` (#705), noch wachsende
-    // Ziele `UNTESTED` (#706).
     SharedRule {
         id: "targets/size",
         criterion: "2.5.8",
@@ -1696,8 +990,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Target Size (Minimum)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html",
     },
-    // Ersetzt `wcag::rules::target_size_enhanced` (`target-size`). Meldet nur,
-    // was `targets/size` nicht schon meldet.
     SharedRule {
         id: "targets/size-enhanced",
         criterion: "2.5.5",
@@ -1705,9 +997,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Target Size (Enhanced)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/target-size-enhanced.html",
     },
-    // Ersetzt `wcag::rules::meaningful_sequence`
-    // (`css-order-reading-sequence`). Dazu `flex-direction: *-reverse`; ohne
-    // die Grenze von fünf Flex-Containern.
     SharedRule {
         id: "order/visual-mismatch",
         criterion: "1.3.2",
@@ -1715,11 +1004,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Meaningful Sequence",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/meaningful-sequence.html",
     },
-    // Ersetzt den Animations- und `<marquee>`-Teil von
-    // `wcag::rules::pause_stop_hide`. Gewollt anders: jede endlose Animation
-    // zählt, auch kurze Durchläufe (2.2.2 gilt für Bewegung, die insgesamt
-    // länger als fünf Sekunden läuft); `prefers-reduced-motion` hebt den
-    // Befund nicht auf; angehaltene Animationen zählen nicht.
     SharedRule {
         id: "motion/infinite-animation",
         criterion: "2.2.2",
@@ -1727,8 +1011,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Pause, Stop, Hide",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html",
     },
-    // Neu: sieht anklickbar aus (`cursor: pointer` oder `onclick`), ist aber
-    // weder Bedienelement noch per Tab erreichbar.
     SharedRule {
         id: "keyboard/pointer-only",
         criterion: "2.1.1",
@@ -1736,14 +1018,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Keyboard",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
     },
-    // Ersetzen die sieben Prüfhinweis-Stubs (#722, casoon/barrierlab#39):
-    // `pointer_gestures`, `motion_actuation`, `no_timing`, `no_interruptions`,
-    // `re_authenticate`, `unusual_words` und `help`. Wie zuvor `UNTESTED`,
-    // einmal je Seite; gewollt anders: nur noch, wenn die Seite etwas
-    // enthält, für das das Kriterium gilt (Gesten-Widgets, Bewegungs-Skript,
-    // Felder, Live-Regionen, Anmeldung, Text). Der heuristische Teil von
-    // `help` — jedes Textfeld ohne `aria-describedby` als 3.3.5-Verstoß —
-    // entfällt: Fehlende Beschreibung ist kein Nachweis fehlender Hilfe.
     SharedRule {
         id: "manual/pointer-gestures",
         criterion: "2.5.1",
@@ -1751,15 +1025,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Pointer Gestures",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/pointer-gestures.html",
     },
-    // Ersetzen die unbedingten Vermerke `pointer-cancellation` (2.5.2) und
-    // `meta-refresh` (2.2.1, #1114) aus `wcag::rules`. Gewollt anders: nur
-    // noch, wenn die Seite etwas enthält, für das das Kriterium gilt --
-    // `manual/pointer-cancellation` bei `onmousedown`/`onpointerdown`/
-    // `ontouchstart` im Markup (nicht mehr bei jedem `<script>`),
-    // `manual/timing` bei Formularfeldern oder einem Auto-Refresh (nicht mehr
-    // auf jeder Seite). 2.2.6 (`timeouts`) und 1.4.8 (`visual-presentation`,
-    // Farbwahl und Spaltenbreite) hatten gar keinen Messanteil und sind ohne
-    // Ersatz gelöscht, bis `a11y-rules` Checklistenpunkte dafür hat.
     SharedRule {
         id: "manual/pointer-cancellation",
         criterion: "2.5.2",
@@ -1816,10 +1081,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Help",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/help.html",
     },
-    // Ersetzen `wcag::rules::non_text_contrast_css` (`non-text-contrast-css`,
-    // #698, casoon/barrierlab#21): Rahmen, `appearance` und eigene Fläche aus
-    // dem DOMSnapshot. Gewollt anders: Fehlt der Hintergrund hinter dem
-    // Element, `UNTESTED` statt eines Vergleichs gegen Weiß.
     SharedRule {
         id: "contrast/control-insufficient",
         criterion: "1.4.11",
@@ -1834,21 +1095,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Non-text Contrast",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html",
     },
-    // ── Messungen an der laufenden Seite (a11y-rules 0.29, a11y-dom 0.29,
-    // `accessibility::probes`) ──
-    //
-    // Jede dieser Regeln liest ein Feld, das nur ein Lauf im Browser füllt
-    // (`Rendering::frame_reachable`, `box_transform`, `text_spacing_clip`,
-    // `focus_cover`, `paste_probe`, `Layout::focus_visible`). Gelang die
-    // Messung nicht -- Skript scheiterte, die Überschreibung kam am Element
-    // nicht an --, steht die Regel als `NotRun::CapabilityMissing` im Bericht,
-    // nie als bestanden. Sie lösen die JavaScript-Regeln gleichen Zwecks ab;
-    // die Befunde stehen unter der geteilten Kennung (eine Quelle).
-    //
-    // Ersetzt `frame-tested`: Ein Rahmen, dessen Dokument die Seite nicht
-    // lesen kann, blieb ungeprüft. Keine Konformitätsprüfung und an kein
-    // Kriterium gebunden -- 4.1.2 (Stufe A) bleibt als Ablage der bisherigen
-    // Auswertung. Läuft nur im obersten Dokument wie die abgelöste Regel.
     SharedRule {
         id: "frames/cross-origin",
         criterion: "4.1.2",
@@ -1856,10 +1102,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Name, Role, Value (Frame Not Tested)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/name-role-value.html",
     },
-    // Ersetzt `css-orientation-lock` (Drehung von `html` und `body`, wie sie
-    // der eine Viewport des Laufs misst). Seit a11y-rules 0.30.7 `REVIEW`
-    // statt Verstoß: Ein Schnappschuss sieht nur eine Ausrichtung; den
-    // Vergleich beider aus den Stilregeln macht `orientation/locked`.
     SharedRule {
         id: "orientation/root-rotated",
         criterion: "1.3.4",
@@ -1867,11 +1109,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Orientation",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/orientation.html",
     },
-    // Ersetzt `text-spacing`. Gewollt anders: `REVIEW` statt Verstoß, und die
-    // Überschreibung ist ein adoptiertes Stylesheet (CSSOM) statt eines
-    // `<style>`-Elements -- eine CSP `style-src` blockiert sie nicht, und kam
-    // sie an einem Element nicht an, steht dort keine Messung (statt
-    // „nicht abgeschnitten").
     SharedRule {
         id: "text-spacing/clipped",
         criterion: "1.4.12",
@@ -1879,9 +1116,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Text Spacing",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/text-spacing.html",
     },
-    // Neu aus a11y-rules 0.30.3: Abstände, die ein `style`-Attribut mit
-    // `!important` unter den Werten aus 1.4.12 festsetzt (ACT 24afc2, 9e45ec,
-    // 78fd32). Statisch aus dem Markup, ohne Messung.
     SharedRule {
         id: "text-spacing/letter-important",
         criterion: "1.4.12",
@@ -1903,13 +1137,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Text Spacing (Line Height !important)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/text-spacing.html",
     },
-    // Ersetzen `focus-not-obscured-minimum` und `-enhanced`. Gewollt anders:
-    // Die abgelösten Regeln verglichen Rechtecke im ruhenden Zustand; die
-    // geteilten messen nach dem Fokussieren und Scrollen (`scrollIntoView
-    // ({ block: 'nearest' })`), 3 mal 3 Punkte, Malreihenfolge per
-    // `elementsFromPoint`. Der Fall, um den es dem Kriterium geht -- ein
-    // Element, das unter eine klebende Kopfzeile scrollt --, entsteht erst
-    // beim Fokussieren.
     SharedRule {
         id: "focus/obscured",
         criterion: "2.4.11",
@@ -1924,9 +1151,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         name: "Focus Not Obscured (Enhanced)",
         help_url: "https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-enhanced.html",
     },
-    // Ersetzt den Einfügetest von `accessible-auth-paste-blocked`
-    // (`accessible_authentication`), auch in gleich-ursprünglichen Rahmen und
-    // offenen Shadow Roots.
     SharedRule {
         id: "auth/paste-blocked",
         criterion: "3.3.8",
@@ -1935,9 +1159,6 @@ pub const SHARED_RULES: &[SharedRule] = &[
         help_url:
             "https://www.w3.org/WAI/WCAG22/Understanding/accessible-authentication-minimum.html",
     },
-    // Neu: Bisher wurde `Layout::focus_visible` nicht gemessen. Der Fokusdurchgang
-    // vergleicht die berechneten Stile des Elements vor und nach dem Fokussieren
-    // (Umriss, Schatten, Rahmen, Hintergrund, Textfarbe und -linie).
     SharedRule {
         id: "focus/indicator-missing",
         criterion: "2.4.7",

@@ -93,14 +93,6 @@
       "level": "A"
     },
     {
-      "id": "images/server-side-map",
-      "title": "Server-side image map used",
-      "domain": "wcag",
-      "outcome": "hint-only",
-      "criterion": "1.1.1",
-      "level": "A"
-    },
-    {
       "id": "names/indicator-name-missing",
       "title": "Meter or progress bar without a name",
       "domain": "wcag",
@@ -565,6 +557,14 @@
       "level": "AA"
     },
     {
+      "id": "images/server-side-map",
+      "title": "Server-side image map used",
+      "domain": "wcag",
+      "outcome": "hint-only",
+      "criterion": "2.1.1",
+      "level": "A"
+    },
+    {
       "id": "keyboard/click-handler-not-focusable",
       "title": "Click handler without keyboard equivalent",
       "domain": "wcag",
@@ -707,14 +707,6 @@
       "outcome": "hint-only",
       "criterion": "2.3.3",
       "level": "AAA"
-    },
-    {
-      "id": "frames/name-missing",
-      "title": "Iframe without accessible name",
-      "domain": "wcag",
-      "outcome": "automatic",
-      "criterion": "2.4.1",
-      "level": "A"
     },
     {
       "id": "headings/none",
@@ -1281,6 +1273,14 @@
       "title": "Cross-origin iframe: review manually",
       "domain": "wcag",
       "outcome": "manual",
+      "criterion": "4.1.2",
+      "level": "A"
+    },
+    {
+      "id": "frames/name-missing",
+      "title": "Iframe without accessible name",
+      "domain": "wcag",
+      "outcome": "automatic",
       "criterion": "4.1.2",
       "level": "A"
     },

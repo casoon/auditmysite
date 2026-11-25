@@ -7,6 +7,10 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Changed
+
+- **Accessibility:** `frames/name-missing` and `images/server-side-map` are now reported under the criterion of the shared rule: 4.1.2 (was 2.4.1) and 2.1.1 (was 1.1.1), both level A (Refs #1119). Rule ids and finding ids are unchanged; the server-side image map finding is titled "Keyboard (Server-side Image Map)" and links to the Keyboard page. Cached results are misses, as the rule set changed.
+
 ### Fixed
 
 - **Accessibility:** a frame that keeps rendering after its DOM was captured is captured again before its DOM rules run (#1180). Per frame and viewport, the frame pass compares the elements of the frame's accessibility tree with its DOM capture; when the tree has elements the capture lacks, it captures the frame's DOM and layout again (a pause of 0.25 s before each, 3 s in all) until nothing lags any more. A frame that does not settle in that time is still audited, but listed with `gap: "dom_unsettled"` in `execution.frames.audited[]`, and the audit quality is `partial` (`unsettled_frames:N`, collection gap `frame_dom_unsettled`). Runs without a mismatch make no further call. Before, the late content of such a frame (a social-media wall) was missing from the contrast and link-colour findings of one viewport, so the same page scored differently between runs. Details: [output contract](https://casoon.github.io/auditmysite/docs/OUTPUT_CONTRACT/).

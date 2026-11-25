@@ -1857,7 +1857,7 @@ pub static RULES: &[Rule] = &[
         subcategory: Subcategory::ContentAlternatives,
         issue_class: IssueClass::Missing,
         severity: Severity::High,
-        external_ref: Some("WCAG 2.4.1"),
+        external_ref: Some("WCAG 4.1.2"),
         external_level: Some("A"),
         axe_id: Some("frame-title"),
         score_impact: ScoreImpact {
@@ -1914,7 +1914,7 @@ pub static RULES: &[Rule] = &[
         subcategory: Subcategory::ContentAlternatives,
         issue_class: IssueClass::Invalid,
         severity: Severity::Medium,
-        external_ref: Some("WCAG 1.1.1"),
+        external_ref: Some("WCAG 2.1.1"),
         external_level: Some("A"),
         axe_id: Some("server-side-image-map"),
         score_impact: ScoreImpact {
@@ -2939,9 +2939,9 @@ mod tests {
     }
 
     #[test]
-    fn test_frame_title_taxonomy_uses_wcag_241() {
+    fn test_frame_title_taxonomy_uses_wcag_412() {
         let rule = RuleLookup::by_id("frames/name-missing").expect("frames/name-missing");
-        assert_eq!(rule.external_ref, Some("WCAG 2.4.1"));
+        assert_eq!(rule.external_ref, Some("WCAG 4.1.2"));
         assert_eq!(rule.axe_id, Some("frame-title"));
     }
 
