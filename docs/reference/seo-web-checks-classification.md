@@ -1,4 +1,7 @@
-# SEO code against `web-checks`: classification (#1120)
+---
+title: "SEO code against web-checks: classification"
+description: "Which parts of the SEO checks are judged by the shared web-checks crate and which stay in auditmysite (#1120)."
+---
 
 State of `src/seo/` against the published `web-checks 0.7.0` (the version in
 `Cargo.lock`; source read from the crates.io archive). The second consumer of
