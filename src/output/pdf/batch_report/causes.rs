@@ -5,7 +5,7 @@
 
 use crate::output::localized::is_english;
 use fluent_bundle::FluentValue;
-use renderreport::components::advanced::{KeyValueList, SectionHeaderSplit};
+use renderreport::components::advanced::{KeyValueList, SectionHeaderSplit, SoftPageBreak};
 use renderreport::components::text::TextBlock;
 use renderreport::prelude::*;
 
@@ -20,6 +20,10 @@ use super::management::{batch_cause_text, batch_score_effect};
 
 /// How many finding types get a card; the rest is in the JSON report.
 const CAUSE_CARDS: usize = 5;
+
+/// The share of a page a section opener (heading, intro and the first block)
+/// needs; with less left the section starts on a new page.
+pub(super) const SECTION_OPENER_ROOM: f64 = 0.30;
 
 /// How far a finding type reaches: its occurrences and the pages, a
 /// single-page type with the path of its page.
@@ -109,6 +113,9 @@ pub(super) fn render_batch_causes(
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    // The heading and its intro never end a page with the first card on the
+    // next: with less than a third of the page left the section starts a new one.
+    builder = builder.add_component(SoftPageBreak::needs(SECTION_OPENER_ROOM));
     builder = builder.add_component(
         SectionHeaderSplit::new(i18n.t("batch-causes-title"), i18n.t("batch-causes-intro"))
             .with_level(1),

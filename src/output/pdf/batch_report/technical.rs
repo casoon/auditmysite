@@ -6,7 +6,7 @@
 //! chapters at the end.
 
 use crate::output::localized::is_english;
-use renderreport::components::advanced::{KeyValueList, PageBreak, SectionHeaderSplit};
+use renderreport::components::advanced::{KeyValueList, SectionHeaderSplit, SoftPageBreak};
 use renderreport::components::text::TextBlock;
 use renderreport::prelude::*;
 
@@ -14,16 +14,19 @@ use crate::audit::BatchReport;
 use crate::i18n::I18n;
 use crate::output::report_model::*;
 
-/// The header of the technical part. It starts a page, so the header never
-/// stands alone at the foot of the page before.
+/// The header of the technical part. It starts a page unless half a page is
+/// left, so the header never stands alone at the foot of the page before and
+/// the last cause card does not leave a page of its own.
 pub(super) fn render_batch_technical_header(
     builder: renderreport::engine::ReportBuilder,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    builder.add_component(PageBreak::new()).add_component(
-        SectionHeaderSplit::new(i18n.t("batch-tech-title"), i18n.t("batch-tech-intro"))
-            .with_level(1),
-    )
+    builder
+        .add_component(SoftPageBreak::needs(0.5))
+        .add_component(
+            SectionHeaderSplit::new(i18n.t("batch-tech-title"), i18n.t("batch-tech-intro"))
+                .with_level(1),
+        )
 }
 
 /// The audit frame (domain, date, modules, version, display mode, exclusions)

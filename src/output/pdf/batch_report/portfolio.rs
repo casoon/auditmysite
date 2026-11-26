@@ -1,5 +1,5 @@
 use crate::output::localized::is_english;
-use renderreport::components::advanced::{PageBreak, SectionHeaderSplit};
+use renderreport::components::advanced::{PageBreak, SectionHeaderSplit, SoftPageBreak};
 use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
 
@@ -20,6 +20,7 @@ pub(super) fn render_batch_module_portfolio(
         return builder;
     }
 
+    builder = builder.add_component(SoftPageBreak::needs(super::causes::SECTION_OPENER_ROOM));
     builder =
         builder.add_component(Section::new(i18n.t("batch-module-portfolio-title")).with_level(2));
 

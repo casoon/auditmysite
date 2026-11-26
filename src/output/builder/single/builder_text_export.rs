@@ -916,3 +916,28 @@ fn export_report_builder_texts() {
         records.len()
     );
 }
+
+/// The strengths of "Erkannte Strukturmuster" are re-derived from the raw
+/// values in the run language (#406): a German report never carries the
+/// canonical English sentence the analysis baked into `message`.
+#[test]
+fn recognized_patterns_follow_the_run_language() {
+    let base = report();
+    for (label, message) in crate::screen_reader::a11y_analysis_texts_export::pattern_messages() {
+        let mut patterns = PatternAnalysis::default();
+        patterns.add_recognized("SkipLink", message.clone(), PatternConfidence::Strong);
+        let baked = patterns.recognized[0].message.clone();
+        let mut ctx = checked(&base);
+        ctx.raw_patterns = Some(&patterns);
+        for (lang, en) in [("de", false), ("en", true)] {
+            let signals = build_positive_signals(&I18n::new(lang).unwrap(), &ctx);
+            let text = &signals[0].description;
+            assert_eq!(
+                text,
+                &crate::patterns::pattern_message_text(&message, en),
+                "{label} ({lang})"
+            );
+            assert_eq!(text == &baked, en, "{label} ({lang}): {text}");
+        }
+    }
+}
