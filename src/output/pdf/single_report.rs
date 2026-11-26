@@ -1434,6 +1434,16 @@ fn render_findings_section(
 
         let all_findings = &vm.findings.all_findings;
 
+        // The reading note of the pattern tables stands once here, not under
+        // every entry (#1209).
+        if all_findings.iter().any(|f| !f.pattern_clusters.is_empty()) {
+            builder = builder.add_component(
+                Label::new(i18n.t("finding-frequent-patterns-note"))
+                    .with_size("9pt")
+                    .with_color(design::tokens::NEUTRAL),
+            );
+        }
+
         let systemic_mandatory: Vec<&FindingGroup> = all_findings
             .iter()
             .filter(|f| f.is_component_issue && f.criticality_tier == CriticalityTier::Mandatory)

@@ -2,9 +2,7 @@
 
 use crate::output::localized::is_english;
 use fluent_bundle::FluentValue;
-use renderreport::components::advanced::{
-    Divider, FlowGroup, KeyValueList, List, MetricStrip, MetricStripItem, WrongRightBlock,
-};
+use renderreport::components::advanced::{Divider, KeyValueList, List, WrongRightBlock};
 use renderreport::components::text::Label;
 use renderreport::prelude::*;
 
@@ -13,9 +11,7 @@ use crate::output::report_model::*;
 use crate::util::truncate_url;
 use crate::wcag::Evidence;
 
-use super::helpers::{
-    effort_label_i18n, manual_recheck_instruction, priority_label_i18n, role_label_i18n,
-};
+use super::helpers::manual_recheck_instruction;
 
 #[cfg(test)]
 mod text_export;
@@ -339,12 +335,14 @@ pub(super) fn render_finding_technical(
 ) -> renderreport::engine::ReportBuilder {
     let color = super::design::severity_color(group.finding.severity);
 
-    builder = add_title_and_lead_in(builder, group, i18n, color);
+    // The evidence entry of a finding (#1209): the analysis card in part 1
+    // told its problem, impact, fix, priority and cause; this entry carries
+    // only what proves it, so none of those texts is printed a second time.
+    builder = add_title(builder, group, i18n, color);
     if let Some(origin) = origin_text(&group.finding, i18n) {
         builder =
             builder.add_component(Callout::info(origin).with_title(i18n.t("pdf-findings-origin")));
     }
-    builder = add_priority_strip(builder, group, i18n, color);
     builder = add_qa_metadata(builder, group, i18n, acronyms_expanded);
     builder = add_action_assessment(builder, group, i18n);
 
@@ -371,7 +369,6 @@ pub(super) fn render_finding_technical(
         builder = add_element_types(builder, group, i18n, is_html_conform);
     }
 
-    builder = add_recommendation(builder, group, i18n);
     builder = add_examples(builder, group, i18n);
     builder = add_affected_urls(builder, group, i18n);
 
@@ -389,8 +386,6 @@ pub(super) fn render_finding_technical(
     if has_real_location && !group.pattern_clusters.is_empty() {
         builder = add_pattern_clusters(builder, group, i18n);
     }
-
-    builder = add_structural_cause(builder, group, i18n);
 
     builder.add_component(Divider {
         style: "solid".to_string(),
@@ -444,90 +439,17 @@ fn finding_header(group: &FindingGroup, i18n: &I18n) -> String {
     }
 }
 
-/// Plain-language lead-in: what this means and who it affects, in customer
-/// language — shown BEFORE the QA-meta block so every reader sees impact
-/// first, not detection-confidence/false-positive statistics (Rule A/B,
-/// plain-language report plan). `customer_description`/`user_impact` are
-/// already locale-correct here (#406 + the Rule-C fallback fix below).
-fn lead_in_text(group: &FindingGroup) -> String {
-    let mut lead_in = String::new();
-    if !group.customer_description.is_empty() {
-        lead_in.push_str(&group.customer_description);
-    }
-    // A finding outside the WCAG engine carries one message in the description,
-    // the user impact and the technical impact; printing both fields said the
-    // sentence twice (#902).
-    if !group.user_impact.is_empty() && group.user_impact.trim() != lead_in.trim() {
-        if !lead_in.is_empty() {
-            lead_in.push(' ');
-        }
-        lead_in.push_str(&group.user_impact);
-    }
-    lead_in
-}
-
-fn add_title_and_lead_in(
-    mut builder: renderreport::engine::ReportBuilder,
-    group: &FindingGroup,
-    i18n: &I18n,
-    color: &str,
-) -> renderreport::engine::ReportBuilder {
-    let header = finding_header(group, i18n);
-    let title = Label::new(&header)
-        .bold()
-        .with_size("14pt")
-        .with_color(color);
-
-    let lead_in = lead_in_text(group);
-    // Title and lead-in stay together: alone, the title could end a page
-    // while its text starts the next.
-    if lead_in.is_empty() {
-        builder = builder.add_component(title);
-    } else {
-        let lead = Label::new(lead_in).with_size("10.5pt");
-        builder = builder.add_component(
-            FlowGroup::new()
-                .add_item(serde_json::json!({ "type": "label", "data": title.to_data() }))
-                .add_item(serde_json::json!({ "type": "label", "data": lead.to_data() }))
-                .with_keep_together_if_under("240pt"),
-        );
-    }
-    builder
-}
-
-/// Primary tier: the four things a developer scans first (who/how urgent/
-/// how much work), as a compact single-row strip instead of stacked
-/// label:value lines — matches the severity-counter strip elsewhere.
-fn add_priority_strip(
+fn add_title(
     builder: renderreport::engine::ReportBuilder,
     group: &FindingGroup,
     i18n: &I18n,
     color: &str,
 ) -> renderreport::engine::ReportBuilder {
     builder.add_component(
-        MetricStrip::new(vec![
-            MetricStripItem::new(
-                i18n.t("label-priority"),
-                priority_label_i18n(group.priority, i18n),
-            )
-            .with_accent(color),
-            MetricStripItem::new(
-                i18n.t("label-owner"),
-                role_label_i18n(group.responsible_role, i18n),
-            )
-            .with_accent(super::design::tokens::INK),
-            MetricStripItem::new(
-                i18n.t("label-effort"),
-                effort_label_i18n(group.effort, i18n),
-            )
-            .with_accent(super::design::tokens::INK),
-            MetricStripItem::new(
-                i18n.t("pdf-findings-implementation-priority"),
-                report_code_label(&group.finding.remediation_priority, i18n),
-            )
-            .with_accent(super::design::tokens::INK),
-        ])
-        .compact(),
+        Label::new(finding_header(group, i18n))
+            .bold()
+            .with_size("14pt")
+            .with_color(color),
     )
 }
 
@@ -543,6 +465,11 @@ fn add_qa_metadata(
 ) -> renderreport::engine::ReportBuilder {
     builder = builder.add_component(section_caption(&i18n.t("pdf-findings-qa-metadata")));
     let mut meta_kv = KeyValueList::new()
+        .add(i18n.t("pdf-findings-finding-id"), &group.finding.id)
+        .add(
+            i18n.t("pdf-findings-implementation-priority"),
+            report_code_label(&group.finding.remediation_priority, i18n),
+        )
         .add(
             i18n.t("pdf-findings-detection-confidence"),
             report_code_label(&group.finding.confidence, i18n),
@@ -563,6 +490,11 @@ fn add_qa_metadata(
             i18n.t("finding-occurrences"),
             group.finding.occurrence_count.to_string(),
         );
+    // The checker's rule id of an HTML conformance finding is no report text:
+    // its title names the rule family (#902).
+    if !group.finding.rule_id.starts_with("html_conform.") {
+        meta_kv = meta_kv.add(i18n.t("pdf-findings-rule"), &group.finding.rule_id);
+    }
     if let Some(url) = group
         .finding
         .help_url
@@ -675,19 +607,6 @@ fn add_element_types(
         .collect::<Vec<_>>()
         .join("  ·  ");
     builder.add_component(KeyValueList::new().add(i18n.t("finding-element-types"), summary))
-}
-
-fn add_recommendation(
-    builder: renderreport::engine::ReportBuilder,
-    group: &FindingGroup,
-    i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
-    if group.recommendation.is_empty() {
-        return builder;
-    }
-    builder.add_component(
-        Callout::success(&group.recommendation).with_title(i18n.t("finding-recommendation")),
-    )
 }
 
 fn add_examples(
@@ -885,36 +804,7 @@ fn add_pattern_clusters(
             cluster.occurrences.to_string(),
         ]);
     }
-    builder
-        .add_component(table)
-        .add_component(Callout::info(i18n.t("finding-frequent-patterns-note")))
-}
-
-fn add_structural_cause(
-    builder: renderreport::engine::ReportBuilder,
-    group: &FindingGroup,
-    i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
-    let Some(ref cause) = group.structural_cause else {
-        return builder;
-    };
-    // A single-URL audit sees
-    // only one page, so a shared-component pattern is at best a strong
-    // probability, never a confirmed fact — the label (previously the
-    // hardcoded English "Root Cause", unlocalized even in German
-    // reports) and the callout text (`finding-structural-cause-*` in
-    // report.ftl) must both read as a likelihood, not a certainty.
-    let label = i18n.t(if group.is_component_issue {
-        "pdf-findings-likely-root-cause"
-    } else {
-        "pdf-findings-structural-cause"
-    });
-    let callout = if group.is_component_issue {
-        Callout::warning(cause).with_title(label)
-    } else {
-        Callout::info(cause).with_title(label)
-    };
-    builder.add_component(callout)
+    builder.add_component(table)
 }
 
 /// Extract the HTML element type from a CSS selector path.
