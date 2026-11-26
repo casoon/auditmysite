@@ -430,8 +430,8 @@ pub fn security_text_band(score: f32, issues: &[crate::security::SecurityIssue])
     // nonce/hash protection"), and the section still read "Sehr gut — keine
     // wesentlichen Sicherheitsauffälligkeiten im geprüften Umfang erkannt."
     // The score is generous by design — `calculate_security_score` caps the
-    // combined CSP-quality penalty at the missing-CSP penalty and then adds
-    // HSTS bonuses — so the correction belongs to the text, not the number.
+    // combined CSP-quality penalty at the missing-CSP penalty — so the
+    // correction belongs to the text, not the number.
     if band == ScoreBand::Critical && !has_severe_issue {
         ScoreBand::Weak
     } else if has_severe_issue {

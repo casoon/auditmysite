@@ -25,7 +25,6 @@ fn make_security_from_headers(
         calculate_security_score, generate_security_issues, SecurityAnalysis, SslInfo,
     };
 
-    // No HSTS bonus so the Low-penalty from a missing header is not cancelled out.
     let ssl = SslInfo {
         https: true,
         valid_certificate: true,

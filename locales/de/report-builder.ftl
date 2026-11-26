@@ -105,7 +105,6 @@ report-builder-security-band-note-severe = Die Einordnung im Text liegt unter de
     } weiter unten. Der Wert selbst bleibt unverändert.
 report-builder-security-score-start = Ausgangswert
 report-builder-security-score-not-charged = 0 (nicht belastet)
-report-builder-security-score-hsts-bonus = HSTS-Bonus
 report-builder-security-score-vulnerable-libraries = Bekannt verwundbare Bibliotheken (Best Practices)
 report-builder-security-score-total = Sicherheitswert
 

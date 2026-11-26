@@ -1550,24 +1550,13 @@ pub fn issue_deductions(issues: &[SecurityIssue]) -> Vec<u32> {
 
 pub(crate) fn calculate_security_score(
     _headers: &SecurityHeaders,
-    ssl: &SslInfo,
+    _ssl: &SslInfo,
     issues: &[SecurityIssue],
 ) -> u32 {
-    let deducted: u32 = issue_deductions(issues).iter().sum();
-    let mut score = 100u32.saturating_sub(deducted);
-
-    // Bonus for HSTS
-    if ssl.has_hsts {
-        score = score.saturating_add(5).min(100);
-        if ssl.hsts_include_subdomains {
-            score = score.saturating_add(3).min(100);
-        }
-        if ssl.hsts_preload {
-            score = score.saturating_add(2).min(100);
-        }
-    }
-
-    score
+    // 100 minus the deductions, nothing else: a present protection (HSTS) must
+    // not offset an unrelated weakness, and a missing HSTS header is already
+    // its own deduction (#1222).
+    100u32.saturating_sub(issue_deductions(issues).iter().sum())
 }
 
 /// Coarse security sub-category: Security has no per-check taxonomy registry like
@@ -2624,8 +2613,35 @@ mod tests {
         };
         let issues = vec![];
         let score = calculate_security_score(&headers, &ssl, &issues);
-        // 100 base + 5 (hsts) + 3 (subdomains) + 2 (preload) = 110, capped at 100
         assert_eq!(score, 100);
+    }
+
+    /// #1222: HSTS earns no bonus — a CSP deduction stands even with a full
+    /// HSTS (max-age, subdomains, preload), the score is 100 minus the sum.
+    #[test]
+    fn hsts_does_not_offset_deductions() {
+        let headers = SecurityHeaders::default();
+        let ssl = SslInfo {
+            https: true,
+            valid_certificate: true,
+            has_hsts: true,
+            hsts_max_age: Some(31536000),
+            hsts_include_subdomains: true,
+            hsts_preload: true,
+            ..Default::default()
+        };
+        let issues = vec![SecurityIssue {
+            header: "Content-Security-Policy".into(),
+            issue_type: "unsafe_inline_script".into(),
+            message: "csp quality".into(),
+            severity: Severity::Medium,
+            tier: HeaderTier::Baseline,
+            values: Default::default(),
+            score_deduction: 0,
+        }];
+        let deducted: u32 = issue_deductions(&issues).iter().sum();
+        assert_eq!(deducted, 10);
+        assert_eq!(calculate_security_score(&headers, &ssl, &issues), 90);
     }
 
     #[test]

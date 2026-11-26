@@ -147,7 +147,7 @@ pub(in crate::output::pdf) fn render_security(
     // so on casoon.de (2026-09-19, score 95) it was printed directly above
     // three open CSP findings, one of them High. The score is
     // generous by design: `calculate_security_score` caps the combined
-    // CSP-quality penalty and then adds HSTS bonuses, so a high score does not
+    // CSP-quality penalty, so a high score does not
     // imply an empty findings list.
     if sec.score >= 80 && sec.issues.is_empty() {
         builder = builder.add_component(clean_section_note(i18n));
