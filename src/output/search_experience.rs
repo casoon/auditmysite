@@ -15,7 +15,9 @@ use crate::seo::profile::PageType;
 
 const W_TECHNICAL_SEO: u32 = 35;
 const W_CONTENT: u32 = 25;
+#[cfg(feature = "experimental")]
 const W_TRUST: u32 = 15;
+#[cfg(feature = "experimental")]
 const W_AI: u32 = 10;
 const W_STRUCTURE: u32 = 10;
 const W_MOBILE: u32 = 5;
