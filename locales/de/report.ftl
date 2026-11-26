@@ -1332,7 +1332,7 @@ batch-rating-verdict-pass = bestanden
 batch-rating-verdict-warn = mit Vorbehalt bestanden
 batch-rating-verdict-fail = nicht bestanden
 batch-rating-reasons = Gründe: { $reasons }.
-batch-rating-note = Die Einstufung ist ein Bandlabel für den durchschnittlichen Barrierefreiheitswert im automatisierten Prüfumfang, kein Konformitätsnachweis.
+batch-rating-note = Die Einstufung beschreibt den durchschnittlichen Barrierefreiheitswert im automatisierten Prüfumfang; sie ist kein Konformitätsnachweis.
 batch-reason-no-url-audited = keine der { $count } angeforderten URLs hat einen Report ergeben
 batch-reason-legal-flags = { $count ->
         [one] 1 WCAG-Regel der Stufe A/AA mit BFSG/EAA-Relevanz ist auf den geprüften Seiten verletzt (mögliche Rechtsrelevanz)

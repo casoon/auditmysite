@@ -9,6 +9,8 @@ and verification for each change is in the
 
 ### Changed
 
+- **JSON:** the schema descriptions of `fail_url_count`, `failed_url_count` and `coverage.failed` and the output contract say what each counts: audited URLs by their own verdict (`fail_url_count`, `warn_url_count`, `passed_url_count`, and the deprecated alias `failed_url_count`) against audits that failed technically (`coverage.failed`, `errors`), which have no verdict and enter no average (Refs #1213). No field is renamed or changed.
+- **Report:** the batch PDF names an audit caveat in one plain sentence in the run language, with the plain names of the missing checks, instead of the English message with the internal check ids; the rating note no longer calls the grade a "Bandlabel"; the page tables label what they count ("Critical/high (findings)": findings grouped per page, not occurrences) (Refs #1213).
 - **Pages:** the project site uses the current shared theme (0.19.0).
 - **Report:** the batch PDF is an overview (Refs #1212). The overview page answers how the pages score, what repeats and which page deserves a single report, by an explicit rule over distinct finding types weighted by severity (`docs/PDF_REPORT_CONTRACT.md`); the page comparison, compact cause cards and a technical part with the method follow. Per-page detail chapters (URL matrix, content and sitemap detail, consistency detail, asset tables) move to the report level technical; a five-page sample of casoon.de takes 9 pages instead of 16, one of inros-lackner.de 10 instead of 19. Nothing is removed from the JSON report.
 

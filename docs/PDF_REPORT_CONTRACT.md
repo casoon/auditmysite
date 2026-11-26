@@ -252,9 +252,11 @@ surface that owns its lifecycle:
 - `locales/{de,en}/batch-overview.ftl`: the texts of the batch PDF's overview
   page (`output::pdf::batch_report::glance`: the three answers and the
   recommendation reason), page comparison (`compare`), causes and next step
-  (`causes`) and technical part (`technical`, and the headers of the compact
-  SEO and consistency parts), all `batch-overview-*`, `batch-compare-*`,
-  `batch-causes-*`, `batch-next-*` and `batch-tech-*`.
+  (`causes`), technical part (`technical`, and the headers of the compact
+  SEO and consistency parts) and the plain audit caveat sentences
+  (`management`: one sentence per caveat kind in the run language, the check
+  ids of the JSON never printed), all `batch-overview-*`, `batch-compare-*`,
+  `batch-causes-*`, `batch-next-*`, `batch-tech-*` and `batch-flag-*`.
 - `locales/{de,en}/batch-consistency.ftl`: the texts of the batch PDF's
   cross-page consistency section (`output::pdf::batch_report::consistency`,
   `batch-consistency-*`) and of its management risk view, audit

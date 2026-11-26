@@ -1332,7 +1332,7 @@ batch-rating-verdict-pass = passed
 batch-rating-verdict-warn = passed with reservations
 batch-rating-verdict-fail = not passed
 batch-rating-reasons = Reasons: { $reasons }.
-batch-rating-note = The rating is a band label for the average accessibility score within the automated scope, not a statement of conformance.
+batch-rating-note = The rating describes the average accessibility score within the automated scope; it is not a statement of conformance.
 batch-reason-no-url-audited = none of the { $count } requested URLs produced a report
 batch-reason-legal-flags = { $count ->
         [one] 1 WCAG Level A/AA rule with BFSG/EAA relevance is violated on the audited pages (possible legal relevance)

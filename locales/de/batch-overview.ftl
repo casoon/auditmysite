@@ -2,7 +2,7 @@
 # PDF's overview page, page comparison, causes, next step and technical
 # part (`output::pdf::batch_report::{glance, compare, causes, technical}`,
 # `batch-overview-*`, `batch-compare-*`, `batch-causes-*`, `batch-next-*`,
-# `batch-tech-*`), #1212. The same keys as the
+# `batch-tech-*`, `batch-flag-*`), #1212 and #1213. The same keys as the
 # English file.
 
 ## Overview page: three questions
@@ -81,3 +81,7 @@ batch-tech-detail-title = Detail-Kapitel (Berichtsstufe technical)
 batch-tech-detail-intro = Die folgenden Kapitel führen Einzelheiten je Seite auf, die der JSON-Bericht ebenfalls enthält.
 batch-tech-consistency-detail-title = Seitenübergreifende Konsistenz: Einzelheiten
 batch-tech-consistency-detail-intro = Seiten ohne beobachteten eingehenden Link, Schema-Konflikte, strukturierte Daten je Seite und Themenüberschneidungen.
+
+## Audit caveats
+batch-flag-text-consent-wall-artifact = Auf diesen Seiten kann ein Consent-Dialog statt des Seiteninhalts gemessen worden sein. Der Lauf mit --dismiss-consent wiederholt die Prüfung ohne Dialog.
+batch-flag-text-other = Zur Messung dieser Seiten liegt ein weiterer Hinweis vor; Einzelheiten stehen im JSON-Bericht unter audit_flags.
