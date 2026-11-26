@@ -717,9 +717,8 @@ mod tests {
             assert!(out.contains(&format!(" · {all_pages}\"")), "{locale}");
             assert!(
                 out.contains(&format!(
-                    "key: \"{}\", value: \"{}\"",
-                    i18n.t("pdf-analysis-card-key-finding"),
-                    group.finding.id
+                    "title: \"{} · {}\"",
+                    group.title, group.finding.id
                 )),
                 "{locale}"
             );

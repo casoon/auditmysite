@@ -47,10 +47,14 @@ fn reach_text(group: &FindingGroup, total_urls: usize, i18n: &I18n) -> String {
 }
 
 /// One card: reach, cause and how sure the report is about it, the measure,
-/// priority with effort and owner, the score effect and the finding id. What
-/// the problem is and whom it affects is the title and the single report.
+/// priority with effort and owner and the score effect; the finding id is in
+/// the title. What the problem is and whom it affects is the title and the
+/// single report.
 fn cause_card(group: &FindingGroup, pres: &BatchPresentation, i18n: &I18n) -> KeyValueList {
-    let mut kv = KeyValueList::new().with_title(&group.title).add(
+    // The finding id, which links the card to the JSON report, stands in the
+    // title: a row of its own cost a line per card.
+    let title = format!("{} · {}", group.title, group.finding.id);
+    let mut kv = KeyValueList::new().with_title(&title).add(
         i18n.t("pdf-analysis-card-key-reach"),
         reach_text(group, pres.portfolio_summary.total_urls, i18n),
     );
@@ -97,7 +101,7 @@ fn cause_card(group: &FindingGroup, pres: &BatchPresentation, i18n: &I18n) -> Ke
     if let Some(effect) = batch_score_effect(group, i18n) {
         kv = kv.add(i18n.t("pdf-analysis-card-key-score-effect"), effect);
     }
-    kv.add(i18n.t("pdf-analysis-card-key-finding"), &group.finding.id)
+    kv
 }
 
 pub(super) fn render_batch_causes(
