@@ -354,3 +354,43 @@ fn batch_report_tells_each_finding_once_outside_the_evidence_level() {
         }
     }
 }
+
+/// #1211: the management page states the result and the first step in one
+/// sentence, from the measured counts of its own strip and the first key
+/// measure, in both languages and without German characters in English.
+#[test]
+fn management_page_names_result_and_first_step() {
+    for locale in ["en", "de"] {
+        let report = page("https://example.com", 3);
+        let config = config(locale, ReportLevel::Standard);
+        let normalized = crate::audit::validation::normalize_checked(&report).unwrap();
+        let vm = build_view_model(&normalized, &config);
+        let i18n = I18n::new(locale).unwrap();
+        let builder = renderreport::engine::ReportBuilder::new("management");
+        let built = super::single_report::render_management_page(builder, &vm, &i18n).build();
+        let text = squash_whitespace(&serde_json::to_string(&built.components).unwrap());
+        let (title, step, total) = if locale == "en" {
+            (
+                "Result and first step",
+                "First step: ",
+                format!(
+                    "{} confirmed WCAG occurrences on this page",
+                    vm.severity.total
+                ),
+            )
+        } else {
+            (
+                "Ergebnis und erster Schritt",
+                "Erster Schritt: ",
+                format!(
+                    "{} bestätigte WCAG-Vorkommen auf dieser Seite",
+                    vm.severity.total
+                ),
+            )
+        };
+        assert!(text.contains(title), "{locale}: {text}");
+        assert!(text.contains(&total), "{locale}: {total}");
+        assert!(text.contains(step), "{locale}");
+        assert_eq!(text.matches(step).count(), 1, "{locale}: said once");
+    }
+}

@@ -43,4 +43,3 @@ pdf-sections-recheck-status-messages = Self-check: trigger the message (e.g. sub
 pdf-sections-indicator-suffix = Indicator
 pdf-sections-cover-fail = Not passed in the automated audit scope — action required
 pdf-sections-cover-provisional = provisional
-pdf-sections-occurrences = occurrences

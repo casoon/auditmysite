@@ -53,6 +53,14 @@ single-report-decision-reach = { $count ->
     }
 single-report-measure-more = (+{ $count } more of the same kind)
 
+single-report-first-step-title = Result and first step
+single-report-first-step-none = No confirmed WCAG occurrence in the automated scope.
+single-report-first-step-result = { $total ->
+        [one] 1 confirmed WCAG occurrence
+       *[other] { $total } confirmed WCAG occurrences
+    } on this page, { $severe } of them critical or high.
+single-report-first-step-action = First step: { $subject }.
+
 ## Findings
 single-report-findings-title = Classification of Findings
 single-report-findings-intro = All technical findings, categorized by systemic template relevance and individual page occurrences.

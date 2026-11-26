@@ -1170,7 +1170,9 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
             };
 
             // Deduplicate by selector: multiple DOM nodes that share an identical
-            // CSS selector string collapse into a single representative occurrence.
+            // CSS selector string collapse into a single representative occurrence,
+            // unless the selector is shared by several elements and the excerpts
+            // of the nodes differ (#1211).
             // occurrence_count still reflects the actual number of affected elements.
             // Capped at MAX_OCCURRENCES to keep JSON output compact; the true total
             // is always available via occurrence_count.
@@ -1180,7 +1182,11 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 .iter()
                 .filter(|v| {
                     let key = v.selector.as_deref().unwrap_or(&v.node_id);
-                    seen_selectors.insert((key.to_string(), v.is_dark_color_scheme()))
+                    seen_selectors.insert((
+                        key.to_string(),
+                        v.is_dark_color_scheme(),
+                        crate::wcag::types::locator_hint(&v.evidence, v.html_snippet.as_deref()),
+                    ))
                 })
                 .take(MAX_OCCURRENCES)
                 .map(|v| OccurrenceDetail {

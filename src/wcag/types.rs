@@ -54,6 +54,20 @@ pub fn evidence_is_dark_color_scheme(evidence: &[Evidence]) -> bool {
     })
 }
 
+/// What tells an occurrence apart from another one of the same selector: its
+/// HTML excerpt, when the occurrence carries a DOM path because its selector
+/// is shared by several elements (#1211). Empty otherwise, so occurrences
+/// with a selector that does narrow the search collapse by selector as before.
+pub fn locator_hint(evidence: &[Evidence], html_snippet: Option<&str>) -> String {
+    let has_path = evidence
+        .iter()
+        .any(|e| e.source == "ax_tree" && e.field.as_deref() == Some("dom_path"));
+    match html_snippet {
+        Some(snippet) if has_path => snippet.trim().to_string(),
+        _ => String::new(),
+    }
+}
+
 /// A WCAG violation found during audit
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]

@@ -77,7 +77,8 @@ pub fn build_representative_occurrences(
         // The dark colour-scheme finding of an element is no repeat of its
         // light finding (#917).
         let dark = crate::wcag::types::evidence_is_dark_color_scheme(&occ.evidence);
-        if !seen.insert((selector.to_ascii_lowercase(), dark)) {
+        let hint = crate::wcag::types::locator_hint(&occ.evidence, occ.html_snippet.as_deref());
+        if !seen.insert((selector.to_ascii_lowercase(), dark, hint)) {
             continue;
         }
 
@@ -412,5 +413,39 @@ mod tests {
         );
         assert_eq!(clusters[0].occurrences, 2);
         assert_eq!(clusters[0].label, "main .card-1 .cta");
+    }
+
+    /// #1211: occurrences that share a selector shared by several elements are
+    /// told apart by their excerpt, so the examples of a finding differ.
+    #[test]
+    fn representative_occurrences_tell_shared_selectors_apart_by_excerpt() {
+        use crate::wcag::Evidence;
+        let occ = |snippet: &str, with_path: bool| OccurrenceDetail {
+            node_id: snippet.len().to_string(),
+            selector: Some("a".into()),
+            html_snippet: Some(snippet.into()),
+            evidence: if with_path {
+                vec![Evidence::new("ax_tree")
+                    .with_field("dom_path")
+                    .with_value("nav > a")]
+            } else {
+                Vec::new()
+            },
+            ..Default::default()
+        };
+        let shared = [
+            occ("<a href=\"/eins\"></a>", true),
+            occ("<a href=\"/zwei\"></a>", true),
+            occ("<a href=\"/zwei\"></a>", true),
+        ];
+        let selected = build_representative_occurrences(&shared);
+        assert_eq!(selected.len(), 2, "same excerpt is one example");
+
+        // A selector that narrows the search keeps collapsing by selector.
+        let narrowing = [
+            occ("<a href=\"/eins\"></a>", false),
+            occ("<a href=\"/zwei\"></a>", false),
+        ];
+        assert_eq!(build_representative_occurrences(&narrowing).len(), 1);
     }
 }

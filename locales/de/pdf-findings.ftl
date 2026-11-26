@@ -54,10 +54,10 @@ pdf-findings-color-scheme = Farbschema
 pdf-findings-color-scheme-dark = Dunkel (prefers-color-scheme: dark)
 pdf-findings-screenshot-mobile = Element auf der Seite (Mobile-Ansicht)
 pdf-findings-screenshot-desktop = Element auf der Seite (Desktop-Ansicht)
-pdf-findings-hidden-occurrences = { $count } { $count ->
-        [one] weiteres Vorkommen
-       *[other] weitere Vorkommen
-    } im technischen Anhang dokumentiert.
+pdf-findings-examples-of = { $shown } { $shown ->
+        [one] Beispiel
+       *[other] Beispiele
+    } von { $total } Vorkommen
 pdf-findings-finding-id = Befund-ID
 pdf-findings-rule = Regel
 

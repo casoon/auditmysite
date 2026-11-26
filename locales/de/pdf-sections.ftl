@@ -43,4 +43,3 @@ pdf-sections-recheck-status-messages = Selbsttest: die Meldung auslösen (z. B. 
 pdf-sections-indicator-suffix = Indikator
 pdf-sections-cover-fail = Im automatischen Prüfumfang nicht bestanden — Handlungsbedarf
 pdf-sections-cover-provisional = vorläufig
-pdf-sections-occurrences = Vorkommen
