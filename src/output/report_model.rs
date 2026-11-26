@@ -1041,7 +1041,7 @@ pub struct SecurityPresentation {
     pub headers: Vec<(String, String, String, String)>,
     /// (component, classification, points) — how the score arose from 100:
     /// one row per issue with its deduction from the shared contribution
-    /// list, then the HSTS bonus and the vulnerable-library penalty, so the
+    /// list, then the vulnerable-library penalty, so the
     /// table adds up to `score`.
     pub score_rows: Vec<(String, String, String)>,
     pub ssl_info: Vec<(String, String)>,

@@ -210,7 +210,7 @@ fn security_band_note(
 }
 
 /// The security score as a sum: 100, one row per issue with the deduction it
-/// carries in the shared contribution list, the HSTS bonus and the
+/// carries in the shared contribution list and the
 /// vulnerable-library penalty from Best Practices.
 fn security_score_rows(
     i18n: &I18n,
@@ -223,9 +223,7 @@ fn security_score_rows(
         String::new(),
         "100".to_string(),
     )];
-    let mut deducted = 0u32;
     for issue in &sec.issues {
-        deducted += issue.score_deduction;
         rows.push((
             format!(
                 "{} — {}",
@@ -238,15 +236,6 @@ fn security_score_rows(
             } else {
                 format!("−{}", issue.score_deduction)
             },
-        ));
-    }
-    let before_bonus = 100u32.saturating_sub(deducted);
-    let bonus = sec.score.saturating_sub(before_bonus);
-    if bonus > 0 {
-        rows.push((
-            i18n.t("report-builder-security-score-hsts-bonus"),
-            String::new(),
-            format!("+{bonus}"),
         ));
     }
     let vulnerable_libraries = sec.score.saturating_sub(security_score);

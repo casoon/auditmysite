@@ -104,7 +104,6 @@ report-builder-security-band-note-severe = The wording rating sits below the ban
     } listed below. The score itself is unchanged.
 report-builder-security-score-start = Starting value
 report-builder-security-score-not-charged = 0 (not charged)
-report-builder-security-score-hsts-bonus = HSTS bonus
 report-builder-security-score-vulnerable-libraries = Known-vulnerable libraries (Best Practices)
 report-builder-security-score-total = Security score
 
