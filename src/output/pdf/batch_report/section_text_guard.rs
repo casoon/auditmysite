@@ -395,3 +395,125 @@ fn key_points_name_the_affected_urls_and_agree_in_number() {
         assert!(points[1].ends_with(main), "{lang}: {}", points[1]);
     }
 }
+
+/// #1208: the batch headline states what the WCAG check found on the audited
+/// pages, a finding of another module never becomes the "main issue" of an
+/// accessibility verdict but gets its own line, and the headline and the
+/// assessment label never contradict.
+#[test]
+fn batch_headline_states_the_wcag_result_and_other_modules_get_their_own_line() {
+    use super::management::{
+        batch_assessment_key, batch_headline_contradiction, batch_wcag_headline,
+        batch_wcag_headline_text, BatchWcagHeadline,
+    };
+    for (lang, none, all, some, main, other) in [
+        (
+            "en",
+            "No WCAG violations were found automatically on the 3 audited pages",
+            "WCAG violations were found on all 3 audited pages",
+            "WCAG violations were found on 2 of the 3 audited pages",
+            "Main issue: ",
+            "Most important finding from the other modules: ",
+        ),
+        (
+            "de",
+            "Auf den 3 geprüften Seiten wurden automatisiert keine WCAG-Verstöße gefunden",
+            "Auf allen 3 geprüften Seiten wurden WCAG-Verstöße gefunden",
+            "Auf 2 von 3 geprüften Seiten wurden WCAG-Verstöße gefunden",
+            "Hauptproblem: ",
+            "Wichtigster Befund aus den weiteren Modulen: ",
+        ),
+    ] {
+        let i18n = crate::i18n::I18n::new(lang).unwrap();
+        let mut pres = crate::output::builder::build_batch_presentation_with_locale(
+            &super::text_export::batch(),
+            &i18n,
+        );
+        pres.portfolio_summary.total_urls = 3;
+        let urls: Vec<String> = (0..3).map(|i| format!("https://example.com/{i}")).collect();
+        for issue in &mut pres.top_issues {
+            issue.finding.occurrence_count = 1;
+            issue.affected_urls = urls.clone();
+        }
+        assert!(!pres.top_issues[0].finding.wcag_criterion.is_empty());
+        let text = |pres: &crate::output::report_model::BatchPresentation| {
+            batch_wcag_headline_text(batch_wcag_headline(pres), 3, &i18n)
+        };
+        assert_eq!(batch_wcag_headline(&pres), BatchWcagHeadline::AllPages);
+        assert_eq!(text(&pres), all, "{lang}");
+
+        for issue in &mut pres.top_issues {
+            issue.affected_urls.truncate(2);
+        }
+        assert_eq!(
+            batch_wcag_headline(&pres),
+            BatchWcagHeadline::SomePages { affected: 2 }
+        );
+        assert_eq!(text(&pres), some, "{lang}");
+
+        // Only a finding of another module: no WCAG violation, so no "main
+        // issue" of the accessibility result, but its own line.
+        for issue in &mut pres.top_issues {
+            issue.finding.wcag_criterion.clear();
+        }
+        assert_eq!(batch_wcag_headline(&pres), BatchWcagHeadline::NoneFound);
+        assert_eq!(text(&pres), none, "{lang}");
+        let points = super::management::build_batch_key_points(
+            &pres,
+            &super::text_export::dist(0, 0),
+            0,
+            &i18n,
+        );
+        assert!(!points.iter().any(|p| p.starts_with(main)), "{points:?}");
+        assert_eq!(
+            points.iter().filter(|p| p.starts_with(other)).count(),
+            1,
+            "{points:?}"
+        );
+    }
+
+    // Every headline against every assessment label: only "no violation found"
+    // next to a label naming barriers contradicts.
+    let keys = [
+        "batch-management-assessment-critical",
+        "batch-management-assessment-serious",
+        "batch-management-assessment-substantial-gaps",
+        "batch-management-assessment-usable-critical",
+        "batch-management-assessment-usable-high",
+        "batch-management-assessment-needs-improvement",
+        "batch-management-assessment-stable-critical",
+        "batch-management-assessment-good-high",
+        "batch-management-assessment-fine-tuning",
+        "batch-management-assessment-polish",
+    ];
+    for headline in [
+        BatchWcagHeadline::NoneFound,
+        BatchWcagHeadline::SomePages { affected: 1 },
+        BatchWcagHeadline::AllPages,
+    ] {
+        for key in keys {
+            let calm = key.ends_with("fine-tuning") || key.ends_with("polish");
+            assert_eq!(
+                batch_headline_contradiction(headline, key).is_some(),
+                headline == BatchWcagHeadline::NoneFound && !calm,
+                "{headline:?} {key}"
+            );
+        }
+    }
+    // The labels a batch without WCAG findings can reach (score 75 and up,
+    // no critical/high finding) agree with its headline.
+    let i18n = crate::i18n::I18n::new("en").unwrap();
+    let mut pres = crate::output::builder::build_batch_presentation_with_locale(
+        &super::text_export::batch(),
+        &i18n,
+    );
+    for score in 75..=100 {
+        pres.portfolio_summary.average_score = Some(f64::from(score));
+        let key = batch_assessment_key(&pres.portfolio_summary, &super::text_export::dist(0, 0));
+        assert_eq!(
+            batch_headline_contradiction(BatchWcagHeadline::NoneFound, key),
+            None,
+            "score {score}"
+        );
+    }
+}

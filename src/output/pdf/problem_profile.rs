@@ -28,6 +28,11 @@ const PROBLEM_CONCENTRATION_TOP_N: usize = 4;
 /// instead, and `build_overall_leverage_note` is suppressed entirely.
 const PROBLEM_CONCENTRATION_MIN_OCCURRENCES: usize = 3;
 
+/// A module below this score is "Kritisch" (the FIVE_BAND cutoff) and counts
+/// toward the breadth of the problem profile. Named in the profile text so the
+/// label next to a low accessibility verdict explains itself (#1208).
+const CRITICAL_MODULE_BELOW: u32 = 40;
+
 /// The raw numbers behind the "problem concentration" diagnosis:
 /// how many
 /// occurrences exist in total, how many of the top `PROBLEM_CONCENTRATION_TOP_N`
@@ -133,10 +138,31 @@ fn critical_contributing_modules(
         .modules
         .module_scores
         .iter()
-        .filter(|m| m.contributes_to_site_quality_score && m.score < 40)
+        .filter(|m| m.contributes_to_site_quality_score && m.score < CRITICAL_MODULE_BELOW)
         .collect();
     critical.sort_by_key(|m| std::cmp::Reverse((100 - m.score) * m.weight_pct));
     critical
+}
+
+/// Whether the cover verdict (`verdict-tier-*`, the accessibility level) and
+/// the problem profile (the distribution across the modules) can stand on the
+/// same page. They are two axes: the verdict makes no claim about structure or
+/// distribution, the profile none about the accessibility level; the one pair
+/// that still clashes is a profile that calls the state "very good" next to a
+/// verdict naming barriers. `all_modules_good` is the profile text
+/// `pdf-analysis-profile-isolated-good`. `None` when the pair agrees (#1208).
+#[cfg(test)]
+pub(super) fn verdict_profile_contradiction(
+    verdict_key: &str,
+    kind: ProblemProfileKind,
+    all_modules_good: bool,
+) -> Option<&'static str> {
+    let names_barriers = matches!(
+        verdict_key,
+        "verdict-tier-stable" | "verdict-tier-deficient" | "verdict-tier-critical"
+    );
+    (names_barriers && kind == ProblemProfileKind::Punktuell && all_modules_good)
+        .then_some("the profile calls the state very good next to a verdict naming barriers")
 }
 
 /// Pure classification function combining breadth (< 40 "Kritisch" module count) and systemics.
@@ -250,6 +276,7 @@ fn build_problem_profile_description(
                     &[
                         ("names", format_module_names(&weak_modules, i18n)),
                         ("several", several.to_string()),
+                        ("critical", CRITICAL_MODULE_BELOW.to_string()),
                     ],
                 )
             } else {
@@ -574,5 +601,105 @@ mod tests {
             en.starts_with("Performance falls below the \"good\" band"),
             "{en}"
         );
+    }
+
+    const VERDICT_TIERS: [&str; 9] = [
+        "verdict-tier-excellent",
+        "verdict-tier-excellent-medium",
+        "verdict-tier-excellent-high",
+        "verdict-tier-excellent-critical",
+        "verdict-tier-solid",
+        "verdict-tier-stable",
+        "verdict-tier-violations",
+        "verdict-tier-deficient",
+        "verdict-tier-critical",
+    ];
+    const PROFILE_KINDS: [ProblemProfileKind; 3] = [
+        ProblemProfileKind::Punktuell,
+        ProblemProfileKind::KonzentriertSystemisch,
+        ProblemProfileKind::BreitSystemisch,
+    ];
+
+    /// #1208: over every verdict tier and profile, only the pair "very good
+    /// state" next to a barrier verdict is a contradiction, and it cannot
+    /// arise from a score: a low accessibility score is itself a module below
+    /// the "good" band, so the profile names it instead of calling the state
+    /// very good.
+    #[test]
+    fn verdict_and_profile_never_contradict() {
+        for tier in VERDICT_TIERS {
+            for kind in PROFILE_KINDS {
+                for good in [false, true] {
+                    let expected = matches!(
+                        tier,
+                        "verdict-tier-stable" | "verdict-tier-deficient" | "verdict-tier-critical"
+                    ) && kind == ProblemProfileKind::Punktuell
+                        && good;
+                    assert_eq!(
+                        verdict_profile_contradiction(tier, kind, good).is_some(),
+                        expected,
+                        "{tier} {kind:?} good={good}"
+                    );
+                }
+            }
+        }
+        for score in 0..=100u32 {
+            let tier = crate::audit::interpretation::verdict_tier_key("verdict-tier", score);
+            for kind in PROFILE_KINDS {
+                for others_good in [false, true] {
+                    // "Very good" needs every module at 75 or more.
+                    let all_modules_good = score >= 75 && others_good;
+                    assert_eq!(
+                        verdict_profile_contradiction(&tier, kind, all_modules_good),
+                        None,
+                        "score {score} {kind:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// #1208: the verdict is the accessibility level and says nothing about
+    /// structure; only the problem profile does. "Structural backlog" next to
+    /// "isolated" was the contradiction.
+    #[test]
+    fn verdict_texts_below_the_top_tier_claim_no_structure() {
+        for locale in ["de", "en"] {
+            let i18n = I18n::new(locale).unwrap();
+            let args = [("url", "u".to_string()), ("score", "50".to_string())];
+            for tier in VERDICT_TIERS
+                .iter()
+                .filter(|t| !t.starts_with("verdict-tier-excellent"))
+            {
+                let text = i18n.t_args(tier, &args).to_lowercase();
+                for claim in ["struktur", "structural", "detailprobleme", "isolated"] {
+                    assert!(!text.contains(claim), "{locale} {tier}: {text}");
+                }
+            }
+        }
+    }
+
+    /// #1208: the profile label names what it describes and, next to a low
+    /// accessibility verdict, why the profile is still "isolated".
+    #[test]
+    fn profile_title_names_its_axis_and_the_critical_threshold() {
+        let mut vm = test_report_view_model();
+        vm.modules.module_scores = vec![
+            crate::audit::normalized::ModuleScoreEntry::new("Accessibility", 49, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("Security", 40, "measured", true),
+        ];
+        for (locale, title, threshold) in [
+            ("de", "Verteilung über die Module", "unter 40 Punkten"),
+            ("en", "distribution across modules", "below 40 points"),
+        ] {
+            let i18n = I18n::new(locale).unwrap();
+            let kind = classify_problem_profile(&vm);
+            assert_eq!(kind, ProblemProfileKind::Punktuell);
+            assert!(i18n
+                .t_args("pdf-analysis-profile-title", &[("kind", kind.label(&i18n))])
+                .contains(title));
+            let text = build_problem_profile_description(&vm, kind, &i18n);
+            assert!(text.contains(threshold), "{locale}: {text}");
+        }
     }
 }

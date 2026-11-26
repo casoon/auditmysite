@@ -138,6 +138,19 @@ batch-management-point-main-issue = Hauptproblem: { $title } ({ $occurrences } V
         [one] 1 URL
        *[other] { $urls } URLs
     })
+batch-management-point-other-module-issue = Wichtigster Befund aus den weiteren Modulen: { $title } ({ $occurrences } Vorkommen auf { $urls ->
+        [one] 1 URL
+       *[other] { $urls } URLs
+    })
+batch-management-headline-none = { $total ->
+        [one] Auf der geprüften Seite wurden automatisiert keine WCAG-Verstöße gefunden
+       *[other] Auf den { $total } geprüften Seiten wurden automatisiert keine WCAG-Verstöße gefunden
+    }
+batch-management-headline-all = { $total ->
+        [one] Auf der geprüften Seite wurden WCAG-Verstöße gefunden
+       *[other] Auf allen { $total } geprüften Seiten wurden WCAG-Verstöße gefunden
+    }
+batch-management-headline-some = Auf { $affected } von { $total } geprüften Seiten wurden WCAG-Verstöße gefunden
 batch-management-point-legal-flags = WCAG-Level-A/AA-Verstöße automatisiert erkannt — manuelle Prüfung für belastbare BFSG-Einordnung nötig
 batch-management-point-structural = Keine Level-A/AA-Verstöße, aber strukturelle Optimierungspotenziale auf mehreren Seiten
 batch-management-point-no-barriers = Keine automatisiert erkennbaren kritischen Barrieren — manuelle Prüfung empfohlen.
