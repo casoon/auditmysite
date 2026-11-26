@@ -10,6 +10,7 @@ and verification for each change is in the
 ### Changed
 
 - **Pages:** the project site uses the current shared theme (0.19.0).
+- **Report:** the single report tells a finding once in full (Refs #1209). The evidence entries of the developer part (the buckets "systemic" and "local") no longer repeat the problem, impact, fix, priority strip and cause text of the analysis card; they carry the finding id, the rule, the implementation priority, the detection metadata, the expected effect and the occurrences, so the entry after the card is evidence, not a second telling. The reading note of the pattern tables stands once at the head of the part instead of under every entry, which removes the pages that held only that note and the cause paragraph. The report invariant test now treats only the appendix as evidence level and fails when one finding id is rendered in full in more than one analysis component. The JSON is unchanged.
 
 
 ## [2.3.0] - 2026-11-25

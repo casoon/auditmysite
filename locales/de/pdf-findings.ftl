@@ -58,8 +58,8 @@ pdf-findings-hidden-occurrences = { $count } { $count ->
         [one] weiteres Vorkommen
        *[other] weitere Vorkommen
     } im technischen Anhang dokumentiert.
-pdf-findings-likely-root-cause = Wahrscheinliche Ursache
-pdf-findings-structural-cause = Strukturelle Ursache
+pdf-findings-finding-id = Befund-ID
+pdf-findings-rule = Regel
 
 ## Finding card: origin of the markup (#1109). A label, never a verdict.
 pdf-findings-origin = Herkunft
