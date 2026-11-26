@@ -92,59 +92,6 @@ pub(super) fn render_batch_audit_flags(
         .add_component(ChecklistPanel::new(rows).with_title(i18n.t("batch-management-flags-title")))
 }
 
-/// Clear batch assessment — no score, just interpretation
-pub(super) fn build_batch_assessment(
-    summary: &crate::output::report_model::PortfolioSummary,
-    dist: &SeverityDistribution,
-    i18n: &I18n,
-) -> String {
-    i18n.t(batch_assessment_key(summary, dist))
-}
-
-pub(super) fn batch_assessment_key(
-    summary: &crate::output::report_model::PortfolioSummary,
-    dist: &SeverityDistribution,
-) -> &'static str {
-    let score = summary
-        .average_score
-        .expect(super::UNMEASURED_REFUSED)
-        .round() as u32;
-    // Score band is the primary signal; severity only refines wording within a
-    // band. A low average must never yield a reassuring label (mirrors the
-    // single-report logic in builder/single/executive.rs, #355).
-    if score < 40 {
-        "batch-management-assessment-critical"
-    } else if score < 60 {
-        if dist.critical > 0 {
-            "batch-management-assessment-serious"
-        } else {
-            "batch-management-assessment-substantial-gaps"
-        }
-    } else if score < 75 {
-        if dist.critical > 0 {
-            "batch-management-assessment-usable-critical"
-        } else if dist.high > 0 {
-            "batch-management-assessment-usable-high"
-        } else {
-            "batch-management-assessment-needs-improvement"
-        }
-    } else if dist.critical > 0 {
-        // From 75 up the severity refines the band label; above 90 too, where
-        // "largely accessible" used to stand next to open high findings and a
-        // failing verdict (#1039).
-        "batch-management-assessment-stable-critical"
-    } else if dist.high > 0 {
-        // What the automated check found, not a conformance claim: the
-        // rating note right above says the band is no statement of
-        // conformance (#1039).
-        "batch-management-assessment-good-high"
-    } else if score < 90 {
-        "batch-management-assessment-fine-tuning"
-    } else {
-        "batch-management-assessment-polish"
-    }
-}
-
 /// The management risk dimensions of the batch: the same derivation the JSON
 /// publishes as `summary.management_risks` (`audit::management_risk`), its
 /// text re-derived in the run language. A second heuristic here graded legal
@@ -363,32 +310,8 @@ pub(super) fn batch_score_effect(group: &FindingGroup, i18n: &I18n) -> Option<St
         })
 }
 
-/// The URLs that carry at least one critical or high WCAG finding: the number
-/// the "critical/high occurrences on N URLs" key point names. It was the count
-/// of all audited URLs, so two failing pages of five read "on 5 URLs" (#1039).
-fn urls_with_critical_or_high(pres: &BatchPresentation) -> i64 {
-    pres.url_ranking
-        .iter()
-        .filter(|url| url.critical_violations > 0)
-        .count() as i64
-}
-
 fn is_wcag_group(group: &FindingGroup) -> bool {
     !group.finding.wcag_criterion.is_empty()
-}
-
-fn batch_issue_point(key: &str, group: &FindingGroup, i18n: &I18n) -> String {
-    i18n.t_args(
-        key,
-        &[
-            ("title", FluentValue::from(group.title.as_str())),
-            (
-                "occurrences",
-                FluentValue::from(group.finding.occurrence_count as i64),
-            ),
-            ("urls", FluentValue::from(group.affected_urls.len() as i64)),
-        ],
-    )
 }
 
 /// What the automated WCAG check found on the audited pages: the factual
@@ -443,81 +366,4 @@ pub(super) fn batch_wcag_headline_text(
             ],
         ),
     }
-}
-
-/// A headline and an assessment label that cannot stand together: barriers
-/// named although the headline says no WCAG violation was found (#1208).
-/// `None` when the pair agrees.
-#[cfg(test)]
-pub(super) fn batch_headline_contradiction(
-    headline: BatchWcagHeadline,
-    assessment_key: &str,
-) -> Option<&'static str> {
-    let names_barriers = !matches!(
-        assessment_key,
-        "batch-management-assessment-fine-tuning" | "batch-management-assessment-polish"
-    );
-    (headline == BatchWcagHeadline::NoneFound && names_barriers)
-        .then_some("the assessment names barriers although no WCAG violation was found")
-}
-
-/// 3 key takeaways for batch report
-pub(super) fn build_batch_key_points(
-    pres: &BatchPresentation,
-    dist: &SeverityDistribution,
-    legal_flags: usize,
-    i18n: &I18n,
-) -> Vec<String> {
-    let mut points = Vec::with_capacity(3);
-
-    // Point 1: critical/high WCAG occurrences, with the per-page finding
-    // groups they form — two different counts, both named.
-    let ch = dist.critical + dist.high;
-    let occ = &pres.portfolio_summary.occurrence_distribution;
-    let ch_occurrences = occ.critical + occ.high;
-    if ch > 0 {
-        points.push(i18n.t_args(
-            "batch-management-point-severe",
-            &[
-                ("occurrences", FluentValue::from(ch_occurrences as i64)),
-                ("urls", FluentValue::from(urls_with_critical_or_high(pres))),
-                ("findings", FluentValue::from(ch as i64)),
-            ],
-        ));
-    }
-
-    // Point 2: the dominant WCAG problem. `top_issues` carries the findings of
-    // every module, so its first entry may be an HTML or SEO finding that has
-    // nothing to do with the accessibility verdict above it (#1208).
-    if let Some(top) = pres.top_issues.iter().find(|g| is_wcag_group(g)) {
-        points.push(batch_issue_point(
-            "batch-management-point-main-issue",
-            top,
-            i18n,
-        ));
-    }
-
-    // Point 2b: the most important finding of the other modules, on its own
-    // line and named as such.
-    if let Some(top) = pres.top_issues.iter().find(|g| !is_wcag_group(g)) {
-        points.push(batch_issue_point(
-            "batch-management-point-other-module-issue",
-            top,
-            i18n,
-        ));
-    }
-
-    // Point 3: Legal status — from the legal flags the batch decision uses
-    // (high or critical Level A/AA rules), as the single report does; keyed on
-    // critical findings alone it read "no Level A/AA violations" next to a
-    // high AA finding (#1039).
-    points.push(i18n.t(if legal_flags > 0 {
-        "batch-management-point-legal-flags"
-    } else if dist.high > 0 {
-        "batch-management-point-structural"
-    } else {
-        "batch-management-point-no-barriers"
-    }));
-
-    points
 }

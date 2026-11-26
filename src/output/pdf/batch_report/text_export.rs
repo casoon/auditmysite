@@ -8,11 +8,11 @@
 //! before and after a change of how the texts are stored and compare the two
 //! files byte for byte.
 
-use super::actions::{build_batch_decision_lines, render_batch_recurring_problems};
+use super::causes::render_batch_causes;
 use super::consistency::render_batch_consistency;
 use super::management::{
-    audit_flag_batch_title, build_batch_assessment, build_batch_key_points,
-    render_batch_audit_flags, render_batch_internal_comparison, render_batch_management_risks,
+    audit_flag_batch_title, render_batch_audit_flags, render_batch_internal_comparison,
+    render_batch_management_risks,
 };
 use crate::audit::batch_consistency::{
     BatchConsistencyAnalysis, CanonicalConsistency, CrossPageCriterionAssessment,
@@ -402,15 +402,6 @@ fn ranked(url: &str, score: f32) -> UrlSummary {
     }
 }
 
-pub(super) fn dist(critical: usize, high: usize) -> SeverityDistribution {
-    SeverityDistribution {
-        critical,
-        high,
-        medium: 0,
-        low: 0,
-    }
-}
-
 fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
     for kind in [
         "consent_banner",
@@ -461,20 +452,6 @@ fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
 
     let batch = batch();
     let mut pres = build_batch_presentation_with_locale(&batch, i18n);
-
-    for score in [
-        0.0, 39.4, 39.5, 40.0, 59.0, 60.0, 74.0, 75.0, 89.0, 90.0, 100.0,
-    ] {
-        pres.portfolio_summary.average_score = Some(score);
-        for (critical, high) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-            records.push(json!([
-                "build_batch_assessment",
-                format!("score={score} critical={critical} high={high}"),
-                lang,
-                build_batch_assessment(&pres.portfolio_summary, &dist(critical, high), i18n)
-            ]));
-        }
-    }
 
     let normalized: Vec<_> = batch
         .reports
@@ -577,20 +554,12 @@ fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
                         group.finding.complexity = complexity.to_string();
                         group.finding.wcag_level = wcag_level.to_string();
                         records.push(json!([
-                            "render_batch_recurring_problems",
+                            "render_batch_causes",
                             format!(
                                 "cluster={cluster} urls={urls} occurrences={occurrences} complexity={complexity} wcag={wcag_level:?}"
                             ),
                             lang,
-                            components(render_batch_recurring_problems(bare(), &pres, i18n))
-                        ]));
-                        records.push(json!([
-                            "build_batch_decision_lines",
-                            format!(
-                                "cluster={cluster} urls={urls} occurrences={occurrences} complexity={complexity} wcag={wcag_level:?}"
-                            ),
-                            lang,
-                            build_batch_decision_lines(&pres, i18n)
+                            components(render_batch_causes(bare(), &pres, i18n))
                         ]));
                     }
                 }
@@ -598,35 +567,6 @@ fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
         }
     }
     pres.template_clusters = vec![];
-
-    // Key points: critical/high counts, the main issue, the legal status.
-    for count in COUNTS {
-        pres.portfolio_summary.total_urls = count;
-        pres.portfolio_summary.occurrence_distribution = dist(count, count);
-        pres.top_issues[0].finding.occurrence_count = count;
-        for with_top in [true, false] {
-            let top = if with_top {
-                vec![]
-            } else {
-                std::mem::take(&mut pres.top_issues)
-            };
-            for (critical, high) in [(0, 0), (1, 0), (0, 1), (count, count)] {
-                for legal_flags in [0, 1] {
-                    records.push(json!([
-                        "build_batch_key_points",
-                        format!(
-                            "count={count} top_issue={with_top} critical={critical} high={high} legal_flags={legal_flags}"
-                        ),
-                        lang,
-                        build_batch_key_points(&pres, &dist(critical, high), legal_flags, i18n)
-                    ]));
-                }
-            }
-            if !with_top {
-                pres.top_issues = top;
-            }
-        }
-    }
 }
 
 /// Every record of the export, in both languages.

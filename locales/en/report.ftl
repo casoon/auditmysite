@@ -80,8 +80,6 @@ narrative-cover-eyebrow = Automated audit report
 narrative-cover-kicker = Technical website check
 narrative-status-title = Site status
 narrative-metrics-title = Executive snapshot
-narrative-key-points-title = Key points
-narrative-impact-title = Impact
 narrative-spotlight-eyebrow = MAIN ISSUE
 narrative-leverage-title = Effect of remediation
 narrative-findings-title = Key findings
@@ -168,8 +166,6 @@ batch-cover-eyebrow = Automated batch audit report
 batch-cover-title = Accessibility audit report
 batch-cover-subtitle-sample = Sample: { $audited } of { $total } URLs ({ $source })
 batch-cover-modules-label = MODULES · AVERAGE PER URL · 0–100 · HIGHER IS BETTER
-batch-cover-kicker = Cross-page audit of the selected URLs: accessibility as the main score, SEO, performance, security and further modules as context
-batch-cover-frame-title = Audit scope
 batch-cover-frame-domain = Domain
 batch-cover-frame-date = Audit date
 batch-cover-frame-urls = Audited URLs
@@ -205,11 +201,9 @@ section-tech-detail-metrics = Technical detail metrics
 column-priority = Priority
 column-component = Component
 column-area = Area
-section-next-steps-recommended = Recommended next steps
 section-next-steps-block = Next steps
 
 # Batch sections
-batch-section-status = Site status
 batch-col-occurrences = Occurrences
 batch-col-pages = Pages
 batch-col-priority = Priority
@@ -241,8 +235,8 @@ batch-section-external-links = External links
 batch-section-redirect-chains = Redirect chains
 batch-redirect-chains-title = Redirect chains (> 1 hop)
 batch-col-target = Target
-batch-url-ranking-title = URL ranking
-batch-url-ranking-intro = Sorted by accessibility (column "{ $accessibility }"), lowest first; ties put more critical/high WCAG findings (column "{ $critical }") first. "{ $site_quality }" is the site-quality score (optional modules). A low value shows where most is lost — single critical functional findings can affect pages with a good score too.
+batch-url-ranking-title = Module scores per page
+batch-url-ranking-intro = All module scores of the audited pages (0-100, higher is better), lowest accessibility first; on a tie more critical or high findings first. "Critical/high" counts findings grouped per page, not single occurrences.
 batch-render-blocking-section = Render blocking & assets
 batch-render-blocking-kv-title = Render-blocking overview (domain-wide)
 batch-render-blocking-intro = Render-blocking resources and third-party traffic, aggregated across all audited pages.
@@ -909,7 +903,6 @@ batch-crawl-depth-unobserved-count = { $count ->
 batch-crawl-depth-fetched-homepage = The homepage was only fetched to read its links — it is not audited and counts in no score.
 batch-crawl-depth-unavailable = Click depths not determined: the homepage could not be fetched. No other page is used as a substitute start page.
 batch-module-portfolio-title = Module portfolio
-batch-module-portfolio-intro = Aggregated module values across the audited URL set: average, spread over the pages with a measurement, and effect per module.
 batch-module-portfolio-table-title = Module values and spread
 batch-col-module = Module
 batch-col-score = Average
@@ -1373,20 +1366,14 @@ batch-schema-matrix-col-kind = Page kind (schema check)
 batch-schema-matrix-title = Schema coverage by page kind
 batch-schema-matrix-note = The schema check classifies each page on its own, from page intent, URL and visible content, to pick the schema.org types that would fit it; this page kind can differ from the content page type in the other sections. Suggested types are optional, not a requirement.
 batch-scope-note-title = How to read this report
-batch-scope-note-appendix = This PDF is a condensed audit report. It highlights the most important findings, risks and improvement areas, but does not list every technical occurrence. Details per URL are in the technical appendix at the end of this report; the raw data is in the JSON report of the same run.
-batch-scope-note-json = This PDF is a condensed audit report. It highlights the most important findings, risks and improvement areas, but does not list every technical occurrence. The raw data is in the JSON report of the same run; the report level technical (--report-level technical) adds a per-URL appendix.
+batch-scope-note-appendix = This PDF is a condensed audit report. It highlights the most important findings, risks and improvement areas, but does not list every technical occurrence. Details per URL are in the detail chapters and in the technical appendix at the end of this report; the raw data is in the JSON report of the same run.
+batch-scope-note-json = This PDF is a condensed audit report. It highlights the most important findings, risks and improvement areas, but does not list every technical occurrence. The raw data is in the JSON report of the same run; the report level technical (--report-level technical) adds detail chapters and a per-URL appendix.
 batch-next-steps-manual = For a complete WCAG conformance check we additionally recommend a manual audit with assistive technologies (screen reader, keyboard navigation). This audit checks { $automated } of { $total } WCAG 2.2 Level A/AA success criteria automatically; the others need a manual review.
-batch-next-steps-intro = What the automated audit leaves open.
 batch-topics-title = Content topics on several pages
 batch-table-pages-profile = Page type and top issues per page
 batch-seo-profiles-title = Content profile per page
 batch-col-dup-urls = URLs
 batch-dup-pages-more = { $list } and { $count } more
-batch-user-impact-critical = Critical — on the audited pages, barriers severely hamper use with assistive technologies
-batch-user-impact-limited = Limited — structural issues impede users with assistive technologies
-batch-user-impact-good = Good — individual barriers for assistive technologies on several pages
-batch-user-impact-very-good = Very good — assistive technologies are largely supported
-batch-user-impact-barriers-fail = Usable with barriers — a high average, but barriers on the audited pages fail the automated check (see the accessibility rating)
 batch-effect-open-high = { $count ->
         [one] Good average, but 1 high-severity finding of this module is still open on the audited pages.
        *[other] Good average, but { $count } high-severity findings of this module are still open on the audited pages.
@@ -1408,11 +1395,10 @@ batch-effect-other-good = The module is stable across the audited pages.
 batch-effect-other-usable = The module has a usable foundation with targeted cleanup potential.
 batch-effect-other-recurring = The module shows recurring weaknesses across the audited URL set.
 batch-effect-other-structural = The module needs structural attention across multiple pages.
-batch-ranking-col-rank = No.
 batch-ranking-col-page = Page
 batch-ranking-col-site-quality = Site quality
 batch-ranking-col-accessibility = A11y
-batch-ranking-col-critical-high = WCAG crit./high
+batch-ranking-col-critical-high = Crit./high (findings)
 batch-ranking-col-seo = SEO
 batch-ranking-col-performance = Perf
 batch-ranking-col-security = Sec
@@ -1434,23 +1420,6 @@ batch-interactive-some = { $count ->
     } without issues.
 
 # Batch: decision level and recurring problems (#1171)
-batch-decision-title = Most important findings
-batch-decision-line = { $id } · { $title } · { $reach } · { $priority }
-batch-decision-line-reach-in-title = { $id } · { $title } · { $priority }
-batch-section-recurring = Recurring problems and actions
-batch-recurring-intro = One card per root cause that recurs across the audited pages: how far it reaches, what the cause is and how sure the report is about it, and what to do. The finding id links the card to the JSON report; the evidence per page is in the single-page reports.
-batch-recurring-more = { $count ->
-        [one] One further recurring problem is listed in the JSON report.
-       *[other] { $count } further recurring problems are listed in the JSON report.
-    }
-batch-url-ranking-lowest = { $count ->
-        [one] Lowest ranked page
-       *[other] { $count } lowest ranked pages
-    }
-batch-url-ranking-highest = { $count ->
-        [one] Highest ranked page
-       *[other] { $count } highest ranked pages
-    }
 batch-url-ranking-full = All pages ranked
 batch-url-ranking-rest-appendix = The table shows the lowest and the highest ranked pages; the full list is in the technical appendix.
 batch-url-ranking-rest-json = The table shows the lowest and the highest ranked pages; the full list is in the JSON report.

@@ -9,10 +9,15 @@ use crate::output::report_model::*;
 
 mod actions;
 mod appendix;
+mod causes;
+mod compare;
 mod consistency;
+mod glance;
 mod interactive;
 mod management;
 mod overview;
+#[cfg(test)]
+mod overview_text_guard;
 mod portfolio;
 mod privacy;
 #[cfg(test)]
@@ -20,6 +25,7 @@ mod section_text_export;
 #[cfg(test)]
 mod section_text_guard;
 mod seo;
+mod technical;
 #[cfg(test)]
 mod text_export;
 #[cfg(test)]
@@ -27,6 +33,8 @@ mod text_guard;
 
 use actions::*;
 use appendix::*;
+use causes::*;
+use compare::*;
 use consistency::*;
 use interactive::*;
 use management::*;
@@ -34,6 +42,7 @@ use overview::*;
 use portfolio::*;
 use privacy::render_batch_privacy;
 use seo::*;
+use technical::*;
 
 pub fn generate_batch_pdf(batch: &BatchReport, config: &ReportConfig) -> anyhow::Result<Vec<u8>> {
     generate_batch_pdf_with_annotations(batch, config, None)
@@ -115,22 +124,26 @@ pub(super) fn build_batch_report(
         .flat_map(|outcome| outcome.wcag.iter().cloned())
         .collect();
 
+    // The main part: verdict and recommendation (cover and overview page),
+    // page comparison with the concrete single-report step it leads to, shared
+    // and page-specific causes.
     builder = render_batch_cover(builder, batch, &pres, config, score, &i18n)?;
-    builder = render_batch_status_section(
-        builder,
-        batch,
-        &normalized_reports,
-        &pres,
-        &en301549_rollup,
-        &failed_en_criteria,
-        config,
-        &i18n,
-    );
-    builder = render_batch_module_portfolio(builder, &pres, &normalized_reports, &i18n);
-    builder = render_batch_audit_flags(builder, batch, &i18n);
-    let has_appendix = config.level == ReportLevel::Technical && !pres.appendix.per_url.is_empty();
-    builder = render_batch_url_ranking(builder, &pres, has_appendix, &i18n);
+    builder = render_batch_page_comparison(builder, &pres, &i18n);
+    builder = render_batch_next_step(builder, &pres, &i18n);
+    builder = render_batch_causes(builder, &pres, &i18n);
 
+    // The technical part and method: the numbers behind the overview, compact
+    // and cross-page. Per-page detail is in the JSON report and the single
+    // reports; report level technical adds the detail chapters and the
+    // per-URL appendix.
+    let detail = config.level == ReportLevel::Technical;
+    let has_appendix = detail && !pres.appendix.per_url.is_empty();
+    builder = render_batch_technical_header(builder, &i18n);
+    builder = render_batch_method(builder, batch, &pres, &i18n);
+    builder = render_batch_module_portfolio(builder, &pres, &normalized_reports, &i18n);
+    builder = render_batch_url_ranking(builder, &pres, has_appendix, &i18n);
+    builder = render_batch_management_risks(builder, &normalized_reports, &i18n);
+    builder = render_batch_audit_flags(builder, batch, &i18n);
     if let Some(ref interactive) = pres.interactive_summary {
         if interactive.total_pages_tested > 0 {
             builder = render_batch_interactive_summary(
@@ -141,22 +154,39 @@ pub(super) fn build_batch_report(
             );
         }
     }
-
-    builder = render_batch_recurring_problems(builder, &pres, &i18n);
-    builder = render_batch_privacy(builder, batch, &i18n);
-    builder = render_batch_technical_signals(builder, &pres, &i18n);
-    builder = render_batch_tech_url_matrix(builder, &pres, config, &i18n);
-    builder = render_batch_seo_section(builder, &pres, &i18n);
-
+    builder = render_batch_technical_signals(builder, &pres, detail, &i18n);
+    builder = render_batch_seo_signals(builder, &pres, &i18n);
     if let Some(ref consistency) = batch.consistency {
         builder = render_batch_consistency(builder, consistency, &pres, &i18n);
     }
+    // EN 301 549 clause roll-up — opt-in only (see `--annex en301549`).
+    if config.annex == Some(crate::model::AnnexKind::En301549) {
+        builder =
+            render_batch_en301549_rollup(builder, &en301549_rollup, &failed_en_criteria, &i18n);
+    }
+    builder = render_batch_crawl_diagnostics(builder, &pres, &i18n);
+    builder = render_batch_privacy(builder, batch, &i18n);
 
     if let Some(resolved) = annotations {
         builder = super::annotations::render_assessments_section(builder, resolved, true, &i18n);
     }
 
-    builder = render_next_steps_batch(builder, &i18n);
+    if detail {
+        builder = builder.add_component(renderreport::components::advanced::PageBreak::new());
+        builder = builder.add_component(
+            renderreport::components::advanced::SectionHeaderSplit::new(
+                i18n.t("batch-tech-detail-title"),
+                i18n.t("batch-tech-detail-intro"),
+            )
+            .with_level(1),
+        );
+        builder = render_batch_internal_comparison(builder, &pres, &i18n);
+        builder = render_batch_tech_url_matrix(builder, &pres, config, &i18n);
+        builder = render_batch_seo_section(builder, &pres, &i18n);
+        if let Some(ref consistency) = batch.consistency {
+            builder = render_batch_consistency_detail(builder, consistency, &pres, &i18n);
+        }
+    }
 
     if has_appendix {
         builder = render_batch_appendix(builder, &pres, &i18n);
@@ -226,10 +256,17 @@ mod tests {
     }
 
     fn typ(batch: &BatchReport, locale: &str) -> String {
+        typ_at(batch, locale, ReportLevel::Standard)
+    }
+
+    /// The Typst source at a report level: the detail chapters (URL matrix,
+    /// SEO potential) belong to the level technical (#1212).
+    fn typ_at(batch: &BatchReport, locale: &str, level: ReportLevel) -> String {
         generate_batch_typ(
             batch,
             &ReportConfig {
                 locale: locale.to_string(),
+                level,
                 ..ReportConfig::default()
             },
         )
@@ -380,8 +417,20 @@ mod tests {
             "batch-next-steps-manual",
             &[("automated", automated as i64), ("total", total as i64)],
         )));
-        // The URL matrix column holds the accessibility score.
-        assert!(out.contains(&format!(
+        // The comparison column holds the accessibility score, the findings
+        // column says what it counts.
+        for key in [
+            "batch-compare-col-accessibility",
+            "batch-compare-col-severe",
+        ] {
+            assert!(
+                out.contains(&format!("header: \"{}\"", i18n.t(key))),
+                "{key}"
+            );
+        }
+        // The URL matrix of the detail chapters holds it too.
+        let technical = typ_at(&batch, "en", ReportLevel::Technical);
+        assert!(technical.contains(&format!(
             "header: \"{}\"",
             i18n.t("batch-matrix-col-accessibility")
         )));
@@ -450,7 +499,7 @@ mod tests {
         for (locale, words, foreign_words) in [("en", "1,392", "1.392"), ("de", "1.392", "1,392")] {
             let en = locale == "en";
             let i18n = I18n::new(locale).unwrap();
-            let out = typ(&batch, locale);
+            let out = typ_at(&batch, locale, ReportLevel::Technical);
             assert!(out.contains(&format!("\"{words}\"")), "{locale}");
             assert!(!out.contains(&format!("\"{foreign_words}\"")), "{locale}");
             // Attributes in the run language and not cut mid-word.
@@ -459,23 +508,18 @@ mod tests {
                 .attributes
                 .join(", ");
             assert!(out.contains(&format!("\"{attributes}\"")), "{locale}");
-            // renderreport's built-in German table title is gone; the extra
-            // ranking columns carry the run language's labels.
-            assert!(!out.contains("title: \"Website-Ranking\""), "{locale}");
-            assert!(out.contains(&format!("label: \"{}\"", i18n.t("batch-ranking-col-seo"))));
-            assert!(!en || !out.contains("label: \"Konf.\""));
-            // The fixed ranking columns too: the site-quality score and the count
-            // of critical and high findings, in the run language.
-            for (field, key) in [
-                ("label_rank", "batch-ranking-col-rank"),
-                ("label_domain", "batch-ranking-col-page"),
-                ("label_score", "batch-ranking-col-site-quality"),
-                ("label_accessibility", "batch-ranking-col-accessibility"),
-                ("label_critical_issues", "batch-ranking-col-critical-high"),
+            // The per-page module table carries the run language's labels.
+            assert!(out.contains(&format!("header: \"{}\"", i18n.t("batch-ranking-col-seo"))));
+            assert!(!en || !out.contains("header: \"Konf.\""));
+            for key in [
+                "batch-ranking-col-page",
+                "batch-ranking-col-site-quality",
+                "batch-ranking-col-accessibility",
+                "batch-ranking-col-critical-high",
             ] {
                 assert!(
-                    out.contains(&format!("{field}: \"{}\"", i18n.t(key))),
-                    "{locale} {field}"
+                    out.contains(&format!("header: \"{}\"", i18n.t(key))),
+                    "{locale} {key}"
                 );
             }
             for key in [
@@ -673,9 +717,8 @@ mod tests {
             assert!(out.contains(&format!(" · {all_pages}\"")), "{locale}");
             assert!(
                 out.contains(&format!(
-                    "key: \"{}\", value: \"{}\"",
-                    i18n.t("pdf-analysis-card-key-finding"),
-                    group.finding.id
+                    "title: \"{} · {}\"",
+                    group.title, group.finding.id
                 )),
                 "{locale}"
             );
@@ -687,7 +730,7 @@ mod tests {
             ] {
                 assert!(!out.contains(guessed), "{locale}: {guessed}");
             }
-            assert!(out.contains(&i18n.t("batch-next-steps-intro")), "{locale}");
+            assert!(out.contains(&i18n.t("batch-next-title")), "{locale}");
         }
     }
 
@@ -736,20 +779,25 @@ mod tests {
             let band = crate::registry::FIVE_BAND.label(score, en);
             assert!(body.contains(&format!("content: \"{band} — ")), "{locale}");
             assert!(!body.contains("Bereich —") && !body.contains("range —"));
-            // The ranking intro quotes the column labels the table prints.
+            // The module table's intro says what the findings column counts, and
+            // the column head carries the unit (#1213).
             assert!(
                 body.contains(&portfolio::ranking_intro(false, false, &i18n)),
                 "{locale}"
             );
-            for key in [
-                "batch-ranking-col-accessibility",
-                "batch-ranking-col-critical-high",
-                "batch-ranking-col-site-quality",
-            ] {
-                assert!(portfolio::ranking_intro(false, false, &i18n).contains(&i18n.t(key)));
-            }
-            assert!(i18n.t("batch-ranking-col-critical-high").contains("WCAG"));
-            assert!(body.contains(&i18n.t("batch-section-tech-url-matrix-intro")));
+            assert!(i18n.t("batch-ranking-col-critical-high").contains(if en {
+                "findings"
+            } else {
+                "Befunde"
+            }));
+            assert!(i18n.t("batch-compare-col-severe").contains(if en {
+                "findings"
+            } else {
+                "Befunde"
+            }));
+            // The URL matrix and its intro are a detail chapter.
+            let technical = body_calls(&typ_at(&batch, locale, ReportLevel::Technical));
+            assert!(technical.contains(&i18n.t("batch-section-tech-url-matrix-intro")));
             // Module names: the German report says "Sicherheit" throughout.
             if !en {
                 assert!(!body.contains("\"Security\""), "{locale}");
@@ -760,12 +808,6 @@ mod tests {
             for claim in ["not accessible", "nicht barrierefrei"] {
                 assert!(!body.contains(claim), "{locale}: {claim}");
             }
-            // The count of the overview card is labelled as a WCAG count.
-            assert!(body.contains(if en {
-                "Critical + high WCAG occurrences"
-            } else {
-                "Kritisch + hoch (WCAG-Vorkommen)"
-            }));
             // No empty cell in the frequency table, no empty diagnosis.
             assert!(
                 !body.contains("\"\", \"3\", \"3\""),
@@ -918,11 +960,11 @@ mod tests {
         );
     }
 
-    /// #1171: the decision level names the most important recurring problems
-    /// in one line each (id, title, reach, priority), at most five, and the
-    /// compact ranking keeps the lowest and highest five with their true rank.
+    /// #1171, #1212: the overview names the most important finding types by
+    /// their title (the cards tell each in full), and the comparison keeps the
+    /// lowest and highest five with their true rank.
     #[test]
-    fn batch_decision_level_and_compact_ranking() {
+    fn batch_overview_names_the_top_types_and_the_comparison_is_compact() {
         let batch = BatchReport::from_reports(
             (0..12)
                 .map(|i| contrast_page(&format!("https://example.com/{i}")))
@@ -933,26 +975,32 @@ mod tests {
         for locale in ["en", "de"] {
             let i18n = I18n::new(locale).unwrap();
             let pres = build_batch_presentation_with_locale(&batch, &i18n);
-            let lines = actions::build_batch_decision_lines(&pres, &i18n);
-            assert!(!lines.is_empty() && lines.len() <= 5, "{locale}");
-            let first = &pres.top_issues[0];
-            assert!(lines[0].starts_with(&first.finding.id), "{locale}");
-            assert!(lines[0].contains(&first.title), "{locale}");
             let out = typ(&batch, locale);
-            assert!(out.contains(&i18n.t("batch-decision-title")), "{locale}");
-            assert!(out.contains(&i18n.t("batch-section-recurring")), "{locale}");
-            // Five lowest and five highest of twelve: ranks 1-5 and 8-12.
             assert!(
-                out.contains(&i18n.count("batch-url-ranking-lowest", 5)),
+                out.contains(&i18n.t_args(
+                    "batch-overview-a-repeats-top",
+                    &[("list", pres.top_issues[0].title.as_str())]
+                )),
                 "{locale}"
             );
+            assert!(out.contains(&i18n.t("batch-causes-title")), "{locale}");
+            // Twelve pages: the technical part's table shows the five lowest
+            // and the five highest, with their true rank; the comparison
+            // does too.
+            for rank in ["1", "5", "8", "12"] {
+                assert!(
+                    out.contains(&format!("\"{rank}\"")),
+                    "{locale}: rank {rank}"
+                );
+            }
+            for rank in ["6", "7"] {
+                assert!(
+                    !out.contains(&format!("\"{rank}\", \"/")),
+                    "{locale}: rank {rank}"
+                );
+            }
             assert!(
-                out.contains(&i18n.count("batch-url-ranking-highest", 5)),
-                "{locale}"
-            );
-            assert!(out.contains("rank: 12"), "{locale}");
-            assert!(
-                !out.contains("rank: 6,") && !out.contains("rank: 7,"),
+                out.contains(&i18n.count("batch-compare-more", 2)),
                 "{locale}"
             );
         }
@@ -965,42 +1013,6 @@ mod tests {
         let batch = security_batch();
         let out = typ(&batch, "en");
         assert!(!out.contains("261:27335"));
-    }
-
-    /// #1039: the user line of the impact summary does not rate users "very
-    /// good" next to a verdict that fails on barriers for them.
-    #[test]
-    fn user_rating_does_not_contradict_the_verdict() {
-        use crate::audit::verdict::BatchReasonKind as K;
-        assert_eq!(
-            portfolio::batch_user_impact_key(95, &[K::LegalFlags(1)]),
-            "batch-user-impact-barriers-fail"
-        );
-        assert_eq!(
-            portfolio::batch_user_impact_key(80, &[K::BlockingIssues(2)]),
-            "batch-user-impact-barriers-fail"
-        );
-        assert_eq!(
-            portfolio::batch_user_impact_key(95, &[K::FailedUrls(1)]),
-            "batch-user-impact-very-good"
-        );
-        assert_eq!(
-            portfolio::batch_user_impact_key(40, &[K::LegalFlags(1)]),
-            "batch-user-impact-critical"
-        );
-        let batch = failing_batch();
-        for locale in ["en", "de"] {
-            let i18n = I18n::new(locale).unwrap();
-            let out = typ(&batch, locale);
-            assert!(
-                out.contains(&i18n.t("batch-user-impact-barriers-fail")),
-                "{locale}"
-            );
-            assert!(
-                !out.contains(&i18n.t("batch-user-impact-very-good")),
-                "{locale}"
-            );
-        }
     }
 
     /// #1039: lists that would name every page are collapsed or retitled,
@@ -1020,7 +1032,7 @@ mod tests {
         assert_eq!(pres.portfolio_summary.weakest_content_pages.len(), 3);
         let all = seo::content_profiles_if_lists_overlap(&pres).expect("lists overlap");
         assert_eq!(all.len(), 3);
-        let out = typ(&batch, "en");
+        let out = typ_at(&batch, "en", ReportLevel::Technical);
         assert!(out.contains(&i18n.t("batch-seo-profiles-title")));
         assert!(!out.contains(&i18n.t("batch-seo-weakest-title")));
         assert!(!out.contains(&i18n.t("batch-table-top-pages")));
@@ -1107,5 +1119,58 @@ mod tests {
             .find(|summary| summary.kind == "viewport_gap")
             .expect("viewport gap summary");
         assert_eq!(viewport.affected_pages, 1);
+    }
+
+    /// #1212: pages with the same accessibility score are told apart by the
+    /// finding of another module, and the recommended page is the one with the
+    /// most finding types; the reason names both.
+    #[test]
+    fn single_report_pick_tells_equal_scores_apart_by_another_module() {
+        let batch = BatchReport::from_reports(
+            vec![
+                contrast_page("https://example.com/c"),
+                security_page("https://example.com/b"),
+                security_page("https://example.com/a"),
+            ],
+            vec![],
+            100,
+        );
+        for locale in ["en", "de"] {
+            let i18n = I18n::new(locale).unwrap();
+            let pres = build_batch_presentation_with_locale(&batch, &i18n);
+            let pick = pres.single_report_pick.as_ref().expect("a pick");
+            // a and b carry more finding types than c; on a tie the URL decides.
+            assert_eq!(pick.url, "https://example.com/a", "{locale}");
+            assert!(
+                pick.types
+                    > pres
+                        .page_focus
+                        .iter()
+                        .find(|f| f.url.ends_with("/c"))
+                        .unwrap()
+                        .types
+            );
+            assert!(pick.scores_tied, "{locale}");
+            let other = pick
+                .other_module
+                .as_ref()
+                .expect("another module's finding");
+            assert!(other.module.is_some(), "{locale}");
+            let reason = glance::pick_reason(pick, &pres, &i18n);
+            assert!(reason.contains(&other.title), "{locale}: {reason}");
+            assert!(
+                reason.contains(&portfolio::localized_module_name(
+                    other.module.unwrap(),
+                    &i18n
+                )),
+                "{locale}: {reason}"
+            );
+            // The comparison and the overview name the page by its path.
+            assert_eq!(compare::url_path("https://example.com/a?x=1"), "/a?x=1");
+            assert_eq!(compare::url_path("https://example.com"), "/");
+            let out = typ(&batch, locale);
+            assert!(out.contains(&i18n.t("batch-tech-pick-rule")), "{locale}");
+            assert!(out.contains(&i18n.t("batch-next-title")), "{locale}");
+        }
     }
 }

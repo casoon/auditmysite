@@ -9,6 +9,47 @@ use crate::i18n::I18n;
 use crate::output::report_model::*;
 use crate::util::short_url;
 
+/// The compact SEO signals of the technical part: values the same on several
+/// pages or missing on pages, which is usually the template, and the
+/// conflicts a page carries against its own canonical, hreflang or robots
+/// rules (#1212).
+pub(super) fn render_batch_seo_signals(
+    mut builder: renderreport::engine::ReportBuilder,
+    pres: &BatchPresentation,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let portfolio = &pres.portfolio_summary;
+    if portfolio.duplicate_content.is_empty()
+        && portfolio.missing_tag_prevalence.is_empty()
+        && portfolio.canonical_issues.is_empty()
+        && portfolio.hreflang_issues.is_empty()
+        && portfolio.robots_conflicts.is_empty()
+    {
+        return builder;
+    }
+    builder = builder.add_component(
+        SectionHeaderSplit::new(
+            i18n.t("batch-tech-seo-title"),
+            i18n.t("batch-tech-seo-intro"),
+        )
+        .with_level(2),
+    );
+    // Cross-page duplicate content (identical title / meta description / H1)
+    builder = render_seo_duplicate_content(builder, pres, i18n);
+    // Cross-page missing-tag prevalence (meta description / canonical / og:image / og:title)
+    builder = render_seo_missing_tags(builder, pres, i18n);
+    // Canonical conflicts (noindex / og:url mismatch)
+    builder = render_seo_canonical_issues(builder, pres, i18n);
+    // Non-reciprocal hreflang relationships
+    builder = render_seo_hreflang_issues(builder, pres, i18n);
+    // Sitemap entries blocked by robots.txt (#549)
+    render_seo_robots_conflicts(builder, pres, i18n)
+}
+
+/// The per-page content and sitemap detail of the SEO module, a chapter of the
+/// report level technical: content profiles, topic overlaps, the sitemap's HTTP
+/// status and link graph, crawl depth and the page-type and schema
+/// distributions. The cross-page signals are in the technical part.
 pub(super) fn render_batch_seo_section(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
@@ -31,25 +72,10 @@ pub(super) fn render_batch_seo_section(
     // Near-duplicates
     builder = render_seo_near_duplicates(builder, pres, i18n);
 
-    // Cross-page duplicate content (identical title / meta description / H1)
-    builder = render_seo_duplicate_content(builder, pres, i18n);
-
-    // Cross-page missing-tag prevalence (meta description / canonical / og:image / og:title)
-    builder = render_seo_missing_tags(builder, pres, i18n);
-
-    // Canonical conflicts (noindex / og:url mismatch)
-    builder = render_seo_canonical_issues(builder, pres, i18n);
-
-    // Non-reciprocal hreflang relationships
-    builder = render_seo_hreflang_issues(builder, pres, i18n);
-
     // Sitemap HTTP/indexability and orphan checks
     builder = render_seo_sitemap_http_issues(builder, pres, i18n);
 
     builder = render_seo_sitemap_orphans(builder, pres, i18n);
-
-    // Sitemap entries blocked by robots.txt (#549)
-    builder = render_seo_robots_conflicts(builder, pres, i18n);
 
     // Crawl depth: BFS click-distance from a heuristic start page through
     // this batch's already-extracted internal link graph (#548). Purely

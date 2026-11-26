@@ -1302,6 +1302,79 @@ pub struct BatchPresentation {
     /// across multiple pages (`audit::template_dedup`), with localized
     /// wording for the runtime locale.
     pub template_clusters: Vec<TemplateClusterView>,
+    /// Per audited page, what a single report would show there (rule in
+    /// `output::builder::batch_focus`), in the order of `url_details`.
+    pub page_focus: Vec<PageFocus>,
+    /// The audited page the batch recommends a single report for; absent
+    /// for fewer than two pages and when no page has a finding.
+    pub single_report_pick: Option<SingleReportPick>,
+    /// How the batch's finding types spread over the audited pages.
+    pub finding_spread: FindingSpread,
+}
+
+/// One finding type (a rule) as the batch overview names it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FocusType {
+    pub rule_id: String,
+    /// Rule title in the run language.
+    pub title: String,
+    pub severity: Severity,
+    /// The module of the finding as `module_scores` names it; `None` for
+    /// accessibility findings (WCAG rules, journey, screen reader).
+    pub module: Option<&'static str>,
+    /// Audited pages the type occurs on.
+    pub pages: usize,
+}
+
+/// What one audited page carries, measured from its findings.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PageFocus {
+    pub url: String,
+    /// Sum over the distinct finding types of the page of the weight of
+    /// their severity on this page (critical 4, high 3, medium 2, low 1).
+    pub weight: u32,
+    /// Distinct finding types on the page.
+    pub types: usize,
+    /// Of them with critical or high severity on this page.
+    pub severe_types: usize,
+    /// Types that occur on no other audited page.
+    pub only_here: Vec<FocusType>,
+}
+
+/// The page the batch recommends a single report for, with the measured
+/// reasons.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SingleReportPick {
+    pub url: String,
+    pub weight: u32,
+    pub types: usize,
+    pub severe_types: usize,
+    /// Finding types of the whole batch that occur on two or more pages,
+    /// and how many of them this page carries.
+    pub shared_types_on_page: usize,
+    pub shared_types: usize,
+    /// All audited pages have the same accessibility score.
+    pub scores_tied: bool,
+    /// The most severe finding of another module on this page, named only
+    /// when the accessibility scores are tied.
+    pub other_module: Option<FocusType>,
+    /// Rule id of the most important shared finding type on this page.
+    pub lead_shared_rule: Option<String>,
+}
+
+/// How the finding types of the batch spread over the audited pages.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FindingSpread {
+    /// Distinct finding types over all pages.
+    pub types: usize,
+    /// Types on every audited page.
+    pub on_all_pages: usize,
+    /// Types on two or more pages, including those on every page.
+    pub shared: usize,
+    /// Types on exactly one page.
+    pub page_specific: usize,
+    /// Audited pages that carry at least one finding.
+    pub pages_with_findings: usize,
 }
 
 /// Localized presentation view of an `audit::RootCause` (`summary.root_causes`).

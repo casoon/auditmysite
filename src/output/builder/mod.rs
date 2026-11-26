@@ -6,6 +6,7 @@
 
 mod actions;
 mod batch;
+mod batch_focus;
 mod finding_group;
 mod helpers;
 mod modules;

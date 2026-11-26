@@ -73,6 +73,47 @@ Minimum content:
 Batch reports are not a stack of single-page reports. They should focus on
 domain-wide patterns, repeated issues and prioritization.
 
+Structure (#1212): the main part is an overview, the technical part carries the
+numbers and the method, and per-page detail stays in the JSON report and the
+single reports.
+
+1. Cover.
+2. Overview page: the scope of the run (sample or complete, "5 of N URLs", HTTP
+   status check of the whole sitemap against full browser audit of the audited
+   pages), the grade and the one status statement with its reasons, and three
+   answers from measured data: how the pages score, what repeats (finding types
+   on several pages against one page only) and which page deserves a single
+   report, and why.
+3. Page comparison: the audited pages by accessibility with page title and path
+   (the domain is the same on every row), the findings and the reason a page
+   deserves a single report; below it the concrete step, the single report of
+   the recommended page and the command that creates it, in place of a generic
+   list of next steps.
+4. Shared and page-specific causes: one compact card per finding type with the
+   largest effect (reach, cause and how sure the report is about it, measure,
+   priority, score effect, finding id).
+5. Technical part and method: the audit frame, how the recommendation is
+   calculated, the module scores per page, the audit caveats, the keyboard
+   journey (one line without findings), render-blocking resources, cross-page
+   SEO and consistency checks, crawl diagnostics, and the opt-in privacy
+   chapter, annex and assessments.
+6. Report level `technical` only: the detail chapters (URL matrix and page
+   types, the per-page content and sitemap detail of the SEO module, the
+   per-page consistency detail, the asset tables, the internal comparison by
+   module) and the per-URL appendix. Their data is in the JSON report at every
+   level.
+
+The recommended page is the one with the highest weight over its distinct
+finding types (critical 4, high 3, medium 2, low 1 per finding type on that
+page; occurrence counts do not enter; findings known from a baseline are left
+out). Ties go to the lower accessibility score, then to more critical or high
+finding types, then to the URL in alphabetical order. When all audited pages
+have the same accessibility score, the recommendation also names the most
+severe finding of another module on the page, preferring one that is not on
+every page. A batch of one page and a batch without findings recommend no page.
+The rule (`output::builder::batch_focus`) reads findings only and is stated in
+the technical part of the PDF; its statements hold for the audited pages.
+
 ## Comparison Reports
 
 Minimum content:
@@ -208,9 +249,15 @@ surface that owns its lifecycle:
   (`finding_uncertainty_text`, `interactive-uncertainty-*`). The function keeps
   the kind-to-message mapping and the arguments (default values, the quoted
   page title, the truncation marker of the example list).
+- `locales/{de,en}/batch-overview.ftl`: the texts of the batch PDF's overview
+  page (`output::pdf::batch_report::glance`: the three answers and the
+  recommendation reason), page comparison (`compare`), causes and next step
+  (`causes`) and technical part (`technical`, and the headers of the compact
+  SEO and consistency parts), all `batch-overview-*`, `batch-compare-*`,
+  `batch-causes-*`, `batch-next-*` and `batch-tech-*`.
 - `locales/{de,en}/batch-consistency.ftl`: the texts of the batch PDF's
   cross-page consistency section (`output::pdf::batch_report::consistency`,
-  `batch-consistency-*`) and of its management assessment, key points, audit
+  `batch-consistency-*`) and of its management risk view, audit
   caveats, internal comparison and decision table
   (`output::pdf::batch_report::management`, `batch-management-*`). The render
   functions keep the thresholds, which message applies and how lists are
@@ -354,11 +401,9 @@ surface that owns its lifecycle:
 - `locales/{de,en}/batch-report.ftl`: the texts of the batch PDF's keyboard
   journey summary (`output::pdf::batch_report::interactive`: intro, table
   title and headings, the interactive category names), the module name
-  "HTML Conformance", the impact summary (`portfolio`: the user, business
-  and risk rows), the cover contents title and the EN 301 549 clause
-  roll-up and overview cards (`overview`:
-  title, intro, column headings, clause statuses, out-of-scope chapter
-  line, card titles), all `batch-report-*`. The renderers keep which
+  "HTML Conformance", the cover contents title and the EN 301 549 clause
+  roll-up (`overview`: title, intro, column headings, clause statuses,
+  out-of-scope chapter line), all `batch-report-*`. The renderers keep which
   message applies, the number formats (word counts, shares), the display
   mode, rating band and baseline texts of other modules, and the clause
   titles and disclaimers that `wcag::en301549` owns. The journey title, the
