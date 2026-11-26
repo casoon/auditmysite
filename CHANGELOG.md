@@ -10,7 +10,7 @@ and verification for each change is in the
 ### Changed
 
 - **Pages:** the project site uses the current shared theme (0.19.0).
-- **Report:** the batch PDF is an overview (Refs #1212). The overview page answers how the pages score, what repeats and which page deserves a single report, by an explicit rule over distinct finding types weighted by severity (`docs/PDF_REPORT_CONTRACT.md`); the page comparison, compact cause cards and a technical part with the method follow. Per-page detail chapters (URL matrix, content and sitemap detail, consistency detail, asset tables) move to the report level technical; a five-page sample of casoon.de takes 9 pages instead of 16, one of inros-lackner.de 11 instead of 19. Nothing is removed from the JSON report.
+- **Report:** the batch PDF is an overview (Refs #1212). The overview page answers how the pages score, what repeats and which page deserves a single report, by an explicit rule over distinct finding types weighted by severity (`docs/PDF_REPORT_CONTRACT.md`); the page comparison, compact cause cards and a technical part with the method follow. Per-page detail chapters (URL matrix, content and sitemap detail, consistency detail, asset tables) move to the report level technical; a five-page sample of casoon.de takes 9 pages instead of 16, one of inros-lackner.de 10 instead of 19. Nothing is removed from the JSON report.
 
 
 ## [2.3.0] - 2026-11-25
