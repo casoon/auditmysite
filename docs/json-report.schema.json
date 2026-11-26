@@ -2245,6 +2245,13 @@
           ],
           "description": "Why the frame was skipped (skipped frames only). cross_origin: rendered out of process (site isolation), see frame-tested; hidden: not perceivable (hidden, aria-hidden, role none/presentation, not rendered, at most 1px, or ignored in the accessibility tree); excluded: inside an audit exclusion; not_loaded: the frame has a source (src, or the data-src of a lazy-load script) but still showed its initial about:blank document after the lazy frames were scrolled into view and waited for, so its content was not audited (the url is that source)."
         },
+        "gap": {
+          "type": "string",
+          "enum": [
+            "dom_unsettled"
+          ],
+          "description": "Audited frames only: what the audit could not settle in this frame (#1180). dom_unsettled: the frame's accessibility tree held elements its DOM capture lacked (the frame kept rendering after the capture), and the DOM and layout captured again did not catch up within the retry budget (3 s), or could not be captured again, so the DOM-based rules judged an older document than the rendered one. The audit quality is partial (`unsettled_frames:N`)."
+        },
         "viewports": {
           "type": "array",
           "items": {

@@ -11,7 +11,9 @@ an id that no longer reports. The rest are JSON members added to objects that th
 close. The changelog has the same entries under `### Breaking` in the
 [2.2.0 section](https://github.com/casoon/auditmysite/blob/main/CHANGELOG.md); the contract behind
 them is the [output contract](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md)
-and the JSON schemas in `docs/`. The changes of 2.1 are in [Migrating from 2.0 to 2.1](../migration-21/).
+and the JSON schemas in `docs/`. The changes of 2.1 are in [Migrating from 2.0 to 2.1](../migration-21/); later breaking changes
+(the experimental Cargo feature, the unstable library API) are in
+[Migrating from 2.2 to 2.3](../migration-23/).
 
 ## How to find what still reads the old shape
 
@@ -91,6 +93,7 @@ are added too; the schemas do not close their objects, so they need no migration
 
 ## Related
 
+- [Migrating from 2.2 to 2.3](../migration-23/)
 - [Migrating from 2.0 to 2.1](../migration-21/)
 - [Migrating to 2.0](../migration-20/)
 - [Output contract](https://github.com/casoon/auditmysite/blob/main/docs/OUTPUT_CONTRACT.md), including the finding id stability and the findings baseline.

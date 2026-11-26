@@ -15,7 +15,7 @@ the default features.
 
 ### Stability policy
 
-Decision for 2.2.0 (#940): the stability promise covers the CLI and the JSON report, and nothing
+Decision for 2.3.0 (#940): the stability promise covers the CLI and the JSON report, and nothing
 in the Rust library. A program that needs audit results should run the CLI and read the JSON
 report. Code that links the crate accepts that any `pub` item can change or disappear in any
 release, a patch release included; the tiers below say how much care a change gets, not whether
