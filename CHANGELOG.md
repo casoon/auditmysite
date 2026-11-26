@@ -11,6 +11,7 @@ and verification for each change is in the
 
 - **Pages:** the project site uses the current shared theme (0.19.0).
 - **Report:** the headline verdicts no longer contradict each other (Refs #1208). The accessibility verdict "significant barriers" no longer claims "structural backlog" (a claim about distribution that the "Problem profile: isolated" next to it contradicted); the problem profile now says in its title that it describes the distribution across the modules and, for an isolated profile with weak modules, that no module is below 40 points. In the batch report the status headline states what the WCAG check found on the audited pages ("No WCAG violations were found automatically on the 5 audited pages", "… on all 5 audited pages", "… on 2 of the 5 …"), the assessment label follows in its body, "Main issue" names only a WCAG finding, and the most important finding of the other modules (HTML, SEO, security) has its own line "Most important finding from the other modules". PDF and table text only; JSON is unchanged. Pure checks (`verdict_profile_contradiction`, `batch_headline_contradiction`) fail for contradictory label pairs.
+- **Report:** the single report's table of contents moves directly behind the first summary page (verdict, rating, problem profile) instead of after the whole management summary (page 6 of a technical report); the quality profile, weightings and risks follow it. The batch report already carries it on page 3, directly behind the audit frame (Refs #1210).
 
 
 ## [2.3.0] - 2026-11-25

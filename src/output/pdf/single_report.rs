@@ -835,6 +835,17 @@ pub(super) fn audit_scope_line(en: bool) -> String {
 }
 
 pub(super) fn render_management_page(
+    builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    render_management_rest(render_management_first_page(builder, vm, i18n), vm, i18n)
+}
+
+/// The first summary page: headline verdict, rating and problem profile. The
+/// table of contents follows directly behind it (#1210); the rest of the
+/// management summary (`render_management_rest`) comes after the contents.
+pub(super) fn render_management_first_page(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
     i18n: &I18n,
@@ -949,6 +960,18 @@ pub(super) fn render_management_page(
             .with_color(design::tokens::MUTED),
         );
     }
+
+    builder
+}
+
+/// Quality profile, score drivers, breakdowns, risks and measures: the rest of
+/// the management summary behind the table of contents.
+pub(super) fn render_management_rest(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = is_english(i18n);
 
     // 2b. Quality profile radar — balance across all dimensions at a glance.
     let radar_data: Vec<(String, f64)> = vm
