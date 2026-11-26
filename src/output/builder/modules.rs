@@ -181,10 +181,10 @@ pub(super) fn derive_performance_card_context(
 /// Build a `(name, formatted_value, rating)` vitals list from a PerformanceResults.
 /// Used for both desktop and mobile viewport presentations.
 ///
-/// Estimated lab metrics (INP, TTI, Speed Index) carry a localized "(lab
+/// Estimated lab metrics (INP, TTI) carry a localized "(lab
 /// estimate)" suffix so they cannot be mistaken for directly measured — or, more
 /// importantly, real field/RUM — values (#262). All values are local headless
-/// lab data.
+/// lab data. The Speed Index is labelled as an approximation instead (#1225).
 pub(super) fn build_vitals_list(
     p: &crate::audit::PerformanceResults,
     i18n: &I18n,
@@ -249,8 +249,9 @@ pub(super) fn build_vitals_list(
         ));
     }
     if let Some(ref si) = p.vitals.speed_index {
+        // The approximation label already says it is derived: no "(lab estimate)" suffix.
         vitals.push((
-            label("Speed Index", si),
+            i18n.t("perf-speed-index-approximation"),
             format!("{:.0}ms", si.value),
             si.rating.clone(),
         ));

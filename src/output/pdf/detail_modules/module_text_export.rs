@@ -69,7 +69,7 @@ fn vitals(n: usize) -> Vec<(String, String, String)> {
         ("TTFB", "800ms", "good"),
         ("TBT", "1100ms", "needs-improvement"),
         ("TTI", "3.200s", "unknown"),
-        ("Speed Index", "-0.5s", "poor"),
+        ("Speed Index (approximation)", "-0.5s", "poor"),
     ]
     .iter()
     .take(n)

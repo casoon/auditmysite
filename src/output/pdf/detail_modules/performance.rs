@@ -42,7 +42,7 @@ fn score_gauge_grid(desktop_score: u32, mobile_score: u32) -> Grid {
 }
 
 /// Table for the vitals beyond the first 4 already shown in the compact
-/// strip (TBT, TTI, Speed Index) — was a plain `KeyValueList` repeating
+/// strip (TBT, TTI, Speed Index approximation) — was a plain `KeyValueList` repeating
 /// *all* vitals (including the first 4 a second time) as bare
 /// "1100ms — good" text, with the rating printed as an untranslated
 /// English token even in German reports.
@@ -64,7 +64,7 @@ fn additional_vitals_table(vitals: &[(String, String, String)], i18n: &I18n) -> 
             vital_rating_label(rating, en).to_string(),
         ]);
     }
-    // Titled so TBT/TTI/Speed Index are not read as a continuation of the
+    // Titled so TBT/TTI/Speed-Index approximation are not read as a continuation of the
     // strip above — none of them is a Core Web Vital.
     Some(table.with_title(i18n.t("output-perf-further-metrics")))
 }
