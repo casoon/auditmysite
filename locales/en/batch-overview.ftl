@@ -80,3 +80,7 @@ batch-tech-detail-title = Detail chapters (report level technical)
 batch-tech-detail-intro = The following chapters list per-page details that the JSON report also holds.
 batch-tech-consistency-detail-title = Consistency across pages: details
 batch-tech-consistency-detail-intro = Pages without an observed inbound link, schema conflicts, structured data per page and topic overlaps.
+
+## Audit caveats
+batch-flag-text-consent-wall-artifact = On these pages the consent dialog may have been measured instead of the page content. A run with --dismiss-consent repeats the check without the dialog.
+batch-flag-text-other = There is a further note on how these pages were measured; details are in the JSON report under audit_flags.

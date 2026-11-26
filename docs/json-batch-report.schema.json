@@ -682,17 +682,17 @@
         "failed_url_count": {
           "type": "integer",
           "minimum": 0,
-          "description": "Deprecated alias: pages whose own decision is not pass (warn or fail). Read fail_url_count and warn_url_count."
+          "description": "Deprecated alias: audited pages whose own decision is not pass (fail_url_count + warn_url_count). It counts pages that were audited and missed a criterion of the decision profile, never audits that failed technically; those are counted in coverage.failed and listed in errors. Read fail_url_count and warn_url_count."
         },
         "fail_url_count": {
           "type": "integer",
           "minimum": 0,
-          "description": "Pages whose own decision is fail."
+          "description": "Audited pages whose own decision is fail: the audit ran and produced a report, and the page missed a criterion of the decision profile (a legal flag, a blocking issue, a technical blocker or the score threshold). Not a technical failure; an audit that did not run or produced no report has no decision and is counted in coverage.failed."
         },
         "warn_url_count": {
           "type": "integer",
           "minimum": 0,
-          "description": "Pages whose own decision is warn."
+          "description": "Audited pages whose own decision is warn: the audit ran and produced a report; the page passed its hard criteria with a reservation."
         },
         "attempted_url_count": {
           "type": "integer",
@@ -723,7 +723,7 @@
             "attempted": { "type": "integer", "minimum": 0, "description": "URLs an audit was started for." },
             "succeeded": { "type": "integer", "minimum": 0, "description": "URLs that produced a report." },
             "blocked": { "type": "integer", "minimum": 0, "description": "URLs answered with a bot wall, challenge or access denial." },
-            "failed": { "type": "integer", "minimum": 0, "description": "URLs whose audit failed for another reason." }
+            "failed": { "type": "integer", "minimum": 0, "description": "URLs whose audit failed technically for another reason than a bot wall (timeout, navigation or protocol error, no report produced). They have no score, enter no average and are listed in errors. An audited URL that missed the verdict criterion is not counted here: it is in summary.fail_url_count." }
           }
         },
         "violated_rule_count": {

@@ -104,6 +104,7 @@ fn no_scenario_leaves_a_key_or_a_placeholder_in_a_text() {
                     && !text.contains("batch-compare-")
                     && !text.contains("batch-causes-")
                     && !text.contains("batch-tech-")
+                    && !text.contains("batch-flag-")
                     && !text.contains("batch-next-")
                     && !text.contains("batch-col-")
                     && !text.contains("batch-interactive-")

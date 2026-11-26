@@ -15,35 +15,37 @@ use crate::util::short_url;
 pub(super) struct BatchAuditFlagSummary {
     pub(super) kind: String,
     pub(super) affected_pages: usize,
-    example: String,
+    /// The check ids the flags of this kind name, deduplicated and sorted;
+    /// they only select the sentence, they are never printed.
+    sources: Vec<String>,
 }
 
 pub(super) fn aggregate_audit_flags(
     reports: &[crate::audit::AuditReport],
 ) -> Vec<BatchAuditFlagSummary> {
-    let mut by_kind: std::collections::BTreeMap<String, (usize, String)> =
-        std::collections::BTreeMap::new();
+    let mut by_kind: std::collections::BTreeMap<
+        String,
+        (usize, std::collections::BTreeSet<String>),
+    > = std::collections::BTreeMap::new();
 
     for report in reports {
         let normalized = crate::audit::normalized::normalize(report);
         let mut seen_on_page = std::collections::BTreeSet::new();
         for flag in &normalized.normalized.audit_flags {
-            if !seen_on_page.insert(flag.kind.clone()) {
-                continue;
+            let entry = by_kind.entry(flag.kind.clone()).or_default();
+            entry.1.extend(flag.source.split(',').map(str::to_string));
+            if seen_on_page.insert(flag.kind.clone()) {
+                entry.0 += 1;
             }
-            by_kind
-                .entry(flag.kind.clone())
-                .and_modify(|(count, _)| *count += 1)
-                .or_insert((1, flag.message.clone()));
         }
     }
 
     let mut summaries: Vec<_> = by_kind
         .into_iter()
-        .map(|(kind, (affected_pages, example))| BatchAuditFlagSummary {
+        .map(|(kind, (affected_pages, sources))| BatchAuditFlagSummary {
             kind,
             affected_pages,
-            example,
+            sources: sources.into_iter().collect(),
         })
         .collect();
     summaries.sort_by(|a, b| {
@@ -62,8 +64,27 @@ pub(super) fn audit_flag_batch_title(kind: &str, i18n: &I18n) -> String {
         "viewport_gap" => "batch-management-flag-viewport-gap",
         "incomplete_audit" => "batch-management-flag-incomplete-audit",
         "consent_wall_artifact" => "batch-management-flag-consent-wall-artifact",
+        "side_check_unanswered" => "pdf-frame-flag-title-side-check-unanswered",
         _ => "batch-management-flag-other",
     })
+}
+
+/// The plain sentence of an audit caveat in the run language: what it means
+/// for reading the scores. The check ids of the JSON (`audit_flags[].source`)
+/// only select which checks are named, by their plain names (#1213).
+pub(super) fn audit_flag_batch_text(summary: &BatchAuditFlagSummary, i18n: &I18n) -> String {
+    match summary.kind.as_str() {
+        "consent_banner" => i18n.t("pdf-frame-flag-text-consent-banner"),
+        "bypass_blocks_untested" => i18n.t("pdf-frame-flag-text-bypass-blocks-untested"),
+        "conflicting_signal" => i18n.t("pdf-frame-flag-text-conflicting-signal"),
+        "viewport_gap" => i18n.t("pdf-frame-flag-text-viewport-gap"),
+        "incomplete_audit" => i18n.t("pdf-frame-flag-text-incomplete-audit"),
+        "consent_wall_artifact" => i18n.t("batch-flag-text-consent-wall-artifact"),
+        "side_check_unanswered" => {
+            super::super::side_check_unanswered_text(&summary.sources.join(","), i18n)
+        }
+        _ => i18n.t("batch-flag-text-other"),
+    }
 }
 
 pub(super) fn render_batch_audit_flags(
@@ -82,7 +103,7 @@ pub(super) fn render_batch_audit_flags(
         rows.push(
             ChecklistRow::new(
                 audit_flag_batch_title(&summary.kind, i18n),
-                format!("{} — {}", pages, summary.example),
+                format!("{} — {}", pages, audit_flag_batch_text(&summary, i18n)),
             )
             .with_status("warn"),
         );
@@ -365,5 +386,77 @@ pub(super) fn batch_wcag_headline_text(
                 ("affected", FluentValue::from(affected as i64)),
             ],
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// #1213: an audit caveat of a batch is one plain sentence in the run
+    /// language; the check ids of the JSON and the English message the
+    /// analysis stores never reach the German report.
+    #[test]
+    fn audit_caveats_are_plain_sentences_without_check_ids() {
+        let summary = BatchAuditFlagSummary {
+            kind: "side_check_unanswered".to_string(),
+            affected_pages: 2,
+            sources: vec![
+                "security.certificate".to_string(),
+                "seo.www_redirect".to_string(),
+            ],
+        };
+        for locale in ["de", "en"] {
+            let i18n = I18n::new(locale).unwrap();
+            let title = audit_flag_batch_title(&summary.kind, &i18n);
+            let text = audit_flag_batch_text(&summary, &i18n);
+            for leaked in [
+                "seo.www_redirect",
+                "security.certificate",
+                "Side checks without an answer",
+            ] {
+                assert!(!text.contains(leaked), "{locale}: {text}");
+                assert!(!title.contains(leaked), "{locale}: {title}");
+            }
+            assert!(
+                !text.contains("batch-") && !text.contains("pdf-frame-"),
+                "{text}"
+            );
+        }
+        let de = I18n::new("de").unwrap();
+        let text = audit_flag_batch_text(&summary, &de);
+        assert!(text.contains("Zertifikatsdetails"), "{text}");
+        assert!(text.contains("www-/non-www"), "{text}");
+        assert_eq!(
+            audit_flag_batch_title("side_check_unanswered", &de),
+            "Zusatzprüfung ohne Antwort"
+        );
+        // Every kind has a sentence of its own in both languages, and a kind
+        // the report does not know falls back to a plain note, not a key.
+        for kind in [
+            "consent_banner",
+            "bypass_blocks_untested",
+            "conflicting_signal",
+            "viewport_gap",
+            "incomplete_audit",
+            "consent_wall_artifact",
+            "something_new",
+        ] {
+            let summary = BatchAuditFlagSummary {
+                kind: kind.to_string(),
+                affected_pages: 1,
+                sources: vec![],
+            };
+            for locale in ["de", "en"] {
+                let i18n = I18n::new(locale).unwrap();
+                let text = audit_flag_batch_text(&summary, &i18n);
+                assert!(
+                    !text.is_empty()
+                        && !text.starts_with("batch-")
+                        && !text.starts_with("pdf-frame-"),
+                    "{locale} {kind}: {text}"
+                );
+            }
+        }
     }
 }

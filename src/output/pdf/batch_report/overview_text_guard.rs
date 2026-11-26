@@ -1,7 +1,7 @@
-//! Guards of `locales/{de,en}/batch-overview.ftl` (#1212): the same
+//! Guards of `locales/{de,en}/batch-overview.ftl` (#1212, #1213): the same
 //! keys in both languages, every key defined once, used by `glance.rs`,
-//! `compare.rs`, `causes.rs`, `technical.rs`, `seo.rs`, `consistency.rs` or
-//! `batch_report.rs` and resolving without errors, and no
+//! `compare.rs`, `causes.rs`, `technical.rs`, `management.rs`, `seo.rs`,
+//! `consistency.rs` or `batch_report.rs` and resolving without errors, and no
 //! German in the English file.
 
 use fluent_bundle::{FluentArgs, FluentBundle, FluentResource, FluentValue};
@@ -9,11 +9,12 @@ use std::collections::BTreeSet;
 
 const EN: &str = include_str!("../../../../locales/en/batch-overview.ftl");
 const DE: &str = include_str!("../../../../locales/de/batch-overview.ftl");
-const SOURCES: [&str; 7] = [
+const SOURCES: [&str; 8] = [
     include_str!("glance.rs"),
     include_str!("compare.rs"),
     include_str!("causes.rs"),
     include_str!("technical.rs"),
+    include_str!("management.rs"),
     include_str!("seo.rs"),
     include_str!("consistency.rs"),
     include_str!("../batch_report.rs"),
