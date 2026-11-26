@@ -7,6 +7,11 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Changed
+
+- **Pages:** the project site uses the current shared theme (0.19.0).
+
+
 ## [2.3.0] - 2026-11-25
 
 ### Breaking
