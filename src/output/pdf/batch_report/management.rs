@@ -15,35 +15,37 @@ use crate::util::short_url;
 pub(super) struct BatchAuditFlagSummary {
     pub(super) kind: String,
     pub(super) affected_pages: usize,
-    example: String,
+    /// The check ids the flags of this kind name, deduplicated and sorted;
+    /// they only select the sentence, they are never printed.
+    sources: Vec<String>,
 }
 
 pub(super) fn aggregate_audit_flags(
     reports: &[crate::audit::AuditReport],
 ) -> Vec<BatchAuditFlagSummary> {
-    let mut by_kind: std::collections::BTreeMap<String, (usize, String)> =
-        std::collections::BTreeMap::new();
+    let mut by_kind: std::collections::BTreeMap<
+        String,
+        (usize, std::collections::BTreeSet<String>),
+    > = std::collections::BTreeMap::new();
 
     for report in reports {
         let normalized = crate::audit::normalized::normalize(report);
         let mut seen_on_page = std::collections::BTreeSet::new();
         for flag in &normalized.normalized.audit_flags {
-            if !seen_on_page.insert(flag.kind.clone()) {
-                continue;
+            let entry = by_kind.entry(flag.kind.clone()).or_default();
+            entry.1.extend(flag.source.split(',').map(str::to_string));
+            if seen_on_page.insert(flag.kind.clone()) {
+                entry.0 += 1;
             }
-            by_kind
-                .entry(flag.kind.clone())
-                .and_modify(|(count, _)| *count += 1)
-                .or_insert((1, flag.message.clone()));
         }
     }
 
     let mut summaries: Vec<_> = by_kind
         .into_iter()
-        .map(|(kind, (affected_pages, example))| BatchAuditFlagSummary {
+        .map(|(kind, (affected_pages, sources))| BatchAuditFlagSummary {
             kind,
             affected_pages,
-            example,
+            sources: sources.into_iter().collect(),
         })
         .collect();
     summaries.sort_by(|a, b| {
@@ -62,8 +64,27 @@ pub(super) fn audit_flag_batch_title(kind: &str, i18n: &I18n) -> String {
         "viewport_gap" => "batch-management-flag-viewport-gap",
         "incomplete_audit" => "batch-management-flag-incomplete-audit",
         "consent_wall_artifact" => "batch-management-flag-consent-wall-artifact",
+        "side_check_unanswered" => "pdf-frame-flag-title-side-check-unanswered",
         _ => "batch-management-flag-other",
     })
+}
+
+/// The plain sentence of an audit caveat in the run language: what it means
+/// for reading the scores. The check ids of the JSON (`audit_flags[].source`)
+/// only select which checks are named, by their plain names (#1213).
+pub(super) fn audit_flag_batch_text(summary: &BatchAuditFlagSummary, i18n: &I18n) -> String {
+    match summary.kind.as_str() {
+        "consent_banner" => i18n.t("pdf-frame-flag-text-consent-banner"),
+        "bypass_blocks_untested" => i18n.t("pdf-frame-flag-text-bypass-blocks-untested"),
+        "conflicting_signal" => i18n.t("pdf-frame-flag-text-conflicting-signal"),
+        "viewport_gap" => i18n.t("pdf-frame-flag-text-viewport-gap"),
+        "incomplete_audit" => i18n.t("pdf-frame-flag-text-incomplete-audit"),
+        "consent_wall_artifact" => i18n.t("batch-flag-text-consent-wall-artifact"),
+        "side_check_unanswered" => {
+            super::super::side_check_unanswered_text(&summary.sources.join(","), i18n)
+        }
+        _ => i18n.t("batch-flag-text-other"),
+    }
 }
 
 pub(super) fn render_batch_audit_flags(
@@ -82,7 +103,7 @@ pub(super) fn render_batch_audit_flags(
         rows.push(
             ChecklistRow::new(
                 audit_flag_batch_title(&summary.kind, i18n),
-                format!("{} — {}", pages, summary.example),
+                format!("{} — {}", pages, audit_flag_batch_text(&summary, i18n)),
             )
             .with_status("warn"),
         );
@@ -90,53 +111,6 @@ pub(super) fn render_batch_audit_flags(
 
     builder
         .add_component(ChecklistPanel::new(rows).with_title(i18n.t("batch-management-flags-title")))
-}
-
-/// Clear batch assessment — no score, just interpretation
-pub(super) fn build_batch_assessment(
-    summary: &crate::output::report_model::PortfolioSummary,
-    dist: &SeverityDistribution,
-    i18n: &I18n,
-) -> String {
-    let score = summary
-        .average_score
-        .expect(super::UNMEASURED_REFUSED)
-        .round() as u32;
-    // Score band is the primary signal; severity only refines wording within a
-    // band. A low average must never yield a reassuring label (mirrors the
-    // single-report logic in builder/single/executive.rs, #355).
-    let key = if score < 40 {
-        "batch-management-assessment-critical"
-    } else if score < 60 {
-        if dist.critical > 0 {
-            "batch-management-assessment-serious"
-        } else {
-            "batch-management-assessment-substantial-gaps"
-        }
-    } else if score < 75 {
-        if dist.critical > 0 {
-            "batch-management-assessment-usable-critical"
-        } else if dist.high > 0 {
-            "batch-management-assessment-usable-high"
-        } else {
-            "batch-management-assessment-needs-improvement"
-        }
-    } else if dist.critical > 0 {
-        // From 75 up the severity refines the band label; above 90 too, where
-        // "largely accessible" used to stand next to open high findings and a
-        // failing verdict (#1039).
-        "batch-management-assessment-stable-critical"
-    } else if dist.high > 0 {
-        // What the automated check found, not a conformance claim: the
-        // rating note right above says the band is no statement of
-        // conformance (#1039).
-        "batch-management-assessment-good-high"
-    } else if score < 90 {
-        "batch-management-assessment-fine-tuning"
-    } else {
-        "batch-management-assessment-polish"
-    };
-    i18n.t(key)
 }
 
 /// The management risk dimensions of the batch: the same derivation the JSON
@@ -357,67 +331,132 @@ pub(super) fn batch_score_effect(group: &FindingGroup, i18n: &I18n) -> Option<St
         })
 }
 
-/// The URLs that carry at least one critical or high WCAG finding: the number
-/// the "critical/high occurrences on N URLs" key point names. It was the count
-/// of all audited URLs, so two failing pages of five read "on 5 URLs" (#1039).
-fn urls_with_critical_or_high(pres: &BatchPresentation) -> i64 {
-    pres.url_ranking
-        .iter()
-        .filter(|url| url.critical_violations > 0)
-        .count() as i64
+fn is_wcag_group(group: &FindingGroup) -> bool {
+    !group.finding.wcag_criterion.is_empty()
 }
 
-/// 3 key takeaways for batch report
-pub(super) fn build_batch_key_points(
-    pres: &BatchPresentation,
-    dist: &SeverityDistribution,
-    legal_flags: usize,
-    i18n: &I18n,
-) -> Vec<String> {
-    let mut points = Vec::with_capacity(3);
+/// What the automated WCAG check found on the audited pages: the factual
+/// headline of the batch status. A finding of another module (HTML, SEO,
+/// security) never decides it (#1208).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum BatchWcagHeadline {
+    /// No WCAG violation on any audited page.
+    NoneFound,
+    /// WCAG violations on `affected` of the audited pages.
+    SomePages { affected: usize },
+    /// WCAG violations on every audited page.
+    AllPages,
+}
 
-    // Point 1: critical/high WCAG occurrences, with the per-page finding
-    // groups they form — two different counts, both named.
-    let ch = dist.critical + dist.high;
-    let occ = &pres.portfolio_summary.occurrence_distribution;
-    let ch_occurrences = occ.critical + occ.high;
-    if ch > 0 {
-        points.push(i18n.t_args(
-            "batch-management-point-severe",
-            &[
-                ("occurrences", FluentValue::from(ch_occurrences as i64)),
-                ("urls", FluentValue::from(urls_with_critical_or_high(pres))),
-                ("findings", FluentValue::from(ch as i64)),
-            ],
-        ));
-    }
-
-    // Point 2: Dominant/recurring issue
-    if let Some(top) = pres.top_issues.first() {
-        points.push(i18n.t_args(
-            "batch-management-point-main-issue",
-            &[
-                ("title", FluentValue::from(top.title.as_str())),
-                (
-                    "occurrences",
-                    FluentValue::from(top.finding.occurrence_count as i64),
-                ),
-                ("urls", FluentValue::from(top.affected_urls.len() as i64)),
-            ],
-        ));
-    }
-
-    // Point 3: Legal status — from the legal flags the batch decision uses
-    // (high or critical Level A/AA rules), as the single report does; keyed on
-    // critical findings alone it read "no Level A/AA violations" next to a
-    // high AA finding (#1039).
-    points.push(i18n.t(if legal_flags > 0 {
-        "batch-management-point-legal-flags"
-    } else if dist.high > 0 {
-        "batch-management-point-structural"
+pub(super) fn batch_wcag_headline(pres: &BatchPresentation) -> BatchWcagHeadline {
+    let affected: std::collections::BTreeSet<&String> = pres
+        .top_issues
+        .iter()
+        .filter(|g| is_wcag_group(g) && g.finding.occurrence_count > 0)
+        .flat_map(|g| g.affected_urls.iter())
+        .collect();
+    if affected.is_empty() {
+        BatchWcagHeadline::NoneFound
+    } else if affected.len() >= pres.portfolio_summary.total_urls {
+        BatchWcagHeadline::AllPages
     } else {
-        "batch-management-point-no-barriers"
-    }));
+        BatchWcagHeadline::SomePages {
+            affected: affected.len(),
+        }
+    }
+}
 
-    points
+pub(super) fn batch_wcag_headline_text(
+    headline: BatchWcagHeadline,
+    total_urls: usize,
+    i18n: &I18n,
+) -> String {
+    let total = FluentValue::from(total_urls as i64);
+    match headline {
+        BatchWcagHeadline::NoneFound => {
+            i18n.t_args("batch-management-headline-none", &[("total", total)])
+        }
+        BatchWcagHeadline::AllPages => {
+            i18n.t_args("batch-management-headline-all", &[("total", total)])
+        }
+        BatchWcagHeadline::SomePages { affected } => i18n.t_args(
+            "batch-management-headline-some",
+            &[
+                ("total", total),
+                ("affected", FluentValue::from(affected as i64)),
+            ],
+        ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// #1213: an audit caveat of a batch is one plain sentence in the run
+    /// language; the check ids of the JSON and the English message the
+    /// analysis stores never reach the German report.
+    #[test]
+    fn audit_caveats_are_plain_sentences_without_check_ids() {
+        let summary = BatchAuditFlagSummary {
+            kind: "side_check_unanswered".to_string(),
+            affected_pages: 2,
+            sources: vec![
+                "security.certificate".to_string(),
+                "seo.www_redirect".to_string(),
+            ],
+        };
+        for locale in ["de", "en"] {
+            let i18n = I18n::new(locale).unwrap();
+            let title = audit_flag_batch_title(&summary.kind, &i18n);
+            let text = audit_flag_batch_text(&summary, &i18n);
+            for leaked in [
+                "seo.www_redirect",
+                "security.certificate",
+                "Side checks without an answer",
+            ] {
+                assert!(!text.contains(leaked), "{locale}: {text}");
+                assert!(!title.contains(leaked), "{locale}: {title}");
+            }
+            assert!(
+                !text.contains("batch-") && !text.contains("pdf-frame-"),
+                "{text}"
+            );
+        }
+        let de = I18n::new("de").unwrap();
+        let text = audit_flag_batch_text(&summary, &de);
+        assert!(text.contains("Zertifikatsdetails"), "{text}");
+        assert!(text.contains("www-/non-www"), "{text}");
+        assert_eq!(
+            audit_flag_batch_title("side_check_unanswered", &de),
+            "Zusatzprüfung ohne Antwort"
+        );
+        // Every kind has a sentence of its own in both languages, and a kind
+        // the report does not know falls back to a plain note, not a key.
+        for kind in [
+            "consent_banner",
+            "bypass_blocks_untested",
+            "conflicting_signal",
+            "viewport_gap",
+            "incomplete_audit",
+            "consent_wall_artifact",
+            "something_new",
+        ] {
+            let summary = BatchAuditFlagSummary {
+                kind: kind.to_string(),
+                affected_pages: 1,
+                sources: vec![],
+            };
+            for locale in ["de", "en"] {
+                let i18n = I18n::new(locale).unwrap();
+                let text = audit_flag_batch_text(&summary, &i18n);
+                assert!(
+                    !text.is_empty()
+                        && !text.starts_with("batch-")
+                        && !text.starts_with("pdf-frame-"),
+                    "{locale} {kind}: {text}"
+                );
+            }
+        }
+    }
 }

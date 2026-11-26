@@ -1170,7 +1170,9 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
             };
 
             // Deduplicate by selector: multiple DOM nodes that share an identical
-            // CSS selector string collapse into a single representative occurrence.
+            // CSS selector string collapse into a single representative occurrence,
+            // unless the selector is shared by several elements and the excerpts
+            // of the nodes differ (#1211).
             // occurrence_count still reflects the actual number of affected elements.
             // Capped at MAX_OCCURRENCES to keep JSON output compact; the true total
             // is always available via occurrence_count.
@@ -1180,7 +1182,11 @@ fn build_wcag_findings(violations: &[crate::wcag::Violation]) -> Vec<NormalizedF
                 .iter()
                 .filter(|v| {
                     let key = v.selector.as_deref().unwrap_or(&v.node_id);
-                    seen_selectors.insert((key.to_string(), v.is_dark_color_scheme()))
+                    seen_selectors.insert((
+                        key.to_string(),
+                        v.is_dark_color_scheme(),
+                        crate::wcag::types::locator_hint(&v.evidence, v.html_snippet.as_deref()),
+                    ))
                 })
                 .take(MAX_OCCURRENCES)
                 .map(|v| OccurrenceDetail {
@@ -1366,6 +1372,31 @@ fn providers_of<'a>(providers: impl Iterator<Item = Option<&'a str>>) -> Vec<Str
 /// action plan list the same ones (#1039).
 pub const BATCH_TOP_ACTION_COUNT: usize = 8;
 
+/// The findings of one page that count as actions of a batch: primary
+/// findings. References and derived indicator findings stay on the page, not
+/// in the batch action list (#780). A reference whose cause no primary finding
+/// of the page carries is the page's only record of that cause and is listed:
+/// the Mobile 44 px touch-target measurement when WCAG 2.5.8 (24 px) did not
+/// fire (#1039).
+pub(crate) fn batch_listed_findings(report: &NormalizedReport) -> Vec<&NormalizedFinding> {
+    let charged: HashSet<&str> = report
+        .findings
+        .iter()
+        .filter(|f| f.contract.is_primary())
+        .map(|f| f.contract.cause.as_str())
+        .collect();
+    report
+        .findings
+        .iter()
+        .filter(|f| {
+            f.contract.is_primary()
+                || (f.contract.scoring.effect
+                    == crate::audit::finding_contract::ScoringEffect::Reference
+                    && !charged.contains(f.contract.cause.as_str()))
+        })
+        .collect()
+}
+
 /// Aggregates the findings of a batch per rule, in `action_order` — the one
 /// source for `top_actions` in the batch JSON and the top actions, finding
 /// list and action plan in the batch PDF.
@@ -1385,25 +1416,7 @@ pub fn aggregate_batch_findings(
     let mut aggregated: Vec<(NormalizedFinding, Vec<String>)> = Vec::new();
     let mut index: HashMap<String, usize> = HashMap::new();
     for report in reports {
-        // Actions are primary findings: references and derived indicator
-        // findings stay on the page, not in the batch action list (#780).
-        // A reference whose cause no primary finding of the page carries is
-        // the page's only record of that cause and is listed: the Mobile
-        // 44 px touch-target measurement when WCAG 2.5.8 (24 px) did not fire
-        // (#1039).
-        let charged: HashSet<&str> = report
-            .findings
-            .iter()
-            .filter(|f| f.contract.is_primary())
-            .map(|f| f.contract.cause.as_str())
-            .collect();
-        let listed = |f: &&NormalizedFinding| {
-            f.contract.is_primary()
-                || (f.contract.scoring.effect
-                    == crate::audit::finding_contract::ScoringEffect::Reference
-                    && !charged.contains(f.contract.cause.as_str()))
-        };
-        for finding in report.findings.iter().filter(listed) {
+        for finding in batch_listed_findings(report) {
             match index.get(&finding.aggregation_key) {
                 Some(&i) => {
                     let (entry, urls) = &mut aggregated[i];

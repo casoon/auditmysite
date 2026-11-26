@@ -1,7 +1,6 @@
 use crate::output::localized::is_english;
-use renderreport::components::advanced::{Grid, KeyValueList, PageBreak, SectionHeaderSplit};
-use renderreport::components::charts::{Gauge, GaugeThreshold};
-use renderreport::components::{AuditTable, BenchmarkRow, BenchmarkTable, TableColumn};
+use renderreport::components::advanced::{PageBreak, SectionHeaderSplit, SoftPageBreak};
+use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
 
 use crate::i18n::I18n;
@@ -9,7 +8,6 @@ use crate::model::ReportLevel;
 use crate::output::report_model::*;
 use crate::util::short_url;
 
-use super::super::design::tokens;
 use super::appendix::render_batch_crawl_links;
 
 pub(super) fn render_batch_module_portfolio(
@@ -22,37 +20,9 @@ pub(super) fn render_batch_module_portfolio(
         return builder;
     }
 
-    builder = builder.add_component(
-        SectionHeaderSplit::new(
-            i18n.t("batch-module-portfolio-title"),
-            i18n.t("batch-module-portfolio-intro"),
-        )
-        .with_level(1),
-    );
-
-    let mut grid = Grid::new(4).with_item_min_height("118pt");
-    for (name, score) in &pres.portfolio_summary.module_averages {
-        let mut gauge = Gauge::new(localized_module_name(name, i18n), *score as f64);
-        gauge.thresholds = vec![
-            GaugeThreshold {
-                value: 0.0,
-                color: tokens::DANGER.to_string(),
-            },
-            GaugeThreshold {
-                value: 50.0,
-                color: tokens::WARN_DEEP.to_string(),
-            },
-            GaugeThreshold {
-                value: 90.0,
-                color: tokens::SUCCESS.to_string(),
-            },
-        ];
-        grid = grid.add_item(serde_json::json!({
-            "type": "gauge",
-            "data": gauge.to_data()
-        }));
-    }
-    builder = builder.add_component(grid);
+    builder = builder.add_component(SoftPageBreak::needs(super::causes::SECTION_OPENER_ROOM));
+    builder =
+        builder.add_component(Section::new(i18n.t("batch-module-portfolio-title")).with_level(2));
 
     // Average, then the spread over the pages that measured the module —
     // no "clean pages" from score ≥ 90, which says nothing about findings.
@@ -204,69 +174,6 @@ pub(super) fn module_effect_sentence(
     })
 }
 
-/// The Fluent message of the user line in the impact summary. The average
-/// alone read "Very good" next to a failed verdict: when barriers for users
-/// (legal flags, blocking issues) fail the batch, the line says so instead of
-/// a good rating (#1039).
-pub(super) fn batch_user_impact_key(
-    a11y_avg: u32,
-    reasons: &[crate::audit::verdict::BatchReasonKind],
-) -> &'static str {
-    use crate::audit::verdict::BatchReasonKind as K;
-    let barriers_fail = reasons
-        .iter()
-        .any(|reason| matches!(reason, K::LegalFlags(_) | K::BlockingIssues(_)));
-    match a11y_avg {
-        s if s < 50 => "batch-user-impact-critical",
-        s if s < 70 => "batch-user-impact-limited",
-        _ if barriers_fail => "batch-user-impact-barriers-fail",
-        s if s < 85 => "batch-user-impact-good",
-        _ => "batch-user-impact-very-good",
-    }
-}
-
-pub(super) fn render_batch_impact_summary(
-    mut builder: renderreport::engine::ReportBuilder,
-    pres: &BatchPresentation,
-    legal_flags: usize,
-    reasons: &[crate::audit::verdict::BatchReasonKind],
-    i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
-    let dist = &pres.portfolio_summary.severity_distribution;
-    let a11y_avg = pres
-        .portfolio_summary
-        .average_score
-        .expect(super::UNMEASURED_REFUSED)
-        .round() as u32;
-
-    let user_impact = i18n.t(batch_user_impact_key(a11y_avg, reasons));
-    let business_impact = i18n.t(if dist.critical > 0 {
-        // About the audited pages: how far beyond the sample the barriers
-        // reach is not measured.
-        "batch-report-impact-business-critical"
-    } else if dist.high > 0 {
-        "batch-report-impact-business-high"
-    } else {
-        "batch-report-impact-business-low"
-    });
-    // The legal flags the batch decision fails on, not critical findings
-    // alone (#1039).
-    let legal_impact = i18n.t(if legal_flags > 0 {
-        "batch-report-impact-legal-flags"
-    } else {
-        "batch-report-impact-legal-none"
-    });
-
-    let mut impact_kv = KeyValueList::new().with_title(i18n.t("narrative-impact-title"));
-    impact_kv = impact_kv
-        .add(i18n.t("batch-report-impact-user"), user_impact)
-        .add(i18n.t("batch-report-impact-business"), business_impact)
-        .add(i18n.t("batch-report-impact-risk"), legal_impact);
-    builder = builder.add_component(impact_kv);
-
-    builder
-}
-
 /// At most this many pages in the per-page type and top-issue table.
 const MAX_FOCUS_PAGES: usize = 10;
 
@@ -292,129 +199,106 @@ pub(super) fn focus_table_title_key(pages: usize) -> &'static str {
     }
 }
 
-/// Extra scored dimensions shown in the URL ranking table, as
-/// `(module_scores name, Fluent key of the short column header)`.
-/// `BenchmarkRow::with_column` (renderreport >= 0.5.0) is fully generic —
-/// adding a dimension here is the only change needed; no renderreport-side
-/// release is required.
-const RANKING_EXTRA_COLUMNS: &[(&str, &str)] = &[
-    ("SEO", "batch-ranking-col-seo"),
-    ("Performance", "batch-ranking-col-performance"),
-    ("Security", "batch-ranking-col-security"),
-    ("HTML Conformance", "batch-ranking-col-html-conformance"),
-];
-
-/// How many of the lowest and the highest ranked pages the report body shows.
+/// How many of the lowest and the highest ranked pages the technical part
+/// shows; the full list is in the appendix of report level technical.
 const RANKING_EDGE: usize = 5;
 
-/// More pages than both edges show: the body prints the compact table.
+/// More pages than both edges show: the technical part prints the compact
+/// table.
 pub(super) fn ranking_is_compact(pres: &BatchPresentation) -> bool {
     pres.url_ranking.len() > 2 * RANKING_EDGE
 }
 
-/// One ranking row per page of `ranking`, ranked in the order of the list.
-fn ranking_rows(
-    pres: &BatchPresentation,
-    range: std::ops::Range<usize>,
-    i18n: &I18n,
-) -> Vec<BenchmarkRow> {
-    let extra_headers: Vec<(&str, String)> = RANKING_EXTRA_COLUMNS
-        .iter()
-        .map(|(module_name, key)| (*module_name, i18n.t(key)))
-        .collect();
-    pres.url_ranking[range.clone()]
-        .iter()
-        .enumerate()
-        .map(|(i, u)| {
-            let mut row = BenchmarkRow::new(
-                (range.start + i + 1) as u32,
-                &short_url(&u.url, 35),
-                u.site_quality_score,
-                u.score as u32,
-                u.critical_violations as u32,
-            );
-            if let Some(detail) = pres.url_details.iter().find(|detail| detail.url == u.url) {
-                for (module_name, header) in &extra_headers {
-                    if let Some((_, score)) = detail
-                        .module_scores
-                        .iter()
-                        .find(|(module, _)| module == module_name)
-                    {
-                        row = row.with_column(header.as_str(), *score);
-                    }
-                }
-            }
-            row
-        })
-        .collect()
+/// The short column head of a module in the per-page table.
+fn module_column_label(module: &str, i18n: &I18n) -> String {
+    match module {
+        "Accessibility" => i18n.t("batch-ranking-col-accessibility"),
+        "SEO" => i18n.t("batch-ranking-col-seo"),
+        "Performance" => i18n.t("batch-ranking-col-performance"),
+        "Security" => i18n.t("batch-ranking-col-security"),
+        "HTML Conformance" => i18n.t("batch-ranking-col-html-conformance"),
+        other => localized_module_name(other, i18n),
+    }
 }
 
-/// The compact URL ranking of the report body: the five lowest and the five
-/// highest ranked pages (every page when there are ten or fewer), the full
-/// list in the technical appendix.
+/// One table with every module's score per page, the lowest accessibility
+/// first (the order is the rank): the page without its domain, the
+/// site-quality score, one column per module that ran, and the critical and
+/// high findings (grouped per page).
+fn module_scores_table(pres: &BatchPresentation, rows: &[usize], i18n: &I18n) -> AuditTable {
+    let modules: Vec<&str> = pres
+        .portfolio_summary
+        .module_averages
+        .iter()
+        .map(|(name, _)| name.as_str())
+        .collect();
+    let numeric = modules.len() + 2;
+    let width = format!("{}%", 76 / numeric.max(1));
+    let mut columns = vec![
+        TableColumn::new(i18n.t("batch-ranking-col-page")).with_width("24%"),
+        TableColumn::new(i18n.t("batch-ranking-col-site-quality")).with_width(&width),
+    ];
+    for module in &modules {
+        columns.push(TableColumn::new(module_column_label(module, i18n)).with_width(&width));
+    }
+    columns.push(TableColumn::new(i18n.t("batch-ranking-col-critical-high")).with_width(&width));
+    let mut table = AuditTable::new(columns);
+    for &i in rows {
+        let page = &pres.url_ranking[i];
+        let detail = pres.url_details.iter().find(|d| d.url == page.url);
+        let mut row = vec![
+            super::compare::url_path(&page.url),
+            page.site_quality_score.to_string(),
+        ];
+        for module in &modules {
+            row.push(
+                detail
+                    .and_then(|d| d.module_scores.iter().find(|(name, _)| name == module))
+                    .map_or_else(|| "–".to_string(), |(_, score)| score.to_string()),
+            );
+        }
+        row.push(page.critical_violations.to_string());
+        table = table.add_row(row);
+    }
+    table
+}
+
+/// The module scores per page of the technical part: every page, or the five
+/// lowest and the five highest ranked ones, the full list in the appendix.
 pub(super) fn render_batch_url_ranking(
     mut builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
     has_appendix: bool,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let total = pres.url_ranking.len();
     let compact = ranking_is_compact(pres);
     builder = builder.add_component(
         SectionHeaderSplit::new(
             i18n.t("batch-url-ranking-title"),
             ranking_intro(compact, has_appendix, i18n),
         )
-        .with_level(1),
+        .with_level(2),
     );
-    if compact {
-        builder = builder
-            .add_component(
-                Section::new(i18n.count("batch-url-ranking-lowest", RANKING_EDGE)).with_level(2),
-            )
-            .add_component(ranking_table(
-                ranking_rows(pres, 0..RANKING_EDGE, i18n),
-                i18n,
-            ))
-            .add_component(
-                Section::new(i18n.count("batch-url-ranking-highest", RANKING_EDGE)).with_level(2),
-            )
-            .add_component(ranking_table(
-                ranking_rows(pres, total - RANKING_EDGE..total, i18n),
-                i18n,
-            ));
-    } else {
-        builder = builder.add_component(ranking_table(ranking_rows(pres, 0..total, i18n), i18n));
-    }
-    builder
+    let (shown, _) = super::compare::compared_pages(pres);
+    builder.add_component(module_scores_table(pres, &shown, i18n))
 }
 
-/// The full URL ranking, one table, for the technical appendix.
+/// The full module scores per page, one table, for the technical appendix.
 pub(super) fn render_batch_full_ranking(
     builder: renderreport::engine::ReportBuilder,
     pres: &BatchPresentation,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    let all: Vec<usize> = (0..pres.url_ranking.len()).collect();
     builder
         .add_component(Section::new(i18n.t("batch-url-ranking-full")).with_level(2))
-        .add_component(ranking_table(
-            ranking_rows(pres, 0..pres.url_ranking.len(), i18n),
-            i18n,
-        ))
+        .add_component(module_scores_table(pres, &all, i18n))
 }
 
-/// The ranking intro names the columns by the labels the table prints, so
-/// it cannot speak of an "A11y" or "Score" column the table does not have
-/// (#1039); a compact table says where the full list is.
+/// The intro of the module scores per page; a compact table says where the
+/// full list is.
 pub(super) fn ranking_intro(compact: bool, has_appendix: bool, i18n: &I18n) -> String {
-    let base = i18n.t_args(
-        "batch-url-ranking-intro",
-        &[
-            ("accessibility", i18n.t("batch-ranking-col-accessibility")),
-            ("critical", i18n.t("batch-ranking-col-critical-high")),
-            ("site_quality", i18n.t("batch-ranking-col-site-quality")),
-        ],
-    );
+    let base = i18n.t("batch-url-ranking-intro");
     if !compact {
         return base;
     }
@@ -426,21 +310,17 @@ pub(super) fn ranking_intro(compact: bool, has_appendix: bool, i18n: &I18n) -> S
     format!("{base} {rest}")
 }
 
-/// The ranking table without renderreport's built-in German title
-/// ("Website-Ranking"): the section header above already names it in the run
-/// language. The fixed columns are labelled in the run language too; the
-/// score column is the site-quality score and the last one counts critical and
-/// high findings (`UrlSummary::critical_violations`, #1039).
-fn ranking_table(rows: Vec<BenchmarkRow>, i18n: &I18n) -> BenchmarkTable {
-    let mut table = BenchmarkTable::new(rows).with_labels(
-        i18n.t("batch-ranking-col-rank"),
-        i18n.t("batch-ranking-col-page"),
-        i18n.t("batch-ranking-col-site-quality"),
-        i18n.t("batch-ranking-col-accessibility"),
-        i18n.t("batch-ranking-col-critical-high"),
-    );
-    table.title = None;
-    table
+/// Broken links and redirect chains of a crawl run: part of the technical
+/// part at every report level.
+pub(super) fn render_batch_crawl_diagnostics(
+    builder: renderreport::engine::ReportBuilder,
+    pres: &BatchPresentation,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    match pres.portfolio_summary.crawl_links {
+        Some(ref crawl_links) => render_batch_crawl_links(builder, crawl_links, i18n),
+        None => builder,
+    }
 }
 
 pub(super) fn render_batch_tech_url_matrix(
@@ -450,7 +330,7 @@ pub(super) fn render_batch_tech_url_matrix(
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
     let en = is_english(i18n);
-    // A new page: the technical part starts here, and its header never stands
+    // A new page: the detail chapters start here, and the header never stands
     // alone at the foot of the page before.
     builder = builder.add_component(PageBreak::new()).add_component(
         SectionHeaderSplit::new(
@@ -459,10 +339,6 @@ pub(super) fn render_batch_tech_url_matrix(
         )
         .with_level(1),
     );
-
-    if let Some(ref crawl_links) = pres.portfolio_summary.crawl_links {
-        builder = render_batch_crawl_links(builder, crawl_links, i18n);
-    }
 
     // URL matrix table
     let page_col = i18n.t("batch-matrix-col-page");

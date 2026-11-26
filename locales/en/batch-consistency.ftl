@@ -113,37 +113,16 @@ batch-management-flag-pages = { $count ->
        *[other] { $count } affected pages
     }
 
-## Assessment and key points
-batch-management-assessment-critical = Critical barriers — not WCAG conformant
-batch-management-assessment-serious = Serious barriers — not WCAG conformant
-batch-management-assessment-substantial-gaps = Substantial accessibility gaps
-batch-management-assessment-usable-critical = Usable, but with critical barriers
-batch-management-assessment-usable-high = Usable foundation, but high-severity barriers found
-batch-management-assessment-needs-improvement = Needs improvement toward accessibility
-batch-management-assessment-stable-critical = Technically stable, but with critical barriers
-batch-management-assessment-good-high = Good foundation, but high-severity barriers found
-batch-management-assessment-fine-tuning = Largely accessible — fine-tuning
-batch-management-assessment-polish = Largely accessible — polish
-batch-management-point-severe = { $occurrences ->
-        [one] 1 critical/high WCAG occurrence
-       *[other] { $occurrences } critical/high WCAG occurrences
-    } on { $urls ->
-        [one] 1 URL
-       *[other] { $urls } URLs
-    } ({ $findings ->
-        [one] 1 finding
-       *[other] { $findings } findings
-    }, grouped per page)
-batch-management-point-main-issue = Main issue: { $title } ({ $occurrences ->
-        [one] 1 occurrence
-       *[other] { $occurrences } occurrences
-    } on { $urls ->
-        [one] 1 URL
-       *[other] { $urls } URLs
-    })
-batch-management-point-legal-flags = WCAG Level A/AA violations detected automatically — manual review needed for a defensible BFSG classification
-batch-management-point-structural = No Level A/AA violations, but structural weaknesses on multiple pages
-batch-management-point-no-barriers = No automatically detectable critical barriers — manual review recommended.
+## Batch status headline
+batch-management-headline-none = { $total ->
+        [one] No WCAG violations were found automatically on the audited page
+       *[other] No WCAG violations were found automatically on the { $total } audited pages
+    }
+batch-management-headline-all = { $total ->
+        [one] WCAG violations were found on the audited page
+       *[other] WCAG violations were found on all { $total } audited pages
+    }
+batch-management-headline-some = WCAG violations were found on { $affected } of the { $total } audited pages
 batch-management-risks-title = Management risk view
 
 ## Internal comparison

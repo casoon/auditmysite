@@ -1,27 +1,15 @@
 use crate::output::localized::is_english;
-use renderreport::components::advanced::{
-    Grid, KeyValueList, List, PageBreak, SectionHeaderSplit, TableOfContents,
-};
-use renderreport::components::text::{Label, TextBlock};
+use renderreport::components::advanced::{List, PageBreak, SectionHeaderSplit, TableOfContents};
+use renderreport::components::text::Label;
 use renderreport::components::{AuditTable, TableColumn};
-use renderreport::components::{CoverModuleGauge, CoverPage, MetricCard};
+use renderreport::components::{CoverModuleGauge, CoverPage};
 use renderreport::prelude::*;
-use renderreport::Component;
 
 use crate::audit::BatchReport;
 use crate::i18n::I18n;
 use crate::model::ReportLevel;
 use crate::output::report_model::*;
 use crate::util::short_url;
-
-use super::super::cover::build_batch_cover_score_row;
-use super::super::helpers::score_quality_color;
-use super::actions::build_batch_decision_lines;
-use super::management::{
-    build_batch_assessment, build_batch_key_points, render_batch_internal_comparison,
-    render_batch_management_risks,
-};
-use super::portfolio::render_batch_impact_summary;
 
 // ─── Batch Report Sections ──────────────────────────────────────────────────
 
@@ -117,194 +105,9 @@ pub(super) fn render_batch_cover(
     }
     builder = builder.add_component(cover);
 
-    // Page 2 opens with a heading of its own: the title is on the cover.
-    builder = builder.add_component(
-        SectionHeaderSplit::new(
-            i18n.t("batch-cover-frame-title"),
-            i18n.t("batch-cover-kicker"),
-        )
-        .with_eyebrow(i18n.t("batch-cover-eyebrow"))
-        .with_level(1),
-    );
-
-    // Audit-Rahmen box
-    {
-        let modules_str = pres
-            .portfolio_summary
-            .active_modules
-            .iter()
-            .map(|name| super::portfolio::localized_module_name(name, i18n))
-            .collect::<Vec<_>>()
-            .join(", ");
-        let mut cover_meta = KeyValueList::new();
-        cover_meta = cover_meta
-            .add(i18n.t("batch-cover-frame-domain"), domain)
-            .add(i18n.t("batch-cover-frame-date"), &pres.cover.date)
-            .add(
-                i18n.t("batch-cover-frame-urls"),
-                format!("{}", pres.portfolio_summary.total_urls),
-            )
-            .add(i18n.t("batch-cover-frame-modules"), &modules_str)
-            .add(
-                i18n.t("batch-cover-frame-version"),
-                format!("auditmysite v{}", pres.cover.version),
-            );
-        if let Some(sample) = &batch.sample {
-            let source = i18n.t(&format!("batch-source-{}", sample.source));
-            // Share and selection method, and that `first_n` is no
-            // representative choice.
-            let pct = if sample.total_discovered > 0 {
-                let pct = sample.audited as f64 * 100.0 / sample.total_discovered as f64;
-                crate::i18n::number::decimal(pct, 1, is_english(i18n))
-            } else {
-                "0".to_string()
-            };
-            let scope = if sample.is_sample {
-                i18n.t_args(
-                    match sample.selection.as_str() {
-                        "first_n" => "batch-scope-sample",
-                        "stratified" => "batch-scope-sample-stratified",
-                        _ => "batch-scope-sample-filtered",
-                    },
-                    &[
-                        ("audited", sample.audited.to_string()),
-                        ("total", sample.total_discovered.to_string()),
-                        ("pct", pct),
-                        ("source", source),
-                    ],
-                )
-            } else {
-                i18n.t_args(
-                    "batch-scope-full",
-                    &[
-                        ("total", sample.total_discovered.to_string()),
-                        ("source", source),
-                    ],
-                )
-            };
-            cover_meta = cover_meta.add(i18n.t("batch-cover-frame-scope"), scope);
-        }
-        // The three sets a reader must not mix up: audited in the browser,
-        // failed, and only HTTP-checked.
-        if !batch.errors.is_empty() {
-            cover_meta = cover_meta.add(
-                i18n.t("batch-cover-frame-failed"),
-                i18n.t_args(
-                    "batch-cover-frame-failed-value",
-                    &[
-                        ("failed", batch.errors.len().to_string()),
-                        (
-                            "selected",
-                            (batch.errors.len() + batch.reports.len()).to_string(),
-                        ),
-                    ],
-                ),
-            );
-        }
-        if let Some(diagnostics) = &batch.sitemap_diagnostics {
-            cover_meta = cover_meta.add(
-                i18n.t("batch-cover-frame-http"),
-                i18n.t_args(
-                    "batch-cover-frame-http-value",
-                    &[
-                        ("checked", diagnostics.checked_urls.to_string()),
-                        ("audited", batch.reports.len().to_string()),
-                    ],
-                ),
-            );
-        }
-        // #653: the display mode every score in this report belongs to.
-        {
-            let en = is_english(i18n);
-            let mode = batch
-                .reports
-                .first()
-                .map(|r| r.accessibility.execution.scope.display_mode)
-                .unwrap_or_default();
-            let mut value = crate::display::audited_mode_text(mode, en);
-            let offering = batch
-                .reports
-                .iter()
-                .filter(|r| {
-                    r.accessibility
-                        .execution
-                        .display_modes
-                        .as_ref()
-                        .is_some_and(|d| d.offers_display_modes)
-                })
-                .count();
-            if offering > 0 {
-                value.push_str(" — ");
-                value.push_str(&i18n.t_args(
-                    "batch-display-offered",
-                    &[
-                        ("count", offering as i64),
-                        ("total", batch.reports.len() as i64),
-                    ],
-                ));
-            }
-            cover_meta = cover_meta.add(i18n.t("batch-cover-frame-display"), value);
-        }
-        if let Some(note) = crate::audit::exclusion::BatchExclusionSummary::aggregate(
-            batch
-                .reports
-                .iter()
-                .filter_map(|r| r.accessibility.execution.exclusions.as_ref()),
-        )
-        .and_then(|summary| {
-            crate::audit::exclusion::batch_exclusion_note(&summary, batch.reports.len(), i18n)
-        }) {
-            cover_meta = cover_meta.add(i18n.t("exclusion-fact-label"), note);
-        }
-        if !batch.errors.is_empty() {
-            cover_meta = cover_meta.add(
-                i18n.t("batch-cover-frame-score-basis"),
-                i18n.t_args("batch-score-coverage", &unaudited_args(batch)),
-            );
-        }
-        builder = builder.add_component(cover_meta);
-    }
-
-    // The grade card sits under the frame table; the site-quality average
-    // (the mixed score over the optional modules) is the labelled secondary
-    // note below the row.
-    builder = builder
-        .add_component(build_batch_cover_score_row(
-            accessibility_average,
-            &pres.portfolio_summary.grade,
-            batch.summary.decision.verdict,
-            batch.summary.audit_quality.qualified_results,
-            pres.portfolio_summary.total_urls as u32,
-            pres.portfolio_summary.passed as u32,
-            i18n,
-        )?)
-        .add_component(
-            Label::new(i18n.t_args(
-                "batch-cover-site-quality-score-note",
-                &[("score", score as i64)],
-            ))
-            .with_size("8.5pt")
-            .with_color(crate::output::pdf::design::tokens::MUTED),
-        )
-        .add_component(
-            TextBlock::new(&pres.portfolio_summary.verdict_text)
-                .with_size("11pt")
-                .with_line_height("1.4em")
-                .with_max_width("100%"),
-        );
-    if let Some(baseline) = &pres.portfolio_summary.baseline {
-        builder = builder.add_component(
-            Label::new(crate::audit::baseline::summary_text(
-                baseline.known,
-                baseline.new,
-                baseline.fixed,
-                Some(baseline.unmatched_pages),
-                crate::output::localized::is_english(i18n),
-            ))
-            .with_size("8.5pt")
-            .with_color(crate::output::pdf::design::tokens::MUTED),
-        );
-    }
+    // Page 2: the overview. Scope, the one status statement and the three
+    // answers (#1212).
+    builder = super::glance::render_batch_glance(builder, batch, pres, score, i18n)?;
 
     // The scope note used to close page 2, which it overflowed onto an
     // otherwise empty page 3. It now opens the contents page; an
@@ -347,7 +150,7 @@ fn batch_scope_callout(has_appendix: bool, i18n: &I18n) -> Callout {
 /// (`render_rating`). The decision appeared nowhere in the batch PDF,
 /// next to "a very good result" on a batch that failed on legal flags
 /// (#1039).
-fn render_batch_rating(
+pub(super) fn render_batch_rating(
     builder: renderreport::engine::ReportBuilder,
     batch: &BatchReport,
     score: u32,
@@ -383,18 +186,24 @@ fn render_batch_rating(
         body.push(' ');
         body.push_str(&i18n.t_args("batch-rating-reasons", &[("reasons", reasons.join(", "))]));
     }
-    let callout = match verdict {
-        Verdict::Fail => Callout::warning(&body),
-        Verdict::Warn => Callout::info(&body),
-        Verdict::Pass => Callout::success(&body),
-    };
-    builder
-        .add_component(callout.with_title(i18n.t("batch-rating-title")))
-        .add_component(
+    // A passed batch is already said by the grade card above ("5 of 5
+    // passed"); the reasons are what the card cannot carry (#1212).
+    // A failed or warned batch states its reasons; the note that the rating is
+    // no statement of conformance is a note under a passed one and part of the
+    // method otherwise.
+    match verdict {
+        Verdict::Fail => {
+            builder.add_component(Callout::warning(&body).with_title(i18n.t("batch-rating-title")))
+        }
+        Verdict::Warn => {
+            builder.add_component(Callout::info(&body).with_title(i18n.t("batch-rating-title")))
+        }
+        Verdict::Pass => builder.add_component(
             Label::new(i18n.t("batch-rating-note"))
                 .with_size("8.5pt")
                 .with_color(crate::output::pdf::design::tokens::MUTED),
-        )
+        ),
+    }
 }
 
 /// Reader-facing text of one batch decision reason in the run language.
@@ -436,7 +245,7 @@ const MAX_LISTED_UNAUDITED_URLS: usize = 20;
 
 /// Fluent arguments for the score-coverage texts: scored, attempted and
 /// unaudited URL counts (#651).
-fn unaudited_args(batch: &BatchReport) -> [(&'static str, i64); 3] {
+pub(super) fn unaudited_args(batch: &BatchReport) -> [(&'static str, i64); 3] {
     let scored = batch.summary.total_urls as i64;
     let failed = batch.errors.len() as i64;
     [
@@ -448,7 +257,7 @@ fn unaudited_args(batch: &BatchReport) -> [(&'static str, i64); 3] {
 
 /// Pages that could not be audited are not in any score — say so next to the
 /// scores and name them, instead of letting the batch silently shrink (#651).
-fn render_batch_unaudited_urls(
+pub(super) fn render_batch_unaudited_urls(
     builder: renderreport::engine::ReportBuilder,
     batch: &BatchReport,
     i18n: &I18n,
@@ -476,95 +285,6 @@ fn render_batch_unaudited_urls(
                 .with_title(i18n.t_args("batch-unaudited-title", &args)),
         )
         .add_component(list)
-}
-
-#[allow(clippy::too_many_arguments)]
-pub(super) fn render_batch_status_section(
-    mut builder: renderreport::engine::ReportBuilder,
-    batch: &BatchReport,
-    normalized_reports: &[crate::audit::normalized::NormalizedReport],
-    pres: &BatchPresentation,
-    en301549_rollup: &[crate::wcag::en301549::BatchClauseRollup],
-    failed_en_criteria: &std::collections::BTreeSet<String>,
-    config: &ReportConfig,
-    i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
-    let dist = &pres.portfolio_summary.severity_distribution;
-
-    // Assessment callout
-    let assessment = build_batch_assessment(&pres.portfolio_summary, dist, i18n);
-    let callout = match pres.portfolio_summary.risk_level.as_str() {
-        "Kritisch" | "Hoch" | "Critical" | "High" => {
-            Callout::warning(&pres.portfolio_summary.risk_summary).with_title(&assessment)
-        }
-        "Mittel" | "Medium" => {
-            Callout::info(&pres.portfolio_summary.risk_summary).with_title(&assessment)
-        }
-        _ => Callout::success(&pres.portfolio_summary.risk_summary).with_title(&assessment),
-    };
-    // Score overview cards
-    // Both counts are WCAG occurrences: `total_violations` sums every
-    // module's findings, `dist` counts per-page groups.
-    let score = pres
-        .portfolio_summary
-        .average_score
-        .expect(super::UNMEASURED_REFUSED)
-        .round() as u32;
-    builder = builder.add_component(Section::new(i18n.t("batch-section-status")).with_level(1));
-    builder = render_batch_rating(builder, batch, score, i18n);
-    builder = builder.add_component(callout);
-    builder = render_batch_unaudited_urls(builder, batch, i18n);
-
-    let occ = &pres.portfolio_summary.occurrence_distribution;
-    builder = builder.add_component(build_batch_overview_grid(
-        pres.portfolio_summary.total_urls as u32,
-        score,
-        (occ.critical + occ.high + occ.medium + occ.low) as u32,
-        (occ.critical + occ.high) as u32,
-        pres.portfolio_summary.crawl_links.as_ref().map(|links| {
-            (links.broken_internal_links.len() + links.broken_external_links.len()) as u32
-        }),
-        i18n,
-    ));
-
-    // Key points
-    let key_points = build_batch_key_points(pres, dist, batch.summary.legal_flags, i18n);
-    let mut kp_list = List::new().with_title(i18n.t("narrative-key-points-title"));
-    for point in &key_points {
-        kp_list = kp_list.add_item(point);
-    }
-    builder = builder.add_component(kp_list);
-
-    // Impact summary
-    builder = render_batch_impact_summary(
-        builder,
-        pres,
-        batch.summary.legal_flags,
-        &crate::audit::verdict::batch_reason_kinds(&batch.summary),
-        i18n,
-    );
-
-    // Decision level: the most important recurring problems, one line each.
-    // The recurring-problems section tells each of them once in full.
-    let decision_lines = build_batch_decision_lines(pres, i18n);
-    if !decision_lines.is_empty() {
-        let mut list = List::new().with_title(i18n.t("batch-decision-title"));
-        for line in &decision_lines {
-            list = list.add_item(line);
-        }
-        builder = builder.add_component(list);
-    }
-
-    builder = render_batch_management_risks(builder, normalized_reports, i18n);
-
-    // EN 301 549 clause roll-up — opt-in only (see `--annex en301549`).
-    if config.annex == Some(crate::model::AnnexKind::En301549) {
-        builder = render_batch_en301549_rollup(builder, en301549_rollup, failed_en_criteria, i18n);
-    }
-
-    builder = render_batch_internal_comparison(builder, pres, i18n);
-
-    builder
 }
 
 /// Domain-wide EN 301 549 clause roll-up for batch reports: one compact
@@ -657,60 +377,4 @@ pub(super) fn render_batch_en301549_rollup(
         ));
     }
     builder.add_component(out_of_scope_list)
-}
-
-pub(super) fn build_batch_overview_grid(
-    total_urls: u32,
-    average_score: u32,
-    total_violations: u32,
-    critical_and_high: u32,
-    broken_internal_links: Option<u32>,
-    i18n: &I18n,
-) -> Grid {
-    let mut metrics = vec![
-        (
-            i18n.t("batch-report-grid-accessibility-average"),
-            format!("{average_score} / 100"),
-            Some(score_quality_color(average_score)),
-        ),
-        (
-            i18n.t("batch-report-grid-urls-audited"),
-            total_urls.to_string(),
-            Some("#0f766e"),
-        ),
-        (
-            i18n.t("batch-report-grid-wcag-occurrences"),
-            total_violations.to_string(),
-            Some("#b45309"),
-        ),
-        (
-            // WCAG findings only (`occurrence_distribution`); security and
-            // HTML findings of high severity are not in it (#1039).
-            i18n.t("batch-report-grid-critical-high"),
-            critical_and_high.to_string(),
-            Some("#dc2626"),
-        ),
-    ];
-
-    if let Some(count) = broken_internal_links {
-        metrics.push((
-            i18n.t("batch-table-broken-internal"),
-            count.to_string(),
-            Some(if count > 0 { "#dc2626" } else { "#0f766e" }),
-        ));
-    }
-
-    let mut grid = Grid::new(2);
-    for (title, value, accent) in metrics {
-        let mut card = MetricCard::new(title, value);
-        if let Some(color) = accent {
-            card = card.with_accent_color(color);
-        }
-        grid = grid.add_item(serde_json::json!({
-            "type": "metric-card",
-            "data": card.to_data()
-        }));
-    }
-
-    grid
 }

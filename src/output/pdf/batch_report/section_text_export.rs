@@ -9,20 +9,20 @@
 //! files byte for byte.
 
 use super::appendix::{render_batch_appendix, render_batch_crawl_links};
+use super::causes::{render_batch_causes, render_batch_next_step};
+use super::compare::render_batch_page_comparison;
+use super::glance::render_batch_glance;
 use super::interactive::{render_batch_interactive_summary, translate_interactive_category};
-use super::overview::{
-    build_batch_overview_grid, render_batch_cover, render_batch_en301549_rollup,
-    render_batch_status_section,
-};
+use super::overview::{render_batch_cover, render_batch_en301549_rollup};
 use super::portfolio::{
-    localized_module_name, render_batch_impact_summary, render_batch_module_portfolio,
-    render_batch_tech_url_matrix, render_batch_url_ranking,
+    localized_module_name, render_batch_module_portfolio, render_batch_tech_url_matrix,
+    render_batch_url_ranking,
 };
-use super::text_export::{bare, batch, compact, components, dist};
-use crate::audit::verdict::BatchReasonKind;
+use super::technical::render_batch_method;
+use super::text_export::{bare, batch, compact, components};
 use crate::audit::{BatchError, SampleMetadata, SitemapDiagnostics};
 use crate::i18n::I18n;
-use crate::model::{AnnexKind, ReportLevel};
+use crate::model::ReportLevel;
 use crate::output::builder::build_batch_presentation_with_locale;
 use crate::output::report_model::*;
 use serde_json::{json, Value};
@@ -223,41 +223,6 @@ fn export_portfolio(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
                     lang,
                     components(render_batch_module_portfolio(bare(), &pres, reports, i18n)),
                 );
-            }
-        }
-    }
-}
-
-fn export_impact_summary(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
-    let batch = batch();
-    let mut pres = build_batch_presentation_with_locale(&batch, i18n);
-    for score in [0.0, 49.4, 50.0, 69.0, 70.0, 84.0, 85.0, 100.0] {
-        pres.portfolio_summary.average_score = Some(score);
-        for (critical, high) in [(0, 0), (1, 0), (0, 1)] {
-            pres.portfolio_summary.severity_distribution = dist(critical, high);
-            for legal_flags in [0, 1] {
-                for (reason, reasons) in [
-                    ("none", vec![]),
-                    ("legal flags", vec![BatchReasonKind::LegalFlags(1)]),
-                    ("blocking", vec![BatchReasonKind::BlockingIssues(2)]),
-                    ("other", vec![BatchReasonKind::FailedUrls(1)]),
-                ] {
-                    push(
-                        records,
-                        "render_batch_impact_summary",
-                        format!(
-                            "score={score} critical={critical} high={high} legal_flags={legal_flags} reasons={reason}"
-                        ),
-                        lang,
-                        components(render_batch_impact_summary(
-                            bare(),
-                            &pres,
-                            legal_flags,
-                            &reasons,
-                            i18n,
-                        )),
-                    );
-                }
             }
         }
     }
@@ -565,54 +530,51 @@ fn export_status(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
         }
     }
 
-    for score in [0, 50, 75, 90, 100] {
-        for broken in [None, Some(0), Some(3)] {
-            push(
-                records,
-                "build_batch_overview_grid",
-                format!("score={score} broken={broken:?}"),
-                lang,
-                components(bare().add_component(build_batch_overview_grid(
-                    1_234_567, score, 12, 3, broken, i18n,
-                ))),
-            );
+    let pres = build_batch_presentation_with_locale(&batch, i18n);
+    for failures in [false, true] {
+        let mut batch = batch.clone();
+        if failures {
+            batch.errors = vec![BatchError::new("https://example.com/x", "timeout")];
+            batch.sitemap_diagnostics = Some(SitemapDiagnostics::default());
         }
+        push(
+            records,
+            "render_batch_glance",
+            format!("failures={failures}"),
+            lang,
+            components(
+                render_batch_glance(bare(), &batch, &pres, 87, i18n).expect("the overview renders"),
+            ),
+        );
+        push(
+            records,
+            "render_batch_method",
+            format!("failures={failures}"),
+            lang,
+            components(render_batch_method(bare(), &batch, &pres, i18n)),
+        );
     }
-
-    let mut pres = build_batch_presentation_with_locale(&batch, i18n);
-    for annex in [None, Some(AnnexKind::En301549)] {
-        for crawl in [None, Some("everything")] {
-            for failures in [false, true] {
-                let mut batch = batch.clone();
-                if failures {
-                    batch.errors = vec![BatchError::new("https://example.com/x", "timeout")];
-                }
-                pres.portfolio_summary.crawl_links = crawl.map(crawl_links);
-                let config = ReportConfig {
-                    level: ReportLevel::Standard,
-                    locale: lang.to_string(),
-                    annex,
-                    ..ReportConfig::default()
-                };
-                push(
-                    records,
-                    "render_batch_status_section",
-                    format!("annex={annex:?} crawl={crawl:?} failures={failures}"),
-                    lang,
-                    components(render_batch_status_section(
-                        bare(),
-                        &batch,
-                        &normalized,
-                        &pres,
-                        &rollup,
-                        &all_criteria,
-                        &config,
-                        i18n,
-                    )),
-                );
-            }
-        }
-    }
+    push(
+        records,
+        "render_batch_page_comparison",
+        "fixture".to_string(),
+        lang,
+        components(render_batch_page_comparison(bare(), &pres, i18n)),
+    );
+    push(
+        records,
+        "render_batch_causes",
+        "fixture".to_string(),
+        lang,
+        components(render_batch_causes(bare(), &pres, i18n)),
+    );
+    push(
+        records,
+        "render_batch_next_step",
+        "fixture".to_string(),
+        lang,
+        components(render_batch_next_step(bare(), &pres, i18n)),
+    );
 }
 
 /// Every record of the export, in both languages.
@@ -623,7 +585,6 @@ pub(super) fn records() -> Vec<Value> {
         export_interactive(&mut records, lang, &i18n);
         export_module_names(&mut records, lang, &i18n);
         export_portfolio(&mut records, lang, &i18n);
-        export_impact_summary(&mut records, lang, &i18n);
         export_tables(&mut records, lang, &i18n);
         export_cover(&mut records, lang, &i18n);
         export_status(&mut records, lang, &i18n);

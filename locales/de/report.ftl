@@ -60,14 +60,12 @@ panel-quick-actions = Naheliegende Verbesserungen
 panel-strengths = Was bereits stark ist
 label-strength = Stärke
 section-top-issues = Die wichtigsten Probleme im Überblick
-section-all-violations = Alle Verstöße (aggregiert nach Regel)
 audit-data-title = Audit-Daten
 audit-data-area = Bereich
 audit-data-signal = Signal
 audit-data-value = Wert
 audit-data-row-audit = Audit
 audit-data-row-module = Modul
-audit-data-row-finding = Finding
 scope-box-title = Prüfumfang
 scope-box-wcag-level = WCAG-Level
 scope-box-checked-nodes = Geprüfte Knoten
@@ -81,8 +79,6 @@ narrative-cover-eyebrow = Automatisierter Audit-Report
 narrative-cover-kicker = Technischer Website-Check
 narrative-status-title = Status der Website
 narrative-metrics-title = Executive Snapshot
-narrative-key-points-title = Kernaussagen
-narrative-impact-title = Auswirkungen
 narrative-spotlight-eyebrow = HAUPTPROBLEM
 narrative-leverage-title = Wirkung einer Behebung
 narrative-findings-title = Key Findings
@@ -107,7 +103,7 @@ verdict-tier-excellent-high = { $url } erreicht { $score }/100 im automatisierte
 verdict-tier-excellent-critical = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Trotz des hohen Werts ist mindestens ein kritischer Befund offen und sollte zuerst behoben werden. Dieser Wert ersetzt keine manuelle Prüfung.
 verdict-tier-solid = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Die Grundlage ist gut — die verbleibenden Befunde sind gezielte Verbesserungshebel mit überschaubarem Aufwand.
 verdict-tier-stable = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Die Grundlage ist stabil, aber nicht frei von Barrieren — mehrere Verbesserungshebel sollten eingeplant werden.
-verdict-tier-deficient = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Es bestehen deutliche Barrieren — nicht nur Detailprobleme, sondern struktureller Nachholbedarf.
+verdict-tier-deficient = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Es bestehen deutliche Barrieren, die vorrangig behoben werden sollten.
 verdict-tier-violations = { $url } erreicht { $score }/100 im automatisierten Accessibility-Prüfumfang. Im automatisierten Prüfumfang wurden WCAG-Verstöße erkannt, die zuerst behoben werden sollten.
 verdict-tier-critical = { $url } erreicht nur { $score }/100 im automatisierten Accessibility-Prüfumfang. Akuter Handlungsbedarf: Wesentliche Inhalte und Funktionen sind für einen Teil der Nutzer nicht zugänglich.
 score-note-high-with-critical = Der Score berücksichtigt Gewichtung und Häufigkeit. Einzelne kritische Themen können trotz eines hohen Barrierefreiheitswerts bestehen.
@@ -169,8 +165,6 @@ batch-cover-eyebrow = Automatisierter Batch-Audit-Report
 batch-cover-title = Barrierefreiheits-Prüfbericht
 batch-cover-subtitle-sample = Stichprobe: { $audited } von { $total } URLs ({ $source })
 batch-cover-modules-label = MODULE · MITTEL JE URL · 0–100 · HÖHER IST BESSER
-batch-cover-kicker = Seitenübergreifende Prüfung der ausgewählten URLs: Barrierefreiheit als Hauptbewertung, SEO, Performance, Sicherheit und weitere Module als Kontext
-batch-cover-frame-title = Audit-Rahmen
 batch-cover-frame-domain = Domain
 batch-cover-frame-date = Prüfdatum
 batch-cover-frame-urls = Geprüfte URLs
@@ -206,11 +200,9 @@ section-tech-detail-metrics = Technische Detailmetriken
 column-priority = Priorität
 column-component = Komponente
 column-area = Bereich
-section-next-steps-recommended = Empfohlene nächste Schritte
 section-next-steps-block = Weiteres Vorgehen
 
 # Batch sections
-batch-section-status = Status der Website
 batch-col-occurrences = Vorkommen
 batch-col-pages = Seiten
 batch-col-priority = Priorität
@@ -242,8 +234,8 @@ batch-section-external-links = Externe Links
 batch-section-redirect-chains = Redirect-Ketten
 batch-redirect-chains-title = Redirect-Ketten (> 1 Hop)
 batch-col-target = Ziel
-batch-url-ranking-title = URL-Ranking
-batch-url-ranking-intro = Sortiert nach Barrierefreiheit (Spalte „{ $accessibility }“), niedrigster Wert zuerst; bei Gleichstand mehr kritische/hohe WCAG-Befunde (Spalte „{ $critical }“) zuerst. „{ $site_quality }“ ist die Website-Qualität (optionale Module). Ein niedriger Wert zeigt, wo am meisten verloren geht — einzelne kritische Funktionsbefunde können auch Seiten mit gutem Wert betreffen.
+batch-url-ranking-title = Modulwerte je Seite
+batch-url-ranking-intro = Alle Modulwerte der geprüften Seiten (0–100, höher ist besser), niedrigste Barrierefreiheit zuerst; bei Gleichstand mehr kritische oder hohe Befunde zuerst. „Kritisch/hoch“ zählt je Seite gruppierte Befunde, nicht einzelne Vorkommen.
 batch-render-blocking-section = Render-Blocking & Assets
 batch-render-blocking-kv-title = Render-Blocking-Übersicht (domainweit)
 batch-render-blocking-intro = Render-blockierende Ressourcen und Third-Party-Traffic, aggregiert über alle geprüften Seiten.
@@ -389,15 +381,11 @@ finding-affected-selectors = Betroffene Selektoren
 finding-recommendation = Empfehlung
 finding-wrong = ✗ Falsch
 finding-right = ✓ Richtig
-finding-location = Fundstelle
 finding-line-column = Zeile { $line }, Spalte { $column }
 finding-note = Hinweis
 finding-representative-occurrences = Repräsentative Vorkommen
 finding-occurrence = Fundstelle
 finding-suggested-fix = Vorgeschlagene Code-Korrektur
-finding-pattern = Muster
-finding-frequent-patterns = Häufige Muster
-finding-frequent-patterns-note = Diese Tabelle gruppiert Vorkommen nach struktureller Ähnlichkeit (gleiches Element- und Auswahlmuster) über die gesamte Seite hinweg, nicht nach exakt identischem Wert — die Zahl kann daher von der Vorkommenszahl eines einzelnen Befunds abweichen.
 finding-reference = Referenz
 
 # SEO / Tracking section
@@ -911,7 +899,6 @@ batch-crawl-depth-unobserved-count = { $count ->
 batch-crawl-depth-fetched-homepage = Die Startseite wurde dafür nur abgerufen, um ihre Links zu lesen — sie ist nicht auditiert und zählt in keinem Wert.
 batch-crawl-depth-unavailable = Klicktiefen nicht ermittelt: Die Startseite ließ sich nicht abrufen. Eine andere Seite wird bewusst nicht als Ersatz-Startseite verwendet.
 batch-module-portfolio-title = Modul-Portfolio
-batch-module-portfolio-intro = Aggregierte Modulwerte über das geprüfte URL-Set: Schnitt, Spannweite über die Seiten mit Messung und Wirkung je Modul.
 batch-module-portfolio-table-title = Modulwerte und Spannweite
 batch-col-module = Modul
 batch-col-score = Durchschnitt
@@ -1339,7 +1326,7 @@ batch-rating-verdict-pass = bestanden
 batch-rating-verdict-warn = mit Vorbehalt bestanden
 batch-rating-verdict-fail = nicht bestanden
 batch-rating-reasons = Gründe: { $reasons }.
-batch-rating-note = Die Einstufung ist ein Bandlabel für den durchschnittlichen Barrierefreiheitswert im automatisierten Prüfumfang, kein Konformitätsnachweis.
+batch-rating-note = Die Einstufung beschreibt den durchschnittlichen Barrierefreiheitswert im automatisierten Prüfumfang; sie ist kein Konformitätsnachweis.
 batch-reason-no-url-audited = keine der { $count } angeforderten URLs hat einen Report ergeben
 batch-reason-legal-flags = { $count ->
         [one] 1 WCAG-Regel der Stufe A/AA mit BFSG/EAA-Relevanz ist auf den geprüften Seiten verletzt (mögliche Rechtsrelevanz)
@@ -1375,20 +1362,14 @@ batch-schema-matrix-col-kind = Seitenart (Schema-Prüfung)
 batch-schema-matrix-title = Schema-Abdeckung nach Seitenart
 batch-schema-matrix-note = Die Schema-Prüfung ordnet jede Seite eigenständig aus Seitenzweck, URL und sichtbarem Inhalt ein, um die passenden schema.org-Typen zu wählen; diese Seitenart kann vom inhaltlichen Seitentyp der übrigen Abschnitte abweichen. Vorgeschlagene Typen sind optional, keine Pflicht.
 batch-scope-note-title = Einordnung dieses Reports
-batch-scope-note-appendix = Dieser PDF-Report ist ein verdichteter Audit-Bericht. Er zeigt die wichtigsten Befunde, Risiken und Verbesserungsfelder, enthält aber nicht jede technische Einzelstelle. Details je URL stehen im technischen Anhang am Ende dieses Reports, die Rohdaten im JSON-Report desselben Laufs.
-batch-scope-note-json = Dieser PDF-Report ist ein verdichteter Audit-Bericht. Er zeigt die wichtigsten Befunde, Risiken und Verbesserungsfelder, enthält aber nicht jede technische Einzelstelle. Die Rohdaten stehen im JSON-Report desselben Laufs; die Report-Stufe technical (--report-level technical) ergänzt einen Anhang je URL.
+batch-scope-note-appendix = Dieser PDF-Report ist ein verdichteter Audit-Bericht. Er zeigt die wichtigsten Befunde, Risiken und Verbesserungsfelder, enthält aber nicht jede technische Einzelstelle. Details je URL stehen in den Detail-Kapiteln und im technischen Anhang am Ende dieses Reports, die Rohdaten im JSON-Report desselben Laufs.
+batch-scope-note-json = Dieser PDF-Report ist ein verdichteter Audit-Bericht. Er zeigt die wichtigsten Befunde, Risiken und Verbesserungsfelder, enthält aber nicht jede technische Einzelstelle. Die Rohdaten stehen im JSON-Report desselben Laufs; die Report-Stufe technical (--report-level technical) ergänzt Detail-Kapitel und einen Anhang je URL.
 batch-next-steps-manual = Für eine vollständige WCAG-Konformitätsprüfung empfehlen wir ergänzend einen manuellen Audit mit assistiven Technologien (Screenreader, Tastaturnavigation). Dieser Audit prüft { $automated } von { $total } Erfolgskriterien der WCAG 2.2 (Stufe A/AA) automatisiert; die übrigen brauchen eine manuelle Prüfung.
-batch-next-steps-intro = Was der automatisierte Audit offen lässt.
 batch-topics-title = Inhaltsthemen auf mehreren Seiten
 batch-table-pages-profile = Seitentyp und häufigste Befunde je Seite
 batch-seo-profiles-title = Inhaltsprofil je Seite
 batch-col-dup-urls = URLs
 batch-dup-pages-more = { $list } und { $count } weitere
-batch-user-impact-critical = Kritisch — auf den geprüften Seiten erschweren Barrieren die Nutzung mit Hilfstechnologien erheblich
-batch-user-impact-limited = Eingeschränkt — strukturelle Probleme behindern Nutzer mit Hilfstechnologien
-batch-user-impact-good = Gut — einzelne Barrieren für Hilfstechnologien auf mehreren Seiten
-batch-user-impact-very-good = Sehr gut — Hilfstechnologien werden weitgehend unterstützt
-batch-user-impact-barriers-fail = Mit Barrieren nutzbar — hoher Durchschnitt, aber Barrieren auf den geprüften Seiten lassen die automatisierte Prüfung scheitern (siehe Einstufung Barrierefreiheit)
 batch-effect-open-high = { $count ->
         [one] Guter Durchschnitt, aber 1 Befund hoher Schwere dieses Moduls ist auf den geprüften Seiten noch offen.
        *[other] Guter Durchschnitt, aber { $count } Befunde hoher Schwere dieses Moduls sind auf den geprüften Seiten noch offen.
@@ -1410,11 +1391,10 @@ batch-effect-other-good = Das Modul ist über die geprüften Seiten stabil.
 batch-effect-other-usable = Das Modul hat eine tragfähige Basis mit gezieltem Bereinigungsbedarf.
 batch-effect-other-recurring = Das Modul zeigt wiederkehrende Schwächen im geprüften URL-Set.
 batch-effect-other-structural = Das Modul benötigt strukturelle Aufmerksamkeit über mehrere Seiten.
-batch-ranking-col-rank = Nr.
 batch-ranking-col-page = Seite
 batch-ranking-col-site-quality = Website-Qualität
 batch-ranking-col-accessibility = Barrierefr.
-batch-ranking-col-critical-high = WCAG krit./hoch
+batch-ranking-col-critical-high = Krit./hoch (Befunde)
 batch-ranking-col-seo = SEO
 batch-ranking-col-performance = Perf
 batch-ranking-col-security = Sich.
@@ -1436,23 +1416,6 @@ batch-interactive-some = { $count ->
     } ohne Befunde.
 
 # Batch: Entscheidungsebene und wiederkehrende Probleme (#1171)
-batch-decision-title = Wichtigste Befunde
-batch-decision-line = { $id } · { $title } · { $reach } · { $priority }
-batch-decision-line-reach-in-title = { $id } · { $title } · { $priority }
-batch-section-recurring = Wiederkehrende Probleme und Maßnahmen
-batch-recurring-intro = Eine Karte je Ursache, die über die geprüften Seiten wiederkehrt: wie weit sie reicht, was die Ursache ist und wie sicher der Bericht dabei ist, und was zu tun ist. Die Befund-ID verbindet die Karte mit dem JSON-Bericht; die Belege je Seite stehen in den Einzelseiten-Berichten.
-batch-recurring-more = { $count ->
-        [one] Ein weiteres wiederkehrendes Problem steht im JSON-Bericht.
-       *[other] { $count } weitere wiederkehrende Probleme stehen im JSON-Bericht.
-    }
-batch-url-ranking-lowest = { $count ->
-        [one] Niedrigstbewertete Seite
-       *[other] { $count } niedrigstbewertete Seiten
-    }
-batch-url-ranking-highest = { $count ->
-        [one] Höchstbewertete Seite
-       *[other] { $count } höchstbewertete Seiten
-    }
 batch-url-ranking-full = Alle Seiten im Ranking
 batch-url-ranking-rest-appendix = Die Tabelle zeigt die niedrigst- und die höchstbewerteten Seiten; die vollständige Liste steht im technischen Anhang.
 batch-url-ranking-rest-json = Die Tabelle zeigt die niedrigst- und die höchstbewerteten Seiten; die vollständige Liste steht im JSON-Bericht.

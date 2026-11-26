@@ -35,7 +35,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 47);
+    assert_eq!(en.len(), 35);
 }
 
 #[test]
@@ -100,6 +100,12 @@ fn no_scenario_leaves_a_key_or_a_placeholder_in_a_text() {
         for text in texts {
             assert!(
                 !text.contains("batch-report-")
+                    && !text.contains("batch-overview-")
+                    && !text.contains("batch-compare-")
+                    && !text.contains("batch-causes-")
+                    && !text.contains("batch-tech-")
+                    && !text.contains("batch-flag-")
+                    && !text.contains("batch-next-")
                     && !text.contains("batch-col-")
                     && !text.contains("batch-interactive-")
                     && !text.contains("a11y-details-")
@@ -119,37 +125,12 @@ fn all_strings(value: &Value) -> Vec<&str> {
     out
 }
 
-/// Three batch texts that were literals of one language: the overview card of
-/// the broken internal links ("Broken Links" in German reports), the status of
-/// a broken crawl link without code and error ("Unbekannt" in both
-/// languages) and the module names "Privacy" and "Commerce" in the batch
-/// tables.
+/// Two batch texts that were literals of one language: the status of a broken
+/// crawl link without code and error ("Unbekannt" in both languages) and the
+/// module names "Privacy" and "Commerce" in the batch tables.
 #[test]
 fn batch_texts_follow_the_run_language() {
     use crate::audit::{BrokenLink, BrokenLinkSeverity, CrawlDiagnostics};
-
-    // The card, as the export records it.
-    for (lang, card, leaked) in [
-        ("en", "Broken internal links", None),
-        ("de", "Kaputte interne Links", Some("Broken Links")),
-    ] {
-        let record = records()
-            .into_iter()
-            .find(|r| {
-                r[0] == "build_batch_overview_grid"
-                    && r[2] == lang
-                    && r[1].as_str().is_some_and(|i| i.ends_with("broken=Some(3)"))
-            })
-            .expect("the export has the card");
-        let texts = all_strings(&record);
-        assert!(texts.contains(&card), "{lang}: {card} missing in {record}");
-        if let Some(leaked) = leaked {
-            assert!(
-                !texts.contains(&leaked),
-                "{lang}: {leaked} left in {record}"
-            );
-        }
-    }
 
     // The status of a link that has neither a code nor an error.
     let status = |lang: &str| {
@@ -355,21 +336,23 @@ fn thin_content_insight_names_its_consequence_in_both_languages() {
     }
 }
 
-/// The first key point names the URLs that carry critical/high findings, not
-/// all audited URLs ("on 5 URLs" for two failing pages of five, #1039), and
-/// both key points agree with a count of one.
+/// #1208: the batch headline states what the WCAG check found on the audited
+/// pages; a finding of another module never turns it into a violation.
 #[test]
-fn key_points_name_the_affected_urls_and_agree_in_number() {
-    for (lang, severe, main) in [
+fn batch_headline_states_the_wcag_result() {
+    use super::management::{batch_wcag_headline, batch_wcag_headline_text, BatchWcagHeadline};
+    for (lang, none, all, some) in [
         (
             "en",
-            "5 critical/high WCAG occurrences on 1 URL (2 findings, grouped per page)",
-            "(1 occurrence on 1 URL)",
+            "No WCAG violations were found automatically on the 3 audited pages",
+            "WCAG violations were found on all 3 audited pages",
+            "WCAG violations were found on 2 of the 3 audited pages",
         ),
         (
             "de",
-            "5 kritische/hohe WCAG-Vorkommen auf 1 URL (2 Befunde, je Seite gruppiert)",
-            "(1 Vorkommen auf 1 URL)",
+            "Auf den 3 geprüften Seiten wurden automatisiert keine WCAG-Verstöße gefunden",
+            "Auf allen 3 geprüften Seiten wurden WCAG-Verstöße gefunden",
+            "Auf 2 von 3 geprüften Seiten wurden WCAG-Verstöße gefunden",
         ),
     ] {
         let i18n = crate::i18n::I18n::new(lang).unwrap();
@@ -377,21 +360,33 @@ fn key_points_name_the_affected_urls_and_agree_in_number() {
             &super::text_export::batch(),
             &i18n,
         );
-        assert_eq!(pres.url_ranking.len(), 3);
-        for (i, url) in pres.url_ranking.iter_mut().enumerate() {
-            url.critical_violations = if i == 1 { 2 } else { 0 };
-        }
         pres.portfolio_summary.total_urls = 3;
-        pres.portfolio_summary.occurrence_distribution = super::text_export::dist(2, 3);
-        pres.top_issues[0].finding.occurrence_count = 1;
-        pres.top_issues[0].affected_urls.truncate(1);
-        let points = super::management::build_batch_key_points(
-            &pres,
-            &super::text_export::dist(1, 1),
-            0,
-            &i18n,
+        let urls: Vec<String> = (0..3).map(|i| format!("https://example.com/{i}")).collect();
+        for issue in &mut pres.top_issues {
+            issue.finding.occurrence_count = 1;
+            issue.affected_urls = urls.clone();
+        }
+        assert!(!pres.top_issues[0].finding.wcag_criterion.is_empty());
+        let text = |pres: &crate::output::report_model::BatchPresentation| {
+            batch_wcag_headline_text(batch_wcag_headline(pres), 3, &i18n)
+        };
+        assert_eq!(batch_wcag_headline(&pres), BatchWcagHeadline::AllPages);
+        assert_eq!(text(&pres), all, "{lang}");
+
+        for issue in &mut pres.top_issues {
+            issue.affected_urls.truncate(2);
+        }
+        assert_eq!(
+            batch_wcag_headline(&pres),
+            BatchWcagHeadline::SomePages { affected: 2 }
         );
-        assert_eq!(points[0], severe, "{lang}");
-        assert!(points[1].ends_with(main), "{lang}: {}", points[1]);
+        assert_eq!(text(&pres), some, "{lang}");
+
+        // Only a finding of another module: no WCAG violation.
+        for issue in &mut pres.top_issues {
+            issue.finding.wcag_criterion.clear();
+        }
+        assert_eq!(batch_wcag_headline(&pres), BatchWcagHeadline::NoneFound);
+        assert_eq!(text(&pres), none, "{lang}");
     }
 }

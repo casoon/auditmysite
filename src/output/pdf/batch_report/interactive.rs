@@ -55,13 +55,19 @@ pub(super) fn render_batch_interactive_summary(
     total_urls: usize,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    builder = builder.add_component(
-        SectionHeaderSplit::new(
-            i18n.t("a11y-details-journey-title"),
-            i18n.t("batch-report-interactive-intro"),
+    // Without a finding the chapter is one line (#1212): a page of "nothing
+    // found" is no overview.
+    builder = if summary.pages_with_issues == 0 {
+        builder.add_component(Section::new(i18n.t("a11y-details-journey-title")).with_level(2))
+    } else {
+        builder.add_component(
+            SectionHeaderSplit::new(
+                i18n.t("a11y-details-journey-title"),
+                i18n.t("batch-report-interactive-intro"),
+            )
+            .with_level(2),
         )
-        .with_level(1),
-    );
+    };
 
     let callout_text = interactive_callout_text(summary, i18n);
     builder = builder.add_component(if summary.has_critical {

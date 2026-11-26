@@ -28,7 +28,7 @@ pdf-analysis-search-interpretation-solid = Solide Basis mit sichtbaren Lücken b
 pdf-analysis-search-interpretation-limited = Eingeschränkte Sichtbarkeit und Nutzerverständnis: Die Seite ist nicht ausreichend verständlich, vertrauensstark oder extrahierbar.
 
 ## Problem profile
-pdf-analysis-profile-title = Problemprofil: { $kind }
+pdf-analysis-profile-title = Problemprofil (Verteilung über die Module): { $kind }
 pdf-analysis-profile-kind-isolated = punktuell
 pdf-analysis-profile-kind-concentrated = konzentriert & systemisch
 pdf-analysis-profile-kind-broad = breit & systemisch
@@ -47,7 +47,7 @@ pdf-analysis-profile-isolated-weak = { $names } { $several ->
     } unter dem Bereich „gut“ und { $several ->
         [yes] bestimmen
        *[no] bestimmt
-    } den Handlungsbedarf.
+    } den Handlungsbedarf. Kein Bereich ist kritisch (unter { $critical } Punkten), daher kein systemisches Profil.
 pdf-analysis-profile-concentrated-systemic = { $names } { $several ->
         [yes] bestimmen
        *[no] bestimmt
@@ -87,6 +87,27 @@ pdf-analysis-card-key-fix = Maßnahme
 pdf-analysis-card-key-priority = Priorität, Aufwand, Zuständigkeit
 pdf-analysis-card-key-score-effect = Score-Effekt
 pdf-analysis-card-key-finding = Befund-ID
+pdf-analysis-card-key-retest = Prüfung nach dem Fix
+pdf-analysis-retest-others = { $others ->
+        [one] Das andere Element ebenso prüfen.
+       *[other] Die anderen { $others } Elemente ebenso prüfen.
+    }
+pdf-analysis-retest-name = Den zugänglichen Namen des geänderten Elements im Accessibility-Inspektor des Browsers lesen: Er muss sagen, was das Element bewirkt.
+pdf-analysis-retest-contrast = Den Kontrast des geänderten Texts neu messen (Browser-Inspektor, Farbwähler), auch im Hover-, Fokus- und Dunkelzustand, soweit die Seite sie hat.
+pdf-analysis-retest-alt = Die Textalternative des geänderten Bildes im Accessibility-Inspektor prüfen; ein dekoratives Bild darf keinen Namen zeigen.
+pdf-analysis-retest-headings = Die Überschriftengliederung der Seite öffnen (Accessibility-Inspektor oder Überschriftenliste) und prüfen, dass die Ebenen dem Inhalt folgen.
+pdf-analysis-retest-landmarks = Die Landmarks der Seite im Accessibility-Inspektor auflisten und prüfen, dass jeder Bereich einmal vorkommt und bei mehreren einen Namen trägt.
+pdf-analysis-retest-lang = Das lang-Attribut im Seitenquelltext prüfen: Es muss ein gültiger Sprachcode sein, der zum Inhalt passt.
+pdf-analysis-retest-ids = Den Seitenquelltext nach der geänderten id durchsuchen: Sie darf nur einmal vorkommen, und Labels und ARIA-Verweise müssen weiter auf das gemeinte Element zeigen.
+pdf-analysis-retest-keyboard = Das geänderte Element nur mit der Tastatur bedienen (Tab, Enter, Leertaste): Es muss erreichbar sein, einen sichtbaren Fokus zeigen und seine Aktion auslösen.
+pdf-analysis-retest-aria = Das geänderte Element im Accessibility-Inspektor prüfen: Rolle, Zustände und verwiesene Elemente müssen dem entsprechen, was die Seite tut.
+pdf-analysis-retest-structure = Die geänderte Tabelle oder Liste im Accessibility-Inspektor prüfen: Struktur, Kopfzellen und Einträge müssen wie gedacht angekündigt werden.
+pdf-analysis-retest-forms = Name und Hinweise jedes geänderten Felds im Accessibility-Inspektor lesen und das Formular nur mit der Tastatur ausfüllen.
+pdf-analysis-retest-layout = Den geänderten Bereich bei 200 % Zoom und in einem kleinen Viewport erneut prüfen: Nichts darf abgeschnitten sein oder sich überlagern, und Bedienelemente müssen groß genug zum Treffen bleiben.
+pdf-analysis-retest-validator = Die Seite erneut durch den W3C-Validator schicken: Die Meldung für diese Stelle muss weg sein, und es darf keine neue entstehen.
+pdf-analysis-retest-headers = Die Seite erneut abrufen (zum Beispiel mit curl -I) und prüfen, dass die Antwort den Header mit dem gewollten Wert trägt.
+pdf-analysis-retest-seo = Den Seitenquelltext neu laden und das geänderte Tag oder den Wert prüfen, dann den Audit erneut laufen lassen und die SEO-Befunde vergleichen.
+pdf-analysis-retest-generic = Den Audit für diese Seite erneut laufen lassen: Der Befund muss weg sein oder eine geringere Reichweite haben als zuvor.
 pdf-analysis-card-priority-effort = Priorität { $priority } · Aufwand { $effort } · { $role }
 
 ## WCAG coverage

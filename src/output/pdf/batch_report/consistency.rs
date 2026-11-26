@@ -179,7 +179,26 @@ pub(super) fn render_batch_consistency(
 
     builder = render_consistency_wcag_cross_page(builder, consistency, i18n);
 
-    builder = render_consistency_help_deviations(builder, consistency, i18n);
+    render_consistency_help_deviations(builder, consistency, i18n)
+}
+
+/// The per-page detail of the consistency analysis, a chapter of the report
+/// level technical: pages without an observed inbound link, schema entity
+/// conflicts, structured-data coverage per page and topic overlaps. The
+/// compact cross-page checks are in the technical part.
+pub(super) fn render_batch_consistency_detail(
+    mut builder: renderreport::engine::ReportBuilder,
+    consistency: &crate::audit::batch_consistency::BatchConsistencyAnalysis,
+    pres: &BatchPresentation,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    builder = builder.add_component(
+        SectionHeaderSplit::new(
+            i18n.t("batch-tech-consistency-detail-title"),
+            i18n.t("batch-tech-consistency-detail-intro"),
+        )
+        .with_level(1),
+    );
 
     builder = render_consistency_orphan_pages(builder, consistency, i18n);
 

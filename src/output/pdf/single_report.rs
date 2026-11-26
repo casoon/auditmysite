@@ -49,8 +49,8 @@ mod text_guard;
 ///
 /// Each divider produces a page break, a strong level=1 section header tagged
 /// with "TEIL N / 3" (or "PART N OF 3"), an audience callout, and a contents list.
-/// Part 3 is visually reinforced as a dedicated separator page before the technical
-/// appendix and detailed evidence modules.
+/// Part 3 is visually reinforced by a thick rule before the technical appendix and
+/// detailed evidence modules; its content follows on the same page.
 pub(super) fn render_part_divider(
     mut builder: renderreport::engine::ReportBuilder,
     part_num: u8,
@@ -90,9 +90,9 @@ pub(super) fn render_part_divider(
                 .with_color(design::tokens::NEUTRAL),
         );
     if part_num == 3 {
-        builder = builder
-            .add_component(Divider::thick().with_color(design::tokens::MUTED))
-            .add_component(PageBreak::new());
+        // The part flows on after its divider: a page of its own held eight
+        // lines (#1211).
+        builder = builder.add_component(Divider::thick().with_color(design::tokens::MUTED));
     }
     builder
 }
@@ -452,6 +452,41 @@ impl TopMeasure {
             (
                 format!("{} — {}", self.module, self.title),
                 format!("{}{more}", self.detail),
+            )
+        }
+    }
+
+    /// What the first step names, as a phrase: the title with its reach, or
+    /// the module and title of a module measure. A finding is named the way
+    /// the decision-level line names it, so a component is only named where
+    /// the selector evidence confirms it (#1170).
+    fn subject(&self, en: bool) -> String {
+        let Some(finding) = &self.finding else {
+            return if self.title.is_empty() {
+                format!(
+                    "{} — {}",
+                    self.module,
+                    super::findings::first_sentence(&self.detail)
+                )
+            } else {
+                format!("{} — {}", self.module, self.title)
+            };
+        };
+        let reach_in_title = crate::audit::finding_titles::display_title_names_reach(
+            &finding.rule_id,
+            crate::audit::finding_titles::FindingReach {
+                pages_affected: 1,
+                pages_audited: 1,
+                occurrences: finding.occurrences,
+            },
+        );
+        if reach_in_title {
+            self.title.clone()
+        } else {
+            format!(
+                "{}, {}",
+                self.title,
+                crate::i18n::count_text("single-report-decision-reach", finding.occurrences, en)
             )
         }
     }
@@ -834,7 +869,58 @@ pub(super) fn audit_scope_line(en: bool) -> String {
     crate::i18n::text("single-report-scope-line", en)
 }
 
+/// One sentence of result and first step (#1211): how many confirmed WCAG
+/// occurrences the page has and how many of them are critical or high, then
+/// the first key measure by name. Only measured counts and the title of the
+/// first measure, nothing derived; no callout for a page without a measure.
+fn render_first_step(
+    builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = is_english(i18n);
+    let Some((measure, _)) = top_measures(vm, i18n).into_iter().next() else {
+        return builder;
+    };
+    let result = if vm.severity.total == 0 {
+        i18n.t("single-report-first-step-none")
+    } else {
+        i18n.t_args(
+            "single-report-first-step-result",
+            &[
+                ("total", i64::from(vm.severity.total)),
+                ("severe", i64::from(vm.severity.critical + vm.severity.high)),
+            ],
+        )
+    };
+    let action = i18n.t_args(
+        "single-report-first-step-action",
+        &[("subject", measure.subject(en))],
+    );
+    // Plain lines, not a card: the first page also holds verdict, rating and
+    // problem profile, and the contents must still follow on page 3 (#1210).
+    builder
+        .add_component(
+            Label::new(i18n.t("single-report-first-step-title"))
+                .with_size("10.5pt")
+                .bold()
+                .with_color(design::tokens::NEUTRAL),
+        )
+        .add_component(Label::new(format!("{result} {action}")).with_size("10pt"))
+}
+
 pub(super) fn render_management_page(
+    builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    render_management_rest(render_management_first_page(builder, vm, i18n), vm, i18n)
+}
+
+/// The first summary page: headline verdict, rating and problem profile. The
+/// table of contents follows directly behind it (#1210); the rest of the
+/// management summary (`render_management_rest`) comes after the contents.
+pub(super) fn render_management_first_page(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
     i18n: &I18n,
@@ -906,6 +992,8 @@ pub(super) fn render_management_page(
         );
     }
 
+    builder = render_first_step(builder, vm, i18n);
+
     // 2. Overall verdict (the single core sentence)
     builder = builder.add_component(
         Callout::info(&vm.summary.verdict).with_title(i18n.t("single-report-overall-verdict")),
@@ -949,6 +1037,18 @@ pub(super) fn render_management_page(
             .with_color(design::tokens::MUTED),
         );
     }
+
+    builder
+}
+
+/// Quality profile, score drivers, breakdowns, risks and measures: the rest of
+/// the management summary behind the table of contents.
+pub(super) fn render_management_rest(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = is_english(i18n);
 
     // 2b. Quality profile radar — balance across all dimensions at a glance.
     let radar_data: Vec<(String, f64)> = vm
@@ -1686,14 +1786,25 @@ fn render_appendix_section(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    // Appendix — full violations list, conclusion of Part 2 (#246). Only render
-    // the section header when there are violations to list; otherwise it
-    // promises a list that never appears (#364).
+    // Appendix — audit data, and at the technical level the full violations
+    // list, conclusion of Part 2 (#246). Only render the section header when
+    // there are violations to list; otherwise it promises a list that never
+    // appears (#364). Below the technical level the findings live in their
+    // cards and in the JSON, not in a list of their own.
     if vm.appendix.has_violations {
+        let technical = vm.meta.report_level == ReportLevel::Technical;
         builder = builder.add_component(PageBreak::new()).add_component(
             SectionHeaderSplit::new(
-                i18n.t("single-report-findings-list-title"),
-                i18n.t("single-report-findings-list-intro"),
+                i18n.t(if technical {
+                    "single-report-findings-list-title"
+                } else {
+                    "single-report-audit-data-title"
+                }),
+                i18n.t(if technical {
+                    "single-report-findings-list-intro"
+                } else {
+                    "single-report-audit-data-intro"
+                }),
             )
             .with_eyebrow(i18n.t("single-report-appendix-eyebrow"))
             .with_level(2),
@@ -1743,24 +1854,6 @@ fn render_appendix_section(
                     &desc,
                 ));
             }
-        } else {
-            let rows: Vec<ChecklistRow> = vm
-                .appendix
-                .violations
-                .iter()
-                .map(|v| {
-                    let status = match v.severity {
-                        crate::wcag::Severity::Critical => "bad",
-                        crate::wcag::Severity::High => "warn",
-                        _ => "neutral",
-                    };
-                    ChecklistRow::new(join_label(&v.rule, &v.rule_name), v.message.clone())
-                        .with_status(status)
-                })
-                .collect();
-            builder = builder.add_component(
-                ChecklistPanel::new(rows).with_title(i18n.t("section-all-violations")),
-            );
         }
     }
     builder
@@ -2573,11 +2666,12 @@ pub(super) mod risk_and_strength_tests {
     }
 
     #[test]
-    fn part_divider_part_3_acts_as_standalone_trennseite() {
+    fn part_divider_part_3_is_a_rule_not_a_page_of_its_own() {
         let i18n = I18n::new("de").unwrap();
         let b3 = renderreport::engine::ReportBuilder::new("single");
         let r3 = render_part_divider(b3, 3, "T3", "I3", "Z3", "B3", &i18n).build();
-        assert_eq!(r3.components.len(), 6);
+        // Page break, number, header, audience, rule: no break after the rule.
+        assert_eq!(r3.components.len(), 5);
         let json = serde_json::to_string(&r3.components).unwrap();
         assert!(json.contains("TECHNISCHER ANHANG"));
         assert!(json.contains("divider"));

@@ -1,6 +1,5 @@
-# Texts of the batch PDF's keyboard journey summary, module name, impact
-# summary, commerce roll-up, cover contents, EN 301 549 clause roll-up and
-# overview cards (`output::pdf::batch_report::interactive`, `portfolio`,
+# Texts of the batch PDF's keyboard journey summary, module name, cover contents
+# and EN 301 549 clause roll-up (`output::pdf::batch_report::interactive`, `portfolio`,
 # `appendix`, `overview`, `batch-report-*`), #936. Which message applies, the
 # thresholds, the number formats and the clause titles and disclaimers that
 # `wcag::en301549` owns stay in Rust. The journey title, the severity labels,
@@ -34,18 +33,6 @@ batch-report-interactive-cat-heading-outline = Heading Outline
 ## Module names
 batch-report-module-html-conformance = HTML Conformance
 
-## Impact summary
-batch-report-impact-user = User
-batch-report-impact-business = Business
-batch-report-impact-risk = Risk
-batch-report-impact-business-critical = The audited pages contain critical barriers for certain user groups; how far they reach beyond these pages is not measured.
-batch-report-impact-business-high = Individual functional areas are problematic for users with disabilities.
-batch-report-impact-business-low = Low impact on the audited pages — no critical or high barriers detected automatically.
-batch-report-impact-legal-flags = WCAG Level A/AA violations detected automatically — manual review required for a defensible BFSG classification.
-batch-report-impact-legal-none = No critical violations detected automatically — manual review recommended for full classification.
-
-## Commerce roll-up
-
 ## Cover
 batch-report-contents = Contents
 
@@ -63,9 +50,3 @@ batch-report-en301549-col-pages = Pages affected
 batch-report-en301549-table-title = Clause roll-up (all { $count } WCAG 2.2 A/AA clauses)
 batch-report-en301549-out-of-scope-title = Outside this audit's scope
 batch-report-en301549-chapter = Chapter { $chapter } – { $title } (not assessed)
-
-## Overview cards
-batch-report-grid-accessibility-average = Accessibility average
-batch-report-grid-urls-audited = URLs audited
-batch-report-grid-wcag-occurrences = WCAG occurrences
-batch-report-grid-critical-high = Critical + high WCAG occurrences

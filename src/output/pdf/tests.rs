@@ -220,6 +220,43 @@ mod tests {
         }
     }
 
+    /// Below the technical level the findings stand in their cards and in the
+    /// JSON; the appendix carries no list of all violations of its own. The
+    /// technical appendix still lists them with their fix.
+    #[test]
+    fn test_standard_appendix_has_no_list_of_all_violations() {
+        let typ = |level: ReportLevel, locale: &str| {
+            generate_typ(
+                &pdf_fixture_report(),
+                &ReportConfig {
+                    level,
+                    locale: locale.to_string(),
+                    ..ReportConfig::default()
+                },
+            )
+            .expect("Typst source should assemble")
+        };
+        for (locale, list_title, audit_data) in [
+            (
+                "de",
+                "Alle Verstöße (aggregiert nach Regel)",
+                "Rohdaten des Audits",
+            ),
+            (
+                "en",
+                "All violations (aggregated by rule)",
+                "Raw audit data",
+            ),
+        ] {
+            let standard = typ(ReportLevel::Standard, locale);
+            assert!(!standard.contains(list_title), "{locale}: list is back");
+            assert!(standard.contains(audit_data), "{locale}: no audit data");
+            let technical = typ(ReportLevel::Technical, locale);
+            assert!(!technical.contains(list_title), "{locale}");
+        }
+        assert!(typ(ReportLevel::Technical, "en").contains("1 element affected"));
+    }
+
     /// The Technical-level appendix lists every violation with its fix, the
     /// number of affected elements and the selectors. These lines were German
     /// literals in every language, and the count read "1 Elemente betroffen".
@@ -1599,6 +1636,43 @@ mod tests {
             "PDF too small to contain the expected report layout: {} bytes",
             pdf.len()
         );
+    }
+
+    /// #1210: the single report's table of contents sits directly behind the
+    /// first summary page (verdict, rating, problem profile), before the
+    /// weightings, risks and measures, and an executive report has none.
+    #[test]
+    fn single_report_contents_follow_the_first_summary_page() {
+        for locale in ["de", "en"] {
+            let i18n = I18n::new(locale).unwrap();
+            let config = |level| ReportConfig {
+                level,
+                locale: locale.to_string(),
+                ..ReportConfig::default()
+            };
+            let typ = generate_typ(&pdf_fixture_report(), &config(ReportLevel::Technical))
+                .expect("Typst source");
+            let at = |needle: &str| {
+                typ.find(needle)
+                    .unwrap_or_else(|| panic!("{locale}: {needle} missing"))
+            };
+            let toc = at("#table-of-contents((");
+            let verdict = at(&format!(
+                "title: \"{}\"",
+                i18n.t("single-report-overall-verdict")
+            ));
+            let measures = at(&format!(
+                "title: \"{}\"",
+                i18n.t("single-report-measures-title")
+            ));
+            assert!(verdict < toc, "{locale}: contents before the verdict");
+            assert!(toc < measures, "{locale}: contents behind the measures");
+            assert_eq!(typ.matches("#table-of-contents((").count(), 1);
+
+            let executive = generate_typ(&pdf_fixture_report(), &config(ReportLevel::Executive))
+                .expect("Typst source");
+            assert!(!executive.contains("#table-of-contents(("), "{locale}");
+        }
     }
 
     fn pdf_fixture_report() -> AuditReport {

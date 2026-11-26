@@ -1,8 +1,8 @@
 # German counterpart of `locales/en/batch-report.ftl`: the texts of the batch
-# PDF's keyboard journey summary, module name, impact summary, commerce
-# roll-up, cover contents, EN 301 549 clause roll-up and overview cards
-# (`output::pdf::batch_report::interactive`, `portfolio`, `appendix`,
-# `overview`, `batch-report-*`), #936. The same keys as the English file.
+# PDF's keyboard journey summary, module name, cover contents and EN 301 549
+# clause roll-up (`output::pdf::batch_report::interactive`, `portfolio`,
+# `appendix`, `overview`, `batch-report-*`), #936. The same keys as the English
+# file.
 
 ## Keyboard journey summary
 batch-report-interactive-intro = Interaktive Tests prüfen, ob Fokusführung, Zustandswechsel und Tastaturnavigation korrekt funktionieren — nicht nur ob der initiale Seitenbaum korrekt ausgezeichnet ist.
@@ -29,18 +29,6 @@ batch-report-interactive-cat-heading-outline = Überschriftengliederung
 ## Module names
 batch-report-module-html-conformance = HTML-Konformität
 
-## Impact summary
-batch-report-impact-user = Nutzer
-batch-report-impact-business = Business
-batch-report-impact-risk = Risiko
-batch-report-impact-business-critical = Die geprüften Seiten enthalten kritische Barrieren für bestimmte Nutzergruppen; wie weit sie über diese Seiten hinausreichen, ist nicht gemessen.
-batch-report-impact-business-high = Einzelne Funktionsbereiche sind für Nutzer mit Einschränkungen problematisch.
-batch-report-impact-business-low = Geringe Auswirkung auf den geprüften Seiten — automatisiert keine kritischen oder hohen Barrieren erkannt.
-batch-report-impact-legal-flags = WCAG-Level-A/AA-Verstöße automatisiert erkannt — für belastbare BFSG-Einordnung ist manuelle Prüfung nötig.
-batch-report-impact-legal-none = Automatisiert keine kritischen Verstöße erkannt — manuelle Prüfung für vollständige Einordnung empfohlen.
-
-## Commerce roll-up
-
 ## Cover
 batch-report-contents = Inhalt
 
@@ -58,9 +46,3 @@ batch-report-en301549-col-pages = Betroffene Seiten
 batch-report-en301549-table-title = Klausel-Übersicht (alle { $count } WCAG-2.2-A/AA-Klauseln)
 batch-report-en301549-out-of-scope-title = Außerhalb dieses Prüfumfangs
 batch-report-en301549-chapter = Kapitel { $chapter } – { $title } (nicht bewertet)
-
-## Overview cards
-batch-report-grid-accessibility-average = Barrierefreiheit Ø
-batch-report-grid-urls-audited = Geprüfte URLs
-batch-report-grid-wcag-occurrences = WCAG-Vorkommen
-batch-report-grid-critical-high = Kritisch + hoch (WCAG-Vorkommen)

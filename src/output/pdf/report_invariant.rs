@@ -3,8 +3,13 @@
 //!
 //! The test renders a report, walks its components in order and records, per
 //! rule id, the sections that carry the rule's problem, impact or
-//! recommendation text. The evidence level (the developer part and the
-//! appendix) may repeat them; outside it at most one section may.
+//! recommendation text. Outside the evidence level at most one section may.
+//!
+//! The evidence level of the single report is its appendix; the developer
+//! part (part 2) holds the evidence entries, which carry the rule, the
+//! criterion, the occurrences and the measurement, but not the texts of the
+//! analysis card (#1209). A finding id is therefore rendered in full, with its
+//! problem, impact or fix, in at most one component outside the appendix.
 
 use super::*;
 use crate::audit::{AuditReport, BatchReport};
@@ -154,6 +159,51 @@ fn assert_told_once(
     assert!(broken.is_empty(), "{label}:\n{}", broken.join("\n"));
 }
 
+/// A finding id stands in full in exactly one analysis component: its card.
+/// Other components may name the id, as the evidence entry does as a
+/// reference, but may not carry the texts the card carries.
+fn assert_one_card_per_finding_id(
+    label: &str,
+    sections: &[Section],
+    findings: &[(String, Vec<String>)],
+) {
+    let mut broken = Vec::new();
+    for (id, texts) in findings {
+        let needles: Vec<String> = texts.iter().filter_map(|t| needle(t)).collect();
+        let cards: Vec<&str> = sections
+            .iter()
+            .filter(|s| !s.evidence)
+            .flat_map(|s| s.components.iter().map(move |c| (s, c)))
+            .filter(|(_, c)| c.contains(id.as_str()))
+            .filter(|(_, c)| needles.iter().any(|n| c.contains(n.as_str())))
+            .map(|(s, _)| s.title.as_str())
+            .collect();
+        if cards.len() != 1 {
+            broken.push(format!(
+                "{id}: rendered in full in {} analysis components: {cards:?}",
+                cards.len()
+            ));
+        }
+    }
+    assert!(broken.is_empty(), "{label}:\n{}", broken.join("\n"));
+}
+
+fn finding_texts(groups: &[FindingGroup]) -> Vec<(String, Vec<String>)> {
+    groups
+        .iter()
+        .map(|g| {
+            (
+                g.finding.id.clone(),
+                vec![
+                    g.customer_description.clone(),
+                    g.user_impact.clone(),
+                    g.recommendation.clone(),
+                ],
+            )
+        })
+        .collect()
+}
+
 /// Each text of a rule stands in at most one component outside the evidence
 /// level: a card carries it, a second card or a list entry may not repeat it.
 fn assert_each_text_in_one_component(
@@ -252,7 +302,10 @@ fn single_report_tells_each_finding_once_outside_the_evidence_level() {
             let vm = build_view_model(&normalized, &config);
             let i18n = I18n::new(locale).unwrap();
             let (_, request) = build_single_report(&report, &config, None).unwrap();
-            let sections = sections(&request.components, &[i18n.t("pdf-frame-part2-title")]);
+            let sections = sections(
+                &request.components,
+                &[i18n.t("single-report-appendix-title")],
+            );
             let rules = rule_texts(&vm.findings.all_findings);
             assert!(rules.len() >= 5, "{locale}: fixture lost its rules");
             let carriers = carriers(&sections, &rules);
@@ -261,6 +314,11 @@ fn single_report_tells_each_finding_once_outside_the_evidence_level() {
                 &format!("single {locale} {level:?}"),
                 &sections,
                 &rules,
+            );
+            assert_one_card_per_finding_id(
+                &format!("single {locale} {level:?}"),
+                &sections,
+                &finding_texts(&vm.findings.all_findings),
             );
         }
     }
@@ -294,5 +352,45 @@ fn batch_report_tells_each_finding_once_outside_the_evidence_level() {
                 &rules,
             );
         }
+    }
+}
+
+/// #1211: the management page states the result and the first step in one
+/// sentence, from the measured counts of its own strip and the first key
+/// measure, in both languages and without German characters in English.
+#[test]
+fn management_page_names_result_and_first_step() {
+    for locale in ["en", "de"] {
+        let report = page("https://example.com", 3);
+        let config = config(locale, ReportLevel::Standard);
+        let normalized = crate::audit::validation::normalize_checked(&report).unwrap();
+        let vm = build_view_model(&normalized, &config);
+        let i18n = I18n::new(locale).unwrap();
+        let builder = renderreport::engine::ReportBuilder::new("management");
+        let built = super::single_report::render_management_page(builder, &vm, &i18n).build();
+        let text = squash_whitespace(&serde_json::to_string(&built.components).unwrap());
+        let (title, step, total) = if locale == "en" {
+            (
+                "Result and first step",
+                "First step: ",
+                format!(
+                    "{} confirmed WCAG occurrences on this page",
+                    vm.severity.total
+                ),
+            )
+        } else {
+            (
+                "Ergebnis und erster Schritt",
+                "Erster Schritt: ",
+                format!(
+                    "{} bestätigte WCAG-Vorkommen auf dieser Seite",
+                    vm.severity.total
+                ),
+            )
+        };
+        assert!(text.contains(title), "{locale}: {text}");
+        assert!(text.contains(&total), "{locale}: {total}");
+        assert!(text.contains(step), "{locale}");
+        assert_eq!(text.matches(step).count(), 1, "{locale}: said once");
     }
 }

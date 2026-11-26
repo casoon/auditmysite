@@ -33,7 +33,7 @@ pdf-analysis-search-interpretation-solid = Solid base with visible gaps in conte
 pdf-analysis-search-interpretation-limited = Limited search experience: the page is not sufficiently understandable, trustworthy or extractable.
 
 ## Problem profile
-pdf-analysis-profile-title = Problem profile: { $kind }
+pdf-analysis-profile-title = Problem profile (distribution across modules): { $kind }
 pdf-analysis-profile-kind-isolated = isolated
 pdf-analysis-profile-kind-concentrated = concentrated & systemic
 pdf-analysis-profile-kind-broad = broad & systemic
@@ -52,7 +52,7 @@ pdf-analysis-profile-isolated-weak = { $names } { $several ->
     } below the "good" band and { $several ->
         [yes] determine
        *[no] determines
-    } the need for action.
+    } the need for action. No area is critical (below { $critical } points), hence no systemic profile.
 pdf-analysis-profile-concentrated-systemic = { $names } { $several ->
         [yes] determine
        *[no] determines
@@ -92,6 +92,27 @@ pdf-analysis-card-key-fix = Fix
 pdf-analysis-card-key-priority = Priority, effort, owner
 pdf-analysis-card-key-score-effect = Score effect
 pdf-analysis-card-key-finding = Finding id
+pdf-analysis-card-key-retest = Check after the fix
+pdf-analysis-retest-others = { $others ->
+        [one] Check the other element the same way.
+       *[other] Check the other { $others } elements the same way.
+    }
+pdf-analysis-retest-name = Read the accessible name of the changed element in the browser's accessibility inspector: it must say what the element does.
+pdf-analysis-retest-contrast = Measure the contrast of the changed text again (browser inspector, colour picker), also in the hover, focus and dark states where the page has them.
+pdf-analysis-retest-alt = Check the text alternative of the changed image in the accessibility inspector; a decorative image must show no name.
+pdf-analysis-retest-headings = Open the heading outline of the page (accessibility inspector or a headings list) and check that the levels follow the content.
+pdf-analysis-retest-landmarks = List the landmarks of the page in the accessibility inspector and check that each region exists once and has a name where there are several.
+pdf-analysis-retest-lang = Check the lang attribute in the page source: it must be a valid language code that matches the content.
+pdf-analysis-retest-ids = Search the page source for the changed id: it may occur only once, and labels and ARIA references must still point to the intended element.
+pdf-analysis-retest-keyboard = Operate the changed element with the keyboard only (Tab, Enter, Space): it must be reachable, show a visible focus and trigger its action.
+pdf-analysis-retest-aria = Check the changed element in the accessibility inspector: its role, states and referenced elements must match what the page does.
+pdf-analysis-retest-structure = Check the changed table or list in the accessibility inspector: structure, headers and items must be announced as intended.
+pdf-analysis-retest-forms = Read the name and instructions of each changed field in the accessibility inspector and fill in the form with the keyboard only.
+pdf-analysis-retest-layout = Check the changed area again at 200 % zoom and on a small viewport: nothing may be cut off or overlap, and controls must stay large enough to hit.
+pdf-analysis-retest-validator = Run the page through the W3C validator again: the message for this location must be gone and no new one may appear.
+pdf-analysis-retest-headers = Request the page again (for example with curl -I) and check that the response carries the header with the intended value.
+pdf-analysis-retest-seo = Load the page source again and check the changed tag or value, then run the audit again and compare the SEO findings.
+pdf-analysis-retest-generic = Run the audit again for this page: the finding must be gone or its reach lower than before.
 pdf-analysis-card-priority-effort = { $priority } priority · { $effort } effort · { $role }
 
 ## WCAG coverage
