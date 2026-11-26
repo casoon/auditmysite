@@ -66,7 +66,7 @@ fn every_key_resolves_in_both_languages_without_errors() {
         bundle.set_use_isolating(false);
         bundle.add_resource(resource).expect("no duplicates");
         let mut args = FluentArgs::new();
-        for name in ["count", "penalty", "before"] {
+        for name in ["count", "penalty", "before", "shown", "total"] {
             args.set(name, FluentValue::from(2_i64));
         }
         for name in ["ratio", "required", "list", "opacity", "color", "values"] {

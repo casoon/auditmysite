@@ -8,8 +8,6 @@ use crate::i18n::I18n;
 use crate::output::report_model::*;
 
 pub(super) fn build_cli_snapshot_table(vm: &ReportViewModel, i18n: &I18n) -> AuditTable {
-    use super::findings::first_sentence;
-
     let mut table = AuditTable::new(vec![
         TableColumn::new(i18n.t("audit-data-area")).with_width("22%"),
         TableColumn::new(i18n.t("audit-data-signal")).with_width("28%"),
@@ -19,7 +17,6 @@ pub(super) fn build_cli_snapshot_table(vm: &ReportViewModel, i18n: &I18n) -> Aud
 
     let row_audit = i18n.t("audit-data-row-audit");
     let row_module = i18n.t("audit-data-row-module");
-    let row_finding = i18n.t("audit-data-row-finding");
 
     for (label, value) in &vm.methodology.audit_facts {
         table = table.add_row(vec![row_audit.clone(), label.clone(), value.clone()]);
@@ -51,26 +48,6 @@ pub(super) fn build_cli_snapshot_table(vm: &ReportViewModel, i18n: &I18n) -> Aud
             )
         };
         table = table.add_row(vec![row_module.clone(), module.name.clone(), value]);
-    }
-
-    let occurrences_word = i18n.t("pdf-sections-occurrences");
-    for finding in vm.findings.top_findings.iter().take(6) {
-        table = table.add_row(vec![
-            row_finding.clone(),
-            // The readable title, not the internal rule id ("html_conform.
-            // schema.html5"): the id stays in the JSON (#952-7).
-            if finding.finding.wcag_criterion.is_empty() {
-                finding.title.clone()
-            } else {
-                format!("{} ({})", finding.title, finding.finding.wcag_criterion)
-            },
-            format!(
-                "{} {} — {}",
-                finding.finding.occurrence_count,
-                occurrences_word,
-                first_sentence(&finding.user_impact)
-            ),
-        ]);
     }
 
     table

@@ -67,7 +67,6 @@ audit-data-signal = Signal
 audit-data-value = Wert
 audit-data-row-audit = Audit
 audit-data-row-module = Modul
-audit-data-row-finding = Finding
 scope-box-title = Prüfumfang
 scope-box-wcag-level = WCAG-Level
 scope-box-checked-nodes = Geprüfte Knoten
@@ -389,15 +388,11 @@ finding-affected-selectors = Betroffene Selektoren
 finding-recommendation = Empfehlung
 finding-wrong = ✗ Falsch
 finding-right = ✓ Richtig
-finding-location = Fundstelle
 finding-line-column = Zeile { $line }, Spalte { $column }
 finding-note = Hinweis
 finding-representative-occurrences = Repräsentative Vorkommen
 finding-occurrence = Fundstelle
 finding-suggested-fix = Vorgeschlagene Code-Korrektur
-finding-pattern = Muster
-finding-frequent-patterns = Häufige Muster
-finding-frequent-patterns-note = Diese Tabelle gruppiert Vorkommen nach struktureller Ähnlichkeit (gleiches Element- und Auswahlmuster) über die gesamte Seite hinweg, nicht nach exakt identischem Wert — die Zahl kann daher von der Vorkommenszahl eines einzelnen Befunds abweichen.
 finding-reference = Referenz
 
 # SEO / Tracking section

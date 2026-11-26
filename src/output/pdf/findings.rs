@@ -354,10 +354,11 @@ pub(super) fn render_finding_technical(
     // table/snapshot, selector-pattern clustering) to that token produces
     // nonsense like "Element-Typen: 1× multiple" or "Fundstelle: multiple_h1" —
     // skip all of them when no occurrence actually has real location data.
-    let has_real_location = group
-        .representative_occurrences
-        .iter()
-        .any(|occ| occ.selector != occ.node_id);
+    // The bare accessibility-tree number a screen-reader finding carries as
+    // its selector is no location either (#1211).
+    let has_real_location = group.representative_occurrences.iter().any(|occ| {
+        occ.selector != occ.node_id && !occ.selector.chars().all(|c| c.is_ascii_digit())
+    });
 
     // The validator's "selector" is a source position (`190:12271`) and its
     // node id the rule key, not an element: the element type comes from the
@@ -381,10 +382,6 @@ pub(super) fn render_finding_technical(
             report_ts,
             evidence_seq,
         );
-    }
-
-    if has_real_location && !group.pattern_clusters.is_empty() {
-        builder = add_pattern_clusters(builder, group, i18n);
     }
 
     builder.add_component(Divider {
@@ -481,10 +478,6 @@ fn add_qa_metadata(
         .add(
             bfsg_eaa_label(i18n, acronyms_expanded),
             report_code_label(&group.finding.bfsg_relevance, i18n),
-        )
-        .add(
-            i18n.t("finding-elements"),
-            group.finding.occurrence_count.to_string(),
         )
         .add(
             i18n.t("finding-occurrences"),
@@ -643,9 +636,11 @@ fn add_affected_urls(
     builder.add_component(url_list)
 }
 
-/// The occurrence table, then a snapshot (with its evidence screenshot and
-/// suggested fix) for the first three occurrences and a note on the hidden
-/// rest.
+/// The examples of a finding with their count ("2 examples of 7
+/// occurrences"), each as one snapshot: location, note, excerpt, DOM path and
+/// measurement, then its evidence screenshot and suggested fix. The snapshot
+/// carries what a table of the same rows would say, so there is no table
+/// (#1211).
 fn add_occurrences(
     mut builder: renderreport::engine::ReportBuilder,
     group: &FindingGroup,
@@ -654,29 +649,21 @@ fn add_occurrences(
     report_ts: i64,
     evidence_seq: &mut usize,
 ) -> renderreport::engine::ReportBuilder {
-    let mut table = renderreport::components::AuditTable::new(vec![
-        renderreport::components::TableColumn::new(i18n.t("finding-location")).with_width("26%"),
-        renderreport::components::TableColumn::new(i18n.t("finding-note")).with_width("74%"),
-    ])
-    .with_title(i18n.t("finding-representative-occurrences"));
-
+    let shown = group.representative_occurrences.len();
+    let total = group.finding.occurrence_count;
+    let heading = if shown < total {
+        i18n.t_args(
+            "pdf-findings-examples-of",
+            &[("shown", shown as i64), ("total", total as i64)],
+        )
+    } else {
+        i18n.t("finding-occurrences")
+    };
+    builder = builder.add_component(section_caption(&heading));
     for occ in &group.representative_occurrences {
-        table = table.add_row(vec![
-            location_label(&occ.selector, is_html_conform, i18n),
-            first_sentence(&occ.message).to_string(),
-        ]);
-    }
-    builder = builder.add_component(table);
-
-    let hidden = group.representative_occurrences.len().saturating_sub(3);
-    for occ in group.representative_occurrences.iter().take(3) {
         builder = builder.add_component(occurrence_snapshot(occ, i18n, is_html_conform));
         builder = add_evidence_screenshot(builder, occ, i18n, report_ts, evidence_seq);
         builder = add_suggested_fix(builder, occ, i18n);
-    }
-    if hidden > 0 {
-        let msg = i18n.count("pdf-findings-hidden-occurrences", hidden);
-        builder = builder.add_component(Callout::info(&msg));
     }
     builder
 }
@@ -785,26 +772,6 @@ fn add_suggested_fix(
         ),
         None => builder,
     }
-}
-
-fn add_pattern_clusters(
-    builder: renderreport::engine::ReportBuilder,
-    group: &FindingGroup,
-    i18n: &I18n,
-) -> renderreport::engine::ReportBuilder {
-    let mut table = renderreport::components::AuditTable::new(vec![
-        renderreport::components::TableColumn::new(i18n.t("finding-pattern")).with_width("70%"),
-        renderreport::components::TableColumn::new(i18n.t("finding-occurrences")).with_width("30%"),
-    ])
-    .with_title(i18n.t("finding-frequent-patterns"));
-
-    for cluster in &group.pattern_clusters {
-        table = table.add_row(vec![
-            truncate_url(&cluster.label, 72),
-            cluster.occurrences.to_string(),
-        ]);
-    }
-    builder.add_component(table)
 }
 
 /// Extract the HTML element type from a CSS selector path.

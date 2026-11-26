@@ -54,10 +54,10 @@ pdf-findings-color-scheme = Color scheme
 pdf-findings-color-scheme-dark = Dark (prefers-color-scheme: dark)
 pdf-findings-screenshot-mobile = Element on page (mobile viewport)
 pdf-findings-screenshot-desktop = Element on page (desktop viewport)
-pdf-findings-hidden-occurrences = { $count } more { $count ->
-        [one] occurrence
-       *[other] occurrences
-    } documented in the technical appendix.
+pdf-findings-examples-of = { $shown } { $shown ->
+        [one] example
+       *[other] examples
+    } of { $total } occurrences
 pdf-findings-finding-id = Finding ID
 pdf-findings-rule = Rule
 

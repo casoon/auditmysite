@@ -49,8 +49,8 @@ mod text_guard;
 ///
 /// Each divider produces a page break, a strong level=1 section header tagged
 /// with "TEIL N / 3" (or "PART N OF 3"), an audience callout, and a contents list.
-/// Part 3 is visually reinforced as a dedicated separator page before the technical
-/// appendix and detailed evidence modules.
+/// Part 3 is visually reinforced by a thick rule before the technical appendix and
+/// detailed evidence modules; its content follows on the same page.
 pub(super) fn render_part_divider(
     mut builder: renderreport::engine::ReportBuilder,
     part_num: u8,
@@ -90,9 +90,9 @@ pub(super) fn render_part_divider(
                 .with_color(design::tokens::NEUTRAL),
         );
     if part_num == 3 {
-        builder = builder
-            .add_component(Divider::thick().with_color(design::tokens::MUTED))
-            .add_component(PageBreak::new());
+        // The part flows on after its divider: a page of its own held eight
+        // lines (#1211).
+        builder = builder.add_component(Divider::thick().with_color(design::tokens::MUTED));
     }
     builder
 }
@@ -452,6 +452,41 @@ impl TopMeasure {
             (
                 format!("{} — {}", self.module, self.title),
                 format!("{}{more}", self.detail),
+            )
+        }
+    }
+
+    /// What the first step names, as a phrase: the title with its reach, or
+    /// the module and title of a module measure. A finding is named the way
+    /// the decision-level line names it, so a component is only named where
+    /// the selector evidence confirms it (#1170).
+    fn subject(&self, en: bool) -> String {
+        let Some(finding) = &self.finding else {
+            return if self.title.is_empty() {
+                format!(
+                    "{} — {}",
+                    self.module,
+                    super::findings::first_sentence(&self.detail)
+                )
+            } else {
+                format!("{} — {}", self.module, self.title)
+            };
+        };
+        let reach_in_title = crate::audit::finding_titles::display_title_names_reach(
+            &finding.rule_id,
+            crate::audit::finding_titles::FindingReach {
+                pages_affected: 1,
+                pages_audited: 1,
+                occurrences: finding.occurrences,
+            },
+        );
+        if reach_in_title {
+            self.title.clone()
+        } else {
+            format!(
+                "{}, {}",
+                self.title,
+                crate::i18n::count_text("single-report-decision-reach", finding.occurrences, en)
             )
         }
     }
@@ -834,6 +869,40 @@ pub(super) fn audit_scope_line(en: bool) -> String {
     crate::i18n::text("single-report-scope-line", en)
 }
 
+/// One sentence of result and first step (#1211): how many confirmed WCAG
+/// occurrences the page has and how many of them are critical or high, then
+/// the first key measure by name. Only measured counts and the title of the
+/// first measure, nothing derived; no callout for a page without a measure.
+fn render_first_step(
+    builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = is_english(i18n);
+    let Some((measure, _)) = top_measures(vm, i18n).into_iter().next() else {
+        return builder;
+    };
+    let result = if vm.severity.total == 0 {
+        i18n.t("single-report-first-step-none")
+    } else {
+        i18n.t_args(
+            "single-report-first-step-result",
+            &[
+                ("total", i64::from(vm.severity.total)),
+                ("severe", i64::from(vm.severity.critical + vm.severity.high)),
+            ],
+        )
+    };
+    let action = i18n.t_args(
+        "single-report-first-step-action",
+        &[("subject", measure.subject(en))],
+    );
+    builder.add_component(
+        Callout::info(format!("{result} {action}"))
+            .with_title(i18n.t("single-report-first-step-title")),
+    )
+}
+
 pub(super) fn render_management_page(
     mut builder: renderreport::engine::ReportBuilder,
     vm: &ReportViewModel,
@@ -905,6 +974,8 @@ pub(super) fn render_management_page(
             .with_color(design::tokens::MUTED),
         );
     }
+
+    builder = render_first_step(builder, vm, i18n);
 
     // 2. Overall verdict (the single core sentence)
     builder = builder.add_component(
@@ -1410,16 +1481,6 @@ fn render_findings_section(
         );
 
         let all_findings = &vm.findings.all_findings;
-
-        // The reading note of the pattern tables stands once here, not under
-        // every entry (#1209).
-        if all_findings.iter().any(|f| !f.pattern_clusters.is_empty()) {
-            builder = builder.add_component(
-                Label::new(i18n.t("finding-frequent-patterns-note"))
-                    .with_size("9pt")
-                    .with_color(design::tokens::NEUTRAL),
-            );
-        }
 
         let systemic_mandatory: Vec<&FindingGroup> = all_findings
             .iter()
@@ -2583,11 +2644,12 @@ pub(super) mod risk_and_strength_tests {
     }
 
     #[test]
-    fn part_divider_part_3_acts_as_standalone_trennseite() {
+    fn part_divider_part_3_is_a_rule_not_a_page_of_its_own() {
         let i18n = I18n::new("de").unwrap();
         let b3 = renderreport::engine::ReportBuilder::new("single");
         let r3 = render_part_divider(b3, 3, "T3", "I3", "Z3", "B3", &i18n).build();
-        assert_eq!(r3.components.len(), 6);
+        // Page break, number, header, audience, rule: no break after the rule.
+        assert_eq!(r3.components.len(), 5);
         let json = serde_json::to_string(&r3.components).unwrap();
         assert!(json.contains("TECHNISCHER ANHANG"));
         assert!(json.contains("divider"));

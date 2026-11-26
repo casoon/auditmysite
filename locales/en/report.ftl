@@ -67,7 +67,6 @@ audit-data-signal = Signal
 audit-data-value = Value
 audit-data-row-audit = Audit
 audit-data-row-module = Module
-audit-data-row-finding = Finding
 scope-box-title = Scope
 scope-box-wcag-level = WCAG level
 scope-box-checked-nodes = Checked nodes
@@ -390,14 +389,10 @@ finding-recommendation = Recommendation
 finding-wrong = ✗ Wrong
 finding-right = ✓ Correct
 finding-line-column = Line { $line }, column { $column }
-finding-location = Location
 finding-note = Note
 finding-representative-occurrences = Representative occurrences
 finding-occurrence = Occurrence
 finding-suggested-fix = Suggested code fix
-finding-pattern = Pattern
-finding-frequent-patterns = Frequent patterns
-finding-frequent-patterns-note = This table groups occurrences by structural similarity (same element and selector pattern) across the page, not by exact value match — its counts can therefore differ from an individual finding's own occurrence count.
 finding-reference = Reference
 
 # SEO / Tracking section

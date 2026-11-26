@@ -1440,6 +1440,118 @@ fn selector_for(node: a11y_dom::ArenaNode<'_>) -> String {
     sel
 }
 
+/// Wie viele Elemente des Dokuments sich je Kurzselektor teilen. Ein Selektor,
+/// den mehrere Elemente tragen, grenzt die Suche nicht ein (#1211).
+struct SelectorCounts(std::collections::HashMap<String, usize>);
+
+impl SelectorCounts {
+    fn of(doc: &CdpDocument) -> Self {
+        let mut counts = std::collections::HashMap::new();
+        for node in a11y_dom::elements(doc) {
+            *counts.entry(selector_for(node)).or_insert(0) += 1;
+        }
+        Self(counts)
+    }
+
+    fn is_shared(&self, selector: &str) -> bool {
+        self.0.get(selector).is_some_and(|count| *count > 1)
+    }
+}
+
+/// Attribute, die ein Element im Auszug kenntlich machen, in der Reihenfolge
+/// ihres Nutzens beim Suchen.
+const EXCERPT_ATTRIBUTES: &[&str] = &[
+    "id",
+    "class",
+    "href",
+    "src",
+    "name",
+    "type",
+    "role",
+    "aria-label",
+    "aria-labelledby",
+    "title",
+    "alt",
+    "for",
+];
+
+/// Längste Attributwerte und längster Text im Auszug.
+const EXCERPT_VALUE_CHARS: usize = 60;
+const EXCERPT_TEXT_CHARS: usize = 40;
+
+fn clipped(text: &str, max: usize) -> String {
+    let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if text.chars().count() <= max {
+        text
+    } else {
+        let head: String = text.chars().take(max).collect();
+        format!("{head}…")
+    }
+}
+
+/// Der Text unter einem Element ohne den Inhalt von `style` und `script`:
+/// Ein Link um ein Symbol aus SVG trüge sonst dessen CSS als Text.
+fn visible_text(node: a11y_dom::ArenaNode<'_>) -> String {
+    use a11y_dom::NodeKind;
+    fn walk(node: a11y_dom::ArenaNode<'_>, out: &mut String) {
+        for child in node.children() {
+            match child.kind() {
+                NodeKind::Text => out.push_str(child.text()),
+                NodeKind::Element if !matches!(child.local_name(), "style" | "script") => {
+                    walk(child, out)
+                }
+                _ => {}
+            }
+        }
+    }
+    let mut out = String::new();
+    walk(node, &mut out);
+    out
+}
+
+/// Der Auszug eines Elements aus dem DOM: Anfangs-Tag mit den kenntlichen
+/// Attributen (Linkziel, Klasse, Name), sein Text und das Ende-Tag. Hat das
+/// Element Kindelemente, steht `…` für sie. Nur Gemessenes, nichts erschlossen.
+fn element_excerpt(node: a11y_dom::ArenaNode<'_>) -> String {
+    use a11y_dom::NodeKind;
+    let tag = node.local_name();
+    let mut out = format!("<{tag}");
+    for name in EXCERPT_ATTRIBUTES {
+        if let Some(value) = node.attr(name).filter(|v| !v.trim().is_empty()) {
+            out.push_str(&format!(
+                " {name}=\"{}\"",
+                clipped(value, EXCERPT_VALUE_CHARS)
+            ));
+        }
+    }
+    out.push('>');
+    const VOID: &[&str] = &["img", "input", "br", "hr", "meta", "link", "area", "source"];
+    if VOID.contains(&tag) {
+        return out;
+    }
+    let text = clipped(&visible_text(node), EXCERPT_TEXT_CHARS);
+    out.push_str(&text);
+    if node.children().any(|c| c.kind() == NodeKind::Element) {
+        out.push('…');
+    }
+    out.push_str(&format!("</{tag}>"));
+    out
+}
+
+/// Die Vorfahrenkette bis zu drei Ebenen über dem Element, wie sie in den
+/// Devtools zu finden ist: `nav.mainnav > ul > li > a`.
+fn element_path(node: a11y_dom::ArenaNode<'_>) -> String {
+    let mut chain: Vec<String> = a11y_dom::ancestors(node)
+        .filter(|a| a.kind() == a11y_dom::NodeKind::Element)
+        .filter(|a| !matches!(a.local_name(), "html" | "body"))
+        .take(3)
+        .map(selector_for)
+        .collect();
+    chain.reverse();
+    chain.push(selector_for(node));
+    chain.join(" > ")
+}
+
 /// Das Element zu einem Befund. `location.node` trägt den Arena-Index als
 /// Text; darüber geht es zurück auf das Element und von dort auf Selektor,
 /// Attribute und AXTree-Kennung.
@@ -1453,7 +1565,12 @@ fn finding_node<'d>(doc: &'d CdpDocument, finding: &Finding) -> Option<a11y_dom:
 }
 
 /// Übersetzt einen geteilten [`Finding`] in auditmysites [`Violation`].
-fn to_violation(doc: &CdpDocument, finding: &Finding, rule: &SharedRule) -> Violation {
+fn to_violation(
+    doc: &CdpDocument,
+    finding: &Finding,
+    rule: &SharedRule,
+    selectors: &SelectorCounts,
+) -> Violation {
     let node = finding_node(doc, finding);
 
     // "document" ist eine der Platzhalter-Kennungen, die die Anreicherung
@@ -1491,6 +1608,19 @@ fn to_violation(doc: &CdpDocument, finding: &Finding, rule: &SharedRule) -> Viol
         violation = violation.with_html_snippet(snippet.clone());
     }
     violation.evidence = finding.evidence.clone();
+    // A selector that several elements share (`a`) does not say which one is
+    // meant. The element's excerpt and its ancestor path do, and they tell
+    // the examples of a finding apart (#1211).
+    if let Some(n) = node.filter(|n| selectors.is_shared(&selector_for(*n))) {
+        if violation.html_snippet.is_none() {
+            violation.html_snippet = Some(element_excerpt(n));
+        }
+        violation.evidence.push(
+            crate::wcag::types::Evidence::new("ax_tree")
+                .with_field("dom_path")
+                .with_value(element_path(n)),
+        );
+    }
     violation
 }
 
@@ -1587,11 +1717,12 @@ fn run_shared_rules_inner(
         }
     }
 
+    let selectors = SelectorCounts::of(doc);
     for finding in &report.findings {
         let Some(rule) = shared_rule(&finding.rule_id) else {
             continue;
         };
-        results.add_violation(to_violation(doc, finding, rule));
+        results.add_violation(to_violation(doc, finding, rule, &selectors));
     }
 
     // Ein Vermerk je deklarierter Kennung — dieselbe Namensmenge wie die
@@ -1840,6 +1971,61 @@ mod tests {
             .collect()
     }
 
+    /// #1211: Ein Selektor, den mehrere Elemente tragen (`a`), sagt nicht, welches
+    /// gemeint ist. Der Befund trägt dann den Auszug des Elements mit Linkziel
+    /// und die Vorfahrenkette, ohne das CSS eines eingebetteten SVG; ein
+    /// Selektor, der nur ein Element trifft, bleibt ohne beides.
+    #[test]
+    fn geteilter_selektor_traegt_auszug_und_vorfahrenkette() {
+        let symbol = |id: i64| {
+            knoten(
+                id,
+                "svg",
+                &[],
+                vec![knoten(
+                    id + 1,
+                    "style",
+                    &[],
+                    vec![text(id + 2, ".cls-1{fill:red}")],
+                )],
+            )
+        };
+        let r = lauf_ueber(vec![knoten(
+            4,
+            "nav",
+            &["class", "menu"],
+            vec![
+                knoten(10, "a", &["href", "/eins"], vec![symbol(11)]),
+                knoten(20, "a", &["href", "/zwei"], vec![symbol(21)]),
+                knoten(30, "a", &["href", "/drei", "class", "logo"], vec![]),
+            ],
+        )]);
+        let links = unter(&r.violations, "links/name-missing");
+        assert_eq!(links.len(), 3, "{:?}", r.violations);
+        let pfad = |v: &Violation| {
+            v.evidence
+                .iter()
+                .find(|e| e.field.as_deref() == Some("dom_path"))
+                .and_then(|e| e.value.clone())
+        };
+        let geteilt: Vec<_> = links
+            .iter()
+            .filter(|v| v.selector.as_deref() == Some("a"))
+            .collect();
+        assert_eq!(geteilt.len(), 2);
+        let eins = geteilt[0].html_snippet.as_deref().expect("Auszug");
+        assert!(eins.contains("href=\"/eins\""), "{eins}");
+        assert!(!eins.contains("fill"), "{eins}");
+        assert_ne!(geteilt[0].html_snippet, geteilt[1].html_snippet);
+        assert_eq!(pfad(geteilt[0]).as_deref(), Some("nav.menu > a"));
+        let eindeutig = links
+            .iter()
+            .find(|v| v.selector.as_deref() == Some("a.logo"))
+            .expect("Link mit Klasse");
+        assert!(eindeutig.html_snippet.is_none());
+        assert!(pfad(eindeutig).is_none());
+    }
+
     /// #779: `<main><h2>` ohne h1. Die Ueberschrift ist bestimmbar (1.3.1),
     /// WCAG verlangt keine Ebene -- das ist kein bestaetigter Verstoss. Vor der
     /// Korrektur stand hier ein `Fail` unter 1.3.1.
@@ -1875,7 +2061,12 @@ mod tests {
         assert!(finding.is_best_practice());
         let doc = build_document(&seite_mit_koerper(vec![]), &AXTree::new()).unwrap();
         let mut r = WcagResults::new();
-        r.add_violation(to_violation(&doc, &finding, rule));
+        r.add_violation(to_violation(
+            &doc,
+            &finding,
+            rule,
+            &SelectorCounts::of(&doc),
+        ));
         assert!(r.violations.is_empty());
         let hinweis = unter(&r.warnings, "headings/h1-missing");
         assert_eq!(hinweis.len(), 1);

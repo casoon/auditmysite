@@ -55,6 +55,14 @@ single-report-decision-reach = { $count ->
     }
 single-report-measure-more = (+{ $count } weitere gleicher Art)
 
+single-report-first-step-title = Ergebnis und erster Schritt
+single-report-first-step-none = Kein bestätigtes WCAG-Vorkommen im automatisierten Prüfumfang.
+single-report-first-step-result = { $total ->
+        [one] 1 bestätigtes WCAG-Vorkommen
+       *[other] { $total } bestätigte WCAG-Vorkommen
+    } auf dieser Seite, davon { $severe } kritisch oder hoch.
+single-report-first-step-action = Erster Schritt: { $subject }.
+
 ## Findings
 single-report-findings-title = Klassifizierung der Befunde
 single-report-findings-intro = Alle technischen Befunde, getrennt nach systemischen Komponentenfehlern und Einzelfällen.
