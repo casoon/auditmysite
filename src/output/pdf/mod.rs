@@ -40,8 +40,8 @@ use self::appendix::{cover_logo_asset, register_cover_logo_asset};
 use self::helpers::create_engine;
 use self::root_causes::render_analysis;
 use self::single_report::{
-    render_appendix_full, render_management_page, render_module_sections, render_part_divider,
-    render_tech_details,
+    render_appendix_full, render_management_first_page, render_management_page,
+    render_management_rest, render_module_sections, render_part_divider, render_tech_details,
 };
 use crate::audit::{normalize_checked, AuditReport};
 use crate::i18n::I18n;
@@ -215,9 +215,14 @@ fn build_single_report(
     builder = builder.add_component(cover);
 
     // --- Page 2: Management Summary (CoverPage already emits a page break) ---
-    builder = render_management_page(builder, &vm, &i18n);
+    if vm.meta.report_level == ReportLevel::Executive {
+        builder = render_management_page(builder, &vm, &i18n);
+    } else {
+        // The table of contents sits directly behind the first summary page
+        // (verdict, rating, problem profile), before the quality profile,
+        // weightings and risks (#1210).
+        builder = render_management_first_page(builder, &vm, &i18n);
 
-    if vm.meta.report_level != ReportLevel::Executive {
         // --- Page 3: Table of Contents ---
         builder = builder.add_component(PageBreak::new());
         builder = builder.add_component(
@@ -225,7 +230,11 @@ fn build_single_report(
                 .with_title(i18n.t("pdf-frame-toc-title"))
                 .with_depth(2),
         );
+        builder = render_management_rest(builder, &vm, &i18n);
+    }
 
+    if vm.meta.report_level != ReportLevel::Executive {
+        builder = builder.add_component(PageBreak::new());
         // --- Part 1: Befunde nach Ursache (Divider) ---
         builder = render_part_divider(
             builder,

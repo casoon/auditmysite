@@ -10,6 +10,7 @@ and verification for each change is in the
 ### Changed
 
 - **Pages:** the project site uses the current shared theme (0.19.0).
+- **Report:** the single report's table of contents moves directly behind the first summary page (verdict, rating, problem profile) instead of after the whole management summary (page 6 of a technical report); the quality profile, weightings and risks follow it. The batch report already carries it on page 3, directly behind the audit frame (Refs #1210).
 
 
 ## [2.3.0] - 2026-11-25

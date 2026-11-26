@@ -1601,6 +1601,43 @@ mod tests {
         );
     }
 
+    /// #1210: the single report's table of contents sits directly behind the
+    /// first summary page (verdict, rating, problem profile), before the
+    /// weightings, risks and measures, and an executive report has none.
+    #[test]
+    fn single_report_contents_follow_the_first_summary_page() {
+        for locale in ["de", "en"] {
+            let i18n = I18n::new(locale).unwrap();
+            let config = |level| ReportConfig {
+                level,
+                locale: locale.to_string(),
+                ..ReportConfig::default()
+            };
+            let typ = generate_typ(&pdf_fixture_report(), &config(ReportLevel::Technical))
+                .expect("Typst source");
+            let at = |needle: &str| {
+                typ.find(needle)
+                    .unwrap_or_else(|| panic!("{locale}: {needle} missing"))
+            };
+            let toc = at("#table-of-contents((");
+            let verdict = at(&format!(
+                "title: \"{}\"",
+                i18n.t("single-report-overall-verdict")
+            ));
+            let measures = at(&format!(
+                "title: \"{}\"",
+                i18n.t("single-report-measures-title")
+            ));
+            assert!(verdict < toc, "{locale}: contents before the verdict");
+            assert!(toc < measures, "{locale}: contents behind the measures");
+            assert_eq!(typ.matches("#table-of-contents((").count(), 1);
+
+            let executive = generate_typ(&pdf_fixture_report(), &config(ReportLevel::Executive))
+                .expect("Typst source");
+            assert!(!executive.contains("#table-of-contents(("), "{locale}");
+        }
+    }
+
     fn pdf_fixture_report() -> AuditReport {
         pdf_fixture_report_for_url("https://example.com")
     }
