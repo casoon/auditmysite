@@ -193,7 +193,7 @@ Binary evidence is not embedded in the JSON. The top-level `artifacts` array poi
 - All performance metrics are **lab data** captured in a local headless Chrome (via CDP / `PerformanceObserver`). They are never field/RUM data (e.g. Chrome UX Report / CrUX).
 - Each Core Web Vital (`detail.modules.performance.vitals.*`) carries a `measurement` field:
   - `measurement = "lab_headless"` — directly measured in the local headless browser (LCP, FCP, CLS, TBT, TTFB).
-  - `measurement = "estimated_lab"` — derived/estimated from other lab signals (INP, TTI, Speed Index). These are approximations, not direct measurements, and must not be read as field metrics.
+  - `measurement = "estimated_lab"` — derived/estimated from other lab signals (INP, TTI, Speed Index). The report labels the Speed Index "Speed Index (approximation)" (DE "Speed-Index-Näherung"): it is 0.35 × FCP + 0.65 × LCP, not a measured Speed Index; the JSON field stays `speed_index`. These are approximations, not direct measurements, and must not be read as field metrics.
 - In rendered reports, estimated metrics carry a localized "(lab estimate)" / "(Lab-Schätzung)" suffix, and the performance section states that all values are lab data, not field data.
 
 ### Measurement window (#770)
