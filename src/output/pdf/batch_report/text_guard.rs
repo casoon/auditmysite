@@ -11,11 +11,12 @@ use std::collections::BTreeSet;
 
 const EN: &str = include_str!("../../../../locales/en/batch-consistency.ftl");
 const DE: &str = include_str!("../../../../locales/de/batch-consistency.ftl");
-const SOURCES: [&str; 4] = [
+const SOURCES: [&str; 5] = [
     include_str!("actions.rs"),
     include_str!("causes.rs"),
     include_str!("consistency.rs"),
     include_str!("management.rs"),
+    include_str!("technical.rs"),
 ];
 
 /// The message ids of a file (column-0 `id =` lines), each only once.
@@ -45,7 +46,7 @@ fn every_message_is_used_by_the_code() {
             SOURCES
                 .iter()
                 .any(|source| source.contains(&format!("\"{id}\""))),
-            "{id} is not used in actions.rs, causes.rs, consistency.rs or management.rs"
+            "{id} is not used in actions.rs, causes.rs, consistency.rs, management.rs or technical.rs"
         );
     }
 }

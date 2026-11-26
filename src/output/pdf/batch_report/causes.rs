@@ -114,9 +114,6 @@ pub(super) fn render_batch_causes(
     for group in &carded {
         builder = builder.add_component(cause_card(group, pres, i18n));
     }
-    if carded.iter().any(|g| batch_score_effect(g, i18n).is_some()) {
-        builder = builder.add_component(TextBlock::new(i18n.t("batch-management-score-gain-note")));
-    }
 
     // The finding types beyond the cards are in the JSON report: with their
     // ids, reach and priority they are a list, not an overview.

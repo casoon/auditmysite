@@ -107,6 +107,15 @@ pub(super) fn render_batch_method(
     if pres.portfolio_summary.total_urls >= 2 {
         builder = builder.add_component(TextBlock::new(i18n.t("batch-tech-pick-rule")));
     }
+    // What the score effect row of a cause card means and why the values do
+    // not add up.
+    if pres
+        .top_issues
+        .iter()
+        .any(|group| super::management::batch_score_effect(group, i18n).is_some())
+    {
+        builder = builder.add_component(TextBlock::new(i18n.t("batch-management-score-gain-note")));
+    }
 
     // The share comes from the criteria list the JSON reports as
     // `summary.wcag_coverage`, not from a fixed "30–40%" (#1039).
