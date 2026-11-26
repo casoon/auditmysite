@@ -86,6 +86,19 @@ dash means none exists. Entries are in the order of the changelog.
   top actions and action plan into "Recurring problems and actions" (#1171). Finding titles of a
   missing accessible name or label name the element kind and the reach in the PDF; the JSON `title` and finding ids do not change (#1170). A consumer that reads the
   PDF text sees other headings.
+- **Report rework (#1208-#1213):** the single report puts the table of contents on page 3, tells
+  each finding once in full (the developer part carries evidence only), shows the check after the
+  fix and a first step, and has no appendix list of all violations below the technical level (the
+  findings are in the JSON and in their cards). The batch PDF is an overview of one domain: scope,
+  a recommended page for a single report with the rule that picks it (`docs/PDF_REPORT_CONTRACT.md`),
+  page comparison and cause cards; per-page detail chapters (URL matrix, content and sitemap
+  detail, asset tables) moved to the report level `technical`. Headline verdicts name what was
+  measured. A consumer that reads PDF text sees other headings and fewer pages; the JSON keeps
+  every field.
+- **JSON, additive:** findings whose selector is shared by several elements carry up to five
+  distinct `occurrences[]` examples with `html_snippet` and an `ax_tree` evidence `dom_path`. The
+  schema descriptions of `fail_url_count`, `failed_url_count` and `coverage.failed` say what each
+  counts; no field is renamed (#1211, #1213).
 - **SEO values that move for unchanged input:** hreflang and JSON-LD are judged by `web-checks`
   (`de-de` and `zh-Hant-TW` are valid codes; a page that names itself only as `x-default` gets
   `hreflang_no_self_reference`; `@graph` with a schema.org `@context` is valid JSON-LD), and
