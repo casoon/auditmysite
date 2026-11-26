@@ -15,7 +15,9 @@ use crate::seo::profile::PageType;
 
 const W_TECHNICAL_SEO: u32 = 35;
 const W_CONTENT: u32 = 25;
+#[cfg(feature = "experimental")]
 const W_TRUST: u32 = 15;
+#[cfg(feature = "experimental")]
 const W_AI: u32 = 10;
 const W_STRUCTURE: u32 = 10;
 const W_MOBILE: u32 = 5;
@@ -81,17 +83,25 @@ pub fn build_search_experience(
     }
 
     let score = composite_score(&components);
-    let not_measured = [
-        ("pdf-analysis-search-content-clarity", W_CONTENT),
-        ("pdf-analysis-search-trust", W_TRUST),
-        ("pdf-analysis-search-structure", W_STRUCTURE),
-        ("pdf-analysis-search-ai", W_AI),
-        ("pdf-analysis-search-mobile", W_MOBILE),
+    let unmeasured_keys: Vec<&str> = [
+        "pdf-analysis-search-content-clarity",
+        "pdf-analysis-search-trust",
+        "pdf-analysis-search-structure",
+        "pdf-analysis-search-ai",
+        "pdf-analysis-search-mobile",
     ]
-    .iter()
-    .map(|(key, _)| i18n.t(key))
-    .filter(|label| !components.iter().any(|c| &c.label == label))
+    .into_iter()
+    .filter(|key| {
+        let label = i18n.t(key);
+        !components.iter().any(|c| c.label == label)
+    })
     .collect();
+    let not_measured = unmeasured_keys.iter().map(|key| i18n.t(key)).collect();
+    let measured = MeasuredParts {
+        content: !unmeasured_keys.contains(&"pdf-analysis-search-content-clarity"),
+        trust: !unmeasured_keys.contains(&"pdf-analysis-search-trust"),
+        ai: !unmeasured_keys.contains(&"pdf-analysis-search-ai"),
+    };
     apply_effective_weights(&mut components);
     let mut warnings = build_warnings(normalized, score, i18n);
     warnings.truncate(5);
@@ -99,7 +109,7 @@ pub fn build_search_experience(
     Some(SearchExperiencePresentation {
         score,
         label: i18n.t("pdf-analysis-search-label"),
-        interpretation: interpretation(score, seo.score, &components, i18n),
+        interpretation: interpretation(score, seo.score, &components, measured, i18n),
         components,
         not_measured,
         warnings,
@@ -341,14 +351,63 @@ fn build_warnings(normalized: &AuditContext<'_>, score: u32, i18n: &I18n) -> Vec
     warnings
 }
 
+/// Which of the components a lead sentence may name were measured in this
+/// run. The lead is composed from these parts only (#1224): a component that
+/// is listed as "not measured" next to it must not be claimed by it.
+#[derive(Clone, Copy)]
+struct MeasuredParts {
+    content: bool,
+    trust: bool,
+    ai: bool,
+}
+
+#[derive(Clone, Copy)]
+enum ListJoin {
+    And,
+    Or,
+}
+
+fn join_parts(i18n: &I18n, join: ListJoin, parts: &[String]) -> String {
+    let (two, many) = match join {
+        ListJoin::And => (
+            "pdf-analysis-search-join-and-two",
+            "pdf-analysis-search-join-and-many",
+        ),
+        ListJoin::Or => (
+            "pdf-analysis-search-join-or-two",
+            "pdf-analysis-search-join-or-many",
+        ),
+    };
+    match parts {
+        [] => String::new(),
+        [only] => only.clone(),
+        [first, second] => {
+            i18n.t_args(two, &[("first", first.clone()), ("second", second.clone())])
+        }
+        [initial @ .., last] => i18n.t_args(
+            many,
+            &[("initial", initial.join(", ")), ("last", last.clone())],
+        ),
+    }
+}
+
 fn interpretation(
     score: u32,
     technical_seo: u32,
     components: &[SearchExperienceComponent],
+    measured: MeasuredParts,
     i18n: &I18n,
 ) -> String {
     let weak: Vec<&SearchExperienceComponent> =
         components.iter().filter(|c| c.score < 70).collect();
+    let parts = |keys: [(&str, bool); 3], join: ListJoin| {
+        let texts: Vec<String> = keys
+            .iter()
+            .filter(|(_, present)| *present)
+            .map(|(key, _)| i18n.t(key))
+            .collect();
+        join_parts(i18n, join, &texts)
+    };
     if technical_seo >= 75 && !weak.is_empty() && score + 10 < technical_seo {
         let names = weak
             .iter()
@@ -360,17 +419,141 @@ fn interpretation(
             &[("names", names)],
         )
     } else if score >= 80 {
-        i18n.t("pdf-analysis-search-interpretation-strong")
+        if measured.content {
+            let list = parts(
+                [
+                    ("pdf-analysis-search-strong-part-technical", true),
+                    ("pdf-analysis-search-strong-part-content", true),
+                    ("pdf-analysis-search-strong-part-trust", measured.trust),
+                ],
+                ListJoin::And,
+            );
+            i18n.t_args(
+                "pdf-analysis-search-interpretation-strong",
+                &[("parts", list)],
+            )
+        } else {
+            i18n.t("pdf-analysis-search-interpretation-strong-technical")
+        }
     } else if score >= 60 {
-        i18n.t("pdf-analysis-search-interpretation-solid")
+        let list = parts(
+            [
+                ("pdf-analysis-search-solid-part-content", measured.content),
+                ("pdf-analysis-search-solid-part-trust", measured.trust),
+                ("pdf-analysis-search-solid-part-ai", measured.ai),
+            ],
+            ListJoin::Or,
+        );
+        if list.is_empty() {
+            i18n.t("pdf-analysis-search-interpretation-solid-technical")
+        } else {
+            i18n.t_args(
+                "pdf-analysis-search-interpretation-solid",
+                &[("parts", list)],
+            )
+        }
     } else {
-        i18n.t("pdf-analysis-search-interpretation-limited")
+        let list = parts(
+            [
+                ("pdf-analysis-search-limited-part-content", measured.content),
+                ("pdf-analysis-search-limited-part-trust", measured.trust),
+                ("pdf-analysis-search-limited-part-ai", measured.ai),
+            ],
+            ListJoin::Or,
+        );
+        if list.is_empty() {
+            i18n.t("pdf-analysis-search-interpretation-limited-technical")
+        } else {
+            i18n.t_args(
+                "pdf-analysis-search-interpretation-limited",
+                &[("parts", list)],
+            )
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const ALL_MEASURED: MeasuredParts = MeasuredParts {
+        content: true,
+        trust: true,
+        ai: true,
+    };
+    const NONE_OF_UX: MeasuredParts = MeasuredParts {
+        content: true,
+        trust: false,
+        ai: false,
+    };
+    const TECHNICAL_ONLY: MeasuredParts = MeasuredParts {
+        content: false,
+        trust: false,
+        ai: false,
+    };
+
+    fn lead(score: u32, measured: MeasuredParts, locale: &str) -> String {
+        interpretation(score, score, &[], measured, &I18n::new(locale).unwrap())
+    }
+
+    /// #1224: a lead must not name a component the page lists as not measured.
+    #[test]
+    fn lead_names_only_measured_components() {
+        for (score, de_unwanted, en_unwanted) in [
+            (90, "Vertrauen", "trust"),
+            (70, "Vertrauen", "trust"),
+            (40, "vertrauensstark", "trustworthy"),
+        ] {
+            let de = lead(score, NONE_OF_UX, "de");
+            let en = lead(score, NONE_OF_UX, "en");
+            assert!(!de.contains(de_unwanted), "{de}");
+            assert!(!en.to_lowercase().contains(en_unwanted), "{en}");
+        }
+        // AI readability is not named either (solid and limited variants).
+        assert!(!lead(70, NONE_OF_UX, "de").contains("Lesbarkeit"));
+        assert!(!lead(70, NONE_OF_UX, "en").contains("machine readability"));
+        assert!(!lead(40, NONE_OF_UX, "de").contains("extrahierbar"));
+        assert!(!lead(40, NONE_OF_UX, "en").contains("extractable"));
+        // Measured ones still are.
+        assert!(lead(90, ALL_MEASURED, "de").contains("Vertrauen"));
+        assert!(lead(90, ALL_MEASURED, "en").contains("trust signals"));
+        assert!(lead(70, ALL_MEASURED, "de").contains("maschineller Lesbarkeit"));
+        assert!(lead(40, ALL_MEASURED, "en").contains("extractable"));
+    }
+
+    #[test]
+    fn lead_with_only_technical_measurement_claims_nothing_else() {
+        for score in [90, 70, 40] {
+            for locale in ["de", "en"] {
+                let text = lead(score, TECHNICAL_ONLY, locale).to_lowercase();
+                for word in [
+                    "vertrau",
+                    "inhalt",
+                    "nutzerverständnis",
+                    "extrahier",
+                    "trust",
+                    "content",
+                    "understandable",
+                    "machine",
+                ] {
+                    assert!(!text.contains(word), "{locale} {score}: {text}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn lead_has_no_german_in_english() {
+        for score in [90, 70, 40] {
+            for measured in [ALL_MEASURED, NONE_OF_UX, TECHNICAL_ONLY] {
+                let text = lead(score, measured, "en");
+                assert!(
+                    !text.contains(['ä', 'ö', 'ü', 'ß', 'Ä', 'Ö', 'Ü']),
+                    "{text}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn composite_normalizes_missing_weights() {
@@ -431,7 +614,7 @@ mod tests {
             },
         ];
 
-        let text = interpretation(68, 82, &components, &I18n::new("de").unwrap());
+        let text = interpretation(68, 82, &components, ALL_MEASURED, &I18n::new("de").unwrap());
         assert!(text.contains("Technisch auffindbar"));
         assert!(text.contains("Trust"));
     }
