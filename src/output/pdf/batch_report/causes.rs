@@ -1,4 +1,4 @@
-//! Shared and page-specific causes, and the closing step of the batch PDF
+//! Shared and page-specific causes, and the next step of the batch PDF
 //! (#1212): one compact card per finding type with the largest effect and the
 //! concrete recommendation of a single report in place of a generic list of
 //! next steps.
@@ -130,7 +130,7 @@ pub(super) fn render_batch_causes(
     builder
 }
 
-/// The closing step: the single report of the recommended page and how to
+/// The next step: the single report of the recommended page and how to
 /// create it. Without a recommended page there is no step to name.
 pub(super) fn render_batch_next_step(
     builder: renderreport::engine::ReportBuilder,

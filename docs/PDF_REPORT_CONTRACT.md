@@ -86,18 +86,18 @@ single reports.
    report, and why.
 3. Page comparison: the audited pages by accessibility with page title and path
    (the domain is the same on every row), the findings and the reason a page
-   deserves a single report.
+   deserves a single report; below it the concrete step, the single report of
+   the recommended page and the command that creates it, in place of a generic
+   list of next steps.
 4. Shared and page-specific causes: one compact card per finding type with the
    largest effect (reach, cause and how sure the report is about it, measure,
-   priority, score effect, finding id) and a short table for the next ones.
-5. Closing step: the single report of the recommended page and the command
-   that creates it; no generic list of next steps.
-6. Technical part and method: the audit frame, how the recommendation is
+   priority, score effect, finding id).
+5. Technical part and method: the audit frame, how the recommendation is
    calculated, the module scores per page, the audit caveats, the keyboard
    journey (one line without findings), render-blocking resources, cross-page
    SEO and consistency checks, crawl diagnostics, and the opt-in privacy
    chapter, annex and assessments.
-7. Report level `technical` only: the detail chapters (URL matrix and page
+6. Report level `technical` only: the detail chapters (URL matrix and page
    types, the per-page content and sitemap detail of the SEO module, the
    per-page consistency detail, the asset tables, the internal comparison by
    module) and the per-URL appendix. Their data is in the JSON report at every
@@ -251,7 +251,7 @@ surface that owns its lifecycle:
   page title, the truncation marker of the example list).
 - `locales/{de,en}/batch-overview.ftl`: the texts of the batch PDF's overview
   page (`output::pdf::batch_report::glance`: the three answers and the
-  recommendation reason), page comparison (`compare`), causes and closing step
+  recommendation reason), page comparison (`compare`), causes and next step
   (`causes`) and technical part (`technical`, and the headers of the compact
   SEO and consistency parts), all `batch-overview-*`, `batch-compare-*`,
   `batch-causes-*`, `batch-next-*` and `batch-tech-*`.

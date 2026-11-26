@@ -1,5 +1,5 @@
 # German counterpart of `locales/en/batch-overview.ftl`: the texts of the batch
-# PDF's overview page, page comparison, causes, closing step and technical
+# PDF's overview page, page comparison, causes, next step and technical
 # part (`output::pdf::batch_report::{glance, compare, causes, technical}`,
 # `batch-overview-*`, `batch-compare-*`, `batch-causes-*`, `batch-next-*`,
 # `batch-tech-*`), #1212. The same keys as the
@@ -66,7 +66,7 @@ batch-causes-more-json = { $count ->
        *[other] { $count } weitere Befundarten stehen
     } im JSON-Bericht.
 
-## Closing step
+## Next step
 batch-next-title = Nächster Schritt
 batch-next-body = Einzelbericht für „{ $page }“ erstellen, um die Befunde dieser Seite im Detail zu sehen (Befehl: { $command }).
 

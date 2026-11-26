@@ -233,7 +233,7 @@ src/
 │   │   │                  # `locales/<lang>/single-report.ftl`, `single-report-*`, #936)
 │   │   ├── batch_report/ # Batch PDF sections (#1212): overview (cover, scope note, contents),
 │   │   │                 # glance (overview page: scope, status, the three answers), compare
-│   │   │                 # (page comparison), causes (cause cards, closing step), technical
+│   │   │                 # (page comparison), causes (cause cards, next step), technical
 │   │   │                 # (frame and method), management, portfolio, interactive, actions,
 │   │   │                 # seo, consistency, appendix (crawl links); the texts of
 │   │   │                 # consistency and management: `batch-consistency-*`/`batch-management-*`

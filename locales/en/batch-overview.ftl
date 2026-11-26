@@ -1,4 +1,4 @@
-# The texts of the batch PDF's overview page, page comparison, causes, closing
+# The texts of the batch PDF's overview page, page comparison, causes, next
 # step and technical part (`output::pdf::batch_report::{glance, compare,
 # causes, technical}`, `batch-overview-*`, `batch-compare-*`, `batch-causes-*`,
 # `batch-next-*`, `batch-tech-*`), #1212. The German
@@ -65,7 +65,7 @@ batch-causes-more-json = { $count ->
        *[other] { $count } more finding types are
     } in the JSON report.
 
-## Closing step
+## Next step
 batch-next-title = Next step
 batch-next-body = Create a single report for "{ $page }" to see the findings of this page in detail (command: { $command }).
 

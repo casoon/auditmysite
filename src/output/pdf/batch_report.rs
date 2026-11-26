@@ -125,11 +125,12 @@ pub(super) fn build_batch_report(
         .collect();
 
     // The main part: verdict and recommendation (cover and overview page),
-    // page comparison, shared and page-specific causes, the closing step.
+    // page comparison with the concrete single-report step it leads to, shared
+    // and page-specific causes.
     builder = render_batch_cover(builder, batch, &pres, config, score, &i18n)?;
     builder = render_batch_page_comparison(builder, &pres, &i18n);
-    builder = render_batch_causes(builder, &pres, &i18n);
     builder = render_batch_next_step(builder, &pres, &i18n);
+    builder = render_batch_causes(builder, &pres, &i18n);
 
     // The technical part and method: the numbers behind the overview, compact
     // and cross-page. Per-page detail is in the JSON report and the single
