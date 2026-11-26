@@ -117,30 +117,6 @@ batch-management-flag-pages = { $count ->
     }
 
 ## Assessment and key points
-batch-management-assessment-critical = Kritische Barrieren — nicht WCAG-konform
-batch-management-assessment-serious = Gravierende Barrieren — nicht WCAG-konform
-batch-management-assessment-substantial-gaps = Erhebliche Barrierefreiheitslücken
-batch-management-assessment-usable-critical = Nutzbar, aber mit kritischen Barrieren
-batch-management-assessment-usable-high = Nutzbare Basis, aber Barrieren hoher Schwere gefunden
-batch-management-assessment-needs-improvement = Verbesserungswürdig auf dem Weg zur Barrierefreiheit
-batch-management-assessment-stable-critical = Technisch stabil, aber mit kritischen Barrieren
-batch-management-assessment-good-high = Gute Basis, aber Barrieren hoher Schwere gefunden
-batch-management-assessment-fine-tuning = Weitgehend barrierefrei — Feinschliff
-batch-management-assessment-polish = Weitgehend barrierefrei — Feinschliff
-batch-management-point-severe = { $occurrences } kritische/hohe WCAG-Vorkommen auf { $urls ->
-        [one] 1 URL
-       *[other] { $urls } URLs
-    } ({ $findings ->
-        [one] 1 Befund
-       *[other] { $findings } Befunde
-    }, je Seite gruppiert)
-batch-management-point-main-issue = Hauptproblem: { $title } ({ $occurrences } Vorkommen auf { $urls ->
-        [one] 1 URL
-       *[other] { $urls } URLs
-    })
-batch-management-point-legal-flags = WCAG-Level-A/AA-Verstöße automatisiert erkannt — manuelle Prüfung für belastbare BFSG-Einordnung nötig
-batch-management-point-structural = Keine Level-A/AA-Verstöße, aber strukturelle Optimierungspotenziale auf mehreren Seiten
-batch-management-point-no-barriers = Keine automatisiert erkennbaren kritischen Barrieren — manuelle Prüfung empfohlen.
 batch-management-risks-title = Management-Risikoansicht
 
 ## Internal comparison

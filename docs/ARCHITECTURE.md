@@ -185,6 +185,7 @@ src/
 │   │   │                    # `output-*` in `locales/<lang>/output-texts.ftl` (#936); batch/text_export.rs
 │   │   │                    # (ignored test: exports them in both languages, written together with
 │   │   │                    # the detail-module texts of pdf/detail_modules/module_text_export.rs)
+│   │   ├── batch_focus.rs   # Which audited page of a batch deserves a single report (#1212): per-page finding-type weights, the recommended page, the spread of the finding types; pure, measured, deterministic
 │   │   ├── finding_group.rs # The one `report_model::FindingGroup` builder, shared by single and batch reports (#937); a group holds the `NormalizedFinding` it presents (a page's finding, or a cross-page aggregate with its `affected_urls`) plus the run-language texts
 │   │   └── single/      # Single-report builder (findings, etc.)
 │   │       ├── mod.rs, executive.rs, positive.rs, serp.rs, modules_block.rs,
@@ -230,9 +231,11 @@ src/
 │   │   ├── single_report/ # text_export.rs (ignored test: exports the texts of single_report.rs
 │   │   │                  # in both languages) and text_guard.rs (guards of
 │   │   │                  # `locales/<lang>/single-report.ftl`, `single-report-*`, #936)
-│   │   ├── batch_report/ # Batch PDF sections: overview (cover, status, overview grid),
-│   │   │                 # management, portfolio, interactive, actions, seo,
-│   │   │                 # consistency, appendix (crawl links); the texts of
+│   │   ├── batch_report/ # Batch PDF sections (#1212): overview (cover, scope note, contents),
+│   │   │                 # glance (overview page: scope, status, the three answers), compare
+│   │   │                 # (page comparison), causes (cause cards, closing step), technical
+│   │   │                 # (frame and method), management, portfolio, interactive, actions,
+│   │   │                 # seo, consistency, appendix (crawl links); the texts of
 │   │   │                 # consistency and management: `batch-consistency-*`/`batch-management-*`
 │   │   │                 # in `locales/<lang>/batch-consistency.ftl` (#936), text_export.rs (ignored
 │   │   │                 # test: exports them in both languages) and text_guard.rs (guards of that file);

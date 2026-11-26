@@ -1,5 +1,5 @@
 //! Guards of `locales/{de,en}/batch-consistency.ftl` (#936): the same keys in
-//! both languages, every key defined once, used by `consistency.rs`,
+//! both languages, every key defined once, used by `actions.rs`, `causes.rs`, `consistency.rs`,
 //! `management.rs` and resolving without errors, no German in the English
 //! file, and no text of the export scenarios that is a key or still holds a
 //! placeholder.
@@ -11,8 +11,9 @@ use std::collections::BTreeSet;
 
 const EN: &str = include_str!("../../../../locales/en/batch-consistency.ftl");
 const DE: &str = include_str!("../../../../locales/de/batch-consistency.ftl");
-const SOURCES: [&str; 3] = [
+const SOURCES: [&str; 4] = [
     include_str!("actions.rs"),
+    include_str!("causes.rs"),
     include_str!("consistency.rs"),
     include_str!("management.rs"),
 ];
@@ -34,7 +35,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 96);
+    assert_eq!(en.len(), 81);
 }
 
 #[test]
@@ -44,7 +45,7 @@ fn every_message_is_used_by_the_code() {
             SOURCES
                 .iter()
                 .any(|source| source.contains(&format!("\"{id}\""))),
-            "{id} is not used in actions.rs, consistency.rs or management.rs"
+            "{id} is not used in actions.rs, causes.rs, consistency.rs or management.rs"
         );
     }
 }

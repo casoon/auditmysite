@@ -863,6 +863,8 @@ pub fn build_batch_presentation_with_normalized(
         .iter()
         .map(|cause| build_template_cluster_view(cause, batch.summary.total_urls, i18n))
         .collect();
+    let (page_focus, single_report_pick, finding_spread) =
+        super::batch_focus::derive_focus(normalized_reports, &top_issues);
     BatchPresentation {
         cover: CoverData {
             title: i18n.t("output-batch-cover-title"),
@@ -935,6 +937,9 @@ pub fn build_batch_presentation_with_normalized(
         appendix: build_batch_appendix(i18n.locale(), batch, normalized_reports),
         interactive_summary,
         template_clusters,
+        page_focus,
+        single_report_pick,
+        finding_spread,
     }
 }
 

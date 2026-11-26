@@ -35,7 +35,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 47);
+    assert_eq!(en.len(), 35);
 }
 
 #[test]
@@ -100,6 +100,11 @@ fn no_scenario_leaves_a_key_or_a_placeholder_in_a_text() {
         for text in texts {
             assert!(
                 !text.contains("batch-report-")
+                    && !text.contains("batch-overview-")
+                    && !text.contains("batch-compare-")
+                    && !text.contains("batch-causes-")
+                    && !text.contains("batch-tech-")
+                    && !text.contains("batch-next-")
                     && !text.contains("batch-col-")
                     && !text.contains("batch-interactive-")
                     && !text.contains("a11y-details-")
@@ -119,37 +124,12 @@ fn all_strings(value: &Value) -> Vec<&str> {
     out
 }
 
-/// Three batch texts that were literals of one language: the overview card of
-/// the broken internal links ("Broken Links" in German reports), the status of
-/// a broken crawl link without code and error ("Unbekannt" in both
-/// languages) and the module names "Privacy" and "Commerce" in the batch
-/// tables.
+/// Two batch texts that were literals of one language: the status of a broken
+/// crawl link without code and error ("Unbekannt" in both languages) and the
+/// module names "Privacy" and "Commerce" in the batch tables.
 #[test]
 fn batch_texts_follow_the_run_language() {
     use crate::audit::{BrokenLink, BrokenLinkSeverity, CrawlDiagnostics};
-
-    // The card, as the export records it.
-    for (lang, card, leaked) in [
-        ("en", "Broken internal links", None),
-        ("de", "Kaputte interne Links", Some("Broken Links")),
-    ] {
-        let record = records()
-            .into_iter()
-            .find(|r| {
-                r[0] == "build_batch_overview_grid"
-                    && r[2] == lang
-                    && r[1].as_str().is_some_and(|i| i.ends_with("broken=Some(3)"))
-            })
-            .expect("the export has the card");
-        let texts = all_strings(&record);
-        assert!(texts.contains(&card), "{lang}: {card} missing in {record}");
-        if let Some(leaked) = leaked {
-            assert!(
-                !texts.contains(&leaked),
-                "{lang}: {leaked} left in {record}"
-            );
-        }
-    }
 
     // The status of a link that has neither a code nor an error.
     let status = |lang: &str| {
@@ -352,46 +332,5 @@ fn thin_content_insight_names_its_consequence_in_both_languages() {
             "{lang}: {texts:?}"
         );
         assert_eq!(i18n.t("seo-profile-page-type-thin-content"), page_type);
-    }
-}
-
-/// The first key point names the URLs that carry critical/high findings, not
-/// all audited URLs ("on 5 URLs" for two failing pages of five, #1039), and
-/// both key points agree with a count of one.
-#[test]
-fn key_points_name_the_affected_urls_and_agree_in_number() {
-    for (lang, severe, main) in [
-        (
-            "en",
-            "5 critical/high WCAG occurrences on 1 URL (2 findings, grouped per page)",
-            "(1 occurrence on 1 URL)",
-        ),
-        (
-            "de",
-            "5 kritische/hohe WCAG-Vorkommen auf 1 URL (2 Befunde, je Seite gruppiert)",
-            "(1 Vorkommen auf 1 URL)",
-        ),
-    ] {
-        let i18n = crate::i18n::I18n::new(lang).unwrap();
-        let mut pres = crate::output::builder::build_batch_presentation_with_locale(
-            &super::text_export::batch(),
-            &i18n,
-        );
-        assert_eq!(pres.url_ranking.len(), 3);
-        for (i, url) in pres.url_ranking.iter_mut().enumerate() {
-            url.critical_violations = if i == 1 { 2 } else { 0 };
-        }
-        pres.portfolio_summary.total_urls = 3;
-        pres.portfolio_summary.occurrence_distribution = super::text_export::dist(2, 3);
-        pres.top_issues[0].finding.occurrence_count = 1;
-        pres.top_issues[0].affected_urls.truncate(1);
-        let points = super::management::build_batch_key_points(
-            &pres,
-            &super::text_export::dist(1, 1),
-            0,
-            &i18n,
-        );
-        assert_eq!(points[0], severe, "{lang}");
-        assert!(points[1].ends_with(main), "{lang}: {}", points[1]);
     }
 }
