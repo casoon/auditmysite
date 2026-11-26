@@ -60,7 +60,6 @@ panel-quick-actions = Naheliegende Verbesserungen
 panel-strengths = Was bereits stark ist
 label-strength = Stärke
 section-top-issues = Die wichtigsten Probleme im Überblick
-section-all-violations = Alle Verstöße (aggregiert nach Regel)
 audit-data-title = Audit-Daten
 audit-data-area = Bereich
 audit-data-signal = Signal

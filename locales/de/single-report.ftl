@@ -17,7 +17,7 @@ single-report-management-title = Management-Sicht
 single-report-management-intro = Gesamtstatus, Hauptrisiken, wichtigste Maßnahmen und Hebel auf einen Blick.
 single-report-management-eyebrow = MANAGEMENT-SUMMARY
 single-report-wcag-occurrences = WCAG-Vorkommen
-single-report-occurrences-definition = Vorkommen = einzelne betroffene Elemente, nicht die Anzahl unterschiedlicher Regeln — vollständige Aufschlüsselung im Anhang.
+single-report-occurrences-definition = Vorkommen = einzelne betroffene Elemente, nicht die Anzahl unterschiedlicher Regeln — die vollständige Aufschlüsselung steht im JSON-Report.
 # $warnings_text and $manual_text are the count-heuristic-warnings and
 # count-manual-points messages of report.ftl.
 single-report-evidence-note = Gezählt sind hier ausschließlich bestätigte WCAG-Verstöße. Zusätzlich dokumentiert, aber nicht in den Score eingerechnet: { $warnings_text } und { $manual_text } auf dieser Seite zur manuellen Bestätigung. Weitere { $manual_only } WCAG-Kriterien lassen sich nur manuell prüfen (Anhang).
@@ -36,7 +36,7 @@ single-report-dashboard-all-good = Die zusätzlichen Indikator-Module (UX, Journ
 ## Accessibility rating
 single-report-rating-body = { $rating } — automatisierte Prüfung { $verdict }.
 single-report-rating-provisional = Dieser Lauf ist nicht vollständig durchgelaufen; die Einstufung ist daher vorläufig und beschreibt nur den erfolgreich gemessenen Umfang.
-single-report-rating-note = Die Einstufung ist ein Bandlabel für den Barrierefreiheitswert im automatisierten Prüfumfang, kein Konformitätsnachweis.
+single-report-rating-note = Die Einstufung beschreibt den Barrierefreiheitswert im automatisierten Prüfumfang; sie ist kein Konformitätsnachweis.
 
 ## Risks and strengths
 single-report-risks-none = Keine prioritären Risiken im automatisierten Prüfumfang erkannt. Diese Einschätzung bezieht sich ausschließlich auf den automatisierten Prüfumfang ({ $automated } von ca. { $total } testbaren WCAG-2.2-AA-Kriterien); Kriterien mit manuellem Prüfbedarf sind im Anhang aufgeführt.
@@ -93,7 +93,7 @@ single-report-local-optimization-eyebrow = LOKALE OPTIMIERUNG
 
 ## Appendix
 single-report-appendix-title = Anhang & Methodik
-single-report-appendix-intro = Prüfumfang, Methodik, WCAG-Coverage und die vollständige Liste der Vorkommen.
+single-report-appendix-intro = Prüfumfang, Methodik, WCAG-Coverage und Audit-Daten.
 single-report-appendix-elements-affected = { $count ->
         [one] { $count } Element betroffen
        *[other] { $count } Elemente betroffen
@@ -120,6 +120,8 @@ single-report-journey-coverage = Interaktive Abdeckung: { $completed } von { $at
 single-report-journey-budget-exhausted = ; Budget ausgeschöpft
 single-report-findings-list-title = Alle Vorkommen
 single-report-findings-list-intro = Rohdaten des Audits und die vollständige Liste aller erkannten Verstöße.
+single-report-audit-data-title = Rohdaten des Audits
+single-report-audit-data-intro = Kennzahlen des Audits; die vollständige Befundliste steht im begleitenden JSON-Report.
 single-report-json-note = Der begleitende JSON-Report enthält die vollständige maschinenlesbare Fehlerliste mit Selektoren, Vorkommen und allen Detaildaten für automatisierte Weiterverarbeitung.
 single-report-json-note-title = Rohdaten & Weiterverarbeitung
 

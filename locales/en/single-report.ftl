@@ -17,7 +17,7 @@ single-report-management-title = Management Summary
 single-report-management-intro = Overall status, key risks, prioritized actions, and leverage at a glance.
 single-report-management-eyebrow = MANAGEMENT SUMMARY
 single-report-wcag-occurrences = WCAG occurrences
-single-report-occurrences-definition = Occurrences = individual affected elements, not the number of distinct rules — see the appendix for the full breakdown.
+single-report-occurrences-definition = Occurrences = individual affected elements, not the number of distinct rules — the full breakdown is in the JSON report.
 single-report-evidence-note = Counted here are confirmed WCAG violations only. In addition: { $warnings_text } and { $manual_text } on this page to confirm by hand — documented, but not scored. A further { $manual_only } WCAG criteria can only be checked manually (appendix).
 single-report-overall-verdict = Overall Verdict
 single-report-audit-quality = Audit Quality
@@ -90,7 +90,7 @@ single-report-local-optimization-eyebrow = LOCAL OPTIMIZATION
 
 ## Appendix
 single-report-appendix-title = Appendix & Methodology
-single-report-appendix-intro = Technical scope, methodology, WCAG coverage, and the complete violations list.
+single-report-appendix-intro = Technical scope, methodology, WCAG coverage, and audit data.
 single-report-appendix-elements-affected = { $count ->
         [one] { $count } element affected
        *[other] { $count } elements affected
@@ -117,6 +117,8 @@ single-report-journey-coverage = Interactive coverage: { $completed } of { $atte
 single-report-journey-budget-exhausted = ; budget exhausted
 single-report-findings-list-title = Complete Findings List
 single-report-findings-list-intro = Raw audit data and the full list of detected violations.
+single-report-audit-data-title = Raw audit data
+single-report-audit-data-intro = Key figures of the audit; the complete findings list is in the accompanying JSON report.
 single-report-json-note = The accompanying JSON report contains the complete machine-readable issue list with selectors, occurrences, and all detail data for automated processing.
 single-report-json-note-title = Raw data & processing
 

@@ -60,7 +60,6 @@ panel-quick-actions = Recommended improvements
 panel-strengths = What is already strong
 label-strength = Strength
 section-top-issues = Top issues at a glance
-section-all-violations = All violations (aggregated by rule)
 audit-data-title = Audit data
 audit-data-area = Area
 audit-data-signal = Signal

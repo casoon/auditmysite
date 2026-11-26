@@ -220,6 +220,43 @@ mod tests {
         }
     }
 
+    /// Below the technical level the findings stand in their cards and in the
+    /// JSON; the appendix carries no list of all violations of its own. The
+    /// technical appendix still lists them with their fix.
+    #[test]
+    fn test_standard_appendix_has_no_list_of_all_violations() {
+        let typ = |level: ReportLevel, locale: &str| {
+            generate_typ(
+                &pdf_fixture_report(),
+                &ReportConfig {
+                    level,
+                    locale: locale.to_string(),
+                    ..ReportConfig::default()
+                },
+            )
+            .expect("Typst source should assemble")
+        };
+        for (locale, list_title, audit_data) in [
+            (
+                "de",
+                "Alle Verstöße (aggregiert nach Regel)",
+                "Rohdaten des Audits",
+            ),
+            (
+                "en",
+                "All violations (aggregated by rule)",
+                "Raw audit data",
+            ),
+        ] {
+            let standard = typ(ReportLevel::Standard, locale);
+            assert!(!standard.contains(list_title), "{locale}: list is back");
+            assert!(standard.contains(audit_data), "{locale}: no audit data");
+            let technical = typ(ReportLevel::Technical, locale);
+            assert!(!technical.contains(list_title), "{locale}");
+        }
+        assert!(typ(ReportLevel::Technical, "en").contains("1 element affected"));
+    }
+
     /// The Technical-level appendix lists every violation with its fix, the
     /// number of affected elements and the selectors. These lines were German
     /// literals in every language, and the count read "1 Elemente betroffen".

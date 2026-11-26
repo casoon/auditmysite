@@ -897,10 +897,16 @@ fn render_first_step(
         "single-report-first-step-action",
         &[("subject", measure.subject(en))],
     );
-    builder.add_component(
-        Callout::info(format!("{result} {action}"))
-            .with_title(i18n.t("single-report-first-step-title")),
-    )
+    // Plain lines, not a card: the first page also holds verdict, rating and
+    // problem profile, and the contents must still follow on page 3 (#1210).
+    builder
+        .add_component(
+            Label::new(i18n.t("single-report-first-step-title"))
+                .with_size("10.5pt")
+                .bold()
+                .with_color(design::tokens::NEUTRAL),
+        )
+        .add_component(Label::new(format!("{result} {action}")).with_size("10pt"))
 }
 
 pub(super) fn render_management_page(
@@ -1780,14 +1786,25 @@ fn render_appendix_section(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    // Appendix — full violations list, conclusion of Part 2 (#246). Only render
-    // the section header when there are violations to list; otherwise it
-    // promises a list that never appears (#364).
+    // Appendix — audit data, and at the technical level the full violations
+    // list, conclusion of Part 2 (#246). Only render the section header when
+    // there are violations to list; otherwise it promises a list that never
+    // appears (#364). Below the technical level the findings live in their
+    // cards and in the JSON, not in a list of their own.
     if vm.appendix.has_violations {
+        let technical = vm.meta.report_level == ReportLevel::Technical;
         builder = builder.add_component(PageBreak::new()).add_component(
             SectionHeaderSplit::new(
-                i18n.t("single-report-findings-list-title"),
-                i18n.t("single-report-findings-list-intro"),
+                i18n.t(if technical {
+                    "single-report-findings-list-title"
+                } else {
+                    "single-report-audit-data-title"
+                }),
+                i18n.t(if technical {
+                    "single-report-findings-list-intro"
+                } else {
+                    "single-report-audit-data-intro"
+                }),
             )
             .with_eyebrow(i18n.t("single-report-appendix-eyebrow"))
             .with_level(2),
@@ -1837,24 +1854,6 @@ fn render_appendix_section(
                     &desc,
                 ));
             }
-        } else {
-            let rows: Vec<ChecklistRow> = vm
-                .appendix
-                .violations
-                .iter()
-                .map(|v| {
-                    let status = match v.severity {
-                        crate::wcag::Severity::Critical => "bad",
-                        crate::wcag::Severity::High => "warn",
-                        _ => "neutral",
-                    };
-                    ChecklistRow::new(join_label(&v.rule, &v.rule_name), v.message.clone())
-                        .with_status(status)
-                })
-                .collect();
-            builder = builder.add_component(
-                ChecklistPanel::new(rows).with_title(i18n.t("section-all-violations")),
-            );
         }
     }
     builder
