@@ -28,7 +28,7 @@ pdf-analysis-search-interpretation-solid = Solide Basis mit sichtbaren Lücken b
 pdf-analysis-search-interpretation-limited = Eingeschränkte Sichtbarkeit und Nutzerverständnis: Die Seite ist nicht ausreichend verständlich, vertrauensstark oder extrahierbar.
 
 ## Problem profile
-pdf-analysis-profile-title = Problemprofil: { $kind }
+pdf-analysis-profile-title = Problemprofil (Verteilung über die Module): { $kind }
 pdf-analysis-profile-kind-isolated = punktuell
 pdf-analysis-profile-kind-concentrated = konzentriert & systemisch
 pdf-analysis-profile-kind-broad = breit & systemisch
@@ -47,7 +47,7 @@ pdf-analysis-profile-isolated-weak = { $names } { $several ->
     } unter dem Bereich „gut“ und { $several ->
         [yes] bestimmen
        *[no] bestimmt
-    } den Handlungsbedarf.
+    } den Handlungsbedarf. Kein Bereich ist kritisch (unter { $critical } Punkten), daher kein systemisches Profil.
 pdf-analysis-profile-concentrated-systemic = { $names } { $several ->
         [yes] bestimmen
        *[no] bestimmt

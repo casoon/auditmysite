@@ -141,6 +141,22 @@ batch-management-point-main-issue = Main issue: { $title } ({ $occurrences ->
         [one] 1 URL
        *[other] { $urls } URLs
     })
+batch-management-point-other-module-issue = Most important finding from the other modules: { $title } ({ $occurrences ->
+        [one] 1 occurrence
+       *[other] { $occurrences } occurrences
+    } on { $urls ->
+        [one] 1 URL
+       *[other] { $urls } URLs
+    })
+batch-management-headline-none = { $total ->
+        [one] No WCAG violations were found automatically on the audited page
+       *[other] No WCAG violations were found automatically on the { $total } audited pages
+    }
+batch-management-headline-all = { $total ->
+        [one] WCAG violations were found on the audited page
+       *[other] WCAG violations were found on all { $total } audited pages
+    }
+batch-management-headline-some = WCAG violations were found on { $affected } of the { $total } audited pages
 batch-management-point-legal-flags = WCAG Level A/AA violations detected automatically — manual review needed for a defensible BFSG classification
 batch-management-point-structural = No Level A/AA violations, but structural weaknesses on multiple pages
 batch-management-point-no-barriers = No automatically detectable critical barriers — manual review recommended.

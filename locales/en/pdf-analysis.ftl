@@ -33,7 +33,7 @@ pdf-analysis-search-interpretation-solid = Solid base with visible gaps in conte
 pdf-analysis-search-interpretation-limited = Limited search experience: the page is not sufficiently understandable, trustworthy or extractable.
 
 ## Problem profile
-pdf-analysis-profile-title = Problem profile: { $kind }
+pdf-analysis-profile-title = Problem profile (distribution across modules): { $kind }
 pdf-analysis-profile-kind-isolated = isolated
 pdf-analysis-profile-kind-concentrated = concentrated & systemic
 pdf-analysis-profile-kind-broad = broad & systemic
@@ -52,7 +52,7 @@ pdf-analysis-profile-isolated-weak = { $names } { $several ->
     } below the "good" band and { $several ->
         [yes] determine
        *[no] determines
-    } the need for action.
+    } the need for action. No area is critical (below { $critical } points), hence no systemic profile.
 pdf-analysis-profile-concentrated-systemic = { $names } { $several ->
         [yes] determine
        *[no] determines

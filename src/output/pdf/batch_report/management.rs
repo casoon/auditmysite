@@ -98,6 +98,13 @@ pub(super) fn build_batch_assessment(
     dist: &SeverityDistribution,
     i18n: &I18n,
 ) -> String {
+    i18n.t(batch_assessment_key(summary, dist))
+}
+
+pub(super) fn batch_assessment_key(
+    summary: &crate::output::report_model::PortfolioSummary,
+    dist: &SeverityDistribution,
+) -> &'static str {
     let score = summary
         .average_score
         .expect(super::UNMEASURED_REFUSED)
@@ -105,7 +112,7 @@ pub(super) fn build_batch_assessment(
     // Score band is the primary signal; severity only refines wording within a
     // band. A low average must never yield a reassuring label (mirrors the
     // single-report logic in builder/single/executive.rs, #355).
-    let key = if score < 40 {
+    if score < 40 {
         "batch-management-assessment-critical"
     } else if score < 60 {
         if dist.critical > 0 {
@@ -135,8 +142,7 @@ pub(super) fn build_batch_assessment(
         "batch-management-assessment-fine-tuning"
     } else {
         "batch-management-assessment-polish"
-    };
-    i18n.t(key)
+    }
 }
 
 /// The management risk dimensions of the batch: the same derivation the JSON
@@ -367,6 +373,94 @@ fn urls_with_critical_or_high(pres: &BatchPresentation) -> i64 {
         .count() as i64
 }
 
+fn is_wcag_group(group: &FindingGroup) -> bool {
+    !group.finding.wcag_criterion.is_empty()
+}
+
+fn batch_issue_point(key: &str, group: &FindingGroup, i18n: &I18n) -> String {
+    i18n.t_args(
+        key,
+        &[
+            ("title", FluentValue::from(group.title.as_str())),
+            (
+                "occurrences",
+                FluentValue::from(group.finding.occurrence_count as i64),
+            ),
+            ("urls", FluentValue::from(group.affected_urls.len() as i64)),
+        ],
+    )
+}
+
+/// What the automated WCAG check found on the audited pages: the factual
+/// headline of the batch status. A finding of another module (HTML, SEO,
+/// security) never decides it (#1208).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum BatchWcagHeadline {
+    /// No WCAG violation on any audited page.
+    NoneFound,
+    /// WCAG violations on `affected` of the audited pages.
+    SomePages { affected: usize },
+    /// WCAG violations on every audited page.
+    AllPages,
+}
+
+pub(super) fn batch_wcag_headline(pres: &BatchPresentation) -> BatchWcagHeadline {
+    let affected: std::collections::BTreeSet<&String> = pres
+        .top_issues
+        .iter()
+        .filter(|g| is_wcag_group(g) && g.finding.occurrence_count > 0)
+        .flat_map(|g| g.affected_urls.iter())
+        .collect();
+    if affected.is_empty() {
+        BatchWcagHeadline::NoneFound
+    } else if affected.len() >= pres.portfolio_summary.total_urls {
+        BatchWcagHeadline::AllPages
+    } else {
+        BatchWcagHeadline::SomePages {
+            affected: affected.len(),
+        }
+    }
+}
+
+pub(super) fn batch_wcag_headline_text(
+    headline: BatchWcagHeadline,
+    total_urls: usize,
+    i18n: &I18n,
+) -> String {
+    let total = FluentValue::from(total_urls as i64);
+    match headline {
+        BatchWcagHeadline::NoneFound => {
+            i18n.t_args("batch-management-headline-none", &[("total", total)])
+        }
+        BatchWcagHeadline::AllPages => {
+            i18n.t_args("batch-management-headline-all", &[("total", total)])
+        }
+        BatchWcagHeadline::SomePages { affected } => i18n.t_args(
+            "batch-management-headline-some",
+            &[
+                ("total", total),
+                ("affected", FluentValue::from(affected as i64)),
+            ],
+        ),
+    }
+}
+
+/// A headline and an assessment label that cannot stand together: barriers
+/// named although the headline says no WCAG violation was found (#1208).
+/// `None` when the pair agrees.
+#[cfg(test)]
+pub(super) fn batch_headline_contradiction(
+    headline: BatchWcagHeadline,
+    assessment_key: &str,
+) -> Option<&'static str> {
+    let names_barriers = !matches!(
+        assessment_key,
+        "batch-management-assessment-fine-tuning" | "batch-management-assessment-polish"
+    );
+    (headline == BatchWcagHeadline::NoneFound && names_barriers)
+        .then_some("the assessment names barriers although no WCAG violation was found")
+}
+
 /// 3 key takeaways for batch report
 pub(super) fn build_batch_key_points(
     pres: &BatchPresentation,
@@ -392,18 +486,24 @@ pub(super) fn build_batch_key_points(
         ));
     }
 
-    // Point 2: Dominant/recurring issue
-    if let Some(top) = pres.top_issues.first() {
-        points.push(i18n.t_args(
+    // Point 2: the dominant WCAG problem. `top_issues` carries the findings of
+    // every module, so its first entry may be an HTML or SEO finding that has
+    // nothing to do with the accessibility verdict above it (#1208).
+    if let Some(top) = pres.top_issues.iter().find(|g| is_wcag_group(g)) {
+        points.push(batch_issue_point(
             "batch-management-point-main-issue",
-            &[
-                ("title", FluentValue::from(top.title.as_str())),
-                (
-                    "occurrences",
-                    FluentValue::from(top.finding.occurrence_count as i64),
-                ),
-                ("urls", FluentValue::from(top.affected_urls.len() as i64)),
-            ],
+            top,
+            i18n,
+        ));
+    }
+
+    // Point 2b: the most important finding of the other modules, on its own
+    // line and named as such.
+    if let Some(top) = pres.top_issues.iter().find(|g| !is_wcag_group(g)) {
+        points.push(batch_issue_point(
+            "batch-management-point-other-module-issue",
+            top,
+            i18n,
         ));
     }
 

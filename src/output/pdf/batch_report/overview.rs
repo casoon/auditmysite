@@ -18,8 +18,8 @@ use super::super::cover::build_batch_cover_score_row;
 use super::super::helpers::score_quality_color;
 use super::actions::build_batch_decision_lines;
 use super::management::{
-    build_batch_assessment, build_batch_key_points, render_batch_internal_comparison,
-    render_batch_management_risks,
+    batch_wcag_headline, batch_wcag_headline_text, build_batch_assessment, build_batch_key_points,
+    render_batch_internal_comparison, render_batch_management_risks,
 };
 use super::portfolio::render_batch_impact_summary;
 
@@ -491,16 +491,20 @@ pub(super) fn render_batch_status_section(
 ) -> renderreport::engine::ReportBuilder {
     let dist = &pres.portfolio_summary.severity_distribution;
 
-    // Assessment callout
+    // Headline: what the automated WCAG check found on the audited pages (a
+    // finding of another module never decides it, #1208). The assessment label
+    // follows in the body and must agree with it.
+    let headline = batch_wcag_headline_text(
+        batch_wcag_headline(pres),
+        pres.portfolio_summary.total_urls,
+        i18n,
+    );
     let assessment = build_batch_assessment(&pres.portfolio_summary, dist, i18n);
+    let body = format!("{assessment}. {}", pres.portfolio_summary.risk_summary);
     let callout = match pres.portfolio_summary.risk_level.as_str() {
-        "Kritisch" | "Hoch" | "Critical" | "High" => {
-            Callout::warning(&pres.portfolio_summary.risk_summary).with_title(&assessment)
-        }
-        "Mittel" | "Medium" => {
-            Callout::info(&pres.portfolio_summary.risk_summary).with_title(&assessment)
-        }
-        _ => Callout::success(&pres.portfolio_summary.risk_summary).with_title(&assessment),
+        "Kritisch" | "Hoch" | "Critical" | "High" => Callout::warning(&body).with_title(&headline),
+        "Mittel" | "Medium" => Callout::info(&body).with_title(&headline),
+        _ => Callout::success(&body).with_title(&headline),
     };
     // Score overview cards
     // Both counts are WCAG occurrences: `total_violations` sums every
