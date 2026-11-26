@@ -243,9 +243,12 @@ async fn follow_redirect_chain(url: &str) -> Collected<Vec<(u16, String)>> {
 }
 
 /// Probe a known non-existent URL and classify status plus page customization.
+///
+/// Redirects are followed (up to 5 hops): a domain variant that 301s to the
+/// canonical host is judged by the answer of its final target (#1223).
 async fn probe_custom_404(url: &str) -> Collected<Custom404Check> {
     let Ok(client) = reqwest::Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
+        .redirect(reqwest::redirect::Policy::limited(5))
         .timeout(std::time::Duration::from_secs(8))
         .user_agent("auditmysite-probe/1.0")
         .build()
@@ -895,6 +898,84 @@ pub(crate) mod counter_cases {
             hello.windows(3).any(|w| w == b"\x02h2"),
             "ClientHello offers no h2 in ALPN"
         );
+    }
+
+    /// Tiny HTTP server: `/probe` redirects (301) to `/final`, which answers
+    /// with `final_status` and a body. Returns the base URL.
+    async fn redirecting_server(final_status: &'static str) -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind");
+        let port = listener.local_addr().expect("addr").port();
+        tokio::spawn(async move {
+            loop {
+                let Ok((mut socket, _)) = listener.accept().await else {
+                    break;
+                };
+                tokio::spawn(async move {
+                    let mut buf = vec![0u8; 4096];
+                    let n = socket.read(&mut buf).await.unwrap_or(0);
+                    let request = String::from_utf8_lossy(&buf[..n]).to_string();
+                    let response = if request.starts_with("GET /probe") {
+                        format!(
+                            "HTTP/1.1 301 Moved Permanently\r\nLocation: http://127.0.0.1:{port}/final\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                        )
+                    } else {
+                        let body = "<html><body>page</body></html>";
+                        format!(
+                            "HTTP/1.1 {final_status}\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                            body.len()
+                        )
+                    };
+                    let _ = socket.write_all(response.as_bytes()).await;
+                });
+            }
+        });
+        format!("http://127.0.0.1:{port}")
+    }
+
+    /// A redirect that ends in 404/410 is a proper not-found answer (#1223).
+    #[tokio::test]
+    async fn custom_404_probe_follows_redirect_to_404() {
+        for status in ["404 Not Found", "410 Gone"] {
+            let base = redirecting_server(status).await;
+            let url = format!("{base}/probe");
+            let Collected::Measured(check) = probe_custom_404(&url).await else {
+                panic!("probe should be measured");
+            };
+            assert!(check.proper_status, "{status}");
+            assert_eq!(check.status.to_string(), status[..3]);
+            assert_eq!(check.probe_url, url, "probe url stays the requested one");
+        }
+    }
+
+    /// A redirect that ends in 200 stays a soft 404 finding (#1223).
+    #[tokio::test]
+    async fn custom_404_probe_redirect_to_200_is_soft_404() {
+        let base = redirecting_server("200 OK").await;
+        let url = format!("{base}/probe");
+        let Collected::Measured(check) = probe_custom_404(&url).await else {
+            panic!("probe should be measured");
+        };
+        assert_eq!(check.status, 200);
+        assert!(!check.proper_status);
+        assert_eq!(check.probe_url, url);
+        let a = PageHealthAnalysis {
+            custom_404: Some(check),
+            ..Default::default()
+        };
+        assert!(issue_types(&a).contains(&"custom_404_invalid_status".to_string()));
+    }
+
+    /// A request failure is no measurement.
+    #[tokio::test]
+    async fn custom_404_probe_request_failure_is_failed() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let port = listener.local_addr().expect("addr").port();
+        drop(listener);
+        let result = probe_custom_404(&format!("http://127.0.0.1:{port}/probe")).await;
+        assert!(matches!(result, Collected::Failed(_)));
     }
 
     #[test]
