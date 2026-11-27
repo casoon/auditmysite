@@ -20,11 +20,24 @@ single-report-wcag-occurrences = WCAG-Vorkommen
 single-report-occurrences-definition = Vorkommen = einzelne betroffene Elemente, nicht die Anzahl unterschiedlicher Regeln — die vollständige Aufschlüsselung steht im JSON-Report.
 # $warnings_text and $manual_text are the count-heuristic-warnings and
 # count-manual-points messages of report.ftl.
-single-report-evidence-note = Gezählt sind hier ausschließlich bestätigte WCAG-Verstöße. Zusätzlich dokumentiert, aber nicht in den Score eingerechnet: { $warnings_text } und { $manual_text } auf dieser Seite zur manuellen Bestätigung. Weitere { $manual_only } WCAG-Kriterien lassen sich nur manuell prüfen (Anhang).
+single-report-status-title = Prüfstatus
+single-report-status-score = Automatisierter Befund-Score
+single-report-status-score-value = { $score }/100 — nur aus bestätigten Verstößen abgeleitet
+single-report-status-violations = Bestätigte Verstöße
+single-report-status-violations-value = { $count ->
+        [one] 1 Vorkommen
+       *[other] { $count } Vorkommen
+    } — die einzige Zahl, die in den Score eingeht
+single-report-status-warnings = Heuristische Warnungen
+single-report-status-warnings-value = { $count } — wahrscheinliche Barrieren, nicht im Score
+single-report-status-manual = Manuell zu bestätigen
+single-report-status-manual-value = { $count } auf dieser Seite, nicht im Score; weitere { $manual_only } WCAG-Kriterien lassen sich nur manuell prüfen (Anhang)
+single-report-status-criteria = Kriterien mit automatisierten Ansätzen
+single-report-status-criteria-value = { $checked } von { $total } WCAG-2.2-A/AA-Kriterien in diesem Lauf geprüft — oft nur Teile eines Kriteriums
+single-report-status-conformance = Volle WCAG-Konformität ist nicht nachgewiesen: Ein automatisierter Lauf kann sie unabhängig vom Score nicht belegen.
 single-report-overall-verdict = Gesamturteil
 single-report-audit-quality = Audit-Qualität
 single-report-coverage = Prüfabdeckung
-single-report-clean-scope = Diese Einschätzung bezieht sich ausschließlich auf den automatisierten Prüfumfang ({ $automated } von ca. { $total } testbaren WCAG-2.2-AA-Kriterien); Kriterien mit manuellem Prüfbedarf sind im Anhang aufgeführt.
 single-report-quality-profile = Qualitätsprofil
 
 ## Indicator module dashboards

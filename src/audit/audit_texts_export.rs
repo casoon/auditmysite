@@ -241,10 +241,16 @@ pub(crate) fn risk_kinds() -> Vec<(String, ManagementRiskKind)> {
     }
     for count in [0, 1, 2, 17] {
         for pages in [None, Some(2), Some(40)] {
-            out.push((
-                format!("project {count} pages {pages:?}"),
-                ManagementRiskKind::Project { count, pages },
-            ));
+            for severe_wide in [0, count.min(1)] {
+                out.push((
+                    format!("project {count} severe {severe_wide} pages {pages:?}"),
+                    ManagementRiskKind::Project {
+                        count,
+                        severe_wide,
+                        pages,
+                    },
+                ));
+            }
         }
     }
     out

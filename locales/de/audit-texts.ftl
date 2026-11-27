@@ -100,9 +100,17 @@ audit-risk-project-recurring =
     { $count ->
         [one] 1 Regel tritt
        *[other] { $count } Regeln treten
-    } auf zwei oder mehr der { $pages } geprüften Seiten auf — vermutlich Komponenten- oder Template-Fehler, die gebündelt behoben werden sollten.
+    } auf zwei oder mehr der { $pages } geprüften Seiten auf — vermutlich Komponenten- oder Template-Fehler, die gebündelt behoben werden können. { $severe ->
+        [0] Keine davon verbindet hohen Schweregrad mit einer Reichweite auf mindestens die Hälfte der Seiten; Wiederholung allein macht daraus kein hohes Risiko.
+        [one] 1 davon hat hohen Schweregrad und reicht auf mindestens die Hälfte der Seiten — das macht es zu einem hohen Risiko.
+       *[other] { $severe } davon haben hohen Schweregrad und reichen auf mindestens die Hälfte der Seiten — das macht es zu einem hohen Risiko.
+    }
 audit-risk-project-single =
     { $count ->
-        [one] 1 Befund betrifft 10 oder mehr Elemente dieser Seite oder erfordert eine strukturelle Änderung. Eine einzelne Seite zeigt nicht, ob Template oder Komponente die Ursache sind — dafür weitere Seiten prüfen.
-       *[other] { $count } Befunde betreffen 10 oder mehr Elemente dieser Seite oder erfordern eine strukturelle Änderung. Eine einzelne Seite zeigt nicht, ob Template oder Komponente die Ursache sind — dafür weitere Seiten prüfen.
-    }
+        [one] 1 Befund betrifft 10 oder mehr Elemente dieser Seite oder erfordert eine strukturelle Änderung.
+       *[other] { $count } Befunde betreffen 10 oder mehr Elemente dieser Seite oder erfordern eine strukturelle Änderung.
+    } { $severe ->
+        [0] Keiner davon hat hohen Schweregrad.
+        [one] 1 davon hat hohen Schweregrad — das macht es zu einem hohen Risiko.
+       *[other] { $severe } davon haben hohen Schweregrad — das macht es zu einem hohen Risiko.
+    } Eine einzelne Seite zeigt nicht, ob Template oder Komponente die Ursache sind — dafür weitere Seiten prüfen.

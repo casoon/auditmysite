@@ -68,7 +68,10 @@ pdf-analysis-profile-isolated-weak = { $names } { $several ->
     } below the "good" band and { $several ->
         [yes] determine
        *[no] determines
-    } the need for action. No area is critical (below { $critical } points), hence no systemic profile.
+    } the need for action. No area is critical (below { $critical } points) and the shortfall stays limited to { $several ->
+        [yes] these areas
+       *[no] this area
+    }, hence no systemic profile.
 pdf-analysis-profile-concentrated-systemic = { $names } { $several ->
         [yes] determine
        *[no] determines
@@ -77,6 +80,14 @@ pdf-analysis-profile-concentrated-stable = { $names } { $several ->
         [yes] determine
        *[no] determines
     } the need for action while other technical areas remain stable.
+pdf-analysis-profile-concentrated-driver = { $names } { $several ->
+        [yes] determine
+       *[no] determines
+    } the need for action.
+pdf-analysis-profile-also-below = { $names } { $several ->
+        [yes] fall
+       *[no] falls
+    } below the "good" band as well.
 pdf-analysis-profile-broad-unnamed = Multiple technical areas are affected simultaneously and require structural corrections.
 pdf-analysis-profile-broad-named = Multiple technical areas are affected simultaneously. In particular, { $names } require structural corrections.
 pdf-analysis-profile-few = { $found } — too few to identify a recurring pattern.
