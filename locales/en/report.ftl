@@ -398,6 +398,7 @@ seo-page-health-issues = Detected issues
 seo-page-health-url-analysis = URL analysis
 seo-page-html-validation = HTML validation
 seo-technical-issues-title = Technical SEO issues
+seo-optional-hints-title = Optional recommendation (not an SEO issue)
 
 # Security section
 security-score-card = Security score

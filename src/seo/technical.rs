@@ -1162,6 +1162,13 @@ async fn read_service_worker_registration_count(
     }
 }
 
+/// Issue types that are an optional recommendation, not an SEO defect: they
+/// stay in the JSON and the finding list (`outcome: review`, no score effect)
+/// but the report does not list them among the technical SEO issues (#1258).
+pub fn is_optional_hint(issue_type: &str) -> bool {
+    issue_type == "pwa_missing_manifest"
+}
+
 fn collect_pwa_issues(pwa: &PwaAnalysis, en: bool, issues: &mut Vec<SeoIssue>) {
     if pwa.manifest_url.is_none() {
         push_issue(

@@ -39,7 +39,7 @@ seo-technical-mixed-content =
     } referenced from HTTPS page ({ $blockable } blockable): { $samples }
 seo-technical-og-image-missing-alt = og:image is set without an og:image:alt description for the preview image
 seo-technical-twitter-image-missing-alt = twitter:image is set without a twitter:image:alt description for the preview image
-seo-technical-pwa-missing-manifest = Missing web app manifest
+seo-technical-pwa-missing-manifest = Optional: no web app manifest linked. Only relevant if the site should be installable as an app; it does not affect search visibility.
 seo-technical-pwa-invalid-manifest = Web app manifest is missing required PWA fields
 seo-technical-amp-missing-html-amp-attribute = AMP markup detected, but the html element has no amp attribute
 seo-technical-amp-missing-canonical = AMP page is missing a canonical link
