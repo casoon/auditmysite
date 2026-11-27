@@ -410,7 +410,7 @@ pub struct PipelineConfig {
     /// URL (`run_extra_page_checks`), in single and batch mode alike.
     pub modules: ModuleSet,
     /// Measurement runs per throttle profile (`--perf-runs`, at least 1;
-    /// [`DEFAULT_PERF_RUNS`] by default). The reported vitals are the per-metric
+    /// `DEFAULT_PERF_RUNS` by default). The reported vitals are the per-metric
     /// medians; the spread and the stability verdict are stored beside them.
     pub perf_runs: u32,
     /// Run the opt-in isolated third-party script impact measurement
