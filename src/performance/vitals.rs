@@ -587,7 +587,7 @@ pub async fn extract_web_vitals(page: &Page, log: &CollectionLog) -> Result<WebV
         debug!("INP (event-timing): {:.0}ms", preinjected.inp_duration);
     }
 
-    // Get performance metrics via CDP for FCP, DCL, heap, node count
+    // Get performance metrics via CDP for FCP, DCL and heap (the node count comes from the page itself)
     let metrics_response = match page.execute(GetMetricsParams::default()).await {
         Ok(response) => {
             log.record(&CDP_METRICS, Collected::Measured(()));
@@ -632,9 +632,6 @@ pub async fn extract_web_vitals(page: &Page, log: &CollectionLog) -> Result<WebV
             "JSHeapUsedSize" => {
                 vitals.js_heap_size = Some(value as i64);
             }
-            "Nodes" => {
-                vitals.dom_nodes = Some(value as i64);
-            }
             _ => {}
         }
     }
@@ -651,6 +648,7 @@ pub async fn extract_web_vitals(page: &Page, log: &CollectionLog) -> Result<WebV
         if vitals.lcp.is_none() {
             vitals.lcp = js_metrics.vitals.lcp;
         }
+        vitals.dom_nodes = js_metrics.vitals.dom_nodes;
         vitals.ttfb = js_metrics.vitals.ttfb;
         vitals.load_time = js_metrics.vitals.load_time;
         if vitals.dom_content_loaded.is_none() {
@@ -763,6 +761,7 @@ struct RawNavigationTiming {
     dom_interactive: Option<f64>,
     fcp: Option<f64>,
     lcp: Option<f64>,
+    dom_nodes: Option<i64>,
 }
 
 /// Extract metrics via JavaScript Performance API. A missing or malformed
@@ -783,6 +782,7 @@ async fn extract_js_metrics(page: &Page) -> Collected<JsMetrics> {
                 ttfb: raw.ttfb.map(|ttfb| VitalMetric::new(ttfb, 800.0, 1800.0)),
                 load_time: raw.load_time,
                 dom_content_loaded: raw.dom_content_loaded,
+                dom_nodes: raw.dom_nodes,
                 ..Default::default()
             };
             JsMetrics {

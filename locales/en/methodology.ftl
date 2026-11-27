@@ -29,6 +29,7 @@ methodology-fact-failed-modules = Failed modules
 methodology-fact-audit-quality = Audit quality
 methodology-fact-preview = Preview
 methodology-accessibility-score-viewports = { $score } / 100 — 70% mobile ({ $mobile }) + 30% desktop ({ $desktop })
+methodology-accessibility-score-viewports-capped = { $score } / 100 — weighted { $weighted } (70% mobile ({ $mobile }) + 30% desktop ({ $desktop })), capped to { $score } because of the most severe findings
 methodology-combined-score = { $score } / 100 — contributing weights: { $weights }
 methodology-weight = { $module } { $pct }%
 # Appended to the combined score after a space.

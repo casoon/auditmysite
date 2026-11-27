@@ -58,6 +58,9 @@ and verification for each change is in the
 - **Report:** the lead sentence of the visibility and user-understanding section names only what was measured in the run (#1224). When trust signals or AI readability were not measured, the lead no longer praises them next to the line that says they were not measured.
 - **Report:** the Speed Index is labelled as an approximation ("Speed Index (approximation)", "Speed-Index-Näherung") and its explanation states the formula 0.35 × FCP + 0.65 × LCP (#1225). The JSON member `speed_index` is unchanged.
 - **Report:** the score-driver row of a module whose wording band was lowered by open findings says "Open findings limit the rating"; it says "severe" only when a Critical or High finding is open. Before, a single medium CSP finding produced "Open severe findings limit the rating" for the security module.
+- **Performance:** the DOM node count is counted in the audited document instead of read from the CDP `Nodes` metric. That metric also counts the detached documents of earlier loads in the same tab, so it grew with every reload: a 2,900-node page read 8,710, and three measurement runs read 26,098. `vitals.dom_nodes`, the DOM-size penalty and the DOM findings now follow the page, whatever `--perf-runs` is.
+- **Report:** the overall accessibility value is explained when the score cap lowers it. Where the cover strip showed 88 (desktop), 88 (mobile) and 44 "70/30 weighted", it now says "70/30 weighted (88), capped" and the explanation and the raw-data line name the weighted value and the cap.
+- **Batch report:** the navigation consistency block no longer states that main navigation and skip link are present on every page when one of them was recognised on none (0 of 5 pages); it names the pages without it.
 
 ## [2.2.0] - 2026-11-24
 

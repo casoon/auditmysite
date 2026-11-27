@@ -40,7 +40,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 59);
+    assert_eq!(en.len(), 60);
 }
 
 #[test]
@@ -66,6 +66,7 @@ fn every_key_resolves_in_both_languages_without_errors() {
             "score",
             "mobile",
             "desktop",
+            "weighted",
             "pct",
             "groups",
             "groups_n",
