@@ -29,6 +29,14 @@
             result.lcp = lcpEntries[lcpEntries.length - 1].startTime;
         }
 
+        // Nodes of this document only. The CDP `Nodes` metric also counts the
+        // detached documents of earlier loads in the same tab, so it grows with
+        // every reload (three runs read three times the page).
+        const walker = document.createTreeWalker(document, NodeFilter.SHOW_ALL);
+        let domNodes = 0;
+        while (walker.nextNode()) domNodes++;
+        result.domNodes = domNodes;
+
         return JSON.stringify(result);
     })()
     

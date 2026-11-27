@@ -188,9 +188,18 @@ pub(super) fn build_methodology(
         .viewport_scores
         .as_ref()
         .map(|scores| {
+            // The shown score is the blend after the score cap: when the cap
+            // lowered it, the formula alone would not reproduce it.
+            let weighted = scores.weighted_accessibility();
+            let key = if weighted > normalized.score {
+                "methodology-accessibility-score-viewports-capped"
+            } else {
+                "methodology-accessibility-score-viewports"
+            };
             i18n.t_args(
-                "methodology-accessibility-score-viewports",
+                key,
                 &[
+                    ("weighted", FluentValue::from(i64::from(weighted))),
                     ("score", FluentValue::from(i64::from(normalized.score))),
                     (
                         "mobile",

@@ -2007,6 +2007,11 @@ fn render_dual_viewport_summary_section(
             .with_size("10.5pt"),
     );
 
+    let capped_from = report
+        .viewport_scores
+        .as_ref()
+        .map(|vs| vs.weighted_accessibility())
+        .filter(|weighted| *weighted > vm.summary.score);
     let mut items = Vec::new();
     if let (Some(desktop), Some(mobile)) = (vm.cover.desktop_score, vm.cover.mobile_score) {
         items.push(
@@ -2025,12 +2030,22 @@ fn render_dual_viewport_summary_section(
             .with_unit(score_range_label(mobile, en))
             .with_accent(design::score_color(mobile as u8)),
         );
+        // The overall value is the weighted blend after the score cap; when the
+        // cap lowered it, the blend and the cap are named instead of calling
+        // 44 next to 88 and 88 "weighted".
+        let weighted_unit = match capped_from {
+            Some(weighted) => i18n.t_args(
+                "single-report-dual-weighted-capped",
+                &[("weighted", i64::from(weighted))],
+            ),
+            None => i18n.t("single-report-dual-weighted"),
+        };
         items.push(
             MetricStripItem::new(
                 i18n.t("single-report-dual-overall"),
                 format!("{} / 100", vm.summary.score),
             )
-            .with_unit(i18n.t("single-report-dual-weighted"))
+            .with_unit(weighted_unit)
             .with_accent(design::score_color(vm.summary.score as u8)),
         );
     }
@@ -2087,9 +2102,26 @@ fn render_dual_viewport_summary_section(
             format!("{context} ")
         })
         .unwrap_or_default();
+    let cap_note = capped_from
+        .map(|weighted| {
+            format!(
+                "{} ",
+                i18n.t_args(
+                    "single-report-dual-cap-note",
+                    &[
+                        ("weighted", i64::from(weighted)),
+                        ("score", i64::from(vm.summary.score)),
+                    ],
+                )
+            )
+        })
+        .unwrap_or_default();
     let explanation = i18n.t_args(
         "single-report-dual-explanation",
-        &[("occurrence_context", occurrence_context)],
+        &[
+            ("occurrence_context", occurrence_context),
+            ("cap_note", cap_note),
+        ],
     );
 
     builder.add_component(

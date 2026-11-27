@@ -52,7 +52,11 @@ pub(super) fn render_batch_consistency(
             ("total", FluentValue::from(nav.total_pages as i64)),
         ],
     );
-    let nav_rows: Vec<ChecklistRow> = if nav.findings.is_empty() {
+    // `findings` only flags a mixed picture (some pages, not all), so a landmark
+    // missing everywhere leaves it empty: "present on every page" needs the counts.
+    let nav_rows: Vec<ChecklistRow> = if nav.pages_with_main_nav == nav.total_pages
+        && nav.pages_with_skip_link == nav.total_pages
+    {
         vec![ChecklistRow::new(
             i18n.t("batch-consistency-nav-present"),
             i18n.t("batch-consistency-nav-present-detail"),

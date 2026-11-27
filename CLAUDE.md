@@ -69,7 +69,7 @@ Before every change, clarify which side the code belongs to:
 - Experimental indicators: `--experimental <name>[,<name>]` (`ux`, `journey`, `ai-visibility`, `content-visibility`, `source-quality`, `commerce`; #916): unvalidated heuristics, off by default and in no `--full` run; JSON `pages[].experimental`, terminal table, never the PDF. The audit assembly moves their results into `AuditReport.experimental`
 - Modules: `--modules a11y,performance,seo,security,mobile,html-conform,stack` (default: all; `--full` is the explicit spelling of the default; the old per-module flags such as `--performance`, `--seo`, `--stack` are gone)
 - Report language: `--lang {en|de}` (default `en`; applies to PDF and table text, JSON stays English)
-- Output formats: `--format {json|table|pdf|ai|summary|sarif}`; without `-f` the format follows the extension of `-o`, without `-o` and `-f` a table is printed and nothing is written (`-f json` etc. print to stdout; `-f pdf` alone writes `./<domain>-<date>-<report-level>.pdf`)
+- Output formats: `--format {json|table|pdf|ai|summary|sarif}`; without `-f` the format follows the extension of `-o`, without `-o` and `-f` a table is printed and nothing is written (`-f json` etc. print to stdout; `-f pdf` alone writes `./<domain>-<date>-single-report.pdf` (`-quick`, `-executive`, `-technical` for other levels))
 
 ## Report Intent
 - **Single URL audit** is intentionally detailed and page-specific.
