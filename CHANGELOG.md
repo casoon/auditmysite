@@ -61,6 +61,7 @@ and verification for each change is in the
 - **Performance:** the DOM node count is counted in the audited document instead of read from the CDP `Nodes` metric. That metric also counts the detached documents of earlier loads in the same tab, so it grew with every reload: a 2,900-node page read 8,710, and three measurement runs read 26,098. `vitals.dom_nodes`, the DOM-size penalty and the DOM findings now follow the page, whatever `--perf-runs` is.
 - **Report:** the overall accessibility value is explained when the score cap lowers it. Where the cover strip showed 88 (desktop), 88 (mobile) and 44 "70/30 weighted", it now says "70/30 weighted (88), capped" and the explanation and the raw-data line name the weighted value and the cap.
 - **Batch report:** the navigation consistency block no longer states that main navigation and skip link are present on every page when one of them was recognised on none (0 of 5 pages); it names the pages without it.
+- **Mobile:** the finding for touch targets below 44x44 px is `Low` at any count (was `High` from 20 targets, `Medium` from 5), so a Mobile score of 100 no longer sits beside a HIGH finding and the unscored recommendation no longer ranks among the key measures (Refs #1257). The finding is an ergonomic recommendation that no score charges (WCAG 2.5.8, 24 px, is charged in Accessibility); score, counts and wording are unchanged.
 
 ## [2.2.0] - 2026-11-24
 
