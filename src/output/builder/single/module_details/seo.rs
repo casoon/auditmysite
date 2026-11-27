@@ -537,7 +537,11 @@ pub(super) fn build_seo_details(
                 .map(build_image_efficiency_presentation),
             // Re-derive technical issues in the report locale; `s.technical.issues`
             // is canonical English for JSON, the PDF localizes here (#406).
-            technical_issues: technical_issue_rows(s, en),
+            technical_issues: technical_issue_rows(s, en, false),
+            optional_hints: technical_issue_rows(s, en, true)
+                .into_iter()
+                .map(|(_, message, _)| message)
+                .collect(),
         }
     })
 }
@@ -848,9 +852,14 @@ fn build_image_efficiency_presentation(
     }
 }
 
-fn technical_issue_rows(s: &SeoAnalysis, en: bool) -> Vec<(String, String, String)> {
+fn technical_issue_rows(
+    s: &SeoAnalysis,
+    en: bool,
+    optional_hints: bool,
+) -> Vec<(String, String, String)> {
     crate::seo::collect_technical_issues(&s.technical, en)
         .iter()
+        .filter(|i| crate::seo::is_optional_hint(&i.issue_type) == optional_hints)
         .map(|i| {
             (
                 i.issue_type.clone(),
@@ -909,5 +918,35 @@ mod heading_summary_tests {
             summary(0, "en"),
             "0 H1 headings, 4 headings total, 0 issues"
         );
+    }
+}
+
+#[cfg(test)]
+mod optional_hint_tests {
+    use super::*;
+
+    /// #1258: a missing web app manifest is an optional recommendation, not
+    /// a technical SEO issue: it is split off the issue rows (and with them
+    /// the PDF issue table and the measure ranking), in both languages.
+    #[test]
+    fn a_missing_manifest_is_an_optional_hint_not_a_technical_issue() {
+        let mut seo = SeoAnalysis::default();
+        seo.technical.issues = crate::seo::collect_technical_issues(&seo.technical, true);
+        assert!(seo
+            .technical
+            .issues
+            .iter()
+            .any(|i| i.issue_type == "pwa_missing_manifest"));
+        for en in [true, false] {
+            let issues = technical_issue_rows(&seo, en, false);
+            assert!(issues.iter().all(|(t, _, _)| t != "pwa_missing_manifest"));
+            let hints = technical_issue_rows(&seo, en, true);
+            assert_eq!(hints.len(), 1, "{hints:?}");
+            let text = hints[0].1.to_lowercase();
+            assert!(
+                text.contains("optional") && (text.contains("install") || text.contains("app")),
+                "{text}"
+            );
+        }
     }
 }

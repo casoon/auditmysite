@@ -178,6 +178,7 @@ fn seo(profile: Option<SeoProfilePresentation>) -> SeoPresentation {
         serp: None,
         image_efficiency: None,
         technical_issues: vec![],
+        optional_hints: vec![],
     }
 }
 

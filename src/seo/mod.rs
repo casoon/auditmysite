@@ -49,7 +49,9 @@ pub use schema_rules::{
 };
 pub use serp::{build_serp_analysis, SerpAnalysis, SerpSignal, SerpSignalStatus};
 pub use social::{extract_social_tags, OpenGraph, SocialTags, TwitterCard};
-pub use technical::{analyze_technical_seo, collect_technical_issues, TechnicalSeo};
+pub use technical::{
+    analyze_technical_seo, collect_technical_issues, is_optional_hint, TechnicalSeo,
+};
 pub use topics::{
     average_page_semantic_score, derive_domain_topics, derive_topic_overlap_pairs,
     extract_page_topics,

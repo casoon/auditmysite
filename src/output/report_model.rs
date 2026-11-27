@@ -925,6 +925,9 @@ pub struct SeoPresentation {
     pub image_efficiency: Option<ImageEfficiencyPresentation>,
     /// TechnicalSeo issues (noindex, hreflang gaps, crawl budget) — (issue_type, message, severity_label)
     pub technical_issues: Vec<(String, String, String)>,
+    /// Optional recommendations (web app manifest, #1258): no SEO issue, no
+    /// score effect, shown apart from `technical_issues`.
+    pub optional_hints: Vec<String>,
 }
 
 /// SERP pass presentation
