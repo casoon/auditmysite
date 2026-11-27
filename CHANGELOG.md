@@ -44,6 +44,7 @@ and verification for each change is in the
 - **SEO:** the custom-404 probe follows redirects and judges the final status (#1223). A redirect from a domain variant to the canonical host that ends in 404 or 410 is no longer reported as `custom_404_invalid_status`; a redirect that ends in 200 is still reported.
 - **Report:** the lead sentence of the visibility and user-understanding section names only what was measured in the run (#1224). When trust signals or AI readability were not measured, the lead no longer praises them next to the line that says they were not measured.
 - **Report:** the Speed Index is labelled as an approximation ("Speed Index (approximation)", "Speed-Index-Näherung") and its explanation states the formula 0.35 × FCP + 0.65 × LCP (#1225). The JSON member `speed_index` is unchanged.
+- **Report:** the score-driver row of a module whose wording band was lowered by open findings says "Open findings limit the rating"; it says "severe" only when a Critical or High finding is open. Before, a single medium CSP finding produced "Open severe findings limit the rating" for the security module.
 
 ## [2.2.0] - 2026-11-24
 

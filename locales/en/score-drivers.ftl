@@ -20,6 +20,7 @@ score-drivers-col-assessment = Assessment
 score-drivers-class-weakest = Biggest weak point
 score-drivers-class-risk-driver = Significant risk driver
 score-drivers-class-band-corrected = Open severe findings limit the rating
+score-drivers-class-band-corrected-open = Open findings limit the rating
 score-drivers-class-stabilizing = Stabilizes the site-quality score
 
 ## Weight basis
