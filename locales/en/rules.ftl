@@ -207,11 +207,11 @@ rule-manual-motion-actuation = Check that device-motion controls have an alterna
     .user-impact = If a function works only by moving the device, users who cannot move it are excluded from the functionality.
     .technical-impact = An inline <script> mentions devicemotion or deviceorientation, so a function may react to shaking or tilting the device; whether it also works through a control on the page and whether the reaction can be turned off cannot be detected, so the page gets one manual-check note; external scripts are not inspected.
 
-rule-targets-size-enhanced = Check that click targets are large enough (AAA)
+rule-targets-size-enhanced = Check that click targets reach the enhanced 44×44 px size (AAA)
     .user-impact = Users with hand tremors or on mobile devices easily tap the wrong elements.
-    .technical-impact = The rendered box of a link, button or form control is under 44 by 44 CSS pixels, so pointer and touch input easily hits a neighbouring element.
+    .technical-impact = The rendered box of a link, button or form control is under 44 by 44 CSS pixels, so pointer and touch input easily hits a neighbouring element; 44 px is the enhanced Level AAA size (2.5.5) and an ergonomic recommendation, the WCAG 2.2 AA minimum (2.5.8) is 24 by 24 CSS pixels.
 
-rule-targets-size = Check that click targets are large enough
+rule-targets-size = Check that click targets are at least 24×24 px
     .user-impact = Users with hand tremors or on mobile devices easily tap the wrong elements.
     .technical-impact = The rendered box of a link, button or form control is under 24 by 24 CSS pixels and no spacing exception applies, so pointer and touch input easily hits a neighbouring element.
 
@@ -1249,7 +1249,7 @@ explanation-2-5-8 = Insufficient click target size
     .description = Interactive elements such as buttons, links, or icons have a clickable area smaller than 24×24 CSS pixels.
     .user-impact = Users with motor impairments or on touchscreens easily miss small target areas and accidentally trigger the wrong action.
     .typical-cause = Icon buttons without extra padding, tightly packed link or icon lists, small form controls in the mobile layout.
-    .recommendation = Increase clickable areas to at least 24×24 CSS pixels, e.g. via padding, or ensure sufficient spacing to neighboring targets.
+    .recommendation = Increase clickable areas to at least 24×24 CSS pixels, e.g. via padding, or ensure sufficient spacing to neighboring targets. 44×44 pixels is an ergonomic recommendation, not an AA requirement.
     .technical-note = Exceptions apply to, among others, inline links within body text and cases where an equivalent, larger target for the same function exists.
 
 ## 3. Understandable
@@ -1301,11 +1301,11 @@ explanation-seo-headings-long-heading = Heading too long
     .technical-note = Google typically displays 50–60 characters in the title tag. There is no hard limit for H2/H3, but readability drops noticeably beyond 70 characters. CMS-level validation is recommended.
 
 explanation-seo-headings-skipped-level = Skipped heading level
-    .description = The headings on the page skip a level — for example, an H1 is directly followed by an H3 without an H2 in between. This breaks the logical hierarchy that search engines and screen readers use for navigation.
+    .description = The headings on the page skip a level — for example, an H1 is directly followed by an H3 without an H2 in between. This leaves a gap in the hierarchy that search engines and screen readers use for navigation.
     .user-impact = Screen reader users navigate pages via headings. Missing levels interrupt this path and make orientation harder. Search engines rate pages with consistent heading structure as higher quality content.
     .typical-cause = CMS templates or components hard-code heading levels (e.g. always H3 in footer columns) regardless of page context. Developers choose levels for visual style rather than hierarchy.
     .recommendation = Maintain heading hierarchy from H1 downward without gaps: H1 → H2 → H3. To make a heading look smaller visually, use CSS classes rather than changing the HTML level.
-    .technical-note = WCAG 1.3.1 (Info and Relationships, Level A) requires structure to be programmatically determinable. Skipped levels violate this requirement. Screen readers like NVDA/JAWS jump with H-keys — gaps create dead spots.
+    .technical-note = Best practice, not a WCAG failure on its own: WCAG 1.3.1 (Info and Relationships, Level A) requires structure to be programmatically determinable, and a skipped level does not by itself make a heading unrecognizable as one. It becomes a 1.3.1 or 2.4.6 problem only when the levels misstate the structure. Screen reader users who jump by heading level may suspect missing sections at a gap.
 
 explanation-seo-headings-missing-h1 = Missing H1 heading
     .description = The page has no H1 heading. Without one, its purpose isn't immediately recognizable to search engines or screen reader users.

@@ -95,8 +95,8 @@ interactive-heading-missing-h1 = The page has no H1 heading. Screen reader users
 interactive-heading-missing-h1-fix = Use exactly one H1 heading per page that describes the main content.
 interactive-heading-multiple-h1 = { $count } H1 headings found. That is allowed; it can blur orientation when it is unclear which one names the page topic.
 interactive-heading-multiple-h1-fix = Check the heading structure; one H1 for the page topic is recommended.
-interactive-heading-level-skip = Heading hierarchy skips levels ({ $examples }). Screen reader users may not be able to reliably parse the page structure.
-interactive-heading-level-skip-fix = Never skip heading levels. After H1 comes H2, after H2 comes H3, and so on.
+interactive-heading-level-skip = Heading hierarchy skips levels ({ $examples }). Screen reader users who navigate by heading level may suspect missing sections; a structure hint, not a WCAG failure on its own.
+interactive-heading-level-skip-fix = Avoid skipping heading levels. After H1 comes H2, after H2 comes H3, and so on.
 interactive-landmark-missing-main = No <main> landmark found. Screen reader users cannot jump directly to the main content.
 interactive-landmark-missing-main-fix = Wrap the main content in a <main> element or set role="main" on the appropriate container.
 interactive-landmark-nav-without-labels = { $count } navigation landmarks without distinct labels. Screen reader users cannot tell which navigation covers which area.

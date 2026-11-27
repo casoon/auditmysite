@@ -7,14 +7,14 @@
 # the count messages of report.ftl.
 
 ## Search experience
-pdf-analysis-search-label = Sichtbarkeit & Nutzerverständnis
-pdf-analysis-search-content-clarity = Inhaltsverständlichkeit
+pdf-analysis-search-label = Technische Auffindbarkeit und Inhaltsstruktur
+pdf-analysis-search-content-clarity = Inhaltsstruktur
 pdf-analysis-search-trust = Vertrauenssignale
 pdf-analysis-search-structure = Struktur und Semantik
 pdf-analysis-search-ai = KI-Lesbarkeit
 pdf-analysis-search-mobile = Mobile Lesbarkeit
 pdf-analysis-search-technical-seo-explanation = Title, Description, Canonical, Sitemap, strukturierte Daten und crawlbare Links.
-pdf-analysis-search-content-estimated = Aus Seitentyp und Content-Tiefe abgeleitet.
+pdf-analysis-search-content-estimated = Aus Seitentyp und Inhaltstiefe abgeleitet, nicht aus Lesbarkeit oder inhaltlicher Richtigkeit des Textes.
 pdf-analysis-search-structure-estimated = Aus Überschriften, strukturierten Daten und Seitenprofil abgeleitet.
 pdf-analysis-search-ai-explanation = Lesbarkeit, Abschnittsqualität und kompakte Abschnittsstruktur für KI-gestützte Systeme (ungeprüfte Heuristik).
 pdf-analysis-search-mobile-explanation = Mobile Nutzbarkeit, lesbarer Text und gut antippbare Bedienelemente.
@@ -22,20 +22,20 @@ pdf-analysis-search-warning-seo = Technisches SEO liegt bei { $score } / 100, ab
 pdf-analysis-search-warning-images = { $words } Wörter bei { $images } Bildern: wichtige Aussagen können eher im Bild als im lesbaren HTML liegen.
 pdf-analysis-search-warning-media = Das Seitenprofil ist medienlastig; Bildtext sollte durch lesbaren HTML-Text abgesichert werden.
 pdf-analysis-search-warning-local = LocalBusiness- oder lokale Vertrauensdaten sind unvollständig oder nicht maschinenlesbar.
-pdf-analysis-search-interpretation-gap = Technisch auffindbar, aber für Nutzer und KI-Systeme nicht gleich stark verständlich. Schwächere Bestandteile: { $names }.
-pdf-analysis-search-interpretation-strong = Starke Sichtbarkeit und Nutzerverständnis: { $parts } passen zusammen.
+pdf-analysis-search-interpretation-gap = Technisch auffindbar, aber Inhaltsstruktur und Signale sind für Nutzer und KI-Systeme schwächer. Schwächere Bestandteile: { $names }.
+pdf-analysis-search-interpretation-strong = Starke technische Auffindbarkeit und Inhaltsstruktur: { $parts } passen zusammen.
 pdf-analysis-search-interpretation-strong-technical = Starke technische Auffindbarkeit.
 pdf-analysis-search-interpretation-solid = Solide Basis mit sichtbaren Lücken bei { $parts }.
 pdf-analysis-search-interpretation-solid-technical = Solide technische Basis mit sichtbaren Lücken.
-pdf-analysis-search-interpretation-limited = Eingeschränkte Sichtbarkeit und Nutzerverständnis: Die Seite ist nicht ausreichend { $parts }.
+pdf-analysis-search-interpretation-limited = Eingeschränkte technische Auffindbarkeit und Inhaltsstruktur: Die Seite ist nicht ausreichend { $parts }.
 pdf-analysis-search-interpretation-limited-technical = Eingeschränkte technische Auffindbarkeit.
 pdf-analysis-search-strong-part-technical = technische Auffindbarkeit
-pdf-analysis-search-strong-part-content = Inhaltsverständlichkeit
+pdf-analysis-search-strong-part-content = Inhaltsstruktur
 pdf-analysis-search-strong-part-trust = Vertrauen
 pdf-analysis-search-solid-part-content = Inhalt
 pdf-analysis-search-solid-part-trust = Vertrauen
 pdf-analysis-search-solid-part-ai = maschineller Lesbarkeit
-pdf-analysis-search-limited-part-content = verständlich
+pdf-analysis-search-limited-part-content = strukturiert
 pdf-analysis-search-limited-part-trust = vertrauensstark
 pdf-analysis-search-limited-part-ai = extrahierbar
 pdf-analysis-search-join-and-two = { $first } und { $second }

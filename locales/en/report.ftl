@@ -551,22 +551,22 @@ recommendation-security-permissions-permissive = Tighten Permissions-Policy so o
 recommendation-security-sourcemap = Do not serve source maps publicly, or restrict access to them.
 recommendation-security-hsts-preload = Extend the HSTS directive so it meets the preload requirements (max-age >= 1 year, includeSubDomains, preload).
 recommendation-security-default = Core security headers are clean. Next step: review policies regularly and adapt them to new script and integration sources.
-lever-mobile-small = Recommendation: enlarge touch targets to at least 44 px ({ $small_targets } below, not part of the Mobile score)
+lever-mobile-small = Ergonomic recommendation (not a WCAG AA requirement): enlarge touch targets to 44 px ({ $small_targets } below, not part of the Mobile score)
 lever-mobile-crowded = Biggest lever: increase spacing of mobile controls ({ $crowded_targets })
 lever-mobile-default = Biggest lever: keep optimizing mobile readability and touch flows
-context-mobile-proper = Viewport properly set, { $small_targets } touch targets below 44 px, { $crowded_targets } crowded gaps.
-context-mobile-improper = Viewport not properly configured, { $small_targets } touch targets below 44 px, { $crowded_targets } crowded gaps.
-card-mobile-small = { $small_targets } touch targets below 44 px
+context-mobile-proper = Viewport properly set, { $small_targets } touch targets below the recommended 44 px, { $crowded_targets } crowded gaps.
+context-mobile-improper = Viewport not properly configured, { $small_targets } touch targets below the recommended 44 px, { $crowded_targets } crowded gaps.
+card-mobile-small = { $small_targets } touch targets below the recommended 44 px
 card-mobile-crowded = { $crowded_targets } crowded gaps
 card-mobile-proper = Viewport properly set
 card-mobile-improper = Review viewport
 
 # Tracking summary
-tracking-summary-zaraz-clean = Zaraz is detectable on the page. No additional tracking cookies or external tracking signals were observed during the run.
-tracking-summary-zaraz-signals = Tracking or consent-related signals are detectable on the page. Inspect external embeds, cookie behavior and the actual trigger time after consent.
-tracking-summary-fonts = Externally hosted Google Fonts are loaded. This is privacy- and performance-relevant and should be reviewed deliberately.
-tracking-summary-signals = Tracking signals were detected. Verify consent, trigger time and the origin of embedded services.
-tracking-summary-clean = No external Google Fonts, tracking cookies or other tracking signals were detected in the current run.
+tracking-summary-zaraz-clean = Zaraz is detectable on the page. No additional tracking cookies or external tracking signals were observed during the run; which tags Zaraz fires is not visible from the page.
+tracking-summary-zaraz-signals = Tracking or consent-related signals are detectable on the page (detected by name or script, not confirmed as data transfers). Inspect external embeds, cookie behavior and the actual trigger time after consent; this is not a legal assessment.
+tracking-summary-fonts = Externally hosted Google Fonts are loaded, so the browser contacts a third-party host. That is relevant for privacy and performance and should be reviewed deliberately; whether it is permissible is a legal question this report does not assess.
+tracking-summary-signals = Tracking signals were detected (by cookie name, storage key or script, not confirmed as data transfers). Verify consent, trigger time and the origin of embedded services; this is not a legal assessment.
+tracking-summary-clean = No external Google Fonts, tracking cookies or other tracking signals were detected in the current run. This does not rule out tracking that sets no such signal.
 
 # PDF detail module additions
 pdf-budget-violations-summary =
@@ -605,11 +605,11 @@ pdf-perf-cc-title = Critical Request Chain
 pdf-perf-cc-max-depth = Max depth
 pdf-perf-cc-path = Critical path
 pdf-perf-cc-total-requests = Total requests
-pdf-perf-min-title = Unminified Assets
-pdf-perf-min-files = Unminified files
-pdf-perf-min-savings = Est. savings
+pdf-perf-min-title = Likely unminified assets
+pdf-perf-min-files = Likely unminified files
+pdf-perf-min-savings = Estimated savings (from file size)
 pdf-perf-min-type = Type
-pdf-perf-min-saving-col = Savings
+pdf-perf-min-saving-col = Est. savings
 pdf-perf-cov-title = Code Coverage
 pdf-perf-cov-js-used = JS used
 pdf-perf-cov-css-used = CSS used
@@ -617,7 +617,7 @@ pdf-perf-resource-focus-title = Largest directly actionable lever
 pdf-perf-resource-focus = Minifying { $count } { $count ->
         [one] file
        *[other] files
-    } can remove an estimated { $savings } KB from the delivered code. This reduces payload and parsing work without removing functionality. Remeasure under the same conditions afterwards.
+    } can remove an estimated { $savings } KB from the delivered code (estimated from the file content, before compression; the saving after compression is smaller). This reduces payload and parsing work without removing functionality. Remeasure under the same conditions afterwards.
 pdf-perf-resource-note = JS heap is an observation without a universal threshold; growth and peaks during interactions matter. CO2e per view is a modeled estimate classified by the stated efficiency grade.
 pdf-perf-resource-note-heap = JS heap is an observation without a universal threshold; growth and peaks during interactions matter.
 pdf-perf-resource-note-carbon = CO2e per view is a modeled estimate classified by the stated efficiency grade.

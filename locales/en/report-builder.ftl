@@ -111,7 +111,7 @@ report-builder-security-score-total = Security score
 report-builder-mobile-scalable = Scalable
 report-builder-mobile-configured = Correctly configured
 report-builder-mobile-targets-total = Total
-report-builder-mobile-targets-adequate = Adequate (≥44px)
+report-builder-mobile-targets-adequate = Meets the recommendation (≥44px)
 report-builder-mobile-targets-small = Too small
 report-builder-mobile-targets-crowded = Too close together
 report-builder-mobile-font-base = Base font size
@@ -123,7 +123,7 @@ report-builder-mobile-sizing-no-scroll = No horizontal scroll
 report-builder-mobile-sizing-responsive-images = Responsive images
 report-builder-mobile-context = { $count } in { $area }
 report-builder-mobile-locally-scoped = — locally scoped
-report-builder-mobile-small-targets = { $base } { $count } touch targets smaller than recommended (44×44 px){ $context }{ $scope }.
+report-builder-mobile-small-targets = { $base } { $count } touch targets smaller than the ergonomic recommendation (44×44 px){ $context }{ $scope }.
 
 ## Terminal table
 report-builder-terminal-experimental-title = Experimental indicators (unvalidated, no effect on score or verdict)

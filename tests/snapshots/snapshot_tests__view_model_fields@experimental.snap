@@ -23,7 +23,7 @@ expression: sort_json_keys(value)
     "Performance",
     "SEO",
     "Sicherheit",
-    "Sichtbarkeit & Nutzerverständnis",
+    "Technische Auffindbarkeit und Inhaltsstruktur",
     "UX"
   ],
   "severity": {

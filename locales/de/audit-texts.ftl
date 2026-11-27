@@ -10,9 +10,9 @@
 # Meldungen aus rules.ftl, in beiden Sprachen identisch.
 
 ## Heading issues: technical impact per issue type
-audit-heading-impact-skipped-level = Übersprungene Heading-Ebenen zerstören die Baumstruktur für Screenreader und SEO-Crawler — logische Hierarchie H1→H2→H3 einhalten.
+audit-heading-impact-skipped-level = Übersprungene Heading-Ebenen lassen Lücken in der Gliederung, an der sich Screenreader-Nutzer und SEO-Crawler orientieren — ein Strukturhinweis, für sich kein WCAG-Verstoß; empfohlen ist eine logische Hierarchie H1→H2→H3.
 audit-heading-impact-missing-h1 = Fehlende H1-Überschrift — Seitenzweck für Suchmaschinen und Screenreader nicht erkennbar.
-audit-heading-impact-multiple-h1 = Mehrere H1-Überschriften untergraben die inhaltliche Hierarchie; Suchmaschinen können keinen eindeutigen Hauptfokus ableiten.
+audit-heading-impact-multiple-h1 = Mehrere H1-Überschriften sind zulässig, können die inhaltliche Hierarchie aber unklar machen, wenn nicht erkennbar ist, welche das Seitenthema benennt — ein Best-Practice-Hinweis, für sich kein WCAG-Verstoß.
 audit-heading-impact-long-heading = Überlange Überschriften werden in SERPs abgeschnitten und erschweren das schnelle Scannen für Nutzer.
 audit-heading-impact-empty-heading = Leere Überschriften erzeugen Navigationsprobleme für Screenreader und werden von SEO-Crawlern als schlechtes Signal gewertet.
 

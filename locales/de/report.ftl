@@ -551,22 +551,22 @@ recommendation-security-permissions-permissive = Permissions-Policy enger fassen
 recommendation-security-sourcemap = Source Maps nicht öffentlich ausliefern oder den Zugriff darauf einschränken.
 recommendation-security-hsts-preload = Die HSTS-Direktive so ergänzen, dass sie die Preload-Anforderungen erfüllt (max-age >= 1 Jahr, includeSubDomains, preload).
 recommendation-security-default = Die grundlegenden Security-Header sind sauber gesetzt. Nächster Schritt: Richtlinien regelmäßig prüfen und an neue Skript- oder Integrationsquellen anpassen.
-lever-mobile-small = Empfehlung: Touch-Targets auf mindestens 44 px vergrößern ({ $small_targets } darunter, nicht im Mobile-Wert enthalten)
+lever-mobile-small = Ergonomie-Empfehlung (keine WCAG-AA-Anforderung): Touch-Targets auf 44 px vergrößern ({ $small_targets } darunter, nicht im Mobile-Wert enthalten)
 lever-mobile-crowded = Größter Hebel: Abstände mobiler Bedienelemente erhöhen ({ $crowded_targets })
 lever-mobile-default = Größter Hebel: mobile Lesbarkeit und Touch-Flows weiter optimieren
-context-mobile-proper = Viewport korrekt gesetzt, { $small_targets } Touch-Targets unter 44 px, { $crowded_targets } zu enge Abstände.
-context-mobile-improper = Viewport nicht sauber konfiguriert, { $small_targets } Touch-Targets unter 44 px, { $crowded_targets } zu enge Abstände.
-card-mobile-small = { $small_targets } Touch-Targets unter 44 px
+context-mobile-proper = Viewport korrekt gesetzt, { $small_targets } Touch-Targets unter der empfohlenen Größe von 44 px, { $crowded_targets } zu enge Abstände.
+context-mobile-improper = Viewport nicht sauber konfiguriert, { $small_targets } Touch-Targets unter der empfohlenen Größe von 44 px, { $crowded_targets } zu enge Abstände.
+card-mobile-small = { $small_targets } Touch-Targets unter der empfohlenen Größe von 44 px
 card-mobile-crowded = { $crowded_targets } zu enge Abstände
 card-mobile-proper = Viewport korrekt gesetzt
 card-mobile-improper = Viewport prüfen
 
 # Tracking summary
-tracking-summary-zaraz-clean = Zaraz ist auf der Seite erkennbar. Zusätzlich wurden im Lauf keine weiteren Tracking-Cookies oder externen Tracking-Signale festgestellt.
-tracking-summary-zaraz-signals = Auf der Seite sind Tracking- oder Consent-nahe Signale erkennbar. Prüfen Sie insbesondere externe Einbindungen, Cookie-Setzung und den tatsächlichen Auslösezeitpunkt nach Einwilligung.
-tracking-summary-fonts = Es werden extern gehostete Google Fonts geladen. Das ist datenschutz- und performance-relevant und sollte bewusst geprüft werden.
-tracking-summary-signals = Es wurden Tracking-Signale erkannt. Prüfen Sie Einwilligung, Auslösezeitpunkt und die Herkunft der eingebundenen Dienste.
-tracking-summary-clean = Im aktuellen Lauf wurden keine externen Google Fonts, keine Tracking-Cookies und keine weiteren Tracking-Signale erkannt.
+tracking-summary-zaraz-clean = Zaraz ist auf der Seite erkennbar. Zusätzlich wurden im Lauf keine weiteren Tracking-Cookies oder externen Tracking-Signale festgestellt; welche Tags Zaraz auslöst, ist von der Seite aus nicht sichtbar.
+tracking-summary-zaraz-signals = Auf der Seite sind Tracking- oder Consent-nahe Signale erkennbar (erkannt an Name oder Skript, nicht als Datenübermittlung bestätigt). Prüfen Sie insbesondere externe Einbindungen, Cookie-Setzung und den tatsächlichen Auslösezeitpunkt nach Einwilligung; das ist keine rechtliche Bewertung.
+tracking-summary-fonts = Es werden extern gehostete Google Fonts geladen, der Browser kontaktiert also einen Drittanbieter-Host. Das ist datenschutz- und performance-relevant und sollte bewusst geprüft werden; ob es zulässig ist, ist eine rechtliche Frage, die dieser Bericht nicht bewertet.
+tracking-summary-signals = Es wurden Tracking-Signale erkannt (an Cookie-Name, Storage-Schlüssel oder Skript, nicht als Datenübermittlung bestätigt). Prüfen Sie Einwilligung, Auslösezeitpunkt und die Herkunft der eingebundenen Dienste; das ist keine rechtliche Bewertung.
+tracking-summary-clean = Im aktuellen Lauf wurden keine externen Google Fonts, keine Tracking-Cookies und keine weiteren Tracking-Signale erkannt. Tracking ohne solche Signale ist damit nicht ausgeschlossen.
 
 # PDF detail module additions
 pdf-budget-violations-summary =
@@ -605,11 +605,11 @@ pdf-perf-cc-title = Kritische Request-Kette
 pdf-perf-cc-max-depth = Max. Tiefe
 pdf-perf-cc-path = Kritischer Pfad
 pdf-perf-cc-total-requests = Anfragen gesamt
-pdf-perf-min-title = Unminifizierte Assets
-pdf-perf-min-files = Unminifizierte Dateien
-pdf-perf-min-savings = Geschätzte Einsparung
+pdf-perf-min-title = Vermutlich unminifizierte Assets
+pdf-perf-min-files = Vermutlich unminifizierte Dateien
+pdf-perf-min-savings = Geschätzte Einsparung (aus Dateigröße)
 pdf-perf-min-type = Typ
-pdf-perf-min-saving-col = Einsparung
+pdf-perf-min-saving-col = Geschätzte Einsparung
 pdf-perf-cov-title = Code-Abdeckung
 pdf-perf-cov-js-used = JS genutzt
 pdf-perf-cov-css-used = CSS genutzt
@@ -617,7 +617,7 @@ pdf-perf-resource-focus-title = Größter direkt nutzbarer Hebel
 pdf-perf-resource-focus = Durch die Minifizierung von { $count } { $count ->
         [one] Datei
        *[other] Dateien
-    } lassen sich voraussichtlich { $savings } KB aus dem ausgelieferten Code entfernen. Das reduziert Datenmenge und Parsing-Aufwand, ohne Funktionen zu streichen. Danach unter denselben Bedingungen erneut messen.
+    } lassen sich voraussichtlich { $savings } KB aus dem ausgelieferten Code entfernen (aus dem Dateiinhalt geschätzt, vor der Kompression; nach der Kompression fällt die Einsparung kleiner aus). Das reduziert Datenmenge und Parsing-Aufwand, ohne Funktionen zu streichen. Danach unter denselben Bedingungen erneut messen.
 pdf-perf-resource-note = JS-Heap ist ein Beobachtungswert ohne universellen Grenzwert; relevant sind Wachstum und Spitzen bei Interaktionen. CO2e pro View ist eine modellierte Schätzung und wird durch die angegebene Effizienzklasse eingeordnet.
 pdf-perf-resource-note-heap = JS-Heap ist ein Beobachtungswert ohne universellen Grenzwert; relevant sind Wachstum und Spitzen bei Interaktionen.
 pdf-perf-resource-note-carbon = CO2e pro View ist eine modellierte Schätzung und wird durch die angegebene Effizienzklasse eingeordnet.

@@ -9,9 +9,9 @@
 # messages of rules.ftl, identical in both languages.
 
 ## Heading issues: technical impact per issue type
-audit-heading-impact-skipped-level = Skipped heading levels break the tree structure for screen readers and SEO crawlers — keep a logical H1→H2→H3 hierarchy.
+audit-heading-impact-skipped-level = Skipped heading levels leave gaps in the outline that screen reader users and SEO crawlers rely on — a structure hint, not a WCAG failure on its own; a logical H1→H2→H3 hierarchy is recommended.
 audit-heading-impact-missing-h1 = Missing H1 heading — page purpose not recognizable for search engines and screen readers.
-audit-heading-impact-multiple-h1 = Multiple H1 headings undermine the content hierarchy; search engines cannot derive a single main focus.
+audit-heading-impact-multiple-h1 = Multiple H1 headings are allowed, but can blur the content hierarchy when it is unclear which one names the page topic — a best-practice hint, not a WCAG failure on its own.
 audit-heading-impact-long-heading = Overly long headings are truncated in SERPs and make quick scanning harder for users.
 audit-heading-impact-empty-heading = Empty headings cause navigation problems for screen readers and are treated as a poor signal by SEO crawlers.
 

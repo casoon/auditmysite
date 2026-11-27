@@ -467,7 +467,7 @@ mod tests {
             "Performance",
             "SEO",
             "Security",
-            "Search Experience",
+            "Technical findability and content structure",
             "UX",
         ];
         for &expected in &dashboard_modules {
@@ -555,7 +555,7 @@ mod tests {
             .modules
             .dashboard
             .iter()
-            .find(|m| m.name.contains("Sichtbarkeit"))
+            .find(|m| m.name.contains("Auffindbarkeit"))
             .expect("Search Experience dashboard card missing");
 
         assert!(

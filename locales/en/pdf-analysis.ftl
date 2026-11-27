@@ -12,14 +12,14 @@
 # report.ftl for the German wording; the English one does not use them.
 
 ## Search experience
-pdf-analysis-search-label = Search Experience
-pdf-analysis-search-content-clarity = Content clarity
+pdf-analysis-search-label = Technical findability and content structure
+pdf-analysis-search-content-clarity = Content structure
 pdf-analysis-search-trust = Trust signals
 pdf-analysis-search-structure = Structure and semantics
 pdf-analysis-search-ai = AI readability
 pdf-analysis-search-mobile = Mobile readability
 pdf-analysis-search-technical-seo-explanation = Title, description, canonical, sitemap, structured data and crawlable links.
-pdf-analysis-search-content-estimated = Estimated from page type and content-depth signals.
+pdf-analysis-search-content-estimated = Derived from page type and content depth, not from readability or correctness of the text.
 pdf-analysis-search-structure-estimated = Estimated from headings, structured data and page profile signals.
 pdf-analysis-search-ai-explanation = Readability, chunk quality and compact section structure for AI-assisted systems (unvalidated heuristic).
 pdf-analysis-search-mobile-explanation = Mobile usability, readable text and tappable controls.
@@ -27,20 +27,20 @@ pdf-analysis-search-warning-seo = Technical SEO is { $score } / 100, but content
 pdf-analysis-search-warning-images = { $words } words with { $images } images: important messages may be image-led rather than readable HTML.
 pdf-analysis-search-warning-media = The page profile is media-heavy; image text should be backed by readable HTML copy.
 pdf-analysis-search-warning-local = LocalBusiness or local trust data is incomplete or not machine-readable.
-pdf-analysis-search-interpretation-gap = Technically findable, but not equally strong for users and AI systems. Weak parts: { $names }.
-pdf-analysis-search-interpretation-strong = Strong search experience: { $parts } align.
+pdf-analysis-search-interpretation-gap = Technically findable, but content structure and signals are weaker for users and AI systems. Weak parts: { $names }.
+pdf-analysis-search-interpretation-strong = Strong technical findability and content structure: { $parts } align.
 pdf-analysis-search-interpretation-strong-technical = Strong technical visibility.
 pdf-analysis-search-interpretation-solid = Solid base with visible gaps in { $parts }.
 pdf-analysis-search-interpretation-solid-technical = Solid technical base with visible gaps.
-pdf-analysis-search-interpretation-limited = Limited search experience: the page is not sufficiently { $parts }.
+pdf-analysis-search-interpretation-limited = Limited technical findability and content structure: the page is not sufficiently { $parts }.
 pdf-analysis-search-interpretation-limited-technical = Limited technical visibility.
 pdf-analysis-search-strong-part-technical = technical visibility
-pdf-analysis-search-strong-part-content = content clarity
+pdf-analysis-search-strong-part-content = content structure
 pdf-analysis-search-strong-part-trust = trust signals
 pdf-analysis-search-solid-part-content = content
 pdf-analysis-search-solid-part-trust = trust
 pdf-analysis-search-solid-part-ai = machine readability
-pdf-analysis-search-limited-part-content = understandable
+pdf-analysis-search-limited-part-content = structured
 pdf-analysis-search-limited-part-trust = trustworthy
 pdf-analysis-search-limited-part-ai = extractable
 pdf-analysis-search-join-and-two = { $first } and { $second }

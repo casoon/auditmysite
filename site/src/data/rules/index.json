@@ -902,7 +902,7 @@
     },
     {
       "id": "targets/size-enhanced",
-      "title": "Check that click targets are large enough (AAA)",
+      "title": "Check that click targets reach the enhanced 44×44 px size (AAA)",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.5.5",
@@ -910,7 +910,7 @@
     },
     {
       "id": "targets/size",
-      "title": "Check that click targets are large enough",
+      "title": "Check that click targets are at least 24×24 px",
       "domain": "wcag",
       "outcome": "hint-only",
       "criterion": "2.5.8",

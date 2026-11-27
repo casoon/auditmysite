@@ -58,6 +58,6 @@ finding-fix-seo-technical-www-alternate-unanswered = Create the DNS record and T
 finding-fix-mobile-missing-viewport = Add <meta name="viewport" content="width=device-width, initial-scale=1"> to the head.
 finding-fix-mobile-improper-viewport = Set the viewport to width=device-width, initial-scale=1 instead of a fixed width.
 finding-fix-mobile-not-scalable = Remove user-scalable=no and maximum-scale limits from the viewport meta tag so users can zoom.
-finding-fix-mobile-small-targets = Enlarge touch targets to at least 44 × 44 CSS pixels through padding or min-width/min-height, or space them so far apart that a neighbour is not hit by mistake.
+finding-fix-mobile-small-targets = Ergonomic recommendation, not a WCAG AA requirement (2.5.8 requires 24 × 24 CSS pixels, with exceptions): enlarge touch targets to 44 × 44 CSS pixels through padding or min-width/min-height, or space them so far apart that a neighbour is not hit by mistake.
 finding-fix-mobile-small-fonts = Raise the smallest font sizes on small screens to at least 12 px, body text preferably to 16 px.
 finding-fix-mobile-horizontal-scroll = Find the element wider than the viewport (fixed widths, wide tables, images without max-width) and let it shrink or scroll inside its own container.

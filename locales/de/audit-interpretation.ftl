@@ -42,7 +42,7 @@ audit-interpretation-perf-render-blocking =
         [one] 1 render-blockierende Ressource
        *[other] { $count } render-blockierende Ressourcen
     }
-audit-interpretation-perf-unminified = unminifizierte Assets (~{ $kb } KB Einsparpotenzial)
+audit-interpretation-perf-unminified = vermutlich unminifizierte Assets (~{ $kb } KB geschätztes Einsparpotenzial)
 audit-interpretation-perf-animations = { $count } nicht-composited Animationen
 audit-interpretation-perf-positive-layout = Layout-Stabilität (CLS)
 audit-interpretation-perf-positive-main-thread = Hauptthread-Blockierung (TBT)

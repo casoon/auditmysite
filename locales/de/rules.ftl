@@ -207,11 +207,11 @@ rule-manual-motion-actuation = Prüfen, ob Steuerung per Gerätebewegung eine Al
     .user-impact = Geht eine Funktion nur durch Bewegen des Geräts, sind Nutzer, die das Gerät nicht bewegen können, von ihr ausgeschlossen.
     .technical-impact = Ein Inline-<script> nennt devicemotion oder deviceorientation, daher reagiert eine Funktion womöglich auf Schütteln oder Neigen des Geräts; ob sie auch über ein Bedienelement auf der Seite geht und ob sich die Reaktion abschalten lässt, ist nicht erkennbar, daher erhält die Seite einen Hinweis zur manuellen Prüfung; externe Skripte werden nicht untersucht.
 
-rule-targets-size-enhanced = Prüfen, ob Klickziele groß genug sind (AAA)
+rule-targets-size-enhanced = Prüfen, ob Klickziele die erweiterte Größe von 44×44 px erreichen (AAA)
     .user-impact = Nutzer mit zittrigen Händen oder auf Mobilgeräten klicken leicht auf falsche Elemente.
-    .technical-impact = Die gerenderte Box eines Links, Buttons oder Formularelements ist kleiner als 44 mal 44 CSS-Pixel, daher trifft Zeiger- und Touch-Eingabe leicht ein benachbartes Element.
+    .technical-impact = Die gerenderte Box eines Links, Buttons oder Formularelements ist kleiner als 44 mal 44 CSS-Pixel, daher trifft Zeiger- und Touch-Eingabe leicht ein benachbartes Element; 44 px ist die erweiterte Stufe AAA (2.5.5) und eine Ergonomie-Empfehlung, das Minimum von WCAG 2.2 AA (2.5.8) sind 24 mal 24 CSS-Pixel.
 
-rule-targets-size = Prüfen, ob Klickziele groß genug sind
+rule-targets-size = Prüfen, ob Klickziele mindestens 24×24 px groß sind
     .user-impact = Nutzer mit zittrigen Händen oder auf Mobilgeräten klicken leicht auf falsche Elemente.
     .technical-impact = Die gerenderte Box eines Links, Buttons oder Formularelements ist kleiner als 24 mal 24 CSS-Pixel und keine Abstandsausnahme greift, daher trifft Zeiger- und Touch-Eingabe leicht ein benachbartes Element.
 
@@ -1249,7 +1249,7 @@ explanation-2-5-8 = Unzureichende Klickzielgröße
     .description = Bedienelemente wie Buttons, Links oder Icons haben eine Klickfläche von weniger als 24×24 CSS-Pixeln.
     .user-impact = Nutzer mit motorischen Einschränkungen oder auf Touchscreens treffen kleine Zielflächen leicht daneben und lösen versehentlich falsche Aktionen aus.
     .typical-cause = Icon-Buttons ohne zusätzliches Padding, dicht gepackte Link- oder Icon-Listen, kleine Formularsteuerelemente im mobilen Layout.
-    .recommendation = Klickflächen auf mindestens 24×24 CSS-Pixel vergrößern, z. B. durch Padding, oder ausreichend Abstand zu benachbarten Zielen einhalten.
+    .recommendation = Klickflächen auf mindestens 24×24 CSS-Pixel vergrößern, z. B. durch Padding, oder ausreichend Abstand zu benachbarten Zielen einhalten. 44×44 Pixel sind eine Ergonomie-Empfehlung, keine AA-Anforderung.
     .technical-note = Ausnahmen gelten u. a. für Inline-Links im Fließtext und wenn ein gleichwertiges, größeres Ziel für dieselbe Funktion existiert.
 
 ## 3. Understandable
@@ -1301,11 +1301,11 @@ explanation-seo-headings-long-heading = Überschrift zu lang
     .technical-note = Google zeigt typischerweise 50–60 Zeichen im Title-Tag an. Für H2/H3 gilt keine feste Grenze, aber über 70 Zeichen sinkt die Lesbarkeit deutlich. CMS-Validierung empfohlen.
 
 explanation-seo-headings-skipped-level = Übersprungene Überschriftenebene
-    .description = Die Überschriften auf der Seite überspringen eine Ebene — zum Beispiel folgt auf eine H1 direkt eine H3, ohne dass eine H2 dazwischen steht. Das zerstört die logische Hierarchie, die Suchmaschinen und Screenreader zur Navigation nutzen.
+    .description = Die Überschriften auf der Seite überspringen eine Ebene — zum Beispiel folgt auf eine H1 direkt eine H3, ohne dass eine H2 dazwischen steht. Das lässt eine Lücke in der Hierarchie, die Suchmaschinen und Screenreader zur Navigation nutzen.
     .user-impact = Screenreader-Nutzer navigieren Seiten über Überschriften. Fehlende Ebenen unterbrechen diesen Pfad und erschweren die Orientierung. Suchmaschinen bewerten Seiten mit konsistenter Überschriftenstruktur als inhaltlich hochwertiger.
     .typical-cause = CMS-Templates oder Komponenten setzen fest kodierte Überschriftenebenen (z. B. immer H3 in Footer-Spalten), unabhängig davon, was der Seitenkontext erfordert. Entwickler wählen Ebenen nach visuellem Stil statt nach Hierarchie.
     .recommendation = Überschriftenhierarchie von H1 abwärts lückenlos einhalten: H1 → H2 → H3. Wenn eine Überschrift visuell kleiner wirken soll, CSS-Klassen verwenden statt die HTML-Ebene zu ändern.
-    .technical-note = WCAG 1.3.1 (Info and Relationships, Level A) erfordert, dass Struktur programmatisch erkennbar ist. Übersprungene Ebenen verletzen diese Anforderung. Screenreader wie NVDA/JAWS springen mit H-Tasten — Lücken erzeugen tote Punkte.
+    .technical-note = Best Practice, für sich kein WCAG-Verstoß: WCAG 1.3.1 (Info and Relationships, Level A) erfordert, dass Struktur programmatisch erkennbar ist; eine übersprungene Ebene macht eine Überschrift nicht allein unerkennbar. Zu einem Problem nach 1.3.1 oder 2.4.6 wird sie erst, wenn die Ebenen die Gliederung falsch wiedergeben. Screenreader-Nutzer, die nach Überschriftenebene springen, vermuten an einer Lücke möglicherweise fehlende Abschnitte.
 
 explanation-seo-headings-missing-h1 = Fehlende H1-Überschrift
     .description = Der Seite fehlt eine H1-Überschrift. Ohne sie ist der Seitenzweck für Suchmaschinen und Screenreader-Nutzer nicht auf den ersten Blick erkennbar.
