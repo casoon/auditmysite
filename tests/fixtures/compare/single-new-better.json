@@ -1,0 +1,40 @@
+{
+  "schema_version": "2.2",
+  "report_type": "single",
+  "tool_version": "2.3.0",
+  "pages": [
+    {
+      "url": "https://example.com/",
+      "accessibility_score": 92,
+      "site_quality_score": 81,
+      "module_scores": [
+        {
+          "name": "Accessibility",
+          "score": 92
+        },
+        {
+          "name": "Performance",
+          "score": 60
+        },
+        {
+          "name": "SEO",
+          "score": 72
+        }
+      ],
+      "findings": [
+        {
+          "id": "F-84ea8500",
+          "rule_id": "buttons/name-missing",
+          "title": "Buttons need an accessible name",
+          "severity": "high"
+        }
+      ],
+      "decision": {
+        "verdict": "warn"
+      }
+    }
+  ],
+  "decision": {
+    "verdict": "warn"
+  }
+}

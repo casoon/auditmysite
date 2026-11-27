@@ -40,6 +40,8 @@ Cargo.lock
 !tests/fixtures/sarif/*.json
 !tests/fixtures/axe_divergence_baseline.json
 !tests/fixtures/calibration/*.json
+!tests/fixtures/compare/*.json
+!docs/json-compare.schema.json
 !scripts/package-lock.json
 !scripts/v2-readiness.json
 !src/best_practices/advisories.json
