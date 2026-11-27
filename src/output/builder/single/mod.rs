@@ -333,7 +333,12 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                         )
                     }
                     AuditQualityStatus::Insufficient => {
-                        Some(i18n.t("report-builder-quality-insufficient"))
+                        // The short levels have no appendix to point to.
+                        Some(i18n.t(if config.level.is_summary() {
+                            "report-builder-quality-insufficient-summary"
+                        } else {
+                            "report-builder-quality-insufficient"
+                        }))
                     }
                 }
             },

@@ -30,6 +30,7 @@ single-report-status-warnings = Heuristic warnings
 single-report-status-warnings-value = { $count } — probable barriers, not scored
 single-report-status-manual = To confirm manually
 single-report-status-manual-value = { $count } on this page, not scored; a further { $manual_only } WCAG criteria can only be checked manually (appendix)
+single-report-status-manual-value-summary = { $count } on this page, not scored; a further { $manual_only } WCAG criteria can only be checked manually (listed in the standard report)
 single-report-status-criteria = Criteria with automated approaches
 single-report-status-criteria-value = { $checked } of { $supported } supported A/AA criteria evaluated in this run (supported by the tool: { $supported } of { $total } WCAG 2.2 A/AA criteria) — often only parts of a criterion
 single-report-status-conformance = Full WCAG conformance is not demonstrated: an automated run cannot establish it, whatever the score.
@@ -58,6 +59,7 @@ single-report-rating-note = The rating is a band label for the accessibility sco
 
 ## Risks and strengths
 single-report-risks-none = No priority risks identified within the automated audit scope. This result applies to the automated audit scope only ({ $automated } of about { $total } testable WCAG 2.2 AA criteria); criteria requiring manual review are listed in the appendix.
+single-report-risks-none-summary = No priority risks identified within the automated audit scope. This result applies to the automated audit scope only ({ $automated } of about { $total } testable WCAG 2.2 AA criteria); criteria requiring manual review are listed in the standard report.
 single-report-risks-title = Key Risks
 single-report-risks-title-count = Key Risks ({ $count } identified)
 single-report-strengths-title = Strengths within the audited scope

@@ -51,6 +51,7 @@ report-builder-stability-mutations = , still { $count } DOM changes
 report-builder-stability-individual = individual measurements
 report-builder-quality-partial = The automated audit completed successfully. Individual measurements hit a stability/retry budget and are excluded from the reported scores, which describe only the successfully measured scope. Affected: { $affected }.
 report-builder-quality-insufficient = This audit run has insufficient data quality: several measurements failed. Scores and findings below may be incomplete or unreliable. See the methodology appendix for details.
+report-builder-quality-insufficient-summary = This audit run has insufficient data quality: several measurements failed. Scores and findings may be incomplete or unreliable. The standard report (without --report-level) lists the details.
 report-builder-metric-quick-wins = Quick wins
 
 ## Site-quality score explanation
