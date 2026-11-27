@@ -1851,6 +1851,36 @@ mod tests {
         assert_eq!(crate::audit::verdict::technical_blockers(&n), 0);
     }
 
+    /// #1258: a missing web app manifest is an optional PWA recommendation:
+    /// Low, a review item, no SEO score and no verdict effect, a stable id.
+    #[test]
+    fn missing_manifest_is_an_optional_hint_without_score_or_verdict_effect() {
+        let mut with_hint = page(false, Default::default());
+        let seo = with_hint.discoverability.seo.as_mut().unwrap();
+        seo.technical.issues =
+            crate::seo::technical::collect_technical_issues(&seo.technical, true);
+        assert!(seo
+            .technical
+            .issues
+            .iter()
+            .any(|i| i.issue_type == "pwa_missing_manifest"));
+        let without = normalize(&page(false, Default::default())).normalized;
+        let n = normalize(&with_hint).normalized;
+        n.validate().unwrap();
+
+        let finding = n
+            .findings
+            .iter()
+            .find(|f| f.rule_id == "seo.technical.pwa_missing_manifest")
+            .expect("the optional hint stays a finding");
+        assert_eq!(finding.severity, Severity::Low);
+        assert_eq!(finding.contract.domain, FindingDomain::Seo);
+        assert_eq!(finding.contract.outcome, FindingOutcome::Review);
+        assert_eq!(finding.contract.scoring.effect, ScoringEffect::None);
+        assert_eq!(seo_score(&n), seo_score(&without));
+        assert_eq!(crate::audit::verdict::technical_blockers(&n), 0);
+    }
+
     /// Meant to be indexed (declared or from a sitemap): noindex is a
     /// blocker — SEO capped, decision reason, configurable to fail.
     #[test]

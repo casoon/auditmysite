@@ -179,7 +179,7 @@ fn vital(value: f64, rating: &str) -> VitalMetric {
 
 #[allow(clippy::too_many_arguments)]
 fn performance(
-    dom_nodes: Option<i64>,
+    dom_elements: Option<i64>,
     blocking: usize,
     unminified_kb: u64,
     animations: u32,
@@ -187,7 +187,7 @@ fn performance(
     tbt: Option<&str>,
 ) -> PerformanceResults {
     let vitals = WebVitals {
-        dom_nodes,
+        dom_elements,
         cls: cls.map(|rating| vital(0.05, rating)),
         tbt: tbt.map(|rating| vital(100.0, rating)),
         ..Default::default()

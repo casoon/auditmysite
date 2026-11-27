@@ -35,7 +35,7 @@ audit-interpretation-seo-note-intent = The page does not yet serve its page type
 audit-interpretation-seo-note-fine = The page fits its page type well overall. The biggest lever is further sharpening content rather than fundamental rebuilds.
 
 ## Performance interpretation (`audit::performance_interpretation`)
-audit-interpretation-perf-dom = high DOM complexity ({ $nodes } nodes)
+audit-interpretation-perf-dom = high DOM complexity ({ $elements } elements)
 audit-interpretation-perf-lcp = a late largest contentful paint under throttling ({ $ms } ms)
 audit-interpretation-perf-render-blocking =
     { $count ->
@@ -115,12 +115,12 @@ audit-interpretation-overview-security-basic = Security level: { $score } pts �
 audit-interpretation-overview-security-several = Security level: { $score } pts — several baseline security headers missing
 audit-interpretation-overview-security-almost = Security level: { $score } pts — security headers almost entirely missing — a priority, low effort to fix
 audit-interpretation-overview-security-none = Security level: Not audited (use --full for full analysis)
-audit-interpretation-overview-tech-high = Tech complexity: High — { $dom } DOM nodes, performance { $perf } pts — refactoring recommended
-audit-interpretation-overview-tech-strain = Tech complexity: Medium-high — { $dom } DOM nodes add strain to only middling performance ({ $perf } pts) — optimization potential
-audit-interpretation-overview-tech-holding = Tech complexity: Medium-high — { $dom } DOM nodes, performance currently holding up ({ $perf } pts)
-audit-interpretation-overview-tech-perf-critical = Tech complexity: Performance critical ({ $perf } pts) — { $dom } DOM nodes analyzed
-audit-interpretation-overview-tech-low-optimizable = Tech complexity: Low — { $dom } DOM nodes, performance can be optimized ({ $perf } pts)
-audit-interpretation-overview-tech-low-stable = Tech complexity: Low — { $dom } DOM nodes, performance { $perf } pts — technical baseline stable
+audit-interpretation-overview-tech-high = Tech complexity: High — { $dom } DOM elements, performance { $perf } pts — refactoring recommended
+audit-interpretation-overview-tech-strain = Tech complexity: Medium-high — { $dom } DOM elements add strain to only middling performance ({ $perf } pts) — optimization potential
+audit-interpretation-overview-tech-holding = Tech complexity: Medium-high — { $dom } DOM elements, performance currently holding up ({ $perf } pts)
+audit-interpretation-overview-tech-perf-critical = Tech complexity: Performance critical ({ $perf } pts) — { $dom } DOM elements analyzed
+audit-interpretation-overview-tech-low-optimizable = Tech complexity: Low — { $dom } DOM elements, performance can be optimized ({ $perf } pts)
+audit-interpretation-overview-tech-low-stable = Tech complexity: Low — { $dom } DOM elements, performance { $perf } pts — technical baseline stable
 audit-interpretation-overview-tech-unmeasured-high = Tech complexity: High — { $nodes } nodes checked (performance not audited)
 audit-interpretation-overview-tech-unmeasured = Tech complexity: { $nodes } nodes checked (performance not audited, use --full)
 

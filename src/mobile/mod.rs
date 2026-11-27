@@ -293,6 +293,34 @@ fn mobile_issue(
     }
 }
 
+/// The 44x44px finding. It is an ergonomic recommendation: WCAG 2.5.8 (24 px)
+/// is charged in Accessibility and this finding is not scored in Mobile (see
+/// [`mobile_penalty`]), so its severity is `Low` whatever the count. A count
+/// scaled severity read as a HIGH finding next to a Mobile score of 100 and
+/// ranked an unscored recommendation among the key measures (#1257).
+fn small_targets_issue(touch_targets: &TouchTargetAnalysis) -> Option<MobileIssue> {
+    if touch_targets.small_targets == 0 {
+        return None;
+    }
+    Some(mobile_issue(
+        "touch_targets",
+        MobileIssueKind::SmallTargets,
+        MobileIssueValues {
+            small_target_count: Some(touch_targets.small_targets),
+            small_by_context: touch_targets.small_by_context.clone(),
+            small_target_samples: touch_targets
+                .small_target_samples
+                .iter()
+                .take(3)
+                .map(|s| format!("{} ({}×{}px)", s.selector, s.width, s.height))
+                .collect(),
+            ..Default::default()
+        },
+        Severity::Low,
+        "Difficult to tap on mobile devices; the 44x44px measure is an informational recommendation (severity Low, not scored here), WCAG 2.5.8 (24 px) is scored under accessibility, not in this score",
+    ))
+}
+
 /// Summed penalty of the mobile issues. A locked zoom is the accessibility
 /// finding for WCAG 1.4.4 under the same condition, and small targets are WCAG
 /// 2.5.8; counting them here as well lowered two weighted modules for one
@@ -470,32 +498,8 @@ pub async fn analyze_mobile_friendliness(
         ));
     }
 
-    if small_targets > 0 {
-        // Severity scales with violation count so fewer violations incur a smaller penalty
-        let severity = if small_targets >= 20 {
-            Severity::High
-        } else if small_targets >= 5 {
-            Severity::Medium
-        } else {
-            Severity::Low
-        };
-        issues.push(mobile_issue(
-            "touch_targets",
-            MobileIssueKind::SmallTargets,
-            MobileIssueValues {
-                small_target_count: Some(small_targets),
-                small_by_context: touch_targets.small_by_context.clone(),
-                small_target_samples: touch_targets
-                    .small_target_samples
-                    .iter()
-                    .take(3)
-                    .map(|s| format!("{} ({}×{}px)", s.selector, s.width, s.height))
-                    .collect(),
-                ..Default::default()
-            },
-            severity,
-            "Difficult to tap on mobile devices; the 44x44px measure is informational, WCAG 2.5.8 is scored under accessibility, not in this score",
-        ));
+    if let Some(issue) = small_targets_issue(&touch_targets) {
+        issues.push(issue);
     }
 
     if font_sizes.smallest_font_size < 12.0 {
@@ -572,6 +576,28 @@ mod tests {
         let viewport = ViewportAnalysis::default();
         assert!(!viewport.has_viewport);
         assert!(!viewport.is_properly_configured);
+    }
+
+    /// #1257: 44x44px targets are a recommendation that no score charges (2.5.8
+    /// is charged in Accessibility at 24 px), so the finding is `Low` at any
+    /// count and a page with only this finding keeps Mobile 100. A count-scaled
+    /// `High` beside a perfect score was the contradiction.
+    #[test]
+    fn small_targets_finding_is_low_severity_and_unscored_at_any_count() {
+        let touch = |small: u32| TouchTargetAnalysis {
+            total_targets: 200,
+            adequate_targets: 200 - small,
+            small_targets: small,
+            ..Default::default()
+        };
+        assert!(small_targets_issue(&touch(0)).is_none());
+        for small in [1, 4, 5, 19, 20, 37, 200] {
+            let issue = small_targets_issue(&touch(small)).expect("issue");
+            assert_eq!(issue.severity, Severity::Low, "{small} targets");
+            assert_eq!(issue.values.small_target_count, Some(small));
+            assert_eq!(mobile_penalty(std::slice::from_ref(&issue)), 0);
+            assert_eq!(mobile_score_from_penalty(mobile_penalty(&[issue])), 100);
+        }
     }
 
     #[test]

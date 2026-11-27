@@ -24,7 +24,7 @@ pub const LATE_THROTTLED_LCP_THRESHOLD_MS: f64 = 4000.0;
 /// A concrete weak metric worth naming alongside the score band.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PerfCriticalQualifier {
-    /// DOM node count (> 3000).
+    /// DOM element count (> 3000).
     HighDomComplexity(i64),
     /// Worst LCP under network throttling, in ms (> 4000).
     LateThrottledLcp(f64),
@@ -51,8 +51,8 @@ pub fn derive_performance_qualifiers(
 ) -> (Vec<PerfCriticalQualifier>, Vec<PerfPositiveQualifier>) {
     let mut critical = Vec::new();
 
-    if let Some(nodes) = p.vitals.dom_nodes.filter(|n| *n > 3000) {
-        critical.push(PerfCriticalQualifier::HighDomComplexity(nodes));
+    if let Some(elements) = p.vitals.dom_elements.filter(|n| *n > 3000) {
+        critical.push(PerfCriticalQualifier::HighDomComplexity(elements));
     }
     if throttled_lcp_max > LATE_THROTTLED_LCP_THRESHOLD_MS {
         critical.push(PerfCriticalQualifier::LateThrottledLcp(throttled_lcp_max));
@@ -91,16 +91,16 @@ pub fn derive_performance_qualifiers(
 
 fn critical_qualifier_text(q: PerfCriticalQualifier, en: bool) -> String {
     match q {
-        PerfCriticalQualifier::HighDomComplexity(nodes) => {
+        PerfCriticalQualifier::HighDomComplexity(elements) => {
             // English prints the plain digits, German groups thousands.
-            let nodes = if en {
-                nodes.to_string()
+            let elements = if en {
+                elements.to_string()
             } else {
-                crate::i18n::number::integer(nodes, false)
+                crate::i18n::number::integer(elements, false)
             };
             text_args(
                 "audit-interpretation-perf-dom",
-                &[("nodes", FluentValue::from(nodes))],
+                &[("elements", FluentValue::from(elements))],
                 en,
             )
         }
@@ -225,7 +225,7 @@ pub fn performance_gap_text(
         return base;
     }
     let mut reasons = Vec::new();
-    if p.vitals.dom_nodes.is_some_and(|n| n > 1500) {
+    if p.vitals.dom_elements.is_some_and(|n| n > 1500) {
         reasons.push(text("audit-interpretation-perf-reason-dom", en));
     }
     if has_render_blocking {
@@ -308,7 +308,7 @@ mod tests {
         assert!(!lab_lcp_cls_good(&p), "missing LCP must not count as good");
         p.vitals.lcp = Some(crate::performance::VitalMetric::new(1000.0, 2500.0, 4000.0));
         assert!(lab_lcp_cls_good(&p));
-        p.vitals.dom_nodes = Some(2000);
+        p.vitals.dom_elements = Some(2000);
         for en in [true, false] {
             let t = performance_gap_text("Base.".to_string(), &p, true, true, false, en);
             assert!(!t.contains("grünen") && !t.contains("in the green"), "{t}");

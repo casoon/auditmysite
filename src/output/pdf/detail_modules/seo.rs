@@ -160,6 +160,11 @@ pub(in crate::output::pdf) fn render_seo(
         builder = builder.add_component(table);
     }
 
+    for hint in &seo.optional_hints {
+        builder = builder
+            .add_component(Callout::info(hint).with_title(i18n.t("seo-optional-hints-title")));
+    }
+
     // SEO Content Profile
     if let Some(profile) = &seo.profile {
         builder = render_seo_profile(builder, profile, i18n);

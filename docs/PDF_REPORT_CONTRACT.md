@@ -23,6 +23,19 @@ next step), `standard` and `technical` are the full reports. The default
 (`<domain>-<date>-single-report-quick.pdf`, `…-executive.pdf`, `…-technical.pdf`).
 The JSON does not depend on the level.
 
+Several levels from one audit (#1260): every `--report-level` run is its own audit
+with its own lab measurement, so two runs of the same page can differ in the
+performance score by measurement noise (71 and 70 points). To get several levels that
+agree, render them from one run: `--also-report-level quick,executive` (repeatable
+or comma separated) writes the extra levels next to the `--report-level` PDF
+without a second audit; every level is built from the same `AuditReport`, so
+scores and findings are identical. With `-o report.pdf` the extra files are
+`report-<level>.pdf` (a name that already ends in the primary level swaps that
+suffix), without `-o` they use the default name of their level, with
+`--per-page-reports` they are written per page. The JSON is written once. The
+option needs `-f pdf`; for other formats and for the aggregated batch report it
+has no effect and prints a warning.
+
 ### Quick
 
 Audience: first contact, someone who has not asked for an audit yet.
@@ -114,10 +127,13 @@ already in the report:
 - the heuristic warnings (not scored),
 - the points to confirm by hand on this page (not scored), plus the criteria
   that can only be checked manually (appendix),
-- the criteria with automated approaches: how many of the WCAG 2.2 A/AA
-  criteria this run actually evaluated (`AccessibilityScorer::criterion_states`
-  with the state passed, violation or review; `evidence.criteria_checked`), with
-  the statement that this often covers only parts of a criterion,
+- the criteria with automated approaches, two named numbers (#1256): the A/AA
+  criteria the tool *supports* (`coverage_stats()`, a property of the tool
+  version, also `summary.wcag_coverage.automated_criteria` in the JSON) and how
+  many of them this run *executed* (`AccessibilityScorer::executed_aa_criteria`,
+  state passed, violation or review; `evidence.criteria_checked`), with the
+  statement that this often covers only parts of a criterion. The appendix scope
+  text names the same two numbers from the same two sources,
 - the line that full WCAG conformance is not demonstrated by an automated run.
 
 The block is always shown, clean runs included; it replaces the former evidence

@@ -219,18 +219,9 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                 .map(|sr| sr.issues.len() as u32)
                 .unwrap_or(0),
         manual_checks: not_testable_count,
-        criteria_checked: crate::audit::AccessibilityScorer::criterion_states(normalized.raw_wcag)
-            .iter()
-            .filter(|(id, state)| {
-                crate::wcag::coverage::is_automated_aa_criterion(id)
-                    && matches!(
-                        state,
-                        crate::audit::CriterionState::Passed
-                            | crate::audit::CriterionState::Violation
-                            | crate::audit::CriterionState::Review
-                    )
-            })
-            .count() as u32,
+        criteria_checked: crate::audit::AccessibilityScorer::executed_aa_criteria(
+            normalized.raw_wcag,
+        ) as u32,
     };
 
     // The key-measures list names the top findings and, through the module
@@ -342,7 +333,12 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                         )
                     }
                     AuditQualityStatus::Insufficient => {
-                        Some(i18n.t("report-builder-quality-insufficient"))
+                        // The short levels have no appendix to point to.
+                        Some(i18n.t(if config.level.is_summary() {
+                            "report-builder-quality-insufficient-summary"
+                        } else {
+                            "report-builder-quality-insufficient"
+                        }))
                     }
                 }
             },

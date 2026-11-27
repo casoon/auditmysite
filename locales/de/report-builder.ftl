@@ -52,6 +52,7 @@ report-builder-stability-mutations = , noch { $count } DOM-Änderungen
 report-builder-stability-individual = einzelne Messungen
 report-builder-quality-partial = Der automatisierte Audit wurde erfolgreich durchgeführt. Einzelne Messungen haben ein Stabilitäts-/Wiederholungsbudget erreicht und sind daher nicht in den ausgewiesenen Scores enthalten; diese beschreiben den erfolgreich gemessenen Umfang. Betroffen: { $affected }.
 report-builder-quality-insufficient = Dieser Prüflauf hat unzureichende Datenqualität: mehrere Messungen sind fehlgeschlagen. Scores und Befunde können unvollständig oder unzuverlässig sein. Details im Methodik-Anhang.
+report-builder-quality-insufficient-summary = Dieser Prüflauf hat unzureichende Datenqualität: mehrere Messungen sind fehlgeschlagen. Scores und Befunde können unvollständig oder unzuverlässig sein. Details stehen im Standard-Bericht (ohne --report-level).
 report-builder-metric-quick-wins = Schnell umsetzbar
 
 ## Erklärung der Website-Qualität
@@ -72,8 +73,8 @@ report-builder-page-health-validator-no-info = Keine Zusatzinformationen verfüg
 
 ## Performance-Details
 report-builder-perf-co2e = CO2e pro View
-report-builder-perf-dom-nodes = DOM-Knoten
-report-builder-perf-guideline-dom-nodes = Richtwert: max. 800 Knoten
+report-builder-perf-dom-elements = DOM-Elemente
+report-builder-perf-guideline-dom-elements = Richtwert: max. 800 Elemente
 report-builder-perf-load-time = Ladezeit
 report-builder-perf-guideline-load-time = Richtwert: max. 3,0 s
 report-builder-perf-dom-content-loaded = DOM-Inhalt geladen

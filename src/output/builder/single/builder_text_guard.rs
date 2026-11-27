@@ -46,7 +46,7 @@ fn de_and_en_define_the_same_messages() {
     let de: BTreeSet<_> = ids(DE).into_iter().collect();
     let en: BTreeSet<_> = ids(EN).into_iter().collect();
     assert_eq!(de, en);
-    assert_eq!(en.len(), 115);
+    assert_eq!(en.len(), 116);
 }
 
 #[test]
@@ -162,5 +162,25 @@ fn no_scenario_leaves_a_key_or_a_placeholder_in_a_text() {
                 "{record}: {text}"
             );
         }
+    }
+}
+
+/// #1259: the quick and management levels have no appendix, so the note of an
+/// insufficient run names none at these levels and still does at the others.
+#[test]
+fn the_insufficient_run_note_names_an_appendix_only_where_there_is_one() {
+    let note = |name: &str, lang: &str| {
+        let record = records()
+            .into_iter()
+            .find(|record| record[1] == name && record[2] == lang)
+            .unwrap_or_else(|| panic!("no {name} record in {lang}"));
+        record[3]["audit_quality_note"]
+            .as_str()
+            .expect("the note")
+            .to_lowercase()
+    };
+    for (lang, word) in [("de", "anhang"), ("en", "appendix")] {
+        assert!(note("insufficient", lang).contains(word), "{lang}");
+        assert!(!note("insufficient quick", lang).contains(word), "{lang}");
     }
 }

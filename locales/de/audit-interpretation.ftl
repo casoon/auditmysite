@@ -35,7 +35,7 @@ audit-interpretation-seo-note-intent = Die Seite bedient ihren Seitentyp noch ni
 audit-interpretation-seo-note-fine = Die Seite passt insgesamt gut zu ihrem Seitentyp. Der größte Hebel liegt in weiterer inhaltlicher Schärfung statt in Grundsatzumbauten.
 
 ## Performance interpretation (`audit::performance_interpretation`)
-audit-interpretation-perf-dom = die hohe DOM-Komplexität ({ $nodes } Knoten)
+audit-interpretation-perf-dom = die hohe DOM-Komplexität ({ $elements } Elemente)
 audit-interpretation-perf-lcp = der spät erscheinende Hauptinhalt unter Drosselung ({ $ms } ms LCP)
 audit-interpretation-perf-render-blocking =
     { $count ->
@@ -115,12 +115,12 @@ audit-interpretation-overview-security-basic = Security-Level: { $score } Pkt �
 audit-interpretation-overview-security-several = Security-Level: { $score } Pkt — mehrere Basisschutz-Header fehlen
 audit-interpretation-overview-security-almost = Security-Level: { $score } Pkt — Security-Header fehlen fast vollständig — vorrangig, mit geringem Aufwand behebbar
 audit-interpretation-overview-security-none = Security-Level: Nicht geprüft (--full für vollständige Analyse)
-audit-interpretation-overview-tech-high = Tech-Komplexität: Hoch — { $dom } DOM-Knoten, Performance { $perf } Pkt — Refactoring empfohlen
-audit-interpretation-overview-tech-strain = Tech-Komplexität: Mittel-hoch — { $dom } DOM-Knoten belasten eine nur mittelmäßige Performance ({ $perf } Pkt) — Optimierungspotenzial vorhanden
-audit-interpretation-overview-tech-holding = Tech-Komplexität: Mittel-hoch — { $dom } DOM-Knoten bei derzeit tragfähiger Performance ({ $perf } Pkt)
-audit-interpretation-overview-tech-perf-critical = Tech-Komplexität: Performance kritisch ({ $perf } Pkt) — { $dom } DOM-Knoten analysiert
-audit-interpretation-overview-tech-low-optimizable = Tech-Komplexität: Gering — { $dom } DOM-Knoten, Performance optimierbar ({ $perf } Pkt)
-audit-interpretation-overview-tech-low-stable = Tech-Komplexität: Gering — { $dom } DOM-Knoten, Performance { $perf } Pkt — technische Basis stabil
+audit-interpretation-overview-tech-high = Tech-Komplexität: Hoch — { $dom } DOM-Elemente, Performance { $perf } Pkt — Refactoring empfohlen
+audit-interpretation-overview-tech-strain = Tech-Komplexität: Mittel-hoch — { $dom } DOM-Elemente belasten eine nur mittelmäßige Performance ({ $perf } Pkt) — Optimierungspotenzial vorhanden
+audit-interpretation-overview-tech-holding = Tech-Komplexität: Mittel-hoch — { $dom } DOM-Elemente bei derzeit tragfähiger Performance ({ $perf } Pkt)
+audit-interpretation-overview-tech-perf-critical = Tech-Komplexität: Performance kritisch ({ $perf } Pkt) — { $dom } DOM-Elemente analysiert
+audit-interpretation-overview-tech-low-optimizable = Tech-Komplexität: Gering — { $dom } DOM-Elemente, Performance optimierbar ({ $perf } Pkt)
+audit-interpretation-overview-tech-low-stable = Tech-Komplexität: Gering — { $dom } DOM-Elemente, Performance { $perf } Pkt — technische Basis stabil
 audit-interpretation-overview-tech-unmeasured-high = Tech-Komplexität: Hoch — { $nodes } geprüfte Knoten (Performance nicht geprüft)
 audit-interpretation-overview-tech-unmeasured = Tech-Komplexität: { $nodes } geprüfte Knoten (Performance nicht geprüft, --full)
 

@@ -907,6 +907,7 @@
           "type": "string"
         },
         "automated_criteria": {
+          "description": "WCAG 2.2 A/AA criteria the tool supports (its automated rules can fail them), a property of the tool version. Not the number evaluated in a given run: the report states that separately as \"executed in this run\".",
           "type": "integer",
           "minimum": 0
         },

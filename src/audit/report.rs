@@ -1628,6 +1628,26 @@ impl BatchSummary {
     }
 }
 
+/// One-decimal form of a batch average that rounds up to 100 although the
+/// mean is below it (#1255): five pages at 99, 100, 100, 100, 100 average
+/// 99.8, and "100" next to open violations reads as a contradiction. `None`
+/// when the integer is not misleading (the mean rounds to a value below 100,
+/// or is exactly 100). Display only: grade, band and verdict keep the rounded
+/// average, the JSON `summary.accessibility_score` stays an integer.
+pub fn average_score_one_decimal(mean: f64) -> Option<f64> {
+    (mean.round() >= 100.0 && mean < 100.0).then(|| ((mean * 10.0).round() / 10.0).min(99.9))
+}
+
+/// The batch average as report text: the integer, or one decimal in the
+/// notation of the language when the integer would hide a mean below 100
+/// (see [`average_score_one_decimal`]).
+pub fn average_score_text(mean: f64, en: bool) -> String {
+    match average_score_one_decimal(mean) {
+        Some(precise) => crate::i18n::number::decimal(precise, 1, en),
+        None => format!("{}", mean.round() as u32),
+    }
+}
+
 /// Number of distinct rule ids (WCAG and SEO) that fired anywhere across the
 /// reports. Rules that recur across pages are reported per element pattern
 /// in `BatchSummary::root_causes` (2.0 finding model).
@@ -2094,6 +2114,23 @@ mod tests {
         assert_eq!(batch.summary.total_urls, 2);
         assert_eq!(batch.summary.passed, 2);
         assert_eq!(batch.summary.average_score, Some(100.0));
+    }
+
+    /// #1255: five pages at 99, 100, 100, 100, 100 average 99.8; the integer
+    /// 100 would read as a contradiction next to the open violations.
+    #[test]
+    fn average_below_100_is_shown_with_one_decimal_when_rounding_hides_it() {
+        let mean = [99.0_f64, 100.0, 100.0, 100.0, 100.0].iter().sum::<f64>() / 5.0;
+        assert_eq!(average_score_one_decimal(mean), Some(99.8));
+        assert_eq!(average_score_text(mean, true), "99.8");
+        assert_eq!(average_score_text(mean, false), "99,8");
+        // 99.96 would round to "100.0" at one decimal: still below 100.
+        assert_eq!(average_score_text(99.96, true), "99.9");
+        // The integer is not misleading elsewhere.
+        assert_eq!(average_score_one_decimal(100.0), None);
+        assert_eq!(average_score_text(100.0, true), "100");
+        assert_eq!(average_score_text(99.4, true), "99");
+        assert_eq!(average_score_text(87.6, false), "88");
     }
 
     #[test]

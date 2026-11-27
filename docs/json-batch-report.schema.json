@@ -632,6 +632,12 @@
           "minimum": 0,
           "maximum": 100
         },
+        "accessibility_score_mean": {
+          "description": "The unrounded mean of the canonical page accessibility scores that accessibility_score is rounded from. Present only when the batch measured at least one URL. A report shows it with one decimal where the integer would read 100 although the mean is below 100.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
         "site_quality_score": {
           "description": "Site quality (optional modules): the weighted mixed score (accessibility 40, performance 20, SEO 15, security 10, mobile 10, HTML 5 by default). A secondary figure next to accessibility_score; it never decides the verdict. Named overall_score before schema_version 2.1.",
           "type": "integer",
@@ -1258,6 +1264,7 @@
           "type": "string"
         },
         "automated_criteria": {
+          "description": "WCAG 2.2 A/AA criteria the tool supports (its automated rules can fail them), a property of the tool version. Not the number evaluated in a given run: the report states that separately as \"executed in this run\".",
           "type": "integer",
           "minimum": 0
         },

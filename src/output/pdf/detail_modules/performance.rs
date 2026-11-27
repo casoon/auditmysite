@@ -155,7 +155,7 @@ fn bottleneck_callout(perf: &PerformancePresentation, i18n: &I18n) -> Option<Cal
         .resource_ratings
         .iter()
         .any(|(name, _, metric_rating, _)| {
-            metric_rating != "good" && (name == "DOM-Knoten" || name == "DOM nodes")
+            metric_rating != "good" && (name == "DOM-Elemente" || name == "DOM elements")
         });
     let action = i18n.t(if has_dom_issue {
         "pdf-perf-bottleneck-dom-action"
@@ -169,7 +169,7 @@ fn bottleneck_callout(perf: &PerformancePresentation, i18n: &I18n) -> Option<Cal
         .resource_ratings
         .iter()
         .filter(|(_, _, metric_rating, _)| metric_rating == rating)
-        .all(|(name, _, _, _)| name == "DOM-Knoten" || name == "DOM nodes");
+        .all(|(name, _, _, _)| name == "DOM-Elemente" || name == "DOM elements");
     let (title_key, body_key) = if rating == "poor" && only_dom_is_poor {
         ("pdf-perf-bottleneck-dom-title", "pdf-perf-bottleneck-dom")
     } else if rating == "poor" {

@@ -36,6 +36,8 @@
         let domNodes = 0;
         while (walker.nextNode()) domNodes++;
         result.domNodes = domNodes;
+        // Elements only: the unit of Lighthouse's DOM-size audit (800 / 1,500).
+        result.domElements = document.querySelectorAll('*').length;
 
         return JSON.stringify(result);
     })()
