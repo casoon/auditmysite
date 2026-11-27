@@ -2,7 +2,7 @@
   "id": "targets/size-enhanced",
   "url": "https://casoon.github.io/auditmysite/rules/targets/size-enhanced/",
   "domain": "wcag",
-  "title": "Check that click targets are large enough (AAA)",
+  "title": "Check that click targets reach the enhanced 44×44 px size (AAA)",
   "outcome": "hint-only",
   "area": "Accessibility, Navigation & Operation",
   "criterion": "2.5.5",
@@ -10,7 +10,7 @@
   "axe_id": "target-size",
   "severity": "medium",
   "user_impact": "Users with hand tremors or on mobile devices easily tap the wrong elements.",
-  "technical_impact": "The rendered box of a link, button or form control is under 44 by 44 CSS pixels, so pointer and touch input easily hits a neighbouring element.",
+  "technical_impact": "The rendered box of a link, button or form control is under 44 by 44 CSS pixels, so pointer and touch input easily hits a neighbouring element; 44 px is the enhanced Level AAA size (2.5.5) and an ergonomic recommendation, the WCAG 2.2 AA minimum (2.5.8) is 24 by 24 CSS pixels.",
   "checks": [
     {
       "contract_id": "targets/size-enhanced",

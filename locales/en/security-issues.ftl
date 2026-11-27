@@ -6,7 +6,7 @@
 security-missing-https = Site is not served over HTTPS
 security-missing-csp = Missing Content-Security-Policy header
 security-missing-x-content-type-options = Missing X-Content-Type-Options header
-security-missing-x-frame-options = Missing X-Frame-Options header (clickjacking protection)
+security-missing-x-frame-options = Missing X-Frame-Options header and no CSP frame-ancestors directive (clickjacking protection)
 security-missing-hsts = Missing HSTS header
 security-missing-referrer-policy = Missing Referrer-Policy header
 security-missing-permissions-policy = Missing Permissions-Policy header

@@ -95,8 +95,8 @@ interactive-heading-missing-h1 = Die Seite hat keine H1-Überschrift. Ohne H1 k�
 interactive-heading-missing-h1-fix = Genau eine H1-Überschrift pro Seite verwenden, die den Hauptinhalt beschreibt.
 interactive-heading-multiple-h1 = { $count } H1-Überschriften gefunden. Das ist zulässig; es kann die Orientierung erschweren, wenn unklar ist, welche das Seitenthema benennt.
 interactive-heading-multiple-h1-fix = Überschriftenstruktur prüfen; empfohlen ist eine H1 für das Seitenthema.
-interactive-heading-level-skip = Die Heading-Hierarchie überspringt Ebenen ({ $examples }). Screenreader-Nutzer können die Seitenstruktur unter Umständen nicht zuverlässig erfassen.
-interactive-heading-level-skip-fix = Heading-Ebenen nie überspringen. Nach H1 folgt H2, nach H2 folgt H3 und so weiter.
+interactive-heading-level-skip = Die Heading-Hierarchie überspringt Ebenen ({ $examples }). Screenreader-Nutzer, die nach Überschriftenebene navigieren, vermuten möglicherweise fehlende Abschnitte; ein Strukturhinweis, für sich kein WCAG-Verstoß.
+interactive-heading-level-skip-fix = Heading-Ebenen möglichst nicht überspringen. Nach H1 folgt H2, nach H2 folgt H3 und so weiter.
 interactive-landmark-missing-main = Kein <main>-Landmark gefunden. Screenreader-Nutzer können nicht direkt zum Hauptinhalt springen.
 interactive-landmark-missing-main-fix = Den Hauptinhalt in ein <main>-Element einbetten oder role="main" auf dem passenden Container setzen.
 interactive-landmark-nav-without-labels = { $count } Navigations-Landmarks ohne eindeutige Beschriftung. Screenreader-Nutzer können nicht unterscheiden, welche Navigation welchen Bereich abdeckt.

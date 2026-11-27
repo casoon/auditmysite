@@ -2640,14 +2640,14 @@ pub(super) mod risk_and_strength_tests {
         // not as "score / 100 — sentence. sentence".
         let mut vm = test_report_view_model();
         vm.modules.dashboard = vec![crate::output::report_model::ModuleScore {
-            name: "Sichtbarkeit & Nutzerverständnis".into(),
+            name: "Technische Auffindbarkeit und Inhaltsstruktur".into(),
             score: 56,
             measurement_type: "composite".into(),
             interpretation:
-                "Eingeschränkte Sichtbarkeit und Nutzerverständnis: Die Seite ist nicht ausreichend verständlich."
+                "Eingeschränkte technische Auffindbarkeit und Inhaltsstruktur: Die Seite ist nicht ausreichend strukturiert."
                     .into(),
             card_context:
-                "Eingeschränkte Sichtbarkeit und Nutzerverständnis: Die Seite ist nicht ausreichend verständlich."
+                "Eingeschränkte technische Auffindbarkeit und Inhaltsstruktur: Die Seite ist nicht ausreichend strukturiert."
                     .into(),
             score_context: String::new(),
             key_lever: String::new(),
@@ -2660,13 +2660,16 @@ pub(super) mod risk_and_strength_tests {
         let row = table
             .rows
             .iter()
-            .find(|r| r.get(1).and_then(|v| v.as_str()) == Some("Sichtbarkeit & Nutzerverständnis"))
+            .find(|r| {
+                r.get(1).and_then(|v| v.as_str())
+                    == Some("Technische Auffindbarkeit und Inhaltsstruktur")
+            })
             .expect("search experience row must be present");
         let value = row[2].as_str().unwrap();
 
         assert_eq!(
             value
-                .matches("Eingeschränkte Sichtbarkeit und Nutzerverständnis")
+                .matches("Eingeschränkte technische Auffindbarkeit und Inhaltsstruktur")
                 .count(),
             1,
             "interpretation sentence must appear exactly once, got: {value}"

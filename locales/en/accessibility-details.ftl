@@ -41,7 +41,7 @@ a11y-details-journey-label-quantity-stepper = Quantity stepper
 
 ## Screen reader reading order
 a11y-details-sr-title = Screen Reader Reading Order
-a11y-details-sr-intro = How the page is announced to screen reader users: reading order, landmark and heading quality, and accessible names. These are structural checks on the accessibility tree, not a simulation of NVDA, JAWS or VoiceOver.
+a11y-details-sr-intro = How the page is announced to screen reader users: reading order, landmark and heading quality, and accessible names. These are structural checks on the accessibility tree, not a test with assistive technology: they are no substitute for testing with NVDA, JAWS or VoiceOver and do not show how a screen reader actually announces the page.
 a11y-details-sr-heading-quality = Heading quality
 a11y-details-sr-landmark-quality = Landmark quality
 a11y-details-sr-name-quality = Name quality

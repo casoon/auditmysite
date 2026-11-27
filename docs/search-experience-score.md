@@ -1,6 +1,6 @@
 # Search Experience Score
 
-The report no longer shows the isolated technical SEO value in the front module display, but a composite value for visibility and user understanding.
+The report no longer shows the isolated technical SEO value in the front module display, but a composite value. Its user-facing title is "Technical findability and content structure" (DE: "Technische Auffindbarkeit und Inhaltsstruktur", #1232): it measures technical prerequisites and structure signals, not real findability or how well the text is understood.
 
 ## Goal
 
@@ -9,7 +9,7 @@ Classic SEO measures whether a page is technically discoverable. For end custome
 ## Weighting
 
 - 35% Technical SEO: title, description, canonical, sitemap, schema, internal links.
-- 25% Content comprehensibility: scope, structure and clarity of the visible content.
+- 25% Content structure: derived from page type and content depth, not from readability or correctness of the text (user-facing label "Content structure", DE "Inhaltsstruktur").
 - 15% Trust: contact, legal notice (Impressum), privacy policy, LocalBusiness and authority signals.
 - 10% AI readability: readability, chunking and compact section structure for AI systems (unverified heuristic).
 - 10% Structure and semantics: H1, heading logic, structured data and visual hierarchy.
@@ -19,4 +19,4 @@ Missing modules are not scored as 0. The available weights are normalized.
 
 ## Reporting rule
 
-The technical SEO score stays visible in the detail chapter. The front statement uses the composite value. If technical SEO is good but content, trust or AI signals are weak, the customer statement is: technically discoverable, but not strong enough in content or semantics.
+The technical SEO score stays visible in the detail chapter. The front statement uses the composite value. If technical SEO is good but content, trust or AI signals are weak, the customer statement is: technically discoverable, but content structure or signals are weaker.

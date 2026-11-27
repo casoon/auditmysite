@@ -41,7 +41,7 @@ a11y-details-journey-label-quantity-stepper = Mengenauswahl
 
 ## Screen reader reading order
 a11y-details-sr-title = Screenreader-Lesereihenfolge
-a11y-details-sr-intro = Wie die Seite Screenreader-Nutzern angekündigt wird: Lesereihenfolge, Landmark- und Heading-Qualität sowie zugängliche Namen. Strukturelle Prüfungen am Accessibility Tree, keine Simulation von NVDA, JAWS oder VoiceOver.
+a11y-details-sr-intro = Wie die Seite Screenreader-Nutzern angekündigt wird: Lesereihenfolge, Landmark- und Heading-Qualität sowie zugängliche Namen. Strukturelle Prüfungen am Accessibility Tree, kein Test mit assistiven Technologien: Sie ersetzen keinen Test mit NVDA, JAWS oder VoiceOver und zeigen nicht, wie ein Screenreader die Seite tatsächlich ausgibt.
 a11y-details-sr-heading-quality = Heading-Qualität
 a11y-details-sr-landmark-quality = Landmark-Qualität
 a11y-details-sr-name-quality = Namens-Qualität
