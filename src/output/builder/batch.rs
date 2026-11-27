@@ -2331,6 +2331,8 @@ mod minification_inconsistency_tests {
                 animations: None,
                 coverage: Some(coverage_with_scripts(known_scripts)),
                 measurement_warnings: vec![],
+                runs: 1,
+                stability: Default::default(),
             },
         )
     }

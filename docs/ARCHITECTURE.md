@@ -329,6 +329,7 @@ src/
 │   ├── coverage.rs      # Unused JS/CSS detection via CDP Coverage API
 │   ├── critical_chain.rs # Critical request chain analysis
 │   ├── minification.rs  # Unminified JS/CSS asset detection
+│   ├── runs.rs          # Repeated runs (--perf-runs): median, spread, stability (pure functions, #1231)
 │   └── third_party.rs   # Third-party resource attribution per origin
 │
 ├── seo/                 # Meta, headings, schema, social, technical SEO

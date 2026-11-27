@@ -403,6 +403,8 @@ fn measurement_warnings_present_in_json_when_set() {
         animations: None,
         coverage: None,
         measurement_warnings: vec!["lcp_not_measured".to_string()],
+        runs: 1,
+        stability: Default::default(),
     });
     let normalized = crate::audit::normalized::normalize(&report);
     let unified = UnifiedReport::single(&normalized, &report);

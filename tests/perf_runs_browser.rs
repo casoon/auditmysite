@@ -98,6 +98,27 @@ fn the_perf_runs_loop_repeats_every_throttled_pass() {
         assert_eq!(spread.requested_runs, 3);
         assert!((1..=3).contains(&spread.runs), "runs: {}", spread.runs);
     }
+    // The headline is a single measurement for one run and the median of the
+    // measured runs for three (#1231).
+    let single_perf = single.performance.as_ref().expect("performance");
+    assert_eq!(single_perf.runs, 1);
+    assert_eq!(
+        single_perf.stability,
+        auditmysite::audit::MeasurementStability::SingleRun
+    );
+    let triple_perf = triple.performance.as_ref().expect("performance");
+    if triple_perf.runs > 1 {
+        let lcp = triple_perf.vitals.lcp.as_ref().expect("LCP");
+        let spread = lcp
+            .spread
+            .as_ref()
+            .expect("a repeated LCP carries a spread");
+        assert!(spread.min <= lcp.value && lcp.value <= spread.max);
+        assert_ne!(
+            triple_perf.stability,
+            auditmysite::audit::MeasurementStability::SingleRun
+        );
+    }
     // Every throttled profile reloads the page once per run: three runs load
     // the document at least two passes per profile more than one run does.
     let profiles = single.throttled_performance.len().max(1);

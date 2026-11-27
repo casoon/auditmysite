@@ -94,6 +94,7 @@ pub use baseline::{Baseline, BaselineStatus, BASELINE_CONTRACT, FINDING_ID_SCHEM
 pub(crate) use pipeline::audit_scope_from_config;
 #[cfg(feature = "pdf")]
 pub(crate) use pipeline::shared_page_rule_refs;
+pub(crate) use pipeline::DEFAULT_PERF_RUNS;
 pub use pipeline::{audit_page, run_single_audit, PipelineConfig};
 pub use report::{
     compute_worst_risk, count_violated_rules, AccessibilitySection, AuditExecution, AuditQuality,
@@ -101,8 +102,8 @@ pub use report::{
     BatchReport, BatchSummary, BrokenLink, BrokenLinkSeverity, BrowserPages, ConsentAuditState,
     ConsentCookieSignal, ConsentPrivacySnapshot, CrawlDepthDiagnostics, CrawlDepthEntry,
     CrawlDiagnostics, DiscoverabilitySection, DualViewportResults, ExecutionEnvironment,
-    ExecutionStatus, ExperienceSection, MeasurementProfile, MetricSpread, ModuleRun,
-    NavigationSnapshot, PageScreenshots, PerformanceResults, RedirectChain, RedirectHop,
+    ExecutionStatus, ExperienceSection, MeasurementProfile, MeasurementStability, MetricSpread,
+    ModuleRun, NavigationSnapshot, PageScreenshots, PerformanceResults, RedirectChain, RedirectHop,
     RequestedRule, RobotsSitemapConflict, RuleFilterRecord, RunContext, RunSpread, SampleMetadata,
     SampleStratum, ScreenshotStatus, SitemapDiagnostics, SitemapHttpIssue, StorageStateRef,
     SubcheckRun, ThrottledPerfResult, ViewportAuditData, ViewportDefinition, ViewportMetaRefresh,

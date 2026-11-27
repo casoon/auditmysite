@@ -34,6 +34,32 @@ fn localized_integer(value: i64, en: bool) -> String {
     crate::i18n::number::integer(value, en)
 }
 
+/// The sentence on how many runs the headline vitals are the median of and
+/// whether the LCP agreed between them (#1231). Without a spread on the LCP
+/// there is one measurement and nothing to compare.
+fn run_note(i18n: &I18n, p: &crate::audit::PerformanceResults, en: bool) -> String {
+    use crate::audit::MeasurementStability;
+    let lcp_spread = p.vitals.lcp.as_ref().and_then(|m| m.spread.as_ref());
+    match (p.stability, lcp_spread) {
+        (MeasurementStability::SingleRun, _) | (_, None) => i18n.t("perf-runs-single"),
+        (stability, Some(spread)) => {
+            let key = if stability == MeasurementStability::Unstable {
+                "perf-runs-multi-unstable"
+            } else {
+                "perf-runs-multi"
+            };
+            i18n.t_args(
+                key,
+                &[
+                    ("runs", p.runs.to_string()),
+                    ("min", localized_decimal(spread.min / 1000.0, 1, en)),
+                    ("max", localized_decimal(spread.max / 1000.0, 1, en)),
+                ],
+            )
+        }
+    }
+}
+
 pub(super) fn build_performance_details(
     normalized: &AuditContext<'_>,
     i18n: &I18n,
@@ -486,6 +512,121 @@ pub(super) fn build_performance_details(
             coverage,
             animations,
             measurement_warnings: p.measurement_warnings.clone(),
+            run_note: run_note(i18n, p, en),
+            tti_note: (p.vitals.tti.is_some()
+                || normalized
+                    .raw_performance_desktop
+                    .is_some_and(|d| d.vitals.tti.is_some()))
+            .then(|| i18n.t("perf-tti-derived-note")),
+            dom_note: p.vitals.dom_nodes.map(|_| i18n.t("perf-dom-nodes-note")),
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::audit::{MeasurementStability, MetricSpread, PerformanceResults};
+    use crate::performance::{calculate_performance_score, VitalMetric, WebVitals};
+
+    fn results(
+        stability: MeasurementStability,
+        runs: u32,
+        lcp: Option<(f64, f64)>,
+    ) -> PerformanceResults {
+        let mut lcp_metric = VitalMetric::new(2000.0, 2500.0, 4000.0);
+        lcp_metric.spread = lcp.map(|(min, max)| MetricSpread {
+            min,
+            median: 2000.0,
+            max,
+        });
+        let vitals = WebVitals {
+            lcp: Some(lcp_metric),
+            tti: Some(VitalMetric::new(3000.0, 3800.0, 7300.0).estimated()),
+            dom_nodes: Some(900),
+            ..Default::default()
+        };
+        let score = calculate_performance_score(&vitals, None);
+        let mut p = PerformanceResults::new(vitals, score);
+        p.runs = runs;
+        p.stability = stability;
+        p
+    }
+
+    fn note(locale: &str, p: &PerformanceResults) -> String {
+        let i18n = I18n::new(locale).unwrap();
+        run_note(&i18n, p, locale == "en")
+    }
+
+    #[test]
+    fn the_note_names_the_runs_and_the_lcp_range() {
+        let stable = results(MeasurementStability::Stable, 3, Some((1800.0, 2200.0)));
+        let en = note("en", &stable);
+        assert!(en.contains("median of 3 runs"), "{en}");
+        assert!(en.contains("between 1.8 s and 2.2 s"), "{en}");
+        assert!(!en.contains("unstable"), "{en}");
+        let de = note("de", &stable);
+        assert!(de.contains("Median aus 3 Messungen"), "{de}");
+        assert!(de.contains("zwischen 1,8 s und 2,2 s"), "{de}");
+    }
+
+    #[test]
+    fn an_unstable_measurement_is_called_unstable() {
+        let unstable = results(MeasurementStability::Unstable, 3, Some((1000.0, 3500.0)));
+        let en = note("en", &unstable);
+        assert!(en.contains("between 1.0 s and 3.5 s"), "{en}");
+        assert!(en.contains("unstable"), "{en}");
+        assert!(note("de", &unstable).contains("instabil"));
+    }
+
+    #[test]
+    fn a_single_run_says_it_was_not_stability_checked() {
+        for p in [
+            results(MeasurementStability::SingleRun, 1, None),
+            // A spread left over on a single run is not shown.
+            results(MeasurementStability::SingleRun, 1, Some((1.0, 2.0))),
+        ] {
+            let en = note("en", &p);
+            assert!(en.contains("single run, not stability-checked"), "{en}");
+            assert!(note("de", &p).contains("nicht auf Stabilität geprüft"));
+        }
+    }
+
+    /// The English texts carry no German umlauts or ß.
+    #[test]
+    fn the_english_texts_are_english() {
+        let i18n = I18n::new("en").unwrap();
+        let texts = [
+            note(
+                "en",
+                &results(MeasurementStability::Stable, 3, Some((1800.0, 2200.0))),
+            ),
+            note(
+                "en",
+                &results(MeasurementStability::Unstable, 3, Some((1000.0, 3500.0))),
+            ),
+            note("en", &results(MeasurementStability::SingleRun, 1, None)),
+            i18n.t("perf-tti-derived-note"),
+            i18n.t("perf-dom-nodes-note"),
+            i18n.t("report-builder-perf-guideline-dom-nodes"),
+        ];
+        for text in texts {
+            assert!(!text.chars().any(|c| "äöüÄÖÜß".contains(c)), "{text}");
+            assert!(!text.starts_with("perf-"), "missing message: {text}");
+        }
+    }
+
+    #[test]
+    fn the_tti_and_dom_notes_say_what_is_derived_and_what_is_counted() {
+        let en = I18n::new("en").unwrap();
+        assert!(en.t("perf-tti-derived-note").contains("long tasks"));
+        assert!(en
+            .t("perf-tti-derived-note")
+            .contains("not an independent measurement"));
+        let dom = en.t("perf-dom-nodes-note");
+        assert!(dom.contains("text and comment nodes") && dom.contains("elements only"));
+        let de = I18n::new("de").unwrap();
+        assert!(de.t("perf-tti-derived-note").contains("Long Tasks"));
+        assert!(de.t("perf-dom-nodes-note").contains("nicht nur Elemente"));
+    }
 }

@@ -72,6 +72,9 @@ use crate::wcag::{self, Violation, WcagResults};
 use super::catalog::AuditCatalog;
 use super::module::{ModuleContext, ModuleData, Viewport};
 
+/// Measurement runs per throttle profile of a single-URL audit (#1231).
+pub(crate) const DEFAULT_PERF_RUNS: u32 = 3;
+
 async fn set_viewport(page: &Page, viewport: Viewport) -> Result<()> {
     use chromiumoxide::cdp::browser_protocol::emulation::SetDeviceMetricsOverrideParams;
 
@@ -406,8 +409,9 @@ pub struct PipelineConfig {
     /// `--privacy-check` and not part of it. The privacy check runs once per
     /// URL (`run_extra_page_checks`), in single and batch mode alike.
     pub modules: ModuleSet,
-    /// Measurement runs per throttle profile (`--perf-runs`, at least 1). The
-    /// reported run is the median; the spread is stored beside it.
+    /// Measurement runs per throttle profile (`--perf-runs`, at least 1;
+    /// `DEFAULT_PERF_RUNS` by default). The reported vitals are the per-metric
+    /// medians; the spread and the stability verdict are stored beside them.
     pub perf_runs: u32,
     /// Run the opt-in isolated third-party script impact measurement
     /// (#531): reload the page once per top third-party origin with that
@@ -505,7 +509,7 @@ impl Default for PipelineConfig {
             stability_budget_ms: 1500,
             verbose: false,
             modules: ModuleSet::full(),
-            perf_runs: 1,
+            perf_runs: DEFAULT_PERF_RUNS,
             check_isolate_third_party_impact: false,
             check_ssr_content: false,
             experimental: Vec::new(),
@@ -914,8 +918,8 @@ async fn audit_on_page(
                 .await;
         attach_throttled_profile_subchecks(&mut report, &throttled);
         report.throttled_performance = throttled;
-        if let Some((vitals, score)) = canonical {
-            apply_canonical_perf(&mut report, vitals, score);
+        if let Some(canonical) = canonical {
+            apply_canonical_perf(&mut report, canonical);
         }
     }
 
@@ -2525,7 +2529,7 @@ mod tests {
             PipelineConfig::default().audit_signature(),
             format!(
                 "v={version};fmt=37;level=AA;perf=1;seo=1;sec=1;mobile=1;html_conform=1;\
-                 privacy=0;isolate_tp_impact=0;perf_runs=1;ssr_content=0;stack=1;experimental=;\
+                 privacy=0;isolate_tp_impact=0;perf_runs=3;ssr_content=0;stack=1;experimental=;\
                  consent=0;interactive=Full;state_changes=0;journey_budget_ms=15000;\
                  session=isolated;accept_language=en-US,en;state_id=;state=;lang=en;disabled=;enabled_only=;\
                  exclude=[data-audit-exclude];display=site_default;\
@@ -2542,7 +2546,7 @@ mod tests {
             narrowed.audit_signature(),
             format!(
                 "v={version};fmt=37;level=AAA;perf=0;seo=1;sec=0;mobile=0;html_conform=0;\
-                 privacy=1;isolate_tp_impact=0;perf_runs=1;ssr_content=0;stack=0;experimental=;\
+                 privacy=1;isolate_tp_impact=0;perf_runs=3;ssr_content=0;stack=0;experimental=;\
                  consent=0;interactive=Off;state_changes=0;journey_budget_ms=15000;\
                  session=isolated;accept_language=en-US,en;state_id=;state=;lang=de;disabled=;enabled_only=;\
                  exclude=[data-audit-exclude];display=site_default;\
@@ -2601,7 +2605,7 @@ mod tests {
 
         // Repeated performance runs store a spread a single run does not (#791).
         let mut other = test_pipeline_config();
-        other.perf_runs = 3;
+        other.perf_runs = 1;
         assert_ne!(base_sig, other.audit_signature());
 
         // Consent handling changes the signature.

@@ -653,6 +653,8 @@ fn test_modules_under_page_detail() {
         animations: None,
         coverage: None,
         measurement_warnings: vec![],
+        runs: 1,
+        stability: Default::default(),
     })
     .with_seo(crate::seo::SeoAnalysis::default())
     .with_security(crate::security::SecurityAnalysis {
@@ -731,6 +733,8 @@ fn all_active_modules_report() -> AuditReport {
         animations: None,
         coverage: None,
         measurement_warnings: vec![],
+        runs: 1,
+        stability: Default::default(),
     })
     .with_seo(crate::seo::SeoAnalysis::default())
     .with_security(crate::security::SecurityAnalysis {
@@ -1517,6 +1521,8 @@ fn cls_only_performance_is_partial_from_score_to_json() {
         animations: None,
         coverage: None,
         measurement_warnings: vec![],
+        runs: 1,
+        stability: Default::default(),
     });
     let normalized = normalize(&report);
     let entry = normalized

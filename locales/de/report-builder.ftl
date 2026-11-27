@@ -73,7 +73,7 @@ report-builder-page-health-validator-no-info = Keine Zusatzinformationen verfüg
 ## Performance-Details
 report-builder-perf-co2e = CO2e pro View
 report-builder-perf-dom-nodes = DOM-Knoten
-report-builder-perf-guideline-dom-nodes = Richtwert: max. 800
+report-builder-perf-guideline-dom-nodes = Richtwert: max. 800 Knoten
 report-builder-perf-load-time = Ladezeit
 report-builder-perf-guideline-load-time = Richtwert: max. 3,0 s
 report-builder-perf-dom-content-loaded = DOM-Inhalt geladen

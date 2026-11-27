@@ -217,13 +217,17 @@ pub struct Args {
     #[arg(long)]
     pub isolate_third_party_impact: bool,
 
-    /// Measure each throttled performance profile N times (1-9, default 1)
-    /// and report the median run with min/median/max per metric. A single
-    /// lab run varies from load to load; repeated runs show how much. Each
-    /// extra run is one more page load per throttle profile, so it needs
+    /// Measure each throttled performance profile N times (1-9; default 3 for
+    /// a single URL, 1 for sitemap and URL-file batches). The performance
+    /// vitals (LCP, FCP, CLS, TBT, TTI) are the median of the runs, each with
+    /// its min/median/max, and the module is marked unstable when the LCP of
+    /// the runs differs by more than 25 % of its median (`performance.runs`,
+    /// `performance.stability`). A single lab run varies from load to load;
+    /// repeated runs show how much. Each run is one more page load per
+    /// throttle profile; `--perf-runs 1` restores a single run. Needs
     /// performance checking (the default module set or `--modules performance`).
-    #[arg(long, default_value_t = 1)]
-    pub perf_runs: u32,
+    #[arg(long)]
+    pub perf_runs: Option<u32>,
 
     /// Detect SSR/hydration content gaps by reloading the page a second
     /// time with JavaScript execution disabled (CDP
@@ -791,6 +795,23 @@ impl Args {
         }
     }
 
+    /// A sitemap, URL-file or crawl run audits many pages.
+    pub fn is_batch(&self) -> bool {
+        self.sitemap.is_some() || self.url_file.is_some() || self.crawl
+    }
+
+    /// Measurement runs per throttle profile: `--perf-runs`, else 3 for a
+    /// single URL and 1 for a batch (#1231).
+    pub fn effective_perf_runs(&self) -> u32 {
+        self.perf_runs.unwrap_or(
+            if self.is_batch() || !self.module_enabled(ModuleChoice::Performance) {
+                1
+            } else {
+                crate::audit::DEFAULT_PERF_RUNS
+            },
+        )
+    }
+
     /// Whether `module` runs: every module by default, only the listed ones
     /// with `--modules`.
     pub fn module_enabled(&self, module: ModuleChoice) -> bool {
@@ -931,11 +952,11 @@ impl Args {
             return Err("Concurrency cannot exceed 10".to_string());
         }
 
-        let is_batch = self.sitemap.is_some() || self.url_file.is_some() || self.crawl;
-        if !(1..=9).contains(&self.perf_runs) {
+        let is_batch = self.is_batch();
+        if self.perf_runs.is_some_and(|runs| !(1..=9).contains(&runs)) {
             return Err("--perf-runs must be between 1 and 9".to_string());
         }
-        if self.perf_runs > 1 {
+        if self.perf_runs.is_some_and(|runs| runs > 1) {
             // The throttled passes it repeats exist for a single URL only.
             if is_batch {
                 return Err(
@@ -1116,7 +1137,7 @@ mod tests {
             experimental: Vec::new(),
             privacy_check: false,
             isolate_third_party_impact: false,
-            perf_runs: 1,
+            perf_runs: None,
             check_ssr_content: false,
             reuse_cache: false,
             prefer_sitemap: false,
@@ -1443,12 +1464,6 @@ mod tests {
             full.extend_from_slice(argv);
             Args::try_parse_from(full).unwrap().validate()
         };
-        assert_eq!(
-            Args::try_parse_from(["auditmysite", "https://example.com"])
-                .unwrap()
-                .perf_runs,
-            1
-        );
         assert!(check(&["https://example.com", "--full", "--perf-runs", "3"]).is_ok());
         assert!(check(&[
             "https://example.com",
@@ -1472,6 +1487,25 @@ mod tests {
         assert!(e.contains("performance"), "{e}");
         let e = check(&["--url-file", "Cargo.toml", "--full", "--perf-runs", "3"]).unwrap_err();
         assert!(e.contains("single URL"), "{e}");
+        // `--perf-runs 1` stays allowed in a batch.
+        assert!(check(&["--url-file", "Cargo.toml", "--full", "--perf-runs", "1"]).is_ok());
+    }
+
+    /// Three runs for a single URL, one for a batch or without the
+    /// performance module, and whatever `--perf-runs` says (#1231).
+    #[test]
+    fn perf_runs_default_follows_the_mode() {
+        let runs = |argv: &[&str]| {
+            let mut full = vec!["auditmysite"];
+            full.extend_from_slice(argv);
+            Args::try_parse_from(full).unwrap().effective_perf_runs()
+        };
+        assert_eq!(runs(&["https://example.com"]), 3);
+        assert_eq!(runs(&["https://example.com", "--perf-runs", "1"]), 1);
+        assert_eq!(runs(&["https://example.com", "--perf-runs", "5"]), 5);
+        assert_eq!(runs(&["--sitemap", "https://example.com/sitemap.xml"]), 1);
+        assert_eq!(runs(&["--url-file", "urls.txt"]), 1);
+        assert_eq!(runs(&["https://example.com", "--modules", "seo"]), 1);
     }
 
     #[test]

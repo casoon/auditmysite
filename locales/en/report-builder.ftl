@@ -72,7 +72,7 @@ report-builder-page-health-validator-no-info = No additional information availab
 ## Performance details
 report-builder-perf-co2e = CO2e per view
 report-builder-perf-dom-nodes = DOM nodes
-report-builder-perf-guideline-dom-nodes = Guideline: max. 800
+report-builder-perf-guideline-dom-nodes = Guideline: max. 800 nodes
 report-builder-perf-load-time = Load time
 report-builder-perf-guideline-load-time = Guideline: max. 3.0 s
 report-builder-perf-dom-content-loaded = DOM Content Loaded

@@ -918,6 +918,8 @@ mod tests {
             animations: None,
             coverage: None,
             measurement_warnings: vec![],
+            runs: 1,
+            stability: Default::default(),
         })
         .with_seo(crate::seo::SeoAnalysis::default())
         .with_security(crate::security::SecurityAnalysis {

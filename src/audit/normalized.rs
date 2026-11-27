@@ -3432,6 +3432,8 @@ mod tests {
             animations: None,
             coverage: None,
             measurement_warnings: vec![],
+            runs: 1,
+            stability: Default::default(),
         };
 
         let json = serde_json::to_string(&perf).expect("PerformanceResults must serialize");
@@ -3706,6 +3708,8 @@ mod tests {
                         animations: None,
                         coverage: None,
                         measurement_warnings: vec![],
+                        runs: 1,
+                        stability: Default::default(),
                     }),
                     Some("Performance"),
                 ),
@@ -3932,6 +3936,8 @@ mod tests {
             animations: None,
             coverage: None,
             measurement_warnings: vec![],
+            runs: 1,
+            stability: Default::default(),
         });
 
         let norm = normalize(&report).normalized;

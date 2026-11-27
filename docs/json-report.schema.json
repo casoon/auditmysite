@@ -1336,10 +1336,53 @@
           ]
         },
         "performance": {
+          "description": "Performance module. `runs` is the number of page loads the headline vitals are the median of (`--perf-runs`; 1 for a single measurement) and `stability` says whether those runs agreed. Each of `vitals.lcp`, `vitals.fcp`, `vitals.cls`, `vitals.tbt` and `vitals.tti` carries a `spread` (min, median, max over the runs) when it was measured in more than one run.",
           "type": [
             "object",
             "null"
-          ]
+          ],
+          "properties": {
+            "runs": {
+              "description": "Page loads the headline vitals are the median of; 1 for a single measurement.",
+              "type": "integer",
+              "minimum": 1
+            },
+            "stability": {
+              "description": "single_run: one measurement (or an LCP in at most one run), no stability check. stable: the LCP of the runs varied by at most 25 % of its median ((max - min) / median). unstable: it varied by more.",
+              "enum": [
+                "single_run",
+                "stable",
+                "unstable"
+              ]
+            },
+            "vitals": {
+              "type": "object",
+              "additionalProperties": {
+                "properties": {
+                  "spread": {
+                    "description": "Min, median and max of the metric over the runs; `value` is the median.",
+                    "type": "object",
+                    "required": [
+                      "min",
+                      "median",
+                      "max"
+                    ],
+                    "properties": {
+                      "min": {
+                        "type": "number"
+                      },
+                      "median": {
+                        "type": "number"
+                      },
+                      "max": {
+                        "type": "number"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         },
         "seo": {
           "type": [
