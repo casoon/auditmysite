@@ -716,6 +716,14 @@ fn collect(
                     c.cause = Some(LANG_MISSING);
                     c.scoring = FindingScoring::new("SEO", E::Deduction);
                 }
+                "pwa_missing_manifest" => {
+                    // No stand-alone SEO defect: a manifest matters only for a
+                    // site that means to be installable, which nobody declared
+                    // (#1227). Recorded for review, no score or decision.
+                    c.applicability = Applicability::Unknown;
+                    c.applicability_basis = Some("pwa:intent_undeclared".to_string());
+                    c.outcome = FindingOutcome::Review;
+                }
                 "noindex" => {
                     let expectation = seo.indexability.expectation;
                     c.applicability_basis = Some(expectation.basis());
@@ -777,6 +785,15 @@ fn collect(
                 let analysis = analysis.clone();
                 let issue_type = issue.issue_type.clone();
                 let fallback = issue.message.clone();
+                // `calculate_seo_score` charges medium and higher findings once
+                // per issue type (#1227); a cause another score owns (DOM size,
+                // image efficiency) and low findings are not charged.
+                let scoring =
+                    if crate::seo::page_health_charge(issue, seo.image_efficiency.is_some()) > 0 {
+                        FindingScoring::new("SEO", E::Deduction)
+                    } else {
+                        FindingScoring::none()
+                    };
                 out.push(
                     Collected::new(
                         D::Seo,
@@ -784,7 +801,7 @@ fn collect(
                         issue.issue_type.clone(),
                         issue.severity,
                         issue.message.clone(),
-                        FindingScoring::none(),
+                        scoring,
                         L::Resource,
                     )
                     .text(move |en| {
