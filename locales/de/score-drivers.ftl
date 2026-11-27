@@ -20,6 +20,7 @@ score-drivers-col-assessment = Einordnung
 score-drivers-class-weakest = Größter Schwachpunkt
 score-drivers-class-risk-driver = Erheblicher Risikotreiber
 score-drivers-class-band-corrected = Offene schwere Befunde begrenzen die Einordnung
+score-drivers-class-band-corrected-open = Offene Befunde begrenzen die Einordnung
 score-drivers-class-stabilizing = Stabilisiert die Website-Qualität
 
 ## Weight basis

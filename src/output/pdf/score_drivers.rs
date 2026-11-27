@@ -86,20 +86,24 @@ pub(super) fn render_score_driver_table(
         .max_by_key(|m| (100 - m.score) * m.weight_pct)
         .map(|m| m.name.clone());
 
-    let classify =
-        |m: &crate::audit::normalized::ModuleScoreEntry, band_corrected: bool| -> &'static str {
-            if Some(&m.name) == weakest_name.as_ref() {
-                "score-drivers-class-weakest"
-            } else if m.score < 75 {
-                "score-drivers-class-risk-driver"
-            } else if band_corrected {
-                // The wording band was lowered by open severe findings, so the
-                // row must not call the module stabilizing (#952-4).
-                "score-drivers-class-band-corrected"
-            } else {
-                "score-drivers-class-stabilizing"
-            }
-        };
+    let classify = |m: &crate::audit::normalized::ModuleScoreEntry,
+                    band_corrected: bool,
+                    severe: bool|
+     -> &'static str {
+        if Some(&m.name) == weakest_name.as_ref() {
+            "score-drivers-class-weakest"
+        } else if m.score < 75 {
+            "score-drivers-class-risk-driver"
+        } else if band_corrected {
+            // The wording band was lowered by open findings, so the row
+            // must not call the module stabilizing (#952-4). It names them
+            // "severe" only when a Critical or High finding is open: any
+            // open finding lowers the band, a medium one included.
+            band_corrected_key(severe)
+        } else {
+            "score-drivers-class-stabilizing"
+        }
+    };
 
     // In `viewport_weighted` mode the per-module weighting is NOT how
     // `site_quality_score` was computed — the score comes from a desktop/mobile
@@ -140,11 +144,20 @@ pub(super) fn render_score_driver_table(
             _ => score_band_label(m.score, i18n),
         };
         let band_corrected = band != score_band_label(m.score, i18n);
+        let severe = m.name == "Security"
+            && vm.module_details.security.as_ref().is_some_and(|sec| {
+                sec.issues.iter().any(|(_, severity, _)| {
+                    matches!(
+                        severity,
+                        crate::taxonomy::Severity::Critical | crate::taxonomy::Severity::High
+                    )
+                })
+            });
         table = table.add_row(vec![
             display_name,
             format!("{} ({})", m.score, band),
             format!("{}%", m.weight_pct),
-            i18n.t(classify(m, band_corrected)),
+            i18n.t(classify(m, band_corrected, severe)),
         ]);
     }
 
@@ -450,9 +463,31 @@ pub(super) fn render_subcategory_breakdown(
     builder
 }
 
+/// The row text of a module whose wording band was lowered by open findings:
+/// "severe" only when a Critical or High finding is open.
+fn band_corrected_key(severe: bool) -> &'static str {
+    if severe {
+        "score-drivers-class-band-corrected"
+    } else {
+        "score-drivers-class-band-corrected-open"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_band_correction_by_open_findings_is_called_severe_only_with_a_severe_finding() {
+        assert_eq!(
+            band_corrected_key(true),
+            "score-drivers-class-band-corrected"
+        );
+        assert_eq!(
+            band_corrected_key(false),
+            "score-drivers-class-band-corrected-open"
+        );
+    }
 
     /// In `viewport_weighted` mode the per-module weighting is not
     /// the computation path, so the derivation block must reproduce the
