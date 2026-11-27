@@ -252,11 +252,11 @@ pub(super) fn render_batch_glance(
     site_quality_score: u32,
     i18n: &I18n,
 ) -> anyhow::Result<renderreport::engine::ReportBuilder> {
-    let accessibility_average = pres
+    let accessibility_mean = pres
         .portfolio_summary
         .average_score
-        .expect(super::UNMEASURED_REFUSED)
-        .round() as u32;
+        .expect(super::UNMEASURED_REFUSED);
+    let accessibility_average = accessibility_mean.round() as u32;
 
     builder = builder.add_component(
         SectionHeaderSplit::new(
@@ -281,7 +281,7 @@ pub(super) fn render_batch_glance(
     // below the row.
     builder = builder
         .add_component(build_batch_cover_score_row(
-            accessibility_average,
+            accessibility_mean,
             &pres.portfolio_summary.grade,
             batch.summary.decision.verdict,
             batch.summary.audit_quality.qualified_results,

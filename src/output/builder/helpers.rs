@@ -97,12 +97,13 @@ pub(super) fn build_batch_verdict(i18n: &I18n, batch: &crate::audit::BatchReport
     };
     let key = &batch.summary.score_band_key;
     // The accessibility average, matching the batch cover's headline.
-    let headline_score = average.round() as u32;
+    // One decimal when the integer would hide a mean below 100 (#1255).
+    let headline_score = crate::audit::average_score_text(average, i18n.locale() == "en");
     i18n.t_args(
         key,
         &[
             ("total_urls", batch.summary.total_urls.to_string()),
-            ("score", headline_score.to_string()),
+            ("score", headline_score),
         ],
     )
 }
@@ -241,5 +242,37 @@ pub(crate) fn localized_module_name(name: &str, i18n: &I18n) -> String {
         name.to_string()
     } else {
         translated
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::audit::AuditReport;
+    use crate::model::WcagLevel;
+    use crate::wcag::WcagResults;
+
+    /// #1255: the batch verdict sentence names 99.8 (99,8 in German) where the
+    /// integer would read 100 next to open violations.
+    #[test]
+    fn batch_verdict_names_the_mean_when_rounding_hides_it() {
+        let mut batch = crate::audit::BatchReport::from_reports(
+            vec![AuditReport::new(
+                "https://example.com/a".to_string(),
+                WcagLevel::AA,
+                WcagResults::new(),
+                100,
+            )],
+            vec![],
+            100,
+        );
+        batch.summary.average_score = Some(99.8);
+        for (locale, expected) in [("en", "99.8/100"), ("de", "99,8/100")] {
+            let text = build_batch_verdict(&I18n::new(locale).unwrap(), &batch);
+            assert!(text.contains(expected), "{locale}: {text}");
+        }
+        batch.summary.average_score = Some(100.0);
+        let text = build_batch_verdict(&I18n::new("en").unwrap(), &batch);
+        assert!(text.contains("100/100") && !text.contains("99."), "{text}");
     }
 }

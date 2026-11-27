@@ -206,6 +206,11 @@ pub struct UnifiedSummary {
     pub url_count: usize,
     /// `null` for a batch without a single audited URL: nothing was measured (#768).
     pub accessibility_score: Option<u32>,
+    /// Batch only: the unrounded mean the integer `accessibility_score` is
+    /// rounded from (#1255). Lets a consumer see 99.8 behind a 100 next to
+    /// open violations; the grade and the verdict use the integer.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accessibility_score_mean: Option<f64>,
     pub site_quality_score: Option<u32>,
     /// `null` together with the scores for a batch that measured nothing.
     pub grade: Option<String>,
@@ -1052,6 +1057,7 @@ impl UnifiedReport {
         let summary = UnifiedSummary {
             url_count: batch_report.summary.total_urls,
             accessibility_score: measured.then_some(accessibility_score),
+            accessibility_score_mean: batch_report.summary.average_score,
             site_quality_score: measured.then_some(site_quality_score_batch),
             grade,
             risk_level: batch_report.summary.risk,
@@ -1262,6 +1268,7 @@ impl UnifiedReport {
         let summary = UnifiedSummary {
             url_count: 1,
             accessibility_score: Some(page.accessibility_score),
+            accessibility_score_mean: None,
             site_quality_score: Some(page.site_quality_score),
             grade: Some(page.grade.clone()),
             risk_level: page.risk.level,
@@ -1368,6 +1375,7 @@ impl UnifiedReport {
         let summary = UnifiedSummary {
             url_count: 1,
             accessibility_score: Some(page.accessibility_score),
+            accessibility_score_mean: None,
             site_quality_score: Some(page.site_quality_score),
             grade: Some(page.grade.clone()),
             risk_level: page.risk.level,

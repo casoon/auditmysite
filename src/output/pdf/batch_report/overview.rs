@@ -30,11 +30,11 @@ pub(super) fn render_batch_cover(
     // the grade card on the next page is banded from. The site-quality average
     // (the mixed score over the optional modules) is the labelled secondary
     // note further down.
-    let accessibility_average = pres
+    let accessibility_mean = pres
         .portfolio_summary
         .average_score
-        .expect(super::UNMEASURED_REFUSED)
-        .round() as u32;
+        .expect(super::UNMEASURED_REFUSED);
+    let accessibility_average = accessibility_mean.round() as u32;
     let verdict = batch.summary.decision.verdict;
     let partial = batch.summary.audit_quality.qualified_results;
 
@@ -102,6 +102,26 @@ pub(super) fn render_batch_cover(
     );
     if let Some(logo) = custom_logo {
         cover = cover.with_logo(logo);
+    }
+    // One decimal when the integer would hide a mean below 100 (#1255).
+    let mut cover_data =
+        super::super::cover::with_displayed_score(cover.to_data(), accessibility_mean);
+    // The Accessibility ring next to it carries the same figure.
+    if let Some(accessibility_ring) = pres
+        .portfolio_summary
+        .module_averages
+        .iter()
+        .position(|(name, _)| name == "Accessibility")
+        .and_then(|index| cover_data.pointer_mut(&format!("/module_gauges/{index}")))
+    {
+        *accessibility_ring = super::super::cover::with_displayed_score(
+            accessibility_ring.take(),
+            accessibility_mean,
+        );
+    }
+    let mut cover = renderreport::components::DynamicComponent::new(cover.component_id());
+    if let Some(fields) = cover_data.as_object() {
+        cover.data = fields.clone().into_iter().collect();
     }
     builder = builder.add_component(cover);
 

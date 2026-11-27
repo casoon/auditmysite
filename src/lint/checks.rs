@@ -682,8 +682,22 @@ pub(super) fn check_pdf_score_traceability(
         return;
     };
     let expected = format!("{score}/100");
+    // A batch shows its average with one decimal where the integer would hide
+    // a mean below 100 (#1255); `summary.accessibility_score_mean` is that value.
+    let precise = report
+        .get("summary")
+        .and_then(|s| s.get("accessibility_score_mean"))
+        .and_then(Value::as_f64)
+        .and_then(crate::audit::average_score_one_decimal)
+        .map(|mean| {
+            [true, false].map(|en| format!("{}/100", crate::i18n::number::decimal(mean, 1, en)))
+        });
 
-    if !typst_source.contains(&expected) {
+    if !typst_source.contains(&expected)
+        && !precise
+            .as_ref()
+            .is_some_and(|forms| forms.iter().any(|form| typst_source.contains(form)))
+    {
         findings.push(LintFinding {
             check_id: CHECK_PDF_SCORE_TRACEABLE,
             evidence_path: "summary.accessibility_score vs --typst-source".to_string(),
@@ -1065,6 +1079,26 @@ mod tests {
         let mut findings = Vec::new();
         check_pdf_score_traceability(&report, typst_source, &mut findings);
         assert!(findings.is_empty(), "unexpected findings: {findings:?}");
+    }
+
+    /// #1255: a batch that shows 99.8 where the integer reads 100 is traceable
+    /// through `summary.accessibility_score_mean`.
+    #[test]
+    fn pdf_score_traceability_accepts_the_one_decimal_batch_average() {
+        let mut report = clean_single_report();
+        report["summary"]["accessibility_score"] = json!(100);
+        report["summary"]["accessibility_score_mean"] = json!(99.8);
+        for source in [
+            "... averages 99.8/100 ...",
+            "... durchschnittlich 99,8/100 ...",
+        ] {
+            let mut findings = Vec::new();
+            check_pdf_score_traceability(&report, source, &mut findings);
+            assert!(findings.is_empty(), "{source}: {findings:?}");
+        }
+        let mut findings = Vec::new();
+        check_pdf_score_traceability(&report, "... 98.8/100 ...", &mut findings);
+        assert_eq!(findings.len(), 1);
     }
 
     // ─── source_quality vs. findings contradiction (#574) ─────────────────

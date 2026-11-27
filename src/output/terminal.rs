@@ -405,7 +405,12 @@ pub fn render_batch_report(
         batch_report
             .summary
             .average_score
-            .map_or("–".to_string(), |average| format!("{average:.0}/100")),
+            .map_or("–".to_string(), |average| {
+                format!(
+                    "{}/100",
+                    crate::audit::average_score_text(average, i18n.locale() == "en")
+                )
+            }),
     ))
     .add_metric(Metric::new(
         i18n.t("report-builder-terminal-metric-violations"),

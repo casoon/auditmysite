@@ -61,6 +61,7 @@ and verification for each change is in the
 - **Performance:** the DOM node count is counted in the audited document instead of read from the CDP `Nodes` metric. That metric also counts the detached documents of earlier loads in the same tab, so it grew with every reload: a 2,900-node page read 8,710, and three measurement runs read 26,098. `vitals.dom_nodes`, the DOM-size penalty and the DOM findings now follow the page, whatever `--perf-runs` is.
 - **Report:** the overall accessibility value is explained when the score cap lowers it. Where the cover strip showed 88 (desktop), 88 (mobile) and 44 "70/30 weighted", it now says "70/30 weighted (88), capped" and the explanation and the raw-data line name the weighted value and the cap.
 - **Batch report:** the navigation consistency block no longer states that main navigation and skip link are present on every page when one of them was recognised on none (0 of 5 pages); it names the pages without it.
+- **Batch report:** the average accessibility score is shown with one decimal (`99.8`, German `99,8`) where rounding would print 100 although the mean is below 100 (#1255). Five pages at 99, 100, 100, 100, 100 read "100" next to open violations on the cover, the grade card, the module table, the verdict sentence and the terminal table. The JSON `summary.accessibility_score` stays an integer; the new optional member `summary.accessibility_score_mean` carries the unrounded mean. Grade, band and verdict are unchanged.
 
 ## [2.2.0] - 2026-11-24
 

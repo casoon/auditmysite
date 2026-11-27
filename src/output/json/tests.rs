@@ -1245,6 +1245,7 @@ fn test_collection_errors_serialized_when_present() {
         summary: UnifiedSummary {
             url_count: 0,
             accessibility_score: Some(0),
+            accessibility_score_mean: None,
             site_quality_score: Some(0),
             grade: Some("F".to_string()),
             risk_level: crate::audit::normalized::RiskLevel::Low,
@@ -1384,6 +1385,11 @@ fn test_batch_grade_follows_accessibility_not_site_quality() {
         serde_json::from_str(&UnifiedReport::batch(&batch).to_json(false).unwrap()).unwrap();
     let summary = &json["summary"];
     assert_eq!(summary["accessibility_score"], accessibility);
+    // The unrounded mean the integer is rounded from (#1255).
+    assert_eq!(
+        summary["accessibility_score_mean"].as_f64(),
+        batch.summary.average_score
+    );
     assert!(
         summary["site_quality_score"].as_u64().unwrap() > accessibility,
         "fixture must separate the two scores: {summary}"

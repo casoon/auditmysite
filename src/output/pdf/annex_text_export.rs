@@ -459,9 +459,16 @@ fn export_cover(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
                     lang,
                     cover_band_phrase(score, verdict, partial, en)
                 ]));
-                let grid =
-                    build_batch_cover_score_row(score, "B", verdict, partial, 1_234_567, 1, i18n)
-                        .expect("the row builds");
+                let grid = build_batch_cover_score_row(
+                    score as f64,
+                    "B",
+                    verdict,
+                    partial,
+                    1_234_567,
+                    1,
+                    i18n,
+                )
+                .expect("the row builds");
                 records.push(json!([
                     "build_batch_cover_score_row",
                     format!("{verdict:?} partial={partial} score={score}"),
