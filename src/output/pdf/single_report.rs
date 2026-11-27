@@ -830,11 +830,15 @@ fn rank_measures(mut candidates: Vec<Candidate>) -> Vec<(TopMeasure, usize)> {
         .collect()
 }
 
-pub(super) fn build_top_measures_list(vm: &ReportViewModel, i18n: &I18n) -> List {
+/// Findings the quick report names; the key-measures list of the other levels
+/// names up to five.
+const QUICK_MEASURES: usize = 3;
+
+pub(super) fn build_top_measures_list(vm: &ReportViewModel, limit: usize, i18n: &I18n) -> List {
     let en = is_english(i18n);
     let mut list = List::new().with_title(i18n.t("single-report-measures-title"));
 
-    let measures = top_measures(vm, i18n);
+    let measures: Vec<_> = top_measures(vm, i18n).into_iter().take(limit).collect();
 
     if measures.is_empty() {
         list = list.add_item(i18n.t("single-report-measures-none"));
@@ -994,7 +998,6 @@ pub(super) fn render_management_first_page(
     vm: &ReportViewModel,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
-    let en = is_english(i18n);
     builder = builder.add_component(
         SectionHeaderSplit::new(
             i18n.t("single-report-management-title"),
@@ -1003,7 +1006,25 @@ pub(super) fn render_management_first_page(
         .with_eyebrow(i18n.t("single-report-management-eyebrow"))
         .with_level(1),
     );
+    builder = render_first_page_facts(builder, vm, i18n);
 
+    builder = render_rating(builder, vm, i18n);
+
+    // Problem profile badge
+    builder = render_problem_profile(builder, vm, i18n);
+
+    render_audit_quality_note(builder, vm, i18n)
+}
+
+/// What every short summary opens with, in this order: scope line, severity
+/// counters, check status, first step and the overall verdict. The one source
+/// for the management summary and the quick report.
+fn render_first_page_facts(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let en = is_english(i18n);
     builder = builder.add_component(
         Label::new(audit_scope_line(en))
             .with_size("10.5pt")
@@ -1014,7 +1035,7 @@ pub(super) fn render_management_first_page(
     // 1. Scannable severity counters — the 20-second top line
     builder = builder.add_component(build_severity_counter_strip(vm, i18n));
     // Short definition right at first use, so a reader doesn't have to reach
-    // the methodology appendix to learn "Vorkommen" ≠ "distinct rule" — the
+    // the methodology appendix to learn "Vorkommen" != "distinct rule" — the
     // full breakdown (finding groups vs. occurrences, all categories) still
     // lives only in the appendix, this is just the one-line pointer (#572).
     builder = builder.add_component(
@@ -1028,34 +1049,63 @@ pub(super) fn render_management_first_page(
     builder = render_first_step(builder, vm, i18n);
 
     // 2. Overall verdict (the single core sentence)
-    builder = builder.add_component(
+    builder.add_component(
         Callout::info(&vm.summary.verdict).with_title(i18n.t("single-report-overall-verdict")),
+    )
+}
+
+/// Surface a partial/insufficient audit run right here, not only in the
+/// methodology appendix (#575-adjacent review finding, 2026-09-01): a
+/// reader who never reaches the appendix must still see that the scores
+/// above describe a downgraded run.
+fn render_audit_quality_note(
+    builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let Some(note) = &vm.summary.audit_quality_note else {
+        return builder;
+    };
+    // Insufficient (failed rule checks) is a genuine data-quality problem
+    // and stays a warning; Partial (a stability/retry budget hit) is a
+    // normal automated-audit coverage limitation and is framed calmer,
+    // as "Coverage" rather than "Audit Quality" (feedback: a plain
+    // "audit incomplete" warning next to a clean run read as if the
+    // tool itself had failed, see `audit_quality_severe`).
+    let callout = if vm.summary.audit_quality_severe {
+        Callout::warning(note).with_title(i18n.t("single-report-audit-quality"))
+    } else {
+        Callout::info(note).with_title(i18n.t("single-report-coverage"))
+    };
+    builder.add_component(callout)
+}
+
+/// The quick report (first contact): the shared opening facts, the top
+/// findings, the limits of automated testing and the way to the full reports.
+/// Everything else stays out; the cover and this part are two to three pages.
+pub(super) fn render_quick_report(
+    mut builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    builder = builder.add_component(
+        SectionHeaderSplit::new(
+            i18n.t("single-report-quick-title"),
+            i18n.t("single-report-quick-intro"),
+        )
+        .with_eyebrow(i18n.t("single-report-quick-eyebrow"))
+        .with_level(1),
     );
-
-    builder = render_rating(builder, vm, i18n);
-
-    // Problem profile badge
-    builder = render_problem_profile(builder, vm, i18n);
-
-    // Surface a partial/insufficient audit run right here, not only in the
-    // methodology appendix (#575-adjacent review finding, 2026-09-01): a
-    // reader who never reaches the appendix must still see that the scores
-    // above describe a downgraded run.
-    if let Some(note) = &vm.summary.audit_quality_note {
-        // Insufficient (failed rule checks) is a genuine data-quality problem
-        // and stays a warning; Partial (a stability/retry budget hit) is a
-        // normal automated-audit coverage limitation and is framed calmer,
-        // as "Coverage" rather than "Audit Quality" (feedback: a plain
-        // "audit incomplete" warning next to a clean run read as if the
-        // tool itself had failed, see `audit_quality_severe`).
-        let callout = if vm.summary.audit_quality_severe {
-            Callout::warning(note).with_title(i18n.t("single-report-audit-quality"))
-        } else {
-            Callout::info(note).with_title(i18n.t("single-report-coverage"))
-        };
-        builder = builder.add_component(callout);
-    }
-    builder
+    builder = render_first_page_facts(builder, vm, i18n);
+    builder = render_audit_quality_note(builder, vm, i18n);
+    builder = builder.add_component(build_top_measures_list(vm, QUICK_MEASURES, i18n));
+    builder = builder.add_component(
+        Callout::info(&vm.methodology.limitations).with_title(i18n.t("callout-limitations-title")),
+    );
+    builder.add_component(
+        Callout::success(i18n.t("single-report-quick-next-step"))
+            .with_title(i18n.t("single-report-quick-next-step-title")),
+    )
 }
 
 /// Quality profile, score drivers, breakdowns, risks and measures: the rest of
@@ -1165,7 +1215,7 @@ pub(super) fn render_management_rest(
     builder = render_risks_and_strengths(builder, vm, i18n);
 
     // 5. Measures
-    builder = builder.add_component(build_top_measures_list(vm, i18n));
+    builder = builder.add_component(build_top_measures_list(vm, 5, i18n));
 
     builder
 }
@@ -1286,7 +1336,7 @@ pub(super) fn render_appendix_full(
     );
 
     // WCAG Coverage (issue #37)
-    if vm.meta.report_level != ReportLevel::Executive {
+    if !vm.meta.report_level.is_summary() {
         builder = render_wcag_coverage_section(builder, report, i18n);
         builder = render_manual_only_criteria_note(builder, i18n);
 

@@ -40,6 +40,13 @@ single-report-audit-quality = Audit-Qualität
 single-report-coverage = Prüfabdeckung
 single-report-quality-profile = Qualitätsprofil
 
+## Quick report
+single-report-quick-title = Schnellbericht
+single-report-quick-intro = Ein erster Blick auf eine Seite: Ergebnis, Prüfstatus, die wichtigsten Befunde und der Weg zu den ausführlichen Berichten.
+single-report-quick-eyebrow = SCHNELLBERICHT
+single-report-quick-next-step-title = Nächster Schritt
+single-report-quick-next-step = Beginnen Sie mit dem ersten Schritt oben. Der Management-Bericht (--report-level executive) ergänzt Score-Treiber, Problemprofil und Risiken; der Standard-Bericht liefert die Ursachenanalyse, jeden Befund mit Lösung und die Moduldetails.
+
 ## Indicator module dashboards
 single-report-dashboard-strong = Was besonders gut funktioniert
 single-report-dashboard-weak = Wo sich Optimierung lohnt

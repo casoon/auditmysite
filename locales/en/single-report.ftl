@@ -38,6 +38,13 @@ single-report-audit-quality = Audit Quality
 single-report-coverage = Coverage
 single-report-quality-profile = Quality profile
 
+## Quick report
+single-report-quick-title = Quick Report
+single-report-quick-intro = A first look at one page: result, check status, the most important findings and the way to the full reports.
+single-report-quick-eyebrow = QUICK REPORT
+single-report-quick-next-step-title = Next step
+single-report-quick-next-step = Start with the first step above. The management report (--report-level executive) adds score drivers, problem profile and risks; the standard report adds the cause analysis, every finding with its fix and the module details.
+
 ## Indicator module dashboards
 single-report-dashboard-strong = What works particularly well
 single-report-dashboard-weak = Where optimization pays off

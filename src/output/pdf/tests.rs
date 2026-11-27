@@ -70,6 +70,7 @@ mod tests {
     #[test]
     fn test_single_pdf_smoke_renders_all_report_levels() {
         for level in [
+            ReportLevel::Quick,
             ReportLevel::Executive,
             ReportLevel::Standard,
             ReportLevel::Technical,
@@ -2364,6 +2365,162 @@ mod tests {
         );
     }
 
+    /// A report with the modules a real page has next to the WCAG findings:
+    /// performance (both viewports), SEO and a detected technology.
+    fn pdf_fixture_report_modules() -> AuditReport {
+        let (mobile_perf, dual_viewport) = dual_viewport_performance(85, 40);
+        let mut report = pdf_fixture_report_rich()
+            .with_performance(mobile_perf)
+            .with_seo(crate::seo::SeoAnalysis {
+                score: 55,
+                ..Default::default()
+            });
+        report.dual_viewport = Some(dual_viewport);
+        report.with_tech_stack(crate::tech_stack::TechStackAnalysis {
+            detected: vec![crate::tech_stack::DetectedTech {
+                name: "jQuery".to_string(),
+                category: crate::tech_stack::TechCategory::JsLibrary,
+                version: Some("1.12.4".to_string()),
+                confidence: crate::tech_stack::Confidence::High,
+                signals: vec!["window.jQuery".to_string()],
+            }],
+        })
+    }
+
+    /// #1233: the page budgets of the short levels. The quick report is the
+    /// cover and a summary of two pages at most (2-3 pages); the management
+    /// report (`executive`) stays at 8 pages or fewer even with every module
+    /// present, and both stay clearly below the standard report.
+    #[test]
+    fn quick_and_executive_page_counts_stay_in_their_budgets() {
+        for locale in ["de", "en"] {
+            let render = |level| {
+                let config = ReportConfig {
+                    level,
+                    locale: locale.to_string(),
+                    ..ReportConfig::default()
+                };
+                let pdf = generate_pdf(&pdf_fixture_report_modules(), &config)
+                    .expect("PDF should render");
+                count_pdf_pages(&pdf)
+            };
+            let (quick, executive, standard) = (
+                render(ReportLevel::Quick),
+                render(ReportLevel::Executive),
+                render(ReportLevel::Standard),
+            );
+            assert!(
+                (2..=3).contains(&quick),
+                "[{locale}] the quick report is 2-3 pages, got {quick}"
+            );
+            assert!(
+                executive <= 8,
+                "[{locale}] the management report is 8 pages at most, got {executive}"
+            );
+            assert!(
+                quick < executive && executive < standard,
+                "[{locale}] quick {quick} < executive {executive} < standard {standard}"
+            );
+        }
+    }
+
+    /// #1233: what the quick report holds and what it leaves out, from the
+    /// Typst source: the shared opening facts and the top findings, the limits
+    /// and the next step; no contents page, part dividers, finding cards or
+    /// module chapters. The English texts carry no German characters.
+    #[test]
+    fn quick_report_holds_the_first_contact_content_only() {
+        for locale in ["de", "en"] {
+            let i18n = I18n::new(locale).unwrap();
+            let typ = |level| {
+                generate_typ(
+                    &pdf_fixture_report_modules(),
+                    &ReportConfig {
+                        level,
+                        locale: locale.to_string(),
+                        ..ReportConfig::default()
+                    },
+                )
+                .expect("Typst source")
+            };
+            let quick = typ(ReportLevel::Quick);
+            let at = |needle: &str| {
+                quick
+                    .find(needle)
+                    .unwrap_or_else(|| panic!("{locale}: {needle} missing"))
+            };
+            let status = at(&i18n.t("single-report-status-title"));
+            let verdict = at(&i18n.t("single-report-overall-verdict"));
+            let measures = at(&i18n.t("single-report-measures-title"));
+            let limits = at(&i18n.t("callout-limitations-title"));
+            let next = at(&i18n.t("single-report-quick-next-step-title"));
+            assert!(
+                status < verdict && verdict < measures && measures < limits && limits < next,
+                "{locale}: quick report sections out of order"
+            );
+            at(&i18n.t("single-report-quick-title"));
+            at(&i18n.t("single-report-scope-line"));
+            at(&i18n.t("single-report-first-step-title"));
+
+            assert!(
+                !quick.contains("#table-of-contents(("),
+                "{locale}: contents"
+            );
+            for left_out in [
+                "single-report-quality-profile",
+                "single-report-risks-title",
+                "single-report-appendix-title",
+                "pdf-analysis-title",
+                "pdf-frame-part1-title",
+            ] {
+                assert!(
+                    !quick.contains(&i18n.t(left_out)),
+                    "{locale}: the quick report must not hold {left_out}"
+                );
+            }
+            let executive = typ(ReportLevel::Executive);
+            assert!(
+                executive.contains(&i18n.t("single-report-quality-profile")),
+                "{locale}: the management report keeps the quality profile"
+            );
+            assert!(
+                !executive.contains(&i18n.t("single-report-quick-next-step-title")),
+                "{locale}: the quick report's next step only belongs to the quick report"
+            );
+            if locale == "en" {
+                let block = &quick[status..next];
+                assert!(
+                    !block.chars().any(|c| "äöüÄÖÜß".contains(c)),
+                    "German characters in the English quick report"
+                );
+            }
+        }
+    }
+
+    /// #1233: `quick` and `executive` on a batch reuse the overview and drop
+    /// only the contents page and the focus table; they must not break.
+    #[test]
+    fn batch_pdf_renders_at_the_short_levels() {
+        for level in [ReportLevel::Quick, ReportLevel::Executive] {
+            let batch = BatchReport::from_reports(
+                vec![
+                    pdf_fixture_report_for_url("https://example.com"),
+                    pdf_fixture_report_for_url("https://example.com/about"),
+                ],
+                vec![],
+                2_400,
+            );
+            let config = ReportConfig {
+                level,
+                ..ReportConfig::default()
+            };
+            let pdf = generate_batch_pdf(&batch, &config).expect("batch PDF should render");
+            assert_pdf_smoke(&pdf, 15_000);
+            let typ = generate_batch_typ(&batch, &config).expect("batch Typst source");
+            assert!(!typ.contains("#table-of-contents(("), "{level}");
+        }
+    }
+
     #[test]
     fn test_standard_pdf_page_count_reasonable() {
         let report = pdf_fixture_report();
@@ -2538,6 +2695,7 @@ mod tests {
         //
         // Text extraction uses `lopdf` so no external tool (pdftotext) is required.
         for level in [
+            ReportLevel::Quick,
             ReportLevel::Executive,
             ReportLevel::Standard,
             ReportLevel::Technical,
@@ -2570,6 +2728,7 @@ mod tests {
     #[test]
     fn test_typ_source_smoke_for_all_report_levels() {
         for level in [
+            ReportLevel::Quick,
             ReportLevel::Executive,
             ReportLevel::Standard,
             ReportLevel::Technical,

@@ -116,7 +116,7 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         .findings
         .iter()
         .filter(|f| match config.level {
-            ReportLevel::Executive => f.report_visibility.executive,
+            ReportLevel::Quick | ReportLevel::Executive => f.report_visibility.executive,
             ReportLevel::Standard => f.report_visibility.standard,
             ReportLevel::Technical => f.report_visibility.technical,
         })

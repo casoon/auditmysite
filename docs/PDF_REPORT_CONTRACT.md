@@ -15,23 +15,58 @@ PDF reports are customer-facing artifacts. They should help readers understand:
 
 ## Report Levels
 
-### Executive
+`--report-level quick|executive|standard|technical` (#1233). The levels are
+additive: `quick` and `executive` are summaries that reuse the section builders
+of the single report (no text of their own beyond the quick report's title and
+next step), `standard` and `technical` are the full reports. The default
+`-f pdf` file name carries the level for every level but `standard`
+(`<domain>-<date>-single-report-quick.pdf`, `…-executive.pdf`, `…-technical.pdf`).
+The JSON does not depend on the level.
+
+### Quick
+
+Audience: first contact, someone who has not asked for an audit yet.
+
+Target page count: 2–3 pages (the cover and a summary of two pages at most);
+`quick_and_executive_page_counts_stay_in_their_budgets` holds it.
+
+Content, in this order (`single_report::render_quick_report`):
+
+- branded cover with score, grade, date and domain,
+- scope line, severity counters and the check status (#1229),
+- result and first step, overall verdict,
+- audit quality note when the run was partial,
+- the three most important findings (the key-measures list, limited to three),
+- the limits of automated testing,
+- the next step: where the management and the standard report are.
+
+Left out: rating band, problem profile, quality radar, score drivers, risks,
+contents, finding cards, analysis, module chapters and appendix. Findings are
+selected with the `executive` report visibility.
+
+### Executive (management report)
 
 Audience: management, project leads, non-technical stakeholders.
 
-Target page count: 5–8 pages (8 pages maximum with a realistic finding load).
+Target page count: 5–8 pages (8 pages maximum with a realistic finding load;
+the page-budget test renders a report with performance, SEO and a detected
+technology next to the WCAG findings).
 
 Minimum content:
 
 - branded cover with score, grade, date, domain and active modules,
+- verdict and check status, rating and problem profile,
+- score drivers and the quality profile,
 - concise risk/status summary,
 - top findings without raw technical snapshots,
 - business/user impact,
-- prioritized next actions,
+- prioritized next actions (the priority action list),
 - methodology note.
 
-Technical selectors, HTML snippets and code examples must not dominate this level.
-Dense implementation tables, raw selector lists and grouped code examples are not
+Per-element evidence, finding cards, the cause analysis and the module chapters
+are not part of this level, and there is no table of contents. Technical
+selectors, HTML snippets and code examples must not dominate it. Dense
+implementation tables, raw selector lists and grouped code examples are not
 appropriate at the Executive level.
 
 ### Standard
@@ -136,6 +171,12 @@ Minimum content:
 
 Batch reports are not a stack of single-page reports. They should focus on
 domain-wide patterns, repeated issues and prioritization.
+
+Report levels on a batch (#1233): a batch has no finding cards or analysis
+chapters, so `quick` and `executive` both give its overview and drop only the
+contents page and the focus table (`ReportLevel::is_summary`); `technical` adds
+the detail chapters; `standard` is the default. `--report-level` is documented
+in `--help` for single reports and says what a batch does with it.
 
 Structure (#1212): the main part is an overview, the technical part carries the
 numbers and the method, and per-page detail stays in the JSON report and the

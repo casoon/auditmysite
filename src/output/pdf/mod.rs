@@ -217,6 +217,13 @@ fn build_single_report(
     builder = builder.add_component(cover);
 
     // --- Page 2: Management Summary (CoverPage already emits a page break) ---
+    if vm.meta.report_level == ReportLevel::Quick {
+        // First contact: cover and one summary of two pages at most; no
+        // contents page, no analysis, no appendix.
+        builder = self::single_report::render_quick_report(builder, &vm, &i18n);
+        let built_report = builder.build();
+        return Ok((engine, built_report));
+    }
     if vm.meta.report_level == ReportLevel::Executive {
         builder = render_management_page(builder, &vm, &i18n);
     } else {

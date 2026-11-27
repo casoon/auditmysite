@@ -53,7 +53,9 @@ auditmysite https://example.com --lang en -o report.pdf
   English throughout, including module tables (security headers, SSL, touch targets, fonts), the
   HTML-validation callout. The report carries no certificate: the grade and score band are
   labels for the automated scope, not a statement of conformance.
-- Depth: `--report-level executive|standard|technical`.
+- Depth: `--report-level quick|executive|standard|technical`. `quick` is the first-contact
+  report (cover plus two pages at most), `executive` the management report (5-8 pages), see
+  [Report modes](../report-modes/#report-levels).
 - Accessible output: tagged PDF/UA-1 with structure tree, document language, title and
   bookmarks. Rendering stops with a diagnostic rather than write a non-conformant PDF.
 - Single-page reports are detailed and page-specific; batch reports are aggregated and

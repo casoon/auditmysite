@@ -436,7 +436,13 @@ pub struct Args {
     #[arg(long)]
     pub screen_reader_report: bool,
 
-    /// PDF detail level: `executive`, `standard`, or `technical`.
+    /// PDF detail level of a single-page report: `quick` (first contact,
+    /// 2-3 pages: verdict, check status, top findings, caveat, next step),
+    /// `executive` (management report, 5-8 pages: verdict, score drivers,
+    /// problem profile, risks, priority actions), `standard` or `technical`.
+    /// A batch report has no per-finding chapters: there `quick` and
+    /// `executive` both give the overview without the contents page and the
+    /// detail tables, `technical` adds the detail chapters.
     #[arg(long, default_value = "standard", value_enum, global = true)]
     pub report_level: ReportLevel,
 

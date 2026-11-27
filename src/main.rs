@@ -69,6 +69,19 @@ mod tests {
     }
 
     #[test]
+    fn test_default_single_pdf_output_path_carries_the_level_unless_standard() {
+        for (level, suffix) in [
+            (ReportLevel::Quick, "-single-report-quick.pdf"),
+            (ReportLevel::Executive, "-single-report-executive.pdf"),
+            (ReportLevel::Standard, "-single-report.pdf"),
+            (ReportLevel::Technical, "-single-report-technical.pdf"),
+        ] {
+            let path = default_single_pdf_output_path("https://www.example.com", level);
+            assert!(path.display().to_string().ends_with(suffix), "{level}");
+        }
+    }
+
+    #[test]
     fn test_default_single_pdf_output_path_uses_current_directory_filename() {
         let path = default_single_pdf_output_path("https://www.example.com", ReportLevel::Standard);
         let rendered = path.display().to_string();
