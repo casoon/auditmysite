@@ -3005,24 +3005,26 @@ mod tests {
             weighted_site_quality: 38,
         });
 
+        // The rich fixture has a critical finding: the weighted 38 is lowered by
+        // the score cap (15 + (38 - 15) * 34 / 85 = 24, #1248), in JSON and PDF alike.
         let normalized = crate::audit::normalized::normalize(&report);
         let unified = crate::output::UnifiedReport::single(&normalized, &report);
-        assert_eq!(unified.summary.accessibility_score, Some(38));
-        assert_eq!(unified.pages[0].accessibility_score, 38);
+        assert_eq!(unified.summary.accessibility_score, Some(24));
+        assert_eq!(unified.pages[0].accessibility_score, 24);
         assert_eq!(
             unified.pages[0]
                 .module_scores
                 .iter()
                 .find(|module| module.name == "Accessibility")
                 .map(|module| module.score),
-            Some(38)
+            Some(24)
         );
 
         let typ =
             unescape_typ(&generate_typ(&report, &ReportConfig::default()).expect("Typst source"));
         assert!(typ.contains("Barrierefreiheit - Gesamt"));
-        assert!(part_has_value(&typ, 38));
-        assert!(typ.contains("70/30 gewichtet"));
+        assert!(part_has_value(&typ, 24));
+        assert!(typ.contains("70/30 gewichtet (38), gedeckelt"));
     }
 
     #[test]
