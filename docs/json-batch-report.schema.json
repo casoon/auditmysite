@@ -539,6 +539,7 @@
             "first_n",
             "all",
             "path_filter",
+            "spread",
             "stratified"
           ]
         },
@@ -547,7 +548,7 @@
         },
         "strata": {
           "type": "array",
-          "description": "Strata of a stratified selection with candidates and picks per stratum; absent for other methods.",
+          "description": "Groups of a spread (URL templates) or stratified (structural strata) selection with candidates and picks per group; absent for other methods.",
           "items": {
             "type": "object",
             "required": [

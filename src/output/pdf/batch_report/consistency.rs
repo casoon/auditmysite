@@ -53,7 +53,10 @@ pub(super) fn render_batch_consistency(
         ],
     );
     let nav_rows: Vec<ChecklistRow> = if nav.findings.is_empty() {
-        consistent("batch-consistency-nav-consistent")
+        vec![ChecklistRow::new(
+            i18n.t("batch-consistency-nav-present"),
+            i18n.t("batch-consistency-nav-present-detail"),
+        )]
     } else {
         let mut rows = Vec::new();
         if nav.pages_with_main_nav < nav.total_pages {
@@ -257,9 +260,15 @@ fn render_consistency_wcag_cross_page(
                     value if value.starts_with("3.2.4") => "batch-consistency-basis-identification",
                     _ => "batch-consistency-basis-multiple-ways",
                 };
+                let nav = &consistency.navigation;
                 i18n.t_args(
                     key,
-                    &[("basis", FluentValue::from(assessment.basis.as_str()))],
+                    &[
+                        ("basis", FluentValue::from(assessment.basis.as_str())),
+                        ("main", FluentValue::from(nav.pages_with_main_nav as i64)),
+                        ("skip", FluentValue::from(nav.pages_with_skip_link as i64)),
+                        ("total", FluentValue::from(nav.total_pages as i64)),
+                    ],
                 )
             };
             table = table.add_row(vec![

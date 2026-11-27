@@ -448,6 +448,7 @@ fn export_cover(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
         ("no sample", None),
         ("first_n", Some(sample("sitemap", "first_n", 20, 40))),
         ("stratified", Some(sample("crawl", "stratified", 1, 3))),
+        ("spread", Some(sample("sitemap", "spread", 2, 40))),
         (
             "path_filter",
             Some(sample("url_file", "path_filter", 7, 3000)),

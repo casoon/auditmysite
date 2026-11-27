@@ -405,12 +405,23 @@ pub struct Args {
 
     /// How `--max-pages` picks URLs from a batch input.
     ///
-    /// `first-n` takes the first N in source order. `stratified` groups the
-    /// URLs by structure (language prefix, first path section, non-HTML file
-    /// extension) and draws deterministically round-robin across the groups,
-    /// so one large section cannot crowd out the others. Both are samples:
-    /// neither makes a statement about the pages left out.
-    #[arg(long, value_enum, default_value = "first-n", value_name = "STRATEGY")]
+    /// `spread` (default) groups the URLs by URL template (variable segments
+    /// such as ids, dates and slugs collapsed, plus section, depth, language
+    /// prefix and file extension) and draws deterministically round-robin
+    /// across the templates, home page first, largest templates first, so the
+    /// audited pages cover different page types. `first` takes the first N in
+    /// source order. `stratified` is the coarser grouping by language prefix,
+    /// first path section and file extension. All three are samples: none
+    /// makes a statement about the pages left out; DOM fingerprints are not
+    /// compared. Without `--max-pages`, or with a cap above the URL count,
+    /// every URL is audited and the choice has no effect.
+    #[arg(
+        long,
+        visible_alias = "sample",
+        value_enum,
+        default_value = "spread",
+        value_name = "STRATEGY"
+    )]
     pub sample_strategy: SampleStrategy,
 
     /// Also write the screen-reader sidecar JSON
@@ -695,8 +706,12 @@ pub enum ProgressPolicy {
 #[value(rename_all = "kebab-case")]
 pub enum SampleStrategy {
     /// The first N URLs in source order
-    #[default]
+    #[value(name = "first", alias = "first-n")]
+    #[serde(rename = "first", alias = "first-n")]
     FirstN,
+    /// Deterministic round-robin across URL templates, home page first
+    #[default]
+    Spread,
     /// Deterministic draw across structural strata (language, section, extension)
     Stratified,
 }
@@ -1108,7 +1123,7 @@ mod tests {
             per_page_reports: false,
             include_path: Vec::new(),
             exclude_path: Vec::new(),
-            sample_strategy: SampleStrategy::FirstN,
+            sample_strategy: SampleStrategy::Spread,
             screen_reader_report: false,
             dismiss_consent: false,
             exclude_selector: Vec::new(),
@@ -1332,6 +1347,37 @@ mod tests {
         args.output = Some(PathBuf::from("reports/geo.json"));
         assert!(args.validate().unwrap_err().contains("--display all"));
         args.output = Some(PathBuf::from("reports/geo-tech"));
+        assert!(args.validate().is_ok());
+    }
+
+    /// `spread` is the default; `--sample` is the short spelling of
+    /// `--sample-strategy`, and `first` (alias `first-n`) keeps the old order.
+    #[test]
+    fn sample_strategy_defaults_to_spread_and_accepts_first() {
+        let sitemap = [
+            "auditmysite",
+            "--sitemap",
+            "https://example.com/sitemap.xml",
+        ];
+        let parse = |extra: &[&str]| {
+            Args::try_parse_from(sitemap.iter().chain(extra))
+                .expect("arguments parse")
+                .sample_strategy
+        };
+        assert_eq!(parse(&[]), SampleStrategy::Spread);
+        assert_eq!(parse(&["--sample", "first"]), SampleStrategy::FirstN);
+        assert_eq!(
+            parse(&["--sample-strategy", "first-n"]),
+            SampleStrategy::FirstN
+        );
+        assert_eq!(parse(&["--sample", "spread"]), SampleStrategy::Spread);
+        assert_eq!(
+            parse(&["--sample-strategy", "stratified"]),
+            SampleStrategy::Stratified
+        );
+        // Spread needs neither a budget nor a batch input: without a cap it
+        // changes nothing.
+        let args = Args::try_parse_from(["auditmysite", "https://example.com"]).unwrap();
         assert!(args.validate().is_ok());
     }
 

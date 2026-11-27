@@ -16,7 +16,7 @@ use auditmysite::audit::{
     CrawlResult, PipelineConfig, Verdict,
 };
 use auditmysite::browser::{BrowserManager, BrowserOptions};
-use auditmysite::cli::url_filter::{select_urls, stratified_sample};
+use auditmysite::cli::url_filter::{select_urls, spread_sample, stratified_sample};
 use auditmysite::cli::{Args, OutputFormat, RequestMode, SampleStrategy};
 use auditmysite::error::{AuditError, Result};
 
@@ -452,13 +452,12 @@ async fn run_batch(
         }
     }
 
-    let stratified = args.sample_strategy == SampleStrategy::Stratified;
-    let (urls, draws) = if stratified {
-        stratified_sample(urls, args.max_pages)
-    } else {
-        (urls, Vec::new())
+    let (urls, draws) = match args.sample_strategy {
+        SampleStrategy::Spread => spread_sample(urls, args.max_pages),
+        SampleStrategy::Stratified => stratified_sample(urls, args.max_pages),
+        SampleStrategy::FirstN => (urls, Vec::new()),
     };
-    let sampled_by_strata = !draws.is_empty();
+    let drawn_by_groups = !draws.is_empty();
 
     let total_urls = if args.max_pages > 0 {
         args.max_pages.min(urls.len())
@@ -466,8 +465,11 @@ async fn run_batch(
         urls.len()
     };
 
-    let selection = if sampled_by_strata {
-        "stratified"
+    let selection = if drawn_by_groups {
+        match args.sample_strategy {
+            SampleStrategy::Spread => "spread",
+            _ => "stratified",
+        }
     } else if path_filtered {
         "path_filter"
     } else if total_urls < total_discovered {
@@ -498,9 +500,10 @@ async fn run_batch(
                 "Sample:".yellow().bold(),
                 total_urls,
                 total_discovered,
-                if sampled_by_strata {
+                if drawn_by_groups {
                     format!(
-                        "{url_source}, stratified over {} groups",
+                        "{url_source}, {} over {} groups",
+                        selection,
                         sample.strata.len()
                     )
                 } else {
