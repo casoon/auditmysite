@@ -172,6 +172,16 @@ Batch URL counts (`summary`, #899): `passed_url_count` pages with verdict `pass`
 Not covered: SARIF `baselineState` and any history of baselines. Cache replays (`--reuse-cache`, `replay`) are gated again under the current `--baseline`; the baseline is not part of the audit signature because it changes no measurement.
 
 
+## Comparison of two reports
+
+`auditmysite compare <OLD.json> <NEW.json> [--format table|json|pdf] [-o FILE] [--lang en|de]` compares two JSON reports (`-f json`, single or batch) without a browser or network access (#1235). The default is a table on stdout; `json` prints (or writes with `-o`) the document below, `pdf` needs `-o` and is a report of one to three pages. Without `-f` the extension of `-o` picks `json` or `pdf`.
+
+**Contract** (`auditmysite.compare/1`, [json-compare.schema.json](json-compare.schema.json)): `contract`, `id_scheme` (`FINDING_ID_SCHEME`), `old` and `new` (`report_type`, `tool_version`, `page_count`), `overall` (`site_quality_score`) and `accessibility` (`accessibility_score`) as `{old, new, delta}`, `modules[]` (`name`, `old`, `new`, `delta`), optional `verdict` (`old`, `new`, `changed`: the decision of the report as a whole), `summary` (`pages_compared`, `resolved`, `new`, `unchanged`, `worse`, `reasons[]`), `pages[]` (`url`, the same score and module moves per page, `verdict`, and `findings` with `resolved[]`, `new[]` and `unchanged[]`, each entry `id`, `rule`, `title`, `severity`), `only_in_old[]` and `only_in_new[]`.
+
+**Matching.** Findings are matched by their stable id ([Finding id stability](#finding-id-stability)): a finding is *resolved* when its id is in the old page and not in the new one, *new* in the opposite case, *unchanged* in both. Like the baseline, the comparison says "this rule is reported on this page", not "these elements": a new element violating a known rule is unchanged. Pages are matched by URL. Two single reports are compared as one pair whatever their URLs (`pages[].old_url` names the old one where it differs); a single report against a batch is matched by URL like two batches. URLs in only one report are listed in `only_in_old` / `only_in_new` and enter no score and no count. Scores in `overall`, `accessibility` and `modules[]` are the average over the pages compared (one decimal), `null` where a side has no such score; module scores of a page are compared only where both runs measured the module, and `overall` is not comparable between runs of different module sets (`summary.site_quality_score_weight_basis`).
+
+**Exit code.** `0` when the new run has no new finding and neither the overall nor the accessibility score is lower; `2` when it is worse (`summary.worse`, `summary.reasons`: `new_findings`, `score_loss`); `3` for a file that cannot be read, is not a report (`report_type` `single` or `batch`, `pages[]`), lists a URL twice, or carries a finding id that is not the id of its rule under this tool's `FINDING_ID_SCHEME` (the report was written with another scheme: it is refused, never read as "everything is new"). The verdict change is reported but does not decide the exit code; `--report-mode` turns the `2` into `0`, as for an audit.
+
 ## Execution Scope and Audit Quality
 
 The report distinguishes what was requested from what was successfully measured:
@@ -616,6 +626,7 @@ category.
 
 - Single report: [json-report.schema.json](json-report.schema.json)
 - Batch report: [json-batch-report.schema.json](json-batch-report.schema.json)
+- Comparison (`auditmysite compare --format json`): [json-compare.schema.json](json-compare.schema.json)
 
 These schemas are validated in automated tests and in the local release check.
 

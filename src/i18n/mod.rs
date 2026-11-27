@@ -85,7 +85,8 @@ impl I18n {
         // experimental UX heuristics (`ux-heuristics.ftl`, `ux::heuristics`)
         // and of the batch PDF's overview, comparison, causes and technical
         // part (`batch-overview.ftl`, `output::pdf::batch_report::{glance,
-        // compare, causes, technical}`) are thirty-one resources of the one
+        // compare, causes, technical}`) and of the before/after comparison
+        // (`compare.ftl`, `output::compare`) are thirty-two resources of the one
         // bundle.
         let sources = match locale {
             "en" => [
@@ -120,6 +121,7 @@ impl I18n {
                 include_str!("../../locales/en/audit-interpretation.ftl"),
                 include_str!("../../locales/en/report-builder.ftl"),
                 include_str!("../../locales/en/ux-heuristics.ftl"),
+                include_str!("../../locales/en/compare.ftl"),
             ],
             _ => [
                 include_str!("../../locales/de/report.ftl"),
@@ -153,6 +155,7 @@ impl I18n {
                 include_str!("../../locales/de/audit-interpretation.ftl"),
                 include_str!("../../locales/de/report-builder.ftl"),
                 include_str!("../../locales/de/ux-heuristics.ftl"),
+                include_str!("../../locales/de/compare.ftl"),
             ],
         };
         for ftl in sources {

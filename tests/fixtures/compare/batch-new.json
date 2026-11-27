@@ -1,0 +1,93 @@
+{
+  "schema_version": "2.2",
+  "report_type": "batch",
+  "tool_version": "2.3.0",
+  "pages": [
+    {
+      "url": "https://example.com/",
+      "accessibility_score": 92,
+      "site_quality_score": 81,
+      "module_scores": [
+        {
+          "name": "Accessibility",
+          "score": 92
+        },
+        {
+          "name": "Performance",
+          "score": 60
+        },
+        {
+          "name": "SEO",
+          "score": 72
+        }
+      ],
+      "findings": [
+        {
+          "id": "F-84ea8500",
+          "rule_id": "buttons/name-missing",
+          "title": "Buttons need an accessible name",
+          "severity": "high"
+        }
+      ],
+      "decision": {
+        "verdict": "warn"
+      }
+    },
+    {
+      "url": "https://example.com/about",
+      "accessibility_score": 95,
+      "site_quality_score": 90,
+      "module_scores": [
+        {
+          "name": "Accessibility",
+          "score": 95
+        },
+        {
+          "name": "Performance",
+          "score": 80
+        },
+        {
+          "name": "SEO",
+          "score": 90
+        }
+      ],
+      "findings": [],
+      "decision": {
+        "verdict": "pass"
+      }
+    },
+    {
+      "url": "https://example.com/contact",
+      "accessibility_score": 88,
+      "site_quality_score": 85,
+      "module_scores": [
+        {
+          "name": "Accessibility",
+          "score": 88
+        },
+        {
+          "name": "Performance",
+          "score": 80
+        },
+        {
+          "name": "SEO",
+          "score": 85
+        }
+      ],
+      "findings": [
+        {
+          "id": "F-4327dd0c",
+          "rule_id": "contrast/text-insufficient",
+          "title": "Text contrast is too low",
+          "severity": "high"
+        }
+      ],
+      "decision": {
+        "verdict": "warn"
+      }
+    }
+  ],
+  "decision": {
+    "verdict": "warn"
+  }
+}

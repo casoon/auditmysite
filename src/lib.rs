@@ -94,6 +94,7 @@ pub mod browser;
 pub mod cli;
 #[cfg(feature = "experimental")]
 pub(crate) mod commerce;
+pub(crate) mod compare;
 #[cfg(feature = "experimental")]
 #[doc(hidden)]
 pub mod content_visibility;

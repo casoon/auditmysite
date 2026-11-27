@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/casoon/auditmysite/docs/json-compare.schema.json",
+  "title": "auditmysite before/after comparison (auditmysite compare --format json)",
+  "type": "object",
+  "required": [
+    "contract",
+    "id_scheme",
+    "old",
+    "new",
+    "overall",
+    "accessibility",
+    "modules",
+    "summary",
+    "pages",
+    "only_in_old",
+    "only_in_new"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contract": {
+      "type": "string",
+      "const": "auditmysite.compare/1"
+    },
+    "id_scheme": {
+      "type": "integer",
+      "description": "FINDING_ID_SCHEME the finding ids were checked against."
+    },
+    "old": { "$ref": "#/$defs/run" },
+    "new": { "$ref": "#/$defs/run" },
+    "overall": {
+      "$ref": "#/$defs/scoreMove",
+      "description": "site_quality_score, averaged over the pages compared."
+    },
+    "accessibility": {
+      "$ref": "#/$defs/scoreMove",
+      "description": "accessibility_score, averaged over the pages compared."
+    },
+    "modules": {
+      "type": "array",
+      "description": "Module scores, averaged over the pages compared that have the module in both runs.",
+      "items": { "$ref": "#/$defs/moduleMove" }
+    },
+    "verdict": {
+      "$ref": "#/$defs/verdictMove",
+      "description": "The decision of the report as a whole (the batch decision of a batch). Absent when a report carries none."
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "pages_compared",
+        "resolved",
+        "new",
+        "unchanged",
+        "worse",
+        "reasons"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "pages_compared": { "type": "integer", "minimum": 0 },
+        "resolved": { "type": "integer", "minimum": 0 },
+        "new": { "type": "integer", "minimum": 0 },
+        "unchanged": { "type": "integer", "minimum": 0 },
+        "worse": {
+          "type": "boolean",
+          "description": "The new run has new findings or lost score; the exit code is 2."
+        },
+        "reasons": {
+          "type": "array",
+          "items": { "enum": ["new_findings", "score_loss"] }
+        }
+      }
+    },
+    "pages": {
+      "type": "array",
+      "description": "The pages present in both reports (two single reports are one pair whatever their URLs).",
+      "items": { "$ref": "#/$defs/page" }
+    },
+    "only_in_old": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "only_in_new": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "run": {
+      "type": "object",
+      "required": ["report_type", "page_count"],
+      "additionalProperties": false,
+      "properties": {
+        "report_type": { "enum": ["single", "batch"] },
+        "tool_version": { "type": ["string", "null"] },
+        "page_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "score": {
+      "type": ["number", "null"]
+    },
+    "scoreMove": {
+      "type": "object",
+      "required": ["old", "new", "delta"],
+      "additionalProperties": false,
+      "properties": {
+        "old": { "$ref": "#/$defs/score" },
+        "new": { "$ref": "#/$defs/score" },
+        "delta": { "$ref": "#/$defs/score" }
+      }
+    },
+    "moduleMove": {
+      "type": "object",
+      "required": ["name", "old", "new", "delta"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "old": { "$ref": "#/$defs/score" },
+        "new": { "$ref": "#/$defs/score" },
+        "delta": { "$ref": "#/$defs/score" }
+      }
+    },
+    "verdictMove": {
+      "type": "object",
+      "required": ["old", "new", "changed"],
+      "additionalProperties": false,
+      "properties": {
+        "old": { "type": "string" },
+        "new": { "type": "string" },
+        "changed": { "type": "boolean" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "required": ["id", "rule", "title", "severity"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^F-[0-9a-f]{8}$" },
+        "rule": { "type": "string" },
+        "title": { "type": "string" },
+        "severity": { "type": ["string", "null"] }
+      }
+    },
+    "page": {
+      "type": "object",
+      "required": [
+        "url",
+        "overall",
+        "accessibility",
+        "modules",
+        "findings"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "url": { "type": "string" },
+        "old_url": {
+          "type": "string",
+          "description": "The URL of the old run, only where it differs from url."
+        },
+        "overall": { "$ref": "#/$defs/scoreMove" },
+        "accessibility": { "$ref": "#/$defs/scoreMove" },
+        "modules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/moduleMove" }
+        },
+        "verdict": { "$ref": "#/$defs/verdictMove" },
+        "findings": {
+          "type": "object",
+          "required": ["resolved", "new", "unchanged"],
+          "additionalProperties": false,
+          "properties": {
+            "resolved": {
+              "type": "array",
+              "description": "In the old run, not in the new one.",
+              "items": { "$ref": "#/$defs/finding" }
+            },
+            "new": {
+              "type": "array",
+              "description": "In the new run, not in the old one.",
+              "items": { "$ref": "#/$defs/finding" }
+            },
+            "unchanged": {
+              "type": "array",
+              "description": "In both runs.",
+              "items": { "$ref": "#/$defs/finding" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

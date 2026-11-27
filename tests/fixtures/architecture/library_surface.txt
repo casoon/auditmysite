@@ -20,6 +20,7 @@ audit curated
 best_practices hidden
 browser curated
 cli curated
+compare crate
 commerce crate
 content_visibility hidden
 display crate
