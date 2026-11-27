@@ -574,7 +574,7 @@ fn build_technical_overview_localized(
     // `nodes_analyzed` only when no Performance data is available at all.
     let dom_display = normalized
         .raw_performance
-        .and_then(|p| p.vitals.dom_nodes)
+        .and_then(|p| p.vitals.dom_elements)
         .map(|n| n as usize)
         .unwrap_or(dom);
     // German text groups thousands ("7.594"); the canonical English fields
@@ -1201,7 +1201,7 @@ mod tests {
         );
 
         let vitals = WebVitals {
-            dom_nodes: Some(20368), // much larger real DOM element count
+            dom_elements: Some(20368), // much larger real DOM element count
             ..Default::default()
         };
         let score = calculate_performance_score(&vitals, None);
@@ -1260,7 +1260,7 @@ mod tests {
             1_000,
         );
         let vitals = WebVitals {
-            dom_nodes: Some(7347),
+            dom_elements: Some(7347),
             ..Default::default()
         };
         let score = calculate_performance_score(&vitals, None);

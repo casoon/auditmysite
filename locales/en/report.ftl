@@ -334,7 +334,7 @@ perf-warning-lh-mobile-gap = Desktop score: { $desktop } · LhMobile score: { $m
 perf-capped-size = The performance score was capped at { $cap } due to a very large payload size ({ $size } MB).
 perf-capped-js = The performance score was capped at { $cap } due to a critical JavaScript size ({ $size } MB).
 perf-capped-requests = The performance score was capped at { $cap } due to a high request count ({ $count }).
-perf-capped-dom = The performance score was capped at { $cap } due to extremely high DOM complexity ({ $nodes } nodes).
+perf-capped-dom = The performance score was capped at { $cap } due to extremely high DOM complexity ({ $elements } elements).
 perf-worst-case-xref = ({ $profile } profile, see the "{ pdf-perf-throttled-title }" table below)
 
 # SEO section
@@ -506,14 +506,14 @@ card-accessibility-summary = { $high ->
         [one] { $high } high-impact finding group
        *[other] { $high } high-impact finding groups
     }
-lever-performance-dom = Biggest lever: reduce DOM size ({ $dom_nodes } nodes)
+lever-performance-dom = Biggest lever: reduce DOM size ({ $dom_elements } elements)
 lever-performance-load = Biggest lever: reduce load time ({ $load } ms)
 lever-performance-default = Biggest lever: keep optimizing the render path and asset size
 context-performance-good-vitals = { $fcp } · User experience: fast — technical complexity is pulling the performance score down.
-context-performance-dom-nodes = { $n } DOM nodes
-context-performance-dom-na = DOM nodes n/a
+context-performance-dom-elements = { $n } DOM elements
+context-performance-dom-na = DOM elements n/a
 context-performance-summary = { $fcp }, { $ttfb }, { $dom }.
-card-performance-dom = { $dom_nodes } DOM nodes
+card-performance-dom = { $dom_elements } DOM elements
 card-performance-load = Load time { $load } ms
 card-performance-default = Continue optimizing the render path
 perf-lab-estimate-suffix = {" "}(lab estimate)
@@ -522,7 +522,7 @@ perf-runs-single = Headline measurement (mobile): single run, not stability-chec
 perf-runs-multi = Headline measurement (mobile): median of { $runs } runs; the LCP varied between { $min } s and { $max } s.
 perf-runs-multi-unstable = Headline measurement (mobile): median of { $runs } runs; the LCP varied between { $min } s and { $max } s, by more than a quarter of its median. The measurement is unstable: read the values as a range, not as one number.
 perf-tti-derived-note = TTI is derived from the list of long tasks (end of the last long task before a 5-second quiet window after FCP). It is not an independent measurement and does not wait for network quiet.
-perf-dom-nodes-note = DOM nodes counts every node the browser holds for the page: elements plus text and comment nodes, not only elements. The guideline values (800, from 1,500 poor) follow Lighthouse's DOM-size audit, which counts elements only; the node count therefore reads higher than an element count. The SEO finding on DOM size counts HTML elements.
+perf-dom-elements-note = DOM size is rated by the number of elements: the guideline values (800, from 1,500 poor) follow Lighthouse's DOM-size audit, which counts elements only. The page holds { $nodes } nodes in total, which also counts text and comment nodes; this node count is additional information and does not enter the rating. The SEO finding on DOM size counts the same HTML elements.
 recommendation-performance-lcp = Load the largest visible element faster: optimize and prioritize hero images and ship critical styles earlier.
 recommendation-performance-fcp = Deliver first visible content earlier: reduce render-blocking CSS and JavaScript files.
 recommendation-performance-tbt = Free the main thread: split large JavaScript tasks and load non-essential scripts later.

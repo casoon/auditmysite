@@ -70,13 +70,13 @@ pub(super) fn derive_performance_lever(
     i18n: &I18n,
     perf: &crate::audit::PerformanceResults,
 ) -> String {
-    if let Some(dom_nodes) = perf.vitals.dom_nodes {
-        if dom_nodes > 1500 {
+    if let Some(dom_elements) = perf.vitals.dom_elements {
+        if dom_elements > 1500 {
             return i18n.t_args(
                 "lever-performance-dom",
                 &[(
-                    "dom_nodes",
-                    crate::i18n::number::integer(dom_nodes, i18n.locale() == "en"),
+                    "dom_elements",
+                    crate::i18n::number::integer(dom_elements, i18n.locale() == "en"),
                 )],
             );
         }
@@ -109,7 +109,7 @@ pub(super) fn derive_performance_context(
         .map(|v| v.rating == "good")
         .unwrap_or(false);
     let vitals_measured = perf.vitals.fcp.is_some() || perf.vitals.lcp.is_some();
-    let high_dom = perf.vitals.dom_nodes.map(|n| n > 1500).unwrap_or(false);
+    let high_dom = perf.vitals.dom_elements.map(|n| n > 1500).unwrap_or(false);
     let has_blocking = perf
         .render_blocking
         .as_ref()
@@ -145,10 +145,10 @@ pub(super) fn derive_performance_context(
         .unwrap_or_else(|| "TTFB n/a".to_string());
     let dom = perf
         .vitals
-        .dom_nodes
+        .dom_elements
         .map(|n| {
             i18n.t_args(
-                "context-performance-dom-nodes",
+                "context-performance-dom-elements",
                 &[("n", crate::i18n::number::integer(n, i18n.locale() == "en"))],
             )
         })
@@ -163,12 +163,12 @@ pub(super) fn derive_performance_card_context(
     i18n: &I18n,
     perf: &crate::audit::PerformanceResults,
 ) -> String {
-    if let Some(dom_nodes) = perf.vitals.dom_nodes {
+    if let Some(dom_elements) = perf.vitals.dom_elements {
         return i18n.t_args(
             "card-performance-dom",
             &[(
-                "dom_nodes",
-                crate::i18n::number::integer(dom_nodes, i18n.locale() == "en"),
+                "dom_elements",
+                crate::i18n::number::integer(dom_elements, i18n.locale() == "en"),
             )],
         );
     }
@@ -289,8 +289,8 @@ pub(super) fn derive_performance_recommendations(
         }
     }
 
-    if let Some(dom_nodes) = perf.vitals.dom_nodes {
-        if dom_nodes > 1200 {
+    if let Some(dom_elements) = perf.vitals.dom_elements {
+        if dom_elements > 1200 {
             recommendations.push(i18n.t("recommendation-performance-dom"));
         }
     }

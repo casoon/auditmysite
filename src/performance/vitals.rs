@@ -133,8 +133,13 @@ pub struct WebVitals {
     pub dom_content_loaded: Option<f64>,
     /// Page Load Time (ms)
     pub load_time: Option<f64>,
-    /// DOM Nodes count
+    /// DOM node count of the audited document (elements, text, comments).
+    /// Informational; the DOM-size penalty and findings use `dom_elements`.
     pub dom_nodes: Option<i64>,
+    /// DOM element count (`document.querySelectorAll('*').length`), the unit
+    /// of Lighthouse's DOM-size audit and of the DOM-size penalty/findings.
+    /// `None` when not measured (no penalty then).
+    pub dom_elements: Option<i64>,
     /// JavaScript Heap Size (bytes)
     pub js_heap_size: Option<i64>,
 }
@@ -649,6 +654,7 @@ pub async fn extract_web_vitals(page: &Page, log: &CollectionLog) -> Result<WebV
             vitals.lcp = js_metrics.vitals.lcp;
         }
         vitals.dom_nodes = js_metrics.vitals.dom_nodes;
+        vitals.dom_elements = js_metrics.vitals.dom_elements;
         vitals.ttfb = js_metrics.vitals.ttfb;
         vitals.load_time = js_metrics.vitals.load_time;
         if vitals.dom_content_loaded.is_none() {
@@ -762,6 +768,7 @@ struct RawNavigationTiming {
     fcp: Option<f64>,
     lcp: Option<f64>,
     dom_nodes: Option<i64>,
+    dom_elements: Option<i64>,
 }
 
 /// Extract metrics via JavaScript Performance API. A missing or malformed
@@ -783,6 +790,7 @@ async fn extract_js_metrics(page: &Page) -> Collected<JsMetrics> {
                 load_time: raw.load_time,
                 dom_content_loaded: raw.dom_content_loaded,
                 dom_nodes: raw.dom_nodes,
+                dom_elements: raw.dom_elements,
                 ..Default::default()
             };
             JsMetrics {

@@ -334,7 +334,7 @@ perf-warning-lh-mobile-gap = Desktop-Score: { $desktop } · LhMobile-Score: { $m
 perf-capped-size = Der Performance-Score wurde aufgrund einer sehr großen Datenmenge ({ $size } MB) auf { $cap } gedeckelt.
 perf-capped-js = Der Performance-Score wurde aufgrund einer kritischen JavaScript-Größe ({ $size } MB) auf { $cap } gedeckelt.
 perf-capped-requests = Der Performance-Score wurde aufgrund einer hohen Anzahl an Anfragen ({ $count }) auf { $cap } gedeckelt.
-perf-capped-dom = Der Performance-Score wurde aufgrund einer hohen DOM-Komplexität ({ $nodes } Knoten) auf { $cap } gedeckelt.
+perf-capped-dom = Der Performance-Score wurde aufgrund einer hohen DOM-Komplexität ({ $elements } Elemente) auf { $cap } gedeckelt.
 perf-worst-case-xref = ({ $profile }-Profil, siehe Tabelle „{ pdf-perf-throttled-title }“ unten)
 
 # SEO section
@@ -506,14 +506,14 @@ card-accessibility-summary = { $high ->
         [one] { $high } Problemgruppe
        *[other] { $high } Problemgruppen
     } mit hoher Auswirkung
-lever-performance-dom = Größter Hebel: DOM-Größe reduzieren ({ $dom_nodes } Knoten)
+lever-performance-dom = Größter Hebel: DOM-Größe reduzieren ({ $dom_elements } Elemente)
 lever-performance-load = Größter Hebel: Ladezeit senken ({ $load } ms)
 lever-performance-default = Größter Hebel: Render-Pfad und Asset-Größe weiter optimieren
 context-performance-good-vitals = { $fcp } · Nutzererlebnis: schnell — technische Komplexität zieht den Performance-Wert herunter.
-context-performance-dom-nodes = { $n } DOM-Knoten
-context-performance-dom-na = DOM-Knoten n/a
+context-performance-dom-elements = { $n } DOM-Elemente
+context-performance-dom-na = DOM-Elemente n/a
 context-performance-summary = { $fcp }, { $ttfb }, { $dom }.
-card-performance-dom = { $dom_nodes } DOM-Knoten
+card-performance-dom = { $dom_elements } DOM-Elemente
 card-performance-load = Ladezeit { $load } ms
 card-performance-default = Render-Pfad weiter optimieren
 perf-lab-estimate-suffix = {" "}(Lab-Schätzung)
@@ -521,7 +521,7 @@ perf-runs-single = Leitmessung (mobil): Einzelmessung, nicht auf Stabilität gep
 perf-runs-multi = Leitmessung (mobil): Median aus { $runs } Messungen; der LCP schwankte zwischen { $min } s und { $max } s.
 perf-runs-multi-unstable = Leitmessung (mobil): Median aus { $runs } Messungen; der LCP schwankte zwischen { $min } s und { $max } s, um mehr als ein Viertel seines Medians. Die Messung ist instabil: Die Werte sind als Spanne zu lesen, nicht als Einzelwert.
 perf-tti-derived-note = TTI wird aus der Liste der Long Tasks abgeleitet (Ende des letzten Long Tasks vor einem 5-Sekunden-Ruhefenster nach FCP). Es ist keine unabhängige Messung und wartet nicht auf Netzwerkruhe.
-perf-dom-nodes-note = DOM-Knoten zählt alle Knoten, die der Browser für die Seite hält: Elemente sowie Text- und Kommentarknoten, nicht nur Elemente. Die Richtwerte (800, ab 1.500 schlecht) folgen dem DOM-Größen-Audit von Lighthouse, das nur Elemente zählt; die Knotenzahl liegt daher höher als eine Elementzahl. Der SEO-Befund zur DOM-Größe zählt HTML-Elemente.
+perf-dom-elements-note = Die DOM-Größe wird nach der Zahl der Elemente bewertet: Die Richtwerte (800, ab 1.500 schlecht) folgen dem DOM-Größen-Audit von Lighthouse, das nur Elemente zählt. Die Seite enthält insgesamt { $nodes } Knoten, darin sind auch Text- und Kommentarknoten gezählt; diese Knotenzahl ist eine zusätzliche Angabe und geht nicht in die Bewertung ein. Der SEO-Befund zur DOM-Größe zählt dieselben HTML-Elemente.
 perf-speed-index-approximation = Speed-Index-Näherung
 recommendation-performance-lcp = Größtes sichtbares Element schneller laden: Hero-Bilder optimieren, priorisieren und kritische Styles früher ausliefern.
 recommendation-performance-fcp = Ersten sichtbaren Inhalt früher ausliefern: render-blockierende CSS- und JavaScript-Dateien reduzieren.

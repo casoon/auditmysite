@@ -112,17 +112,17 @@ pub(super) fn build_performance_details(
         // cited heuristics, not a standard the page is measured against —
         // rated the same way the Core Web Vitals are ("good"/"needs-
         // improvement"/"poor"), instead of sitting as plain, unrated text
-        // indistinguishable from benign values. Thresholds: DOM node count
-        // matches Lighthouse's own DOM-size audit guidance (flags past
-        // ~1,500 nodes); load time and DOM-content-loaded follow commonly
+        // indistinguishable from benign values. Thresholds: the DOM element
+        // count matches Lighthouse's own DOM-size audit (800 / 1,500
+        // elements, #1254; the node count is not compared); load time and DOM-content-loaded follow commonly
         // cited page-load guidance (sub-3s / sub-1.8s "good").
         let mut resource_ratings = Vec::new();
-        if let Some(nodes) = p.vitals.dom_nodes {
+        if let Some(elements) = p.vitals.dom_elements {
             resource_ratings.push((
-                i18n.t("report-builder-perf-dom-nodes"),
-                localized_integer(nodes, en),
-                rate_threshold(nodes as f64, 800.0, 1500.0).to_string(),
-                i18n.t("report-builder-perf-guideline-dom-nodes"),
+                i18n.t("report-builder-perf-dom-elements"),
+                localized_integer(elements, en),
+                rate_threshold(elements as f64, 800.0, 1500.0).to_string(),
+                i18n.t("report-builder-perf-guideline-dom-elements"),
             ));
         }
         if let Some(load) = p.vitals.load_time {
@@ -256,10 +256,10 @@ pub(super) fn build_performance_details(
                     req_cap = 74;
                 }
             }
-            if let Some(nodes) = p.vitals.dom_nodes {
-                if nodes > 3000 {
+            if let Some(elements) = p.vitals.dom_elements {
+                if elements > 3000 {
                     dom_cap = 59;
-                } else if nodes > 2000 {
+                } else if elements > 2000 {
                     dom_cap = 74;
                 }
             }
@@ -295,12 +295,12 @@ pub(super) fn build_performance_details(
                     ));
                 }
             }
-            if let Some(nodes) = p.vitals.dom_nodes {
+            if let Some(elements) = p.vitals.dom_elements {
                 if dom_cap == min_computed && dom_cap < 100 {
                     capping_warnings.push(i18n.t_args(
                         "perf-capped-dom",
                         &[
-                            ("nodes", localized_integer(nodes, en)),
+                            ("elements", localized_integer(elements, en)),
                             ("cap", cap.to_string()),
                         ],
                     ));
@@ -518,7 +518,18 @@ pub(super) fn build_performance_details(
                     .raw_performance_desktop
                     .is_some_and(|d| d.vitals.tti.is_some()))
             .then(|| i18n.t("perf-tti-derived-note")),
-            dom_note: p.vitals.dom_nodes.map(|_| i18n.t("perf-dom-nodes-note")),
+            dom_note: p.vitals.dom_elements.map(|_| {
+                i18n.t_args(
+                    "perf-dom-elements-note",
+                    &[(
+                        "nodes",
+                        p.vitals
+                            .dom_nodes
+                            .map(|n| localized_integer(n, en))
+                            .unwrap_or_else(|| "n/a".to_string()),
+                    )],
+                )
+            }),
         }
     })
 }
@@ -543,7 +554,7 @@ mod tests {
         let vitals = WebVitals {
             lcp: Some(lcp_metric),
             tti: Some(VitalMetric::new(3000.0, 3800.0, 7300.0).estimated()),
-            dom_nodes: Some(900),
+            dom_elements: Some(900),
             ..Default::default()
         };
         let score = calculate_performance_score(&vitals, None);
@@ -607,8 +618,8 @@ mod tests {
             ),
             note("en", &results(MeasurementStability::SingleRun, 1, None)),
             i18n.t("perf-tti-derived-note"),
-            i18n.t("perf-dom-nodes-note"),
-            i18n.t("report-builder-perf-guideline-dom-nodes"),
+            i18n.t_args("perf-dom-elements-note", &[("nodes", "2,826".to_string())]),
+            i18n.t("report-builder-perf-guideline-dom-elements"),
         ];
         for text in texts {
             assert!(!text.chars().any(|c| "äöüÄÖÜß".contains(c)), "{text}");
@@ -623,10 +634,12 @@ mod tests {
         assert!(en
             .t("perf-tti-derived-note")
             .contains("not an independent measurement"));
-        let dom = en.t("perf-dom-nodes-note");
-        assert!(dom.contains("text and comment nodes") && dom.contains("elements only"));
+        let dom = en.t_args("perf-dom-elements-note", &[("nodes", "2,826".to_string())]);
+        assert!(dom.contains("2,826 nodes") && dom.contains("elements only"));
+        assert!(dom.contains("does not enter the rating"));
         let de = I18n::new("de").unwrap();
         assert!(de.t("perf-tti-derived-note").contains("Long Tasks"));
-        assert!(de.t("perf-dom-nodes-note").contains("nicht nur Elemente"));
+        let dom_de = de.t_args("perf-dom-elements-note", &[("nodes", "2.826".to_string())]);
+        assert!(dom_de.contains("2.826 Knoten") && dom_de.contains("nur Elemente"));
     }
 }

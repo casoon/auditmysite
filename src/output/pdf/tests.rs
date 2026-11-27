@@ -1427,7 +1427,7 @@ mod tests {
         };
         let report = pdf_fixture_report_rich().with_performance(crate::audit::PerformanceResults {
             vitals: crate::performance::WebVitals {
-                dom_nodes: Some(12_485),
+                dom_elements: Some(12_485),
                 load_time: Some(7_280.0),
                 dom_content_loaded: Some(4_756.0),
                 js_heap_size: Some(9_961_472),

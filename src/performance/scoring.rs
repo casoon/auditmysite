@@ -252,16 +252,18 @@ pub fn calculate_performance_score(
         }
     }
 
-    // DOM Nodes (WebVitals): a degressive penalty, NOT a hard cap. A base
-    // linear penalty (2 points per 100 nodes from 1000, up to 15) covers
-    // moderate bloat; a logarithmic surcharge above 6000 nodes keeps very large
-    // DOMs costing more, bounded at 35 points total. Modelling DOM size as a
-    // hard cap (→ 59) flattened pages with perfect Core Web Vitals to a fixed
-    // score below a janky-CLS page, inverting the ranking (#455).
-    if let Some(nodes) = vitals.dom_nodes {
-        if nodes > 1000 {
-            let base = (((nodes - 1000) as f64 / 100.0).round() * 2.0).min(15.0);
-            let excess = nodes.saturating_sub(6000) as f64;
+    // DOM size (WebVitals): a degressive penalty, NOT a hard cap. A base
+    // linear penalty (2 points per 100 elements from 1000, up to 15) covers
+    // moderate bloat; a logarithmic surcharge above 6000 elements keeps very
+    // large DOMs costing more, bounded at 35 points total. Modelling DOM size
+    // as a hard cap (→ 59) flattened pages with perfect Core Web Vitals to a
+    // fixed score below a janky-CLS page, inverting the ranking (#455). The
+    // compared value is the element count (Lighthouse's unit, #1254); the node
+    // count is informational and a missing element count means no penalty.
+    if let Some(elements) = vitals.dom_elements {
+        if elements > 1000 {
+            let base = (((elements - 1000) as f64 / 100.0).round() * 2.0).min(15.0);
+            let excess = elements.saturating_sub(6000) as f64;
             let surcharge = if excess > 0.0 {
                 (excess / 1000.0).ln_1p() * 4.0
             } else {
@@ -650,7 +652,7 @@ mod tests {
             fcp: Some(VitalMetric::new(200.0, 1800.0, 3000.0)),  // good
             cls: Some(VitalMetric::new(0.003, 0.1, 0.25)),       // good
             tbt: Some(VitalMetric::new(0.0, 200.0, 600.0)),      // good
-            dom_nodes: Some(30000),
+            dom_elements: Some(30000),
             ..Default::default()
         };
         let mut breakdown = ResourceBreakdown::default();
@@ -689,7 +691,7 @@ mod tests {
             fcp: Some(VitalMetric::new(1600.0, 1800.0, 3000.0)), // good
             cls: Some(VitalMetric::new(0.346, 0.1, 0.25)),       // poor
             tbt: Some(VitalMetric::new(282.0, 200.0, 600.0)),    // needs-improvement
-            dom_nodes: Some(178000),                             // huge -> dom penalty 35
+            dom_elements: Some(178000),                          // huge -> dom penalty 35
             ..Default::default()
         };
         let mut breakdown = ResourceBreakdown::default();
@@ -712,15 +714,15 @@ mod tests {
     }
 
     #[test]
-    fn test_dom_nodes_penalty_for_common_sizes() {
-        // 2500 nodes is common for modern content sites: the base linear penalty
-        // applies (no surcharge below 6000 nodes), and DOM size never caps.
+    fn test_dom_elements_penalty_for_common_sizes() {
+        // 2500 elements is common for modern content sites: the base linear penalty
+        // applies (no surcharge below 6000 elements), and DOM size never caps.
         let vitals = WebVitals {
             lcp: Some(VitalMetric::new(1000.0, 2500.0, 4000.0)),
             fcp: Some(VitalMetric::new(800.0, 1800.0, 3000.0)),
             cls: Some(VitalMetric::new(0.01, 0.1, 0.25)),
             tbt: Some(VitalMetric::new(50.0, 200.0, 600.0)),
-            dom_nodes: Some(2500),
+            dom_elements: Some(2500),
             ..Default::default()
         };
 
@@ -739,20 +741,20 @@ mod tests {
             tbt: Some(VitalMetric::new(50.0, 200.0, 600.0)),
             ..Default::default()
         };
-        let score_at = |nodes| {
+        let score_at = |elements| {
             calculate_performance_score(
                 &WebVitals {
-                    dom_nodes: Some(nodes),
+                    dom_elements: Some(elements),
                     ..base.clone()
                 },
                 None,
             )
             .overall
         };
-        // Monotonic: more nodes -> lower score, but never a fixed hard cap.
+        // Monotonic: more elements -> lower score, but never a fixed hard cap.
         assert!(score_at(7000) > score_at(20000));
         assert!(score_at(20000) >= score_at(250000));
-        // Bounded: even a 250k-node DOM with perfect vitals stays well above the
+        // Bounded: even a 250k-element DOM with perfect vitals stays well above the
         // old hard floor of 59 (penalty capped at 35 points) (#455).
         assert!(
             score_at(250000) >= 65,
@@ -770,7 +772,7 @@ mod tests {
             fcp: Some(VitalMetric::new(1200.0, 1800.0, 3000.0)),
             cls: Some(VitalMetric::new(0.0, 0.1, 0.25)),
             tbt: Some(VitalMetric::new(0.0, 200.0, 600.0)),
-            dom_nodes: Some(20000),
+            dom_elements: Some(20000),
             ..Default::default()
         };
         let janky_cls = WebVitals {
@@ -778,11 +780,53 @@ mod tests {
             fcp: Some(VitalMetric::new(800.0, 1800.0, 3000.0)),
             cls: Some(VitalMetric::new(0.616, 0.1, 0.25)),
             tbt: Some(VitalMetric::new(0.0, 200.0, 600.0)),
-            dom_nodes: Some(2000),
+            dom_elements: Some(2000),
             ..Default::default()
         };
         let a = calculate_performance_score(&perfect_big_dom, None).overall;
         let b = calculate_performance_score(&janky_cls, None).overall;
         assert!(a > b, "perfect+bigDOM {a} must outrank jankyCLS {b}");
+    }
+
+    #[test]
+    fn test_dom_penalty_uses_elements_not_nodes() {
+        // #1254: the Lighthouse limits count elements. 1200 elements is a base
+        // penalty of (1200-1000)/100 * 2 = 4 points; the same page's 2826 nodes
+        // (text and comment nodes included) must not change it.
+        let base = WebVitals {
+            lcp: Some(VitalMetric::new(1000.0, 2500.0, 4000.0)),
+            fcp: Some(VitalMetric::new(800.0, 1800.0, 3000.0)),
+            cls: Some(VitalMetric::new(0.01, 0.1, 0.25)),
+            tbt: Some(VitalMetric::new(50.0, 200.0, 600.0)),
+            ..Default::default()
+        };
+        let both = WebVitals {
+            dom_elements: Some(1200),
+            dom_nodes: Some(2826),
+            ..base.clone()
+        };
+        let s = calculate_performance_score(&both, None);
+        assert_eq!(s.dom_penalty, Some(4));
+        assert_eq!(s.overall, 96);
+
+        // 1000 elements or fewer: no penalty, however many nodes.
+        let few_elements = WebVitals {
+            dom_elements: Some(1000),
+            dom_nodes: Some(5000),
+            ..base.clone()
+        };
+        assert_eq!(
+            calculate_performance_score(&few_elements, None).dom_penalty,
+            None
+        );
+
+        // A missing element count falls back to no penalty, not to the nodes.
+        let nodes_only = WebVitals {
+            dom_nodes: Some(9000),
+            ..base
+        };
+        let s = calculate_performance_score(&nodes_only, None);
+        assert_eq!(s.dom_penalty, None);
+        assert_eq!(s.overall, 100);
     }
 }

@@ -72,6 +72,7 @@ fn every_key_resolves_in_both_languages_without_errors() {
             "quality",
             "traits",
             "nodes",
+            "elements",
             "ms",
             "kb",
             "phrases",
