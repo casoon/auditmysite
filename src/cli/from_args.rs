@@ -228,6 +228,7 @@ mod tests {
             storage_state: None,
             state_id: None,
             report_level: crate::model::ReportLevel::Standard,
+            also_report_level: Vec::new(),
             lang: "en".to_string(),
             display: None,
             also_json: false,

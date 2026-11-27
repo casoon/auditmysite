@@ -2424,6 +2424,56 @@ mod tests {
         }
     }
 
+    /// #1260: `--also-report-level` renders several levels from one report, so
+    /// the scores are the same in every level. The overall score and every
+    /// module score of the view model are equal across the levels, and both
+    /// short reports show the overall score the standard report carries.
+    #[test]
+    fn levels_rendered_from_one_report_show_identical_scores() {
+        use crate::output::builder::build_view_model;
+
+        let report = pdf_fixture_report_modules();
+        let normalized = crate::audit::normalized::normalize(&report);
+        let levels = [
+            ReportLevel::Quick,
+            ReportLevel::Executive,
+            ReportLevel::Standard,
+            ReportLevel::Technical,
+        ];
+        let scores = |level| {
+            let vm = build_view_model(
+                &normalized,
+                &ReportConfig {
+                    level,
+                    ..ReportConfig::default()
+                },
+            );
+            let modules: Vec<(String, u32)> = vm
+                .modules
+                .dashboard
+                .iter()
+                .map(|m| (m.name.clone(), m.score))
+                .collect();
+            (vm.summary.score, vm.modules.site_quality_score, modules)
+        };
+        let reference = scores(levels[0]);
+        for level in levels {
+            assert_eq!(scores(level), reference, "{level} differs from quick");
+        }
+        let overall = reference.0.to_string();
+        for level in [ReportLevel::Quick, ReportLevel::Executive] {
+            let typ = generate_typ(
+                &report,
+                &ReportConfig {
+                    level,
+                    ..ReportConfig::default()
+                },
+            )
+            .expect("Typst source");
+            assert!(typ.contains(&overall), "{level}: overall {overall} missing");
+        }
+    }
+
     /// #1233: what the quick report holds and what it leaves out, from the
     /// Typst source: the shared opening facts and the top findings, the limits
     /// and the next step; no contents page, part dividers, finding cards or
