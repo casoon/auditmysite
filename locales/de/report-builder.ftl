@@ -52,6 +52,7 @@ report-builder-stability-mutations = , noch { $count } DOM-Änderungen
 report-builder-stability-individual = einzelne Messungen
 report-builder-quality-partial = Der automatisierte Audit wurde erfolgreich durchgeführt. Einzelne Messungen haben ein Stabilitäts-/Wiederholungsbudget erreicht und sind daher nicht in den ausgewiesenen Scores enthalten; diese beschreiben den erfolgreich gemessenen Umfang. Betroffen: { $affected }.
 report-builder-quality-insufficient = Dieser Prüflauf hat unzureichende Datenqualität: mehrere Messungen sind fehlgeschlagen. Scores und Befunde können unvollständig oder unzuverlässig sein. Details im Methodik-Anhang.
+report-builder-quality-insufficient-summary = Dieser Prüflauf hat unzureichende Datenqualität: mehrere Messungen sind fehlgeschlagen. Scores und Befunde können unvollständig oder unzuverlässig sein. Details stehen im Standard-Bericht (ohne --report-level).
 report-builder-metric-quick-wins = Schnell umsetzbar
 
 ## Erklärung der Website-Qualität

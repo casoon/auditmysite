@@ -3056,4 +3056,65 @@ mod tests {
             ("#colbreak()", "Typst column-break call"),
         ]
     }
+
+    /// #1259: the quick and the management level have no appendix, no part 3
+    /// and no technical part, so none of their texts names one; they point to
+    /// the standard report instead. The standard level keeps the appendix
+    /// wording. Checked on the Typst source in both languages, on a report with
+    /// findings and on one without any (the zero-risk statement).
+    #[test]
+    fn short_levels_name_no_appendix_they_do_not_contain() {
+        let clean = AuditReport::new(
+            "https://example.com".to_string(),
+            WcagLevel::AA,
+            WcagResults::new(),
+            1_000,
+        );
+        let reports = [("findings", pdf_fixture_report_modules()), ("clean", clean)];
+        for (name, report) in &reports {
+            for (locale, appendix, standard_report) in [
+                ("de", "anhang", "standard-bericht"),
+                ("en", "appendix", "standard report"),
+            ] {
+                let typ = |level| {
+                    generate_typ(
+                        report,
+                        &ReportConfig {
+                            level,
+                            locale: locale.to_string(),
+                            ..ReportConfig::default()
+                        },
+                    )
+                    .expect("Typst source")
+                    .to_lowercase()
+                };
+                for level in [ReportLevel::Quick, ReportLevel::Executive] {
+                    let source = typ(level);
+                    for forbidden in [
+                        appendix,
+                        "teil 3",
+                        "part 3",
+                        "technischen teil",
+                        "technical part",
+                        "methodik",
+                        "methodology",
+                    ] {
+                        assert!(
+                            !source.contains(forbidden),
+                            "[{name} {locale} {level}] names {forbidden:?}"
+                        );
+                    }
+                    assert!(
+                        source.contains(standard_report),
+                        "[{name} {locale} {level}] points to the standard report"
+                    );
+                }
+                let standard = typ(ReportLevel::Standard);
+                assert!(
+                    standard.contains(appendix),
+                    "[{name} {locale}] the standard report keeps its appendix wording"
+                );
+            }
+        }
+    }
 }

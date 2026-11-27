@@ -98,8 +98,12 @@ fn checked(report: &AuditReport) -> AuditContext<'_> {
 }
 
 fn config(lang: &str) -> ReportConfig {
+    config_at(lang, ReportLevel::Standard)
+}
+
+fn config_at(lang: &str, level: ReportLevel) -> ReportConfig {
     ReportConfig {
-        level: ReportLevel::Standard,
+        level,
         locale: lang.to_string(),
         ..ReportConfig::default()
     }
@@ -465,6 +469,17 @@ fn view_model_records(records: &mut Vec<Value>) {
                 }
             ]));
         }
+        // The short levels have no appendix: their note names none.
+        let mut ctx = checked(&base);
+        ctx.normalized.execution.quality.status = AuditQualityStatus::Insufficient;
+        let vm =
+            crate::output::builder::build_view_model(&ctx, &config_at(lang, ReportLevel::Quick));
+        records.push(json!([
+            "build_view_model",
+            "insufficient quick",
+            lang,
+            { "audit_quality_note": vm.summary.audit_quality_note }
+        ]));
     }
 }
 

@@ -365,8 +365,14 @@ pub(super) fn render_risks_and_strengths(
         // caveat mechanism/wording as the clean-run verdict callout (#572)
         // instead of inventing new phrasing.
         let (automated, total) = crate::wcag::coverage::coverage_stats();
+        // The management report has no appendix: it points to the standard report.
+        let none_key = if vm.meta.report_level.is_summary() {
+            "single-report-risks-none-summary"
+        } else {
+            "single-report-risks-none"
+        };
         let empty_state = i18n.t_args(
-            "single-report-risks-none",
+            none_key,
             &[("automated", automated as i64), ("total", total as i64)],
         );
         builder = builder.add_component(
@@ -891,6 +897,12 @@ fn render_check_status(
     let manual_only = crate::wcag::coverage::manual_review_criteria().len();
     let (_, total) = crate::wcag::coverage::coverage_stats();
     let count = |value: u32| i64::from(value);
+    // The short levels have no appendix: they point to the standard report.
+    let manual_key = if vm.meta.report_level.is_summary() {
+        "single-report-status-manual-value-summary"
+    } else {
+        "single-report-status-manual-value"
+    };
     let list = KeyValueList::new()
         .with_title(i18n.t("single-report-status-title"))
         .add(
@@ -917,7 +929,7 @@ fn render_check_status(
         .add(
             i18n.t("single-report-status-manual"),
             i18n.t_args(
-                "single-report-status-manual-value",
+                manual_key,
                 &[
                     ("count", count(evidence.manual_checks)),
                     ("manual_only", manual_only as i64),

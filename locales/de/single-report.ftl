@@ -32,6 +32,7 @@ single-report-status-warnings = Heuristische Warnungen
 single-report-status-warnings-value = { $count } — wahrscheinliche Barrieren, nicht im Score
 single-report-status-manual = Manuell zu bestätigen
 single-report-status-manual-value = { $count } auf dieser Seite, nicht im Score; weitere { $manual_only } WCAG-Kriterien lassen sich nur manuell prüfen (Anhang)
+single-report-status-manual-value-summary = { $count } auf dieser Seite, nicht im Score; weitere { $manual_only } WCAG-Kriterien lassen sich nur manuell prüfen (im Standard-Bericht aufgeführt)
 single-report-status-criteria = Kriterien mit automatisierten Ansätzen
 single-report-status-criteria-value = { $checked } von { $total } WCAG-2.2-A/AA-Kriterien in diesem Lauf geprüft — oft nur Teile eines Kriteriums
 single-report-status-conformance = Volle WCAG-Konformität ist nicht nachgewiesen: Ein automatisierter Lauf kann sie unabhängig vom Score nicht belegen.
@@ -60,6 +61,7 @@ single-report-rating-note = Die Einstufung beschreibt den Barrierefreiheitswert 
 
 ## Risks and strengths
 single-report-risks-none = Keine prioritären Risiken im automatisierten Prüfumfang erkannt. Diese Einschätzung bezieht sich ausschließlich auf den automatisierten Prüfumfang ({ $automated } von ca. { $total } testbaren WCAG-2.2-AA-Kriterien); Kriterien mit manuellem Prüfbedarf sind im Anhang aufgeführt.
+single-report-risks-none-summary = Keine prioritären Risiken im automatisierten Prüfumfang erkannt. Diese Einschätzung bezieht sich ausschließlich auf den automatisierten Prüfumfang ({ $automated } von ca. { $total } testbaren WCAG-2.2-AA-Kriterien); Kriterien mit manuellem Prüfbedarf sind im Standard-Bericht aufgeführt.
 single-report-risks-title = Wichtigste Risiken
 single-report-risks-title-count = Wichtigste Risiken ({ $count } erkannt)
 single-report-strengths-title = Stärken im geprüften Umfang
