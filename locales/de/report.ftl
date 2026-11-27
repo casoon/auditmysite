@@ -173,6 +173,7 @@ batch-cover-frame-version = Tool-Version
 batch-cover-frame-scope = Prüfumfang
 batch-scope-sample = Stichprobe — { $audited } von { $total } URLs ({ $pct } %, { $source }): die ersten { $audited } in Quellreihenfolge, nicht nach Seitentyp gewählt; die Repräsentativität für die übrigen Seiten ist nicht gesichert
 batch-scope-sample-filtered = Stichprobe — { $audited } von { $total } URLs ({ $pct } %, { $source }, nach Pfadfilter); die Repräsentativität für die übrigen Seiten ist nicht gesichert
+batch-scope-sample-spread = Stichprobe — { $audited } von { $total } URLs ({ $pct } %, { $source }): über URL-Vorlagen verteilt gewählt ({ $covered } von { $groups } Vorlagen abgedeckt, Startseite zuerst), nicht nach Seitentyp oder Prozesszustand; das ist kein Nachweis für die gesamte Website
 batch-scope-sample-stratified = Stichprobe — { $audited } von { $total } URLs ({ $pct } %, { $source }): über Strukturgruppen (Sprache, Bereich, Dateityp) gezogen, nicht nach Seitentyp oder Prozesszustand; die Repräsentativität für die übrigen Seiten ist nicht gesichert
 batch-cover-frame-failed = Nicht auditiert
 batch-cover-frame-failed-value = { $failed } von { $selected } ausgewählten URLs fehlgeschlagen

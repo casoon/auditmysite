@@ -38,6 +38,7 @@ pub(super) fn batch_scope_text(batch: &BatchReport, i18n: &I18n) -> Option<Strin
         i18n.t_args(
             match sample.selection.as_str() {
                 "first_n" => "batch-scope-sample",
+                "spread" => "batch-scope-sample-spread",
                 "stratified" => "batch-scope-sample-stratified",
                 _ => "batch-scope-sample-filtered",
             },
@@ -46,6 +47,16 @@ pub(super) fn batch_scope_text(batch: &BatchReport, i18n: &I18n) -> Option<Strin
                 ("total", sample.total_discovered.to_string()),
                 ("pct", pct),
                 ("source", source),
+                ("groups", sample.strata.len().to_string()),
+                (
+                    "covered",
+                    sample
+                        .strata
+                        .iter()
+                        .filter(|stratum| stratum.selected > 0)
+                        .count()
+                        .to_string(),
+                ),
             ],
         )
     } else {

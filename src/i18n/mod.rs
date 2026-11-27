@@ -695,6 +695,31 @@ mod tests {
         }
     }
 
+    /// The scope sentence of a spread sample names the template coverage and
+    /// no longer says "the first N" (#1230).
+    #[test]
+    fn spread_scope_sentence_names_the_templates_in_both_locales() {
+        for locale in ["de", "en"] {
+            let i18n = I18n::new(locale).expect("bundle parses");
+            let rendered = i18n.t_args(
+                "batch-scope-sample-spread",
+                &[
+                    ("audited", "20".to_string()),
+                    ("total", "487".to_string()),
+                    ("pct", "4.1".to_string()),
+                    ("source", i18n.t("batch-source-sitemap")),
+                    ("groups", "31".to_string()),
+                    ("covered", "19".to_string()),
+                ],
+            );
+            assert!(
+                rendered.contains("19") && rendered.contains("31") && rendered.contains("487"),
+                "{locale}: {rendered}"
+            );
+            assert!(!rendered.contains("the first") && !rendered.contains("die ersten"));
+        }
+    }
+
     /// Plural agreement of the 2.0.1 leftovers (#952): the count reaches the
     /// message as a number, so "1 Datei" / "1 weiterer Befund" select the
     /// singular instead of printing "1 Dateien" / "1 weitere Befunde".

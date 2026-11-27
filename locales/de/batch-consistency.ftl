@@ -12,11 +12,12 @@
 
 ## Cross-page consistency
 batch-consistency-title = Seitenübergreifende Konsistenz
-batch-consistency-intro = Prüft, ob geteilte Elemente auf allen geprüften Seiten konsistent sind: Navigation (WCAG 3.2.3), die Hauptüberschrift (H1) je Seite, Canonical-URLs (ein Suchmaschinen-Signal, kein WCAG-Kriterium) und Sicherheits-Header.
+batch-consistency-intro = Vergleicht geteilte Elemente über alle geprüften Seiten: das Vorhandensein von Hauptnavigation und Skip-Link (Reihenfolge und Inhalt der Navigation werden nicht verglichen, WCAG 3.2.3 bleibt daher eine manuelle Prüfung), die Hauptüberschrift (H1) je Seite, Canonical-URLs (ein Suchmaschinen-Signal, kein WCAG-Kriterium) und Sicherheits-Header.
 batch-consistency-consistent = Konsistent
 batch-consistency-missing-on-pages = Fehlt auf { $missing } von { $total } geprüften Seiten.
 batch-consistency-nav-title = Navigation ({ $main }/{ $total } mit Hauptnav, { $skip }/{ $total } mit Skip-Link)
-batch-consistency-nav-consistent = Keine Navigations-Inkonsistenzen erkannt.
+batch-consistency-nav-present = Vorhanden
+batch-consistency-nav-present-detail = Hauptnavigation und Skip-Link sind auf jeder geprüften Seite vorhanden; Reihenfolge und Inhalt nicht verglichen.
 batch-consistency-main-nav = Hauptnavigation
 batch-consistency-skip-link = Skip-Link
 batch-consistency-headings-title = Überschriften ({ $single }/{ $total } mit einem H1, { $none } ohne H1, { $multiple } mit mehreren)
@@ -53,7 +54,7 @@ batch-consistency-col-basis = Prüfgrundlage
 batch-consistency-status-no-inconsistency = Keine Inkonsistenz erkannt
 batch-consistency-status-warning = Warnung
 batch-consistency-status-manual-review = Manuell prüfen
-batch-consistency-basis-navigation = Vorhandensein von Hauptnavigation und Skip-Link über das geprüfte Seitenset verglichen
+batch-consistency-basis-navigation = Hauptnavigation auf { $main } von { $total } geprüften Seiten vorhanden, Skip-Link auf { $skip }; Reihenfolge und Inhalt nicht verglichen
 batch-consistency-basis-identification = Die Identität von Komponenten erfordert einen Vergleich der zugänglichen Namen gleichwertiger Bedienelemente; die aktuelle Evidenz reicht nicht für eine Konformitätsaussage
 batch-consistency-basis-multiple-ways = Eingehende Links nur innerhalb des geprüften Seitensets beobachtet; Seiten ohne einen solchen Link sind Kandidaten, und Suche, Sitemap-Seiten, Links von nicht geprüften Seiten sowie Ausnahmen für Prozessschritte müssen manuell bestätigt werden
 

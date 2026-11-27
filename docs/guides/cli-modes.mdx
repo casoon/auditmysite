@@ -30,8 +30,15 @@ switches to the sitemap audit.
 auditmysite --sitemap https://example.com/sitemap.xml --max-pages 20
 ```
 
-Sitemap indexes are followed and deduplicated. `--max-pages` takes the first N URLs in sitemap
-order; the report records how many were discovered and how many were audited.
+Sitemap indexes are followed and deduplicated. `--max-pages` caps the number of audited URLs;
+`--sample spread|first` (alias of `--sample-strategy`) decides which N. `spread` (the default)
+groups the sitemap URLs by URL template (variable segments such as ids, dates and slugs collapsed,
+plus section, depth, language prefix and file extension) and picks one URL per template in turn:
+the home page first, then the largest templates, until N are chosen. It is deterministic: the same
+sitemap gives the same pages, in sitemap order. `first` takes the first N URLs in sitemap order.
+Either way the audited pages are a sample, not a proof for the whole site: the choice looks at the
+URLs only, DOM fingerprints and shared resources are not compared. The report records how many URLs
+were discovered and audited, the strategy and the templates covered.
 
 ## URL file
 

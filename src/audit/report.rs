@@ -1063,15 +1063,18 @@ pub struct SampleMetadata {
     /// How the audited subset was chosen: `"first_n"` (sitemap/discovery order),
     /// `"all"` when every discovered URL was audited, `"path_filter"` when
     /// `--include-path`/`--exclude-path` narrowed the set (then possibly also
-    /// capped by `sample_limit`, in discovery order), or `"stratified"` when
+    /// capped by `sample_limit`, in discovery order), `"spread"` when
+    /// `--sample-strategy spread` (the default) drew round-robin across URL
+    /// templates, home page first, or `"stratified"` when
     /// `--sample-strategy stratified` drew across structural strata (after any
-    /// path filter), listed in `strata`.
+    /// path filter); the groups are listed in `strata`.
     pub selection: String,
     /// True when fewer URLs were audited than discovered — i.e. this is a sample,
     /// not full coverage.
     pub is_sample: bool,
-    /// Strata of a `"stratified"` selection with candidates and picks per
-    /// stratum; empty for every other method.
+    /// Groups of a `"spread"` (URL templates) or `"stratified"` (structural
+    /// strata) selection with candidates and picks per group; empty for every
+    /// other method.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub strata: Vec<SampleStratum>,
 }
@@ -1581,6 +1584,22 @@ pub struct SelectionProfile {
     pub languages: BTreeMap<String, usize>,
     #[serde(default)]
     pub language_unknown: usize,
+    /// How the audited URLs were picked: `"spread"`, `"stratified"` or
+    /// `"first"`. Set by `BatchReport::with_sample` for a capped selection;
+    /// absent when every discovered URL was audited.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub strategy: Option<String>,
+    /// Groups the selection drew from (URL templates for `"spread"`, structural
+    /// strata for `"stratified"`); 0 for `"first"`.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub groups: usize,
+    /// Groups that contributed at least one audited URL.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub groups_covered: usize,
+}
+
+fn is_zero(n: &usize) -> bool {
+    *n == 0
 }
 
 impl SelectionProfile {
@@ -1883,6 +1902,16 @@ impl BatchReport {
     pub fn with_sample(mut self, sample: SampleMetadata) -> Self {
         self.summary.coverage.discovered = sample.total_discovered;
         self.summary.coverage.selected = sample.audited;
+        let profile = &mut self.summary.selection_profile;
+        profile.strategy = match sample.selection.as_str() {
+            "spread" => Some("spread"),
+            "stratified" => Some("stratified"),
+            "first_n" | "path_filter" => Some("first"),
+            _ => None,
+        }
+        .map(str::to_string);
+        profile.groups = sample.strata.len();
+        profile.groups_covered = sample.strata.iter().filter(|s| s.selected > 0).count();
         self.sample = Some(sample);
         // Selected URLs that were never started qualify the batch (#768); the
         // decision is derived again from the final coverage.
@@ -2408,6 +2437,38 @@ mod tests {
             .iter()
             .any(|r| r.contains("2 not attempted")));
         assert!(batch.summary.audit_quality.qualified_results);
+    }
+
+    #[test]
+    fn selection_profile_records_strategy_and_groups_covered() {
+        let sample = |selection: &str, strata: Vec<SampleStratum>| {
+            let mut sample = SampleMetadata::new("sitemap", 50, 2, selection);
+            sample.strata = strata;
+            sample
+        };
+        let batch = |sample| {
+            BatchReport::from_reports(vec![clean_report("https://a.com")], vec![], 10)
+                .with_sample(sample)
+        };
+        let spread = batch(sample(
+            "spread",
+            vec![
+                SampleStratum::new("/".into(), 1, 1),
+                SampleStratum::new("blog/*".into(), 40, 1),
+                SampleStratum::new("shop/*".into(), 9, 0),
+            ],
+        ));
+        let profile = &spread.summary.selection_profile;
+        assert_eq!(profile.strategy.as_deref(), Some("spread"));
+        assert_eq!((profile.groups, profile.groups_covered), (3, 2));
+
+        let first = batch(sample("first_n", vec![]));
+        let profile = &first.summary.selection_profile;
+        assert_eq!(profile.strategy.as_deref(), Some("first"));
+        assert_eq!((profile.groups, profile.groups_covered), (0, 0));
+
+        let all = batch(sample("all", vec![]));
+        assert_eq!(all.summary.selection_profile.strategy, None);
     }
 
     #[test]

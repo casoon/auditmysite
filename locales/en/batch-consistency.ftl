@@ -12,11 +12,12 @@
 
 ## Cross-page consistency
 batch-consistency-title = Cross-page consistency
-batch-consistency-intro = Checks that shared elements are consistent across all audited pages: navigation (WCAG 3.2.3), the main heading (H1) per page, canonical URLs (a search-engine signal, not a WCAG criterion) and security headers.
+batch-consistency-intro = Compares shared elements across all audited pages: the presence of the main navigation and the skip link (the order and content of the navigation are not compared, so WCAG 3.2.3 stays a manual check), the main heading (H1) per page, canonical URLs (a search-engine signal, not a WCAG criterion) and security headers.
 batch-consistency-consistent = Consistent
 batch-consistency-missing-on-pages = Missing on { $missing } of { $total } audited pages.
 batch-consistency-nav-title = Navigation ({ $main }/{ $total } with main nav, { $skip }/{ $total } with skip link)
-batch-consistency-nav-consistent = No navigation inconsistencies detected.
+batch-consistency-nav-present = Present
+batch-consistency-nav-present-detail = Main navigation and skip link are present on every audited page; order and content not compared.
 batch-consistency-main-nav = Main navigation
 batch-consistency-skip-link = Skip link
 batch-consistency-headings-title = Headings ({ $single }/{ $total } with single H1, { $none } missing, { $multiple } multiple)
@@ -50,7 +51,7 @@ batch-consistency-col-basis = Assessment basis
 batch-consistency-status-no-inconsistency = No inconsistency detected
 batch-consistency-status-warning = Warning
 batch-consistency-status-manual-review = Manual review
-batch-consistency-basis-navigation = { $basis }
+batch-consistency-basis-navigation = Main navigation present on { $main } of { $total } audited pages, skip link on { $skip }; order and content not compared
 batch-consistency-basis-identification = { $basis }
 batch-consistency-basis-multiple-ways = { $basis }
 

@@ -216,14 +216,21 @@ fn analyze_cross_page_criteria(reports: &[AuditReport]) -> Vec<CrossPageCriterio
     vec![
         CrossPageCriterionAssessment {
             criterion: "3.2.3 Consistent Navigation".to_string(),
+            // Only the presence of the landmarks is compared; the order and
+            // content of the links are not, so complete presence is no
+            // statement about 3.2.3 and stays a manual check.
             status: if navigation.findings.is_empty() {
-                "no_inconsistency_detected"
+                "manual_review"
             } else {
                 "warning"
             }
             .to_string(),
-            basis: "Main-navigation and skip-link presence compared across the audited page set"
-                .to_string(),
+            basis: format!(
+                "Main navigation present on {} of {} audited pages, skip link on {}; order and content not compared",
+                navigation.pages_with_main_nav,
+                navigation.total_pages,
+                navigation.pages_with_skip_link
+            ),
             affected_pages: inconsistent_navigation,
         },
         CrossPageCriterionAssessment {
@@ -1169,6 +1176,36 @@ mod tests {
             .findings
             .iter()
             .any(|f| f.contains("Skip link")));
+    }
+
+    /// Presence of the landmarks on every page says nothing about the order
+    /// and content of the navigation: 3.2.3 stays a manual check and the basis
+    /// says what was compared.
+    #[test]
+    fn navigation_presence_is_no_3_2_3_claim() {
+        let reports = vec![
+            make_report(
+                "https://a.com/",
+                1,
+                None,
+                vec!["MainNavigation", "SkipLink"],
+            ),
+            make_report(
+                "https://a.com/x",
+                1,
+                None,
+                vec!["MainNavigation", "SkipLink"],
+            ),
+        ];
+        let a = analyze(&BatchReport::from_reports(reports, vec![], 100)).expect("batch >= 2");
+        let nav = a
+            .wcag_cross_page
+            .iter()
+            .find(|c| c.criterion.starts_with("3.2.3"))
+            .unwrap();
+        assert_eq!(nav.status, "manual_review");
+        assert!(nav.basis.contains("present on 2 of 2"), "{}", nav.basis);
+        assert!(nav.basis.contains("order and content not compared"));
     }
 
     #[test]
