@@ -32,6 +32,8 @@ use crate::output_paths::{
     default_screen_reader_json_output_path, default_single_pdf_output_path, output_text,
     per_page_output_directory, per_page_output_path,
 };
+#[cfg(feature = "pdf")]
+use crate::output_paths::{extra_level_pdf_path, pdf_levels};
 
 /// Formats that show annotations; for the others the option is reported as
 /// unused rather than silently ignored.
@@ -50,6 +52,18 @@ fn warn_annotations_unused(args: &Args, format: OutputFormat) {
     }
 }
 
+/// `--also-report-level` renders further PDF levels of a single-page report;
+/// elsewhere it is reported as unused rather than silently ignored (#1260).
+fn warn_also_report_level_unused(args: &Args, applies: bool) {
+    if !args.also_report_level.is_empty() && !applies && !args.quiet {
+        eprintln!(
+            "{} --also-report-level has no effect here (it renders further levels of a \
+             single-page PDF report: use -f pdf with one URL or --per-page-reports)",
+            "Warning:".yellow().bold(),
+        );
+    }
+}
+
 fn load_annotation_file(args: &Args) -> Result<Option<AnnotationFile>> {
     args.annotations
         .as_deref()
@@ -61,6 +75,7 @@ fn load_annotation_file(args: &Args) -> Result<Option<AnnotationFile>> {
 pub(crate) fn output_single_report(report: &auditmysite::AuditReport, args: &Args) -> Result<()> {
     let normalized = normalize_checked(report)?;
     warn_annotations_unused(args, args.effective_format());
+    warn_also_report_level_unused(args, args.effective_format() == OutputFormat::Pdf);
     let annotations =
         load_annotation_file(args)?.map(|file| file.resolve_normalized(&[&normalized.normalized]));
     output_single_report_with(report, &normalized, args, annotations.as_ref())
@@ -122,29 +137,55 @@ fn output_single_report_with(
                 } else {
                     None
                 };
-                let config = ReportConfig {
-                    level: args.report_level,
+                let levels = pdf_levels(args);
+                let config_for = |level| ReportConfig {
+                    level,
                     logo_path: args.logo.clone(),
                     locale: args.lang.clone(),
                     annex: args.annex,
                 };
-                let pdf_bytes = generate_pdf_with_annotations(report, &config, annotations)
-                    .map_err(|e| AuditError::ReportGenerationFailed {
-                        reason: e.to_string(),
-                    })?;
-                if let Some(json_path) = auto_json_path.as_ref() {
-                    let json_output = single_json()?;
-                    output_text(&json_output, &Some(json_path.clone()), "JSON", args.quiet)?;
-                }
-                output_bytes(&pdf_bytes, &path, "PDF", args.quiet)?;
-                if args.dev.debug_typ {
-                    let typ = generate_typ_with_annotations(report, &config, annotations).map_err(
-                        |e| AuditError::ReportGenerationFailed {
-                            reason: e.to_string(),
-                        },
-                    )?;
-                    let typ_path = path.with_extension("typ");
-                    output_text(&typ, &Some(typ_path), "Typst source", args.quiet)?;
+                // Every level is rendered from this one report: one audit,
+                // one lab measurement, the same scores in every PDF (#1260).
+                for (level, level_path) in levels.iter().map(|&level| {
+                    let level_path = if level == args.report_level {
+                        path.clone()
+                    } else {
+                        extra_level_pdf_path(
+                            args.output.as_deref(),
+                            report.url.as_str(),
+                            args.report_level,
+                            level,
+                        )
+                    };
+                    (level, level_path)
+                }) {
+                    let level_config = config_for(level);
+                    let pdf_bytes =
+                        generate_pdf_with_annotations(report, &level_config, annotations).map_err(
+                            |e| AuditError::ReportGenerationFailed {
+                                reason: e.to_string(),
+                            },
+                        )?;
+                    if level == args.report_level {
+                        if let Some(json_path) = auto_json_path.as_ref() {
+                            let json_output = single_json()?;
+                            output_text(
+                                &json_output,
+                                &Some(json_path.clone()),
+                                "JSON",
+                                args.quiet,
+                            )?;
+                        }
+                    }
+                    output_bytes(&pdf_bytes, &level_path, "PDF", args.quiet)?;
+                    if args.dev.debug_typ {
+                        let typ = generate_typ_with_annotations(report, &level_config, annotations)
+                            .map_err(|e| AuditError::ReportGenerationFailed {
+                                reason: e.to_string(),
+                            })?;
+                        let typ_path = level_path.with_extension("typ");
+                        output_text(&typ, &Some(typ_path), "Typst source", args.quiet)?;
+                    }
                 }
                 if let Some(ref snap_path) = args.dev.export_snapshot {
                     export_snapshot_yaml(report, snap_path).map_err(|e| {
@@ -237,6 +278,7 @@ pub(crate) fn output_batch_report(
 ) -> Result<()> {
     validate_batch(batch_report)?;
     warn_annotations_unused(args, args.effective_format());
+    warn_also_report_level_unused(args, false);
     let annotations = resolve_batch_annotations(batch_report, args)?;
     let batch_json = || -> Result<String> {
         let mut unified = auditmysite::output::UnifiedReport::batch(batch_report);

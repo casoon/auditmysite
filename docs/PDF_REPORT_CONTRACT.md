@@ -23,6 +23,19 @@ next step), `standard` and `technical` are the full reports. The default
 (`<domain>-<date>-single-report-quick.pdf`, `…-executive.pdf`, `…-technical.pdf`).
 The JSON does not depend on the level.
 
+Several levels from one audit (#1260): every `--report-level` run is its own audit
+with its own lab measurement, so two runs of the same page can differ in the
+performance score by measurement noise (71 and 70 points). To get several levels that
+agree, render them from one run: `--also-report-level quick,executive` (repeatable
+or comma separated) writes the extra levels next to the `--report-level` PDF
+without a second audit; every level is built from the same `AuditReport`, so
+scores and findings are identical. With `-o report.pdf` the extra files are
+`report-<level>.pdf` (a name that already ends in the primary level swaps that
+suffix), without `-o` they use the default name of their level, with
+`--per-page-reports` they are written per page. The JSON is written once. The
+option needs `-f pdf`; for other formats and for the aggregated batch report it
+has no effect and prints a warning.
+
 ### Quick
 
 Audience: first contact, someone who has not asked for an audit yet.

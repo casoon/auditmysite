@@ -446,6 +446,22 @@ pub struct Args {
     #[arg(long, default_value = "standard", value_enum, global = true)]
     pub report_level: ReportLevel,
 
+    /// Further PDF detail levels of a single-page report, rendered from the
+    /// same audit run as `--report-level` (repeatable or comma separated,
+    /// e.g. `--also-report-level quick,executive`). Every level shows the same
+    /// scores because no second audit and no second lab measurement runs.
+    /// With `-o report.pdf` the extra files are `report-<level>.pdf`; without
+    /// `-o` they use the default name of their level. Needs `-f pdf`; has no
+    /// effect on a batch report, which is one overview.
+    #[arg(
+        long,
+        value_enum,
+        value_delimiter = ',',
+        value_name = "LEVEL",
+        global = true
+    )]
+    pub also_report_level: Vec<ReportLevel>,
+
     /// Report language (PDF and table text)
     #[arg(long, default_value = "en", value_parser = ["de", "en"], global = true)]
     pub lang: String,
@@ -1162,6 +1178,7 @@ mod tests {
             state_id: None,
             display: None,
             report_level: ReportLevel::Standard,
+            also_report_level: Vec::new(),
             lang: "en".to_string(),
             also_json: false,
             logo: None,

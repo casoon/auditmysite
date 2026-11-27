@@ -137,6 +137,43 @@ pub(crate) fn with_display_suffix(path: &Path, mode: &str) -> PathBuf {
     path.with_file_name(name)
 }
 
+/// The PDF levels one single-page run renders: `--report-level` first, then
+/// every `--also-report-level` once (#1260).
+pub(crate) fn pdf_levels(args: &Args) -> Vec<ReportLevel> {
+    let mut levels = vec![args.report_level];
+    for level in &args.also_report_level {
+        if !levels.contains(level) {
+            levels.push(*level);
+        }
+    }
+    levels
+}
+
+/// Path of an additional level rendered from the same run. Without `-o` it is
+/// the default name of that level; with `-o report.pdf` it is
+/// `report-<level>.pdf`, and a name that already ends in the primary level
+/// (`…-single-report-quick.pdf`, per-page reports) swaps that suffix.
+pub(crate) fn extra_level_pdf_path(
+    output: Option<&Path>,
+    url: &str,
+    primary: ReportLevel,
+    level: ReportLevel,
+) -> PathBuf {
+    let Some(output) = output else {
+        return default_single_pdf_output_path(url, level);
+    };
+    let stem = output
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("audit-report");
+    let base = stem.strip_suffix(&format!("-{primary}")).unwrap_or(stem);
+    let renamed = match output.extension().and_then(|e| e.to_str()) {
+        Some(ext) => output.with_file_name(format!("{base}.{ext}")),
+        None => output.with_file_name(base),
+    };
+    with_display_suffix(&renamed, &level.to_string())
+}
+
 /// Concrete output path for one page inside a per-page batch run.
 pub(crate) fn per_page_output_path(
     base_dir: &Path,
@@ -276,6 +313,53 @@ pub(crate) fn report_subject_from_url(url: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn extra_levels_are_named_after_their_level() {
+        use ReportLevel::*;
+        let url = "https://example.com";
+        let name = |out: Option<&str>, primary, level| {
+            extra_level_pdf_path(out.map(Path::new), url, primary, level)
+        };
+        assert_eq!(
+            name(Some("reports/site.pdf"), Standard, Quick),
+            PathBuf::from("reports/site-quick.pdf")
+        );
+        // A per-page name that already ends in the primary level swaps it.
+        assert_eq!(
+            name(
+                Some("out/page-2026-01-01-single-report-quick.pdf"),
+                Quick,
+                Executive
+            ),
+            PathBuf::from("out/page-2026-01-01-single-report-executive.pdf")
+        );
+        assert_eq!(
+            name(None, Standard, Executive),
+            default_single_pdf_output_path(url, Executive)
+        );
+    }
+
+    #[test]
+    fn pdf_levels_start_with_the_primary_and_drop_duplicates() {
+        let args = Args::parse_from([
+            "auditmysite",
+            "https://example.com",
+            "--report-level",
+            "executive",
+            "--also-report-level",
+            "quick,executive",
+            "--also-report-level",
+            "quick",
+        ]);
+        assert_eq!(
+            pdf_levels(&args),
+            vec![ReportLevel::Executive, ReportLevel::Quick]
+        );
+        let none = Args::parse_from(["auditmysite", "https://example.com"]);
+        assert_eq!(pdf_levels(&none), vec![ReportLevel::Standard]);
+    }
 
     #[test]
     fn display_suffix_goes_before_the_extension() {

@@ -11,7 +11,8 @@ use auditmysite::cli::{Args, OutputFormat};
 
 use crate::output_paths::{
     default_batch_pdf_output_path, default_screen_reader_json_output_path,
-    default_single_json_output_path, default_single_pdf_output_path, per_page_output_directory,
+    default_single_json_output_path, default_single_pdf_output_path, extra_level_pdf_path,
+    pdf_levels, per_page_output_directory,
 };
 
 // ─── Banner ──────────────────────────────────────────────────────────────────
@@ -93,6 +94,13 @@ pub(crate) fn planned_single_outputs(args: &Args, url: &str) -> Vec<String> {
                 .clone()
                 .unwrap_or_else(|| default_single_pdf_output_path(url, args.report_level));
             let mut outputs = vec![path.display().to_string()];
+            for &level in pdf_levels(args).iter().skip(1) {
+                outputs.push(
+                    extra_level_pdf_path(args.output.as_deref(), url, args.report_level, level)
+                        .display()
+                        .to_string(),
+                );
+            }
             if args.also_json || args.output.is_none() {
                 outputs.push(default_single_json_output_path(&path).display().to_string());
             }
