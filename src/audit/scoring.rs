@@ -222,6 +222,26 @@ impl AccessibilityScorer {
         criteria
     }
 
+    /// Supported A/AA criteria this run actually evaluated: passed, violated
+    /// or left for review (not "not applicable", not "not testable"). The one
+    /// count behind "evaluated in this run" in the status block and in the
+    /// appendix (#1256); it is a subset of
+    /// [`crate::wcag::coverage::coverage_stats`]`().0`, the criteria the tool
+    /// *supports*, because it is filtered by the same
+    /// `is_automated_aa_criterion` predicate.
+    pub fn executed_aa_criteria(results: &crate::wcag::WcagResults) -> usize {
+        Self::criterion_states(results)
+            .iter()
+            .filter(|(id, state)| {
+                crate::wcag::coverage::is_automated_aa_criterion(id)
+                    && matches!(
+                        state,
+                        CriterionState::Passed | CriterionState::Violation | CriterionState::Review
+                    )
+            })
+            .count()
+    }
+
     /// The criterion states folded to the old three-valued view: `Some(true)`
     /// ran and found nothing, `Some(false)` did not pass, `None` not applicable.
     pub fn criterion_execution_states(

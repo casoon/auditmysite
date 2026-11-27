@@ -127,10 +127,13 @@ already in the report:
 - the heuristic warnings (not scored),
 - the points to confirm by hand on this page (not scored), plus the criteria
   that can only be checked manually (appendix),
-- the criteria with automated approaches: how many of the WCAG 2.2 A/AA
-  criteria this run actually evaluated (`AccessibilityScorer::criterion_states`
-  with the state passed, violation or review; `evidence.criteria_checked`), with
-  the statement that this often covers only parts of a criterion,
+- the criteria with automated approaches, two named numbers (#1256): the A/AA
+  criteria the tool *supports* (`coverage_stats()`, a property of the tool
+  version, also `summary.wcag_coverage.automated_criteria` in the JSON) and how
+  many of them this run *executed* (`AccessibilityScorer::executed_aa_criteria`,
+  state passed, violation or review; `evidence.criteria_checked`), with the
+  statement that this often covers only parts of a criterion. The appendix scope
+  text names the same two numbers from the same two sources,
 - the line that full WCAG conformance is not demonstrated by an automated run.
 
 The block is always shown, clean runs included; it replaces the former evidence

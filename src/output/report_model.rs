@@ -501,10 +501,11 @@ pub struct EvidenceClasses {
     /// Criteria the engine cannot decide by machine and explicitly hands to a
     /// human reviewer.
     pub manual_checks: u32,
-    /// Automated A/AA criteria this run actually evaluated (passed, violated
-    /// or left for review; not "not applicable", not "not testable"): the
-    /// five-valued `AccessibilityScorer::criterion_states`, counted once for
-    /// the status block on the first summary page (#1229).
+    /// Supported A/AA criteria this run actually evaluated ("executed";
+    /// passed, violated or left for review; not "not applicable", not "not
+    /// testable"): `AccessibilityScorer::executed_aa_criteria`, the one count
+    /// shared by the status block on the first summary page (#1229) and the
+    /// appendix scope text (#1256). At most the number the tool supports.
     pub criteria_checked: u32,
 }
 

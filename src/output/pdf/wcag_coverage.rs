@@ -99,6 +99,9 @@ pub(super) fn render_wcag_coverage_section(
             ),
     );
     let (automated, total) = coverage_stats();
+    // Of the supported criteria, those evaluated on this page in this run: the
+    // same count the status block on the summary page names (#1256).
+    let executed = AccessibilityScorer::executed_aa_criteria(&report.accessibility.wcag_results);
     // Criteria this tool checks automatically that WCAG 2.2 added (they didn't
     // exist in WCAG 2.1). They count toward `automated`/`total` like any other
     // A/AA criterion, but stay marked as new in WCAG 2.2: they
@@ -119,6 +122,7 @@ pub(super) fn render_wcag_coverage_section(
             "pdf-analysis-coverage-intro",
             &[
                 ("automated", automated.to_string()),
+                ("executed", executed.to_string()),
                 ("total", total.to_string()),
             ],
         )
@@ -127,6 +131,7 @@ pub(super) fn render_wcag_coverage_section(
             "pdf-analysis-coverage-intro-new",
             &[
                 ("automated", automated.to_string()),
+                ("executed", executed.to_string()),
                 ("total", total.to_string()),
                 ("count", wcag22_criteria.len().to_string()),
                 ("list", wcag22_criteria.join(", ")),

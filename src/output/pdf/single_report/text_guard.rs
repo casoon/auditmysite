@@ -76,6 +76,7 @@ fn every_key_resolves_in_both_languages_without_errors() {
             "manual",
             "manual_only",
             "automated",
+            "supported",
             "total",
             "completed",
             "attempted",
@@ -155,5 +156,100 @@ fn no_scenario_leaves_a_key_or_a_placeholder_in_a_text() {
                 "{record}: {text}"
             );
         }
+    }
+}
+
+/// The two criteria counts of the report, named once and used alike (#1256):
+/// "supported" is the A/AA criteria the tool can fail
+/// (`coverage_stats().0`), "executed" those of them evaluated in this run.
+/// The summary status block and the appendix scope text must state the same
+/// two numbers. The expectation comes from the definition: a page whose only
+/// outcome is one violation of 1.1.1 has evaluated exactly that one criterion.
+#[test]
+fn summary_and_appendix_state_the_same_supported_and_executed_counts() {
+    use crate::i18n::I18n;
+    use crate::model::{ReportLevel, WcagLevel};
+    use crate::output::report_model::ReportConfig;
+    use crate::wcag::{Severity, Violation, WcagResults};
+
+    let (supported, total) = crate::wcag::coverage::coverage_stats();
+    assert!(
+        supported < total,
+        "the tool does not support every criterion"
+    );
+
+    let mut results = WcagResults::new();
+    results.nodes_checked = 10;
+    results.add_violation(
+        Violation::new(
+            "1.1.1",
+            "Non-text Content",
+            WcagLevel::A,
+            Severity::High,
+            "Image without alternative text.",
+            "node-1",
+        )
+        .with_rule_id("images/alt-missing"),
+    );
+    let report = crate::audit::AuditReport::new(
+        "https://example.com".to_string(),
+        WcagLevel::AA,
+        results,
+        100,
+    );
+    let executed = 1;
+    assert!(executed <= supported);
+
+    let normalized = crate::audit::validation::normalize_checked(&report)
+        .expect("fixture report passes the report contract");
+    for (lang, status, scope) in [
+        (
+            "en",
+            format!("{executed} of {supported} supported A/AA criteria evaluated in this run"),
+            format!("{executed} of them were evaluated in this run"),
+        ),
+        (
+            "de",
+            format!(
+                "{executed} von {supported} unterstützten A/AA-Kriterien in diesem Lauf ausgeführt"
+            ),
+            format!("{executed} davon wurden in diesem Lauf ausgeführt"),
+        ),
+    ] {
+        let config = ReportConfig {
+            level: ReportLevel::Standard,
+            locale: lang.to_string(),
+            ..ReportConfig::default()
+        };
+        let vm = crate::output::builder::build_view_model(&normalized, &config);
+        assert_eq!(vm.findings.evidence.criteria_checked, executed as u32);
+        let i18n = I18n::new(lang).unwrap();
+        let summary = serde_json::to_string(
+            &super::render_check_status(
+                renderreport::engine::ReportBuilder::new("guard"),
+                &vm,
+                &i18n,
+            )
+            .build()
+            .components,
+        )
+        .unwrap();
+        let appendix = serde_json::to_string(
+            &super::super::wcag_coverage::render_wcag_coverage_section(
+                renderreport::engine::ReportBuilder::new("guard"),
+                &report,
+                &i18n,
+            )
+            .build()
+            .components,
+        )
+        .unwrap();
+        assert!(summary.contains(&status), "{lang} summary: {summary}");
+        assert!(
+            appendix.contains(&format!("{supported} of ~{total}"))
+                || appendix.contains(&format!("{supported} von ca. {total}")),
+            "{lang} appendix supported count: {appendix}"
+        );
+        assert!(appendix.contains(&scope), "{lang} appendix: {appendix}");
     }
 }

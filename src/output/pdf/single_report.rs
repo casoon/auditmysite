@@ -889,7 +889,7 @@ fn render_check_status(
 ) -> renderreport::engine::ReportBuilder {
     let evidence = &vm.findings.evidence;
     let manual_only = crate::wcag::coverage::manual_review_criteria().len();
-    let (_, total) = crate::wcag::coverage::coverage_stats();
+    let (supported, total) = crate::wcag::coverage::coverage_stats();
     let count = |value: u32| i64::from(value);
     let list = KeyValueList::new()
         .with_title(i18n.t("single-report-status-title"))
@@ -930,6 +930,7 @@ fn render_check_status(
                 "single-report-status-criteria-value",
                 &[
                     ("checked", count(evidence.criteria_checked)),
+                    ("supported", supported as i64),
                     ("total", total as i64),
                 ],
             ),

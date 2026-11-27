@@ -106,6 +106,7 @@ fn every_key_resolves_in_both_languages_without_errors() {
             "share",
             "recommendations",
             "automated",
+            "executed",
             "list",
             "listed",
             "aaa",
