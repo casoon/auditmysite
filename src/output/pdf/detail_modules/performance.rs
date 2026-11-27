@@ -305,6 +305,12 @@ pub(in crate::output::pdf) fn render_performance(
         Callout::info(i18n.t("perf-lab-data-body")).with_title(i18n.t("perf-lab-data-note")),
     );
 
+    builder = builder.add_component(
+        Label::new(perf.run_note.clone())
+            .with_size("9pt")
+            .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+    );
+
     match (&perf.desktop, &perf.mobile) {
         (Some(desktop), Some(mobile)) => {
             // Score comparison as circular gauges (PageSpeed-style) — a
@@ -408,6 +414,14 @@ pub(in crate::output::pdf) fn render_performance(
             }
         }
         _ => {}
+    }
+
+    if let Some(note) = &perf.tti_note {
+        builder = builder.add_component(
+            Label::new(note.clone())
+                .with_size("9pt")
+                .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+        );
     }
 
     // Measurement Warnings
@@ -715,6 +729,13 @@ pub(in crate::output::pdf) fn render_performance(
             })
             .collect();
         builder = builder.add_component(MetricStrip::new(strip).compact());
+        if let Some(note) = &perf.dom_note {
+            builder = builder.add_component(
+                Label::new(note.clone())
+                    .with_size("9pt")
+                    .with_color(crate::output::pdf::design::tokens::NEUTRAL),
+            );
+        }
     }
 
     if !perf.recommendations.is_empty() {

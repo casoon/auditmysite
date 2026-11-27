@@ -82,7 +82,7 @@ All six pages were audited in every run. Concurrency does not scale linearly: th
 - `--stability-budget-ms <ms>`: wait for late hydration after navigation, default 1500; the same budget again bounds the wait for finite CSS animations. Paid on every page, so it scales with the page count, not with concurrency.
 - `-m, --max-pages <n>`: caps the number of audited URLs (0 = unlimited). `--include-path` and `--exclude-path` are applied first; `--sample-strategy first-n|stratified` decides which N are kept. This is the main lever on total time, since total time is roughly the page count times the per-page time divided by the concurrency speed-up.
 - `--interactive off`, `--modules`: reduce the work per page and apply to every page of the batch.
-- Single-URL only, not run in batch mode: `--perf-runs`, `--isolate-third-party-impact`, `--check-ssr-content`. `--privacy-check` adds one page load per audited page in either mode. `--crawl` adds link-check requests on top of the page audits.
+- Single-URL only, not run in batch mode: `--isolate-third-party-impact`, `--check-ssr-content`, and `--perf-runs` above 1 (a single URL measures each throttled profile 3 times by default, a batch once; the vitals are the median of the runs and `performance.stability` flags a page whose LCP varied by more than 25 %, see the Output Contract). `--privacy-check` adds one page load per audited page in either mode. `--crawl` adds link-check requests on top of the page audits.
 
 ## SARIF output
 

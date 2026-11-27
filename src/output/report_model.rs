@@ -889,6 +889,14 @@ pub struct PerformancePresentation {
     pub animations: Option<AnimationPresentation>,
     /// Implausible or unmeasurable metrics detected during headless measurement (#291).
     pub measurement_warnings: Vec<String>,
+    /// How many runs the headline vitals are the median of and whether they
+    /// agreed, in the run language (#1231).
+    pub run_note: String,
+    /// States that TTI is derived from the long-task list; `Some` when a TTI
+    /// is shown (#1231).
+    pub tti_note: Option<String>,
+    /// States what the DOM node count counts; `Some` when it is shown (#1231).
+    pub dom_note: Option<String>,
 }
 
 pub struct SeoPresentation {

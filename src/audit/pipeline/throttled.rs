@@ -101,19 +101,13 @@ pub(super) async fn collect_throttled_performance(
     content_weight: Option<&crate::performance::ContentWeight>,
 ) -> (
     Vec<crate::audit::report::ThrottledPerfResult>,
-    Option<(
-        crate::performance::WebVitals,
-        crate::performance::PerformanceScore,
-    )>,
+    Option<CanonicalPerf>,
 ) {
     use crate::audit::report::ThrottledPerfResult;
     use crate::performance::calculate_performance_score;
 
     let mut results = Vec::new();
-    let mut canonical: Option<(
-        crate::performance::WebVitals,
-        crate::performance::PerformanceScore,
-    )> = None;
+    let mut canonical: Option<CanonicalPerf> = None;
 
     'profiles: for &profile in ThrottleProfile::AUTO_PROFILES {
         let mut samples: Vec<ProfileSample> = Vec::new();
@@ -205,26 +199,28 @@ pub(super) async fn collect_throttled_performance(
             }
         }
 
-        let Some((chosen, spread)) = summarize_runs(&samples, config.perf_runs.max(1)) else {
+        let Some(summary) = summarize_runs(&samples, config.perf_runs.max(1), content_weight)
+        else {
             continue;
         };
-        let ProfileSample {
+        let RunSummary {
             vitals,
             score,
             final_score,
-        } = samples.swap_remove(chosen);
+            spread,
+        } = summary;
         results.push(ThrottledPerfResult {
             profile,
             lcp_ms: vitals.lcp.as_ref().map(|v| v.value),
             tbt_ms: vitals.tbt.as_ref().map(|v| v.value),
             cls: vitals.cls.as_ref().map(|v| v.value),
             score: final_score,
-            spread,
+            spread: spread.clone(),
         });
         // LhMobile = Lighthouse mobile preset → canonical perf measurement.
         // Only adopt a complete measurement; otherwise the unthrottled
         // mobile pass stays the headline. With repeated runs the canonical
-        // one is the median run, a real measurement and not a blend.
+        // vitals are the per-metric medians (#1231).
         if let (ThrottleProfile::LhMobile, Some(final_score)) = (profile, final_score) {
             let mut adopted_score = score.clone();
             adopted_score.overall = final_score;
@@ -233,7 +229,12 @@ pub(super) async fn collect_throttled_performance(
             // tag the direct metrics so the JSON reflects that (#406).
             let mut throttled_vitals = vitals.clone();
             crate::performance::mark_throttled_mobile(&mut throttled_vitals);
-            canonical = Some((throttled_vitals, adopted_score));
+            canonical = Some(CanonicalPerf {
+                vitals: throttled_vitals,
+                score: adopted_score,
+                runs: spread.as_ref().map_or(1, |s| s.runs),
+                stability: spread.as_ref().map_or(Default::default(), |s| s.stability),
+            });
         }
     }
 
@@ -262,61 +263,82 @@ struct ProfileSample {
     final_score: Option<u32>,
 }
 
-/// Picks the run a profile reports and, for repeated runs (`--perf-runs`),
-/// the spread of all of them.
+/// The measurement a throttle profile reports.
+struct RunSummary {
+    vitals: crate::performance::WebVitals,
+    score: crate::performance::PerformanceScore,
+    /// `None` when not all core metrics were measured.
+    final_score: Option<u32>,
+    /// Spread of the repeated runs; `None` for a single configured run.
+    spread: Option<crate::audit::report::RunSpread>,
+}
+
+/// The LhMobile measurement the report adopts as its headline (#236) and what
+/// it is the median of (#1231).
+pub(super) struct CanonicalPerf {
+    pub vitals: crate::performance::WebVitals,
+    pub score: crate::performance::PerformanceScore,
+    /// Page loads the vitals are the median of.
+    pub runs: u32,
+    pub stability: crate::audit::MeasurementStability,
+}
+
+/// Combines the runs of one profile (`--perf-runs`) into what it reports.
 ///
-/// The reported run is the one with the median score (lower median for an
-/// even count), so the vitals stay one real, internally consistent
-/// measurement. Runs without a complete score never win; if none has one the
-/// first run is reported. No spread for a single configured run.
+/// One run reports itself. Several runs report the per-metric medians of LCP,
+/// FCP, CLS, TBT and TTI (each with its spread, over the runs that measured
+/// it) on top of the median-score run, which supplies everything that is not
+/// aggregated; the score is that of the median vitals. A run that loaded but
+/// lacks a metric counts for the others. No spread for a single configured
+/// run.
 fn summarize_runs(
     samples: &[ProfileSample],
     configured_runs: u32,
-) -> Option<(usize, Option<crate::audit::report::RunSpread>)> {
-    use crate::audit::report::{MetricSpread, RunSpread};
+    content_weight: Option<&crate::performance::ContentWeight>,
+) -> Option<RunSummary> {
     if samples.is_empty() {
         return None;
     }
+    // The median-score run (lower median for an even count) is the base.
+    // Runs without a complete score never win; if none has one, the first.
     let mut scored: Vec<(usize, u32)> = samples
         .iter()
         .enumerate()
         .filter_map(|(i, s)| s.final_score.map(|score| (i, score)))
         .collect();
     scored.sort_by_key(|&(i, score)| (score, i));
-    let chosen = scored
+    let base = scored
         .get((scored.len().max(1) - 1) / 2)
         .map_or(0, |&(i, _)| i);
-    if configured_runs <= 1 {
-        return Some((chosen, None));
+    let runs: Vec<&crate::performance::WebVitals> = samples.iter().map(|s| &s.vitals).collect();
+    let scores: Vec<f64> = samples
+        .iter()
+        .filter_map(|s| s.final_score.map(f64::from))
+        .collect();
+    let spread = (configured_runs > 1)
+        .then(|| crate::performance::runs::run_spread(&runs, &scores, configured_runs));
+    if samples.len() == 1 {
+        let ProfileSample {
+            vitals,
+            score,
+            final_score,
+        } = &samples[0];
+        return Some(RunSummary {
+            vitals: vitals.clone(),
+            score: score.clone(),
+            final_score: *final_score,
+            spread,
+        });
     }
-    let spread_of = |values: Vec<f64>| -> Option<MetricSpread> {
-        let mut values = values;
-        values.sort_by(|a, b| a.total_cmp(b));
-        let n = values.len();
-        (n > 0).then(|| MetricSpread {
-            min: values[0],
-            median: if n % 2 == 1 {
-                values[n / 2]
-            } else {
-                (values[n / 2 - 1] + values[n / 2]) / 2.0
-            },
-            max: values[n - 1],
-        })
-    };
-    let metric = |f: &dyn Fn(&ProfileSample) -> Option<f64>| {
-        spread_of(samples.iter().filter_map(f).collect())
-    };
-    Some((
-        chosen,
-        Some(RunSpread {
-            runs: samples.len() as u32,
-            requested_runs: configured_runs,
-            lcp_ms: metric(&|s| s.vitals.lcp.as_ref().map(|v| v.value)),
-            tbt_ms: metric(&|s| s.vitals.tbt.as_ref().map(|v| v.value)),
-            cls: metric(&|s| s.vitals.cls.as_ref().map(|v| v.value)),
-            score: metric(&|s| s.final_score.map(f64::from)),
-        }),
-    ))
+    let vitals = crate::performance::runs::median_vitals(&samples[base].vitals, &runs);
+    let score = crate::performance::calculate_performance_score(&vitals, content_weight);
+    let final_score = score.has_core_metrics().then_some(score.overall);
+    Some(RunSummary {
+        vitals,
+        score,
+        final_score,
+        spread,
+    })
 }
 
 /// Replace the report's Performance vitals/score with the LhMobile (throttled)
@@ -325,16 +347,20 @@ fn summarize_runs(
 /// Auxiliary structural data (render_blocking, content_weight, third_party,
 /// critical_chain, minification, animations, coverage) stays from the unthrottled
 /// pass since these describe page composition rather than timing.
-pub(super) fn apply_canonical_perf(
-    report: &mut AuditReport,
-    vitals: crate::performance::WebVitals,
-    score: crate::performance::PerformanceScore,
-) {
+pub(super) fn apply_canonical_perf(report: &mut AuditReport, canonical: CanonicalPerf) {
+    let CanonicalPerf {
+        vitals,
+        score,
+        runs,
+        stability,
+    } = canonical;
     let measurement_warnings = crate::performance::validate_metrics(&vitals);
     if let Some(ref mut perf) = report.performance {
         perf.measurement_warnings = measurement_warnings;
         perf.vitals = vitals;
         perf.score = score;
+        perf.runs = runs;
+        perf.stability = stability;
     } else {
         report.performance = Some(PerformanceResults {
             vitals,
@@ -347,6 +373,8 @@ pub(super) fn apply_canonical_perf(
             animations: None,
             coverage: None,
             measurement_warnings,
+            runs,
+            stability,
         });
     }
 
@@ -380,23 +408,15 @@ pub(super) fn apply_canonical_perf(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::audit::MeasurementStability;
     use crate::performance::{calculate_performance_score, VitalMetric, WebVitals};
-
-    fn metric(value: f64) -> Option<VitalMetric> {
-        Some(VitalMetric {
-            value,
-            rating: "good".to_string(),
-            target: 0.0,
-            measurement: Default::default(),
-        })
-    }
 
     fn sample(lcp: f64, tbt: f64, complete: bool) -> ProfileSample {
         let vitals = WebVitals {
-            lcp: metric(lcp),
-            fcp: metric(1000.0),
-            cls: metric(0.02),
-            tbt: if complete { metric(tbt) } else { None },
+            lcp: Some(VitalMetric::new(lcp, 2500.0, 4000.0)),
+            fcp: Some(VitalMetric::new(1000.0, 1800.0, 3000.0)),
+            cls: Some(VitalMetric::new(0.02, 0.1, 0.25)),
+            tbt: complete.then(|| VitalMetric::new(tbt, 200.0, 600.0)),
             ..Default::default()
         };
         let score = calculate_performance_score(&vitals, None);
@@ -410,60 +430,72 @@ mod tests {
 
     #[test]
     fn one_run_reports_itself_without_a_spread() {
-        let (chosen, spread) = summarize_runs(&[sample(2000.0, 100.0, true)], 1).unwrap();
-        assert_eq!(chosen, 0);
-        assert!(spread.is_none());
-        assert!(summarize_runs(&[], 3).is_none());
+        let one = [sample(2000.0, 100.0, true)];
+        let summary = summarize_runs(&one, 1, None).unwrap();
+        assert!(summary.spread.is_none());
+        assert_eq!(summary.vitals.lcp.as_ref().unwrap().value, 2000.0);
+        assert!(summary.vitals.lcp.unwrap().spread.is_none());
+        assert!(summarize_runs(&[], 3, None).is_none());
     }
 
     #[test]
-    fn the_median_run_is_reported_with_min_median_max_of_every_metric() {
-        // Scores fall with LCP: runs 0, 1, 2 are slow, fast, middle.
+    fn the_headline_is_the_median_of_every_metric_with_its_spread() {
         let samples = [
             sample(6000.0, 600.0, true),
             sample(1500.0, 50.0, true),
             sample(3500.0, 200.0, true),
         ];
-        assert!(samples[1].final_score > samples[2].final_score);
-        assert!(samples[2].final_score > samples[0].final_score);
-        let (chosen, spread) = summarize_runs(&samples, 3).unwrap();
-        assert_eq!(chosen, 2, "the median-score run, not the first or the best");
-        let spread = spread.expect("repeated runs carry a spread");
+        let summary = summarize_runs(&samples, 3, None).unwrap();
+        let lcp = summary.vitals.lcp.as_ref().unwrap();
+        assert_eq!(lcp.value, 3500.0);
+        let lcp_spread = lcp.spread.as_ref().unwrap();
+        assert_eq!((lcp_spread.min, lcp_spread.max), (1500.0, 6000.0));
+        assert_eq!(summary.vitals.tbt.as_ref().unwrap().value, 200.0);
+
+        let spread = summary.spread.expect("repeated runs carry a spread");
         assert_eq!((spread.runs, spread.requested_runs), (3, 3));
-        let lcp = spread.lcp_ms.unwrap();
-        assert_eq!((lcp.min, lcp.median, lcp.max), (1500.0, 3500.0, 6000.0));
-        let tbt = spread.tbt_ms.unwrap();
-        assert_eq!((tbt.min, tbt.median, tbt.max), (50.0, 200.0, 600.0));
+        assert_eq!(spread.stability, MeasurementStability::Unstable);
         let score = spread.score.unwrap();
         assert!(score.min < score.median && score.median < score.max);
+        // The score belongs to the median vitals, not to one of the runs.
+        let expected = calculate_performance_score(&summary.vitals, None).overall;
+        assert_eq!(summary.final_score, Some(expected));
     }
 
     #[test]
-    fn failed_or_incomplete_runs_are_counted_and_never_chosen() {
-        // Three of five requested runs measured; one lacks TBT.
+    fn runs_that_agree_are_stable() {
+        let samples = [
+            sample(2000.0, 100.0, true),
+            sample(2100.0, 100.0, true),
+            sample(2200.0, 100.0, true),
+        ];
+        let spread = summarize_runs(&samples, 3, None).unwrap().spread.unwrap();
+        assert_eq!(spread.stability, MeasurementStability::Stable);
+    }
+
+    #[test]
+    fn a_run_without_a_metric_counts_for_the_others_and_is_counted() {
+        // Three of five requested runs loaded; one lacks TBT.
         let samples = [
             sample(1500.0, 50.0, true),
             sample(2500.0, 0.0, false),
             sample(6000.0, 600.0, true),
         ];
-        let (chosen, spread) = summarize_runs(&samples, 5).unwrap();
-        assert_ne!(chosen, 1, "an incomplete run has no score to be the median");
-        let spread = spread.unwrap();
+        let summary = summarize_runs(&samples, 5, None).unwrap();
+        let spread = summary.spread.unwrap();
         assert_eq!((spread.runs, spread.requested_runs), (3, 5));
-        // The incomplete run still counts for the metrics it did measure.
-        assert_eq!(spread.lcp_ms.unwrap().median, 2500.0);
-        assert_eq!(spread.tbt_ms.unwrap().max, 600.0);
-        assert_eq!(
-            spread.score.unwrap().min as u32,
-            samples[2].final_score.unwrap()
-        );
+        assert_eq!(summary.vitals.lcp.unwrap().value, 2500.0);
+        let tbt = summary.vitals.tbt.unwrap();
+        assert_eq!(tbt.value, 325.0, "median of the two runs that measured it");
+        assert_eq!(tbt.spread.unwrap().max, 600.0);
     }
 
     #[test]
-    fn an_even_number_of_runs_uses_the_lower_median_run() {
-        let samples = [sample(1500.0, 50.0, true), sample(6000.0, 600.0, true)];
-        let (chosen, spread) = summarize_runs(&samples, 2).unwrap();
-        assert_eq!(chosen, 1, "lower median = the worse of two, a real run");
-        assert_eq!(spread.unwrap().lcp_ms.unwrap().median, 3750.0);
+    fn a_single_loaded_run_of_several_is_not_stability_checked() {
+        let summary = summarize_runs(&[sample(2000.0, 100.0, true)], 3, None).unwrap();
+        let spread = summary.spread.unwrap();
+        assert_eq!((spread.runs, spread.requested_runs), (1, 3));
+        assert_eq!(spread.stability, MeasurementStability::SingleRun);
+        assert!(summary.vitals.lcp.unwrap().spread.is_none());
     }
 }

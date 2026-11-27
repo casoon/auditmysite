@@ -1216,6 +1216,8 @@ mod tests {
             animations: None,
             coverage: None,
             measurement_warnings: Vec::new(),
+            runs: 1,
+            stability: Default::default(),
         });
 
         let ctx = crate::audit::normalized::normalize(&report);
@@ -1273,6 +1275,8 @@ mod tests {
             animations: None,
             coverage: None,
             measurement_warnings: Vec::new(),
+            runs: 1,
+            stability: Default::default(),
         });
         report.security = Some(SecurityAnalysis {
             score: 95,

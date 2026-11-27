@@ -206,7 +206,19 @@ LCP, CLS and TBT are read from `PerformanceObserver`s that are installed before 
 - **CLS**: the largest session window (shifts at most 1 s apart, at most 5 s long), shifts with recent input excluded. Shifts after the read are not seen.
 - **TBT**: the blocking part (beyond 50 ms) of every long task, clipped to the window FCP to TTI. Long tasks before FCP or after TTI do not count. TTI is an estimate (last long task before the first 5 s quiet window after FCP, at least `domInteractive`) and does not wait for network quiet. Without FCP or the long-task observer TBT is not measured, never 0.
 
-Not measured: user interaction (INP stays an estimate and is only set when interaction events fire), scrolling, work that starts after the read (late lazy-loading, delayed third-party scripts, client-side navigation), cache-warm repeat visits, and real-device or field behaviour. A page that keeps shifting or blocking after the window reads better here than it is. `--perf-runs N` repeats each throttled profile and reports the median run with min/median/max; it does not widen the window of a single load.
+Not measured: user interaction (INP stays an estimate and is only set when interaction events fire), scrolling, work that starts after the read (late lazy-loading, delayed third-party scripts, client-side navigation), cache-warm repeat visits, and real-device or field behaviour. A page that keeps shifting or blocking after the window reads better here than it is. `--perf-runs N` repeats each throttled profile (see "Repeated runs" below); it does not widen the window of a single load.
+
+### Repeated runs (#1231, #791)
+
+One lab load varies from run to run, so a single-URL audit measures each throttled profile three times by default (`--perf-runs N`, 1 to 9; a sitemap or URL-file batch measures once and refuses N above 1; `--perf-runs 1` restores a single run per profile). The runs are fresh navigations, one after the other. Additive JSON:
+
+- `performance.runs` is the number of page loads the headline vitals are the median of (1 for a single measurement; fewer than requested when a load failed). The headline is the throttled LhMobile measurement when it is complete, else the unthrottled mobile pass, which is always a single run.
+- `performance.vitals.{lcp,fcp,cls,tbt,tti}.value` is the **median** over the runs that measured the metric (the mean of the two middle values for an even count) and rated against the usual limits; `.spread` holds `min`, `median` and `max`. Without repeated runs there is no `spread`. Speed Index follows from the median FCP and LCP; TTFB, load times, DOM size and CLS attribution come from the run with the median score. The performance score is computed from the median vitals.
+- `performance.stability` is `stable` when the LCP of the runs varied by at most 25 % of its median (`(max - min) / median`), `unstable` when it varied by more, and `single_run` for one measurement or an LCP measured in at most one run. An unstable module keeps its score; the flag says that the number is one point of a range.
+- `throttled_performance[].spread` carries the same per profile (`runs`, `requested_runs`, `lcp_ms`, `fcp_ms`, `tbt_ms`, `tti_ms`, `cls`, `score`, `stability`), and `lcp_ms`, `tbt_ms`, `cls` of the entry are the medians.
+- TTI is not an independent measurement: it is derived from the long-task list (end of the last long task before the first 5 s quiet window after FCP, at least `domInteractive`) and stays `estimated_lab`.
+- The DOM node count (`vitals.dom_nodes`, Chrome's `Nodes` metric) counts every node the browser holds for the page — elements plus text and comment nodes — not only elements. The report's guideline values (800, from 1,500 poor) follow Lighthouse's DOM-size audit, which counts elements only, so the node count reads higher than an element count. The SEO page-health finding on DOM size counts HTML elements (`querySelectorAll('*')`) against the same limits.
+- The PDF performance section states the result in one sentence: "median of N runs, the LCP varied between a and b" (with "unstable" when it did) or "single run, not stability-checked".
 
 ## Measurement Profile
 

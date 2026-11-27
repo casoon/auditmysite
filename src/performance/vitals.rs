@@ -48,6 +48,25 @@ pub(crate) static CLS: CollectorSpec =
 pub(crate) static TBT: CollectorSpec =
     vitals_collector("performance.tbt", CollectionMethod::JavaScript, true);
 
+/// Good / poor limits of the rated metrics: a value up to the first is
+/// "good", up to the second "needs-improvement", beyond it "poor".
+pub(crate) const LCP_LIMITS: (f64, f64) = (2500.0, 4000.0);
+pub(crate) const FCP_LIMITS: (f64, f64) = (1800.0, 3000.0);
+pub(crate) const CLS_LIMITS: (f64, f64) = (0.1, 0.25);
+pub(crate) const TBT_LIMITS: (f64, f64) = (200.0, 600.0);
+pub(crate) const TTI_LIMITS: (f64, f64) = (3800.0, 7300.0);
+const SPEED_INDEX_LIMITS: (f64, f64) = (3400.0, 5800.0);
+
+/// Speed Index proxy: 0.35·FCP + 0.65·LCP, marked estimated.
+pub(crate) fn speed_index_metric(fcp_ms: f64, lcp_ms: f64) -> VitalMetric {
+    VitalMetric::new(
+        0.35 * fcp_ms + 0.65 * lcp_ms,
+        SPEED_INDEX_LIMITS.0,
+        SPEED_INDEX_LIMITS.1,
+    )
+    .estimated()
+}
+
 /// Source element attribution for a single CLS layout-shift entry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClsSource {
@@ -154,6 +173,10 @@ pub struct VitalMetric {
     /// Never field data. Defaults to `lab_headless`.
     #[serde(default)]
     pub measurement: MeasurementContext,
+    /// Min / median / max over the repeated runs (`--perf-runs`, #1231); then
+    /// `value` is the median. Absent for a single measurement.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spread: Option<super::runs::MetricSpread>,
 }
 
 impl VitalMetric {
@@ -171,6 +194,7 @@ impl VitalMetric {
             rating: rating.to_string(),
             target: good_threshold,
             measurement: MeasurementContext::LabHeadless,
+            spread: None,
         }
     }
 
@@ -532,7 +556,11 @@ pub async fn extract_web_vitals(page: &Page, log: &CollectionLog) -> Result<WebV
 
     // LCP from the observer (0 = no candidate captured).
     if preinjected.lcp > 0.0 && preinjected.lcp < 300_000.0 {
-        vitals.lcp = Some(VitalMetric::new(preinjected.lcp, 2500.0, 4000.0));
+        vitals.lcp = Some(VitalMetric::new(
+            preinjected.lcp,
+            LCP_LIMITS.0,
+            LCP_LIMITS.1,
+        ));
         debug!("LCP (preinjected): {:.0}ms", preinjected.lcp);
     }
     // CLS: 0.0 is a valid perfect score when the observer ran. Use the
@@ -542,7 +570,7 @@ pub async fn extract_web_vitals(page: &Page, log: &CollectionLog) -> Result<WebV
     let cls_session = session_window_cls(&preinjected.cls_shifts);
     vitals.cls = preinjected
         .cls_available
-        .then(|| VitalMetric::new(cls_session, 0.1, 0.25));
+        .then(|| VitalMetric::new(cls_session, CLS_LIMITS.0, CLS_LIMITS.1));
     debug!(
         "CLS session-window: {:.4} (cumulative was {:.4})",
         cls_session, preinjected.cls
@@ -583,7 +611,7 @@ pub async fn extract_web_vitals(page: &Page, log: &CollectionLog) -> Result<WebV
             "FirstContentfulPaint" => {
                 let ms = value * 1000.0;
                 if ms > 0.0 && ms < 300_000.0 {
-                    vitals.fcp = Some(VitalMetric::new(ms, 1800.0, 3000.0));
+                    vitals.fcp = Some(VitalMetric::new(ms, FCP_LIMITS.0, FCP_LIMITS.1));
                     debug!("FCP (CDP): {:.0}ms", ms);
                 }
             }
@@ -591,7 +619,7 @@ pub async fn extract_web_vitals(page: &Page, log: &CollectionLog) -> Result<WebV
                 // Only use CDP LCP as fallback when pre-injected observer missed it
                 let ms = value * 1000.0;
                 if ms > 0.0 && ms < 300_000.0 {
-                    vitals.lcp = Some(VitalMetric::new(ms, 2500.0, 4000.0));
+                    vitals.lcp = Some(VitalMetric::new(ms, LCP_LIMITS.0, LCP_LIMITS.1));
                     debug!("LCP (CDP fallback): {:.0}ms", ms);
                 }
             }
@@ -639,12 +667,12 @@ pub async fn extract_web_vitals(page: &Page, log: &CollectionLog) -> Result<WebV
     if let Some(fcp) = vitals.fcp.as_ref().map(|m| m.value) {
         let tti_ms = estimate_tti(fcp, &preinjected.long_tasks, dom_interactive_ms);
         if tti_ms > 0.0 && tti_ms < 300_000.0 {
-            vitals.tti = Some(VitalMetric::new(tti_ms, 3800.0, 7300.0).estimated());
+            vitals.tti = Some(VitalMetric::new(tti_ms, TTI_LIMITS.0, TTI_LIMITS.1).estimated());
             debug!("TTI (lab proxy): {:.0}ms", tti_ms);
         }
         if preinjected.tbt_available {
             let tbt = total_blocking_time(fcp, tti_ms, &preinjected.long_tasks);
-            vitals.tbt = Some(VitalMetric::new(tbt, 200.0, 600.0));
+            vitals.tbt = Some(VitalMetric::new(tbt, TBT_LIMITS.0, TBT_LIMITS.1));
             debug!("TBT (FCP→TTI): {:.0}ms", tbt);
         }
     }
@@ -653,9 +681,9 @@ pub async fn extract_web_vitals(page: &Page, log: &CollectionLog) -> Result<WebV
     // Index requires video-frame analysis; this estimate is diagnostic and
     // carries no score weight.
     if let (Some(fcp), Some(lcp)) = (&vitals.fcp, &vitals.lcp) {
-        let si = 0.35 * fcp.value + 0.65 * lcp.value;
-        vitals.speed_index = Some(VitalMetric::new(si, 3400.0, 5800.0).estimated());
-        debug!("Speed Index (heuristic): {:.0}ms", si);
+        let si = speed_index_metric(fcp.value, lcp.value);
+        debug!("Speed Index (heuristic): {:.0}ms", si.value);
+        vitals.speed_index = Some(si);
     }
 
     record_metric_states(log, &vitals, observed, &preinjected);
@@ -746,8 +774,12 @@ async fn extract_js_metrics(page: &Page) -> Collected<JsMetrics> {
         .await
         .map(|raw| {
             let vitals = WebVitals {
-                lcp: raw.lcp.map(|lcp| VitalMetric::new(lcp, 2500.0, 4000.0)),
-                fcp: raw.fcp.map(|fcp| VitalMetric::new(fcp, 1800.0, 3000.0)),
+                lcp: raw
+                    .lcp
+                    .map(|lcp| VitalMetric::new(lcp, LCP_LIMITS.0, LCP_LIMITS.1)),
+                fcp: raw
+                    .fcp
+                    .map(|fcp| VitalMetric::new(fcp, FCP_LIMITS.0, FCP_LIMITS.1)),
                 ttfb: raw.ttfb.map(|ttfb| VitalMetric::new(ttfb, 800.0, 1800.0)),
                 load_time: raw.load_time,
                 dom_content_loaded: raw.dom_content_loaded,

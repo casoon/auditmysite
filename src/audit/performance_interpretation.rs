@@ -302,6 +302,8 @@ mod tests {
             animations: None,
             coverage: None,
             measurement_warnings: Vec::new(),
+            runs: 1,
+            stability: Default::default(),
         };
         assert!(!lab_lcp_cls_good(&p), "missing LCP must not count as good");
         p.vitals.lcp = Some(crate::performance::VitalMetric::new(1000.0, 2500.0, 4000.0));

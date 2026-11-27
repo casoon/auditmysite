@@ -116,6 +116,10 @@ impl AuditModule for PerformanceModule {
             animations,
             coverage,
             measurement_warnings,
+            // One load; the throttled passes of a single URL replace the
+            // headline with their median and set the run count (#1231).
+            runs: 1,
+            stability: Default::default(),
         })))
     }
 }

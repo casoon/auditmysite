@@ -176,7 +176,7 @@ pub(crate) async fn run_dev_command(
 /// refused, and a declared state must be readable (#788).
 fn validate_replay(args: &Args) -> Result<()> {
     args.load_storage_state().map_err(AuditError::ConfigError)?;
-    if args.perf_runs > 1 {
+    if args.perf_runs.is_some_and(|runs| runs > 1) {
         return Err(AuditError::ConfigError(
             "--perf-runs measures a live page; `replay` evaluates a stored snapshot".to_string(),
         ));

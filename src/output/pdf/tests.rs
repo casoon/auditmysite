@@ -352,6 +352,8 @@ mod tests {
                     animations: None,
                     coverage: None,
                     measurement_warnings: vec![],
+                    runs: 1,
+                    stability: Default::default(),
                 });
             report.experience.budget_violations = vec![BudgetViolation {
                 metric: "LCP".to_string(),
@@ -1109,6 +1111,8 @@ mod tests {
                 animations: None,
                 coverage: None,
                 measurement_warnings: vec![],
+                runs: 1,
+                stability: Default::default(),
             }
         }
 
@@ -1376,6 +1380,8 @@ mod tests {
                 animations: None,
                 coverage: None,
                 measurement_warnings: vec![],
+                runs: 1,
+                stability: Default::default(),
             });
         report.throttled_performance = vec![crate::audit::ThrottledPerfResult {
             profile: crate::browser::ThrottleProfile::Slow3G,
@@ -1485,6 +1491,8 @@ mod tests {
                 duplicate_assets: vec![],
             }),
             measurement_warnings: vec![],
+            runs: 1,
+            stability: Default::default(),
         });
         let pdf = generate_pdf(
             &report,

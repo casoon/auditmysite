@@ -9,6 +9,8 @@ pub(crate) mod critical_chain;
 pub(crate) mod minification;
 pub mod module;
 pub(crate) mod render_blocking;
+pub(crate) mod runs;
+pub use runs::{MeasurementStability, MetricSpread, RunSpread};
 mod scoring;
 pub(crate) mod third_party;
 pub(crate) mod vitals;

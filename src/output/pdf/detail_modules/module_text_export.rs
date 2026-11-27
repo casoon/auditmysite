@@ -112,6 +112,9 @@ fn performance(
         coverage: None,
         animations: None,
         measurement_warnings: vec![],
+        run_note: String::new(),
+        tti_note: None,
+        dom_note: None,
     }
 }
 

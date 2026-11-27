@@ -17,6 +17,7 @@ use crate::performance::{
     AnimationAnalysis, ContentWeight, CoverageAnalysis, CriticalChain, MinificationAnalysis,
     PerformanceScore, RenderBlockingAnalysis, ThirdPartyAttribution, WebVitals,
 };
+pub use crate::performance::{MeasurementStability, MetricSpread, RunSpread};
 use crate::security::SecurityAnalysis;
 use crate::seo::SeoAnalysis;
 #[cfg(feature = "experimental")]
@@ -450,33 +451,6 @@ pub struct ThrottledPerfResult {
     pub spread: Option<RunSpread>,
 }
 
-/// Min / median / max of one metric over the repeated runs of a profile.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[non_exhaustive]
-pub struct MetricSpread {
-    pub min: f64,
-    pub median: f64,
-    pub max: f64,
-}
-
-/// What repeated performance runs of one throttle profile measured.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[non_exhaustive]
-pub struct RunSpread {
-    /// Runs that produced a measurement.
-    pub runs: u32,
-    /// Runs asked for (`--perf-runs`); fewer `runs` means some failed.
-    pub requested_runs: u32,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub lcp_ms: Option<MetricSpread>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub tbt_ms: Option<MetricSpread>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cls: Option<MetricSpread>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub score: Option<MetricSpread>,
-}
-
 /// Screenshot bytes captured during the audit (desktop + mobile viewports).
 /// Not serialized — only used for PDF output.
 #[derive(Debug, Clone)]
@@ -814,6 +788,18 @@ pub struct PerformanceResults {
     /// "css_coverage_partial", "js_coverage_unavailable".
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub measurement_warnings: Vec<String>,
+    /// Page loads the headline vitals are the median of (`--perf-runs`, #1231);
+    /// 1 for a single measurement.
+    #[serde(default = "one_run")]
+    pub runs: u32,
+    /// Whether the repeated runs agreed on the LCP (#1231): `stable`,
+    /// `unstable` (LCP spread above 25 % of its median) or `single_run`.
+    #[serde(default)]
+    pub stability: MeasurementStability,
+}
+
+fn one_run() -> u32 {
+    1
 }
 
 impl PerformanceResults {
@@ -831,6 +817,8 @@ impl PerformanceResults {
             animations: None,
             coverage: None,
             measurement_warnings: Vec::new(),
+            runs: 1,
+            stability: MeasurementStability::SingleRun,
         }
     }
 }

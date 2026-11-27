@@ -232,6 +232,8 @@ fn performance(
         }),
         coverage: None,
         measurement_warnings: Vec::new(),
+        runs: 1,
+        stability: Default::default(),
     }
 }
 

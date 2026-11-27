@@ -65,7 +65,7 @@ impl PipelineConfig {
             stability_budget_ms: args.stability_budget_ms,
             verbose: args.verbose,
             modules: args.module_set(),
-            perf_runs: args.perf_runs,
+            perf_runs: args.effective_perf_runs(),
             // Requires performance checking itself active — an isolation
             // pass without a baseline TBT/third-party attribution to diff
             // against is meaningless (see doc comment on the field).
@@ -210,7 +210,7 @@ mod tests {
             experimental: Vec::new(),
             privacy_check: false,
             isolate_third_party_impact: false,
-            perf_runs: 1,
+            perf_runs: None,
             check_ssr_content: false,
             reuse_cache: false,
             prefer_sitemap: false,
