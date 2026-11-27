@@ -63,7 +63,10 @@ pdf-analysis-profile-isolated-weak = { $names } { $several ->
     } unter dem Bereich „gut“ und { $several ->
         [yes] bestimmen
        *[no] bestimmt
-    } den Handlungsbedarf. Kein Bereich ist kritisch (unter { $critical } Punkten), daher kein systemisches Profil.
+    } den Handlungsbedarf. Kein Bereich ist kritisch (unter { $critical } Punkten) und die Abweichung bleibt auf { $several ->
+        [yes] diese Bereiche
+       *[no] diesen Bereich
+    } begrenzt, daher kein systemisches Profil.
 pdf-analysis-profile-concentrated-systemic = { $names } { $several ->
         [yes] bestimmen
        *[no] bestimmt
@@ -72,6 +75,14 @@ pdf-analysis-profile-concentrated-stable = { $names } { $several ->
         [yes] bestimmen
        *[no] bestimmt
     } den Handlungsbedarf bei ansonsten stabilen technischen Bereichen.
+pdf-analysis-profile-concentrated-driver = { $names } { $several ->
+        [yes] bestimmen
+       *[no] bestimmt
+    } den Handlungsbedarf.
+pdf-analysis-profile-also-below = { $names } { $several ->
+        [yes] liegen
+       *[no] liegt
+    } ebenfalls unter dem Bereich „gut“.
 pdf-analysis-profile-broad-unnamed = Mehrere technische Bereiche sind gleichzeitig betroffen und benötigen strukturelle Korrekturen.
 pdf-analysis-profile-broad-named = Mehrere technische Bereiche sind gleichzeitig betroffen. Besonders { $names } benötigen strukturelle Korrekturen.
 pdf-analysis-profile-few = { $found } — zu wenige, um ein wiederkehrendes Muster abzuleiten.

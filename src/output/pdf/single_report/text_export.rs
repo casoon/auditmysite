@@ -324,6 +324,7 @@ fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
     let good = vec![
         ManagementRiskKind::Project {
             count: 0,
+            severe_wide: 0,
             pages: None,
         },
         ManagementRiskKind::PerformanceMobile {

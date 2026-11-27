@@ -219,6 +219,18 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
                 .map(|sr| sr.issues.len() as u32)
                 .unwrap_or(0),
         manual_checks: not_testable_count,
+        criteria_checked: crate::audit::AccessibilityScorer::criterion_states(normalized.raw_wcag)
+            .iter()
+            .filter(|(id, state)| {
+                crate::wcag::coverage::is_automated_aa_criterion(id)
+                    && matches!(
+                        state,
+                        crate::audit::CriterionState::Passed
+                            | crate::audit::CriterionState::Violation
+                            | crate::audit::CriterionState::Review
+                    )
+            })
+            .count() as u32,
     };
 
     // The key-measures list names the top findings and, through the module

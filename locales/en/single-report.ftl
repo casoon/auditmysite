@@ -18,11 +18,24 @@ single-report-management-intro = Overall status, key risks, prioritized actions,
 single-report-management-eyebrow = MANAGEMENT SUMMARY
 single-report-wcag-occurrences = WCAG occurrences
 single-report-occurrences-definition = Occurrences = individual affected elements, not the number of distinct rules — the full breakdown is in the JSON report.
-single-report-evidence-note = Counted here are confirmed WCAG violations only. In addition: { $warnings_text } and { $manual_text } on this page to confirm by hand — documented, but not scored. A further { $manual_only } WCAG criteria can only be checked manually (appendix).
+single-report-status-title = Check status
+single-report-status-score = Automated finding score
+single-report-status-score-value = { $score }/100 — derived from confirmed violations only
+single-report-status-violations = Confirmed violations
+single-report-status-violations-value = { $count ->
+        [one] 1 occurrence
+       *[other] { $count } occurrences
+    } — the only count that enters the score
+single-report-status-warnings = Heuristic warnings
+single-report-status-warnings-value = { $count } — probable barriers, not scored
+single-report-status-manual = To confirm manually
+single-report-status-manual-value = { $count } on this page, not scored; a further { $manual_only } WCAG criteria can only be checked manually (appendix)
+single-report-status-criteria = Criteria with automated approaches
+single-report-status-criteria-value = { $checked } of { $total } WCAG 2.2 A/AA criteria checked in this run — often only parts of a criterion
+single-report-status-conformance = Full WCAG conformance is not demonstrated: an automated run cannot establish it, whatever the score.
 single-report-overall-verdict = Overall Verdict
 single-report-audit-quality = Audit Quality
 single-report-coverage = Coverage
-single-report-clean-scope = This result applies to the automated audit scope only ({ $automated } of ~{ $total } testable WCAG 2.2 AA criteria); criteria requiring manual review are listed in the appendix.
 single-report-quality-profile = Quality profile
 
 ## Indicator module dashboards

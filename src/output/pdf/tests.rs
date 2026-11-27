@@ -1675,6 +1675,53 @@ mod tests {
         }
     }
 
+    /// #1229: the first summary page separates the automated score from the
+    /// check status and says that full conformance is not demonstrated, in both
+    /// languages, before the verdict and the contents, and the English texts
+    /// carry no German characters.
+    #[test]
+    fn first_summary_page_shows_the_check_status() {
+        for locale in ["de", "en"] {
+            let i18n = I18n::new(locale).unwrap();
+            let config = ReportConfig {
+                level: ReportLevel::Standard,
+                locale: locale.to_string(),
+                ..ReportConfig::default()
+            };
+            let typ = generate_typ(&pdf_fixture_report(), &config).expect("Typst source");
+            let at = |needle: &str| {
+                typ.find(needle)
+                    .unwrap_or_else(|| panic!("{locale}: {needle} missing"))
+            };
+            let status = at(&i18n.t("single-report-status-title"));
+            let conformance = at(&i18n.t("single-report-status-conformance"));
+            let verdict = at(&format!(
+                "title: \"{}\"",
+                i18n.t("single-report-overall-verdict")
+            ));
+            let toc = at("#table-of-contents((");
+            assert!(status < conformance && conformance < verdict && verdict < toc);
+            for key in [
+                "single-report-status-score",
+                "single-report-status-violations",
+                "single-report-status-warnings",
+                "single-report-status-manual",
+                "single-report-status-criteria",
+            ] {
+                at(&i18n.t(key));
+            }
+            if locale == "en" {
+                let block = &typ[status..conformance];
+                assert!(
+                    !block.chars().any(|c| "äöüÄÖÜß".contains(c)),
+                    "German characters in the English status block"
+                );
+                assert!(typ.contains("not demonstrated"));
+                assert!(typ.contains("often only parts of a criterion"));
+            }
+        }
+    }
+
     fn pdf_fixture_report() -> AuditReport {
         pdf_fixture_report_for_url("https://example.com")
     }

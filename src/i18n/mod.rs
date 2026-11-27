@@ -822,16 +822,8 @@ mod tests {
             &[("recommendations", t("1 recommendation"))],
         );
         assert!(modules.contains("(performance, SEO, security, mobile): 1 recommendation —"));
-        let note = en.t_args(
-            "single-report-evidence-note",
-            &[
-                ("warnings_text", t("1 heuristic accessibility warning")),
-                ("manual_text", t("1 point")),
-                ("manual_only", n(12)),
-            ],
-        );
-        assert!(note
-            .contains("In addition: 1 heuristic accessibility warning and 1 point on this page"));
+        let status = en.t_args("single-report-status-violations-value", &[("count", n(1))]);
+        assert!(status.starts_with("1 occurrence —"), "{status}");
 
         // The roll-up title names the real clause count (WCAG 2.2: 55 A/AA clauses).
         let title =

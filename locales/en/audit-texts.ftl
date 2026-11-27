@@ -99,9 +99,17 @@ audit-risk-project-recurring =
     { $count ->
         [one] 1 rule recurs
        *[other] { $count } rules recur
-    } on two or more of the { $pages } audited pages — likely component or template issues needing coordinated remediation.
+    } on two or more of the { $pages } audited pages — likely component or template issues that can be fixed together. { $severe ->
+        [0] No rule combines high severity with reach to at least half of the pages, so recurrence alone does not make this a high risk.
+        [one] 1 of them is of high severity and reaches at least half of the pages, which makes it a high risk.
+       *[other] { $severe } of them are of high severity and reach at least half of the pages, which makes it a high risk.
+    }
 audit-risk-project-single =
     { $count ->
-        [one] 1 finding affects 10 or more elements on this page or needs a structural fix. A single page cannot show whether a template or component is the cause — audit further pages to confirm.
-       *[other] { $count } findings affect 10 or more elements on this page or need a structural fix. A single page cannot show whether a template or component is the cause — audit further pages to confirm.
-    }
+        [one] 1 finding affects 10 or more elements on this page or needs a structural fix.
+       *[other] { $count } findings affect 10 or more elements on this page or need a structural fix.
+    } { $severe ->
+        [0] No finding is of high severity.
+        [one] 1 of them is of high severity, which makes it a high risk.
+       *[other] { $severe } of them are of high severity, which makes it a high risk.
+    } A single page cannot show whether a template or component is the cause — audit further pages to confirm.

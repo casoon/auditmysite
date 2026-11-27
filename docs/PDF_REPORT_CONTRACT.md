@@ -58,6 +58,70 @@ Minimum content:
 - selectors, affected elements, code examples and grouped finding patterns,
 - per-URL detail tables for batch reports when available.
 
+## Single Report: First Summary Page
+
+The first summary page (behind the cover, before the table of contents) holds, in
+this order: the scope line, the severity counters, the check status, the first
+step, the overall verdict, the rating and the problem profile. It is one page;
+the contents follow on the next one (#1210), and no addition may push it past
+that page.
+
+### Check status (#1229)
+
+A score of 100 next to 103 points to confirm is correct by the method but must
+not read as "nothing left to do". A compact block (`single-report-status-*`)
+therefore separates the automated score from what it does not cover, from data
+already in the report:
+
+- the automated finding score (`summary.score`), stated as derived from
+  confirmed violations only,
+- the confirmed violations, the one count that enters the score,
+- the heuristic warnings (not scored),
+- the points to confirm by hand on this page (not scored), plus the criteria
+  that can only be checked manually (appendix),
+- the criteria with automated approaches: how many of the WCAG 2.2 A/AA
+  criteria this run actually evaluated (`AccessibilityScorer::criterion_states`
+  with the state passed, violation or review; `evidence.criteria_checked`), with
+  the statement that this often covers only parts of a criterion,
+- the line that full WCAG conformance is not demonstrated by an automated run.
+
+The block is always shown, clean runs included; it replaces the former evidence
+note and clean-run scope line.
+
+### Problem profile (#1228)
+
+The profile ("isolated", "concentrated & systemic", "broad & systemic") describes
+how the shortfall is distributed across the weighted modules. It derives from
+severity, reach and detection confidence, never from one threshold
+(`output::pdf::problem_profile::classify_problem_profile`):
+
+- reach: weighted modules below 75 (the "good" band),
+- severity: weighted modules below 60 and below 40 ("critical"),
+- confidence: a heuristic module counts toward reach but not toward the
+  escalation to "broad"; a module that was not measured counts nowhere.
+
+First match wins:
+
+1. broad & systemic: three or more modules below 60 (measured or composite)
+   and either three or more below 40 or four or more below 75.
+2. concentrated & systemic: three or more modules below 75; or one below 60
+   together with another below 75; or one below 40 next to systemic (recurring)
+   WCAG findings.
+3. isolated: everything else.
+
+A profile is therefore never "isolated" with three or more modules below 75, or
+with one below 60 next to another below 75. The text names the modules that
+drive the profile (the critical ones, else those below 60, else those below 75)
+and, separately, the other modules below the good band; it never describes them
+as stable.
+
+The batch "Project risk" follows the same idea: recurrence on several pages is
+reach, not severity. The level is `high` only when a rule of High or Critical
+severity recurs on at least half of the audited pages (a single report: a
+finding of High or Critical severity with 10 or more elements or a structural
+fix); other recurring rules are `medium`. The rationale says which of the two
+applies.
+
 ## Batch Reports
 
 Minimum content:

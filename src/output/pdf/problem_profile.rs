@@ -28,10 +28,17 @@ const PROBLEM_CONCENTRATION_TOP_N: usize = 4;
 /// instead, and `build_overall_leverage_note` is suppressed entirely.
 const PROBLEM_CONCENTRATION_MIN_OCCURRENCES: usize = 3;
 
-/// A module below this score is "Kritisch" (the FIVE_BAND cutoff) and counts
-/// toward the breadth of the problem profile. Named in the profile text so the
-/// label next to a low accessibility verdict explains itself (#1208).
+/// A module below this score is "Kritisch" (the FIVE_BAND cutoff). Named in the
+/// profile text so the label next to a low accessibility verdict explains
+/// itself (#1208).
 const CRITICAL_MODULE_BELOW: u32 = 40;
+
+/// A module below this score is no longer in the "Verbesserungswuerdig" band
+/// but "Ausbaufaehig" or worse (FIVE_BAND): the severity cutoff of the profile.
+const LOW_MODULE_BELOW: u32 = 60;
+
+/// A module below this score is outside the "Good" band: the reach cutoff.
+const GOOD_BAND_FROM: u32 = 75;
 
 /// The raw numbers behind the "problem concentration" diagnosis:
 /// how many
@@ -106,42 +113,54 @@ impl ProblemProfileKind {
     }
 }
 
-/// Modules that contribute to the weighted site-quality score and fall below the "Good" band (< 75).
-/// Sorted by drag impact descending ((100 - score) * weight). Supplementary context only (e.g.
-/// deciding success-vs-info styling for an otherwise "isolated" profile) — NOT the breadth count
-/// for the Problem-Profile tier itself, see `critical_contributing_modules`.
+/// Modules that contribute to the weighted site-quality score, carry a
+/// measurement (a `not_measured` entry is no evidence either way) and score
+/// below `limit`. Sorted by drag impact descending ((100 - score) * weight).
+fn modules_below(
+    vm: &ReportViewModel,
+    limit: u32,
+) -> Vec<&crate::audit::normalized::ModuleScoreEntry> {
+    let mut below: Vec<&crate::audit::normalized::ModuleScoreEntry> = vm
+        .modules
+        .module_scores
+        .iter()
+        .filter(|m| {
+            m.contributes_to_site_quality_score
+                && m.measurement_type != "not_measured"
+                && m.score < limit
+        })
+        .collect();
+    below.sort_by_key(|m| std::cmp::Reverse((100 - m.score) * m.weight_pct));
+    below
+}
+
+/// Reach: modules below the "Good" band (< 75).
 fn weak_contributing_modules(
     vm: &ReportViewModel,
 ) -> Vec<&crate::audit::normalized::ModuleScoreEntry> {
-    let mut weak: Vec<&crate::audit::normalized::ModuleScoreEntry> = vm
-        .modules
-        .module_scores
-        .iter()
-        .filter(|m| m.contributes_to_site_quality_score && m.score < 75)
-        .collect();
-    weak.sort_by_key(|m| std::cmp::Reverse((100 - m.score) * m.weight_pct));
-    weak
+    modules_below(vm, GOOD_BAND_FROM)
 }
 
-/// Modules that contribute to the weighted site-quality score and are "Kritisch" (< 40 — same
-/// FIVE_BAND cutoff used elsewhere in the report, e.g. `score_band_label`). This, not the
-/// broader < 75 "Good" band, decides how many modules "determine the need for action" for the
-/// Problem-Profile breadth tiering (feedback 2026-09-07: the < 75 threshold pulled in merely
-/// "Verbesserungswürdig" modules — e.g. Performance 64 / SEO 65 on a corporate site — alongside
-/// the two genuinely critical ones (Accessibility 20 / Security 30), producing "breit &
-/// systemisch" where the real driver was two critical modules, not four weak ones).
-/// Sorted by drag impact descending, same as `weak_contributing_modules`.
+/// Severity: modules "Kritisch" (< 40).
 fn critical_contributing_modules(
     vm: &ReportViewModel,
 ) -> Vec<&crate::audit::normalized::ModuleScoreEntry> {
-    let mut critical: Vec<&crate::audit::normalized::ModuleScoreEntry> = vm
-        .modules
-        .module_scores
-        .iter()
-        .filter(|m| m.contributes_to_site_quality_score && m.score < CRITICAL_MODULE_BELOW)
-        .collect();
-    critical.sort_by_key(|m| std::cmp::Reverse((100 - m.score) * m.weight_pct));
-    critical
+    modules_below(vm, CRITICAL_MODULE_BELOW)
+}
+
+/// The modules that "determine the need for action": the critical ones, else
+/// those below 60, else those below the good band. The tier says how far the
+/// damage reaches; this names where it is deepest.
+fn driving_modules(vm: &ReportViewModel) -> Vec<&crate::audit::normalized::ModuleScoreEntry> {
+    let critical = critical_contributing_modules(vm);
+    if !critical.is_empty() {
+        return critical;
+    }
+    let low = modules_below(vm, LOW_MODULE_BELOW);
+    if !low.is_empty() {
+        return low;
+    }
+    weak_contributing_modules(vm)
 }
 
 /// Whether the cover verdict (`verdict-tier-*`, the accessibility level) and
@@ -165,21 +184,48 @@ pub(super) fn verdict_profile_contradiction(
         .then_some("the profile calls the state very good next to a verdict naming barriers")
 }
 
-/// Pure classification function combining breadth (< 40 "Kritisch" module count) and systemics.
+/// Pure classification of the problem profile from severity, reach and
+/// detection confidence (#1228) — never from one threshold.
+///
+/// * Reach: `weak`, the weighted modules below 75 (the good band).
+/// * Severity: `low`, the weighted modules below 60, and `critical`, those
+///   below 40.
+/// * Confidence: a heuristic module counts toward reach, but not toward the
+///   escalation to "broad" (it is no measured damage); a `not_measured` entry
+///   counts nowhere.
+///
+/// Rules, first match wins:
+/// 1. **broad & systemic** - three or more *confident* modules below 60, and
+///    either three or more modules below 40 or four or more modules below 75.
+/// 2. **concentrated & systemic** - three or more modules below 75; or one
+///    module below 60 together with another below 75; or one module below 40
+///    next to systemic (recurring) WCAG findings.
+/// 3. **isolated** - everything else, so at most two modules below 75 and, if
+///    there are two, neither below 60 (or a single weak module).
+///
+/// "Isolated" is therefore never reached with three modules below 75, or with
+/// one below 60 next to another below 75.
 pub(super) fn classify_problem_profile(vm: &ReportViewModel) -> ProblemProfileKind {
+    let weak = weak_contributing_modules(vm);
+    let low = modules_below(vm, LOW_MODULE_BELOW);
     let critical = critical_contributing_modules(vm);
-    let critical_count = critical.len();
-    let concentration = compute_problem_concentration(vm);
-    let has_systemic_wcag = match &concentration {
+    let confident_low = low
+        .iter()
+        .filter(|m| m.measurement_type != "heuristic")
+        .count();
+    let has_systemic_wcag = match compute_problem_concentration(vm) {
         Some(c) => {
             c.total_occurrences > PROBLEM_CONCENTRATION_MIN_OCCURRENCES && c.concentration_pct >= 50
         }
         None => false,
     };
 
-    if critical_count >= 3 {
+    if confident_low >= 3 && (critical.len() >= 3 || weak.len() >= 4) {
         ProblemProfileKind::BreitSystemisch
-    } else if critical_count == 2 || (critical_count == 1 && has_systemic_wcag) {
+    } else if weak.len() >= 3
+        || (!low.is_empty() && weak.len() >= 2)
+        || (critical.len() == 1 && has_systemic_wcag)
+    {
         ProblemProfileKind::KonzentriertSystemisch
     } else {
         ProblemProfileKind::Punktuell
@@ -239,11 +285,8 @@ fn build_problem_profile_description(
     kind: ProblemProfileKind,
     i18n: &I18n,
 ) -> String {
-    // Only "Kritisch" (< 40) modules are named as "determining the need for
-    // action" — same set `classify_problem_profile` tiers on, so the badge
-    // text and the tier it's attached to can't silently diverge (feedback
-    // 2026-09-07: naming from the broader < 75 band pulled in merely
-    // "Verbesserungswürdig" modules that didn't actually drive the tier).
+    // The named modules come from the same sets `classify_problem_profile`
+    // tiers on, so the badge text and its tier cannot diverge.
     let critical_modules = critical_contributing_modules(vm);
     let concentration = compute_problem_concentration(vm);
     let has_systemic_wcag = match &concentration {
@@ -288,30 +331,66 @@ fn build_problem_profile_description(
             }
         }
         ProblemProfileKind::KonzentriertSystemisch => {
-            let names = format_module_names(&critical_modules, i18n);
-            let several = if critical_modules.len() > 1 {
-                "yes"
+            let drivers = driving_modules(vm);
+            let names = format_module_names(&drivers, i18n);
+            let several = if drivers.len() > 1 { "yes" } else { "no" };
+            let others = other_weak_modules(vm, &drivers);
+            let args = [("names", names), ("several", several.to_string())];
+            let mut text = if has_systemic_wcag {
+                i18n.t_args("pdf-analysis-profile-concentrated-systemic", &args)
+            } else if others.is_empty() {
+                i18n.t_args("pdf-analysis-profile-concentrated-stable", &args)
             } else {
-                "no"
+                i18n.t_args("pdf-analysis-profile-concentrated-driver", &args)
             };
-            i18n.t_args(
-                if has_systemic_wcag {
-                    "pdf-analysis-profile-concentrated-systemic"
-                } else {
-                    "pdf-analysis-profile-concentrated-stable"
-                },
-                &[("names", names), ("several", several.to_string())],
-            )
+            push_also_below(&mut text, &others, i18n);
+            text
         }
         ProblemProfileKind::BreitSystemisch => {
-            let names = format_module_names(&critical_modules, i18n);
-            if names.is_empty() {
+            let drivers = driving_modules(vm);
+            let names = format_module_names(&drivers, i18n);
+            let mut text = if names.is_empty() {
                 i18n.t("pdf-analysis-profile-broad-unnamed")
             } else {
                 i18n.t_args("pdf-analysis-profile-broad-named", &[("names", names)])
-            }
+            };
+            push_also_below(&mut text, &other_weak_modules(vm, &drivers), i18n);
+            text
         }
     }
+}
+
+/// The modules below the good band that are not among the named drivers: they
+/// are part of the reach and must not be described as "stable".
+fn other_weak_modules<'a>(
+    vm: &'a ReportViewModel,
+    drivers: &[&crate::audit::normalized::ModuleScoreEntry],
+) -> Vec<&'a crate::audit::normalized::ModuleScoreEntry> {
+    weak_contributing_modules(vm)
+        .into_iter()
+        .filter(|m| !drivers.iter().any(|d| d.name == m.name))
+        .collect()
+}
+
+fn push_also_below(
+    text: &mut String,
+    others: &[&crate::audit::normalized::ModuleScoreEntry],
+    i18n: &I18n,
+) {
+    if others.is_empty() {
+        return;
+    }
+    text.push(' ');
+    text.push_str(&i18n.t_args(
+        "pdf-analysis-profile-also-below",
+        &[
+            ("names", format_module_names(others, i18n)),
+            (
+                "several",
+                if others.len() > 1 { "yes" } else { "no" }.to_string(),
+            ),
+        ],
+    ));
 }
 
 pub(super) fn render_problem_profile(
@@ -423,6 +502,7 @@ mod tests {
         )];
         vm.management_risks = vec![crate::audit::management_risk::ManagementRiskKind::Project {
             count: 0,
+            severe_wide: 0,
             pages: None,
         }];
         let kind = ProblemProfileKind::Punktuell;
@@ -431,6 +511,7 @@ mod tests {
 
         vm.management_risks = vec![crate::audit::management_risk::ManagementRiskKind::Project {
             count: 1,
+            severe_wide: 0,
             pages: None,
         }];
         let de = build_problem_profile_description(&vm, kind, &i18n_de);
@@ -557,8 +638,9 @@ mod tests {
         assert!(desc_en.contains("Accessibility, Performance, and Security"));
     }
 
-    /// #1131: modules at 49 and 40 are below the "good" band, so the profile
-    /// never calls the technical condition "very good" and names them.
+    /// #1131/#1228: modules at 49 and 40 are below the "good" band, so the
+    /// profile never calls the technical condition "very good", is not
+    /// "isolated" (one module below 60 next to another below 75) and names them.
     #[test]
     fn a_module_below_the_good_band_is_never_very_good() {
         let mut vm = test_report_view_model();
@@ -568,14 +650,15 @@ mod tests {
             crate::audit::normalized::ModuleScoreEntry::new("Performance", 90, "measured", true),
         ];
         let kind = classify_problem_profile(&vm);
+        assert_eq!(kind, ProblemProfileKind::KonzentriertSystemisch);
         for (locale, expected) in [
             (
                 "de",
-                "Barrierefreiheit und Sicherheit liegen unter dem Bereich „gut“",
+                "Barrierefreiheit und Sicherheit bestimmen den Handlungsbedarf",
             ),
             (
                 "en",
-                "Accessibility and Security fall below the \"good\" band",
+                "Accessibility and Security determine the need for action",
             ),
         ] {
             let i18n = I18n::new(locale).unwrap();
@@ -685,8 +768,8 @@ mod tests {
     fn profile_title_names_its_axis_and_the_critical_threshold() {
         let mut vm = test_report_view_model();
         vm.modules.module_scores = vec![
-            crate::audit::normalized::ModuleScoreEntry::new("Accessibility", 49, "measured", true),
-            crate::audit::normalized::ModuleScoreEntry::new("Security", 40, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("Accessibility", 70, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("Security", 72, "measured", true),
         ];
         for (locale, title, threshold) in [
             ("de", "Verteilung über die Module", "unter 40 Punkten"),
@@ -701,5 +784,138 @@ mod tests {
             let text = build_problem_profile_description(&vm, kind, &i18n);
             assert!(text.contains(threshold), "{locale}: {text}");
         }
+    }
+
+    fn profile_of(scores: &[(&str, u32)]) -> ProblemProfileKind {
+        let mut vm = test_report_view_model();
+        vm.modules.module_scores = scores
+            .iter()
+            .map(|(name, score)| {
+                crate::audit::normalized::ModuleScoreEntry::new(name, *score, "measured", true)
+            })
+            .collect();
+        classify_problem_profile(&vm)
+    }
+
+    /// #1228: INROS (security 40, accessibility 49, HTML 61, SEO 67) is no
+    /// "isolated" profile. All four modules are named: the two deepest as the
+    /// drivers, the other two as also below the good band, none as "stable".
+    #[test]
+    fn inros_scenario_is_concentrated_and_names_the_whole_reach() {
+        let mut vm = test_report_view_model();
+        vm.modules.module_scores = vec![
+            crate::audit::normalized::ModuleScoreEntry::new("Security", 40, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("Accessibility", 49, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new(
+                "HTML Conformance",
+                61,
+                "measured",
+                true,
+            ),
+            crate::audit::normalized::ModuleScoreEntry::new("SEO", 67, "measured", true),
+        ];
+        let kind = classify_problem_profile(&vm);
+        assert_eq!(kind, ProblemProfileKind::KonzentriertSystemisch);
+        let en = build_problem_profile_description(&vm, kind, &I18n::new("en").unwrap());
+        assert!(
+            en.contains("Accessibility and Security determine the need for action"),
+            "{en}"
+        );
+        assert!(en.contains("below the \"good\" band as well"), "{en}");
+        assert!(en.contains("SEO and HTML conformance fall"), "{en}");
+        assert!(!en.contains("remain stable"), "{en}");
+        assert!(!en.chars().any(|c| "äöüß".contains(c)), "{en}");
+        let de = build_problem_profile_description(&vm, kind, &I18n::new("de").unwrap());
+        assert!(de.contains("ebenfalls unter dem Bereich „gut“"), "{de}");
+    }
+
+    /// #1228: the documented rule, exactly at its edges.
+    #[test]
+    fn the_profile_follows_reach_and_severity() {
+        use ProblemProfileKind::*;
+        // Reach alone: three modules below 75, none of them low.
+        assert_eq!(
+            profile_of(&[
+                ("Accessibility", 70),
+                ("SEO", 72),
+                ("Security", 74),
+                ("Mobile", 90)
+            ]),
+            KonzentriertSystemisch
+        );
+        // Two modules below 75, neither below 60: isolated.
+        assert_eq!(
+            profile_of(&[("Accessibility", 60), ("SEO", 74), ("Security", 90)]),
+            Punktuell
+        );
+        // One below 60 together with another below 75: not isolated.
+        assert_eq!(
+            profile_of(&[("Accessibility", 59), ("SEO", 74), ("Security", 90)]),
+            KonzentriertSystemisch
+        );
+        // One module below 60 alone: isolated.
+        assert_eq!(
+            profile_of(&[("Accessibility", 20), ("SEO", 90), ("Security", 90)]),
+            Punktuell
+        );
+        // Four below 75 but only two below 60: concentrated, not broad.
+        assert_eq!(
+            profile_of(&[("A", 50), ("B", 55), ("C", 65), ("D", 70), ("E", 90)]),
+            KonzentriertSystemisch
+        );
+        // Three below 60 and four below 75: broad.
+        assert_eq!(
+            profile_of(&[("A", 50), ("B", 55), ("C", 58), ("D", 70), ("E", 90)]),
+            BreitSystemisch
+        );
+        // Three below 40: broad.
+        assert_eq!(
+            profile_of(&[("A", 10), ("B", 20), ("C", 30), ("D", 90), ("E", 90)]),
+            BreitSystemisch
+        );
+    }
+
+    /// #1228: over a grid of scores the profile is never "isolated" with
+    /// three weighted modules below 75, or one below 60 next to another
+    /// below 75.
+    #[test]
+    fn the_profile_is_never_isolated_for_a_wide_or_deep_shortfall() {
+        let grid = [10u32, 39, 40, 59, 60, 74, 75, 90];
+        for a in grid {
+            for b in grid {
+                for c in grid {
+                    let scores = [a, b, c];
+                    let weak = scores.iter().filter(|s| **s < 75).count();
+                    let low = scores.iter().any(|s| *s < 60);
+                    let kind = profile_of(&[("Accessibility", a), ("SEO", b), ("Security", c)]);
+                    if weak >= 3 || (low && weak >= 2) {
+                        assert_ne!(kind, ProblemProfileKind::Punktuell, "{scores:?}");
+                    }
+                }
+            }
+        }
+    }
+
+    /// #1228: a heuristic module counts toward the reach but cannot lift the
+    /// profile to "broad"; an entry that was not measured counts nowhere.
+    #[test]
+    fn detection_confidence_gates_the_escalation_to_broad() {
+        let mut vm = test_report_view_model();
+        vm.modules.module_scores = vec![
+            crate::audit::normalized::ModuleScoreEntry::new("A", 50, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("B", 55, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("C", 58, "heuristic", true),
+            crate::audit::normalized::ModuleScoreEntry::new("D", 70, "measured", true),
+        ];
+        assert_eq!(
+            classify_problem_profile(&vm),
+            ProblemProfileKind::KonzentriertSystemisch
+        );
+        vm.modules.module_scores = vec![
+            crate::audit::normalized::ModuleScoreEntry::new("A", 90, "measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("B", 0, "not_measured", true),
+            crate::audit::normalized::ModuleScoreEntry::new("C", 0, "not_measured", true),
+        ];
+        assert_eq!(classify_problem_profile(&vm), ProblemProfileKind::Punktuell);
     }
 }

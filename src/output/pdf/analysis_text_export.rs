@@ -430,6 +430,7 @@ fn export_problem_profile(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
             for structural in [0, 1, 2] {
                 vm.management_risks = vec![ManagementRiskKind::Project {
                     count: structural,
+                    severe_wide: 0,
                     pages: None,
                 }];
                 push(
@@ -532,6 +533,7 @@ fn export_analysis(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
             confirmed_violations: 0,
             warnings,
             manual_checks,
+            criteria_checked: 0,
         };
         push(
             records,

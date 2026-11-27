@@ -6,8 +6,8 @@
 use crate::output::localized::is_english;
 use fluent_bundle::FluentValue;
 use renderreport::components::advanced::{
-    ChecklistPanel, ChecklistRow, DevicePreview, DiagnosisPanel, DiagnosisRow, Divider, List,
-    MetricStrip, MetricStripItem, PageBreak, SectionHeaderSplit,
+    ChecklistPanel, ChecklistRow, DevicePreview, DiagnosisPanel, DiagnosisRow, Divider,
+    KeyValueList, List, MetricStrip, MetricStripItem, PageBreak, SectionHeaderSplit,
 };
 use renderreport::components::charts::{Chart, ChartType};
 use renderreport::components::text::Label;
@@ -869,6 +869,75 @@ pub(super) fn audit_scope_line(en: bool) -> String {
     crate::i18n::text("single-report-scope-line", en)
 }
 
+/// Check status (#1229): the automated finding score and what it does not say,
+/// in one compact block on the first summary page. The score counts confirmed
+/// violations only; heuristic warnings and points to confirm by hand are
+/// documented but not scored, and the criteria with automated approaches are
+/// often covered only in parts. So a score of 100 next to 103 points to
+/// confirm is read as what it is, and the closing line states that no
+/// automated run demonstrates full WCAG conformance. Every number is already
+/// in the report (`vm.summary.score`, the evidence classes, the criterion
+/// states); nothing is derived here.
+fn render_check_status(
+    builder: renderreport::engine::ReportBuilder,
+    vm: &ReportViewModel,
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    let evidence = &vm.findings.evidence;
+    let manual_only = crate::wcag::coverage::manual_review_criteria().len();
+    let (_, total) = crate::wcag::coverage::coverage_stats();
+    let count = |value: u32| i64::from(value);
+    let list = KeyValueList::new()
+        .with_title(i18n.t("single-report-status-title"))
+        .add(
+            i18n.t("single-report-status-score"),
+            i18n.t_args(
+                "single-report-status-score-value",
+                &[("score", count(vm.summary.score))],
+            ),
+        )
+        .add(
+            i18n.t("single-report-status-violations"),
+            i18n.t_args(
+                "single-report-status-violations-value",
+                &[("count", count(evidence.confirmed_violations))],
+            ),
+        )
+        .add(
+            i18n.t("single-report-status-warnings"),
+            i18n.t_args(
+                "single-report-status-warnings-value",
+                &[("count", count(evidence.warnings))],
+            ),
+        )
+        .add(
+            i18n.t("single-report-status-manual"),
+            i18n.t_args(
+                "single-report-status-manual-value",
+                &[
+                    ("count", count(evidence.manual_checks)),
+                    ("manual_only", manual_only as i64),
+                ],
+            ),
+        )
+        .add(
+            i18n.t("single-report-status-criteria"),
+            i18n.t_args(
+                "single-report-status-criteria-value",
+                &[
+                    ("checked", count(evidence.criteria_checked)),
+                    ("total", total as i64),
+                ],
+            ),
+        );
+    builder.add_component(list).add_component(
+        Label::new(i18n.t("single-report-status-conformance"))
+            .with_size("9pt")
+            .bold()
+            .with_color(design::tokens::NEUTRAL),
+    )
+}
+
 /// One sentence of result and first step (#1211): how many confirmed WCAG
 /// occurrences the page has and how many of them are critical or high, then
 /// the first key measure by name. Only measured counts and the title of the
@@ -954,43 +1023,7 @@ pub(super) fn render_management_first_page(
             .with_color(design::tokens::MUTED),
     );
 
-    // The strip counts confirmed WCAG occurrences only. Without this line a
-    // reader took "0" for "nothing found" while the journey, screen-reader and
-    // manual-check sections listed findings further in.
-    let evidence = &vm.findings.evidence;
-    // Page-level manual checks are not the criteria that are manual-only by
-    // nature: "5 manuell zu prüfende Kriterien" stood next to an appendix
-    // listing 21.
-    let manual_only = crate::wcag::coverage::manual_review_criteria().len();
-    if evidence.warnings > 0 || evidence.manual_checks > 0 {
-        builder = builder.add_component(
-            Label::new(i18n.t_args(
-                "single-report-evidence-note",
-                &[
-                    ("warnings", FluentValue::from(i64::from(evidence.warnings))),
-                    (
-                        "manual",
-                        FluentValue::from(i64::from(evidence.manual_checks)),
-                    ),
-                    ("manual_only", FluentValue::from(manual_only as i64)),
-                    (
-                        "warnings_text",
-                        FluentValue::from(
-                            i18n.count("count-heuristic-warnings", evidence.warnings as usize),
-                        ),
-                    ),
-                    (
-                        "manual_text",
-                        FluentValue::from(
-                            i18n.count("count-manual-points", evidence.manual_checks as usize),
-                        ),
-                    ),
-                ],
-            ))
-            .with_size("8.5pt")
-            .with_color(design::tokens::MUTED),
-        );
-    }
+    builder = render_check_status(builder, vm, i18n);
 
     builder = render_first_step(builder, vm, i18n);
 
@@ -1022,22 +1055,6 @@ pub(super) fn render_management_first_page(
         };
         builder = builder.add_component(callout);
     }
-    // For a clean automated run (no findings), state the automated-scope
-    // caveat directly alongside the headline verdict — not only in the
-    // appendix — so "0 findings" doesn't read as a full WCAG conformance
-    // claim (#572).
-    if !vm.severity.has_issues {
-        let (automated, total) = crate::wcag::coverage::coverage_stats();
-        builder = builder.add_component(
-            Label::new(i18n.t_args(
-                "single-report-clean-scope",
-                &[("automated", automated as i64), ("total", total as i64)],
-            ))
-            .with_size("9pt")
-            .with_color(design::tokens::MUTED),
-        );
-    }
-
     builder
 }
 
@@ -2337,6 +2354,7 @@ pub(super) mod risk_and_strength_tests {
             },
             ManagementRiskKind::Project {
                 count: 0,
+                severe_wide: 0,
                 pages: None,
             },
             ManagementRiskKind::PerformanceMobile {
@@ -2356,6 +2374,7 @@ pub(super) mod risk_and_strength_tests {
             risks.iter().all(|d| d.label
                 != ManagementRiskKind::Project {
                     count: 0,
+                    severe_wide: 0,
                     pages: None
                 }
                 .dimension(false)),
@@ -2407,6 +2426,7 @@ pub(super) mod risk_and_strength_tests {
             },
             ManagementRiskKind::Project {
                 count: 0,
+                severe_wide: 0,
                 pages: None,
             },
         ];
