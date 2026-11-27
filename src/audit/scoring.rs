@@ -19,6 +19,10 @@ const SOFT_FLOOR_START: f32 = 15.0;
 /// raw `100 - penalty` passes through unchanged (scores ≥30 are untouched).
 const COMPRESSION_KNEE: f32 = 70.0;
 
+/// The highest score of a page with an open critical finding (the top of the
+/// low band).
+const CRITICAL_CAP: f32 = 49.0;
+
 /// Diversity factor for `unique_criteria` violated WCAG success criteria.
 ///
 /// A focused failure (≤3 criteria) gets no surcharge; broad, systemic
@@ -42,20 +46,15 @@ fn apply_soft_floor(raw_score: f32) -> f32 {
 }
 
 /// The global half of the accessibility score: everything applied *after*
-/// the per-rule penalties are summed.
+/// the per-rule penalties are summed, up to the soft floor; the semantic cap
+/// follows in [`cap_score`] / [`pre_blend_score`].
 ///
 /// Every step here is non-linear and depends on the finding set as a whole,
 /// which is why a score computed for a slice of the findings would not add up
 /// to the score of the whole set. The accessibility score breakdown therefore
 /// does not re-run this per area: it apportions the loss of the whole-set score
 /// as `estimated_lost_points`.
-fn score_from_penalties(
-    raw_penalty: f32,
-    unique_criteria: usize,
-    critical_occurrences: usize,
-    urgent_occurrences: usize,
-    level_a_urgent_occurrences: usize,
-) -> f32 {
+fn score_from_penalties(raw_penalty: f32, unique_criteria: usize) -> f32 {
     if raw_penalty <= 0.0 {
         return 100.0;
     }
@@ -78,35 +77,99 @@ fn score_from_penalties(
     };
     // Soft floor instead of a hard clamp(0): keeps the 1–15 band usable
     // for distinguishing degrees of catastrophic failure.
-    let raw_score = apply_soft_floor(100.0 - effective_penalty).min(100.0);
-
-    // Semantic score cap: a site with open critical/high issues cannot be
-    // reported as near-perfect even if penalties are individually small.
-    //
-    // A High failure of a Level A criterion keeps the page below the top band
-    // (the 90-100 band): Level A is the conformance floor, a page failing it is
-    // not conformant. Before, one missing alt text on an otherwise clean page
-    // scored 92 (calibration decision 2026-09-26).
-    raw_score.min(semantic_cap(
-        critical_occurrences,
-        urgent_occurrences,
-        level_a_urgent_occurrences,
-    ))
+    apply_soft_floor(100.0 - effective_penalty).min(100.0)
 }
 
+/// How many occurrences of each severity a finding set holds, the input of
+/// the semantic cap.
+#[derive(Clone, Copy, Default)]
+struct CapCounts {
+    critical: usize,
+    /// Critical and High.
+    urgent: usize,
+    /// Critical and High findings of a Level A criterion.
+    level_a_urgent: usize,
+}
+
+impl CapCounts {
+    fn of(violations: &[&Violation]) -> Self {
+        let mut counts = Self::default();
+        for v in violations {
+            let critical = v.severity == Severity::Critical;
+            let urgent = critical || v.severity == Severity::High;
+            counts.critical += usize::from(critical);
+            counts.urgent += usize::from(urgent);
+            counts.level_a_urgent += usize::from(urgent && v.level == crate::model::WcagLevel::A);
+        }
+        counts
+    }
+
+    fn cap(self) -> f32 {
+        semantic_cap(self.critical, self.urgent, self.level_a_urgent)
+    }
+}
+
+/// The semantic score cap: the highest score a finding set allows.
+///
+/// A site with open critical/high issues cannot be reported as near-perfect
+/// even if penalties are individually small. A High failure of a Level A
+/// criterion keeps the page below the top band (the 90-100 band): Level A is
+/// the conformance floor, a page failing it is not conformant. Before, one
+/// missing alt text on an otherwise clean page scored 92 (calibration decision
+/// 2026-09-26).
 pub(super) fn semantic_cap(
     critical_occurrences: usize,
     urgent_occurrences: usize,
     level_a_urgent_occurrences: usize,
 ) -> f32 {
     if critical_occurrences >= 1 {
-        49.0
+        CRITICAL_CAP
     } else if level_a_urgent_occurrences >= 1 {
         89.0
     } else if urgent_occurrences >= 5 {
         92.0
     } else {
         100.0
+    }
+}
+
+/// A raw score of a page with an open critical finding, mapped into the band
+/// below [`CRITICAL_CAP`] (#1226). The verdict and the tier are unchanged (a
+/// page with a critical finding never leaves the low band), but pages with
+/// different finding profiles keep different scores instead of all showing 49.
+///
+/// Linear from `SOFT_FLOOR_START` (stays 15) at raw 15 to `CRITICAL_CAP` at
+/// raw 100, so the soft-floor band below 15 is untouched and the map is
+/// continuous and strictly increasing: `15 + (raw - 15) * 34 / 85`.
+fn critical_band_score(raw_score: f32) -> f32 {
+    if raw_score <= SOFT_FLOOR_START {
+        raw_score
+    } else {
+        SOFT_FLOOR_START
+            + (raw_score.min(100.0) - SOFT_FLOOR_START) * (CRITICAL_CAP - SOFT_FLOOR_START)
+                / (100.0 - SOFT_FLOOR_START)
+    }
+}
+
+/// The final score of one pass: the critical cap as a gradient, the other
+/// caps as a ceiling.
+fn cap_score(raw_score: f32, counts: CapCounts) -> f32 {
+    if counts.critical >= 1 {
+        critical_band_score(raw_score)
+    } else {
+        raw_score.min(counts.cap())
+    }
+}
+
+/// The score of one viewport before the page-level critical cap: the cap
+/// gradient follows once, on the blended score and the union of both
+/// viewports' findings (a critical barrier in one viewport bounds the page).
+/// The ceilings of the other caps already apply here.
+fn pre_blend_score(raw_score: f32, counts: CapCounts) -> f32 {
+    if counts.critical >= 1 {
+        raw_score
+    } else {
+        raw_score.min(counts.cap())
     }
 }
 
@@ -220,34 +283,33 @@ impl AccessibilityScorer {
     }
 
     /// Apply the same safety limits after aggregating viewport scores.
-    /// A barrier in one supported viewport remains a barrier in the page.
+    /// A barrier in one supported viewport remains a barrier in the page: the
+    /// caps look at the union of the findings of both viewports. `score` is
+    /// the blend of the viewport scores *before* the critical cap (see
+    /// [`Self::viewport_scores`]); a critical finding maps it into the band
+    /// below 49 instead of flattening it (#1226).
     pub(crate) fn cap_aggregated_score(score: u32, violations: &[Violation]) -> u32 {
         Self::cap_of(score, &violations.iter().collect::<Vec<_>>())
     }
 
     fn cap_of(score: u32, violations: &[&Violation]) -> u32 {
-        let critical = violations
-            .iter()
-            .filter(|v| v.severity == Severity::Critical)
-            .count();
-        let urgent = violations
-            .iter()
-            .filter(|v| matches!(v.severity, Severity::Critical | Severity::High))
-            .count();
-        let level_a_urgent = violations
-            .iter()
-            .filter(|v| {
-                v.level == crate::model::WcagLevel::A
-                    && matches!(v.severity, Severity::Critical | Severity::High)
-            })
-            .count();
-        score.min(semantic_cap(critical, urgent, level_a_urgent) as u32)
+        cap_score(score as f32, CapCounts::of(violations)).round() as u32
+    }
+
+    /// An already final score held to the caps of its findings: a ceiling
+    /// only, never the critical gradient, so it does not map twice. For a
+    /// stored single-viewport score that the findings may have outgrown.
+    pub(crate) fn bound_score(score: u32, violations: &[Violation]) -> u32 {
+        let counts = CapCounts::of(&violations.iter().collect::<Vec<_>>());
+        score.min(counts.cap() as u32)
     }
 
     /// Calculate accessibility score (0-100) based on violations
     ///
     /// Groups violations by success criterion, looks up the criterion's
-    /// `ScoreImpact` and applies occurrence-based penalty scaling.
+    /// `ScoreImpact` and applies occurrence-based penalty scaling. The result
+    /// is final: the semantic cap is applied, with a gradient below 49 when a
+    /// critical finding is open.
     pub fn calculate_score(violations: &[Violation]) -> f32 {
         Self::score_of(&violations.iter().collect::<Vec<_>>())
     }
@@ -255,8 +317,22 @@ impl AccessibilityScorer {
     /// [`Self::calculate_score`] over borrowed violations, so a simulation
     /// can leave some out without cloning the rest.
     fn score_of(violations: &[&Violation]) -> f32 {
+        let (raw, counts) = Self::raw_score(violations);
+        cap_score(raw, counts)
+    }
+
+    /// The score of one viewport pass before the critical cap, see
+    /// [`pre_blend_score`].
+    fn pass_score(violations: &[&Violation]) -> f32 {
+        let (raw, counts) = Self::raw_score(violations);
+        pre_blend_score(raw, counts)
+    }
+
+    /// The penalty score of a finding set after the soft floor and before any
+    /// cap, with the counts the cap needs.
+    fn raw_score(violations: &[&Violation]) -> (f32, CapCounts) {
         if violations.is_empty() {
-            return 100.0;
+            return (100.0, CapCounts::default());
         }
 
         // Group violations by WCAG success criterion: the criterion is the
@@ -279,36 +355,34 @@ impl AccessibilityScorer {
             .map(|rule_id| criterion_for_rule(rule_id).unwrap_or_else(|| (*rule_id).to_string()))
             .collect();
 
-        let critical_count = violations
-            .iter()
-            .filter(|v| matches!(v.severity, Severity::Critical))
-            .count();
-        let urgent_count = critical_count
-            + violations
-                .iter()
-                .filter(|v| matches!(v.severity, Severity::High))
-                .count();
-        let level_a_urgent_count = violations
-            .iter()
-            .filter(|v| {
-                v.level == crate::model::WcagLevel::A
-                    && matches!(v.severity, Severity::High | Severity::Critical)
-            })
-            .count();
-
-        score_from_penalties(
-            total_penalty,
-            unique_criteria.len(),
-            critical_count,
-            urgent_count,
-            level_a_urgent_count,
+        (
+            score_from_penalties(total_penalty, unique_criteria.len()),
+            CapCounts::of(violations),
         )
     }
 
     /// The raw desktop and mobile accessibility scores of a dual-viewport
     /// audit. The page-level rules run once, on the mobile pass, but describe
     /// the page in both viewports, so they count in the desktop score too.
+    ///
+    /// A viewport with an open critical finding is *not* mapped below 49 here:
+    /// the cap applies once to the blend, over the union of the findings of
+    /// both viewports ([`Self::cap_aggregated_score`]), so a barrier present
+    /// in one viewport only bounds the page fully.
     pub(crate) fn viewport_scores(desktop: &[&Violation], mobile: &[&Violation]) -> (f32, f32) {
+        let desktop_input =
+            super::pipeline::shared_page_rule_refs(desktop.iter().copied(), mobile.iter().copied());
+        (Self::pass_score(&desktop_input), Self::pass_score(mobile))
+    }
+
+    /// The same viewport scores with each viewport's own cap applied (the
+    /// critical cap as a gradient): what the diagnostic per-viewport
+    /// site-quality values start from, so a viewport with a critical finding
+    /// does not read as clean there.
+    pub(crate) fn viewport_capped_scores(
+        desktop: &[&Violation],
+        mobile: &[&Violation],
+    ) -> (f32, f32) {
         let desktop_input =
             super::pipeline::shared_page_rule_refs(desktop.iter().copied(), mobile.iter().copied());
         (Self::score_of(&desktop_input), Self::score_of(mobile))
@@ -333,7 +407,7 @@ impl AccessibilityScorer {
     /// viewport scores) bounds the page only through the semantic cap, as it
     /// does in the pipeline.
     pub(crate) fn page_score(violations: &[&Violation], dual_viewport: bool) -> u32 {
-        let blended = if dual_viewport {
+        if dual_viewport {
             let pass = |tag: &str| -> Vec<&Violation> {
                 violations
                     .iter()
@@ -343,14 +417,14 @@ impl AccessibilityScorer {
             };
             let (desktop, mobile) =
                 Self::viewport_scores(&pass("desktop-only"), &pass("mobile-only"));
-            Self::weighted_viewport_score(
+            let blended = Self::weighted_viewport_score(
                 Self::displayed_score(mobile),
                 Self::displayed_score(desktop),
-            )
+            );
+            Self::cap_of(blended, violations)
         } else {
             Self::displayed_score(Self::score_of(violations))
-        };
-        Self::cap_of(blended, violations)
+        }
     }
 
     /// The simulated gain of fixing the violations `removed` selects
@@ -371,11 +445,15 @@ impl AccessibilityScorer {
             return None;
         }
         let simulated = Self::page_score(&remaining, dual_viewport);
-        let cap = Self::cap_of(100, &remaining);
+        let counts = CapCounts::of(&remaining);
+        let cap = counts.cap() as u32;
+        // A critical finding bounds the score whatever it is (the gradient
+        // stays below the cap); the other caps bind when the score reaches them.
+        let binds = counts.critical >= 1 || simulated >= cap;
         Some(ScoreGain {
             accessibility: simulated.saturating_sub(actual),
             basis: ScoreGainBasis::Simulated,
-            capped_at: (cap < 100 && simulated >= cap).then_some(cap),
+            capped_at: (cap < 100 && binds).then_some(cap),
         })
     }
 
@@ -482,8 +560,9 @@ pub struct ScoreGain {
     pub accessibility: u32,
     pub basis: ScoreGainBasis,
     /// The semantic cap (49, 89 or 92) that still bounds the simulated
-    /// score because other critical or high findings remain; absent when
-    /// no cap binds, and in a batch.
+    /// score because other critical or high findings remain (with a critical
+    /// one the score stays below 49, on a gradient); absent when no cap
+    /// binds, and in a batch.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capped_at: Option<u32>,
 }
@@ -1256,6 +1335,127 @@ mod score_invariants {
     }
 }
 
+/// The critical cap keeps a gradient below 49 (#1226) and looks at the union
+/// of both viewports' findings (#1242).
+#[cfg(test)]
+mod critical_band {
+    use super::*;
+    use crate::model::WcagLevel;
+
+    fn v(criterion: &str, rule_id: &str, level: WcagLevel, severity: Severity) -> Violation {
+        Violation::new(criterion, criterion, level, severity, "m", rule_id).with_rule_id(rule_id)
+    }
+
+    fn tagged(mut v: Violation, tag: &str) -> Violation {
+        v.tags.push(tag.to_string());
+        v
+    }
+
+    #[test]
+    fn the_band_map_is_continuous_monotone_and_ends_at_the_cap() {
+        assert_eq!(critical_band_score(100.0), CRITICAL_CAP);
+        // The soft-floor band is untouched, and the map is continuous at its start.
+        assert_eq!(critical_band_score(0.0), 0.0);
+        assert_eq!(critical_band_score(7.5), 7.5);
+        assert_eq!(critical_band_score(SOFT_FLOOR_START), SOFT_FLOOR_START);
+        // 15 + (raw - 15) * 34 / 85
+        assert!((critical_band_score(57.5) - 32.0).abs() < 1e-4);
+        let mut previous = -1.0f32;
+        for step in 0..=1000 {
+            let mapped = critical_band_score(step as f32 / 10.0);
+            assert!(mapped > previous, "not strictly increasing at {step}");
+            assert!(mapped <= CRITICAL_CAP);
+            previous = mapped;
+        }
+    }
+
+    #[test]
+    fn pages_with_different_critical_profiles_keep_different_scores() {
+        let one = [v(
+            "1.1.1",
+            "images/alt-missing",
+            WcagLevel::A,
+            Severity::Critical,
+        )];
+        let mut more = one.to_vec();
+        more.push(v(
+            "1.4.3",
+            "contrast/text-insufficient",
+            WcagLevel::AA,
+            Severity::High,
+        ));
+        more.push(v("2.5.8", "targets/size", WcagLevel::AA, Severity::Medium));
+        let a = AccessibilityScorer::calculate_score(&one);
+        let b = AccessibilityScorer::calculate_score(&more);
+        assert!(a <= 49.0 && b <= 49.0, "{a} {b}");
+        assert!(a > b, "different profiles must differ: {a} vs {b}");
+    }
+
+    #[test]
+    fn a_critical_barrier_in_one_viewport_bounds_the_page_fully() {
+        // Desktop clean, mobile has the critical finding: the page is capped
+        // although the blend of the viewport scores would be high.
+        let critical = tagged(
+            v(
+                "4.1.2",
+                "buttons/name-missing",
+                WcagLevel::A,
+                Severity::Critical,
+            ),
+            "mobile-only",
+        );
+        let merged = vec![critical];
+        let refs: Vec<&Violation> = merged.iter().collect();
+        let (d, m) = AccessibilityScorer::viewport_scores(&[], &refs);
+        // The viewport scores are before the critical cap.
+        assert_eq!(d, 100.0);
+        assert!(m > 49.0, "{m}");
+        let blended = AccessibilityScorer::weighted_viewport_score(
+            AccessibilityScorer::displayed_score(m),
+            AccessibilityScorer::displayed_score(d),
+        );
+        assert!(blended > 49);
+        let page = AccessibilityScorer::page_score(&refs, true);
+        assert!(page <= 49, "page score {page} despite a critical finding");
+        assert_eq!(
+            page,
+            AccessibilityScorer::cap_aggregated_score(blended, &merged)
+        );
+        // The same finding on desktop only bounds the page just the same.
+        let merged = [tagged(merged[0].clone(), "desktop-only")];
+        let refs: Vec<&Violation> = merged.iter().collect();
+        assert!(AccessibilityScorer::page_score(&refs, true) <= 49);
+    }
+
+    #[test]
+    fn a_stored_score_is_only_held_to_the_ceiling() {
+        let critical = [v(
+            "4.1.2",
+            "buttons/name-missing",
+            WcagLevel::A,
+            Severity::Critical,
+        )];
+        // Final scores below the cap pass unchanged (no second mapping) ...
+        assert_eq!(AccessibilityScorer::bound_score(40, &critical), 40);
+        // ... and a stale one is bounded.
+        assert_eq!(AccessibilityScorer::bound_score(95, &critical), 49);
+        assert_eq!(AccessibilityScorer::bound_score(95, &[]), 95);
+    }
+
+    #[test]
+    fn non_critical_caps_stay_a_ceiling() {
+        let level_a_high = [v("1.1.1", "x.1", WcagLevel::A, Severity::High)];
+        assert_eq!(
+            AccessibilityScorer::cap_aggregated_score(95, &level_a_high),
+            89
+        );
+        assert_eq!(
+            AccessibilityScorer::cap_aggregated_score(80, &level_a_high),
+            80
+        );
+    }
+}
+
 /// The simulated score gain of an action (#1169): the scorer re-run without
 /// the action's violations, against the score the report shows.
 #[cfg(test)]
@@ -1268,10 +1468,7 @@ mod score_gain {
     }
 
     fn actual(violations: &[Violation]) -> u32 {
-        AccessibilityScorer::cap_aggregated_score(
-            AccessibilityScorer::displayed_score(AccessibilityScorer::calculate_score(violations)),
-            violations,
-        )
+        AccessibilityScorer::page_score(&violations.iter().collect::<Vec<_>>(), false)
     }
 
     fn gain(violations: &[Violation], rules: &[&str]) -> Option<ScoreGain> {
@@ -1338,7 +1535,7 @@ mod score_gain {
     #[test]
     fn removing_the_only_critical_finding_lifts_the_cap() {
         let page = page();
-        assert_eq!(actual(&page), 49);
+        assert!(actual(&page) <= 49);
         let gain = gain(&page, &["images/alt-missing"]).unwrap();
         assert!(gain.accessibility > 0, "{gain:?}");
         assert_eq!(gain.capped_at, None);
@@ -1353,9 +1550,11 @@ mod score_gain {
             WcagLevel::A,
             Severity::Critical,
         ));
-        assert_eq!(actual(&page), 49);
+        let before = actual(&page);
+        assert!(before <= 49);
         let gain = gain(&page, &["images/alt-missing"]).unwrap();
-        assert_eq!(gain.accessibility, 0);
+        // The score keeps a gradient inside the band, but stays below the cap.
+        assert!(before + gain.accessibility <= 49, "{gain:?}");
         assert_eq!(gain.capped_at, Some(49));
     }
 

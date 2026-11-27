@@ -156,7 +156,7 @@ In the rendered PDF:
 
 - Specialized scores must state their scale or denominator where they appear, for example `20 / 100`; nearby copy must explain whether higher or lower values are better.
 - Technical metrics must include a unit and, where interpretation is not self-evident, a target range or short definition. Ordinary counts and familiar quantities such as dates, durations, file sizes, and page totals do not need repeated explanations.
-- Dual-viewport accessibility uses one canonical formula everywhere: 70% mobile plus 30% desktop, rounded to an integer. The merged finding inventory remains evidence and does not produce another score.
+- Dual-viewport accessibility uses one canonical formula everywhere: 70% mobile plus 30% desktop, rounded to an integer; the weighting is stated in the methodology text together with the rule that a barrier present in one viewport only counts in full in the finding list, the verdict and the score cap (union of both viewports, #1242), and that a critical finding maps the score into the band 15 to 49 instead of a flat 49 (#1226). The merged finding inventory remains evidence and does not produce another score.
 - Labels must distinguish distinct WCAG finding groups, WCAG occurrences, and findings from all categories. A number must not be labelled “critical” when it combines critical and high severities.
 - Single and batch PDF scores, grades, and scoped counts must match the corresponding JSON fields.
 

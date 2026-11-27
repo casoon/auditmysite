@@ -4,12 +4,12 @@ assertion_line: 300
 expression: sort_json_keys(value)
 ---
 {
-  "average_score": 49.0,
+  "average_score": 42.0,
   "grade": "F",
   "module_averages": [
     {
       "name": "Accessibility",
-      "score": 49
+      "score": 42
     },
     {
       "name": "Journey",

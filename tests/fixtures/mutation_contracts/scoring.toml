@@ -54,8 +54,8 @@ killed_by = "lib:audit::scoring"
 id = "scoring-cap-critical"
 target = "src/audit/scoring.rs"
 change = "let one critical finding keep a score of 50"
-find = "if critical_occurrences >= 1 {\n        49.0"
-replace = "if critical_occurrences >= 1 {\n        50.0"
+find = "const CRITICAL_CAP: f32 = 49.0;"
+replace = "const CRITICAL_CAP: f32 = 50.0;"
 killed_by = "lib:audit::scoring"
 
 [[mutation]]
@@ -81,19 +81,27 @@ killed_by = "lib:audit::scoring"
 id = "scoring-level-a-urgent"
 target = "src/audit/scoring.rs"
 change = "count non-Level-A findings as Level A urgent"
-find = "v.level == crate::model::WcagLevel::A\n                    && matches!(v.severity, Severity::High | Severity::Critical)"
-replace = "v.level != crate::model::WcagLevel::A\n                    && matches!(v.severity, Severity::High | Severity::Critical)"
+find = "usize::from(urgent && v.level == crate::model::WcagLevel::A)"
+replace = "usize::from(urgent && v.level != crate::model::WcagLevel::A)"
 killed_by = "lib:audit::scoring"
 
 # Not listed on purpose: "leave critical findings out of the urgent count" is an equivalent
 # mutant. urgent_occurrences only selects the 92 cap, and any critical finding already caps at 49.
 
 [[mutation]]
-id = "scoring-aggregated-level-a"
+id = "scoring-critical-band-slope"
 target = "src/audit/scoring.rs"
-change = "count non-Level-A findings as Level A urgent when viewport scores are aggregated"
-find = "v.level == crate::model::WcagLevel::A\n                    && matches!(v.severity, Severity::Critical | Severity::High)"
-replace = "v.level != crate::model::WcagLevel::A\n                    && matches!(v.severity, Severity::Critical | Severity::High)"
+change = "map the raw score into the critical band with the wrong top (cap + 1)"
+find = "(CRITICAL_CAP - SOFT_FLOOR_START)"
+replace = "(CRITICAL_CAP + 1.0 - SOFT_FLOOR_START)"
+killed_by = "lib:audit::scoring"
+
+[[mutation]]
+id = "scoring-critical-band-floor"
+target = "src/audit/scoring.rs"
+change = "map the soft-floor band into the critical band as well"
+find = "if raw_score <= SOFT_FLOOR_START {\n        raw_score"
+replace = "if raw_score <= 0.0 {\n        raw_score"
 killed_by = "lib:audit::scoring"
 
 [[mutation]]

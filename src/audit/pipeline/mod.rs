@@ -1198,6 +1198,14 @@ pub async fn audit_page(
         &mobile_wcag.violations.iter().collect::<Vec<_>>(),
     );
 
+    // The diagnostic site-quality values of a viewport start from its own
+    // capped accessibility score; the displayed viewport scores stay before the
+    // critical cap, which applies once to the blend (#1242).
+    let (desktop_acc_capped, mobile_acc_capped) = AccessibilityScorer::viewport_capped_scores(
+        &desktop_wcag.violations.iter().collect::<Vec<_>>(),
+        &mobile_wcag.violations.iter().collect::<Vec<_>>(),
+    );
+
     let desktop_perf_score = desktop_snap.performance.as_ref().map(|p| p.score.overall);
     let mobile_perf_score = mobile_snap.performance.as_ref().map(|p| p.score.overall);
     // No Web Vitals measured: a 0 here is no result (#QA-023) — drop it from
@@ -1228,9 +1236,9 @@ pub async fn audit_page(
     let mobile_hc_score = measured_html_conform_score(mobile_snap.html_conform.as_ref());
 
     let desktop_site_quality =
-        compute_viewport_site_quality(desktop_acc, &[("Performance", desktop_perf_input)]);
+        compute_viewport_site_quality(desktop_acc_capped, &[("Performance", desktop_perf_input)]);
     let mobile_site_quality = compute_viewport_site_quality(
-        mobile_acc,
+        mobile_acc_capped,
         &[
             ("Performance", mobile_perf_input),
             ("SEO", mobile_seo_score),

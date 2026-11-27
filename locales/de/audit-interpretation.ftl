@@ -185,9 +185,9 @@ audit-interpretation-score-gain-capped =
     Wenn nur diese Maßnahme umgesetzt wird: bis zu +{ $points } { $points ->
         [one] Punkt
        *[other] Punkte
-    } für den Barrierefreiheits-Score (simuliert); er bleibt bei { $cap } gedeckelt, solange andere kritische oder hohe Befunde offen sind.
+    } für den Barrierefreiheits-Score (simuliert); er bleibt durch die Obergrenze von { $cap } begrenzt, solange andere kritische oder hohe Befunde offen sind.
 audit-interpretation-score-gain-none = Wenn nur diese Maßnahme umgesetzt wird, ändert sich der Barrierefreiheits-Score nicht (simuliert).
-audit-interpretation-score-gain-none-capped = Wenn nur diese Maßnahme umgesetzt wird, ändert sich der Barrierefreiheits-Score nicht (simuliert): Er bleibt bei { $cap } gedeckelt, solange andere kritische oder hohe Befunde offen sind.
+audit-interpretation-score-gain-none-capped = Wenn nur diese Maßnahme umgesetzt wird, ändert sich der Barrierefreiheits-Score nicht (simuliert): Er bleibt durch die Obergrenze von { $cap } begrenzt, solange andere kritische oder hohe Befunde offen sind.
 audit-interpretation-score-gain-mean =
     Wenn nur diese Maßnahme auf allen Seiten umgesetzt wird: bis zu +{ $points } { $points ->
         [one] Punkt
