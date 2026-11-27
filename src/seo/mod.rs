@@ -192,6 +192,7 @@ pub async fn analyze_seo(
         &social,
         &technical,
         image_efficiency.as_ref(),
+        page_health.as_ref(),
     );
 
     let mut analysis = SeoAnalysis {
@@ -235,12 +236,51 @@ pub(crate) fn rescore(
         &seo.social,
         &seo.technical,
         seo.image_efficiency.as_ref(),
+        seo.page_health.as_ref(),
     );
     seo.score = if seo.indexability.blocked {
         score.min(INDEXABILITY_BLOCKER_CAP)
     } else {
         score
     };
+}
+
+/// Upper bound of the total page-health deduction, so many findings do not
+/// collapse the score (same bound as the meta block).
+const PAGE_HEALTH_PENALTY_CAP: u32 = 20;
+
+/// Points one page-health finding costs in the SEO score (#1227): high 8,
+/// medium 4, critical 12; low findings cost nothing. Zero as well when another
+/// score already owns the cause: the DOM size is charged by Performance, and
+/// oversized or legacy-format images by the image-efficiency deduction
+/// (`image_efficiency_charged`), so no cause is charged twice.
+pub(crate) fn page_health_charge(issue: &SeoIssue, image_efficiency_charged: bool) -> u32 {
+    let owned_elsewhere = match issue.issue_type.as_str() {
+        "excessive_dom" | "large_dom" => true,
+        "oversized_images" | "images_without_modern_format" => image_efficiency_charged,
+        _ => false,
+    };
+    if owned_elsewhere {
+        return 0;
+    }
+    match issue.severity {
+        crate::taxonomy::Severity::Critical => 12,
+        crate::taxonomy::Severity::High => 8,
+        crate::taxonomy::Severity::Medium => 4,
+        crate::taxonomy::Severity::Low => 0,
+    }
+}
+
+/// Total page-health deduction: each issue type once, capped at
+/// [`PAGE_HEALTH_PENALTY_CAP`].
+fn page_health_penalty(issues: &[SeoIssue], image_efficiency_charged: bool) -> u32 {
+    let mut seen = std::collections::BTreeSet::new();
+    issues
+        .iter()
+        .filter(|issue| seen.insert(issue.issue_type.as_str()))
+        .map(|issue| page_health_charge(issue, image_efficiency_charged))
+        .sum::<u32>()
+        .min(PAGE_HEALTH_PENALTY_CAP)
 }
 
 fn calculate_seo_score(
@@ -250,6 +290,7 @@ fn calculate_seo_score(
     social: &SocialTags,
     technical: &TechnicalSeo,
     image_efficiency: Option<&ImageEfficiencyAnalysis>,
+    page_health: Option<&PageHealthAnalysis>,
 ) -> u32 {
     let mut score = 100u32;
 
@@ -308,6 +349,16 @@ fn calculate_seo_score(
     if let Some(ie) = image_efficiency {
         let ie_penalty = (100 - ie.score).min(15);
         score = score.saturating_sub(ie_penalty);
+    }
+
+    // Page-health findings (#1227): canonical variants, redirects, soft 404,
+    // hreflang, charset, render-blocking scripts and the like. Charged by
+    // severity, once per issue type, capped like the meta block.
+    if let Some(health) = page_health {
+        score = score.saturating_sub(page_health_penalty(
+            &health.issues,
+            image_efficiency.is_some(),
+        ));
     }
 
     // Baseline-signal floor (#486): a page with the core meta/technical SEO
@@ -388,7 +439,7 @@ mod score_tests {
             h1_count: 1,
             ..Default::default()
         };
-        let score = calculate_seo_score(&meta, &[], &headings, &social, &technical, None);
+        let score = calculate_seo_score(&meta, &[], &headings, &social, &technical, None, None);
         assert_eq!(score, 100 - 5 - 3);
     }
 
@@ -420,8 +471,137 @@ mod score_tests {
                 &social,
                 &technical,
                 None,
+                None,
             ),
             100
         );
+    }
+
+    fn health_issue(issue_type: &str, severity: crate::taxonomy::Severity) -> SeoIssue {
+        SeoIssue {
+            issue_type: issue_type.to_string(),
+            message: String::new(),
+            severity,
+        }
+    }
+
+    /// Score of a page with every other signal in place, so only the
+    /// page-health issues move it.
+    fn score_with_health(
+        issues: Vec<SeoIssue>,
+        image_efficiency: Option<&ImageEfficiencyAnalysis>,
+    ) -> u32 {
+        let technical = TechnicalSeo {
+            https: true,
+            has_canonical: true,
+            has_lang: true,
+            ..Default::default()
+        };
+        let social = SocialTags {
+            open_graph: Some(Default::default()),
+            twitter_card: Some(Default::default()),
+            ..Default::default()
+        };
+        let headings = HeadingStructure {
+            h1_count: 1,
+            ..Default::default()
+        };
+        let health = PageHealthAnalysis {
+            issues,
+            ..Default::default()
+        };
+        calculate_seo_score(
+            &MetaTags::default(),
+            &[],
+            &headings,
+            &social,
+            &technical,
+            image_efficiency,
+            Some(&health),
+        )
+    }
+
+    /// A score of 100 needs no open medium-or-higher page-health finding;
+    /// exactly one medium finding already costs points (#1227).
+    #[test]
+    fn one_medium_page_health_issue_is_below_100() {
+        use crate::taxonomy::Severity::*;
+        assert_eq!(score_with_health(vec![], None), 100);
+        assert_eq!(
+            score_with_health(vec![health_issue("redirect", Medium)], None),
+            96
+        );
+        assert_eq!(
+            score_with_health(vec![health_issue("soft_404", High)], None),
+            92
+        );
+    }
+
+    /// Low findings are listed but cost nothing.
+    #[test]
+    fn low_page_health_issues_cost_nothing() {
+        use crate::taxonomy::Severity::*;
+        let issues = vec![
+            health_issue("missing_preconnect", Low),
+            health_issue("url_too_long", Low),
+        ];
+        assert_eq!(score_with_health(issues, None), 100);
+    }
+
+    /// Many findings stay at the cap, and one issue type is charged once.
+    #[test]
+    fn page_health_deduction_is_capped_and_charged_once_per_type() {
+        use crate::taxonomy::Severity::*;
+        let many: Vec<SeoIssue> = [
+            "redirect",
+            "www_not_consolidated",
+            "trailing_slash_inconsistent",
+            "hreflang_invalid",
+            "jsonld_invalid",
+            "charset_mismatch",
+            "sync_head_scripts",
+        ]
+        .iter()
+        .map(|t| health_issue(t, Medium))
+        .collect();
+        assert_eq!(score_with_health(many, None), 100 - PAGE_HEALTH_PENALTY_CAP);
+        let twice = vec![
+            health_issue("redirect", Medium),
+            health_issue("redirect", Medium),
+        ];
+        assert_eq!(score_with_health(twice, None), 96);
+    }
+
+    /// A cause another score owns is not charged again: DOM size (Performance)
+    /// and, when the image-efficiency deduction runs, oversized and
+    /// legacy-format images.
+    #[test]
+    fn causes_owned_by_another_score_are_not_charged_here() {
+        use crate::taxonomy::Severity::*;
+        assert_eq!(
+            score_with_health(
+                vec![
+                    health_issue("excessive_dom", High),
+                    health_issue("large_dom", Medium)
+                ],
+                None
+            ),
+            100
+        );
+        let images = vec![
+            health_issue("oversized_images", Medium),
+            health_issue("images_without_modern_format", Medium),
+        ];
+        assert_eq!(score_with_health(images.clone(), None), 92);
+        let ie = ImageEfficiencyAnalysis {
+            total_images: 0,
+            modern_format_count: 0,
+            legacy_format_count: 0,
+            modern_format_pct: 100.0,
+            oversized_images: Vec::new(),
+            legacy_format_urls: Vec::new(),
+            score: 100,
+        };
+        assert_eq!(score_with_health(images, Some(&ie)), 100);
     }
 }

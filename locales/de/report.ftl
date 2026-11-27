@@ -338,7 +338,7 @@ perf-worst-case-xref = ({ $profile }-Profil, siehe Tabelle „{ pdf-perf-throttl
 
 # SEO section
 seo-score-card = Technisches SEO
-seo-score-card-description = Misst technische Signale (Meta, Struktur, Schema, hreflang). Inhaltliche Tiefe wird separat bewertet.
+seo-score-card-description = Misst technische Signale: Meta-Tags, Überschriften, Social-Tags, HTTPS, Canonical und Sprache, Bildeffizienz sowie die Seitengesundheits-Befunde ab mittlerer Schwere (Weiterleitungen, Soft 404, hreflang, Zeichensatz, blockierende Skripte). Inhaltliche Tiefe wird separat bewertet.
 seo-maturity = Reifegrad
 
 # UX section
