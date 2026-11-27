@@ -44,7 +44,10 @@ pub(super) fn cover_band_phrase(
 }
 
 pub(super) fn build_batch_cover_score_row(
-    avg_score: u32,
+    // The unrounded accessibility average: the integer is its rounding, and
+    // the score card shows one decimal when the integer would hide a mean
+    // below 100 (#1255).
+    avg_mean: f64,
     // The grade the presentation already derived. Recomputing it here meant a
     // third band table (`BATCH_GRADE`, 95/90/80/70/60) disagreeing with the
     // one the JSON reports above 95.
@@ -58,6 +61,7 @@ pub(super) fn build_batch_cover_score_row(
     i18n: &I18n,
 ) -> anyhow::Result<Grid> {
     let en = i18n.locale() == "en";
+    let avg_score = avg_mean.round() as u32;
     let mut grid = Grid::new(3)
         .with_item_min_height("142pt")
         .add_item(serde_json::json!({
@@ -73,10 +77,13 @@ pub(super) fn build_batch_cover_score_row(
         "type": "score-card",
         // The note sits below the row (overview.rs): the grid item has a
         // fixed height, and in the card it ran into the paragraph below.
-        "data": ScoreCard::new(i18n.t("cover-card-average"), avg_score)
-            .with_thresholds(70, 50)
-            .with_height("100%")
-            .to_data()
+        "data": with_displayed_score(
+            ScoreCard::new(i18n.t("cover-card-average"), avg_score)
+                .with_thresholds(70, 50)
+                .with_height("100%")
+                .to_data(),
+            avg_mean,
+        )
     }));
 
     Ok(grid.add_item(serde_json::json!({
@@ -103,6 +110,20 @@ pub(super) fn build_batch_cover_score_row(
     })))
 }
 
+/// Replaces the integer `score` of a component's data with the one-decimal
+/// mean when the integer would hide a mean below 100 (#1255). The component
+/// types carry `u32`; the typst templates take any number, and the number is
+/// printed as typst formats it (decimal point in both languages).
+pub(super) fn with_displayed_score(mut data: serde_json::Value, mean: f64) -> serde_json::Value {
+    if let (Some(precise), Some(object)) = (
+        crate::audit::average_score_one_decimal(mean),
+        data.as_object_mut(),
+    ) {
+        object.insert("score".to_string(), serde_json::json!(precise));
+    }
+    data
+}
+
 pub(super) fn auditmysite_wordmark_path() -> anyhow::Result<String> {
     let path: PathBuf = env::temp_dir().join("auditmysite-wordmark.svg");
     fs::write(
@@ -119,5 +140,33 @@ pub(super) fn score_accent_color(score: u32) -> &'static str {
         ScoreBand::NeedsImprovement => tokens::NEUTRAL,
         ScoreBand::Weak => tokens::WARN_DEEP,
         ScoreBand::Critical => tokens::DANGER,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::audit::verdict::Verdict;
+
+    fn row(mean: f64) -> String {
+        let i18n = I18n::new("en").unwrap();
+        build_batch_cover_score_row(mean, "A", Verdict::Pass, false, 5, 5, &i18n)
+            .unwrap()
+            .to_data()
+            .to_string()
+    }
+
+    /// #1255: five pages at 99, 100, 100, 100, 100 average 99.8. The score card
+    /// shows 99.8; band and grade stay those of the rounded 100.
+    #[test]
+    fn score_card_shows_one_decimal_when_rounding_hides_the_mean() {
+        let mean = [99.0_f64, 100.0, 100.0, 100.0, 100.0].iter().sum::<f64>() / 5.0;
+        let hidden = row(mean);
+        assert!(hidden.contains("\"score\":99.8"), "{hidden}");
+        let plain = row(100.0);
+        assert!(plain.contains("\"score\":100"), "{plain}");
+        assert!(!plain.contains("\"score\":99"), "{plain}");
+        // A mean that rounds below 100 keeps the integer.
+        assert!(row(87.6).contains("\"score\":88"));
     }
 }

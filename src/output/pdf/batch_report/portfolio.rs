@@ -52,7 +52,15 @@ pub(super) fn render_batch_module_portfolio(
         };
         table = table.add_row(vec![
             localized_module_name(name, i18n),
-            format!("{score}/100"),
+            // The Accessibility row is the batch headline: one decimal when
+            // the integer would hide a mean below 100 (#1255).
+            match pres.portfolio_summary.average_score {
+                Some(mean) if name == "Accessibility" => format!(
+                    "{}/100",
+                    crate::audit::average_score_text(mean, i18n.locale() == "en")
+                ),
+                _ => format!("{score}/100"),
+            },
             spread,
             module_effect_sentence(
                 name,

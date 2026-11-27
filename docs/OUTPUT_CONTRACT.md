@@ -376,6 +376,8 @@ Canonical accessibility score. With dual-viewport data it is 70% mobile and
 automatically evaluated WCAG findings only. In batch reports this is the
 average of the canonical page accessibility scores over the URLs that produced a report (`summary.coverage.succeeded`, equal to `summary.url_count`). A batch in which no URL produced a report has no average: `summary.accessibility_score` and `summary.site_quality_score` are `null`, never `0`, and the decision is `fail` (`no_url_audited`).
 
+Batch only, additive (#1255): `summary.accessibility_score_mean` is the unrounded mean behind the integer (absent when nothing was measured). Where the integer rounds up to 100 although the mean is below 100 (five pages at 99, 100, 100, 100, 100 average 99.8), the batch PDF (cover, grade card, module table, verdict sentence) and the terminal table show one decimal (`99.8`, German `99,8`) so a 100 never stands next to open violations. Display only: the integer, the grade, the band and the verdict are unchanged, and `schema_version` stays `2.2`.
+
 <a id="site-quality-score"></a>
 ### site_quality_score — `summary.site_quality_score`
 
