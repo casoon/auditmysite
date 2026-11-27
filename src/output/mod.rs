@@ -4,6 +4,7 @@
 
 pub mod ai;
 pub mod builder;
+pub(crate) mod compare;
 pub mod explanations;
 mod json;
 mod localized;
@@ -25,6 +26,8 @@ pub use json::{
     format_json_batch, format_json_cached, format_json_normalized, format_json_replay,
     UnifiedReport,
 };
+#[cfg(feature = "pdf")]
+pub(crate) use pdf::generate_compare_pdf;
 #[cfg(feature = "pdf")]
 pub use pdf::{
     generate_batch_pdf, generate_batch_pdf_with_annotations, generate_batch_typ,

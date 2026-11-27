@@ -102,9 +102,7 @@ pub(crate) async fn run(
 ) -> Result<auditmysite::Verdict> {
     // Handle subcommands first
     if let Some(ref command) = args.command {
-        return handle_command(command, &args)
-            .await
-            .map(|_| auditmysite::Verdict::Pass);
+        return handle_command(command, &args).await;
     }
 
     // If no input source specified interactively ask for a domain (terminal only)

@@ -8,6 +8,7 @@ mod annotations;
 mod appendix;
 mod batch_report;
 mod bik_guide;
+mod compare_report;
 mod cover;
 pub(crate) mod design;
 mod detail_modules;
@@ -26,6 +27,7 @@ pub use self::batch_report::{
     generate_batch_pdf, generate_batch_pdf_with_annotations, generate_batch_typ,
     generate_batch_typ_with_annotations,
 };
+pub(crate) use self::compare_report::generate_compare_pdf;
 
 use crate::output::localized::is_english;
 use renderreport::components::advanced::{

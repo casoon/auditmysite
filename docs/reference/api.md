@@ -103,6 +103,7 @@ Consumers: S = Studio, B = the two binaries, T(n) = n integration-test targets, 
 | `audit` | curated | stays `pub`; the other ~500 items narrowed in slices | S, B, T(48), D | pipeline, batch, report and normalised-report types; the largest module |
 | `browser` | curated | stays `pub`; installer and detection internals narrowed | S, B, T(12), D | `BrowserManager`, `BrowserPool`, `BrowserOptions` are the entry |
 | `cli` | curated | only the `model` re-exports are covered; `Args`, `Config`, `doctor`, `report_lint` become uncovered test and binary support | S, B, T(27), D | Studio names `cli::WcagLevel` and `cli::InteractiveMode` |
+| `compare` | crate | `pub(crate)`; `cli::compare_command::run_compare` is the entry of `auditmysite compare` | none | reads two JSON reports and compares them (#1235); the result is JSON (`docs/json-compare.schema.json`), table or PDF, not a library type |
 | `error` | curated | stays `pub` | B, T(3), D | `AuditError`, `Result` appear in every signature |
 | `model` | curated | stays `pub` | via `cli` | shared value types, imports nothing else of the crate |
 | `output` | curated | stays `pub`; builder, explanations, technician, search-experience internals narrowed | S, B, T(12), D | the writers |

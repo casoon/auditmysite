@@ -1,24 +1,36 @@
 //! CLI subcommand handlers.
 //!
-//! Handles the browser and doctor subcommands. No mode-runner or audit logic
+//! Handles the browser, doctor and compare subcommands. No mode-runner or audit logic
 //! here. The maintainer commands live in
 //! the `auditmysite-dev` binary (`dev_commands.rs`, #912).
 
 use colored::Colorize;
 
+use auditmysite::audit::Verdict;
 use auditmysite::browser::{
     diagnose_browsers, resolve_browser, BrowserInstaller, BrowserResolveOptions, InstallTarget,
 };
 use auditmysite::cli::{Args, BrowserAction, Command};
 use auditmysite::error::Result;
 
-pub(crate) async fn handle_command(command: &Command, args: &Args) -> Result<f64> {
+/// Runs a subcommand; the verdict is its exit code (`compare` exits 2 when the
+/// new run is worse, every other command is a `Pass`).
+pub(crate) async fn handle_command(command: &Command, args: &Args) -> Result<Verdict> {
     match command {
-        Command::Browser { action } => handle_browser_command(action, args.no_sandbox).await,
+        Command::Browser { action } => handle_browser_command(action, args.no_sandbox)
+            .await
+            .map(|_| Verdict::Pass),
         Command::Doctor => {
             auditmysite::cli::doctor::run_doctor(args.no_sandbox).await;
-            Ok(0.0)
+            Ok(Verdict::Pass)
         }
+        Command::Compare { old, new } => auditmysite::cli::compare_command::run_compare(
+            old,
+            new,
+            args.format,
+            args.output.as_deref(),
+            &args.lang,
+        ),
     }
 }
 

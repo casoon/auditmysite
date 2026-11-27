@@ -512,6 +512,23 @@ pub enum Command {
     },
     /// Run diagnostics and check system health
     Doctor,
+    /// Compare two JSON reports of the same URL(s): score movement, resolved,
+    /// new and unchanged findings, verdict change (offline, no browser)
+    ///
+    /// Both files are reports written with `-f json` (single or batch; a batch
+    /// is compared per URL present in both). Findings are matched by their
+    /// stable id. `--format` is `table` (default), `json` or `pdf`; `-o FILE`
+    /// writes the result to a file (`pdf` needs it). Exit code: 0 when the new
+    /// run has no new findings and no lower score, 2 when it is worse, 3 for a
+    /// malformed or incompatible report.
+    Compare {
+        /// The earlier report (JSON)
+        #[arg(value_name = "OLD.json")]
+        old: PathBuf,
+        /// The later report (JSON)
+        #[arg(value_name = "NEW.json")]
+        new: PathBuf,
+    },
 }
 
 /// Maintainer options that only the `auditmysite-dev` binary can set (#912).

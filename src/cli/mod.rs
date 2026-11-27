@@ -3,6 +3,7 @@
 //! Command-line interface using clap for argument parsing and config file loading.
 
 mod args;
+pub mod compare_command;
 pub mod config;
 pub mod doctor;
 mod from_args;
