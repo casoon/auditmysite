@@ -250,8 +250,10 @@ async fn assert_critical_in_one_viewport_caps(label_expr: &str, desktop_critical
     } else {
         (scores.mobile.accessibility, scores.desktop.accessibility)
     };
+    // The viewport scores are before the critical cap (#1242): the clean
+    // viewport is untouched, the page score carries the cap of both.
     assert!(
-        critical <= 49 && clean > 49,
+        critical < clean && clean > 49,
         "fixture must isolate the critical defect to one viewport: {scores:?}"
     );
     assert!(report.accessibility.score <= 49.0);

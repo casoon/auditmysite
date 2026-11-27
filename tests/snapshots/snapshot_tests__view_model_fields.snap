@@ -7,7 +7,7 @@ expression: sort_json_keys(value)
   "cover": {
     "critical_issues": 5,
     "grade": "F",
-    "score": 49,
+    "score": 42,
     "total_issues": 8
   },
   "finding_count": 2,
@@ -34,7 +34,7 @@ expression: sort_json_keys(value)
   "summary": {
     "grade": "F",
     "maturity_label": "Kritisch",
-    "score": 49
+    "score": 42
   },
   "total_action_items": 2
 }

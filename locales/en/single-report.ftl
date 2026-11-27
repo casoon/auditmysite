@@ -151,6 +151,6 @@ single-report-preview = Preview
 single-report-preview-captured = Captured
 single-report-screenshot-failed = Screenshot capture failed: { $reason }
 single-report-dual-occurrences = WCAG occurrences before cross-viewport consolidation: { $desktop } on desktop and { $mobile } on mobile. The normalized combined finding list contains { $combined } occurrences; this count is used for evidence and remediation, not as a third score.
-single-report-dual-explanation = Each viewport accessibility score reflects the severity and variety of automatically detected WCAG findings; 100 means no issue was detected within the automated scope. Lower values mean more remediation pressure. { $occurrence_context }The displayed accessibility overall score is calculated from mobile at 70% and desktop at 30%.
+single-report-dual-explanation = Each viewport accessibility score reflects the severity and variety of automatically detected WCAG findings; 100 means no issue was detected within the automated scope. Lower values mean more remediation pressure. { $occurrence_context }The displayed accessibility overall score is calculated from mobile at 70% and desktop at 30%. A barrier that appears in only one of the two viewports still counts in full in the finding list, the verdict and the score cap.
 
 ## AI & Trust chapter

@@ -58,7 +58,7 @@ markup of a platform is therefore only found by a selector heuristic of this mea
 part of the origin buckets. `web-checks` cannot classify selectors.
 
 **Points** come from the real scorer. The reported accessibility score is
-`min(round(0.7 * mobile + 0.3 * desktop), semantic cap of the merged findings)`; each viewport
+`cap(round(0.7 * mobile + 0.3 * desktop), merged findings)` (until 2.3: `min(..., semantic cap)`; since #1226 a critical finding maps the blend into the band below 49 instead of clamping it); each viewport
 score is `AccessibilityScorer::calculate_score` over that viewport's violations (the mobile-only
 shared page rules `html-content-model` and `css-overflow-hidden` also count on desktop); the cap
 is 49 with one Critical finding, 89 with one High or Critical finding of a Level A criterion, 92
@@ -135,6 +135,8 @@ finding and costs nothing.
   provider list cannot see a provider behind a first-party host name.
 
 ### The critical cap
+
+*Measured on 2.3.0, where a critical finding clamped the page score to a flat 49. Since #1226 the score before the cap is mapped into the band 15 to 49 instead (see the semantic cap in `docs/OUTPUT_CONTRACT.md`); the "49" and "51.0" figures below are the clamped values of that measurement.*
 
 In all three cross-origin cases with findings (nasa.gov, sundance.org, stackoverflow.blog) the
 frame carries a Critical finding, and in all three the frame alone holds the page at 49

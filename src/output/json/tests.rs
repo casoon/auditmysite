@@ -1375,14 +1375,17 @@ fn test_batch_grade_follows_accessibility_not_site_quality() {
         report.discoverability.source_quality =
             Some(crate::source_quality::analyze_source_quality(&report));
     }
+    // The critical finding keeps the score below 49, on a gradient (#1226).
+    let accessibility = report.accessibility.score.round() as u64;
+    assert!(accessibility <= 49, "{accessibility}");
     let batch = BatchReport::from_reports(vec![report], vec![], 100);
 
     let json: serde_json::Value =
         serde_json::from_str(&UnifiedReport::batch(&batch).to_json(false).unwrap()).unwrap();
     let summary = &json["summary"];
-    assert_eq!(summary["accessibility_score"], 49);
+    assert_eq!(summary["accessibility_score"], accessibility);
     assert!(
-        summary["site_quality_score"].as_u64().unwrap() > 49,
+        summary["site_quality_score"].as_u64().unwrap() > accessibility,
         "fixture must separate the two scores: {summary}"
     );
     assert_eq!(summary["grade"], "F");

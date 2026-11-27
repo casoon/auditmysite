@@ -29,6 +29,8 @@
 - Scores use a 0–100 scale; higher values are better. The top-level `metric_context` block describes the scale and the meaning of score and count fields for machine consumers.
 - In a dual-viewport audit, `accessibility_score` is always the rounded blend of 70% mobile and 30% desktop accessibility. The same canonical value is used in the summary, page entry, Accessibility module, score breakdown, and PDF.
 - The merged cross-viewport finding list is evidence for prioritization and remediation. Its size does not create a third accessibility score.
+- **Viewport weighting (#1242).** The 70 % mobile / 30 % desktop weighting is a fixed product decision for a quality index, not a measurement of the visitor share of each viewport. It never relativises a barrier that exists in one viewport only: that finding stays in the finding list and in the verdict in full, and the semantic cap below looks at the **union** of the findings of both viewports (the merged violations, not the blended number). `viewport_scores.{desktop,mobile}.accessibility` are the viewport scores *before the critical cap*; the cap is applied once, to the blend.
+- **Semantic cap with a gradient (#1226).** Findings bound the score: an open critical finding holds it at 49 or below (the low band), a High finding of a Level A criterion at 89 or below, five or more critical/high occurrences at 92 or below. The 89 and 92 caps are a ceiling (`min`). The critical cap is not: the score before the cap (`raw`, 0–100, after the soft floor, for a dual-viewport audit the blended value) is mapped monotonically into the band, `raw` for `raw <= 15`, otherwise `15 + (raw - 15) * 34 / 85` (raw 100 gives 49, raw 15 stays 15), rounded to whole points. The verdict and the band are unchanged (a page with an open critical finding never leaves the low band), but pages with different finding profiles show different scores and fixing the other findings stays visible. Before 2.4 every such page showed exactly 49.
 - `grade` describes `accessibility_score`, the subject of the report, and is the headline classification wherever one is shown (cover, batch cover, terminal). There is no certificate: an automated check covering part of the criteria issues none, so the JSON carries no `certificate` field anywhere (removed from `decision` in `auditmysite.decision/3`).
 - `site_quality_score` is the **site quality (optional modules)** figure: a secondary, explicitly labelled score, the weighted result across the active contributing modules (accessibility 40, performance 20, SEO 15, security 10, mobile 10, HTML conformance 5 by default), reported together with `site_quality_score_weight_basis`. It is not the headline and carries no classification of its own. Until schema 2.1 it was called `overall_score`; "overall" suggested the one number that sums the report up, which is the accessibility score.
 - `violation_count` and `occurrence_counts` count WCAG occurrences: affected elements or instances, not distinct rules.
@@ -370,7 +372,7 @@ target for one registry entry; `tests/registry_contract.rs` checks that every
 ### accessibility_score — `summary.accessibility_score`
 
 Canonical accessibility score. With dual-viewport data it is 70% mobile and
-30% desktop; otherwise it is the measured single-viewport score. It covers
+30% desktop (a fixed weighting; a barrier in one viewport only still bounds the score through the cap on the union of both viewports' findings); otherwise it is the measured single-viewport score. It covers
 automatically evaluated WCAG findings only. In batch reports this is the
 average of the canonical page accessibility scores over the URLs that produced a report (`summary.coverage.succeeded`, equal to `summary.url_count`). A batch in which no URL produced a report has no average: `summary.accessibility_score` and `summary.site_quality_score` are `null`, never `0`, and the decision is `fail` (`no_url_audited`).
 
@@ -408,7 +410,12 @@ heuristic.
 ### viewport_scores — `pages[].detail.viewport_scores`
 
 Desktop and mobile accessibility/site-quality scores on the 0-100 scale
-(`desktop.site_quality`, `mobile.site_quality`).
+(`desktop.site_quality`, `mobile.site_quality`). The viewport `accessibility`
+values are the viewport scores *before the critical cap*: the semantic cap is
+applied once, to their 70/30 blend, over the union of the findings of both
+viewports, so a critical barrier present in one viewport only bounds the page
+(#1242). The per-viewport `site_quality` values start from the viewport's own
+capped accessibility score.
 `weighted_site_quality` is the 70% mobile and 30% desktop module blend before the
 optional Security contribution. It is a viewport-pass figure, not a published
 module weight and not the report's `site_quality_score` (modules weighted per the
@@ -492,10 +499,10 @@ A consumer must not assume a fixed list of dimensions: before this change all se
 <a id="score-gain"></a>
 ### score_gain — `summary.top_actions[].score_gain`
 
-What an action is worth on the accessibility score (#1169), computed by simulation, not estimated: the scorer runs again on the page's violations without the violations of the action's rule, through the same steps as the page score (per-criterion penalties, diversity factor, compression, soft floor, the 49/89/92 caps, and in a dual-viewport audit the 70 % mobile / 30 % desktop blend with each violation in the viewport passes its `desktop-only` / `mobile-only` / `both-viewports` tag names). `accessibility` is that score minus `summary.accessibility_score`, in whole points.
+What an action is worth on the accessibility score (#1169), computed by simulation, not estimated: the scorer runs again on the page's violations without the violations of the action's rule, through the same steps as the page score (per-criterion penalties, diversity factor, compression, soft floor, the 49/89/92 caps (the 49 cap as a gradient below 49, see "Semantic cap with a gradient"), and in a dual-viewport audit the 70 % mobile / 30 % desktop blend with each violation in the viewport passes its `desktop-only` / `mobile-only` / `both-viewports` tag names). `accessibility` is that score minus `summary.accessibility_score`, in whole points.
 
-- **Marginal, not additive.** Each figure answers "if only this action is done, against the findings as they are". The caps, the diversity factor and the compression depend on the finding set as a whole, so the gains of two actions do not add up to the gain of doing both: two critical findings each read `0` while the other keeps the cap at 49, together they lift it. There is no combined figure.
-- `capped_at` (single report only) is the cap that still bounds the simulated score because other critical or high findings remain; absent when no cap binds. A `0` with `capped_at: 49` means the action does not move the score until the other critical findings are fixed too.
+- **Marginal, not additive.** Each figure answers "if only this action is done, against the findings as they are". The caps, the diversity factor and the compression depend on the finding set as a whole, so the gains of two actions do not add up to the gain of doing both: with two critical findings the score stays below the cap of 49 until both are fixed, so each gain is smaller than the gain of fixing both. There is no combined figure.
+- `capped_at` (single report only) is the cap that still bounds the simulated score because other critical or high findings remain; absent when no cap binds. With `capped_at: 49` the simulated score stays in the low band (below the cap, on a gradient) until the other critical findings are fixed too; the gain of the action is what its findings cost inside that band.
 - `basis` is `simulated` for one page and `simulated_mean` in a batch, where each page is simulated without the rule (pages without it keep their score) and the gain is the rounded average of those scores minus the rounded `summary.accessibility_score` (the average of the page scores).
 - **Absent means not quantified:** the action's finding is not a WCAG finding (SEO, performance, security, mobile, HTML conformance, interactive checks: nothing of the accessibility score), no violation of the page carries the rule, or the recomputation of the unchanged violations does not reproduce the stated score (then no gain is stated for the page, and a batch action on that page has none either). `expected_impact` then ends in "Score effect not quantified." as before.
 - `expected_impact` states the same figure in words ("If only this action is done: up to +N points on the accessibility score (simulated)."); "up to" because the gain assumes every occurrence of the rule is fixed. The PDF shows the sentence under "Expected effect" of a finding and the figure in the "Score effect" column of the batch top actions; the terminal table shows neither.

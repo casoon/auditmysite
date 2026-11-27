@@ -7,7 +7,7 @@
 # `module-accessibility`.
 
 ## Appendix
-methodology-score-methodology = Score calculation: each accessibility viewport starts at 100 points; taxonomy-defined, rule-specific penalties with logarithmic scaling account for repeated violations. With desktop and mobile data, the canonical accessibility score is 70% mobile plus 30% desktop. The consolidated finding list supports evidence and remediation and does not create a third score. Conflicting signals are flagged but do not alter the score retrospectively.
+methodology-score-methodology = Score calculation: each accessibility viewport starts at 100 points; taxonomy-defined, rule-specific penalties with logarithmic scaling account for repeated violations. With desktop and mobile data, the canonical accessibility score is 70% mobile plus 30% desktop. The weighting is a fixed product decision for a quality index, not a measurement of how many visitors use each viewport; it does not relativise a barrier that exists in only one viewport, which stays in the finding list and the verdict in full, and the score cap looks at the union of the findings of both viewports. An open critical finding keeps the score in the low band (49 at most); inside the band the score still follows the other findings: the score before the cap is mapped linearly onto 15 to 49 (a score of 15 or less stays as it is), so pages with different finding profiles differ and fixing other findings stays visible. The consolidated finding list supports evidence and remediation and does not create a third score. Conflicting signals are flagged but do not alter the score retrospectively.
 
 ## Methodology block
 methodology-scope = Automated audit of { $url } for accessibility per WCAG 2.2 (level { $level }). Requested modules: { $modules }.

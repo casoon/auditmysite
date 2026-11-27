@@ -154,6 +154,6 @@ single-report-preview = Vorschau
 single-report-preview-captured = Erfasst
 single-report-screenshot-failed = Screenshot-Erfassung fehlgeschlagen: { $reason }
 single-report-dual-occurrences = WCAG-Vorkommen vor der ansichtsübergreifenden Zusammenführung: { $desktop } auf Desktop und { $mobile } auf Mobile. Die normalisierte gemeinsame Befundliste enthält { $combined } Vorkommen; diese Anzahl dient Evidenz und Maßnahmenplanung, nicht als dritter Score.
-single-report-dual-explanation = Jeder Barrierefreiheitswert bewertet Schwere und Vielfalt der automatisiert erkannten WCAG-Befunde seiner Ansicht; 100 bedeutet, dass im automatisierten Prüfumfang kein Problem erkannt wurde. Niedrigere Werte bedeuten höheren Handlungsdruck. { $occurrence_context }Der ausgewiesene Barrierefreiheits-Gesamtwert wird mit 70 % Mobile und 30 % Desktop berechnet.
+single-report-dual-explanation = Jeder Barrierefreiheitswert bewertet Schwere und Vielfalt der automatisiert erkannten WCAG-Befunde seiner Ansicht; 100 bedeutet, dass im automatisierten Prüfumfang kein Problem erkannt wurde. Niedrigere Werte bedeuten höheren Handlungsdruck. { $occurrence_context }Der ausgewiesene Barrierefreiheits-Gesamtwert wird mit 70 % Mobile und 30 % Desktop berechnet. Eine Barriere, die nur in einer der beiden Ansichten auftritt, zählt in Befundliste, Urteil und Score-Deckelung trotzdem in voller Stärke.
 
 ## AI & Trust chapter

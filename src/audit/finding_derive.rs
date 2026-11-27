@@ -639,11 +639,11 @@ mod tests {
             ),
             (
                 Some(gain(3, ScoreGainBasis::Simulated, Some(89))),
-                "stays capped at 89",
+                "remains bounded by the cap of 89",
             ),
             (
                 Some(gain(0, ScoreGainBasis::Simulated, Some(49))),
-                "does not change (simulated): it stays capped at 49",
+                "does not change (simulated): it remains bounded by the cap of 49",
             ),
             (
                 Some(gain(0, ScoreGainBasis::Simulated, None)),

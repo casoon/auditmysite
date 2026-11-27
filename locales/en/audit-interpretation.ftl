@@ -201,9 +201,9 @@ audit-interpretation-score-gain-capped =
     If only this action is done: up to +{ $points } { $points ->
         [one] point
        *[other] points
-    } on the accessibility score (simulated); it stays capped at { $cap } while other critical or high findings remain.
+    } on the accessibility score (simulated); it remains bounded by the cap of { $cap } while other critical or high findings remain.
 audit-interpretation-score-gain-none = If only this action is done, the accessibility score does not change (simulated).
-audit-interpretation-score-gain-none-capped = If only this action is done, the accessibility score does not change (simulated): it stays capped at { $cap } while other critical or high findings remain.
+audit-interpretation-score-gain-none-capped = If only this action is done, the accessibility score does not change (simulated): it remains bounded by the cap of { $cap } while other critical or high findings remain.
 audit-interpretation-score-gain-mean =
     If only this action is done on every page: up to +{ $points } { $points ->
         [one] point

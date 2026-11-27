@@ -1747,12 +1747,20 @@ pub(crate) fn normalize<'a>(report: &'a AuditReport) -> AuditContext<'a> {
 
     findings.sort_by(crate::audit::prioritization::action_order);
 
-    let score = report
-        .viewport_scores
-        .as_ref()
-        .map(ViewportScores::weighted_accessibility)
-        .unwrap_or_else(|| AccessibilityScorer::displayed_score(report.accessibility.score));
-    let score = AccessibilityScorer::cap_aggregated_score(score, violations);
+    // A dual-viewport score is the blend of the viewport scores, capped once
+    // over the union of both viewports' findings (a barrier in one viewport
+    // bounds the page, #1242). A single-viewport score is final already
+    // (`calculate_score` applied the cap); it is only held to the caps again.
+    let score = match report.viewport_scores.as_ref() {
+        Some(viewports) => AccessibilityScorer::cap_aggregated_score(
+            viewports.weighted_accessibility(),
+            violations,
+        ),
+        None => AccessibilityScorer::bound_score(
+            AccessibilityScorer::displayed_score(report.accessibility.score),
+            violations,
+        ),
+    };
 
     // What each WCAG rule is worth: the score re-run without its violations
     // (#1169). Only the persisted violations go in, so a replay of the
@@ -2272,8 +2280,9 @@ mod tests {
                 finding.expected_impact
             );
         }
-        // The critical finding caps the page; removing another rule leaves it.
-        assert_eq!(page.score, 49);
+        // The critical finding bounds the page below 49 (on a gradient, #1226);
+        // removing another rule leaves the bound.
+        assert!(page.score < 49, "{}", page.score);
         let buttons = page
             .findings
             .iter()
