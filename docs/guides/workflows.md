@@ -17,7 +17,7 @@ auditmysite https://example.com --full -f pdf -o reports/customer.pdf
 # explicit branding and output path
 auditmysite https://example.com --full --logo ./assets/customer-logo.svg --output reports/customer.pdf
 
-# pick a report depth: executive (management), standard (default), technical (developers)
+# pick a report depth: quick (first contact), executive (management), standard (default), technical (developers)
 auditmysite https://example.com --full --report-level executive --output reports/exec.pdf
 
 # PDF language (default: en)

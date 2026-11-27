@@ -752,7 +752,7 @@ Maps WCAG rule IDs to rich metadata:
 - **Subcategory**: Inhalte & Alternativen, Navigation, etc.
 - **IssueClass**: Fehlend, Falsch, Unvollständig
 - **ScoreImpact**: Base penalty, max penalty, scaling curve
-- **ReportVisibility**: Which report levels (Executive/Standard/Technical) include each finding
+- **ReportVisibility**: Which report levels (Executive/Standard/Technical) include each finding; the quick level reads the Executive flag
 
 ## Security Considerations
 

@@ -116,7 +116,7 @@ pub(super) fn render_batch_cover(
         config.level == ReportLevel::Technical && !pres.appendix.per_url.is_empty(),
         i18n,
     );
-    if config.level != ReportLevel::Executive {
+    if !config.level.is_summary() {
         builder = builder
             .add_component(PageBreak::new())
             .add_component(scope_note)

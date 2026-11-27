@@ -20,6 +20,19 @@ Single-page reports and sitemap/batch reports are intentionally different.
 
 The design follows a consistent four-color status system; reports use no emoji and report effort by priority rather than by time windows.
 
+### Report levels
+
+`--report-level` sets how deep a single-page PDF goes. The JSON is the same at every level.
+
+| Level | Pages | Audience | Content |
+| --- | --- | --- | --- |
+| `quick` | 2-3 | first contact | cover, verdict, check status, the three most important findings with the first step, limits of automated testing, next step |
+| `executive` | 5-8 | management | the management summary: verdict, check status, rating, problem profile, score drivers, risks, priority action list; no finding cards, no per-element evidence, no module chapters |
+| `standard` (default) | 38-54 | product owners, developers | everything above plus the cause analysis, the finding cards, the module chapters and the appendix |
+| `technical` | 39-61 | developers | the standard report with the extended technical appendix |
+
+The page counts are what five real single pages rendered to (the quick report 3, the management report 5-6, the standard report 38-54, the technical report 39-61 pages). A batch report has no per-finding chapters: `quick` and `executive` give its overview without the contents page and the focus table.
+
 **Sitemap/batch report** is aggregated and domain-wide: averages, ranking, recurring issues, URL matrix, near-duplicate content, broken links, crawl diagnostics. It also verifies which recurring findings share the same underlying template component across pages — reporting "one fix resolves N pages" instead of N near-identical findings, with a confirmed/likely confidence distinction so the claim is never overstated. Template clusters require at least three affected pages and 60% site coverage, can identify selector-less document findings, and retain header/nav/main/footer context. Cross-page WCAG assessments for consistent navigation, identification, help, and multiple ways are kept separate from single-page automation and explicitly mark evidence gaps as manual review.
 
 Batch reports are not a stack of single-page reports.

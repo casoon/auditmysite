@@ -142,14 +142,17 @@ pub(crate) fn per_page_output_path(
     base_dir: &Path,
     url: &str,
     format: OutputFormat,
-    _report_level: ReportLevel,
+    report_level: ReportLevel,
 ) -> PathBuf {
     let date = Local::now().format("%Y-%m-%d");
     // Host and path: every page of one site shares the host, and with the
     // host alone each page overwrote the previous one's file.
     let subject = page_subject_from_url(url);
     let filename = match format {
-        OutputFormat::Pdf => PathBuf::from(format!("{subject}-{date}-single-report.pdf")),
+        OutputFormat::Pdf => PathBuf::from(format!(
+            "{subject}-{date}-single-report{}.pdf",
+            level_suffix(report_level)
+        )),
         OutputFormat::Json => PathBuf::from(format!("{subject}-{date}-single-report.json")),
         OutputFormat::Table => PathBuf::from(format!("{subject}-{date}-single-report.txt")),
         OutputFormat::Ai => PathBuf::from(format!("{subject}-{date}-single-report-ai.json")),
@@ -162,11 +165,22 @@ pub(crate) fn per_page_output_path(
     }
 }
 
+/// The file-name suffix of a report level: none for the default `standard`
+/// report, so its name stays as it was, and the level for the others, so the
+/// quick and the management report never overwrite the standard one.
+fn level_suffix(level: ReportLevel) -> String {
+    match level {
+        ReportLevel::Standard => String::new(),
+        other => format!("-{other}"),
+    }
+}
+
 /// Default PDF output path for a single-URL audit.
-pub(crate) fn default_single_pdf_output_path(url: &str, _report_level: ReportLevel) -> PathBuf {
+pub(crate) fn default_single_pdf_output_path(url: &str, report_level: ReportLevel) -> PathBuf {
     let date = Local::now().format("%Y-%m-%d");
     let subject = report_subject_from_url(url);
-    PathBuf::from(format!("{subject}-{date}-single-report.pdf"))
+    let suffix = level_suffix(report_level);
+    PathBuf::from(format!("{subject}-{date}-single-report{suffix}.pdf"))
 }
 
 /// Default PDF output path for a batch audit.

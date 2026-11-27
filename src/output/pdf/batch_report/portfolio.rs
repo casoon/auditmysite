@@ -4,7 +4,6 @@ use renderreport::components::{AuditTable, TableColumn};
 use renderreport::prelude::*;
 
 use crate::i18n::I18n;
-use crate::model::ReportLevel;
 use crate::output::report_model::*;
 use crate::util::short_url;
 
@@ -378,7 +377,7 @@ pub(super) fn render_batch_tech_url_matrix(
     }
     builder = builder.add_component(matrix);
 
-    if config.level != ReportLevel::Executive {
+    if !config.level.is_summary() {
         let mut focus_table = AuditTable::new(vec![
             TableColumn::new("URL"),
             TableColumn::new(i18n.t("batch-col-page-type")),

@@ -370,7 +370,13 @@ fn export_management(records: &mut Vec<Value>, lang: &str, i18n: &I18n) {
             "build_top_measures_list",
             input,
             lang,
-            build_top_measures_list(vm, i18n)
+            build_top_measures_list(vm, 5, i18n)
+        ]));
+        records.push(json!([
+            "render_quick_report",
+            input,
+            lang,
+            components(render_quick_report(bare(), vm, i18n))
         ]));
     }
 
