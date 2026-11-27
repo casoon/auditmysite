@@ -106,7 +106,7 @@ const TEMPLATE_FANOUT: usize = 8;
 ///
 /// A segment is variable when it looks like an identifier (digits, a date, a
 /// UUID, a hash, a slug ending in a number) or when it is one of more than
-/// [`TEMPLATE_FANOUT`] distinct siblings under the same parent. A first-level
+/// `TEMPLATE_FANOUT` distinct siblings under the same parent. A first-level
 /// segment that has deeper pages below it is a section and stays; first-level
 /// pages without children collapse only by the fan-out rule. So
 /// `/blog/my-post` and `/blog/2026/05/other` become `blog/*` and `blog/*/*/*`,
