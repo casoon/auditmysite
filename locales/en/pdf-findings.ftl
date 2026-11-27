@@ -54,6 +54,8 @@ pdf-findings-color-scheme = Color scheme
 pdf-findings-color-scheme-dark = Dark (prefers-color-scheme: dark)
 pdf-findings-screenshot-mobile = Element on page (mobile viewport)
 pdf-findings-screenshot-desktop = Element on page (desktop viewport)
+pdf-findings-screenshot-alt-mobile = Screenshot of the flagged element { $selector } on the mobile viewport
+pdf-findings-screenshot-alt-desktop = Screenshot of the flagged element { $selector } on the desktop viewport
 pdf-findings-examples-of = { $shown } { $shown ->
         [one] example
        *[other] examples

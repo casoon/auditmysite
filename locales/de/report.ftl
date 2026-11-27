@@ -1273,8 +1273,8 @@ count-findings = { $count ->
     }
 pdf-metric-issues = Probleme
 pdf-sec-headers-title = Sicherheits-Header
-pdf-screenshot-alt-desktop = Desktop-Screenshot der geprüften Seite
-pdf-screenshot-alt-mobile = Mobile-Screenshot der geprüften Seite
+pdf-screenshot-alt-desktop = Desktop-Screenshot der geprüften Seite { $url }
+pdf-screenshot-alt-mobile = Mobile-Screenshot der geprüften Seite { $url }
 
 seo-cookie-inventory =
     { $count } { $count ->

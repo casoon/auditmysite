@@ -2636,6 +2636,45 @@ mod tests {
         );
     }
 
+    /// #1234: the page screenshots are figures with an alternative text that
+    /// names the audited page, in the run language.
+    #[test]
+    fn test_typ_screenshot_alt_text_names_the_audited_page() {
+        for (locale, desktop, mobile) in [
+            (
+                "en",
+                "Desktop screenshot of the audited page",
+                "Mobile screenshot of the audited page",
+            ),
+            (
+                "de",
+                "Desktop-Screenshot der geprüften Seite",
+                "Mobile-Screenshot der geprüften Seite",
+            ),
+        ] {
+            let mut report = pdf_fixture_report_rich();
+            report.page_screenshots = Some(PageScreenshots {
+                desktop: tiny_png_bytes().to_vec(),
+                mobile: tiny_png_bytes().to_vec(),
+            });
+            report.screenshot_status = ScreenshotStatus::Captured;
+            let url = report.url.clone();
+            let config = ReportConfig {
+                locale: locale.to_string(),
+                ..ReportConfig::default()
+            };
+            let typ = unescape_typ(&generate_typ(&report, &config).expect("typ"));
+            assert!(
+                typ.contains(&format!("{desktop} {url}")),
+                "{locale}: desktop alt"
+            );
+            assert!(
+                typ.contains(&format!("{mobile} {url}")),
+                "{locale}: mobile alt"
+            );
+        }
+    }
+
     // ── Typst ⇄ JSON consistency per report part (3 internal areas) ─────────
     //
     // The single report is split into three parts (TEIL 1/2/3). For each part we

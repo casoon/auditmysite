@@ -1276,8 +1276,8 @@ count-findings = { $count ->
     }
 pdf-metric-issues = Issues
 pdf-sec-headers-title = Security Headers
-pdf-screenshot-alt-desktop = Desktop screenshot preview
-pdf-screenshot-alt-mobile = Mobile screenshot preview
+pdf-screenshot-alt-desktop = Desktop screenshot of the audited page { $url }
+pdf-screenshot-alt-mobile = Mobile screenshot of the audited page { $url }
 
 seo-cookie-inventory =
     { $count } { $count ->

@@ -1937,8 +1937,11 @@ fn render_dual_viewport_summary_section(
             )
             .with_height(210.0)
             .with_alt_text(
-                i18n.t("pdf-screenshot-alt-desktop"),
-                i18n.t("pdf-screenshot-alt-mobile"),
+                i18n.t_args(
+                    "pdf-screenshot-alt-desktop",
+                    &[("url", report.url.as_str())],
+                ),
+                i18n.t_args("pdf-screenshot-alt-mobile", &[("url", report.url.as_str())]),
             ),
         );
     }

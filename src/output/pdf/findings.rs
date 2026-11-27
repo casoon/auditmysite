@@ -745,10 +745,20 @@ fn add_evidence_screenshot(
                 Some("mobile") => "pdf-findings-screenshot-mobile",
                 _ => "pdf-findings-screenshot-desktop",
             });
+            // Without `alt` the image would be tagged as a decorative
+            // artifact and vanish for screen-reader users (#1234).
+            let alt = i18n.t_args(
+                match occ.evidence_viewport {
+                    Some("mobile") => "pdf-findings-screenshot-alt-mobile",
+                    _ => "pdf-findings-screenshot-alt-desktop",
+                },
+                &[("selector", occ.selector.as_str())],
+            );
             builder = builder.add_component(
                 Image::new(asset_name)
                     .with_width("55%")
-                    .with_caption(caption),
+                    .with_caption(caption)
+                    .with_alt(alt),
             );
         }
         *evidence_seq += 1;
@@ -1068,5 +1078,57 @@ mod tests {
             ),
             "Orientierung und Struktur"
         );
+    }
+
+    /// #1234: an element crop is content, so it carries an alternative text
+    /// naming the element and viewport; without one the PDF tags it as a
+    /// decorative artifact and screen-reader users skip it.
+    #[test]
+    fn evidence_screenshot_carries_localized_alt_text() {
+        use super::add_evidence_screenshot;
+        use crate::audit::occurrence_analysis::RepresentativeOccurrence;
+        use crate::i18n::I18n;
+
+        for (locale, viewport, expected) in [
+            ("en", "mobile", "mobile viewport"),
+            ("en", "desktop", "desktop viewport"),
+            ("de", "mobile", "Mobile-Ansicht"),
+            ("de", "desktop", "Desktop-Ansicht"),
+        ] {
+            let occ = RepresentativeOccurrence {
+                selector: "#nav > a.cta".to_string(),
+                node_id: "1".to_string(),
+                message: String::new(),
+                html_snippet: None,
+                suggested_code: None,
+                evidence: Vec::new(),
+                evidence_screenshot: Some(vec![0x89, b'P', b'N', b'G']),
+                evidence_viewport: Some(if viewport == "mobile" {
+                    "mobile"
+                } else {
+                    "desktop"
+                }),
+            };
+            let i18n = I18n::new(locale).unwrap();
+            let builder = crate::output::pdf::helpers::create_engine().report("t");
+            let mut seq = 0usize;
+            let request =
+                add_evidence_screenshot(builder, &occ, &i18n, 1_234_567, &mut seq).build();
+            let image = request
+                .components
+                .iter()
+                .find(|c| c["type"] == "image")
+                .expect("image component");
+            let _ = std::fs::remove_file(std::env::temp_dir().join("ams-evidence-1234567-0.png"));
+            let alt = image["data"]["alt"].as_str().expect("alt text is set");
+            assert!(alt.contains("#nav > a.cta"), "{locale}/{viewport}: {alt}");
+            assert!(alt.contains(expected), "{locale}/{viewport}: {alt}");
+            if locale == "en" {
+                assert!(
+                    !alt.contains("Ansicht") && !alt.chars().any(|c| "äöüß".contains(c)),
+                    "{alt}"
+                );
+            }
+        }
     }
 }
