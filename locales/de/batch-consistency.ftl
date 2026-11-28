@@ -14,7 +14,7 @@
 batch-consistency-title = Seitenübergreifende Konsistenz
 batch-consistency-intro = Vergleicht geteilte Elemente über alle geprüften Seiten: das Vorhandensein von Hauptnavigation und Skip-Link (Reihenfolge und Inhalt der Navigation werden nicht verglichen, WCAG 3.2.3 bleibt daher eine manuelle Prüfung), die Hauptüberschrift (H1) je Seite, Canonical-URLs (ein Suchmaschinen-Signal, kein WCAG-Kriterium) und Sicherheits-Header.
 batch-consistency-consistent = Konsistent
-batch-consistency-missing-on-pages = Fehlt auf { $missing } von { $total } geprüften Seiten.
+batch-consistency-missing-on-pages = Auf { $missing } von { $total } geprüften Seiten nicht erkannt; ein im geprüften Zustand ausgeblendetes Menü (z. B. hinter einem Menü-Button) wird nicht gezählt.
 batch-consistency-nav-title = Navigation ({ $main }/{ $total } mit Hauptnav, { $skip }/{ $total } mit Skip-Link)
 batch-consistency-nav-present = Vorhanden
 batch-consistency-nav-present-detail = Hauptnavigation und Skip-Link sind auf jeder geprüften Seite vorhanden; Reihenfolge und Inhalt nicht verglichen.

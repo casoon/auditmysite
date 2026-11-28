@@ -14,7 +14,7 @@
 batch-consistency-title = Cross-page consistency
 batch-consistency-intro = Compares shared elements across all audited pages: the presence of the main navigation and the skip link (the order and content of the navigation are not compared, so WCAG 3.2.3 stays a manual check), the main heading (H1) per page, canonical URLs (a search-engine signal, not a WCAG criterion) and security headers.
 batch-consistency-consistent = Consistent
-batch-consistency-missing-on-pages = Missing on { $missing } of { $total } audited pages.
+batch-consistency-missing-on-pages = Not recognized on { $missing } of { $total } audited pages; a menu hidden in the audited state (for example behind a menu button) is not counted.
 batch-consistency-nav-title = Navigation ({ $main }/{ $total } with main nav, { $skip }/{ $total } with skip link)
 batch-consistency-nav-present = Present
 batch-consistency-nav-present-detail = Main navigation and skip link are present on every audited page; order and content not compared.
