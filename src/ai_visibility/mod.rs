@@ -817,7 +817,7 @@ fn analyze_policy(report: &AuditReport) -> PolicyAnalysis {
         ));
 
         // 3. Citation/search AI bots accessible — only citation bots matter for real-time AI visibility.
-        //    Blocking training bots (GPTBot, Google-Extended etc.) is standard practice and not penalized.
+        //    Blocking training bots (GPTBot, ClaudeBot etc.) is standard practice and not penalized.
         signals.push(AiSignal::new(
             AiSignalKind::AiSearchReachable,
             !blocks_citation,

@@ -7,6 +7,10 @@ and verification for each change is in the
 
 ## [Unreleased]
 
+### Changed
+
+- **Dependencies:** `web-checks` 0.9.0. The robots.txt bot classes follow the operators' current documentation: ClaudeBot counts as AI training (was mixed), ChatGPT-User as AI citation, Google-Extended as mixed, Applebot and GoogleOther as search engines, and AI crawlers from 2025/2026 are recognised, so the robots policy label and AI-blocking flags of a site can change. A comment line no longer ends a `User-agent` group, end-of-line comments are stripped and an empty `Disallow:` blocks nothing (RFC 9309). The JSON-LD profile `web_site` recommends `alternateName` instead of `potentialAction` (Google retired the sitelinks search box in November 2024), so a WebSite node without `alternateName` is now a review item.
+
 ## [2.3.0] - 2026-11-25
 
 ### Breaking
