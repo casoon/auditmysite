@@ -28,7 +28,7 @@ pub struct RobotsAudit {
     pub has_wildcard_disallow_all: bool,
     /// True when any AI crawler (any sub-type) is blocked — legacy alias
     pub blocks_ai_crawlers: bool,
-    /// True when training-only bots (GPTBot, Google-Extended, …) are blocked
+    /// True when training-only bots (GPTBot, ClaudeBot, CCBot, …) are blocked
     pub blocks_ai_training: bool,
     /// True when citation/search AI bots (PerplexityBot, Amazonbot, …) are blocked
     pub blocks_ai_citation: bool,
@@ -53,11 +53,11 @@ pub enum BotClass {
     Wildcard,
     /// Verified search engine crawler (Googlebot, Bingbot, …)
     SearchEngine,
-    /// AI training bot — blocking is standard practice (GPTBot, Google-Extended, CCBot, …)
+    /// AI training bot — blocking is standard practice (GPTBot, ClaudeBot, CCBot, …)
     AiTraining,
     /// AI citation / search bot — blocking is unusual (PerplexityBot, Amazonbot, …)
     AiCitation,
-    /// AI bot with mixed purpose: both training and citation (ClaudeBot, meta-externalagent, …)
+    /// AI bot with mixed purpose: both training and citation (Google-Extended, meta-externalagent, …)
     AiMixed,
     /// Unverified scrapers, SEO bots (dotbot, semrushbot, …)
     UnknownAi,
@@ -484,7 +484,10 @@ Crawl-delay: 10
         assert_eq!(bot_class("CCBot"), BotClass::AiTraining);
         assert_eq!(bot_class("*"), BotClass::Wildcard);
         assert_eq!(bot_class("SomeRandomBot"), BotClass::Unknown);
-        assert_eq!(bot_class("claudebot"), BotClass::AiMixed);
+        assert_eq!(bot_class("claudebot"), BotClass::AiTraining);
+        assert_eq!(bot_class("ChatGPT-User"), BotClass::AiCitation);
+        assert_eq!(bot_class("Google-Extended"), BotClass::AiMixed);
+        assert_eq!(bot_class("Applebot"), BotClass::SearchEngine);
         assert_eq!(bot_class("PerplexityBot"), BotClass::AiCitation);
         assert_eq!(bot_class("semrushbot"), BotClass::UnknownAi);
     }
