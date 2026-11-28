@@ -1227,11 +1227,39 @@ pub(super) fn render_management_rest(
     // 4. Risks & strengths
     builder = render_risks_and_strengths(builder, vm, i18n);
 
+    // 4b. Deliberate operator settings / policies (#1269)
+    builder = render_operator_policies(builder, &vm.policies, i18n);
+
     // 5. Measures
     builder = builder.add_component(build_top_measures_list(vm, 5, i18n));
 
     builder
 }
+/// Renders deliberate operator settings / policies in their own named panel
+/// without score deduction (#1269). Empty when no policy findings exist.
+pub(in crate::output::pdf) fn render_operator_policies(
+    mut builder: renderreport::engine::ReportBuilder,
+    policies: &[crate::output::report_model::PolicyNote],
+    i18n: &I18n,
+) -> renderreport::engine::ReportBuilder {
+    if policies.is_empty() {
+        return builder;
+    }
+    let rows: Vec<ChecklistRow> = policies
+        .iter()
+        .map(|p| ChecklistRow::new(&p.title, &p.detail).with_status("info"))
+        .collect();
+    builder = builder.add_component(ChecklistPanel::new(rows).with_title(i18n.t_args(
+        "pdf-policies-title",
+        &[("count", policies.len().to_string())],
+    )));
+    builder.add_component(
+        Label::new(i18n.t("pdf-policies-note"))
+            .with_size("8.5pt")
+            .with_color(design::tokens::MUTED),
+    )
+}
+
 /// Sections 5b + 6+ — diagnosis, findings by severity tier, module metrics, appendix.
 pub(super) fn render_tech_details(
     mut builder: renderreport::engine::ReportBuilder,

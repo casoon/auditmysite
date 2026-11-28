@@ -160,6 +160,7 @@ fn full_consistency(count: usize, text: &str) -> BatchConsistencyAnalysis {
                 entity_id: "https://example.com/#org".to_string(),
                 conflicts: vec!["name differs".to_string(), text.to_string()],
             }],
+            entities: vec![],
             findings: vec![],
         },
         structured_data: StructuredDataConsistency {

@@ -377,6 +377,35 @@ fn render_consistency_schema_conflicts(
     consistency: &crate::audit::batch_consistency::BatchConsistencyAnalysis,
     i18n: &I18n,
 ) -> renderreport::engine::ReportBuilder {
+    if !consistency.schema_graph.entities.is_empty() {
+        let mut table = AuditTable::new(vec![
+            TableColumn::new(i18n.t("batch-consistency-entities-col-id")).with_width("32%"),
+            TableColumn::new(i18n.t("batch-consistency-entities-col-types")).with_width("22%"),
+            TableColumn::new(i18n.t("batch-consistency-entities-col-names")).with_width("34%"),
+            TableColumn::new(i18n.t("batch-consistency-entities-col-pages")).with_width("12%"),
+        ])
+        .with_title(i18n.t("batch-consistency-entities-title"));
+        for entity in &consistency.schema_graph.entities {
+            let id_label = if entity.has_explicit_id {
+                entity.entity_id.clone()
+            } else {
+                i18n.t("batch-consistency-entities-no-id")
+            };
+            let names_label = if entity.names.is_empty() {
+                "-".to_string()
+            } else {
+                entity.names.join(" / ")
+            };
+            table = table.add_row(vec![
+                id_label,
+                entity.types.join(", "),
+                names_label,
+                entity.page_count.to_string(),
+            ]);
+        }
+        builder = builder.add_component(table);
+    }
+
     if !consistency.schema_graph.conflicts.is_empty() {
         let rows = consistency
             .schema_graph

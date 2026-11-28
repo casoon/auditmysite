@@ -403,7 +403,7 @@ fn html_validator_callout(status: &str, detail: &str, title: &str) -> Callout {
     }
 }
 
-fn render_robots(
+pub(in crate::output::pdf) fn render_robots(
     mut builder: renderreport::engine::ReportBuilder,
     robots: &crate::output::report_model::RobotsPresentation,
     i18n: &I18n,
@@ -440,6 +440,25 @@ fn render_robots(
             ))
             .with_title(i18n.t("pdf-robots-training-blocked-title")),
         );
+    }
+
+    if !robots.has_wildcard_disallow_all && robots.blocks_archive {
+        builder = builder.add_component(
+            Callout::info(i18n.t("pdf-robots-archive-blocked-body"))
+                .with_title(i18n.t("pdf-robots-archive-blocked-title")),
+        );
+    }
+
+    if let Some(status) = robots.llms_txt {
+        let status_label = match status {
+            crate::seo::robots::LlmsTxtStatus::PresentValid => i18n.t("pdf-robots-llms-valid"),
+            crate::seo::robots::LlmsTxtStatus::PresentInvalid => i18n.t("pdf-robots-llms-invalid"),
+            crate::seo::robots::LlmsTxtStatus::Missing => i18n.t("pdf-robots-llms-missing"),
+        };
+        let kv = KeyValueList::new()
+            .with_title(i18n.t("pdf-robots-llms-title"))
+            .add("/llms.txt", status_label);
+        builder = builder.add_component(kv);
     }
 
     // Bot overview table

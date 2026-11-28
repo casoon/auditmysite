@@ -8,7 +8,7 @@ mod builder_text_guard;
 mod diagnosis;
 mod executive;
 mod methodology;
-mod module_details;
+pub(crate) mod module_details;
 mod modules_block;
 mod positive;
 mod serp;
@@ -470,6 +470,18 @@ pub fn build_view_model(normalized: &AuditContext<'_>, config: &ReportConfig) ->
         appendix: build_appendix_block_from_normalized(&config.locale, &normalized.normalized),
         positive_signals: build_positive_signals(&i18n, normalized),
         management_risks,
+        policies: normalized
+            .normalized
+            .findings
+            .iter()
+            .filter(|f| {
+                f.contract.outcome == crate::audit::finding_contract::FindingOutcome::Policy
+            })
+            .map(|f| crate::output::report_model::PolicyNote {
+                title: f.title.clone(),
+                detail: f.description.clone(),
+            })
+            .collect(),
         annotations: None,
     }
 }

@@ -28,7 +28,7 @@ mod overview;
 mod performance;
 mod platform;
 mod privacy;
-mod seo;
+pub(in crate::output::pdf) mod seo;
 #[cfg(test)]
 pub(super) mod text_export;
 

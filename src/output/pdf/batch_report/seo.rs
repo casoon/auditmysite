@@ -24,6 +24,8 @@ pub(super) fn render_batch_seo_signals(
         && portfolio.canonical_issues.is_empty()
         && portfolio.hreflang_issues.is_empty()
         && portfolio.robots_conflicts.is_empty()
+        && portfolio.domain_robots.is_none()
+        && portfolio.operator_policies.is_empty()
     {
         return builder;
     }
@@ -34,6 +36,16 @@ pub(super) fn render_batch_seo_signals(
         )
         .with_level(2),
     );
+    // Deliberate operator settings / policies deduplicated across the batch (#1269)
+    builder = crate::output::pdf::single_report::render_operator_policies(
+        builder,
+        &portfolio.operator_policies,
+        i18n,
+    );
+    // Domain-wide AI and crawler access (robots.txt + /llms.txt, once per domain, #1270)
+    if let Some(ref robots) = portfolio.domain_robots {
+        builder = crate::output::pdf::detail_modules::seo::render_robots(builder, robots, i18n);
+    }
     // Cross-page duplicate content (identical title / meta description / H1)
     builder = render_seo_duplicate_content(builder, pres, i18n);
     // Cross-page missing-tag prevalence (meta description / canonical / og:image / og:title)

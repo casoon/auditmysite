@@ -95,10 +95,23 @@ pub struct SchemaEntityConflict {
     pub conflicts: Vec<String>,
 }
 
+/// Summary of a detected schema entity across audited pages (#1271).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
+pub struct SchemaEntitySummary {
+    pub entity_id: String,
+    pub has_explicit_id: bool,
+    pub types: Vec<String>,
+    pub names: Vec<String>,
+    pub page_count: usize,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct SchemaGraphAnalysis {
     pub conflicts: Vec<SchemaEntityConflict>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub entities: Vec<SchemaEntitySummary>,
     pub findings: Vec<String>,
 }
 
@@ -863,6 +876,48 @@ fn analyze_schema_graph(reports: &[AuditReport]) -> SchemaGraphAnalysis {
 
     conflicts.sort_by(|a, b| a.entity_id.cmp(&b.entity_id));
 
+    let mut entity_summaries = Vec::new();
+    for (entity_id, occurrences) in &entities {
+        let mut types: Vec<String> = occurrences
+            .iter()
+            .map(|(_, t, _)| t.clone())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let is_org_entity = types.iter().any(|t| {
+            t.split(',').any(|part| {
+                let p = part.trim();
+                web_checks::structured_data::is_subtype_of(p, "Organization")
+                    || p.parse::<crate::seo::SchemaType>()
+                        .is_ok_and(|st| st.is_organization_like())
+            })
+        });
+        if is_org_entity {
+            let names: Vec<String> = occurrences
+                .iter()
+                .filter(|(_, _, n)| !n.is_empty())
+                .map(|(_, _, n)| n.clone())
+                .collect::<std::collections::BTreeSet<_>>()
+                .into_iter()
+                .collect();
+            let pages: std::collections::HashSet<&str> =
+                occurrences.iter().map(|(u, _, _)| u.as_str()).collect();
+            types.sort();
+            entity_summaries.push(SchemaEntitySummary {
+                entity_id: entity_id.clone(),
+                has_explicit_id: !entity_id.starts_with("no-id:"),
+                types,
+                names,
+                page_count: pages.len(),
+            });
+        }
+    }
+    entity_summaries.sort_by(|a, b| {
+        b.page_count
+            .cmp(&a.page_count)
+            .then_with(|| a.entity_id.cmp(&b.entity_id))
+    });
+
     let mut findings = Vec::new();
     if !conflicts.is_empty() {
         findings.push(format!(
@@ -873,6 +928,7 @@ fn analyze_schema_graph(reports: &[AuditReport]) -> SchemaGraphAnalysis {
 
     SchemaGraphAnalysis {
         conflicts,
+        entities: entity_summaries,
         findings,
     }
 }

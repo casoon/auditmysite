@@ -13,7 +13,7 @@ mod experience;
 mod html_conform;
 mod performance;
 mod platform;
-mod seo;
+pub(crate) mod seo;
 
 #[cfg(feature = "experimental")]
 use commerce::build_commerce_details;

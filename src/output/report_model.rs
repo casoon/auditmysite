@@ -136,10 +136,20 @@ pub struct ReportViewModel {
     /// them in the run language while the JSON keeps canonical English
     /// (#406).
     pub management_risks: Vec<crate::audit::management_risk::ManagementRiskKind>,
+    /// Deliberate operator settings / policies (`FindingOutcome::Policy`)
+    /// surfaced in their own named section without score deduction (#1269).
+    pub policies: Vec<PolicyNote>,
     /// External assessments of `--annotations` (#961). Set by the PDF entry
     /// point, never by the view-model builder: nothing in the view model is
     /// derived from them.
     pub annotations: Option<crate::annotations::Resolved>,
+}
+
+/// A deliberate operator setting / policy surfaced in single & batch PDFs (#1269).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PolicyNote {
+    pub title: String,
+    pub detail: String,
 }
 
 pub struct PositiveSignal {
@@ -966,6 +976,9 @@ pub struct RobotsPresentation {
     pub has_wildcard_disallow_all: bool,
     pub blocks_ai_crawlers: bool,
     pub blocks_ai_citation: bool,
+    pub blocks_user_fetch: bool,
+    pub blocks_archive: bool,
+    pub llms_txt: Option<crate::seo::robots::LlmsTxtStatus>,
     pub inferred_policy: String,
     pub sitemaps: Vec<String>,
     pub crawl_delays: Vec<(String, u32)>,
@@ -1592,6 +1605,10 @@ pub struct PortfolioSummary {
     /// Set when a sitemap batch could not fetch the homepage: depths are
     /// then not determined.
     pub crawl_depths_unavailable: bool,
+    /// Domain-wide robots.txt / AI crawler access overview (once per domain, #1270).
+    pub domain_robots: Option<RobotsPresentation>,
+    /// Deliberate operator settings / policies deduplicated across the batch (#1269).
+    pub operator_policies: Vec<PolicyNote>,
 }
 
 pub struct CrawlLinkSummary {

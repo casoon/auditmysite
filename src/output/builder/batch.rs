@@ -927,6 +927,39 @@ pub fn build_batch_presentation_with_normalized(
             redirect_chain_issues,
             crawl_depth_diagnostics,
             crawl_depths_unavailable,
+            domain_robots: batch
+                .reports
+                .iter()
+                .find_map(|r| {
+                    r.discoverability
+                        .seo
+                        .as_ref()
+                        .and_then(|seo| seo.robots.as_ref())
+                        .filter(|rob| rob.fetched || rob.error.is_some())
+                })
+                .map(|rob| {
+                    crate::output::builder::single::module_details::seo::build_robots_presentation(
+                        rob,
+                        is_english(i18n),
+                    )
+                }),
+            operator_policies: {
+                let mut seen = std::collections::BTreeSet::new();
+                let mut policies = Vec::new();
+                for nr in normalized_reports {
+                    for f in nr.findings.iter().filter(|f| {
+                        f.contract.outcome == crate::audit::finding_contract::FindingOutcome::Policy
+                    }) {
+                        if seen.insert(f.rule_id.clone()) {
+                            policies.push(PolicyNote {
+                                title: f.title.clone(),
+                                detail: f.description.clone(),
+                            });
+                        }
+                    }
+                }
+                policies
+            },
         },
         top_issues: top_issues.into_iter().take(10).collect(),
         issue_frequency,

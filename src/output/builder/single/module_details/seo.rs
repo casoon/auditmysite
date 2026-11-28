@@ -784,7 +784,7 @@ fn tracking_summary_rows(
     ]
 }
 
-fn build_robots_presentation(r: &RobotsAudit, en: bool) -> RobotsPresentation {
+pub(crate) fn build_robots_presentation(r: &RobotsAudit, en: bool) -> RobotsPresentation {
     use crate::seo::BotClass;
     let bot_rows: Vec<(String, String, usize, usize, bool)> = r
         .groups
@@ -822,6 +822,9 @@ fn build_robots_presentation(r: &RobotsAudit, en: bool) -> RobotsPresentation {
         has_wildcard_disallow_all: r.has_wildcard_disallow_all,
         blocks_ai_crawlers: r.blocks_ai_crawlers,
         blocks_ai_citation: r.blocks_ai_citation,
+        blocks_user_fetch: r.blocks_user_fetch,
+        blocks_archive: r.blocks_archive,
+        llms_txt: r.llms_txt,
         // Re-derive the policy label in the report locale; the stored
         // value is canonical English for JSON (#406).
         inferred_policy: crate::seo::infer_robots_policy(r, en),
