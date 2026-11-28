@@ -238,7 +238,7 @@ fn sarif_level(severity: &Severity) -> &'static str {
 fn result_level(severity: &Severity, outcome: FindingOutcome) -> &'static str {
     match outcome {
         FindingOutcome::Fail => sarif_level(severity),
-        FindingOutcome::Review => "note",
+        FindingOutcome::Review | FindingOutcome::Policy | FindingOutcome::Hint => "note",
     }
 }
 
@@ -501,6 +501,8 @@ pub fn format_sarif(reports: &[&NormalizedReport]) -> anyhow::Result<String> {
             let outcome = match finding.contract.outcome {
                 FindingOutcome::Fail => "fail",
                 FindingOutcome::Review => "review",
+                FindingOutcome::Policy => "policy",
+                FindingOutcome::Hint => "hint",
             };
 
             // A finding without occurrences is one result for the whole page.

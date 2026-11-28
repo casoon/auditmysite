@@ -13,12 +13,14 @@ use super::robots::{
 use super::schema::schema_issue_label;
 use serde_json::json;
 
-pub(super) const BOT_CLASSES: [BotClass; 8] = [
+pub(super) const BOT_CLASSES: [BotClass; 10] = [
     BotClass::Wildcard,
     BotClass::SearchEngine,
     BotClass::AiTraining,
     BotClass::AiCitation,
+    BotClass::UserFetch,
     BotClass::AiMixed,
+    BotClass::Archive,
     BotClass::UnknownAi,
     BotClass::General,
     BotClass::Unknown,

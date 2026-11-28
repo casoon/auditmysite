@@ -57,6 +57,8 @@ pub struct SchemaIssue {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SchemaIssueSeverity {
+    /// Objectively invalid vocabulary or contradictory entity/geo data (#1271).
+    Error,
     Required,
     Recommended,
 }
@@ -241,96 +243,17 @@ impl SchemaType {
     pub fn is_local_business_like(&self) -> bool {
         let name = self.as_str();
         matches!(self, Self::LocalBusiness)
+            || web_checks::structured_data::is_subtype_of(name, "LocalBusiness")
             || name.ends_with("Business")
             || name.ends_with("Store")
             || name.ends_with("Restaurant")
-            || matches!(
-                name,
-                "AccountingService"
-                    | "Attorney"
-                    | "AutoBodyShop"
-                    | "AutoDealer"
-                    | "AutoRental"
-                    | "AutoRepair"
-                    | "AutoWash"
-                    | "Bakery"
-                    | "BankOrCreditUnion"
-                    | "BarOrPub"
-                    | "BeautySalon"
-                    | "BedAndBreakfast"
-                    | "Brewery"
-                    | "CafeOrCoffeeShop"
-                    | "ChildCare"
-                    | "DaySpa"
-                    | "Dentist"
-                    | "DryCleaningOrLaundry"
-                    | "Electrician"
-                    | "EmergencyService"
-                    | "EmploymentAgency"
-                    | "ExerciseGym"
-                    | "FinancialService"
-                    | "Florist"
-                    | "FoodEstablishment"
-                    | "GasStation"
-                    | "GeneralContractor"
-                    | "HairSalon"
-                    | "HealthClub"
-                    | "Hospital"
-                    | "Hostel"
-                    | "Hotel"
-                    | "HousePainter"
-                    | "InsuranceAgency"
-                    | "LegalService"
-                    | "Locksmith"
-                    | "MedicalClinic"
-                    | "Motel"
-                    | "MovingCompany"
-                    | "NailSalon"
-                    | "Notary"
-                    | "Optician"
-                    | "Pharmacy"
-                    | "Physician"
-                    | "PhysiciansOffice"
-                    | "Physiotherapy"
-                    | "Plumber"
-                    | "ProfessionalService"
-                    | "RealEstateAgent"
-                    | "Resort"
-                    | "RoofingContractor"
-                    | "SelfStorage"
-                    | "ShoppingCenter"
-                    | "SportsClub"
-                    | "TattooParlor"
-                    | "TravelAgency"
-                    | "VacationRental"
-                    | "Winery"
-            )
     }
 
     pub fn is_organization_like(&self) -> bool {
+        let name = self.as_str();
         self.is_local_business_like()
             || matches!(self, Self::Organization)
-            || matches!(
-                self.as_str(),
-                "Airline"
-                    | "Consortium"
-                    | "Corporation"
-                    | "EducationalOrganization"
-                    | "FundingScheme"
-                    | "GovernmentOrganization"
-                    | "LibrarySystem"
-                    | "MedicalOrganization"
-                    | "NGO"
-                    | "NewsMediaOrganization"
-                    | "OnlineBusiness"
-                    | "OnlineStore"
-                    | "PerformingGroup"
-                    | "Project"
-                    | "ResearchOrganization"
-                    | "SearchRescueOrganization"
-                    | "SportsOrganization"
-                    | "WorkersUnion"
-            )
+            || web_checks::structured_data::is_subtype_of(name, "Organization")
     }
 
     /// The schema type behind a possible search feature — the bare type name,
@@ -495,6 +418,7 @@ pub(crate) fn analyze_structured_data_payloads(
         crate::seo::schema_rules::ProductRuleContext::Indeterminate,
     );
     schema_issues.extend(rule_assessments.iter().flat_map(rule_assessment_issues));
+    schema_issues.extend(crate::seo::schema_plausibility::collect_plausibility_issues(&json_ld));
 
     StructuredData {
         json_ld,
@@ -933,7 +857,7 @@ mod tests {
     fn display_never_prints_the_debug_form() {
         assert_eq!(SchemaType::Other("Service".into()).to_string(), "Service");
         assert_eq!(SchemaType::FAQPage.to_string(), "FAQPage");
-        assert!(!SchemaType::Other("WebDesignCompany".into())
+        assert!(!SchemaType::Other("Dentist".into())
             .to_string()
             .contains("Other("));
     }

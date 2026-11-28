@@ -137,17 +137,26 @@ impl FindingDomain {
     }
 }
 
-/// Whether the collected problem is a confirmed failure or needs a reader's
-/// judgement before it counts as one.
+/// Whether the collected problem is a confirmed failure, an operator policy
+/// setting, an optional optimization hint, or needs a reader's judgement (#1269).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum FindingOutcome {
+    /// Objectively wrong or contradictory defect; carries severity and can
+    /// deduct from the module score.
     #[default]
     Fail,
     /// Heuristic or context-dependent: recorded, never presented as a
     /// confirmed defect.
     Review,
+    /// Deliberate operator setting / policy with observable consequences
+    /// (e.g. blocking AI or archive crawlers in robots.txt). No score
+    /// deduction, never judged as "default" or "recommended".
+    Policy,
+    /// Optional optimization hint without defect character (e.g. missing
+    /// recommended schema properties or optional signals such as `llms.txt`).
+    Hint,
 }
 
 /// Whether the check applies to this page. A check that does not apply never
@@ -554,6 +563,16 @@ impl Collected {
         self
     }
 
+    fn policy(mut self) -> Self {
+        self.outcome = FindingOutcome::Policy;
+        self
+    }
+
+    fn hint(mut self) -> Self {
+        self.outcome = FindingOutcome::Hint;
+        self
+    }
+
     fn title(mut self, title: impl Into<String>) -> Self {
         self.title = Some(title.into());
         self
@@ -756,22 +775,53 @@ fn collect(
         }
         for issue in &seo.structured_data.schema_issues {
             let severity = match issue.severity {
+                crate::seo::schema::SchemaIssueSeverity::Error => Severity::High,
                 crate::seo::schema::SchemaIssueSeverity::Required => Severity::Medium,
                 crate::seo::schema::SchemaIssueSeverity::Recommended => Severity::Low,
             };
+            let scoring = if crate::seo::schema_issue_charge(issue) > 0 {
+                FindingScoring::new("SEO", E::Deduction)
+            } else {
+                FindingScoring::none()
+            };
             let schema = issue.clone();
-            out.push(
-                Collected::new(
+            let mut c = Collected::new(
+                D::Seo,
+                "seo.schema",
+                issue.issue_type.clone(),
+                severity,
+                issue.message.clone(),
+                scoring,
+                L::Page,
+            )
+            .text(move |en| crate::seo::schema::schema_issue_text(&schema, en));
+            if issue.severity == crate::seo::schema::SchemaIssueSeverity::Recommended {
+                c = c.hint();
+            }
+            out.push(c);
+        }
+        if let Some(robots) = &seo.robots {
+            for finding in crate::seo::robots::collect_robots_findings(robots) {
+                let mut c = Collected::new(
                     D::Seo,
-                    "seo.schema",
-                    issue.issue_type.clone(),
-                    severity,
-                    issue.message.clone(),
+                    "seo.robots",
+                    finding.check,
+                    finding.severity,
+                    finding.message,
                     FindingScoring::none(),
-                    L::Page,
-                )
-                .text(move |en| crate::seo::schema::schema_issue_text(&schema, en)),
-            );
+                    L::Site,
+                );
+                match finding.kind {
+                    crate::seo::robots::RobotsFindingKind::Error => {}
+                    crate::seo::robots::RobotsFindingKind::Policy => {
+                        c = c.policy();
+                    }
+                    crate::seo::robots::RobotsFindingKind::Hint => {
+                        c = c.hint();
+                    }
+                }
+                out.push(c);
+            }
         }
         if let Some(health) = &seo.page_health {
             let analysis = std::sync::Arc::new(health.clone());
@@ -1249,10 +1299,11 @@ fn group_finding(group: Vec<Collected>, max_occurrences: usize) -> NormalizedFin
         _ => subcategory_kind,
     };
     let category = first.domain.category();
-    let issue_class = if first.outcome == FindingOutcome::Review {
-        IssueClass::Risk
-    } else {
-        IssueClass::Weak
+    let issue_class = match first.outcome {
+        FindingOutcome::Review => IssueClass::Risk,
+        FindingOutcome::Policy => IssueClass::Informational,
+        FindingOutcome::Hint => IssueClass::Opportunity,
+        FindingOutcome::Fail => IssueClass::Weak,
     };
     let subcategory_label = subcategory_kind.label(true).to_string();
     let issue_class_label = "issue";

@@ -4,11 +4,24 @@
 //! bots by category (search engines, verified AI crawlers, unverified AI
 //! crawlers, generic crawlers) and surfaces key findings in the report.
 
+use crate::audit::collection::{reason, Collected, CollectionLog, CollectionMethod, CollectorSpec};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-/// robots.txt audit result. Never affects the SEO score — informational only.
+/// Status of `/llms.txt` on the audited origin (#1270).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LlmsTxtStatus {
+    /// `/llms.txt` returned HTTP 2xx with plausible Markdown/text content.
+    PresentValid,
+    /// `/llms.txt` returned HTTP 2xx but looks empty or like an HTML fallback page.
+    PresentInvalid,
+    /// `/llms.txt` returned 404/410 or another non-2xx status.
+    Missing,
+}
+
+/// robots.txt audit result (#1270).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct RobotsAudit {
     /// Whether robots.txt was fetched successfully
@@ -19,6 +32,9 @@ pub struct RobotsAudit {
     pub groups: Vec<RobotsGroup>,
     /// Sitemap directives found in robots.txt
     pub sitemaps: Vec<String>,
+    /// `Content-Signal:` directives (IETF AI Preferences / Cloudflare)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub content_signals: Vec<String>,
     /// (user-agent, delay-seconds) pairs
     pub crawl_delays: Vec<(String, u32)>,
     /// True when the audited page has noindex AND appears in the sitemap.xml
@@ -30,8 +46,23 @@ pub struct RobotsAudit {
     pub blocks_ai_crawlers: bool,
     /// True when training-only bots (GPTBot, ClaudeBot, CCBot, …) are blocked
     pub blocks_ai_training: bool,
-    /// True when citation/search AI bots (PerplexityBot, Amazonbot, …) are blocked
+    /// True when citation/search or mixed AI bots (PerplexityBot, OAI-SearchBot, meta-externalagent, …) are blocked
     pub blocks_ai_citation: bool,
+    /// True when user-triggered AI fetch bots (ChatGPT-User, Claude-User, …) are blocked
+    #[serde(default)]
+    pub blocks_user_fetch: bool,
+    /// True when web-archive crawlers (ia_archiver, archive.org_bot) are blocked
+    #[serde(default)]
+    pub blocks_archive: bool,
+    /// True when search-engine crawlers (Googlebot, Bingbot, …) are fully or partially blocked
+    #[serde(default)]
+    pub blocks_search_engines: bool,
+    /// True when the audited page path itself is disallowed for Googlebot or Bingbot
+    #[serde(default)]
+    pub audited_path_blocked_for_search: bool,
+    /// Result of checking `/llms.txt` on the audited origin
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub llms_txt: Option<LlmsTxtStatus>,
     /// Human-readable policy label inferred from the rules
     pub inferred_policy: String,
 }
@@ -55,13 +86,17 @@ pub enum BotClass {
     SearchEngine,
     /// AI training bot — blocking is standard practice (GPTBot, ClaudeBot, CCBot, …)
     AiTraining,
-    /// AI citation / search bot — blocking is unusual (PerplexityBot, Amazonbot, …)
+    /// AI citation / search bot (PerplexityBot, OAI-SearchBot, Claude-SearchBot, …)
     AiCitation,
+    /// User-triggered live fetch by AI assistants (ChatGPT-User, Claude-User, Perplexity-User, …)
+    UserFetch,
     /// AI bot with mixed purpose: both training and citation (Google-Extended, meta-externalagent, …)
     AiMixed,
+    /// Web archive crawler (ia_archiver, archive.org_bot)
+    Archive,
     /// Unverified scrapers, SEO bots (dotbot, semrushbot, …)
     UnknownAi,
-    /// General / known-good (archive.org, etc.)
+    /// General / known-good (social preview, etc.)
     General,
     /// Not in any known list
     Unknown,
@@ -76,7 +111,9 @@ impl BotClass {
             BotClass::SearchEngine => "seo-robots-bot-class-search-engine",
             BotClass::AiTraining => "seo-robots-bot-class-ai-training",
             BotClass::AiCitation => "seo-robots-bot-class-ai-citation",
+            BotClass::UserFetch => "seo-robots-bot-class-user-fetch",
             BotClass::AiMixed => "seo-robots-bot-class-ai-mixed",
+            BotClass::Archive => "seo-robots-bot-class-archive",
             BotClass::UnknownAi => "seo-robots-bot-class-unknown-ai",
             BotClass::General => "seo-robots-bot-class-general",
             BotClass::Unknown => "seo-robots-bot-class-unknown",
@@ -104,7 +141,9 @@ impl From<web_checks::robots::BotClass> for BotClass {
             W::SearchEngine => BotClass::SearchEngine,
             W::AiTraining => BotClass::AiTraining,
             W::AiCitation => BotClass::AiCitation,
+            W::UserFetch => BotClass::UserFetch,
             W::AiMixed => BotClass::AiMixed,
+            W::Archive => BotClass::Archive,
             W::UnknownAi => BotClass::UnknownAi,
             W::General => BotClass::General,
             W::Unknown => BotClass::Unknown,
@@ -115,24 +154,31 @@ impl From<web_checks::robots::BotClass> for BotClass {
 // ─── Fetch ───────────────────────────────────────────────────────────────────
 
 /// robots.txt of the audited origin.
-pub(crate) static ROBOTS_TXT: crate::audit::collection::CollectorSpec =
-    crate::audit::collection::CollectorSpec {
-        id: "seo.robots_txt",
-        module: "seo",
-        method: crate::audit::collection::CollectionMethod::Http,
-        method_version: 1,
-        scoring: false,
-    };
+pub(crate) static ROBOTS_TXT: CollectorSpec = CollectorSpec {
+    id: "seo.robots_txt",
+    module: "seo",
+    method: CollectionMethod::Http,
+    method_version: 1,
+    scoring: false,
+};
 
 /// The first sitemap declared in robots.txt, read for the noindex check.
-pub(crate) static SITEMAP_NOINDEX: crate::audit::collection::CollectorSpec =
-    crate::audit::collection::CollectorSpec {
-        id: "seo.sitemap_noindex",
-        module: "seo",
-        method: crate::audit::collection::CollectionMethod::Http,
-        method_version: 1,
-        scoring: false,
-    };
+pub(crate) static SITEMAP_NOINDEX: CollectorSpec = CollectorSpec {
+    id: "seo.sitemap_noindex",
+    module: "seo",
+    method: CollectionMethod::Http,
+    method_version: 1,
+    scoring: false,
+};
+
+/// `/llms.txt` of the audited origin (#1270).
+pub(crate) static LLMS_TXT: CollectorSpec = CollectorSpec {
+    id: "seo.llms_txt",
+    module: "seo",
+    method: CollectionMethod::Http,
+    method_version: 1,
+    scoring: false,
+};
 
 /// Fetch and parse the robots.txt for the given URL's domain.
 /// If `canonical_url` is provided and `is_noindex` is true, also checks
@@ -146,9 +192,8 @@ pub async fn audit_robots_txt(
     canonical_url: Option<&str>,
     is_noindex: bool,
     locale: &str,
-    log: &crate::audit::collection::CollectionLog,
+    log: &CollectionLog,
 ) -> Option<RobotsAudit> {
-    use crate::audit::collection::{reason, Collected};
     let audit = fetch_robots_txt(url, locale).await;
     let mut audit = log.record(&ROBOTS_TXT, audit).into_value()?;
 
@@ -170,14 +215,56 @@ pub async fn audit_robots_txt(
         }
     }
 
+    // /llms.txt presence & basic validity check (#1270)
+    let llms = fetch_llms_txt(url).await;
+    audit.llms_txt = log.record(&LLMS_TXT, llms).into_value();
+
     Some(audit)
 }
 
-async fn fetch_robots_txt(
-    url: &str,
-    locale: &str,
-) -> crate::audit::collection::Collected<RobotsAudit> {
-    use crate::audit::collection::{reason, Collected};
+async fn fetch_llms_txt(url: &str) -> Collected<LlmsTxtStatus> {
+    let base = extract_base(url);
+    let llms_url = format!("{}/llms.txt", base.trim_end_matches('/'));
+    let client = match Client::builder()
+        .timeout(Duration::from_secs(6))
+        .user_agent("auditmysite/1.0")
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return Collected::Failed(reason::HTTP_REQUEST_FAILED),
+    };
+
+    match client.get(&llms_url).send().await {
+        Ok(resp) if resp.status().is_success() => {
+            let is_html = resp
+                .headers()
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok())
+                .is_some_and(|ct| ct.to_ascii_lowercase().contains("text/html"));
+            let body = resp.text().await.unwrap_or_default();
+            let trimmed = body.trim();
+            if is_html
+                || trimmed.is_empty()
+                || trimmed.starts_with("<!DOCTYPE")
+                || trimmed.starts_with("<!doctype")
+                || trimmed.starts_with("<html")
+            {
+                Collected::Measured(LlmsTxtStatus::PresentInvalid)
+            } else if trimmed.starts_with('#')
+                || trimmed.contains("http://")
+                || trimmed.contains("https://")
+            {
+                Collected::Measured(LlmsTxtStatus::PresentValid)
+            } else {
+                Collected::Measured(LlmsTxtStatus::PresentInvalid)
+            }
+        }
+        Ok(_) => Collected::Measured(LlmsTxtStatus::Missing),
+        Err(_) => Collected::Failed(reason::HTTP_REQUEST_FAILED),
+    }
+}
+
+async fn fetch_robots_txt(url: &str, locale: &str) -> Collected<RobotsAudit> {
     let base = extract_base(url);
     let robots_url = format!("{}/robots.txt", base.trim_end_matches('/'));
 
@@ -206,7 +293,7 @@ async fn fetch_robots_txt(
         Err(_) => return Collected::Failed(reason::HTTP_REQUEST_FAILED),
     };
 
-    let mut audit = parse_robots_txt(&text, locale);
+    let mut audit = parse_robots_txt_for_url(&text, Some(url), locale);
     audit.fetched = true;
     Collected::Measured(audit)
 }
@@ -218,8 +305,7 @@ async fn check_noindex_in_sitemap(
     sitemap_url: &str,
     canonical_url: &str,
     client: &Client,
-) -> crate::audit::collection::Collected<bool> {
-    use crate::audit::collection::{reason, Collected};
+) -> Collected<bool> {
     let Ok(resp) = client
         .get(sitemap_url)
         .timeout(Duration::from_secs(8))
@@ -270,14 +356,81 @@ fn extract_base(url: &str) -> String {
 
 // ─── Parser ──────────────────────────────────────────────────────────────────
 
+#[cfg(test)]
 fn parse_robots_txt(text: &str, locale: &str) -> RobotsAudit {
+    parse_robots_txt_for_url(text, None, locale)
+}
+
+pub fn parse_robots_txt_for_url(text: &str, url: Option<&str>, locale: &str) -> RobotsAudit {
+    use web_checks::robots::BlockScope;
     let en = locale == "en";
 
     // Grammatik und Bot-Einordnung kommen aus web-checks; astro-post-audit
     // benutzt dieselbe Auswertung an einem gebauten dist/.
     let parsed = web_checks::robots::parse(text);
     let sitemaps = parsed.sitemaps.clone();
+    let content_signals = parsed.content_signals.clone();
     let crawl_delays = parsed.crawl_delays();
+
+    let is_blocked_any = |g: &web_checks::robots::Group| {
+        matches!(g.block_scope(), BlockScope::Full | BlockScope::Partial(_))
+    };
+
+    let has_wildcard_disallow_all = parsed.groups.iter().any(|g| {
+        g.bot_class == web_checks::robots::BotClass::Wildcard && g.block_scope() == BlockScope::Full
+    });
+
+    let blocks_ai_training = parsed
+        .groups
+        .iter()
+        .any(|g| g.bot_class == web_checks::robots::BotClass::AiTraining && is_blocked_any(g));
+
+    let blocks_ai_mixed = parsed
+        .groups
+        .iter()
+        .any(|g| g.bot_class == web_checks::robots::BotClass::AiMixed && is_blocked_any(g));
+
+    let blocks_ai_citation = blocks_ai_mixed
+        || parsed
+            .groups
+            .iter()
+            .any(|g| g.bot_class == web_checks::robots::BotClass::AiCitation && is_blocked_any(g));
+
+    let blocks_user_fetch = parsed
+        .groups
+        .iter()
+        .any(|g| g.bot_class == web_checks::robots::BotClass::UserFetch && is_blocked_any(g));
+
+    let blocks_archive = parsed
+        .groups
+        .iter()
+        .any(|g| g.bot_class == web_checks::robots::BotClass::Archive && is_blocked_any(g));
+
+    let blocks_search_engines = parsed
+        .groups
+        .iter()
+        .any(|g| g.bot_class == web_checks::robots::BotClass::SearchEngine && is_blocked_any(g));
+
+    let audited_path_blocked_for_search = url
+        .and_then(|u| url::Url::parse(u).ok())
+        .map(|u| {
+            let path = u.path();
+            ["Googlebot", "Bingbot"].iter().any(|bot| {
+                parsed
+                    .effective_group(bot)
+                    .is_some_and(|g| g.disallows_path(path))
+            })
+        })
+        .unwrap_or(false);
+
+    let blocks_ai_crawlers = blocks_ai_training
+        || blocks_ai_citation
+        || blocks_user_fetch
+        || parsed
+            .groups
+            .iter()
+            .any(|g| g.bot_class == web_checks::robots::BotClass::UnknownAi && is_blocked_any(g));
+
     let groups: Vec<RobotsGroup> = parsed
         .groups
         .into_iter()
@@ -289,42 +442,22 @@ fn parse_robots_txt(text: &str, locale: &str) -> RobotsAudit {
         })
         .collect();
 
-    // Derived signals
-    let has_wildcard_disallow_all = groups
-        .iter()
-        .any(|g| g.bot_class == BotClass::Wildcard && g.disallows.iter().any(|d| d == "/"));
-
-    let is_fully_blocked = |g: &RobotsGroup| g.disallows.iter().any(|d| d == "/");
-
-    let blocks_ai_training = groups
-        .iter()
-        .any(|g| g.bot_class == BotClass::AiTraining && is_fully_blocked(g));
-
-    let blocks_ai_citation = groups
-        .iter()
-        .any(|g| g.bot_class == BotClass::AiCitation && is_fully_blocked(g));
-
-    let blocks_ai_mixed = groups
-        .iter()
-        .any(|g| g.bot_class == BotClass::AiMixed && is_fully_blocked(g));
-
-    let blocks_ai_crawlers = blocks_ai_training
-        || blocks_ai_citation
-        || blocks_ai_mixed
-        || groups
-            .iter()
-            .any(|g| g.bot_class == BotClass::UnknownAi && is_fully_blocked(g));
-
     let mut audit = RobotsAudit {
         fetched: false, // set by caller after network step
         error: None,
         groups,
         sitemaps,
+        content_signals,
         crawl_delays,
         has_wildcard_disallow_all,
         blocks_ai_crawlers,
         blocks_ai_training,
         blocks_ai_citation,
+        blocks_user_fetch,
+        blocks_archive,
+        blocks_search_engines,
+        audited_path_blocked_for_search,
+        llms_txt: None,
         inferred_policy: String::new(),
         noindex_in_sitemap: None,
     };
@@ -333,6 +466,152 @@ fn parse_robots_txt(text: &str, locale: &str) -> RobotsAudit {
     // localized label from the same pure function at presentation time (#406).
     audit.inferred_policy = infer_robots_policy(&audit, en);
     audit
+}
+
+/// Classification of a robots.txt / llms.txt finding (#1269, #1270).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RobotsFindingKind {
+    Error,
+    Policy,
+    Hint,
+}
+
+/// A finding derived from [`RobotsAudit`] for the unified finding contract (#1270).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RobotsFinding {
+    pub check: &'static str,
+    pub kind: RobotsFindingKind,
+    pub severity: crate::taxonomy::Severity,
+    pub message: String,
+}
+
+/// Derive contract findings (errors, operator policies, hints) from [`RobotsAudit`].
+pub fn collect_robots_findings(robots: &RobotsAudit) -> Vec<RobotsFinding> {
+    use crate::taxonomy::Severity;
+    let mut out = Vec::new();
+    if !robots.fetched {
+        return out;
+    }
+
+    if robots.has_wildcard_disallow_all {
+        out.push(RobotsFinding {
+            check: "robots_disallow_all",
+            kind: RobotsFindingKind::Error,
+            severity: Severity::Critical,
+            message: "robots.txt blocks all crawlers (User-agent: * / Disallow: /) — on production domains this prevents search indexing entirely.".to_string(),
+        });
+        return out;
+    }
+
+    if robots.audited_path_blocked_for_search {
+        out.push(RobotsFinding {
+            check: "robots_audited_page_blocked",
+            kind: RobotsFindingKind::Error,
+            severity: Severity::High,
+            message: "The audited page path is disallowed for search-engine crawlers (Googlebot/Bingbot) in robots.txt.".to_string(),
+        });
+    }
+
+    if robots.blocks_search_engines {
+        let bots: Vec<&str> = robots
+            .groups
+            .iter()
+            .filter(|g| g.bot_class == BotClass::SearchEngine && !g.disallows.is_empty())
+            .map(|g| g.user_agent.as_str())
+            .collect();
+        out.push(RobotsFinding {
+            check: "robots_search_engine_blocked",
+            kind: RobotsFindingKind::Error,
+            severity: Severity::High,
+            message: format!(
+                "Search-engine crawlers ({}) are restricted in robots.txt — affected paths cannot be crawled or indexed.",
+                bots.join(", ")
+            ),
+        });
+    }
+
+    let collect_bots = |classes: &[BotClass]| -> Vec<&str> {
+        robots
+            .groups
+            .iter()
+            .filter(|g| classes.contains(&g.bot_class) && !g.disallows.is_empty())
+            .map(|g| g.user_agent.as_str())
+            .collect()
+    };
+
+    if robots.blocks_ai_citation {
+        let bots = collect_bots(&[BotClass::AiCitation, BotClass::AiMixed]);
+        out.push(RobotsFinding {
+            check: "robots_policy_ai_citation_blocked",
+            kind: RobotsFindingKind::Policy,
+            severity: Severity::Low,
+            message: format!(
+                "Operator policy: AI search/mixed crawlers ({}) are restricted in robots.txt — content will not appear in cited AI answers for those assistants.",
+                bots.join(", ")
+            ),
+        });
+    }
+
+    if robots.blocks_user_fetch {
+        let bots = collect_bots(&[BotClass::UserFetch]);
+        out.push(RobotsFinding {
+            check: "robots_policy_user_fetch_blocked",
+            kind: RobotsFindingKind::Policy,
+            severity: Severity::Low,
+            message: format!(
+                "Operator policy: user-triggered AI fetch bots ({}) are restricted in robots.txt — assistants cannot fetch live pages on user request.",
+                bots.join(", ")
+            ),
+        });
+    }
+
+    if robots.blocks_ai_training {
+        let bots = collect_bots(&[BotClass::AiTraining]);
+        out.push(RobotsFinding {
+            check: "robots_policy_ai_training_blocked",
+            kind: RobotsFindingKind::Policy,
+            severity: Severity::Low,
+            message: format!(
+                "Operator policy: AI training crawlers ({}) are restricted in robots.txt — pages are excluded from training runs of those crawlers.",
+                bots.join(", ")
+            ),
+        });
+    }
+
+    if robots.blocks_archive {
+        let bots = collect_bots(&[BotClass::Archive]);
+        out.push(RobotsFinding {
+            check: "robots_policy_archive_blocked",
+            kind: RobotsFindingKind::Policy,
+            severity: Severity::Low,
+            message: format!(
+                "Operator policy: web archive crawlers ({}) are restricted in robots.txt — pages are not archived by the Internet Archive.",
+                bots.join(", ")
+            ),
+        });
+    }
+
+    match robots.llms_txt {
+        Some(LlmsTxtStatus::PresentInvalid) => {
+            out.push(RobotsFinding {
+                check: "llms_txt_invalid",
+                kind: RobotsFindingKind::Hint,
+                severity: Severity::Low,
+                message: "/llms.txt is reachable but does not contain valid Markdown/plain-text guidance (returned empty or HTML fallback).".to_string(),
+            });
+        }
+        Some(LlmsTxtStatus::Missing) if !robots.blocks_ai_citation => {
+            out.push(RobotsFinding {
+                check: "llms_txt_missing",
+                kind: RobotsFindingKind::Hint,
+                severity: Severity::Low,
+                message: "No /llms.txt found — optional index file to guide AI assistants to key documentation and pages.".to_string(),
+            });
+        }
+        _ => {}
+    }
+
+    out
 }
 
 /// Re-derive the human-readable robots policy label in the requested language.
@@ -485,8 +764,10 @@ Crawl-delay: 10
         assert_eq!(bot_class("*"), BotClass::Wildcard);
         assert_eq!(bot_class("SomeRandomBot"), BotClass::Unknown);
         assert_eq!(bot_class("claudebot"), BotClass::AiTraining);
-        assert_eq!(bot_class("ChatGPT-User"), BotClass::AiCitation);
+        assert_eq!(bot_class("ChatGPT-User"), BotClass::UserFetch);
         assert_eq!(bot_class("Google-Extended"), BotClass::AiMixed);
+        assert_eq!(bot_class("ia_archiver"), BotClass::Archive);
+        assert_eq!(bot_class("archive.org_bot"), BotClass::Archive);
         assert_eq!(bot_class("Applebot"), BotClass::SearchEngine);
         assert_eq!(bot_class("PerplexityBot"), BotClass::AiCitation);
         assert_eq!(bot_class("semrushbot"), BotClass::UnknownAi);
@@ -522,5 +803,114 @@ mod policy_label_tests {
             localize_policy_label("something else", false),
             "something else"
         );
+    }
+
+    #[test]
+    fn casoon_fixture_reports_policies_without_errors() {
+        let txt = "\
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: meta-externalagent
+Disallow: /
+
+User-agent: ia_archiver
+Disallow: /
+
+User-agent: archive.org_bot
+Disallow: /
+";
+        let mut audit = parse_robots_txt_for_url(txt, Some("https://casoon.de/"), "en");
+        audit.fetched = true;
+        assert!(audit.blocks_ai_training);
+        assert!(audit.blocks_ai_citation);
+        assert!(audit.blocks_archive);
+        assert!(!audit.blocks_search_engines);
+        assert!(!audit.audited_path_blocked_for_search);
+
+        let findings = collect_robots_findings(&audit);
+        assert!(
+            findings.iter().all(|f| f.kind == RobotsFindingKind::Policy),
+            "expected only Policy findings, got: {findings:?}"
+        );
+        assert!(findings
+            .iter()
+            .any(|f| f.check == "robots_policy_ai_training_blocked"));
+        assert!(findings
+            .iter()
+            .any(|f| f.check == "robots_policy_ai_citation_blocked"));
+        assert!(findings
+            .iter()
+            .any(|f| f.check == "robots_policy_archive_blocked"));
+    }
+
+    #[test]
+    fn disallow_all_and_partial_search_engine_blocks_produce_errors() {
+        use crate::taxonomy::Severity;
+
+        let mut full = parse_robots_txt_for_url(
+            "User-agent: *\nDisallow: /\n",
+            Some("https://example.com/"),
+            "en",
+        );
+        full.fetched = true;
+        let full_findings = collect_robots_findings(&full);
+        assert!(full_findings
+            .iter()
+            .any(|f| f.check == "robots_disallow_all"
+                && f.kind == RobotsFindingKind::Error
+                && f.severity == Severity::Critical));
+
+        let mut partial = parse_robots_txt_for_url(
+            "User-agent: Googlebot\nDisallow: /shop/\n",
+            Some("https://example.com/shop/item-1"),
+            "en",
+        );
+        partial.fetched = true;
+        assert!(partial.blocks_search_engines);
+        assert!(partial.audited_path_blocked_for_search);
+        let partial_findings = collect_robots_findings(&partial);
+        assert!(partial_findings
+            .iter()
+            .any(|f| f.check == "robots_audited_page_blocked"
+                && f.kind == RobotsFindingKind::Error
+                && f.severity == Severity::High));
+        assert!(partial_findings
+            .iter()
+            .any(|f| f.check == "robots_search_engine_blocked"
+                && f.kind == RobotsFindingKind::Error
+                && f.severity == Severity::High));
+    }
+
+    #[test]
+    fn robots_policy_report_texts_never_claim_default_or_recommended() {
+        let forbidden = [
+            "standardkonfiguration",
+            "(standard)",
+            "empfohlen",
+            "kein problem",
+            "recommended default",
+            "(default)",
+            "not a problem",
+        ];
+        for key in [
+            "pdf-robots-limit-ai-body",
+            "pdf-robots-limit-ai-title",
+            "pdf-robots-training-blocked-body",
+            "pdf-robots-training-blocked-title",
+        ] {
+            for en in [false, true] {
+                let msg = crate::i18n::text(key, en).to_ascii_lowercase();
+                for word in forbidden {
+                    assert!(
+                        !msg.contains(word),
+                        "robots policy text {key} (en={en}) must not contain '{word}': {msg}"
+                    );
+                }
+            }
+        }
     }
 }

@@ -15,6 +15,7 @@ pub mod robots;
 pub mod schema;
 pub mod schema_fit;
 pub mod schema_parity;
+pub mod schema_plausibility;
 pub mod schema_rules;
 pub mod serp;
 pub(crate) mod social;
@@ -200,6 +201,7 @@ pub async fn analyze_seo(
         &technical,
         image_efficiency.as_ref(),
         page_health.as_ref(),
+        Some(&structured_data),
     );
 
     let mut analysis = SeoAnalysis {
@@ -244,6 +246,7 @@ pub(crate) fn rescore(
         &seo.technical,
         seo.image_efficiency.as_ref(),
         seo.page_health.as_ref(),
+        Some(&seo.structured_data),
     );
     seo.score = if seo.indexability.blocked {
         score.min(INDEXABILITY_BLOCKER_CAP)
@@ -290,6 +293,39 @@ fn page_health_penalty(issues: &[SeoIssue], image_efficiency_charged: bool) -> u
         .min(PAGE_HEALTH_PENALTY_CAP)
 }
 
+/// Upper bound of the total structured-data deduction (#1271).
+const SCHEMA_PENALTY_CAP: u32 = 16;
+
+/// Points one structured-data issue costs in the SEO score (#1271):
+/// high-severity vocabulary/country errors cost 8, structural/range/geo
+/// mismatches cost 4, recommended hints cost 0.
+pub(crate) fn schema_issue_charge(issue: &crate::seo::schema::SchemaIssue) -> u32 {
+    match issue.severity {
+        crate::seo::schema::SchemaIssueSeverity::Error => 8,
+        crate::seo::schema::SchemaIssueSeverity::Required
+            if issue.issue_type.starts_with("jsonld_")
+                || issue.issue_type.starts_with("schema_vocab_")
+                || issue.issue_type.starts_with("schema_geo_") =>
+        {
+            4
+        }
+        crate::seo::schema::SchemaIssueSeverity::Required
+        | crate::seo::schema::SchemaIssueSeverity::Recommended => 0,
+    }
+}
+
+fn schema_penalty(structured_data: &StructuredData) -> u32 {
+    let mut seen = std::collections::BTreeSet::new();
+    structured_data
+        .schema_issues
+        .iter()
+        .filter(|issue| seen.insert(issue.issue_type.as_str()))
+        .map(schema_issue_charge)
+        .sum::<u32>()
+        .min(SCHEMA_PENALTY_CAP)
+}
+
+#[allow(clippy::too_many_arguments)]
 fn calculate_seo_score(
     meta: &MetaTags,
     meta_issues: &[MetaValidation],
@@ -298,6 +334,7 @@ fn calculate_seo_score(
     technical: &TechnicalSeo,
     image_efficiency: Option<&ImageEfficiencyAnalysis>,
     page_health: Option<&PageHealthAnalysis>,
+    structured_data: Option<&StructuredData>,
 ) -> u32 {
     let mut score = 100u32;
 
@@ -366,6 +403,11 @@ fn calculate_seo_score(
             &health.issues,
             image_efficiency.is_some(),
         ));
+    }
+
+    // Structured-data vocabulary, syntax and geo-plausibility errors (#1271).
+    if let Some(sd) = structured_data {
+        score = score.saturating_sub(schema_penalty(sd));
     }
 
     // Baseline-signal floor (#486): a page with the core meta/technical SEO
@@ -446,7 +488,8 @@ mod score_tests {
             h1_count: 1,
             ..Default::default()
         };
-        let score = calculate_seo_score(&meta, &[], &headings, &social, &technical, None, None);
+        let score =
+            calculate_seo_score(&meta, &[], &headings, &social, &technical, None, None, None);
         assert_eq!(score, 100 - 5 - 3);
     }
 
@@ -477,6 +520,7 @@ mod score_tests {
                 &headings,
                 &social,
                 &technical,
+                None,
                 None,
                 None,
             ),
@@ -525,6 +569,7 @@ mod score_tests {
             &technical,
             image_efficiency,
             Some(&health),
+            None,
         )
     }
 

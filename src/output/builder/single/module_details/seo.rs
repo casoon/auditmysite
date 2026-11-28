@@ -809,6 +809,7 @@ fn build_robots_presentation(r: &RobotsAudit, en: bool) -> RobotsPresentation {
                 g.bot_class,
                 BotClass::AiTraining
                     | BotClass::AiCitation
+                    | BotClass::UserFetch
                     | BotClass::AiMixed
                     | BotClass::UnknownAi
             ) && g.disallows.iter().any(|d| d == "/")
