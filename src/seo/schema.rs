@@ -238,8 +238,78 @@ impl SchemaType {
         }
     }
 
+    pub fn is_local_business_like(&self) -> bool {
+        let name = self.as_str();
+        matches!(self, Self::LocalBusiness)
+            || name.ends_with("Business")
+            || name.ends_with("Store")
+            || name.ends_with("Restaurant")
+            || matches!(
+                name,
+                "AccountingService"
+                    | "Attorney"
+                    | "AutoBodyShop"
+                    | "AutoDealer"
+                    | "AutoRental"
+                    | "AutoRepair"
+                    | "AutoWash"
+                    | "Bakery"
+                    | "BankOrCreditUnion"
+                    | "BarOrPub"
+                    | "BeautySalon"
+                    | "BedAndBreakfast"
+                    | "Brewery"
+                    | "CafeOrCoffeeShop"
+                    | "ChildCare"
+                    | "DaySpa"
+                    | "Dentist"
+                    | "DryCleaningOrLaundry"
+                    | "Electrician"
+                    | "EmergencyService"
+                    | "EmploymentAgency"
+                    | "ExerciseGym"
+                    | "FinancialService"
+                    | "Florist"
+                    | "FoodEstablishment"
+                    | "GasStation"
+                    | "GeneralContractor"
+                    | "HairSalon"
+                    | "HealthClub"
+                    | "Hospital"
+                    | "Hostel"
+                    | "Hotel"
+                    | "HousePainter"
+                    | "InsuranceAgency"
+                    | "LegalService"
+                    | "Locksmith"
+                    | "MedicalClinic"
+                    | "Motel"
+                    | "MovingCompany"
+                    | "NailSalon"
+                    | "Notary"
+                    | "Optician"
+                    | "Pharmacy"
+                    | "Physician"
+                    | "PhysiciansOffice"
+                    | "Physiotherapy"
+                    | "Plumber"
+                    | "ProfessionalService"
+                    | "RealEstateAgent"
+                    | "Resort"
+                    | "RoofingContractor"
+                    | "SelfStorage"
+                    | "ShoppingCenter"
+                    | "SportsClub"
+                    | "TattooParlor"
+                    | "TravelAgency"
+                    | "VacationRental"
+                    | "Winery"
+            )
+    }
+
     pub fn is_organization_like(&self) -> bool {
-        matches!(self, Self::Organization | Self::LocalBusiness)
+        self.is_local_business_like()
+            || matches!(self, Self::Organization)
             || matches!(
                 self.as_str(),
                 "Airline"
@@ -249,19 +319,17 @@ impl SchemaType {
                     | "FundingScheme"
                     | "GovernmentOrganization"
                     | "LibrarySystem"
-                    | "LocalBusiness"
                     | "MedicalOrganization"
                     | "NGO"
                     | "NewsMediaOrganization"
                     | "OnlineBusiness"
+                    | "OnlineStore"
                     | "PerformingGroup"
                     | "Project"
                     | "ResearchOrganization"
                     | "SearchRescueOrganization"
                     | "SportsOrganization"
                     | "WorkersUnion"
-                    | "LegalService"
-                    | "ProfessionalService"
             )
     }
 

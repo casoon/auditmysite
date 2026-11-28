@@ -1363,16 +1363,16 @@ fn build_structured_data_signals(seo: &SeoAnalysis, en: bool) -> SignalCategory 
         ),
     ];
 
-    // LocalBusiness-specific quality checks
+    // LocalBusiness-specific quality checks (includes subtypes like ProfessionalService, Physiotherapy, Dentist)
     let local_businesses: Vec<_> = seo
         .structured_data
         .json_ld
         .iter()
         .filter(|s| {
-            s.schema_type == "LocalBusiness"
-                || s.schema_types
-                    .iter()
-                    .any(|t| t == "LocalBusiness" || t.ends_with("Business"))
+            s.schema_types.iter().any(|t| {
+                t.parse::<crate::seo::SchemaType>()
+                    .is_ok_and(|st| st.is_local_business_like())
+            })
         })
         .collect();
 

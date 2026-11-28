@@ -549,11 +549,11 @@ fn analyze_structured_data(reports: &[AuditReport]) -> StructuredDataConsistency
             });
         }
         for schema in &seo.structured_data.json_ld {
-            if schema
-                .schema_types
-                .iter()
-                .any(|schema_type| schema_type == "Organization" || schema_type == "LocalBusiness")
-            {
+            if schema.schema_types.iter().any(|schema_type| {
+                schema_type
+                    .parse::<crate::seo::SchemaType>()
+                    .is_ok_and(|t| t.is_organization_like())
+            }) {
                 organization_pages += 1;
                 if let Some(id) = schema
                     .content
@@ -891,10 +891,57 @@ fn schema_node_type(obj: &serde_json::Map<String, serde_json::Value>) -> Option<
     }
 }
 
+/// Fallback grouping key for organization-like nodes that omit `@id` (#1271):
+/// groups declarations across pages by shared `telephone`, `postalCode` +
+/// `streetAddress`, or `url` so conflicting company names are still detected.
+fn fallback_org_entity_key(
+    obj: &serde_json::Map<String, serde_json::Value>,
+    schema_type: &str,
+) -> Option<String> {
+    let is_org = schema_type.split(", ").any(|t| {
+        t.parse::<crate::seo::SchemaType>()
+            .is_ok_and(|st| st.is_organization_like())
+    });
+    if !is_org {
+        return None;
+    }
+    if let Some(phone) = obj.get("telephone").and_then(|v| v.as_str()) {
+        let digits: String = phone.chars().filter(|c| c.is_ascii_digit()).collect();
+        if digits.len() >= 6 {
+            return Some(format!("(no @id, telephone:{digits})"));
+        }
+    }
+    if let Some(addr) = obj.get("address").and_then(|v| v.as_object()) {
+        let street = addr
+            .get("streetAddress")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_lowercase();
+        let postal = addr
+            .get("postalCode")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_lowercase();
+        if !street.is_empty() && !postal.is_empty() {
+            return Some(format!("(no @id, address:{postal}|{street})"));
+        }
+    }
+    if let Some(url) = obj.get("url").and_then(|v| v.as_str()) {
+        let trimmed = url.trim().trim_end_matches('/').to_lowercase();
+        if !trimmed.is_empty() {
+            return Some(format!("(no @id, url:{trimmed})"));
+        }
+    }
+    None
+}
+
 /// Recursively collect the entities a JSON-LD value declares: nodes with
-/// `@id` and `@type`. A node with `@id` but without `@type` (`"founder":
-/// {"@id": "…#person"}`) references an entity declared elsewhere and declares
-/// no type, so it is not compared (#1039).
+/// `@id` and `@type`, plus organization-like nodes without `@id` grouped by
+/// shared identity signals (#1271). A node with `@id` but without `@type`
+/// (`"founder": {"@id": "…#person"}`) references an entity declared elsewhere
+/// and declares no type, so it is not compared (#1039).
 fn collect_schema_entities(
     value: &serde_json::Value,
     page_url: &str,
@@ -902,20 +949,22 @@ fn collect_schema_entities(
 ) {
     match value {
         serde_json::Value::Object(obj) => {
-            if let (Some(id), Some(schema_type)) = (
-                obj.get("@id").and_then(|v| v.as_str()),
-                schema_node_type(obj),
-            ) {
-                let name = obj
-                    .get("name")
+            if let Some(schema_type) = schema_node_type(obj) {
+                let entity_key = obj
+                    .get("@id")
                     .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                out.entry(id.to_string()).or_default().push((
-                    page_url.to_string(),
-                    schema_type,
-                    name,
-                ));
+                    .map(str::to_string)
+                    .or_else(|| fallback_org_entity_key(obj, &schema_type));
+                if let Some(key) = entity_key {
+                    let name = obj
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    out.entry(key)
+                        .or_default()
+                        .push((page_url.to_string(), schema_type, name));
+                }
             }
             // Recurse into nested objects (e.g. @graph array items)
             for v in obj.values() {
@@ -1476,5 +1525,55 @@ mod tests {
             a.schema_graph.conflicts
         );
         assert!(a.schema_graph.findings.is_empty());
+    }
+
+    /// #1271: Organization / LocalBusiness subtypes (e.g. ProfessionalService)
+    /// declared without `@id` across pages with differing names must be caught
+    /// as a name conflict and counted under `organization_pages_without_id`.
+    #[test]
+    fn org_subtype_without_id_and_differing_names_triggers_conflict() {
+        let make_org_report = |url: &str, name: &str| {
+            let mut report = AuditReport::new(url.into(), WcagLevel::AA, WcagResults::new(), 100);
+            report.discoverability.seo = Some(crate::seo::SeoAnalysis {
+                structured_data: crate::seo::StructuredData {
+                    json_ld: vec![crate::seo::schema::JsonLdSchema {
+                        schema_type: "ProfessionalService".into(),
+                        schema_types: vec!["ProfessionalService".into()],
+                        content: serde_json::json!({
+                            "@context": "https://schema.org",
+                            "@type": "ProfessionalService",
+                            "name": name,
+                            "url": "https://casoon.de/",
+                            "telephone": "+49 381 123456"
+                        }),
+                        is_valid: true,
+                    }],
+                    has_structured_data: true,
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+            report
+        };
+
+        let reports = vec![
+            make_org_report("https://casoon.de/rostock/", "CASOON – Webdesign Rostock"),
+            make_org_report("https://casoon.de/schwerin/", "CASOON – Webdesign Schwerin"),
+        ];
+        let batch = BatchReport::from_reports(reports, vec![], 100);
+        let a = analyze(&batch).expect("batch ≥ 2");
+        assert!(
+            a.structured_data
+                .identity_findings
+                .iter()
+                .any(|f| f.contains("2 of 2 organization nodes have no stable @id")),
+            "expected missing-@id finding, got: {:?}",
+            a.structured_data.identity_findings
+        );
+        assert_eq!(a.schema_graph.conflicts.len(), 1);
+        assert!(a.schema_graph.conflicts[0]
+            .conflicts
+            .iter()
+            .any(|m| m.contains("name conflict")));
     }
 }
