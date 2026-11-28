@@ -152,7 +152,12 @@ pub async fn analyze_seo(
     // Extract all SEO data in parallel where possible
     let meta = extract_meta_tags(page, log).await?;
     let mut meta_issues = meta.validate();
-    let headings = analyze_heading_structure(page, log).await?;
+    let mut headings = analyze_heading_structure(page, log).await?;
+    headings::check_h1_title_alignment(
+        &mut headings,
+        meta.title.as_deref(),
+        meta.description.as_deref(),
+    );
     let social = extract_social_tags(page, log).await?;
     meta_issues.extend(social.validate());
     let technical = analyze_technical_seo(page, url, log).await?;

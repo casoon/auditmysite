@@ -1698,11 +1698,7 @@ mod tests {
             level,
             text: format!("H{level}"),
             length: 2,
-            is_question: false,
-            in_faq_context: false,
-            word_count_after: 0,
-            hidden: false,
-            in_dialog: false,
+            ..Default::default()
         };
         let mut seo = minimal_seo();
         seo.headings.h1_count = 1;
@@ -1726,11 +1722,7 @@ mod tests {
             level,
             text: format!("H{level}"),
             length: 2,
-            is_question: false,
-            in_faq_context: false,
-            word_count_after: 0,
-            hidden: false,
-            in_dialog: false,
+            ..Default::default()
         };
         let mut seo = minimal_seo();
         seo.headings.h1_count = 1;
@@ -1999,41 +1991,25 @@ mod tests {
                 level: 1,
                 text: "Titel".into(),
                 length: 5,
-                is_question: false,
-                in_faq_context: false,
-                word_count_after: 0,
-                hidden: false,
-                in_dialog: false,
+                ..Default::default()
             },
             HeadingInfo {
                 level: 2,
                 text: "A".into(),
                 length: 1,
-                is_question: false,
-                in_faq_context: false,
-                word_count_after: 0,
-                hidden: false,
-                in_dialog: false,
+                ..Default::default()
             },
             HeadingInfo {
                 level: 2,
                 text: "B".into(),
                 length: 1,
-                is_question: false,
-                in_faq_context: false,
-                word_count_after: 0,
-                hidden: false,
-                in_dialog: false,
+                ..Default::default()
             },
             HeadingInfo {
                 level: 3,
                 text: "C".into(),
                 length: 1,
-                is_question: false,
-                in_faq_context: false,
-                word_count_after: 0,
-                hidden: false,
-                in_dialog: false,
+                ..Default::default()
             },
         ];
         seo.headings.total_count = seo.headings.headings.len();

@@ -35,12 +35,27 @@ pub struct HeadingStructure {
 }
 
 /// Information about a single heading
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct HeadingInfo {
     /// Heading level (1-6)
     pub level: u8,
-    /// Heading text content
+    /// Visible DOM text (layout-aware)
     pub text: String,
+    /// Accessible name (`aria-label`/`aria-labelledby` or non-`aria-hidden` DOM text) (#1272)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accessible_name: Option<String>,
+    /// Raw extracted text as a crawler without ARIA reads it (#1272)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extracted_text: Option<String>,
+    /// Heading text exists only in `aria-label`/`aria-labelledby` while visible DOM children are `aria-hidden="true"` (#1272)
+    #[serde(default)]
+    pub has_aria_label_only: bool,
+    /// Number of leaf inline elements containing exactly one character (per-letter animation spans) (#1272)
+    #[serde(default)]
+    pub single_char_span_count: u32,
+    /// Share of non-whitespace characters wrapped in single-character elements (0.0..=1.0) (#1272)
+    #[serde(default)]
+    pub single_char_span_ratio: f32,
     /// Character count
     pub length: usize,
     /// Whether heading text ends with a question mark
@@ -200,6 +215,56 @@ fn check_headings_structure(headings: Vec<HeadingInfo>) -> HeadingStructure {
                 long_heading: Some(values),
             });
         }
+
+        // #1272: Heading extractability checks (H1/H2)
+        if heading.level <= 2 {
+            if heading.has_aria_label_only {
+                let severity = if heading.level == 1 {
+                    Severity::High
+                } else {
+                    Severity::Medium
+                };
+                issues.push(HeadingIssue {
+                    issue_type: "heading_aria_label_only".to_string(),
+                    message: format!(
+                        "H{} text exists only in aria-label/aria-labelledby while visible content is aria-hidden — accessible to screen readers, but search engines and AI extractors may see an empty or different heading",
+                        heading.level
+                    ),
+                    severity,
+                    long_heading: None,
+                });
+            } else if let Some(ref acc) = heading.accessible_name {
+                let norm_vis = normalize_heading_compare(&heading.text);
+                let norm_acc = normalize_heading_compare(acc);
+                if !norm_vis.is_empty() && !norm_acc.is_empty() && norm_vis != norm_acc {
+                    issues.push(HeadingIssue {
+                        issue_type: "heading_accessible_name_mismatch".to_string(),
+                        message: format!(
+                            "H{} visible text ('{}') differs from its accessible name ('{}') — crawlers and assistive tools read different headings",
+                            heading.level,
+                            truncate_url(&heading.text, 40),
+                            truncate_url(acc, 40),
+                        ),
+                        severity: Severity::Medium,
+                        long_heading: None,
+                    });
+                }
+            }
+
+            if heading.single_char_span_count >= 5 && heading.single_char_span_ratio >= 0.5 {
+                issues.push(HeadingIssue {
+                    issue_type: "heading_single_char_spans".to_string(),
+                    message: format!(
+                        "H{} text is split across {} single-character elements ({:.0}% of characters) — raw text extraction without layout can produce fragmented letter sequences",
+                        heading.level,
+                        heading.single_char_span_count,
+                        heading.single_char_span_ratio * 100.0,
+                    ),
+                    severity: Severity::Low,
+                    long_heading: None,
+                });
+            }
+        }
     }
 
     info!(
@@ -216,6 +281,81 @@ fn check_headings_structure(headings: Vec<HeadingInfo>) -> HeadingStructure {
         total_count: headings.len(),
         headings,
         issues,
+    }
+}
+
+fn normalize_heading_compare(s: &str) -> String {
+    s.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+const STOPWORDS: &[&str] = &[
+    // German
+    "aber", "alle", "als", "also", "auch", "auf", "aus", "bei", "bis", "das", "dass", "dem", "den",
+    "der", "des", "die", "dies", "diese", "dieser", "ein", "eine", "einem", "einen", "einer",
+    "eines", "für", "fuer", "hat", "hier", "ihr", "ihre", "ihrem", "ihren", "ihrer", "ist", "kann",
+    "kein", "keine", "mit", "nach", "nicht", "noch", "nur", "oder", "sehr", "sein", "seine",
+    "sich", "sie", "sind", "über", "ueber", "und", "uns", "unser", "unsere", "vom", "von", "vor",
+    "was", "wie", "wir", "wird", "zum", "zur", // English
+    "about", "all", "and", "are", "but", "can", "for", "from", "has", "have", "here", "how",
+    "into", "its", "more", "not", "our", "out", "over", "that", "the", "their", "them", "they",
+    "this", "was", "were", "what", "when", "where", "which", "who", "will", "with", "you", "your",
+];
+
+fn content_tokens(text: &str) -> std::collections::HashSet<String> {
+    text.split(|c: char| !c.is_alphanumeric())
+        .map(|w| w.to_lowercase())
+        .filter(|w| w.chars().count() >= 3 && !STOPWORDS.contains(&w.as_str()))
+        .collect()
+}
+
+/// Checks whether the page's H1 shares at least one meaningful (non-stopword)
+/// term with `<title>` or `<meta name="description">` (#1272).
+pub(crate) fn check_h1_title_alignment(
+    structure: &mut HeadingStructure,
+    title: Option<&str>,
+    description: Option<&str>,
+) {
+    let Some(h1) = structure
+        .headings
+        .iter()
+        .find(|h| h.level == 1 && !h.in_dialog)
+    else {
+        return;
+    };
+    let h1_basis = h1
+        .accessible_name
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or(&h1.text);
+    let h1_tokens = content_tokens(h1_basis);
+    if h1_tokens.is_empty() {
+        return;
+    }
+
+    let mut meta_tokens = std::collections::HashSet::new();
+    if let Some(t) = title {
+        meta_tokens.extend(content_tokens(t));
+    }
+    if let Some(d) = description {
+        meta_tokens.extend(content_tokens(d));
+    }
+    if meta_tokens.is_empty() {
+        return;
+    }
+
+    if h1_tokens.is_disjoint(&meta_tokens) {
+        structure.issues.push(HeadingIssue {
+            issue_type: "h1_no_title_overlap".to_string(),
+            message: format!(
+                "H1 ('{}') shares no content terms with <title> or meta description — search engines and AI systems may struggle to align the main heading with the page topic",
+                truncate_url(h1_basis, 40),
+            ),
+            severity: Severity::Low,
+            long_heading: None,
+        });
     }
 }
 
@@ -320,21 +460,13 @@ mod tests {
                 level: 2,
                 text: long.clone(),
                 length: long.len(),
-                is_question: false,
-                in_faq_context: false,
-                word_count_after: 0,
-                hidden: false,
-                in_dialog: false,
+                ..Default::default()
             },
             HeadingInfo {
                 level: 4,
                 text: "Deep".into(),
                 length: 4,
-                is_question: false,
-                in_faq_context: false,
-                word_count_after: 0,
-                hidden: false,
-                in_dialog: false,
+                ..Default::default()
             },
         ]);
         // Before the shared findings arrive only the SEO rule has fired.
@@ -361,11 +493,7 @@ mod tests {
             level: 1,
             text: "Test Heading".to_string(),
             length: 12,
-            is_question: false,
-            in_faq_context: false,
-            word_count_after: 0,
-            hidden: false,
-            in_dialog: false,
+            ..Default::default()
         };
 
         assert_eq!(heading.level, 1);
@@ -380,20 +508,13 @@ mod tests {
                 text: "Wie läuft eine hyperbare Sauerstofftherapie in unserer Praxis in München ab?".to_string(),
                 length: 76,
                 is_question: true,
-                in_faq_context: false,
-                word_count_after: 0,
-                hidden: false,
-                in_dialog: false,
+                ..Default::default()
             },
             HeadingInfo {
                 level: 2,
                 text: "Normaler Heading mit mehr als 70 Zeichen der eigentlich einen Fehler werfen sollte".to_string(),
                 length: 82,
-                is_question: false,
-                in_faq_context: false,
-                word_count_after: 0,
-                hidden: false,
-                in_dialog: false,
+                ..Default::default()
             }
         ];
         let res = check_headings_structure(headings);
@@ -411,11 +532,8 @@ mod tests {
             level,
             text: text.to_string(),
             length: text.chars().count(),
-            is_question: false,
-            in_faq_context: false,
-            word_count_after: 0,
-            hidden: false,
             in_dialog,
+            ..Default::default()
         }
     }
 
@@ -472,5 +590,96 @@ mod tests {
         )
         .unwrap();
         assert_eq!(structure.dialog_h1_count, 0);
+    }
+
+    /// #1272: H1 with text only in aria-label, visible content aria-hidden and
+    /// split into single-char spans, with no overlap with `<title>` triggers
+    /// the error and both hints; JSON exposes all three readings.
+    #[test]
+    fn h1_aria_label_only_single_char_spans_and_title_mismatch() {
+        let h1 = HeadingInfo {
+            level: 1,
+            text: "Digitales Handwerk".into(),
+            accessible_name: Some("Digitales Handwerk".into()),
+            extracted_text: Some("D i g i t a l e s H a n d w e r k".into()),
+            has_aria_label_only: true,
+            single_char_span_count: 17,
+            single_char_span_ratio: 1.0,
+            length: 18,
+            ..Default::default()
+        };
+        let serialized = serde_json::to_value(&h1).unwrap();
+        assert_eq!(serialized["text"], "Digitales Handwerk");
+        assert_eq!(serialized["accessible_name"], "Digitales Handwerk");
+        assert_eq!(
+            serialized["extracted_text"],
+            "D i g i t a l e s H a n d w e r k"
+        );
+
+        let mut structure = check_headings_structure(vec![h1]);
+        check_h1_title_alignment(
+            &mut structure,
+            Some("Webdesign Agentur Rostock | Casoon"),
+            Some("Barrierefreie Webseiten und Audits in Mecklenburg-Vorpommern"),
+        );
+
+        let by_type = |t: &str| structure.issues.iter().find(|i| i.issue_type == t);
+        assert_eq!(
+            by_type("heading_aria_label_only").unwrap().severity,
+            Severity::High
+        );
+        assert_eq!(
+            by_type("heading_single_char_spans").unwrap().severity,
+            Severity::Low
+        );
+        assert_eq!(
+            by_type("h1_no_title_overlap").unwrap().severity,
+            Severity::Low
+        );
+    }
+
+    /// #1272: Normal H1 with span line breaks and overlapping `<title>` produces
+    /// no extractability findings.
+    #[test]
+    fn normal_h1_with_line_break_spans_has_no_extractability_issues() {
+        let h1 = HeadingInfo {
+            level: 1,
+            text: "Webdesign & Entwicklung in Rostock".into(),
+            accessible_name: Some("Webdesign & Entwicklung in Rostock".into()),
+            extracted_text: Some("Webdesign & Entwicklung in Rostock".into()),
+            has_aria_label_only: false,
+            single_char_span_count: 0,
+            single_char_span_ratio: 0.0,
+            length: 34,
+            ..Default::default()
+        };
+        let mut structure = check_headings_structure(vec![h1]);
+        check_h1_title_alignment(
+            &mut structure,
+            Some("Webdesign Agentur Rostock | Casoon"),
+            None,
+        );
+        assert!(structure.issues.is_empty(), "{:?}", structure.issues);
+    }
+
+    /// #1272: Visible text differing from accessible name is flagged as Medium.
+    #[test]
+    fn h1_accessible_name_mismatch_is_flagged() {
+        let h1 = HeadingInfo {
+            level: 1,
+            text: "Willkommen".into(),
+            accessible_name: Some("Casoon Webdesign Rostock".into()),
+            extracted_text: Some("Willkommen".into()),
+            has_aria_label_only: false,
+            length: 10,
+            ..Default::default()
+        };
+        let structure = check_headings_structure(vec![h1]);
+        let issue = structure
+            .issues
+            .iter()
+            .find(|i| i.issue_type == "heading_accessible_name_mismatch")
+            .expect("mismatch issue");
+        assert_eq!(issue.severity, Severity::Medium);
     }
 }

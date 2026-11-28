@@ -1678,41 +1678,29 @@ mod tests {
                         level: 2,
                         text: "Intro".into(),
                         length: 5,
-                        is_question: false,
-                        in_faq_context: false,
                         word_count_after: 10,
-                        hidden: false,
-                        in_dialog: false,
+                        ..Default::default()
                     },
                     HeadingInfo {
                         level: 1,
                         text: "First".into(),
                         length: 5,
-                        is_question: false,
-                        in_faq_context: false,
                         word_count_after: 10,
-                        hidden: false,
-                        in_dialog: false,
+                        ..Default::default()
                     },
                     HeadingInfo {
                         level: 3,
                         text: "Sub".into(),
                         length: 3,
-                        is_question: false,
-                        in_faq_context: false,
                         word_count_after: 5,
-                        hidden: false,
-                        in_dialog: false,
+                        ..Default::default()
                     },
                     HeadingInfo {
                         level: 1,
                         text: "Second".into(),
                         length: 6,
-                        is_question: false,
-                        in_faq_context: false,
                         word_count_after: 5,
-                        hidden: false,
-                        in_dialog: false,
+                        ..Default::default()
                     },
                 ],
                 issues: vec![],
@@ -1971,11 +1959,8 @@ mod tests {
                             level: 1,
                             text: text.to_string(),
                             length: text.len(),
-                            is_question: false,
-                            in_faq_context: false,
                             word_count_after: 10,
-                            hidden: false,
-                            in_dialog: false,
+                            ..Default::default()
                         }]
                     })
                     .unwrap_or_default(),

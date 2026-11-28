@@ -26,11 +26,7 @@ fn heading(level: u8) -> HeadingInfo {
         level,
         text: format!("H{level}"),
         length: 2,
-        is_question: false,
-        in_faq_context: false,
-        word_count_after: 0,
-        hidden: false,
-        in_dialog: false,
+        ..Default::default()
     }
 }
 
